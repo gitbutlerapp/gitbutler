@@ -19,11 +19,14 @@ type Dialog =
 	| { _tag: "ProjectPicker" };
 
 export type DiffStyle = "split" | "unified";
+export type DiffOverflow = "scroll" | "wrap";
 
 type ProjectState = {
 	detailsFullWindow: boolean;
 	dialog: Dialog;
+	diffBackgrounds: boolean;
 	filesVisible: boolean;
+	diffOverflow: DiffOverflow;
 	preferredDiffStyle: DiffStyle;
 	workspace: workspace.WorkspaceState;
 };
@@ -36,6 +39,8 @@ const createInitialProjectState = (): ProjectState => ({
 	detailsFullWindow: false,
 	dialog: { _tag: "None" },
 	filesVisible: false,
+	diffBackgrounds: true,
+	diffOverflow: "scroll",
 	preferredDiffStyle: "split",
 	workspace: workspace.createInitialState(),
 });
@@ -226,6 +231,17 @@ const projectSlice = createSlice({
 			projectState.preferredDiffStyle =
 				projectState.preferredDiffStyle === "split" ? "unified" : "split";
 		},
+		setDiffOverflow: (
+			state,
+			action: PayloadAction<{ projectId: string; diffOverflow: DiffOverflow }>,
+		) => {
+			const { projectId, diffOverflow } = action.payload;
+			ensureProjectState(state, projectId).diffOverflow = diffOverflow;
+		},
+		setDiffBackgrounds: (state, action: PayloadAction<{ projectId: string; enabled: boolean }>) => {
+			const { projectId, enabled } = action.payload;
+			ensureProjectState(state, projectId).diffBackgrounds = enabled;
+		},
 		setDetailsFullWindow: (
 			state,
 			action: PayloadAction<{ projectId: string; fullWindow: boolean }>,
@@ -280,6 +296,12 @@ export const selectProjectFilesVisible = (state: RootState, projectId: string) =
 
 export const selectProjectPreferredDiffStyle = (state: RootState, projectId: string) =>
 	selectProjectState(state, projectId).preferredDiffStyle;
+
+export const selectProjectDiffOverflow = (state: RootState, projectId: string) =>
+	selectProjectState(state, projectId).diffOverflow;
+
+export const selectProjectDiffBackgrounds = (state: RootState, projectId: string) =>
+	selectProjectState(state, projectId).diffBackgrounds;
 
 export const selectProjectDetailsFullWindow = (state: RootState, projectId: string) =>
 	selectProjectState(state, projectId).detailsFullWindow;

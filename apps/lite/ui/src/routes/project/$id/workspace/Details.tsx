@@ -26,8 +26,11 @@ import {
 } from "#ui/operands.ts";
 import {
 	projectActions,
+	selectProjectDiffBackgrounds,
+	selectProjectDiffOverflow,
 	selectProjectFilesVisible,
 	selectProjectPreferredDiffStyle,
+	type DiffOverflow,
 	type DiffStyle,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -301,6 +304,8 @@ const DiffContents: FC<{
 	changesetKey: string;
 	projectId: string;
 	diffView: DiffView;
+	diffBackgrounds: boolean;
+	diffOverflow: DiffOverflow;
 	diffStyle: DiffStyle;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
@@ -311,6 +316,8 @@ const DiffContents: FC<{
 	changesetKey,
 	projectId,
 	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
+	diffBackgrounds,
+	diffOverflow,
 	diffStyle,
 	viewerRef,
 	didScrollToViaFileRef,
@@ -434,6 +441,8 @@ const DiffContents: FC<{
 			onSelectedLinesChange={handleLinesSelected}
 			options={{
 				diffStyle,
+				disableBackground: !diffBackgrounds,
+				overflow: diffOverflow,
 				themeType: "system",
 				stickyHeaders: true,
 				enableLineSelection: true,
@@ -644,6 +653,75 @@ const FilesToggle: FC<
 	);
 };
 
+const DiffOverflowToggle: FC<
+	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
+> = ({ children, ...toggleProps }) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const diffOverflow = useAppSelector((state) => selectProjectDiffOverflow(state, projectId));
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<Toggle
+						{...toggleProps}
+						aria-label="Toggle line wrapping"
+						pressed={diffOverflow === "wrap"}
+						onPressedChange={(pressed) =>
+							dispatch(
+								projectActions.setDiffOverflow({
+									projectId,
+									diffOverflow: pressed ? "wrap" : "scroll",
+								}),
+							)
+						}
+					/>
+				}
+			>
+				{children}
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup />}>Toggle line wrapping</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
+const DiffBackgroundsToggle: FC<
+	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
+> = ({ children, ...toggleProps }) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const diffBackgrounds = useAppSelector((state) => selectProjectDiffBackgrounds(state, projectId));
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<Toggle
+						{...toggleProps}
+						aria-label="Toggle diff backgrounds"
+						pressed={diffBackgrounds}
+						onPressedChange={(enabled) =>
+							dispatch(projectActions.setDiffBackgrounds({ projectId, enabled }))
+						}
+					/>
+				}
+			>
+				{children}
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup />}>Toggle diff backgrounds</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
 const DiffStyleToggle: FC<{
 	className?: string;
 	diffStyle: DiffStyle;
@@ -833,6 +911,8 @@ const Diff: FC<{
 	const preferredDiffStyle = useAppSelector((state) =>
 		selectProjectPreferredDiffStyle(state, projectId),
 	);
+	const diffOverflow = useAppSelector((state) => selectProjectDiffOverflow(state, projectId));
+	const diffBackgrounds = useAppSelector((state) => selectProjectDiffBackgrounds(state, projectId));
 	const diffContentsEl = useRef<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
 
@@ -878,15 +958,32 @@ const Diff: FC<{
 		<div className={styles.diffTab}>
 			<div className={styles.actions}>
 				<FilesToggle className={classes(getButtonClassName({}), styles.toggle)}>Files</FilesToggle>
-				{canUseSplitDiff && (
-					<DiffStyleToggle
-						className={styles.actionsRight}
-						diffStyle={preferredDiffStyle}
-						onDiffStyleChange={(diffStyle) =>
-							dispatch(projectActions.setPreferredDiffStyle({ projectId, diffStyle }))
-						}
-					/>
-				)}
+				<div className={styles.diffControls}>
+					<DiffOverflowToggle
+						className={classes(
+							getButtonClassName({ iconOnly: true, variant: "outline" }),
+							styles.toggle,
+						)}
+					>
+						<Icon name="text-wrap" />
+					</DiffOverflowToggle>
+					<DiffBackgroundsToggle
+						className={classes(
+							getButtonClassName({ iconOnly: true, variant: "outline" }),
+							styles.toggle,
+						)}
+					>
+						<Icon name="text-block" />
+					</DiffBackgroundsToggle>
+					{canUseSplitDiff && (
+						<DiffStyleToggle
+							diffStyle={preferredDiffStyle}
+							onDiffStyleChange={(diffStyle) =>
+								dispatch(projectActions.setPreferredDiffStyle({ projectId, diffStyle }))
+							}
+						/>
+					)}
+				</div>
 			</div>
 
 			<Group
@@ -935,6 +1032,8 @@ const Diff: FC<{
 							changesetKey={changesetKey}
 							projectId={projectId}
 							diffView={diffView}
+							diffBackgrounds={diffBackgrounds}
+							diffOverflow={diffOverflow}
 							diffStyle={canUseSplitDiff ? preferredDiffStyle : "unified"}
 							selectionScopeRef={selectionScopeRef}
 							viewerRef={viewerRef}

@@ -40,8 +40,10 @@
 	gap: 6px;
 }
 
-.actionsRight {
+.diffControls {
+	display: flex;
 	margin-inline-start: auto;
+	gap: 6px;
 }
 
 .toggle {
