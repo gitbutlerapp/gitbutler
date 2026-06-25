@@ -35,7 +35,7 @@ type ProjectSliceState = {
 const createInitialProjectState = (): ProjectState => ({
 	detailsFullWindow: false,
 	dialog: { _tag: "None" },
-	filesVisible: true,
+	filesVisible: false,
 	preferredDiffStyle: "split",
 	workspace: workspace.createInitialState(),
 });
