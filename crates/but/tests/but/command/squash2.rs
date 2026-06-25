@@ -41,6 +41,19 @@ fn two_branches() -> Sandbox {
     env
 }
 
+fn scenario_with_uncommitted_changes() -> Sandbox {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "content of one");
+    env.file("two", "content of two");
+    env.file("three", "content of three");
+
+    env.but("_commit2 --empty --no-message").assert().success();
+
+    env
+}
+
 #[test]
 fn squash_two_commits() {
     let env = one_branch_three_commits();
@@ -576,7 +589,7 @@ fn cannot_mix_sources() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Cannot mix different types of sources. Got both branches and commits
+Error: Cannot mix different types of sources
 
 "#]]);
 }
@@ -870,6 +883,203 @@ Squashed branch 'one' to create commit 00e6751
 ┊│     00:tw A two
 ┊●   66a5286 add three
 ┊│     66:or A three
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn amend_uncommitted_files_into_commit() {
+    let env = scenario_with_uncommitted_changes();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted]
+┊     kl A one
+┊     or A three
+┊   twop A two
+┊
+┊╭┄br [a-branch-1]
+┊●   7adb8e6 (no commit message) (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("_squash2 one two -t 7adb8e6 -u")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Amended 7adb8e6 to create d2f176a
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted]
+┊   or A three
+┊
+┊╭┄br [a-branch-1]
+┊●   d2f176a (no commit message)
+┊│     d2:kl A one
+┊│     d2:tw A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+}
+
+#[test]
+fn amend_all_uncommitted_changes_into_commit() {
+    let env = scenario_with_uncommitted_changes();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted]
+┊     kl A one
+┊     or A three
+┊   twop A two
+┊
+┊╭┄br [a-branch-1]
+┊●   7adb8e6 (no commit message) (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("_squash2 zz -t 7adb8e6 -u")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Amended 7adb8e6 to create 0e76889
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   0e76889 (no commit message)
+┊│     0e:kl A one
+┊│     0e:or A three
+┊│     0e:tw A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn amend_uncommitted_hunks_into_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    let lines = std::iter::repeat_n("line\n", 10).collect::<Vec<_>>();
+    env.file("file", lines.concat());
+
+    env.but("_commit2 -b my-branch --no-message")
+        .assert()
+        .success();
+
+    env.prepend_file("file", "top");
+    env.append_file("file", "bottom");
+
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────╮
+h0 file│
+───────╯
+     1│+topline
+   1 2│ line
+   2 3│ line
+   3 4│ line
+───────╮
+i0 file│
+───────╯
+    7  8│ line
+    8  9│ line
+    9 10│ line
+   10   │-line
+      11│+bottom
+
+"#]]);
+
+    env.but("_squash2 h0 -t bcf07e2 -u")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Amended bcf07e2 to create cb08f3a
+
+"#]]);
+
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────╮
+h0 file│
+───────╯
+    8  8│ line
+    9  9│ line
+   10 10│ line
+   11   │-line
+      11│+bottom
+
+"#]]);
+}
+
+#[test]
+fn amend_all_uncommitted_changes_when_zz_is_empty() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 zz -t f55169f -u")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Amended f55169f to create f55169f
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   f55169f add three
+┊│     f5:or A three
+┊●   f63361f add two
+┊│     f6:tw A two
+┊●   ea345ba add one
+┊│     ea:kl A one
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

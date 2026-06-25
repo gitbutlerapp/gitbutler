@@ -64,7 +64,7 @@ impl<'a> DiffSpecBuilder<'a> {
                 self.push_changes_from_branch(name, id, *stack_id)
             }
             CliId::Commit { commit_id, id } => self.push_changes_from_commit(*commit_id, id),
-            CliId::Uncommitted { id } => self.push_changes_from_uncommitted_area(id),
+            CliId::Uncommitted { id: _ } => self.push_changes_from_uncommitted_area(),
             CliId::Stack { id: _, stack_id } => self.push_changes_from_stack(*stack_id),
         }
     }
@@ -133,7 +133,7 @@ impl<'a> DiffSpecBuilder<'a> {
         Ok(())
     }
 
-    pub fn push_changes_from_uncommitted_area(&mut self, _id: &ShortId) -> anyhow::Result<()> {
+    pub fn push_changes_from_uncommitted_area(&mut self) -> anyhow::Result<()> {
         let changes = self.worktree_changes()?.to_vec();
         let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
             self.db.hunk_assignments_mut()?,
