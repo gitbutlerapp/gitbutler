@@ -465,6 +465,11 @@ const DiffContents: FC<{
             border-color: var(--border-3);
             border-radius: 0 0 10px 10px;
           }
+
+          [data-column-number] {
+            --mix-selection-light: 0%;
+            --mix-selection-dark: 0%;
+          }
         `,
 			}}
 		/>
