@@ -60,7 +60,7 @@ fn picker(
 
         messages.push(Message::ShowToast {
             kind: ToastKind::Info,
-            text: format!("Copied {}", lowercase_first_letter(item.as_str())),
+            text: format!("Copied {}", lowercase_first_letter(item.as_str())).into(),
         });
 
         Ok(())

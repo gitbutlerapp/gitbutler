@@ -898,7 +898,7 @@ impl App {
             Message::Debug(text) => {
                 messages.push(Message::ShowToast {
                     kind: ToastKind::Debug,
-                    text: text.to_owned(),
+                    text: text.to_owned().into(),
                 });
             }
             Message::GrowDetails => {
@@ -931,15 +931,15 @@ impl App {
                 self.has_focus = has_focus;
             }
             Message::Undo => {
-                self.handle_undo(ctx)?;
+                self.handle_undo(ctx, messages)?;
             }
             Message::Redo => {
-                self.handle_redo(ctx)?;
+                self.handle_redo(ctx, messages)?;
             }
             Message::Stack(stack_message) => match stack_message {
                 StackMessage::Enter => self.handle_stack_enter(ctx)?,
                 StackMessage::ShowApplyPicker => self.handle_stack_show_apply_picker(ctx)?,
-                StackMessage::Unapply => self.handle_stack_unapply(),
+                StackMessage::Unapply => self.handle_stack_unapply(ctx, messages)?,
                 StackMessage::MoveStart => self.handle_stack_move_start(),
                 StackMessage::MoveConfirm => self.handle_stack_move_confirm(ctx, messages)?,
             },
@@ -2466,7 +2466,7 @@ impl App {
 
                 messages.push(Message::ShowToast {
                     kind: ToastKind::Error,
-                    text: full_error_msg,
+                    text: full_error_msg.into(),
                 });
             }
         }
@@ -3435,12 +3435,20 @@ impl App {
         self.mode.marks()
     }
 
-    fn handle_undo(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
-        self.restore_to_target_snapshot(UndoOrRedo::Undo, ctx)
+    fn handle_undo(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        self.restore_to_target_snapshot(UndoOrRedo::Undo, ctx, messages)
     }
 
-    fn handle_redo(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
-        self.restore_to_target_snapshot(UndoOrRedo::Redo, ctx)
+    fn handle_redo(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        self.restore_to_target_snapshot(UndoOrRedo::Redo, ctx, messages)
     }
 
     fn selected_stack_id(&self) -> Option<StackId> {
@@ -3585,12 +3593,16 @@ impl App {
         Ok(())
     }
 
-    fn handle_stack_unapply(&mut self) {
+    fn handle_stack_unapply(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
-            return;
+            return Ok(());
         };
         let Some(selection) = selection.data.cli_id() else {
-            return;
+            return Ok(());
         };
 
         let (stack_id, name) = match &**selection {
@@ -3605,24 +3617,24 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
             | CliId::Uncommitted { .. }
-            | CliId::Stack { .. } => return,
+            | CliId::Stack { .. } => return Ok(()),
         };
 
-        self.modal = Some(Modal::Confirm {
-            confirm: Confirm::new(
-                NonEmpty::new(format!("Unapply '{name}'?").into()),
-                self.theme,
-                move |ctx, messages| {
-                    but_api::legacy::virtual_branches::unapply_stack(ctx, stack_id)?;
-                    messages.extend([
-                        Message::EnterNormalModeAfterConfirmingOperation,
-                        Message::Reload(None, ReloadCause::Mutation),
-                    ]);
-                    Ok(())
-                },
-            ),
-            key_binds: confirm_key_binds(),
-        });
+        but_api::legacy::virtual_branches::unapply_stack(ctx, stack_id)?;
+
+        messages.extend([
+            Message::EnterNormalModeAfterConfirmingOperation,
+            Message::Reload(None, ReloadCause::Mutation),
+            Message::ShowToast {
+                kind: ToastKind::Info,
+                text: Text::from(Line::from_iter([
+                    Span::raw("Unapplied "),
+                    Span::styled(format!("'{name}'"), self.theme.local_branch),
+                ])),
+            },
+        ]);
+
+        Ok(())
     }
 
     fn handle_stack_move_start(&mut self) {
@@ -3723,6 +3735,7 @@ impl App {
         &mut self,
         kind: UndoOrRedo,
         ctx: &mut Context,
+        messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
         let target_snapshot = match kind {
             UndoOrRedo::Undo => operations::get_undo_target_snapshot_legacy(ctx)?,
@@ -3752,8 +3765,8 @@ impl App {
             Line::from_iter(
                 [
                     Span::raw(match kind {
-                        UndoOrRedo::Undo => "Undo ",
-                        UndoOrRedo::Redo => "Redo ",
+                        UndoOrRedo::Undo => "Undid ",
+                        UndoOrRedo::Redo => "Redid ",
                     }),
                     Span::raw(commit.to_string()).style(self.theme.cli_id),
                 ]
@@ -3764,27 +3777,27 @@ impl App {
                         Span::raw(" "),
                         Span::raw(details.operation.title()).style(self.theme.attention),
                     ]
-                }))
-                .chain([Span::raw("?")]),
+                })),
             )
         };
 
         let commit = target_snapshot.commit_id;
-        self.modal = Some(Modal::Confirm {
-            confirm: Confirm::new(NonEmpty::new(text), self.theme, move |ctx, messages| {
-                operations::restore_snapshot_with_kind_legacy(
-                    ctx,
-                    match kind {
-                        UndoOrRedo::Undo => RestoreKind::RestoreFromSnapshotViaUndo,
-                        UndoOrRedo::Redo => RestoreKind::RestoreFromSnapshotViaRedo,
-                    },
-                    commit,
-                )?;
-                messages.push(Message::Reload(None, ReloadCause::Mutation));
-                Ok(())
-            }),
-            key_binds: confirm_key_binds(),
-        });
+
+        operations::restore_snapshot_with_kind_legacy(
+            ctx,
+            match kind {
+                UndoOrRedo::Undo => RestoreKind::RestoreFromSnapshotViaUndo,
+                UndoOrRedo::Redo => RestoreKind::RestoreFromSnapshotViaRedo,
+            },
+            commit,
+        )?;
+        messages.extend([
+            Message::Reload(None, ReloadCause::Mutation),
+            Message::ShowToast {
+                kind: ToastKind::Info,
+                text: text.into(),
+            },
+        ]);
 
         Ok(())
     }
@@ -4166,7 +4179,7 @@ enum Message {
     ShowError(Arc<anyhow::Error>),
     ShowToast {
         kind: ToastKind,
-        text: String,
+        text: Text<'static>,
     },
     Confirm(ConfirmMessage),
     Discard,

@@ -1,6 +1,5 @@
 use std::time::{Duration, Instant};
 
-use ansi_to_tui::IntoText;
 use ratatui::{
     Frame,
     prelude::*,
@@ -24,13 +23,14 @@ pub(super) struct Toasts {
 #[derive(Debug)]
 pub(super) struct Toast {
     kind: ToastKind,
-    text: String,
+    text: Text<'static>,
     dismiss_at: Instant,
 }
 
 impl Toasts {
-    pub(super) fn insert(&mut self, kind: ToastKind, text: String) {
-        if text.trim().is_empty() {
+    pub(super) fn insert(&mut self, kind: ToastKind, text: impl Into<Text<'static>>) {
+        let text = text.into();
+        if text_is_blank(&text) {
             return;
         }
         self.toasts.push(Toast {
@@ -92,10 +92,7 @@ fn render_toast(
         bottom: bottom_margin,
     } = margin;
 
-    let toast_text = toast
-        .text
-        .into_text()
-        .unwrap_or_else(|_| Text::raw(toast.text.clone()));
+    let toast_text = toast.text.clone();
 
     let max_toast_width = area.width.saturating_sub(right_margin).max(1);
     let max_toast_height = area.height.saturating_sub(bottom_margin).max(1);
@@ -169,4 +166,10 @@ fn render_toast(
     frame.render_widget(widget, toast_area);
 
     height
+}
+
+fn text_is_blank(text: &Text<'_>) -> bool {
+    text.lines
+        .iter()
+        .all(|line| line.spans.iter().all(|span| span.content.trim().is_empty()))
 }

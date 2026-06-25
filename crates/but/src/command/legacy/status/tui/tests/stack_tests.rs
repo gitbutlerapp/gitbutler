@@ -29,9 +29,6 @@ fn unapply_stack() {
     tui.input_then_render('k');
     tui.input_then_render('u')
         .assert_rendered_term_svg_eq(file!["snapshots/unapply_stack_004.svg"]);
-
-    tui.input_then_render('y')
-        .assert_rendered_term_svg_eq(file!["snapshots/unapply_stack_005.svg"]);
 }
 
 #[test]
@@ -112,7 +109,6 @@ fn applying_stacks() {
     for _ in 0..2 {
         tui.input_then_render('s');
         tui.input_then_render('u');
-        tui.input_then_render('y');
         tui.input_then_render('g');
     }
 
