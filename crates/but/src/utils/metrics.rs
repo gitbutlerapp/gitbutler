@@ -14,6 +14,8 @@ use crate::{
 };
 
 const ERROR_MESSAGE_MAX_CHARS: usize = 1024;
+const UNRECOGNIZED_SUBCOMMAND_MAX_CHARS: usize = 64;
+const INVALID_UNRECOGNIZED_SUBCOMMAND: &str = "<invalid>";
 
 pub(super) mod types {
     use crate::{args::metrics::CommandName, utils::metrics::Event};
@@ -358,9 +360,13 @@ impl Props {
                 }
                 props.insert("badInputHasHint", bad_input.has_hint());
             }
-            CliError::ExternalCommandNotFound(_) => {
+            CliError::ExternalCommandNotFound(command_name) => {
                 props.insert("error", "Unrecognized subcommand");
                 props.insert("errorKind", "externalCommandNotFound");
+                props.insert(
+                    "unrecognizedSubcommand",
+                    unrecognized_subcommand_metric_value(command_name),
+                );
             }
             CliError::Internal(error) => {
                 props.insert_internal_error_details(error, command);
@@ -430,6 +436,24 @@ fn error_message(error: &(impl std::fmt::Display + ?Sized)) -> String {
         .collect::<Vec<_>>()
         .join(" ");
     truncate_error_message(message)
+}
+
+fn unrecognized_subcommand_metric_value(command_name: &std::ffi::OsStr) -> String {
+    let command_name = command_name.to_string_lossy();
+    let command_name = command_name.trim();
+
+    if command_name.is_empty()
+        || !command_name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return INVALID_UNRECOGNIZED_SUBCOMMAND.to_string();
+    }
+
+    command_name
+        .chars()
+        .take(UNRECOGNIZED_SUBCOMMAND_MAX_CHARS)
+        .collect()
 }
 
 fn captures_detailed_error_message(command: CommandName) -> bool {
@@ -880,8 +904,45 @@ mod tests {
 
         assert_eq!(props.values["error"], "Unrecognized subcommand");
         assert_eq!(props.values["errorKind"], "externalCommandNotFound");
+        assert_eq!(props.values["unrecognizedSubcommand"], "typo");
         assert!(!props.values.contains_key("errorMessage"));
-        assert!(!props.as_json_string().contains("typo"));
+
+        let external_result =
+            Err::<(), _>(CliError::ExternalCommandNotFound(" typo-123_OK ".into()));
+        let props = Props::from_cli_error_result(
+            std::time::Instant::now(),
+            &external_result,
+            CommandName::External,
+        );
+        assert_eq!(props.values["unrecognizedSubcommand"], "typo-123_OK");
+
+        let external_result =
+            Err::<(), _>(CliError::ExternalCommandNotFound("/tmp/private".into()));
+        let props = Props::from_cli_error_result(
+            std::time::Instant::now(),
+            &external_result,
+            CommandName::External,
+        );
+        assert_eq!(
+            props.values["unrecognizedSubcommand"],
+            INVALID_UNRECOGNIZED_SUBCOMMAND
+        );
+        assert!(!props.as_json_string().contains("/tmp/private"));
+
+        let long_command = "a".repeat(UNRECOGNIZED_SUBCOMMAND_MAX_CHARS + 1);
+        let external_result = Err::<(), _>(CliError::ExternalCommandNotFound(long_command.into()));
+        let props = Props::from_cli_error_result(
+            std::time::Instant::now(),
+            &external_result,
+            CommandName::External,
+        );
+        assert_eq!(
+            props.values["unrecognizedSubcommand"]
+                .as_str()
+                .expect("metric value is a string")
+                .len(),
+            UNRECOGNIZED_SUBCOMMAND_MAX_CHARS
+        );
     }
 
     #[test]
