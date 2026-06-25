@@ -29,7 +29,8 @@ impl std::fmt::Display for CliIdArg {
 }
 
 impl CliIdArg {
-    const TARGET_MISSING_HINT: &str = "Run `but status` for applicable targets.";
+    #[expect(missing_docs)]
+    pub const TARGET_MISSING_HINT: &str = "Run `but status` for applicable targets.";
 
     /// Resolve the argument to something that exists in the workspace.
     ///
@@ -253,6 +254,8 @@ pub enum Priority {
     Branch,
     /// Prioritize commits.
     Commit,
+    /// Prioritize branches and commits.
+    BranchAndCommit,
     /// Prioritize uncommitted changes.
     Uncommitted,
 }
@@ -314,6 +317,15 @@ fn try_resolve_cli_id(
                     return Ok(Some(uncommitted.pop().unwrap()));
                 }
             }
+            Priority::BranchAndCommit => match (branches.len(), commits.len()) {
+                (1, 0) => {
+                    return Ok(Some(branches.pop().unwrap()));
+                }
+                (0, 1) => {
+                    return Ok(Some(commits.pop().unwrap()));
+                }
+                _ => {}
+            },
         }
     }
 
