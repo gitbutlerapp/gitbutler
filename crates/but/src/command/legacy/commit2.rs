@@ -411,6 +411,10 @@ fn route_commit_operation(
                     );
                 };
 
+                let mut stack_heads =
+                    stack_heads.map(|(name, branch)| (name, PickerItem::StackHead(branch)));
+                stack_heads.push(("Create new stack".into(), PickerItem::NewStack));
+
                 let Some(selection) = input.prompt_select(
                     "Multiple stacks found. Choose one to commit to",
                     &stack_heads,
@@ -419,14 +423,26 @@ fn route_commit_operation(
                     return Err(bad_input("No stack picked").into());
                 };
 
-                Ok(CommitOperation::CommitAt(CommitAtOperation {
-                    target: CommitRelativeToTarget::BranchTip {
-                        name: (*selection).clone(),
-                    },
-                }))
+                match selection {
+                    PickerItem::StackHead(full_name) => {
+                        Ok(CommitOperation::CommitAt(CommitAtOperation {
+                            target: CommitRelativeToTarget::BranchTip {
+                                name: (*full_name).clone(),
+                            },
+                        }))
+                    }
+                    PickerItem::NewStack => Ok(CommitOperation::CommitToNewBranch(
+                        CommitToNewBranchOperation { branch_name: None },
+                    )),
+                }
             }
         },
     }
+}
+
+enum PickerItem<'a> {
+    StackHead(&'a FullName),
+    NewStack,
 }
 
 fn route_commit_above_or_below(
