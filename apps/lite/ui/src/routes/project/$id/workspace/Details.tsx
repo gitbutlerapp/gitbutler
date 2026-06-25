@@ -620,9 +620,13 @@ const FilesToggle: FC = () => {
 	return (
 		<Tooltip.Root>
 			<Tooltip.Trigger
-				className={getButtonClassName({})}
-				aria-pressed={filesVisible}
-				onClick={() => dispatch(projectActions.toggleFiles({ projectId }))}
+				render={
+					<Toggle
+						className={classes(getButtonClassName({}), styles.toggle)}
+						pressed={filesVisible}
+						onPressedChange={() => dispatch(projectActions.toggleFiles({ projectId }))}
+					/>
+				}
 			>
 				Files
 			</Tooltip.Trigger>
