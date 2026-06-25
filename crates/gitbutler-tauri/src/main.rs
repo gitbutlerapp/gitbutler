@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
-use but_api::{branch, commit, diff, github, gitlab, legacy, open, platform, workspace};
+use but_api::{bitbucket, branch, commit, diff, github, gitlab, legacy, open, platform, workspace};
 #[cfg(feature = "irc")]
 use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
@@ -302,6 +302,12 @@ fn main() -> anyhow::Result<()> {
                 gitlab::tauri_forget_gitlab_account::forget_gitlab_account,
                 gitlab::tauri_list_known_gitlab_accounts::list_known_gitlab_accounts,
                 gitlab::tauri_clear_all_gitlab_tokens::clear_all_gitlab_tokens,
+                bitbucket::tauri_store_bitbucket_api_token::store_bitbucket_api_token,
+                bitbucket::tauri_get_bb_user::get_bb_user,
+                bitbucket::tauri_forget_bitbucket_account::forget_bitbucket_account,
+                bitbucket::tauri_list_known_bitbucket_accounts::list_known_bitbucket_accounts,
+                bitbucket::tauri_clear_all_bitbucket_tokens::clear_all_bitbucket_tokens,
+                bitbucket::tauri_check_bitbucket_credentials::check_bitbucket_credentials,
                 diff::tauri_commit_details::commit_details,
                 diff::tauri_commit_details_with_line_stats::commit_details_with_line_stats,
                 but_api::branch::tauri_branch_diff::branch_diff,

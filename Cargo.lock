@@ -943,6 +943,7 @@ dependencies = [
  "but-api",
  "but-api-macros",
  "but-askpass",
+ "but-bitbucket",
  "but-cherry-apply",
  "but-core",
  "but-ctx",
@@ -1212,6 +1213,7 @@ name = "but-forge"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-bitbucket",
  "but-db",
  "but-forge-storage",
  "but-github",

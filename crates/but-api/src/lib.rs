@@ -22,6 +22,9 @@ pub mod github;
 /// Functions for GitLab authentication.
 pub mod gitlab;
 
+/// Functions for Bitbucket authentication.
+pub mod bitbucket;
+
 /// Functions that take a branch as input.
 pub mod branch;
 
