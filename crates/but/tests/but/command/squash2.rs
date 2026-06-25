@@ -1088,3 +1088,115 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn amend_committed_file() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 f5:or -t f63361f -u")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Amended f63361f to create 5ab5165
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   bb84ecc add three (no changes)
+┊●   5ab5165 add two
+┊│     5a:or A three
+┊│     5a:tw A two
+┊●   ea345ba add one
+┊│     ea:kl A one
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn cannot_amend_files_from_different_commits() {
+    let env = one_branch_three_commits();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   f55169f add three
+┊│     f5:or A three
+┊●   f63361f add two
+┊│     f6:tw A two
+┊●   ea345ba add one
+┊│     ea:kl A one
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_squash2 f5:or f6:tw -t ea345ba -u")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: All committed files must come from the same commit. Found files from f55169f and f63361f
+
+"#]]);
+}
+
+#[test]
+fn cannot_amend_files_in_ways_that_cause_conflicts() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file", "file content");
+    env.but("_commit2 -m 'add file'").assert().success();
+
+    env.file("file", "changed");
+    env.but("_commit2 -m 'change file'").assert().success();
+
+    env.remove_file("file");
+    env.but("_commit2 -m 'remove file'").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   beafa55 remove file
+┊│     be:qs D file
+┊●   623d399 change file
+┊│     62:qs M file
+┊●   5c348d7 add file
+┊│     5c:qs A file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_squash2 be:qs -t 5c348d7 -u")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Failed to apply changes to destination commit - merge conflict
+
+"#]]);
+}

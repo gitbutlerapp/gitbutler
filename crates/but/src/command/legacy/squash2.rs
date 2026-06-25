@@ -1,4 +1,5 @@
 use anyhow::Context as _;
+use bstr::BString;
 use but_api::json::HexHash;
 use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
@@ -28,7 +29,7 @@ use crate::{
 
 pub enum SquashOutcome {
     Commits {
-        sources: Vec<gix::ObjectId>,
+        sources: NonEmpty<gix::ObjectId>,
         target: gix::ObjectId,
         new_commit: gix::ObjectId,
     },
@@ -36,7 +37,7 @@ pub enum SquashOutcome {
         new_commit: gix::ObjectId,
         branch_names: NonEmpty<FullName>,
     },
-    UncommittedHunks {
+    Hunks {
         target: gix::ObjectId,
         new_commit: gix::ObjectId,
     },
@@ -46,7 +47,7 @@ impl SquashOutcome {
     fn new_commit(&self) -> ObjectId {
         match self {
             SquashOutcome::Commits { new_commit, .. }
-            | SquashOutcome::UncommittedHunks { new_commit, .. }
+            | SquashOutcome::Hunks { new_commit, .. }
             | SquashOutcome::Branch { new_commit, .. } => *new_commit,
         }
     }
@@ -91,7 +92,7 @@ impl CliOutputHuman for SquashOutcome {
                     )?;
                 }
             }
-            SquashOutcome::UncommittedHunks { target, new_commit } => {
+            SquashOutcome::Hunks { target, new_commit } => {
                 writeln!(
                     out,
                     "Amended {} to create {}",
@@ -178,12 +179,16 @@ fn resolve(
         let mut branch_sources = Vec::new();
         let mut hunk_sources = Vec::new();
         let mut uncommitted_sources = Vec::new();
+        let mut committed_file_sources = Vec::new();
         for source in sources {
             match source {
                 Squashable::Commit(object_id) => commit_sources.push(object_id),
                 Squashable::Branch(branch_arg) => branch_sources.push(branch_arg),
                 Squashable::UncommittedHunkOrFile(hunk) => hunk_sources.push(*hunk),
                 Squashable::Uncommitted(zz) => uncommitted_sources.push(zz),
+                Squashable::CommittedFile(committed_file) => {
+                    committed_file_sources.push(committed_file)
+                }
             }
         }
 
@@ -192,6 +197,7 @@ fn resolve(
             branch_sources,
             hunk_sources,
             uncommitted_sources,
+            committed_file_sources,
         )? {
             ClassifiedSquashables::Commits(sources) => ResolvedSquash::Commits { target, sources },
             ClassifiedSquashables::Branches(branch_sources) => {
@@ -204,6 +210,32 @@ fn resolve(
                 })
             }
             ClassifiedSquashables::Uncommitted => ResolvedSquash::Uncommitted { target },
+            ClassifiedSquashables::CommittedFiles(committed_files) => {
+                let first = committed_files.first();
+
+                let mut source_paths = Vec::from([first.path.clone()]);
+                let source = first.commit_id;
+                for committed_file in committed_files.into_iter().skip(1) {
+                    let CommittedFile { commit_id, path } = committed_file;
+
+                    if source != commit_id {
+                        let err = format!(
+                            "All committed files must come from the same commit. Found files from {} and {}",
+                            source.to_hex_with_len(7),
+                            commit_id.to_hex_with_len(7),
+                        );
+                        return Err(bad_input(err).into());
+                    }
+
+                    source_paths.push(path);
+                }
+
+                ResolvedSquash::CommittedFiles {
+                    target,
+                    source,
+                    source_paths,
+                }
+            }
         }
     } else {
         match &sources[..] {
@@ -251,11 +283,11 @@ fn resolve(
         }
         ResolvedSquash::Branches {
             target,
-            source_commits: sources,
+            source_commits,
             source_branches,
             branches_to_remove,
         } => SquashOperation::Branch(SquashBranchOperation {
-            sources,
+            sources: source_commits,
             target,
             how_to_combine_messages,
             source_branches,
@@ -265,6 +297,15 @@ fn resolve(
             SquashOperation::UncommittedHunks(amend_hunks)
         }
         ResolvedSquash::Uncommitted { target } => SquashOperation::Uncommitted { target },
+        ResolvedSquash::CommittedFiles {
+            target,
+            source,
+            source_paths,
+        } => SquashOperation::MoveCommittedFiles {
+            target,
+            source,
+            source_paths,
+        },
     };
 
     Ok((squash_op, reword_op))
@@ -273,7 +314,7 @@ fn resolve(
 enum ResolvedSquash {
     Commits {
         target: ObjectId,
-        sources: Vec<ObjectId>,
+        sources: NonEmpty<ObjectId>,
     },
     Branches {
         target: ObjectId,
@@ -289,17 +330,22 @@ enum ResolvedSquash {
     Uncommitted {
         target: ObjectId,
     },
+    CommittedFiles {
+        target: ObjectId,
+        source: ObjectId,
+        source_paths: Vec<BString>,
+    },
 }
 
 #[derive(Clone)]
 struct AmendUncommittedHunks {
     target: ObjectId,
-    source_hunks: Vec<UncommittedHunkOrFile>,
+    source_hunks: NonEmpty<UncommittedHunkOrFile>,
 }
 
 fn resolve_squash_branch(
     target: ObjectId,
-    branch_sources: Vec<BranchArg>,
+    branch_sources: NonEmpty<BranchArg>,
     ws: &Workspace,
 ) -> CliResult<ResolvedSquash> {
     let mut source_branches = Vec::<FullName>::new();
@@ -342,6 +388,12 @@ enum Squashable {
     Branch(BranchArg),
     UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
     Uncommitted(&'static str),
+    CommittedFile(CommittedFile),
+}
+
+struct CommittedFile {
+    commit_id: gix::ObjectId,
+    path: BString,
 }
 
 impl Squashable {
@@ -353,8 +405,14 @@ impl Squashable {
                 return Ok(Self::UncommittedHunkOrFile(hunk));
             }
             ResolvedCliIdArg::Uncommitted => return Ok(Self::Uncommitted(UNCOMMITTED)),
+            ResolvedCliIdArg::CommittedFile {
+                commit_id,
+                path,
+                id: _,
+            } => {
+                return Ok(Self::CommittedFile(CommittedFile { commit_id, path }));
+            }
             ResolvedCliIdArg::PathPrefix => "a path",
-            ResolvedCliIdArg::CommittedFile => "a committed file",
             ResolvedCliIdArg::Stack => "a stack",
         };
         Err(bad_input(format!(
@@ -365,10 +423,11 @@ impl Squashable {
 }
 
 enum ClassifiedSquashables {
-    Commits(Vec<gix::ObjectId>),
-    Branches(Vec<BranchArg>),
-    UncommittedHunks(Vec<UncommittedHunkOrFile>),
+    Commits(NonEmpty<gix::ObjectId>),
+    Branches(NonEmpty<BranchArg>),
+    UncommittedHunks(NonEmpty<UncommittedHunkOrFile>),
     Uncommitted,
+    CommittedFiles(NonEmpty<CommittedFile>),
 }
 
 impl ClassifiedSquashables {
@@ -377,29 +436,39 @@ impl ClassifiedSquashables {
         branch_sources: Vec<BranchArg>,
         hunk_sources: Vec<UncommittedHunkOrFile>,
         uncommitted_sources: Vec<&'static str>,
+        committed_file_sources: Vec<CommittedFile>,
     ) -> CliResult<Self> {
         let has_commits = !commit_sources.is_empty();
         let has_branches = !branch_sources.is_empty();
         let has_hunks = !hunk_sources.is_empty();
         let has_uncommitted = !uncommitted_sources.is_empty();
+        let has_committed_file_sources = !committed_file_sources.is_empty();
 
-        let source_type_count = [has_commits, has_branches, has_hunks, has_uncommitted]
-            .into_iter()
-            .filter(|has_source| *has_source)
-            .count();
+        let source_type_count = [
+            has_commits,
+            has_branches,
+            has_hunks,
+            has_uncommitted,
+            has_committed_file_sources,
+        ]
+        .into_iter()
+        .filter(|has_source| *has_source)
+        .count();
 
         if source_type_count > 1 {
             return Err(bad_input("Cannot mix different types of sources").into());
         }
 
-        if has_commits {
+        if let Some(commit_sources) = NonEmpty::from_vec(commit_sources) {
             Ok(Self::Commits(commit_sources))
-        } else if has_branches {
+        } else if let Some(branch_sources) = NonEmpty::from_vec(branch_sources) {
             Ok(Self::Branches(branch_sources))
-        } else if has_hunks {
+        } else if let Some(hunk_sources) = NonEmpty::from_vec(hunk_sources) {
             Ok(Self::UncommittedHunks(hunk_sources))
         } else if has_uncommitted {
             Ok(Self::Uncommitted)
+        } else if let Some(committed_file_sources) = NonEmpty::from_vec(committed_file_sources) {
+            Ok(Self::CommittedFiles(committed_file_sources))
         } else {
             unreachable!(
                 "`sources` is required in `Platform` so we'll never get here with no sources"
@@ -421,8 +490,7 @@ fn run(
             target,
             how_to_combine_messages,
         }) => {
-            sources.sort();
-            sources.dedup();
+            sources = non_empty_dedup_maintain_sort(sources);
 
             ExecutableSquashOperation::Commits(SquashCommitsOperation {
                 sources,
@@ -483,6 +551,24 @@ fn run(
                 changes,
             })
         }
+        SquashOperation::MoveCommittedFiles {
+            target,
+            source,
+            source_paths,
+        } => {
+            let context_lines = ctx.settings.context_lines;
+            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            for path in source_paths {
+                builder.push_changes_from_committed_file(source, path.as_ref())?;
+            }
+            let changes = builder.into_diff_specs();
+            ExecutableSquashOperation::MoveCommittedFiles(MoveCommittedFilesOperation {
+                target,
+                source,
+                changes,
+            })
+        }
     };
 
     let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
@@ -497,6 +583,7 @@ fn run(
                 ExecutableSquashOperation::Commits(op) => op.execute(&mut tx)?,
                 ExecutableSquashOperation::Branch(op) => op.execute(&mut tx)?,
                 ExecutableSquashOperation::UncommittedHunks(op) => op.execute(&mut tx)?,
+                ExecutableSquashOperation::MoveCommittedFiles(op) => op.execute(&mut tx)?,
             };
 
             let new_commit = if let Some(reword_op) = reword_op {
@@ -529,8 +616,12 @@ fn run(
         }),
         ExecutableSquashOperation::UncommittedHunks(AmendUncommittedDiffSpecsOperation {
             target,
-            changes: _,
-        }) => Ok(SquashOutcome::UncommittedHunks { target, new_commit }),
+            ..
+        })
+        | ExecutableSquashOperation::MoveCommittedFiles(MoveCommittedFilesOperation {
+            target,
+            ..
+        }) => Ok(SquashOutcome::Hunks { target, new_commit }),
     }
 }
 
@@ -539,7 +630,14 @@ enum SquashOperation {
     Commits(SquashCommitsOperation),
     Branch(SquashBranchOperation),
     UncommittedHunks(AmendUncommittedHunks),
-    Uncommitted { target: ObjectId },
+    Uncommitted {
+        target: ObjectId,
+    },
+    MoveCommittedFiles {
+        target: ObjectId,
+        source: ObjectId,
+        source_paths: Vec<BString>,
+    },
 }
 
 #[derive(Clone)]
@@ -547,11 +645,12 @@ enum ExecutableSquashOperation {
     Commits(SquashCommitsOperation),
     Branch(SquashBranchOperation),
     UncommittedHunks(AmendUncommittedDiffSpecsOperation),
+    MoveCommittedFiles(MoveCommittedFilesOperation),
 }
 
 #[derive(Clone)]
 struct SquashCommitsOperation {
-    sources: Vec<gix::ObjectId>,
+    sources: NonEmpty<gix::ObjectId>,
     target: gix::ObjectId,
     how_to_combine_messages: Option<MessageCombinationStrategy>,
 }
@@ -629,6 +728,28 @@ impl AmendUncommittedDiffSpecsOperation {
         anyhow::ensure!(rejected_specs.is_empty(), "Couldn't squash all changes");
 
         new_commit.context("BUG: rejected_specs is empty yet nothing was committed")
+    }
+}
+
+#[derive(Clone)]
+struct MoveCommittedFilesOperation {
+    target: ObjectId,
+    source: ObjectId,
+    changes: Vec<but_core::DiffSpec>,
+}
+
+impl MoveCommittedFilesOperation {
+    fn execute(
+        self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+    ) -> anyhow::Result<gix::ObjectId> {
+        let Self {
+            target,
+            source,
+            changes,
+        } = self;
+
+        tx.move_committed_changes_between(source, target, changes)
     }
 }
 
