@@ -1618,9 +1618,10 @@ fn uncommitted_hunks_by_id_increase_id_length_as_necessary() -> anyhow::Result<(
 ///
 /// Because of this property, it's important that we can match the hunk by _any prefix_ of its full
 /// ID. That way, if a short hunk ID is shortened, the longer version still works as a reference.
-/// It's just as unique as any prefix of it, so there's no reason it wouldn't work.
+/// It's just as unique (sometimes more so) as any prefix of it, so there's no reason it wouldn't
+/// work.
 #[test]
-fn uncommitted_hunks_can_be_referenced_by_longer_prefix_than_short_id() -> anyhow::Result<()> {
+fn uncommitted_hunks_overspecifying_id_prefix() -> anyhow::Result<()> {
     let stacks = vec![Stack {
         id: Some(StackId::from_number_for_testing(1)),
         ..stack([segment("foo", [id(2)], Some(id(1)), [])])
@@ -1677,8 +1678,8 @@ fn uncommitted_hunks_can_be_referenced_by_longer_prefix_than_short_id() -> anyho
 /// Same reasoning as [`uncommitted_hunks_can_be_referenced_by_longer_prefix_than_short_id`], but
 /// including collision disambiguation.
 #[test]
-fn uncommitted_hunks_can_be_referenced_by_longer_prefix_than_short_id_with_collision_disambiguation()
--> anyhow::Result<()> {
+fn uncommitted_hunks_overspecifying_id_prefix_with_collision_disambiguation() -> anyhow::Result<()>
+{
     let stacks = vec![Stack {
         id: Some(StackId::from_number_for_testing(1)),
         ..stack([segment("foo", [id(2)], Some(id(1)), [])])
@@ -1740,6 +1741,167 @@ fn uncommitted_hunks_can_be_referenced_by_longer_prefix_than_short_id_with_colli
         ),
     ]
     "#);
+
+    Ok(())
+}
+
+#[test]
+fn underspecifying_hunk_ids() -> anyhow::Result<()> {
+    let stacks = vec![Stack {
+        id: Some(StackId::from_number_for_testing(1)),
+        ..stack([segment("foo", [id(2)], Some(id(1)), [])])
+    }];
+    let hunk_assignments = vec![
+        HunkAssignment {
+            hunk_header: Some(hunk_header("-1,6", "+1,7")),
+            diff: Some(BString::new(
+                "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n"
+                    .as_bytes()
+                    .to_vec(),
+            )),
+            ..hunk_assignment("uncommitted1.txt", None)
+        },
+        HunkAssignment {
+            hunk_header: Some(hunk_header("-23,6", "+24,7")),
+            diff: Some(BString::new(
+                "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hellooo\n 4\n 5\n 6\n"
+                    .as_bytes()
+                    .to_vec(),
+            )),
+            ..hunk_assignment("uncommitted1.txt", None)
+        },
+        HunkAssignment {
+            hunk_header: Some(hunk_header("-33,6", "+35,7")),
+            diff: Some(BString::new(
+                "@@ -33,6 +35,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n"
+                    .as_bytes()
+                    .to_vec(),
+            )),
+            ..hunk_assignment("uncommitted1.txt", None)
+        },
+    ];
+
+    let id_map = IdMap::new(stacks, hunk_assignments)?;
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        bail!("unexpected IDs {commit_id} {parent_id:?}");
+    };
+
+    // Underspecifying with just first character finds all hunks
+    insta::assert_debug_snapshot!(id_map.parse("ro:7", Box::new(changed_paths_fn))?, @r#"
+    [
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
+                id: "ro:78#0-2",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-1,6", "+1,7"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        branch_ref_bytes: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: Some(
+                            "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
+                        ),
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
+                id: "ro:79",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-23,6", "+24,7"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        branch_ref_bytes: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: Some(
+                            "@@ -23,6 +24,7 @@\n 1\n 2\n 3\n+hellooo\n 4\n 5\n 6\n",
+                        ),
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
+                id: "ro:78#1-2",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-33,6", "+35,7"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        branch_ref_bytes: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: Some(
+                            "@@ -33,6 +35,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
+                        ),
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
+    ]
+    "#);
+
+    // Underspecifying with collision index only finds hunk with precisely matching collision index.
+    insta::assert_debug_snapshot!(id_map.parse("ro:7#0-2", Box::new(changed_paths_fn))?, @r#"
+    [
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
+                id: "ro:78#0-2",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-1,6", "+1,7"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        branch_ref_bytes: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: Some(
+                            "@@ -1,6 +1,7 @@\n 1\n 2\n 3\n+hellooooo\n 4\n 5\n 6\n",
+                        ),
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
+    ]
+    "#);
+
+    // An entirely empty prefix matches nothing
+    insta::assert_debug_snapshot!(id_map.parse("ro:", Box::new(changed_paths_fn))?, @"[]");
+
+    // Omitting only specifying collision index matches nothing - we don't allow omitting the prefix
+    // unless you are explicitly indexing into the file's hunks
+    insta::assert_debug_snapshot!(id_map.parse("ro:#0-2", Box::new(changed_paths_fn))?, @"[]");
 
     Ok(())
 }
