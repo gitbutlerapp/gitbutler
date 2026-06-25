@@ -687,6 +687,7 @@ fn branch_is_merged_upstream(
     status_ctx: &StatusContext<'_>,
     segment: &SegmentWithId,
     repo: &gix::Repository,
+    eligible_for_empty_merge: bool,
 ) -> bool {
     if matches!(
         status_ctx
@@ -700,7 +701,8 @@ fn branch_is_merged_upstream(
         return true;
     }
 
-    if segment.workspace_commits.is_empty()
+    if eligible_for_empty_merge
+        && segment.workspace_commits.is_empty()
         && empty_branch_is_merged_upstream(repo, status_ctx, segment)
     {
         return true;
@@ -1143,8 +1145,20 @@ fn print_group(
         .for_commit_shortening();
     let mut has_merged_upstream_branch = false;
     if let Some(stack_with_id) = stack_with_id {
+        // The bottom-most branch resting on the target is the only one eligible to be
+        // reported as merged purely because it has no commits: branches above it merely
+        // inherit the remote tip of the branch below and were not themselves merged.
+        let bottom_non_target_segment = stack_with_id.segments.iter().rposition(|segment| {
+            segment
+                .inner
+                .remote_tracking_ref_name
+                .as_ref()
+                .is_none_or(|remote| {
+                    !remote_tracking_ref_is_target_branch(status_ctx, remote.as_ref())
+                })
+        });
         let mut first = true;
-        for segment in &stack_with_id.segments {
+        for (segment_index, segment) in stack_with_id.segments.iter().enumerate() {
             let notch = if first { "╭" } else { "├" };
             if !first {
                 output.connector(Vec::from([Span::raw("┊│")]))?;
@@ -1192,7 +1206,12 @@ fn print_group(
                 .unwrap_or_default();
 
             let branch_merge_status = branch_merge_status(status_ctx, segment);
-            let is_merged_upstream = branch_is_merged_upstream(status_ctx, segment, &repo);
+            let is_merged_upstream = branch_is_merged_upstream(
+                status_ctx,
+                segment,
+                &repo,
+                Some(segment_index) == bottom_non_target_segment,
+            );
             has_merged_upstream_branch |= is_merged_upstream;
             let branch_status = if is_merged_upstream {
                 Some(Span::styled(" (merged upstream)", t.remote_branch))
