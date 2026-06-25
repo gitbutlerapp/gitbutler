@@ -905,7 +905,6 @@ const OperandC: FC<
 		operand: Operand;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, operand, render, ...props }) => {
-	const dispatch = useAppDispatch();
 	const isSelected = useIsSelected({ projectId, operand });
 	const absorptionTargetKeys = assert(use(AbsorptionTargetKeysContext));
 	const isAbsorptionTarget = absorptionTargetKeys.has(operandIdentityKey(operand));
@@ -916,9 +915,6 @@ const OperandC: FC<
 			<OperationSourceC
 				projectId={projectId}
 				source={operand}
-				onDragStart={() =>
-					dispatch(projectActions.selectOutline({ projectId, selection: operand }))
-				}
 				render={
 					<OperationTarget
 						enabled={navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
