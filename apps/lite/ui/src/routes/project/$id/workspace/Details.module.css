@@ -1,7 +1,3 @@
-:root {
-	--diffs-font-size: 12px;
-}
-
 .container {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
@@ -88,6 +84,7 @@
 }
 
 .diffContents {
+	--diffs-font-size: 12px;
 	--diffs-bg-selection-number-override: color-mix(var(--fill-gray-bg) 60%, transparent);
 	--diffs-bg-selection-override: transparent;
 
