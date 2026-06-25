@@ -123,7 +123,9 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
         &[
             "Use GitButler (`but`) for version-control inspection and write operations, including status, diffs, branching, committing, pushing, and history edits.",
             "Assume multiple agents may be working in this repository. Do not move, amend, squash, discard, commit, push, or otherwise modify another agent's work unless the user asks.",
-            "For commit order, branch layout, or conflict overview, start with compact `but status`. Use detailed status only when file IDs, hunk IDs, or per-commit file details are needed.",
+            "For commit just/only/specific changes on a new branch (selected-change requests), use the two-command fast path from the GitButler skill: `but diff`, then `but commit <branch> -c -m \"message\" --changes <id>,<id>`.",
+            "For that fast path, after the commit succeeds, stop and summarize; do not run separate branch, staging, status, or diff commands unless the commit output is missing information you need.",
+            "Use the installed GitButler skill for command recipes and syntax before guessing flags, using `--help`, or translating Git habits directly.",
             "After a successful GitButler write command, use the workspace state it returns. Rerun status or diff only when that output lacks information you need or files changed since.",
             "Use a dedicated GitButler branch for each agent session, unless the user asks for a different branch structure. Commit only changes that belong to that session.",
             "Do not push or open pull requests unless the user asks.",

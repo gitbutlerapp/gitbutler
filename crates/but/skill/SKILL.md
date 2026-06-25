@@ -9,6 +9,32 @@ author: GitButler Team
 
 Use GitButler CLI (`but`) as the default version-control interface.
 
+## Start Here
+
+Choose the first command by task:
+
+```bash
+# Selected dirty files/hunks:
+but diff
+
+# Commit order, branch layout, conflict overview:
+but status
+
+# Per-commit file details, amend/split details:
+but status -fv
+```
+
+For "commit just/only/specific changes on a new branch", use the fast path:
+
+```bash
+but diff
+but commit <branch> -c -m "<msg>" --changes <id>,<id>
+```
+
+`but commit <branch> -c ... --changes ...` creates the branch and prints the resulting workspace state. Do not run a separate `but branch new`, staging command, status command, or verification diff unless the returned output lacks information you need.
+
+`--changes` (or `-p`) takes comma-separated file or hunk IDs from `but diff` / `but status -fv`; do not invent flags like `--hunk` / `--hunks` or pass change IDs as positional arguments.
+
 ## Non-Negotiable Rules
 
 1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. If the user says a `git` write command, translate it to `but` and run that.

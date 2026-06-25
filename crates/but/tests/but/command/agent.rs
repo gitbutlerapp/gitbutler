@@ -17,6 +17,18 @@ fn assert_default_policy(policy: &str) {
         "policy should include multi-agent isolation guidance, got: {policy}"
     );
     assert!(
+        policy.contains("For commit just/only/specific changes on a new branch"),
+        "policy should include the selected-change fast path, got: {policy}"
+    );
+    assert!(
+        policy.contains("For that fast path, after the commit succeeds, stop and summarize"),
+        "policy should tell agents not to re-verify the fast path unnecessarily, got: {policy}"
+    );
+    assert!(
+        policy.contains("Use the installed GitButler skill for command recipes and syntax"),
+        "policy should point agents to the installed skill for command details, got: {policy}"
+    );
+    assert!(
         policy.contains("amend an unpublished local commit"),
         "policy should include default fold-fixes preference, got: {policy}"
     );
