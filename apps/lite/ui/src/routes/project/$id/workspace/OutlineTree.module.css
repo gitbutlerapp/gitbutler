@@ -93,7 +93,6 @@
 	display: flex;
 	flex-grow: 1;
 	flex-direction: column;
-	min-width: 0;
 }
 
 .branchLabelMeta {
@@ -106,7 +105,7 @@
 .branchLabelMetaItem {
 	display: flex;
 	align-items: center;
-	/* Match button height */
+	/* Match button height to prevent layout shift when buttons appear/disappear. */
 	height: 20px;
 	gap: 4px;
 }

@@ -1,7 +1,10 @@
 .container {
+	--single-line-row-height: 28px;
+	--single-line-row-label-line-height: 16px;
+
 	display: flex;
 	column-gap: 8px;
-	min-height: 28px;
+	min-height: var(--single-line-row-height);
 	padding-inline: 8px;
 
 	&[inert] {
@@ -54,12 +57,17 @@
 	column-gap: 6px;
 	flex-grow: 1;
 	min-width: 0;
-	padding-block: 6px;
+	padding-block: calc(
+		(var(--single-line-row-height) - var(--single-line-row-label-line-height)) / 2
+	);
 }
 
 .label {
+	line-height: var(--single-line-row-label-line-height);
+}
+
+.labelSingleLine {
 	overflow: hidden;
-	line-height: 16px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
