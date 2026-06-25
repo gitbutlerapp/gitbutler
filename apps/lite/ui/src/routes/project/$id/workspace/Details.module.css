@@ -123,8 +123,7 @@
 }
 
 .commitMessageBody {
-	max-width: 700px;
-	background-color: var(--bg-2);
+	max-width: 70ch;
 	font-size: 13px;
 	white-space: pre-wrap;
 	user-select: text;
