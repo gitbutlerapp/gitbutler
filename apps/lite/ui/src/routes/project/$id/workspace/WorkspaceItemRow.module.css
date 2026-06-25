@@ -58,8 +58,11 @@
 }
 
 .label {
-	overflow: hidden;
 	line-height: 16px;
+}
+
+.labelSingleLine {
+	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }

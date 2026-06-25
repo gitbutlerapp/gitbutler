@@ -308,7 +308,7 @@ const FileRow: FC<
 					</Tooltip.Root>
 				</div>
 				<WorkspaceItemRowLabelContainer>
-					<WorkspaceItemRowLabel>
+					<WorkspaceItemRowLabel singleLine>
 						{relativePath}
 						{item._tag === "Conflict" && " ⚠️"}
 					</WorkspaceItemRowLabel>
