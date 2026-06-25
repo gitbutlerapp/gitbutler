@@ -5,13 +5,13 @@ use std::{
     ops::Deref,
 };
 
+use crate::Direction;
 use anyhow::{Context as _, bail};
 use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
 use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
-use petgraph::{Direction, prelude::EdgeRef};
 
 use crate::{
-    Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
+    Commit, CommitFlags, CommitIndex, Connection, Graph, Segment, SegmentIndex, SegmentMetadata,
     Worktree,
     init::{
         Goals, PetGraph,
@@ -164,22 +164,11 @@ pub fn split_commit_into_segment(
     let top_commit_index = graph[sidx].last_commit_index();
     let bottom_commit_id = bottom_segment.commits[0].id;
     let bottom_segment = match standin {
-        None => graph.connect_new_segment(
-            sidx,
-            top_commit_index,
-            bottom_segment,
-            0,
-            bottom_commit_id,
-            0,
-        ),
+        None => {
+            graph.connect_new_segment(sidx, top_commit_index, bottom_segment, 0, bottom_commit_id)
+        }
         Some(standin_sidx) => {
-            let outgoing_edges: Vec<_> = graph
-                .edges_directed(standin_sidx, Direction::Outgoing)
-                .map(|e| e.id())
-                .collect();
-            for edge_id in outgoing_edges {
-                graph.remove_edge(edge_id);
-            }
+            graph.inner[standin_sidx].connections.clear();
 
             let top_commit_id = top_commit_index.map(|idx| graph[sidx].commits[idx].id);
             graph.connect_segments_with_ids(
@@ -189,7 +178,6 @@ pub fn split_commit_into_segment(
                 standin_sidx,
                 0,
                 Some(bottom_commit_id),
-                0,
             );
             let s = &mut graph[standin_sidx];
             s.commits = bottom_segment.commits;
@@ -245,7 +233,7 @@ fn split_connections(
     }
     let edges = collect_edges_from_commit(graph, from, Direction::Outgoing);
     for edge in &edges {
-        graph.remove_edge(edge.id);
+        graph.remove_edge(edge.source, &edge.weight);
     }
 
     for edge in edges {
@@ -273,10 +261,9 @@ fn split_connections(
         };
         graph.add_edge(
             edge_src_sidx,
-            edge_dst_sidx,
-            Edge {
-                src: edge
-                    .weight
+            Connection::new(
+                edge_dst_sidx,
+                edge.weight
                     .src_id
                     .map(|id| {
                         graph[edge_src_sidx].commit_index_of(id).with_context(|| {
@@ -287,9 +274,8 @@ fn split_connections(
                         })
                     })
                     .transpose()?,
-                src_id: edge.weight.src_id,
-                dst: edge
-                    .weight
+                edge.weight.src_id,
+                edge.weight
                     .dst_id
                     .map(|id| {
                         graph[edge_dst_sidx].commit_index_of(id).with_context(|| {
@@ -300,9 +286,8 @@ fn split_connections(
                         })
                     })
                     .transpose()?,
-                dst_id: edge.weight.dst_id,
-                parent_order: edge.weight.parent_order,
-            },
+                edge.weight.dst_id,
+            ),
         );
     }
     Ok(())
@@ -406,7 +391,6 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
         segment_below,
         0,
         info.id,
-        0,
     );
     Ok(Some(segment_below))
 }
@@ -442,15 +426,12 @@ pub fn queue_parents(
     let mut queue_is_exhausted = false;
     if parent_ids.len() > 1 {
         let limit_per_parent = limit.per_parent(parent_ids.len());
-        for (parent_order, pid) in parent_ids.iter().enumerate() {
+        for pid in parent_ids.iter() {
             let instruction = Instruction::ConnectNewSegment {
                 parent_above: current_sidx,
                 at_commit: current_cidx
                     .try_into()
                     .context("commit index does not fit into u32")?,
-                parent_order: parent_order
-                    .try_into()
-                    .context("commit parent position does not fit into u32")?,
             };
             let info = find(commit_graph, objects, *pid, buf)?;
             queue_is_exhausted =
@@ -859,19 +840,18 @@ pub fn propagate_flags_downward(
             }
         }
 
-        // Process outgoing edges
-        let mut neighbors = graph
-            .neighbors_directed(segment, petgraph::Direction::Outgoing)
-            .detach();
+        // Process outgoing edges. Collect first so this immutable read doesn't clash with the
+        // `&mut graph` held across the loop (the detached petgraph walker did the same job).
+        let out_edges: Vec<_> = graph
+            .edges_directed(segment, crate::Direction::Outgoing)
+            .map(|e| (e.target, e.weight.src, e.weight.dst_id, e.weight.dst))
+            .collect();
 
         // Track edges for leaf detection
-        let mut edge_count = 0;
-        while let Some((edge_idx, target_segment)) = neighbors.next(graph) {
-            edge_count += 1;
-            let edge = &graph[edge_idx];
-
+        let edge_count = out_edges.len();
+        for (target_segment, src, dst_id, dst) in out_edges {
             // Skip edges that don't originate from our commit range
-            if let Some(src_cidx) = edge.src
+            if let Some(src_cidx) = src
                 && !commit_range.contains(&src_cidx)
             {
                 continue;
@@ -879,11 +859,10 @@ pub fn propagate_flags_downward(
 
             // For DAG, we can visit each node multiple times from different parents,
             // but we want to process each commit-id only once in this walk.
-            let next_commit = edge.dst_id;
-            if let Some(commit_id) = next_commit
+            if let Some(commit_id) = dst_id
                 && visited.insert(commit_id)
             {
-                stack.push((target_segment, edge.dst));
+                stack.push((target_segment, dst));
             }
         }
 
@@ -998,7 +977,6 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
     })
 }
 
-#[expect(clippy::too_many_arguments)]
 pub fn possibly_split_occupied_segment(
     graph: &mut Graph,
     seen: &mut gix::revwalk::graph::IdMap<SegmentIndex>,
@@ -1007,7 +985,6 @@ pub fn possibly_split_occupied_segment(
     propagated_flags: CommitFlags,
     src_sidx: SegmentIndex,
     limit: Limit,
-    parent_order: u32,
 ) -> anyhow::Result<()> {
     let Entry::Occupied(mut existing_sidx) = seen.entry(id) else {
         bail!("BUG: Can only work with occupied entries")
@@ -1043,12 +1020,9 @@ pub fn possibly_split_occupied_segment(
             (src_sidx, dst_sidx)
         };
     let top_cidx = graph[top_sidx].last_commit_index();
-    let mut bottom_cidx = graph[bottom_sidx].commit_index_of(id).with_context(|| {
-        format!(
-            "BUG: Didn't find commit {id} in segment {bottom_sidx}",
-            bottom_sidx = dst_sidx.index(),
-        )
-    })?;
+    let mut bottom_cidx = graph[bottom_sidx]
+        .commit_index_of(id)
+        .with_context(|| format!("BUG: Didn't find commit {id} in segment {dst_sidx}",))?;
 
     if bottom_cidx != 0 {
         // Re-use an existing empty segment to better integrate them into the graph, and to prevent loose segments
@@ -1079,15 +1053,7 @@ pub fn possibly_split_occupied_segment(
 
     // Standins will cause this, avoid self-connection.
     if top_sidx != bottom_sidx {
-        graph.connect_segments_with_ids(
-            top_sidx,
-            top_cidx,
-            None,
-            bottom_sidx,
-            bottom_cidx,
-            None,
-            parent_order,
-        );
+        graph.connect_segments_with_ids(top_sidx, top_cidx, None, bottom_sidx, bottom_cidx, None);
     }
     let top_flags = top_cidx
         .map(|cidx| graph[top_sidx].commits[cidx].flags)

@@ -193,7 +193,7 @@ mkdir ws
         commit A
       git checkout -b B main
         commit B
-    create_workspace_commit_once B A
+    create_workspace_commit_once A B
   )
 
   git init advanced-stack-tip-outside-workspace
@@ -1215,7 +1215,7 @@ EOF
       setup_target_to_match_main
     git checkout B
       commit B1
-    create_workspace_commit_once B A
+    create_workspace_commit_once A B
   )
 
   git init two-branches-one-above-base
@@ -1256,7 +1256,7 @@ EOF
       git branch C2-1
       git branch C2-2
       git branch C2-3
-    create_workspace_commit_aggressively C B A
+    create_workspace_commit_aggressively A B C
   )
 
   mkdir edit-commit

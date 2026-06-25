@@ -16,7 +16,7 @@ use petgraph::{Direction, visit::EdgeRef};
 use crate::graph_rebase::{
     Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
     cherry_pick::{CherryPickOutcome, cherry_pick},
-    util::collect_ordered_parents,
+    util::{collect_ordered_parents, first_ordered_parent},
 };
 
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
@@ -57,10 +57,11 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     output_graph.add_node(Step::Pick(pick))
                 }
                 Step::Pick(pick) => {
-                    let graph_parents = collect_ordered_parents(&self.graph, step_idx);
+                    // Only resolve the graph parents when we actually need them — a pick with
+                    // `preserved_parents` already carries its onto-commits.
                     let ontos = match pick.preserved_parents.clone() {
                         Some(ontos) => ontos,
-                        None => graph_parents
+                        None => collect_ordered_parents(&self.graph, step_idx)
                             .iter()
                             .map(|idx| {
                                 let Some(new_idx) = graph_mapping.get(idx) else {
@@ -128,11 +129,9 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     // Immutable references are kept in the graph for traversal
                     // but never moved, created, or deleted.
                     if mutable {
-                        let graph_parents = collect_ordered_parents(&self.graph, step_idx);
-                        let first_parent_idx = graph_parents
-                            .first()
+                        let first_parent_idx = first_ordered_parent(&self.graph, step_idx)
                             .context("References should have at least one parent")?;
-                        let Some(new_idx) = graph_mapping.get(first_parent_idx) else {
+                        let Some(new_idx) = graph_mapping.get(&first_parent_idx) else {
                             bail!("A matching parent can't be found in the output graph");
                         };
 

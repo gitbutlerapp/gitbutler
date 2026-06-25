@@ -61,11 +61,14 @@ function create_workspace_commit_once() {
     fi
   fi
 
-  git checkout -b gitbutler/workspace
-  if [ $# == 1 ] || [ $# == 0 ]; then
-    git commit --allow-empty -m "$workspace_commit_subject"
+  if [ $# -gt 1 ]; then
+    # First arg becomes the workspace commit's first parent; the rest merge in order.
+    git checkout "$1"
+    git checkout -b gitbutler/workspace
+    git merge --no-ff -m "$workspace_commit_subject" "${@:2}"
   else
-    git merge --no-ff -m "$workspace_commit_subject" "${@}"
+    git checkout -b gitbutler/workspace
+    git commit --allow-empty -m "$workspace_commit_subject"
   fi
 }
 

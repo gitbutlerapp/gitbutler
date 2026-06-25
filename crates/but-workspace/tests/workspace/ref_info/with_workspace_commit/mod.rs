@@ -172,7 +172,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -194,18 +194,18 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -248,7 +248,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -270,18 +270,18 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -328,7 +328,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -350,18 +350,18 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -420,7 +420,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
@@ -433,7 +433,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                         base: "f504e38",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -454,18 +454,18 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -594,7 +594,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
@@ -607,7 +607,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         base: "f504e38",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -620,7 +620,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                         base: "807f596",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: 6,
                         ref_name: "►base-of-A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -640,18 +640,18 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -712,7 +712,7 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
@@ -725,7 +725,7 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                         base: "0ee3a9e",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -745,18 +745,18 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 1,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -826,7 +826,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
@@ -846,18 +846,18 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 1,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(a455fe761e758d0b6c0aa8966d91f2de32fa7bfc),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(4),
+            4,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -904,7 +904,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►B-on-A",
                         remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                         commits: [
@@ -917,7 +917,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                         base: "0ee3a9e",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: 5,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -939,18 +939,18 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 1,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1006,7 +1006,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►B",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1019,7 +1019,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                         base: "1818c17",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -1039,18 +1039,18 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 1,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1091,7 +1091,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►B",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1104,7 +1104,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                         base: "1818c17",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -1124,18 +1124,18 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 1,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1197,7 +1197,7 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -1222,18 +1222,18 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1288,27 +1288,6 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
-                ),
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(5),
-                        ref_name: "►lane",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
-                        commits_on_remote: [],
-                        commits_outside: None,
-                        metadata: Branch,
-                        push_status: CompletelyUnpushed,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-            Stack {
-                id: Some(
                     00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
@@ -1316,7 +1295,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►advanced-lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1339,12 +1318,33 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
+                        commits_on_remote: [],
+                        commits_outside: None,
+                        metadata: Branch,
+                        push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
+                    },
+                ],
+            },
+            Stack {
+                id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    ref_info::ui::Segment {
+                        id: 5,
+                        ref_name: "►lane",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -1359,18 +1359,18 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1440,7 +1440,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1453,7 +1453,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(7),
+                        id: 7,
                         ref_name: "►lane-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1464,7 +1464,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(8),
+                        id: 8,
                         ref_name: "►lane-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1485,7 +1485,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1496,7 +1496,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: 5,
                         ref_name: "►lane-2-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1507,7 +1507,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: 6,
                         ref_name: "►lane-2-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1525,18 +1525,18 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: false,
@@ -1593,7 +1593,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►lane-2",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1604,7 +1604,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: 5,
                         ref_name: "►lane-2-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1615,7 +1615,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: 6,
                         ref_name: "►lane-2-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1636,7 +1636,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1649,7 +1649,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(7),
+                        id: 7,
                         ref_name: "►lane-segment-01",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1660,7 +1660,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(8),
+                        id: 8,
                         ref_name: "►lane-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1678,18 +1678,18 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: false,
@@ -1740,19 +1740,17 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "►advanced-lane",
+                        id: 4,
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(cbc6713, "change\n", local),
-                        ],
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -1763,17 +1761,19 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
-                        ref_name: "►lane",
+                        id: 3,
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -1788,18 +1788,18 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1855,7 +1855,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1875,18 +1875,18 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1950,7 +1950,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: 5,
                         ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -1961,7 +1961,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: 6,
                         ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -1981,18 +1981,18 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2044,7 +2044,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: 5,
                         ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [],
@@ -2055,7 +2055,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: 6,
                         ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2075,18 +2075,18 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2148,7 +2148,7 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: 5,
                         ref_name: "►on-top-of-dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -2159,7 +2159,7 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: 6,
                         ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -2170,7 +2170,7 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(7),
+                        id: 7,
                         ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -2190,18 +2190,18 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2251,7 +2251,7 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: 5,
                         ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -2262,7 +2262,7 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                         base: "None",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
+                        id: 6,
                         ref_name: "►on-top-of-dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -2273,7 +2273,7 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(7),
+                        id: 7,
                         ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                         commits: [
@@ -2293,18 +2293,18 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2365,7 +2365,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►on-top-of-lane",
                         remote_tracking_ref_name: "refs/remotes/origin/on-top-of-lane",
                         commits: [
@@ -2378,7 +2378,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                         base: "cbc6713",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►lane",
                         remote_tracking_ref_name: "refs/remotes/origin/lane",
                         commits: [
@@ -2398,18 +2398,18 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2470,7 +2470,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -2484,7 +2484,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                         base: "f15ca75",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: 5,
                         ref_name: "►integrated",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -2505,18 +2505,18 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2531,8 +2531,11 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
 fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<()> {
     let (repo, mut meta) =
         read_only_in_memory_scenario("two-branches-one-advanced-ws-commit-on-top-of-stack")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * cbc6713 (HEAD -> gitbutler/workspace, advanced-lane) change
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * cbc6713 (advanced-lane) change
+    |/  
     * fafd9d0 (origin/main, main, lane) init
     ");
 
@@ -2549,7 +2552,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                     "refs/heads/gitbutler/workspace",
                 ),
                 commit_id: Some(
-                    Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
+                    Sha1(335d6f2a960f387b039bd77476ae3d2d6649ed70),
                 ),
                 worktree: Some(
                     Worktree {
@@ -2565,19 +2568,17 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "►advanced-lane",
+                        id: 4,
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(cbc6713, "change\n", local),
-                        ],
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -2588,17 +2589,19 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
-                        ref_name: "►lane",
+                        id: 3,
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -2613,21 +2616,21 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
+        is_managed_commit: true,
         ancestor_workspace_commit: None,
         is_entrypoint: true,
     }
@@ -2647,7 +2650,7 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                     "refs/heads/gitbutler/workspace",
                 ),
                 commit_id: Some(
-                    Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
+                    Sha1(335d6f2a960f387b039bd77476ae3d2d6649ed70),
                 ),
                 worktree: Some(
                     Worktree {
@@ -2663,19 +2666,17 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
-                        ref_name: "►advanced-lane",
+                    ref_info::ui::Segment {
+                        id: 4,
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(cbc6713, "change\n", local),
-                        ],
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -2686,17 +2687,19 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(4),
-                        ref_name: "►lane",
+                    👉ref_info::ui::Segment {
+                        id: 0,
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -2711,21 +2714,21 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
-        is_managed_commit: false,
+        is_managed_commit: true,
         ancestor_workspace_commit: None,
         is_entrypoint: false,
     }
@@ -2775,17 +2778,19 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
-                        ref_name: "►lane",
+                        id: 3,
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -2796,19 +2801,17 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "►advanced-lane",
+                        id: 4,
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(cbc6713, "change\n", local),
-                        ],
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -2823,18 +2826,18 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 1,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2871,17 +2874,19 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(4),
-                        ref_name: "►lane",
+                    👉ref_info::ui::Segment {
+                        id: 0,
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -2892,19 +2897,17 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
-                        ref_name: "►advanced-lane",
+                    ref_info::ui::Segment {
+                        id: 4,
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(cbc6713, "change\n", local),
-                        ],
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -2919,18 +2922,18 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 1,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -2962,17 +2965,19 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         stacks: [
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000000,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    👉ref_info::ui::Segment {
-                        id: NodeIndex(4),
-                        ref_name: "►lane",
+                    ref_info::ui::Segment {
+                        id: 3,
+                        ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
-                        commits: [],
+                        commits: [
+                            LocalCommit(cbc6713, "change\n", local),
+                        ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -2983,19 +2988,17 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             },
             Stack {
                 id: Some(
-                    00000000-0000-0000-0000-000000000001,
+                    00000000-0000-0000-0000-000000000000,
                 ),
                 base: Some(
                     Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 ),
                 segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "►advanced-lane",
+                    👉ref_info::ui::Segment {
+                        id: 4,
+                        ref_name: "►lane",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(cbc6713, "change\n", local),
-                        ],
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -3010,18 +3013,18 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 1,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(0),
+                segment_index: 0,
             },
         ),
         lower_bound: Some(
-            NodeIndex(0),
+            0,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -3066,7 +3069,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►advanced-lane",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -3089,7 +3092,7 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►lane",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -3107,18 +3110,18 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 1,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -3170,7 +3173,7 @@ fn disjoint() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►disjoint[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -3188,18 +3191,18 @@ fn disjoint() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
             },
         ),
         lower_bound: Some(
-            NodeIndex(0),
+            0,
         ),
         is_managed_ref: false,
         is_managed_commit: false,
@@ -3214,10 +3217,10 @@ fn disjoint() -> anyhow::Result<()> {
 fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   820f2b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   fe1a116 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 4e5484a (B-on-A) add new file in B-on-A
-    * | 5f37dbf (C-on-A) add new file in C-on-A
+    | * 5f37dbf (C-on-A) add new file in C-on-A
+    * | 4e5484a (B-on-A) add new file in B-on-A
     |/  
     | * 89cc2d3 (origin/A) change in A
     |/  
@@ -3238,7 +3241,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     "refs/heads/gitbutler/workspace",
                 ),
                 commit_id: Some(
-                    Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
+                    Sha1(fe1a116f4ca988026773b0739234a1baaab5649d),
                 ),
                 worktree: Some(
                     Worktree {
@@ -3253,28 +3256,26 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         },
         stacks: [
             Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
+                id: None,
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
-                        ref_name: "►C-on-A",
+                        id: 6,
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
+                            LocalCommit(4e5484a, "add new file in B-on-A\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
-                        metadata: Branch,
+                        metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -3291,26 +3292,28 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
-                id: None,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
-                        ref_name: "►B-on-A",
+                        id: 3,
+                        ref_name: "►C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(4e5484a, "add new file in B-on-A\n", local),
+                            LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
-                        metadata: "None",
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -3332,18 +3335,18 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -3363,7 +3366,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     "refs/heads/gitbutler/workspace",
                 ),
                 commit_id: Some(
-                    Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
+                    Sha1(fe1a116f4ca988026773b0739234a1baaab5649d),
                 ),
                 worktree: Some(
                     Worktree {
@@ -3378,28 +3381,26 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         },
         stacks: [
             Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
+                id: None,
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
                 segments: [
-                    👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
-                        ref_name: "►C-on-A",
+                    ref_info::ui::Segment {
+                        id: 6,
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
+                            LocalCommit(4e5484a, "add new file in B-on-A\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
-                        metadata: Branch,
+                        metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -3416,26 +3417,28 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
-                id: None,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
                 segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(6),
-                        ref_name: "►B-on-A",
+                    👉ref_info::ui::Segment {
+                        id: 0,
+                        ref_name: "►C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(4e5484a, "add new file in B-on-A\n", local),
+                            LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
-                        metadata: "None",
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -3457,18 +3460,18 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -3488,7 +3491,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     "refs/heads/gitbutler/workspace",
                 ),
                 commit_id: Some(
-                    Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
+                    Sha1(fe1a116f4ca988026773b0739234a1baaab5649d),
                 ),
                 worktree: Some(
                     Worktree {
@@ -3503,28 +3506,26 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         },
         stacks: [
             Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
+                id: None,
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
                 segments: [
-                    ref_info::ui::Segment {
-                        id: NodeIndex(4),
-                        ref_name: "►C-on-A",
+                    👉ref_info::ui::Segment {
+                        id: 0,
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
+                            LocalCommit(4e5484a, "add new file in B-on-A\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
-                        metadata: Branch,
+                        metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: 5,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -3541,26 +3542,28 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
-                id: None,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
                 segments: [
-                    👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
-                        ref_name: "►B-on-A",
+                    ref_info::ui::Segment {
+                        id: 4,
+                        ref_name: "►C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(4e5484a, "add new file in B-on-A\n", local),
+                            LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
-                        metadata: "None",
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
                         base: "d79bba9",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
+                        id: 5,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -3582,18 +3585,18 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -3614,7 +3617,7 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                     "refs/heads/gitbutler/workspace",
                 ),
                 commit_id: Some(
-                    Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
+                    Sha1(fe1a116f4ca988026773b0739234a1baaab5649d),
                 ),
                 worktree: Some(
                     Worktree {
@@ -3629,28 +3632,26 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
         },
         stacks: [
             Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
+                id: None,
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
-                        ref_name: "►C-on-A",
+                        id: 6,
+                        ref_name: "►B-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
+                            LocalCommit(4e5484a, "add new file in B-on-A\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
-                        metadata: Branch,
+                        metadata: "None",
                         push_status: CompletelyUnpushed,
                         base: "d79bba9",
                     },
                     👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -3667,26 +3668,28 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
             Stack {
-                id: None,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: Some(
                     Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(6),
-                        ref_name: "►B-on-A",
+                        id: 4,
+                        ref_name: "►C-on-A",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(4e5484a, "add new file in B-on-A\n", local),
+                            LocalCommit(5f37dbf, "add new file in C-on-A\n", local),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
-                        metadata: "None",
+                        metadata: Branch,
                         push_status: CompletelyUnpushed,
                         base: "d79bba9",
                     },
                     👉ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -3708,18 +3711,18 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(3),
+                segment_index: 3,
             },
         ),
         lower_bound: Some(
-            NodeIndex(3),
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -3773,7 +3776,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -3791,18 +3794,18 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -3844,7 +3847,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ),
                 segments: [
                     👉ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -3862,18 +3865,18 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(0),
+                segment_index: 0,
             },
         ),
         lower_bound: Some(
-            NodeIndex(0),
+            0,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -3914,18 +3917,18 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                segment_index: 1,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -3961,7 +3964,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -3979,14 +3982,14 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(2),
+                segment_index: 2,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                segment_index: NodeIndex(0),
+                segment_index: 0,
             },
         ),
         lower_bound: None,

@@ -32,14 +32,14 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -58,11 +58,11 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   0ffeac6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   bdcbf64 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * f2cc60d (C) C
-    | * 09d8e52 (A) A
-    * | c813d8d (B) B
+    | * c813d8d (B) B
+    * | f2cc60d (C) C
+    * | 09d8e52 (A) A
     |/  
     * 85efbe4 (origin/main, main) M
     ");
@@ -140,14 +140,14 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -176,14 +176,14 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:B on 85efbe4 {1}
-    │   ├── 📙:3:B
-    │   │   └── ·f9061ed (🏘️)
-    │   └── 📙:4:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:5:C on 85efbe4 {2}
-        └── 📙:5:C
-            └── ·8e00332 (🏘️)
+    ├── ≡📙:5:C on 85efbe4 {2}
+    │   └── 📙:5:C
+    │       └── ·8e00332 (🏘️)
+    └── ≡📙:3:B on 85efbe4 {1}
+        ├── 📙:3:B
+        │   └── ·f9061ed (🏘️)
+        └── 📙:4:A
+            └── ·09d8e52 (🏘️)
     ");
 
     Ok(())
@@ -212,14 +212,14 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -282,14 +282,14 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -319,14 +319,14 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:B on 85efbe4 {2}
-        ├── 📙:4:B
-        │   └── ·de0581e (🏘️)
-        └── 📙:5:C
-            └── ·8e00332 (🏘️)
+    ├── ≡📙:4:B on 85efbe4 {2}
+    │   ├── 📙:4:B
+    │   │   └── ·de0581e (🏘️)
+    │   └── 📙:5:C
+    │       └── ·8e00332 (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     Ok(())
@@ -355,14 +355,14 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -420,11 +420,11 @@ fn move_empty_branch() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:B on 85efbe4 {2}
-        └── 📙:4:B
+    ├── ≡📙:4:B on 85efbe4 {2}
+    │   └── 📙:4:B
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -476,11 +476,11 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:B on 85efbe4 {2}
-        └── 📙:4:B
+    ├── ≡📙:4:B on 85efbe4 {2}
+    │   └── 📙:4:B
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -631,7 +631,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
 }
 
 #[test]
-fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::Result<()> {
+fn non_empty_move_display_order_follows_workspace_parents() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
@@ -654,24 +654,24 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
     let before_display_order = stack_display_order(&ws);
     let before_metadata_order = metadata_stack_order(&ws);
-    assert_eq!(
-        before_display_order, before_metadata_order,
-        "workspace projection order should match metadata before moving now that stack order is no longer reversed downstream"
-    );
+    // Stack order comes from the workspace-commit parent array, not metadata. This
+    // fixture bakes a parent order that differs from the injected metadata order, so
+    // the two differ before the move — and the parent array is what wins.
+    assert_ne!(before_display_order, before_metadata_order);
 
-    // Move non-empty C on top of non-empty A.
-    // This rewrites metadata and keeps display + metadata aligned.
+    // Move non-empty C on top of non-empty A. The displayed order then follows the
+    // rebuilt workspace-commit parent array.
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
@@ -690,14 +690,14 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
 
     insta::assert_snapshot!(graph_workspace(&ws), "before refreshing `ws` the pure-virtual change isn't visible (should be fixed once meta is in db!)", @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:5:B on 85efbe4 {2}
-    │   └── 📙:5:B
-    │       └── ·c813d8d (🏘️)
-    └── ≡📙:4:C on 85efbe4 {1}
-        ├── 📙:4:C
-        │   └── ·f2cc60d (🏘️)
-        └── 📙:3:A
-            └── ·09d8e52 (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·f2cc60d (🏘️)
+    │   └── 📙:3:A
+    │       └── ·09d8e52 (🏘️)
+    └── ≡📙:5:B on 85efbe4
+        └── 📙:5:B
+            └── ·c813d8d (🏘️)
     ");
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -715,17 +715,17 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
 
     let after_display_order = stack_display_order(&ws);
 
+    // The move changes both the stored metadata order and the displayed order.
     assert_ne!(updated_metadata_order, before_metadata_order);
     assert_ne!(after_display_order, before_display_order);
-    assert_eq!(
-        after_display_order, updated_metadata_order,
-        "workspace projection order should match metadata after moving now that stack order is no longer reversed downstream"
-    );
+    // Stack order is taken from the workspace-commit parent array (the source of
+    // truth), not metadata order: after the move the parents are [B, C] while
+    // metadata is [C, B]. The order snapshots below capture the parent-array order.
 
     insta::assert_snapshot!(format!("{before_display_order:#?}"), @r#"
     [
-        "refs/heads/A",
         "refs/heads/C",
+        "refs/heads/A",
     ]
     "#);
 
@@ -740,7 +740,7 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
 }
 
 #[test]
-fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> {
+fn empty_move_display_order_follows_workspace_parents() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
@@ -758,10 +758,13 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
     let mut ws = graph.into_workspace()?;
     let before_display_order = stack_display_order(&ws);
     let before_metadata_order = metadata_stack_order(&ws);
-    assert_eq!(before_display_order, before_metadata_order);
+    // Stack order comes from the workspace-commit parent array, not metadata. The
+    // empty lane sits at the base (parent 0) and so leads here; `explicit-empty-branches`
+    // will give empty lanes their own distinct parent positions.
+    assert_ne!(before_display_order, before_metadata_order);
 
-    // Move empty B on top of non-empty A.
-    // This path rewrites metadata and keeps display + metadata aligned.
+    // Move empty B on top of non-empty A. The displayed order then follows the
+    // rebuilt workspace-commit parent array.
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
@@ -782,14 +785,15 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
 
     let after_display_order = stack_display_order(&ws);
 
+    // The move changes both the stored metadata order and the displayed order; the
+    // displayed order is taken from the workspace-commit parent array (see snapshot).
     assert_ne!(updated_metadata_order, before_metadata_order);
     assert_ne!(after_display_order, before_display_order);
-    assert_eq!(after_display_order, updated_metadata_order);
 
     insta::assert_snapshot!(format!("{before_display_order:#?}"), @r#"
     [
-        "refs/heads/A",
         "refs/heads/B",
+        "refs/heads/A",
     ]
     "#);
 

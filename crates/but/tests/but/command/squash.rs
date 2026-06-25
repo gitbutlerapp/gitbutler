@@ -623,17 +623,18 @@ fn squash_branch_c_in_three_stacks_keeps_content_and_updates_graph() -> anyhow::
 
     let normalized_log = env.git_log().replace("  \n", "\n");
     insta::assert_snapshot!(normalized_log, @r"
-    *-.   205e798 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *-.   f8d2152 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\ \
-    | | * a748762 (B) B: another 10 lines at the bottom
-    | | * 62e05ba B: 10 lines at the bottom
-    | * | add59d2 (A) A: 10 lines on top
-    | |/
-    * | 930563a (C) C: add another 10 lines to new file
-    * | 68a2fc3 C: add 10 lines to new file
-    * | 984fd1c C: new file with 10 lines
+    | | * 8d14df7 (C) C: add another 10 lines to new file
+    | | * dc232b6 C: add 10 lines to new file
+    | | * 34051c8 C: new file with 10 lines
+    | * | d849bb8 (B) B: another 10 lines at the bottom
+    | * | 115df58 B: 10 lines at the bottom
+    * | | 91048fb (A) A: 10 lines on top
+    |/ /
+    * / 227db17 (tag: base, origin/main, origin/HEAD, main) base
     |/
-    * 8f0d338 (tag: base, origin/main, origin/HEAD, main) base
+    * 540d27c lower base
     ");
 
     let working_directory_before = util::working_directory_snapshot(&env)?;

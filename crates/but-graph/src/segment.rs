@@ -325,6 +325,9 @@ pub struct Segment {
     pub commits: Vec<Commit>,
     /// Read-only metadata with additional information, or `None` if nothing was present.
     pub metadata: Option<SegmentMetadata>,
+    /// Outgoing connections to other segments, in first-parent order. The segment *is* the graph:
+    /// these are the edges that used to live in a separate graph container.
+    pub connections: Vec<crate::Connection>,
 }
 
 /// Metadata for segments, which are either dedicated branches or represent workspaces.
@@ -418,6 +421,7 @@ impl std::fmt::Debug for Segment {
                 sibling_segment_id,
                 remote_tracking_branch_segment_id,
                 metadata,
+                connections,
             } = self;
             f.debug_struct("Segment")
                 .field("id", id)
@@ -432,14 +436,14 @@ impl std::fmt::Debug for Segment {
                 )
                 .field(
                     "sibling_segment_id",
-                    &MaybeDebug(&sibling_segment_id.as_ref().map(|id| id.index().to_string())),
+                    &MaybeDebug(&sibling_segment_id.as_ref().map(|id| id.to_string())),
                 )
                 .field(
                     "remote_tracking_branch_segment_id",
                     &MaybeDebug(
                         &remote_tracking_branch_segment_id
                             .as_ref()
-                            .map(|id| id.index().to_string()),
+                            .map(|id| id.to_string()),
                     ),
                 )
                 .field("commits", &commits)
@@ -451,6 +455,7 @@ impl std::fmt::Debug for Segment {
                         Some(SegmentMetadata::Workspace(m)) => m,
                     },
                 )
+                .field("connections", &connections)
                 .finish()
         } else {
             f.debug_struct(

@@ -132,7 +132,7 @@ fn recurse_segment(
     if seen.contains(&sidx) {
         return format!(
             "→:{sidx}:{name}",
-            sidx = sidx.index(),
+            sidx = sidx,
             name = graph[sidx]
                 .ref_info
                 .as_ref()
@@ -145,7 +145,7 @@ fn recurse_segment(
                     maybe_sibling = segment
                         .remote_tracking_branch_segment_id
                         .or(segment.sibling_segment_id)
-                        .map_or_else(String::new, |sid| format!(" →:{}:", sid.index()))
+                        .map_or_else(String::new, |sid| format!(" →:{}:", sid))
                 ))
                 .unwrap_or_default()
         )
@@ -189,7 +189,7 @@ fn recurse_segment(
                 "📙"
             }
         },
-        id = segment.id.index(),
+        id = segment.id,
         generation = segment.generation,
         arrow = if segment.workspace_metadata().is_some() {
             "►►►"

@@ -3,9 +3,9 @@ use std::{
     ops::Range,
 };
 
-use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
+use crate::Direction;
 
-use crate::{CommitFlags, CommitIndex, Edge, SegmentIndex};
+use crate::{CommitFlags, CommitIndex, Connection, SegmentIndex};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Limit {
@@ -336,11 +336,6 @@ pub enum Instruction {
         ///
         /// This limit should never be reached either unless there is a repository with a trunk of 4.3 billion commits.
         at_commit: u32,
-        /// The position of this parent among the source commit's parents (0-based).
-        /// Deliberately not `usize` for the same traversal-queue layout reason as `at_commit`.
-        ///
-        /// This limit would only be reached if there is a merge with 4.3 billion commits.
-        parent_order: u32,
     },
 }
 
@@ -359,11 +354,9 @@ impl Instruction {
             Instruction::ConnectNewSegment {
                 parent_above: _,
                 at_commit,
-                parent_order,
             } => Instruction::ConnectNewSegment {
                 parent_above: sidx,
                 at_commit,
-                parent_order,
             },
         }
     }
@@ -371,21 +364,19 @@ impl Instruction {
 
 pub type QueueItem = (super::walk::TraverseInfo, CommitFlags, Instruction, Limit);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct EdgeOwned {
     pub source: SegmentIndex,
     pub target: SegmentIndex,
-    pub weight: Edge,
-    pub id: petgraph::graph::EdgeIndex,
+    pub weight: Connection,
 }
 
-impl From<EdgeReference<'_, Edge>> for EdgeOwned {
-    fn from(e: EdgeReference<'_, Edge>) -> Self {
+impl From<crate::segment_graph::EdgeRef<'_>> for EdgeOwned {
+    fn from(e: crate::segment_graph::EdgeRef<'_>) -> Self {
         EdgeOwned {
             source: e.source(),
             target: e.target(),
             weight: *e.weight(),
-            id: e.id(),
         }
     }
 }
@@ -398,7 +389,7 @@ impl From<EdgeReference<'_, Edge>> for EdgeOwned {
 ///
 /// ### Note
 ///
-/// In theory, a normal [`petgraph::visit::Topo`] would do here, if we assume that everything works
+/// In theory, a normal `petgraph::visit::Topo` would do here, if we assume that everything works
 /// as it should. So at some point, this code might be removed once it's clear we won't need it anymore.
 /// TODO: one fine day remove this in favor of `petgraph::visit::Topo`.
 pub struct TopoWalk {

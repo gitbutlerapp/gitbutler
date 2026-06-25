@@ -11,18 +11,17 @@ use gix::{
     prelude::{ObjectIdExt, ReferenceExt},
     refs::Category,
 };
-use petgraph::Direction;
 use tracing::instrument;
 
 use crate::{
-    CommitFlags, CommitIndex, Edge, EntryPointCommit, Graph, Segment, SegmentIndex, SegmentMetadata,
+    CommitFlags, CommitIndex, Connection, EntryPointCommit, Graph, SegmentIndex, SegmentMetadata,
 };
 
 mod walk;
 use walk::*;
 
 pub(crate) mod types;
-use types::{EdgeOwned, Goals, Instruction, Limit, Queue};
+use types::{Goals, Instruction, Limit, Queue};
 
 use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 
@@ -434,7 +433,7 @@ pub struct Overlay {
     workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }
 
-pub(super) type PetGraph = petgraph::stable_graph::StableGraph<Segment, Edge>;
+pub(super) type PetGraph = crate::SegmentGraph;
 
 /// Options for use in [`Graph::from_head()`] and [`Graph::from_commit_traversal()`].
 #[derive(Default, Debug, Clone)]
@@ -620,7 +619,7 @@ impl Graph {
     ///     - options contain an [`extra_target_commit_id`](Options::extra_target_commit_id) for an additional target location.
     /// * remote tracking branches are seen in relation to their branches.
     /// * the graph of segments assigns each reachable commit to exactly one segment
-    /// * one can use [`petgraph::algo`] and [`petgraph::visit`]
+    /// * the segments form a small owned graph tailored to this crate, not a third-party library
     ///     - It maintains information about the intended connections, so modifications afterward will show
     ///       in debugging output if edges are now in violation of this constraint.
     ///
@@ -889,7 +888,6 @@ impl Graph {
                             propagated_flags,
                             src_sidx,
                             limit,
-                            0,
                         )?;
                         continue;
                     }
@@ -910,7 +908,6 @@ impl Graph {
                 Instruction::ConnectNewSegment {
                     parent_above,
                     at_commit,
-                    parent_order,
                 } => match seen.entry(id) {
                     Entry::Occupied(_) => {
                         possibly_split_occupied_segment(
@@ -921,7 +918,6 @@ impl Graph {
                             propagated_flags,
                             parent_above,
                             limit,
-                            parent_order,
                         )?;
                         continue;
                     }
@@ -938,7 +934,6 @@ impl Graph {
                             segment_below,
                             0,
                             id,
-                            parent_order,
                         );
                         e.insert(segment_below);
                         segment_below
@@ -2172,10 +2167,9 @@ impl Graph {
         dst: SegmentIndex,
         dst_commit: impl Into<Option<CommitIndex>>,
     ) {
-        self.connect_segments_with_ids(src, src_commit, None, dst, dst_commit, None, 0)
+        self.connect_segments_with_ids(src, src_commit, None, dst, dst_commit, None)
     }
 
-    #[expect(clippy::too_many_arguments)]
     pub(crate) fn connect_segments_with_ids(
         &mut self,
         src: SegmentIndex,
@@ -2184,56 +2178,35 @@ impl Graph {
         dst: SegmentIndex,
         dst_commit: impl Into<Option<CommitIndex>>,
         dst_id: Option<gix::ObjectId>,
-        parent_order: u32,
     ) {
         let src_commit = src_commit.into();
         let dst_commit = dst_commit.into();
-        let new_edge_id = self.inner.add_edge(
-            src,
+        let connection = Connection::new(
             dst,
-            Edge {
-                src: src_commit,
-                src_id: src_id.or_else(|| self[src].commit_id_by_index(src_commit)),
-                dst: dst_commit,
-                dst_id: dst_id.or_else(|| self[dst].commit_id_by_index(dst_commit)),
-                parent_order,
-            },
+            src_commit,
+            src_id.or_else(|| self[src].commit_id_by_index(src_commit)),
+            dst_commit,
+            dst_id.or_else(|| self[dst].commit_id_by_index(dst_commit)),
         );
-        self.rebuild_outgoing_edges_for_traversal_order(src, new_edge_id);
+        self.inner.add_edge(src, connection);
+        self.order_outgoing_connections_by_first_parent(src);
     }
 
-    fn rebuild_outgoing_edges_for_traversal_order(
-        &mut self,
-        src: SegmentIndex,
-        new_edge_id: petgraph::stable_graph::EdgeIndex,
-    ) {
-        let mut new_edge = None;
-        let mut outgoing_edges = Vec::new();
-        for edge in self.inner.edges_directed(src, Direction::Outgoing) {
-            let edge = EdgeOwned::from(edge);
-            if edge.id == new_edge_id {
-                new_edge = Some(edge);
-            } else {
-                outgoing_edges.push(edge);
-            }
-        }
-
-        let Some(new_edge) = new_edge else {
-            return;
-        };
-        if outgoing_edges.is_empty() {
-            return;
-        }
-
-        let insert_at = outgoing_edges
-            .partition_point(|edge| edge.weight.parent_order <= new_edge.weight.parent_order);
-        outgoing_edges.insert(insert_at, new_edge);
-
-        for edge in &outgoing_edges {
-            self.inner.remove_edge(edge.id);
-        }
-        for edge in outgoing_edges.into_iter().rev() {
-            self.inner.add_edge(edge.source, edge.target, edge.weight);
-        }
+    /// Keep `src`'s outgoing connections in first-parent order — each target's position among the
+    /// source commit's parents. Commit-less connections (empty branches) carry no destination id and
+    /// sort last. The sort is *stable*, so the pre-existing relative order is the tie-break that
+    /// downstream stable sorts inherit (the connections are kept ordered after every insertion, so
+    /// this only ever moves the just-added one into its slot).
+    fn order_outgoing_connections_by_first_parent(&mut self, src: SegmentIndex) {
+        let src_parents: Vec<gix::ObjectId> = self[src]
+            .commits
+            .last()
+            .map(|c| c.parent_ids.clone())
+            .unwrap_or_default();
+        self.inner[src].connections.sort_by_key(|c| {
+            c.dst_id()
+                .and_then(|dst| src_parents.iter().position(|p| *p == dst))
+                .unwrap_or(usize::MAX)
+        });
     }
 }

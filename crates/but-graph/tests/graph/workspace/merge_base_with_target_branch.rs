@@ -53,14 +53,13 @@ fn with_target_ref() -> anyhow::Result<()> {
 fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   e82dfab (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   74835cf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 6fdab32 (A) A1
-    * | 78b1b59 (B) B1
+    | * 78b1b59 (B) B1
+    * | 6fdab32 (A) A1
     | | * 938e6f2 (origin/main, main) M4
     | |/  
-    |/|   
-    * | f52fcec M3
+    | * f52fcec M3
     |/  
     * bce0c5e M2
     * 3183e43 M1

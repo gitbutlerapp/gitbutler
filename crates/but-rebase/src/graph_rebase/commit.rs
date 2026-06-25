@@ -9,7 +9,7 @@ use crate::{
     commit::{DateMode, create},
     graph_rebase::{
         Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector,
-        util::collect_ordered_parents,
+        util::first_ordered_parent,
     },
 };
 
@@ -65,16 +65,14 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             .history
             .normalize_selector(selector.to_reference_selector(self)?)?;
 
-        let parents = collect_ordered_parents(&self.graph, selector.id);
-        let first_parent = parents
-            .first()
+        let first_parent = first_ordered_parent(&self.graph, selector.id)
             .context("Failed to find a parent for selected reference in the step graph.")?;
 
-        let Step::Pick(pick) = &self.graph[*first_parent] else {
-            bail!("BUG: collect_ordered_parents provided a non-pick return value");
+        let Step::Pick(pick) = &self.graph[first_parent] else {
+            bail!("BUG: first_ordered_parent provided a non-pick return value");
         };
 
-        Ok((self.new_selector(*first_parent), self.find_commit(pick.id)?))
+        Ok((self.new_selector(first_parent), self.find_commit(pick.id)?))
     }
 
     /// Writes a commit with correct signing to the in memory repository,

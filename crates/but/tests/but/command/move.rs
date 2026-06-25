@@ -265,21 +265,22 @@ fn move_multiple_commits_from_different_branches() -> anyhow::Result<()> {
 ╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
-┊●   add59d2 A: 10 lines on top
+┊●   91048fb A: 10 lines on top
 ├╯
 ┊
 ┊╭┄h0 [B]
-┊●   a748762 B: another 10 lines at the bottom
-┊●   62e05ba B: 10 lines at the bottom
+┊●   d849bb8 B: another 10 lines at the bottom
+┊●   115df58 B: 10 lines at the bottom
 ├╯
 ┊
 ┊╭┄i0 [C]
-┊●   930563a C: add another 10 lines to new file
-┊●   68a2fc3 C: add 10 lines to new file
-┊●   984fd1c C: new file with 10 lines
+┊●   8d14df7 C: add another 10 lines to new file
+┊●   dc232b6 C: add 10 lines to new file
+┊●   34051c8 C: new file with 10 lines
 ├╯
 ┊
-┴ 8f0d338 (common base) 2000-01-02 base
+┊● 227db17 (upstream) ⏫ 1 commit
+├╯ 227db17 (common base) 2000-01-02 base
 
 Hint: run `but help` for all commands
 
@@ -356,10 +357,10 @@ Moved 4 commits → before [..]
         b_messages_after,
         vec![
             "B: another 10 lines at the bottom",
+            "A: 10 lines on top",
             "C: add another 10 lines to new file",
             "C: add 10 lines to new file",
             "C: new file with 10 lines",
-            "A: 10 lines on top",
             "B: 10 lines at the bottom"
         ]
     );
@@ -375,18 +376,18 @@ Moved 4 commits → before [..]
 ├╯
 ┊
 ┊╭┄h0 [B]
-┊●   [..] B: another 10 lines at the bottom
-┊●   c4ee0c5 C: add another 10 lines to new file
-┊●   4b3d452 C: add 10 lines to new file
-┊●   90250eb C: new file with 10 lines
-┊●   29bc6a0 A: 10 lines on top
-┊●   62e05ba B: 10 lines at the bottom
+┊●   367af83 B: another 10 lines at the bottom
+┊●   b945cdf A: 10 lines on top
+┊●   f70b01c C: add another 10 lines to new file
+┊●   7e19d06 C: add 10 lines to new file
+┊●   263e368 C: new file with 10 lines
+┊●   115df58 B: 10 lines at the bottom
 ├╯
 ┊
 ┊╭┄i0 [C] (no commits)
 ├╯
 ┊
-┴ 8f0d338 (common base) 2000-01-02 base
+┴ 227db17 (common base) 2000-01-02 base
 
 Hint: run `but help` for all commands
 
@@ -409,21 +410,22 @@ fn move_multiple_commits_from_different_branches_after() -> anyhow::Result<()> {
 ╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
-┊●   add59d2 A: 10 lines on top
+┊●   91048fb A: 10 lines on top
 ├╯
 ┊
 ┊╭┄h0 [B]
-┊●   a748762 B: another 10 lines at the bottom
-┊●   62e05ba B: 10 lines at the bottom
+┊●   d849bb8 B: another 10 lines at the bottom
+┊●   115df58 B: 10 lines at the bottom
 ├╯
 ┊
 ┊╭┄i0 [C]
-┊●   930563a C: add another 10 lines to new file
-┊●   68a2fc3 C: add 10 lines to new file
-┊●   984fd1c C: new file with 10 lines
+┊●   8d14df7 C: add another 10 lines to new file
+┊●   dc232b6 C: add 10 lines to new file
+┊●   34051c8 C: new file with 10 lines
 ├╯
 ┊
-┴ 8f0d338 (common base) 2000-01-02 base
+┊● 227db17 (upstream) ⏫ 1 commit
+├╯ 227db17 (common base) 2000-01-02 base
 
 Hint: run `but help` for all commands
 
@@ -470,7 +472,7 @@ Hint: run `but help` for all commands
     .assert()
     .success()
     .stdout_eq(str![[r#"
-Moved 4 commits → after a748762
+Moved 4 commits → after d849bb8
 
 "#]]);
 
@@ -499,10 +501,10 @@ Moved 4 commits → after a748762
     assert_eq!(
         b_messages_after,
         vec![
+            "A: 10 lines on top",
             "C: add another 10 lines to new file",
             "C: add 10 lines to new file",
             "C: new file with 10 lines",
-            "A: 10 lines on top",
             "B: another 10 lines at the bottom",
             "B: 10 lines at the bottom"
         ]
@@ -519,18 +521,18 @@ Moved 4 commits → after a748762
 ├╯
 ┊
 ┊╭┄h0 [B]
-┊●   79860aa C: add another 10 lines to new file
-┊●   cb938a1 C: add 10 lines to new file
-┊●   87f25cc C: new file with 10 lines
-┊●   d2689e7 A: 10 lines on top
-┊●   a748762 B: another 10 lines at the bottom
-┊●   62e05ba B: 10 lines at the bottom
+┊●   5208b29 A: 10 lines on top
+┊●   801cc82 C: add another 10 lines to new file
+┊●   8539b48 C: add 10 lines to new file
+┊●   802ea91 C: new file with 10 lines
+┊●   d849bb8 B: another 10 lines at the bottom
+┊●   115df58 B: 10 lines at the bottom
 ├╯
 ┊
 ┊╭┄i0 [C] (no commits)
 ├╯
 ┊
-┴ 8f0d338 (common base) 2000-01-02 base
+┴ 227db17 (common base) 2000-01-02 base
 
 Hint: run `but help` for all commands
 

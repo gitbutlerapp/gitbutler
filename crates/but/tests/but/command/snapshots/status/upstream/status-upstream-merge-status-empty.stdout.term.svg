@@ -25,15 +25,15 @@
 </tspan>
     <tspan x="10px" y="46px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="64px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green">A</tspan><tspan>]</tspan>
+    <tspan x="10px" y="64px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green">B</tspan><tspan>] </tspan><tspan class="dimmed">(no commits)</tspan>
 </tspan>
-    <tspan x="10px" y="82px"><tspan>┊●   </tspan><tspan class="fg-blue bold">94</tspan><tspan class="dimmed">77ae7</tspan><tspan> add A</tspan>
+    <tspan x="10px" y="82px"><tspan>├╯</tspan>
 </tspan>
-    <tspan x="10px" y="100px"><tspan>├╯</tspan>
+    <tspan x="10px" y="100px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="118px"><tspan>┊</tspan>
+    <tspan x="10px" y="118px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">h0</tspan><tspan> [</tspan><tspan class="fg-green">A</tspan><tspan>]</tspan>
 </tspan>
-    <tspan x="10px" y="136px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">h0</tspan><tspan> [</tspan><tspan class="fg-green">B</tspan><tspan>] </tspan><tspan class="dimmed">(no commits)</tspan>
+    <tspan x="10px" y="136px"><tspan>┊●   </tspan><tspan class="fg-blue bold">94</tspan><tspan class="dimmed">77ae7</tspan><tspan> add A</tspan>
 </tspan>
     <tspan x="10px" y="154px"><tspan>├╯</tspan>
 </tspan>
