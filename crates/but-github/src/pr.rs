@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result};
 
-use crate::client::GitHubClient;
+use crate::client::{GitHubClient, HttpStatusError};
 
 pub async fn list(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
@@ -11,6 +11,7 @@ pub async fn list(
     if let Ok(gh) = GitHubClient::from_storage(storage, preferred_account) {
         gh.list_open_pulls(owner, repo)
             .await
+            .map_err(classify_forge_error)
             .context("Failed to list open pull requests")
     } else {
         Ok(vec![])
@@ -26,6 +27,7 @@ pub async fn list_all_for_branch(
     if let Ok(gh) = GitHubClient::from_storage(storage, preferred_account) {
         gh.list_pulls_for_base(owner, repo, branch)
             .await
+            .map_err(classify_forge_error)
             .context("Failed to list pull requests for branch")
     } else {
         Ok(vec![])
@@ -42,10 +44,34 @@ pub async fn list_for_commit(
     if let Ok(gh) = GitHubClient::from_storage(storage, preferred_account) {
         gh.list_pulls_for_commit(owner, repo, commit_sha)
             .await
+            .map_err(classify_forge_error)
             .context("Failed to list pull requests for commit")
     } else {
         Ok(vec![])
     }
+}
+
+/// Tag transport / auth failures with a `but_error::Code` so the desktop
+/// can present them appropriately (silent for offline, re-auth hint for 401).
+/// Only applied to read paths — mutations should still surface failures.
+fn classify_forge_error(err: anyhow::Error) -> anyhow::Error {
+    if let Some(reqwest_err) = err.downcast_ref::<reqwest::Error>()
+        && crate::is_network_error(reqwest_err)
+    {
+        return err.context(but_error::Context::new_static(
+            but_error::Code::NetworkError,
+            "Unable to connect to GitHub.",
+        ));
+    }
+    if let Some(http_err) = err.downcast_ref::<HttpStatusError>()
+        && http_err.status == reqwest::StatusCode::UNAUTHORIZED
+    {
+        return err.context(but_error::Context::new_static(
+            but_error::Code::GitHubTokenExpired,
+            "GitHub authentication failed.",
+        ));
+    }
+    err
 }
 
 pub async fn create(
@@ -71,6 +97,7 @@ pub async fn get(
     let pr = GitHubClient::from_storage(storage, preferred_account)?
         .get_pull_request(owner, repo, pr_number)
         .await
+        .map_err(classify_forge_error)
         .context("Failed to get pull request")?;
     Ok(pr)
 }
