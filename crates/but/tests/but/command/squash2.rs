@@ -998,16 +998,16 @@ fn amend_uncommitted_hunks_into_commits() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────╮
-h0 file│
-───────╯
+─────────╮
+qs:9 file│
+─────────╯
      1│+topline
    1 2│ line
    2 3│ line
    3 4│ line
-───────╮
-i0 file│
-───────╯
+─────────╮
+qs:d file│
+─────────╯
     7  8│ line
     8  9│ line
     9 10│ line
@@ -1016,7 +1016,7 @@ i0 file│
 
 "#]]);
 
-    env.but("_squash2 h0 -t bcf07e2 -u")
+    env.but("_squash2 qs:9 -t bcf07e2 -u")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -1028,9 +1028,9 @@ Amended bcf07e2 to create cb08f3a
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────╮
-h0 file│
-───────╯
+─────────╮
+qs:d file│
+─────────╯
     8  8│ line
     9  9│ line
    10 10│ line
@@ -1309,7 +1309,7 @@ Hint: --target must be an applied commit, branch, or zz. Run `but status` for ap
 fn squash_into_zz_to_uncommit_commit() {
     let env = one_branch_three_commits();
 
-    env.but("_squash2 f55169f -t zz -u")
+    env.but("_squash2 f55169f -t zz")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -1339,7 +1339,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
 
     env.but("undo").assert().success();
 
-    env.but("_squash2 f55169f -t zz -u --format json")
+    env.but("_squash2 f55169f -t zz --format json")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#""#]]);
@@ -1370,7 +1370,7 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("_squash2 f5:or -t zz -u")
+    env.but("_squash2 f5:or -t zz")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -1435,7 +1435,7 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("_squash2 5c348d7 -t zz -u")
+    env.but("_squash2 5c348d7 -t zz")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
@@ -1443,11 +1443,47 @@ Error: Cannot uncommit commits that would result in merge conflicts
 
 "#]]);
 
-    env.but("_squash2 5c:qs -t zz -u")
+    env.but("_squash2 5c:qs -t zz")
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot uncommit hunks that would result in merge conflicts
+
+"#]]);
+}
+
+#[test]
+fn cannot_use_source_message_with_uncommitted_changes() {
+    let env = one_branch_three_commits();
+
+    env.file("file", "file content");
+
+    env.but("_squash2 file -t a-branch-1 --use-source-message")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: --use-source-message cannot be used when squashing uncommitted changes
+
+"#]]);
+
+    env.but("_squash2 zz -t a-branch-1 --use-source-message")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: --use-source-message cannot be used when squashing uncommitted changes
+
+"#]]);
+}
+
+#[test]
+fn cannot_use_source_message_when_moving_committed_files() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 f5:or -t f63361f --use-source-message")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: --use-source-message cannot be used when moving committed changes
 
 "#]]);
 }

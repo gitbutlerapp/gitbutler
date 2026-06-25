@@ -148,14 +148,8 @@ pub fn squash(
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
-    let (squash_op, reword_op) = resolve(ctx, guard.write_permission(), args, &id_map)?;
-    let outcome = run(
-        ctx,
-        &mut meta,
-        guard.write_permission(),
-        squash_op,
-        reword_op,
-    )?;
+    let squash_op = resolve(ctx, guard.write_permission(), args, &id_map)?;
+    let outcome = run(ctx, &mut meta, guard.write_permission(), squash_op)?;
 
     Ok(outcome)
 }
@@ -165,7 +159,7 @@ fn resolve(
     perm: &mut RepoExclusive,
     args: Platform,
     id_map: &IdMap,
-) -> CliResult<(SquashOperation, Option<RewordCommitOperation>)> {
+) -> CliResult<SquashOperation> {
     let Platform {
         target,
         sources,
@@ -178,7 +172,15 @@ fn resolve(
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
 
     let resolved_squash = if let Some(target) = target {
-        let target = resolve_target(target, &repo, id_map)?;
+        let target = resolve_target(
+            target,
+            message,
+            no_message,
+            use_target_message,
+            use_source_message,
+            &repo,
+            id_map,
+        )?;
         let sources = sources
             .into_iter()
             .map(|source| {
@@ -216,8 +218,10 @@ fn resolve(
                 resolve_squash_branch(target, branch_sources, &ws)?
             }
             ClassifiedSquashables::UncommittedHunks(source_hunks) => {
-                let target = match target {
-                    SquashTarget::Commit(object_id) => object_id,
+                let (target, reword) = match target {
+                    SquashTarget::Commit { commit, reword } => {
+                        (commit, reword.try_into_no_source()?)
+                    }
                     SquashTarget::Uncommitted => {
                         return Err(cannot_uncommit_uncommitted_changes_error());
                     }
@@ -225,16 +229,19 @@ fn resolve(
                 ResolvedSquash::UncommittedHunk(AmendUncommittedHunks {
                     target,
                     source_hunks,
+                    reword,
                 })
             }
             ClassifiedSquashables::Uncommitted => {
-                let target = match target {
-                    SquashTarget::Commit(object_id) => object_id,
+                let (target, reword) = match target {
+                    SquashTarget::Commit { commit, reword } => {
+                        (commit, reword.try_into_no_source()?)
+                    }
                     SquashTarget::Uncommitted => {
                         return Err(cannot_uncommit_uncommitted_changes_error());
                     }
                 };
-                ResolvedSquash::Uncommitted { target }
+                ResolvedSquash::Uncommitted { target, reword }
             }
             ClassifiedSquashables::CommittedFiles(committed_files) => {
                 let first = committed_files.first();
@@ -257,7 +264,7 @@ fn resolve(
                 }
 
                 ResolvedSquash::CommittedFiles {
-                    target,
+                    target: MoveCommittedChangesTarget::from_squash_target(target)?,
                     source,
                     source_paths,
                 }
@@ -272,8 +279,12 @@ fn resolve(
                     return Err(bad_input("Cannot squash empty branch into itself").into());
                 };
 
+                let reword =
+                    resolve_reword(message, no_message, use_target_message, use_source_message);
+
                 ResolvedSquash::Branches {
                     target,
+                    reword,
                     source_commits: sources,
                     source_branches: NonEmpty::new(source_branch_name),
                     branches_to_remove: Vec::new(),
@@ -288,53 +299,52 @@ fn resolve(
         }
     };
 
-    let (how_to_combine_messages, reword_op) = if use_target_message {
-        (Some(MessageCombinationStrategy::KeepTarget), None)
-    } else if use_source_message {
-        (Some(MessageCombinationStrategy::KeepSubject), None)
-    } else {
-        (
-            None,
-            Some(RewordCommitOperation::resolve(no_message, message)),
-        )
-    };
-
     let squash_op = match resolved_squash {
         ResolvedSquash::Commits { target, sources } => match target {
-            SquashTarget::Commit(target) => SquashOperation::Commits(SquashCommitsOperation {
+            SquashTarget::Commit {
+                commit: target,
+                reword,
+            } => SquashOperation::Commits(SquashCommitsOperation {
                 sources,
                 target,
-                how_to_combine_messages,
+                reword,
             }),
             SquashTarget::Uncommitted => SquashOperation::Uncommit(UncommitOperation { sources }),
         },
         ResolvedSquash::Branches {
             target,
+            reword,
             source_commits,
             source_branches,
             branches_to_remove,
         } => SquashOperation::Branch(SquashBranchOperation {
             sources: source_commits,
             target,
-            how_to_combine_messages,
+            reword,
             source_branches,
             branches_to_remove,
         }),
         ResolvedSquash::UncommittedHunk(amend_hunks) => {
             SquashOperation::UncommittedHunks(amend_hunks)
         }
-        ResolvedSquash::Uncommitted { target } => SquashOperation::Uncommitted { target },
+        ResolvedSquash::Uncommitted { target, reword } => {
+            SquashOperation::Uncommitted { target, reword }
+        }
         ResolvedSquash::CommittedFiles {
             target,
             source,
             source_paths,
         } => match target {
-            SquashTarget::Commit(target) => SquashOperation::MoveCommittedFiles {
+            MoveCommittedChangesTarget::Commit {
+                commit: target,
+                reword,
+            } => SquashOperation::MoveCommittedFiles {
                 target,
                 source,
                 source_paths,
+                reword,
             },
-            SquashTarget::Uncommitted => {
+            MoveCommittedChangesTarget::Uncommitted => {
                 SquashOperation::UncommitCommittedFiles(UncommitCommittedFilesOperation {
                     source,
                     source_paths,
@@ -343,7 +353,7 @@ fn resolve(
         },
     };
 
-    Ok((squash_op, reword_op))
+    Ok(squash_op)
 }
 
 fn cannot_uncommit_uncommitted_changes_error() -> CliError {
@@ -362,6 +372,7 @@ enum ResolvedSquash {
         // currently have a transaction based API to uncommit. We need this because we also need to
         // remove the reference which should happen in a transaction.
         target: ObjectId,
+        reword: HowToRewordTarget,
         source_commits: Vec<ObjectId>,
         /// The branches that we're squashing.
         ///
@@ -373,9 +384,10 @@ enum ResolvedSquash {
     UncommittedHunk(AmendUncommittedHunks),
     Uncommitted {
         target: ObjectId,
+        reword: HowToRewordTargetNoSource,
     },
     CommittedFiles {
-        target: SquashTarget,
+        target: MoveCommittedChangesTarget,
         source: ObjectId,
         source_paths: Vec<BString>,
     },
@@ -385,15 +397,48 @@ enum ResolvedSquash {
 struct AmendUncommittedHunks {
     target: ObjectId,
     source_hunks: NonEmpty<UncommittedHunkOrFile>,
+    reword: HowToRewordTargetNoSource,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 enum SquashTarget {
-    Commit(ObjectId),
+    Commit {
+        commit: ObjectId,
+        reword: HowToRewordTarget,
+    },
     Uncommitted,
 }
 
-fn resolve_target(id: CliIdArg, repo: &gix::Repository, id_map: &IdMap) -> CliResult<SquashTarget> {
+#[derive(Debug, Clone)]
+enum MoveCommittedChangesTarget {
+    Commit {
+        commit: ObjectId,
+        reword: HowToRewordMovedChanges,
+    },
+    Uncommitted,
+}
+
+impl MoveCommittedChangesTarget {
+    fn from_squash_target(target: SquashTarget) -> CliResult<Self> {
+        match target {
+            SquashTarget::Commit { commit, reword } => Ok(Self::Commit {
+                commit,
+                reword: HowToRewordMovedChanges::from_target_reword(reword)?,
+            }),
+            SquashTarget::Uncommitted => Ok(Self::Uncommitted),
+        }
+    }
+}
+
+fn resolve_target(
+    id: CliIdArg,
+    message: Option<Vec<String>>,
+    no_message: bool,
+    use_target_message: bool,
+    use_source_message: bool,
+    repo: &gix::Repository,
+    id_map: &IdMap,
+) -> CliResult<SquashTarget> {
     let target_kind_hint = "--target must be an applied commit, branch, or zz";
     let hint = format!("{}. {}", target_kind_hint, CliIdArg::TARGET_MISSING_HINT);
     match id
@@ -405,7 +450,14 @@ fn resolve_target(id: CliIdArg, repo: &gix::Repository, id_map: &IdMap) -> CliRe
         )
         .with_hint(|| hint.clone())?
     {
-        ResolvedCliIdArg::Commit(object_id) => Ok(SquashTarget::Commit(object_id)),
+        ResolvedCliIdArg::Commit(object_id) => {
+            let reword =
+                resolve_reword(message, no_message, use_target_message, use_source_message);
+            Ok(SquashTarget::Commit {
+                commit: object_id,
+                reword,
+            })
+        }
         ResolvedCliIdArg::Branch(branch_arg) => {
             let branch_name = branch_arg.resolve_local_branch_name()?;
 
@@ -417,7 +469,13 @@ fn resolve_target(id: CliIdArg, repo: &gix::Repository, id_map: &IdMap) -> CliRe
 
                     if ref_info.ref_name == branch_name {
                         return if let Some(commit) = ref_info.commit_id {
-                            Ok(SquashTarget::Commit(commit))
+                            let reword = resolve_reword(
+                                message,
+                                no_message,
+                                use_target_message,
+                                use_source_message,
+                            );
+                            Ok(SquashTarget::Commit { commit, reword })
                         } else {
                             Err(bad_input("--target cannot be an empty branch").into())
                         };
@@ -427,7 +485,26 @@ fn resolve_target(id: CliIdArg, repo: &gix::Repository, id_map: &IdMap) -> CliRe
 
             Err(bad_input("target not found").hint(hint).into())
         }
-        ResolvedCliIdArg::Uncommitted => Ok(SquashTarget::Uncommitted),
+        ResolvedCliIdArg::Uncommitted => {
+            if message.is_some() {
+                return Err(bad_input("--message cannot be used when uncommitting").into());
+            }
+            if no_message {
+                return Err(bad_input("--no-message cannot be used when uncommitting").into());
+            }
+            if use_target_message {
+                return Err(
+                    bad_input("--use-target-message cannot be used when uncommitting").into(),
+                );
+            }
+            if use_source_message {
+                return Err(
+                    bad_input("--use-source-message cannot be used when uncommitting").into(),
+                );
+            }
+
+            Ok(SquashTarget::Uncommitted)
+        }
         ResolvedCliIdArg::UncommittedHunkOrFile(..)
         | ResolvedCliIdArg::CommittedFile { .. }
         | ResolvedCliIdArg::PathPrefix
@@ -442,8 +519,8 @@ fn resolve_squash_branch(
     branch_sources: NonEmpty<BranchArg>,
     ws: &Workspace,
 ) -> CliResult<ResolvedSquash> {
-    let target = match target {
-        SquashTarget::Commit(object_id) => object_id,
+    let (target, reword) = match target {
+        SquashTarget::Commit { commit, reword } => (commit, reword),
         SquashTarget::Uncommitted => {
             let err = bad_input("Cannot uncommit branches")
                 .hint("When squashing a branch --target must be a commit or a branch")
@@ -484,7 +561,118 @@ fn resolve_squash_branch(
         source_commits: commits_on_branch_sources,
         source_branches,
         branches_to_remove,
+        reword,
     })
+}
+
+fn resolve_reword(
+    message: Option<Vec<String>>,
+    no_message: bool,
+    use_target_message: bool,
+    use_source_message: bool,
+) -> HowToRewordTarget {
+    if use_target_message {
+        HowToRewordTarget::UseTargetMessage
+    } else if use_source_message {
+        HowToRewordTarget::UseSourceMessage
+    } else {
+        HowToRewordTarget::Reword(RewordCommitOperation::resolve(no_message, message))
+    }
+}
+
+#[derive(Debug, Clone)]
+enum HowToRewordTarget {
+    UseTargetMessage,
+    UseSourceMessage,
+    Reword(RewordCommitOperation),
+}
+
+impl HowToRewordTarget {
+    fn how_to_combine_messages(&self) -> MessageCombinationStrategy {
+        match self {
+            Self::UseTargetMessage => MessageCombinationStrategy::KeepTarget,
+            Self::UseSourceMessage => MessageCombinationStrategy::KeepSubject,
+            Self::Reword(..) => MessageCombinationStrategy::KeepBoth,
+        }
+    }
+
+    fn execute(
+        self,
+        commit: ObjectId,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+    ) -> anyhow::Result<gix::ObjectId> {
+        match self {
+            Self::UseTargetMessage | Self::UseSourceMessage => Ok(commit),
+            Self::Reword(reword_commit_operation) => reword_commit_operation.execute(commit, tx),
+        }
+    }
+
+    fn try_into_no_source(self) -> CliResult<HowToRewordTargetNoSource> {
+        match self {
+            HowToRewordTarget::UseSourceMessage => Err(bad_input(
+                "--use-source-message cannot be used when squashing uncommitted changes",
+            )
+            .into()),
+            HowToRewordTarget::UseTargetMessage => Ok(HowToRewordTargetNoSource::UseTargetMessage),
+            HowToRewordTarget::Reword(op) => Ok(HowToRewordTargetNoSource::Reword(op)),
+        }
+    }
+}
+
+/// Like [`HowToRewordTarget`] except it doesn't allow picking the source message.
+///
+/// Used when the source is uncommitted, which doesn't have messages.
+#[derive(Debug, Clone)]
+enum HowToRewordTargetNoSource {
+    UseTargetMessage,
+    Reword(RewordCommitOperation),
+}
+
+impl HowToRewordTargetNoSource {
+    fn execute(
+        self,
+        commit: ObjectId,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+    ) -> anyhow::Result<gix::ObjectId> {
+        match self {
+            Self::UseTargetMessage => Ok(commit),
+            Self::Reword(reword_commit_operation) => reword_commit_operation.execute(commit, tx),
+        }
+    }
+}
+
+/// How to reword a commit after moving a subset of changes from another commit.
+///
+/// `--use-source-message` is intentionally not representable here because the
+/// source is a set of committed changes, not a whole commit being squashed.
+#[derive(Debug, Clone)]
+enum HowToRewordMovedChanges {
+    UseTargetMessage,
+    Reword(RewordCommitOperation),
+}
+
+impl HowToRewordMovedChanges {
+    fn from_target_reword(reword: HowToRewordTarget) -> CliResult<Self> {
+        match reword {
+            HowToRewordTarget::UseSourceMessage => Err(bad_input(
+                "--use-source-message cannot be used when moving committed changes",
+            )
+            .into()),
+            HowToRewordTarget::UseTargetMessage => Ok(Self::UseTargetMessage),
+            HowToRewordTarget::Reword(op) => Ok(Self::Reword(op)),
+        }
+    }
+
+    fn execute(
+        self,
+        commit: ObjectId,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+    ) -> anyhow::Result<gix::ObjectId> {
+        match self {
+            Self::UseTargetMessage => Ok(commit),
+            Self::Reword(reword_commit_operation) => reword_commit_operation.execute(commit, tx),
+        }
+    }
 }
 
 enum Squashable {
@@ -586,13 +774,12 @@ fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     squash_op: SquashOperation,
-    reword_op: Option<RewordCommitOperation>,
 ) -> CliResult<SquashOutcome> {
     let executable_op = match squash_op {
         SquashOperation::Commits(SquashCommitsOperation {
             mut sources,
             target,
-            how_to_combine_messages,
+            reword,
         }) => {
             sources = non_empty_dedup_maintain_sort(sources);
 
@@ -600,7 +787,7 @@ fn run(
                 TransactionCompatibleOperation::Commits(SquashCommitsOperation {
                     sources,
                     target,
-                    how_to_combine_messages,
+                    reword,
                 }),
             )
         }
@@ -609,7 +796,7 @@ fn run(
             mut source_branches,
             mut branches_to_remove,
             target,
-            how_to_combine_messages,
+            reword,
         }) => {
             sources.sort();
             sources.dedup();
@@ -625,13 +812,14 @@ fn run(
                     source_branches,
                     branches_to_remove,
                     target,
-                    how_to_combine_messages,
+                    reword,
                 }),
             )
         }
         SquashOperation::UncommittedHunks(AmendUncommittedHunks {
             target,
             source_hunks,
+            reword,
         }) => {
             let context_lines = ctx.settings.context_lines;
             let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
@@ -644,11 +832,15 @@ fn run(
 
             ExecutableSquashOperation::TransactionCompatible(
                 TransactionCompatibleOperation::UncommittedHunks(
-                    AmendUncommittedDiffSpecsOperation { target, changes },
+                    AmendUncommittedDiffSpecsOperation {
+                        target,
+                        changes,
+                        reword,
+                    },
                 ),
             )
         }
-        SquashOperation::Uncommitted { target } => {
+        SquashOperation::Uncommitted { target, reword } => {
             let context_lines = ctx.settings.context_lines;
             let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
             let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
@@ -657,7 +849,11 @@ fn run(
 
             ExecutableSquashOperation::TransactionCompatible(
                 TransactionCompatibleOperation::UncommittedHunks(
-                    AmendUncommittedDiffSpecsOperation { target, changes },
+                    AmendUncommittedDiffSpecsOperation {
+                        target,
+                        changes,
+                        reword,
+                    },
                 ),
             )
         }
@@ -665,6 +861,7 @@ fn run(
             target,
             source,
             source_paths,
+            reword,
         } => {
             let context_lines = ctx.settings.context_lines;
             let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
@@ -678,6 +875,7 @@ fn run(
                     target,
                     source,
                     changes,
+                    reword,
                 }),
             )
         }
@@ -720,12 +918,6 @@ fn run(
                         TransactionCompatibleOperation::MoveCommittedFiles(op) => {
                             op.execute(&mut tx)?
                         }
-                    };
-
-                    let new_commit = if let Some(reword_op) = reword_op {
-                        reword_op.execute(new_commit, &mut tx)?
-                    } else {
-                        new_commit
                     };
 
                     Ok(DynamicOutcome::<_, std::convert::Infallible>::Commit(
@@ -841,11 +1033,13 @@ enum SquashOperation {
     UncommittedHunks(AmendUncommittedHunks),
     Uncommitted {
         target: ObjectId,
+        reword: HowToRewordTargetNoSource,
     },
     MoveCommittedFiles {
         target: ObjectId,
         source: ObjectId,
         source_paths: Vec<BString>,
+        reword: HowToRewordMovedChanges,
     },
     Uncommit(UncommitOperation),
     UncommitCommittedFiles(UncommitCommittedFilesOperation),
@@ -875,7 +1069,7 @@ enum TransactionCompatibleOperation {
 struct SquashCommitsOperation {
     sources: NonEmpty<gix::ObjectId>,
     target: gix::ObjectId,
-    how_to_combine_messages: Option<MessageCombinationStrategy>,
+    reword: HowToRewordTarget,
 }
 
 impl SquashCommitsOperation {
@@ -886,13 +1080,10 @@ impl SquashCommitsOperation {
         let Self {
             sources,
             target,
-            how_to_combine_messages,
+            reword,
         } = self;
-        tx.squash_commits(
-            sources,
-            target,
-            how_to_combine_messages.unwrap_or(MessageCombinationStrategy::KeepBoth),
-        )
+        let new_commit = tx.squash_commits(sources, target, reword.how_to_combine_messages())?;
+        reword.execute(new_commit, tx)
     }
 }
 
@@ -900,7 +1091,7 @@ impl SquashCommitsOperation {
 struct SquashBranchOperation {
     sources: Vec<gix::ObjectId>,
     target: gix::ObjectId,
-    how_to_combine_messages: Option<MessageCombinationStrategy>,
+    reword: HowToRewordTarget,
     source_branches: NonEmpty<FullName>,
     branches_to_remove: Vec<FullName>,
 }
@@ -913,7 +1104,7 @@ impl SquashBranchOperation {
         let Self {
             sources,
             target,
-            how_to_combine_messages,
+            reword,
             source_branches: _,
             branches_to_remove,
         } = self;
@@ -922,11 +1113,8 @@ impl SquashBranchOperation {
             tx.remove_reference(branch_name.as_ref())?;
         }
 
-        tx.squash_commits(
-            sources,
-            target,
-            how_to_combine_messages.unwrap_or(MessageCombinationStrategy::KeepBoth),
-        )
+        let new_commit = tx.squash_commits(sources, target, reword.how_to_combine_messages())?;
+        reword.execute(new_commit, tx)
     }
 }
 
@@ -934,6 +1122,7 @@ impl SquashBranchOperation {
 struct AmendUncommittedDiffSpecsOperation {
     target: ObjectId,
     changes: Vec<DiffSpec>,
+    reword: HowToRewordTargetNoSource,
 }
 
 impl AmendUncommittedDiffSpecsOperation {
@@ -941,7 +1130,11 @@ impl AmendUncommittedDiffSpecsOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
     ) -> anyhow::Result<gix::ObjectId> {
-        let Self { target, changes } = self;
+        let Self {
+            target,
+            changes,
+            reword,
+        } = self;
 
         let IntermediateCommitCreateResult {
             new_commit,
@@ -950,7 +1143,10 @@ impl AmendUncommittedDiffSpecsOperation {
 
         anyhow::ensure!(rejected_specs.is_empty(), "Couldn't squash all changes");
 
-        new_commit.context("BUG: rejected_specs is empty yet nothing was committed")
+        let new_commit =
+            new_commit.context("BUG: rejected_specs is empty yet nothing was committed")?;
+
+        reword.execute(new_commit, tx)
     }
 }
 
@@ -959,6 +1155,7 @@ struct MoveCommittedFilesOperation {
     target: ObjectId,
     source: ObjectId,
     changes: Vec<but_core::DiffSpec>,
+    reword: HowToRewordMovedChanges,
 }
 
 impl MoveCommittedFilesOperation {
@@ -970,9 +1167,11 @@ impl MoveCommittedFilesOperation {
             target,
             source,
             changes,
+            reword,
         } = self;
 
-        tx.move_committed_changes_between(source, target, changes)
+        let new_commit = tx.move_committed_changes_between(source, target, changes)?;
+        reword.execute(new_commit, tx)
     }
 }
 
