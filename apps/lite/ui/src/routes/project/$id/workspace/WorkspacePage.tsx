@@ -370,7 +370,7 @@ const WorkspacePage: FC = () => {
 	const layoutId = `project=${projectId}:workspace`;
 	const workspaceLayout = useDefaultLayout({
 		id: layoutId,
-		panelIds: detailsFullWindow ? ["details"] : ["outline", "details"],
+		panelIds: detailsFullWindow ? ["details-panel"] : ["outline-panel", "details-panel"],
 	});
 
 	const selectedProject = projects.find((project) => project.id === projectId);
@@ -387,7 +387,7 @@ const WorkspacePage: FC = () => {
 				{!detailsFullWindow && (
 					<>
 						<Panel
-							id="outline"
+							id="outline-panel"
 							className={styles.panel}
 							minSize={360}
 							defaultSize={400}
@@ -404,7 +404,7 @@ const WorkspacePage: FC = () => {
 					</>
 				)}
 
-				<Panel id="details" className={styles.panel}>
+				<Panel id="details-panel" className={styles.panel}>
 					<Details
 						key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
 						style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}

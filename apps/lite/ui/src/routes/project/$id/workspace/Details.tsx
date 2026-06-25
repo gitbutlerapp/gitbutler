@@ -843,7 +843,7 @@ const Diff: FC<{
 	const layoutId = `project=${projectId}:details`;
 	const diffLayout = useDefaultLayout({
 		id: layoutId,
-		panelIds: [...(filesVisible ? ["files"] : []), "diff"],
+		panelIds: [...(filesVisible ? ["files-panel"] : []), "diff-panel"],
 	});
 
 	return (
@@ -870,7 +870,7 @@ const Diff: FC<{
 				{filesVisible && (
 					<>
 						<Panel
-							id="files"
+							id="files-panel"
 							className={styles.panel}
 							defaultSize={250}
 							minSize={180}
@@ -892,7 +892,7 @@ const Diff: FC<{
 					</>
 				)}
 
-				<Panel id="diff" minSize={300} className={styles.panel}>
+				<Panel id="diff-panel" minSize={300} className={styles.panel}>
 					<div
 						id={"diff" satisfies SelectionScope}
 						data-selection-scope
