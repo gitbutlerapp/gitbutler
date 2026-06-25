@@ -15,7 +15,7 @@ use serde::Serialize;
 use crate::{
     CliResult, CliResultExt, IdMap,
     args::{
-        atoms::{BranchArg, Purpose, ResolvedCliIdArg},
+        atoms::{BranchArg, BranchOrCommit, CliIdArg, Priority, Purpose, ResolvedCliIdArg},
         squash2::Platform,
     },
     bad_input,
@@ -164,9 +164,7 @@ fn resolve(
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
 
     let resolved_squash = if let Some(target) = target {
-        let target = target
-            .resolve_commit_in_workspace(&repo, id_map)
-            .hint("--target must always target a commit on an applied branch")?;
+        let target = resolve_target(target, &repo, id_map)?;
         let sources = sources
             .into_iter()
             .map(|source| {
@@ -341,6 +339,46 @@ enum ResolvedSquash {
 struct AmendUncommittedHunks {
     target: ObjectId,
     source_hunks: NonEmpty<UncommittedHunkOrFile>,
+}
+
+fn resolve_target(id: CliIdArg, repo: &gix::Repository, id_map: &IdMap) -> CliResult<ObjectId> {
+    let hint = format!(
+        "--target must always target an applied commit or branch. {}",
+        CliIdArg::TARGET_MISSING_HINT
+    );
+    let branch_or_commit = id
+        .resolve_in_workspace(
+            repo,
+            id_map,
+            Purpose::Target,
+            Some(Priority::BranchAndCommit),
+        )
+        .with_hint(|| hint.clone())?
+        .into_branch_or_commit()
+        .with_hint(|| hint.clone())?;
+
+    let branch_name = match branch_or_commit {
+        BranchOrCommit::Commit(commit) => return Ok(commit),
+        BranchOrCommit::Branch(branch_arg) => branch_arg.resolve_local_branch_name()?,
+    };
+
+    for stack in id_map.stacks() {
+        for segment in &stack.segments {
+            let Some(ref_info) = &segment.inner.ref_info else {
+                continue;
+            };
+
+            if ref_info.ref_name == branch_name {
+                return if let Some(commit) = ref_info.commit_id {
+                    Ok(commit)
+                } else {
+                    Err(bad_input("Cannot squash into empty branches").into())
+                };
+            }
+        }
+    }
+
+    Err(bad_input("target not found").hint(hint).into())
 }
 
 fn resolve_squash_branch(
