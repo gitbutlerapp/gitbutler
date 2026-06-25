@@ -55,10 +55,10 @@ To return to GitButler mode, run:
 fn multiple_branches_preserves_state() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     insta::assert_snapshot!(env.git_log(), @r"
-    *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   8e93f22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 9477ae7 (A) add A
-    * | d3e2ba3 (B) add B
+    | * d3e2ba3 (B) add B
+    * | 9477ae7 (A) add A
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
@@ -270,12 +270,12 @@ fn two_dangling_commits_different_branches() -> anyhow::Result<()> {
         Sandbox::init_scenario_with_target_and_default_settings("teardown-two-dangling-commits");
     // Initial state: user has made two commits on top of workspace
     insta::assert_snapshot!(env.git_log(), @r"
-    * fc13bfb (HEAD -> gitbutler/workspace) add FileForB
-    * 091c8f9 add FileForA
-    *   c128bce GitButler Workspace Commit
+    * 56624bb (HEAD -> gitbutler/workspace) add FileForB
+    * e021d42 add FileForA
+    *   8e93f22 GitButler Workspace Commit
     |\  
-    | * 9477ae7 (A) add A
-    * | d3e2ba3 (B) add B
+    | * d3e2ba3 (B) add B
+    * | 9477ae7 (A) add A
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
@@ -299,8 +299,8 @@ Exiting GitButler mode...
 
 Attempting to fix workspace stacks...
 → Checking for dangling commits...
-→ Resetting gitbutler/workspace to c128bce
-  ✓ gitbutler/workspace reset to c128bce
+→ Resetting gitbutler/workspace to 8e93f22
+  ✓ gitbutler/workspace reset to 8e93f22
 
   ⚠ Non-GitButler created commits found.
   ⚠ Undoing these commits but keeping the changes in your working directory.

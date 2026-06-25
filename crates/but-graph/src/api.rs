@@ -59,10 +59,6 @@ impl Graph {
     /// `dst_commit_id` can be provided if the connection is to a future commit that isn't yet available
     /// in the `segment`. If `None`, it will be looked up in the `segment` itself.
     ///
-    /// `parent_order` is the 0-based position of `dst_commit_id` among the source commit's
-    /// parents. For a merge commit with parents `[A, B]`, the edge to `A` must use `0`,
-    /// and the edge to `B` must use `1`, even if traversal discovers `B` before `A`.
-    ///
     /// Return the newly added segment.
     pub fn connect_new_segment(
         &mut self,
@@ -71,7 +67,6 @@ impl Graph {
         dst: Segment,
         dst_commit: impl Into<Option<CommitIndex>>,
         dst_commit_id: impl Into<Option<gix::ObjectId>>,
-        parent_order: u32,
     ) -> SegmentIndex {
         let dst = self.inner.add_node(dst);
         self.inner[dst].id = dst;
@@ -82,7 +77,6 @@ impl Graph {
             dst,
             dst_commit,
             dst_commit_id.into(),
-            parent_order,
         );
         dst
     }
@@ -168,7 +162,7 @@ impl Graph {
     /// excluded side only as far as needed to prove emitted segments are not hidden.
     ///
     /// If `first_parent` is [`FirstParent::Yes`], both the included and excluded traversals follow
-    /// only segment edges with `parent_order == 0`.
+    /// only the first-parent edge (the source commit's first parent).
     pub fn find_commits_reachable_from_a_not_b(
         &self,
         included: SegmentIndex,
@@ -192,7 +186,7 @@ impl Graph {
     /// excluded side only as far as needed to prove emitted segments are not hidden.
     ///
     /// If `first_parent` is [`FirstParent::Yes`], both the included and excluded traversals follow
-    /// only segment edges with `parent_order == 0`.
+    /// only the first-parent edge (the source commit's first parent).
     pub fn find_segments_reachable_from_a_not_b(
         &self,
         included: SegmentIndex,
@@ -317,10 +311,16 @@ impl Graph {
         segment_id: SegmentIndex,
         first_parent_only: bool,
     ) -> impl Iterator<Item = SegmentIndex> {
+        // Outgoing edges are kept in first-parent order (see
+        // `rebuild_outgoing_edges_for_traversal_order`), so first-parent traversal follows just the
+        // first edge. Matching by the destination commit id instead would dead-end whenever the
+        // first-parent edge crosses into a commit-less segment (an empty branch), whose edge carries
+        // no destination id to match against.
+        let max_edges = if first_parent_only { 1 } else { usize::MAX };
         self.inner
             .edges_directed(segment_id, Direction::Outgoing)
-            .filter(move |edge| !first_parent_only || edge.weight().parent_order == 0)
             .map(|edge| edge.target())
+            .take(max_edges)
     }
 
     /// Return `true` once the excluded-side frontier cannot still hide any segment already emitted.

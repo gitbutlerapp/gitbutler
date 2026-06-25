@@ -114,7 +114,9 @@ pub fn remerged_workspace_tree_v2(
 #[instrument(level = "debug", skip(ctx))]
 pub fn remerged_workspace_commit_v2(ctx: &Context) -> Result<gix::ObjectId> {
     let repo = ctx.clone_repo_for_merging()?;
-    let (workspace_tree_id, stacks, target_commit) = remerged_workspace_tree_v2(ctx, &repo)?;
+    let (workspace_tree_id, mut stacks, target_commit) = remerged_workspace_tree_v2(ctx, &repo)?;
+    // Workspace-commit parents follow the metadata stack order, not HashMap iteration order.
+    stacks.sort_by_key(|stack| stack.order);
 
     let committer = signature_gix(SignaturePurpose::Committer);
     let author = signature_gix(SignaturePurpose::Author);

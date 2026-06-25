@@ -1809,11 +1809,11 @@ fn integrate_remote_advanced_branch_with_parallel_empty_branch() -> Result<()> {
 
     insta::assert_snapshot!(
         labeled_graph_snapshot(&repo, &labels)?,
-        @"
-    *   abcd9a1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\\
-    | * remote-commit (origin/feature-foo, feature-foo) update foo.txt (remote)
-    | * local-commit add foo.txt
+        @r"
+    *   9bafbf1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\
+    * | remote-commit (origin/feature-foo, feature-foo) update foo.txt (remote)
+    * | local-commit add foo.txt
     |/
     * da7bed3 (origin/main, main, empty-branch) add main.txt
     "

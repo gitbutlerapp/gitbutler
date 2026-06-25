@@ -15,4 +15,6 @@ git branch B
 git checkout -b A
   commit A
 git checkout B
-create_workspace_commit_once A B
+# Reverse arg order on purpose: keep the empty branch B as parent[0] (diverging from
+# metadata) for the *_display_order_follows_workspace_parents / empty-move tests.
+create_workspace_commit_once B A
