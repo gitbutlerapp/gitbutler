@@ -313,7 +313,7 @@ pub async fn get_gh_user(
 /// Check if an error is a network connectivity error.
 ///
 /// This includes DNS resolution failures, connection timeouts, connection refused, etc.
-fn is_network_error(err: &reqwest::Error) -> bool {
+pub(crate) fn is_network_error(err: &reqwest::Error) -> bool {
     err.is_timeout() || err.is_connect() || err.is_request()
 }
 

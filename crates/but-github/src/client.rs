@@ -19,6 +19,19 @@ pub struct HttpStatusError {
     pub status: reqwest::StatusCode,
 }
 
+/// Return `HttpStatusError` for non-success responses so callers can downcast
+/// to distinguish 401/403 from other failures. The textual prefix that callers
+/// used to build into `bail!` is left to outer `.context(...)`.
+fn ensure_success(response: &reqwest::Response) -> Result<()> {
+    if !response.status().is_success() {
+        return Err(HttpStatusError {
+            status: response.status(),
+        }
+        .into());
+    }
+    Ok(())
+}
+
 pub struct GitHubClient {
     client: reqwest::Client,
     base_url: String,
@@ -223,9 +236,7 @@ impl GitHubClient {
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            bail!("Failed to list open pulls: {}", response.status());
-        }
+        ensure_success(&response)?;
 
         let pulls: Vec<GitHubPullRequest> = response.json().await?;
         Ok(pulls.into_iter().map(Into::into).collect())
@@ -253,9 +264,7 @@ impl GitHubClient {
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            bail!("Failed to list pulls for base: {}", response.status());
-        }
+        ensure_success(&response)?;
 
         let pulls: Vec<GitHubPullRequest> = response.json().await?;
         Ok(pulls.into_iter().map(Into::into).collect())
@@ -281,9 +290,7 @@ impl GitHubClient {
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            bail!("Failed to list pulls for commit: {}", response.status());
-        }
+        ensure_success(&response)?;
 
         let pulls: Vec<GitHubPullRequest> = response.json().await?;
         Ok(pulls.into_iter().map(Into::into).collect())
@@ -420,9 +427,7 @@ impl GitHubClient {
 
         let response = self.client.get(&url).send().await?;
 
-        if !response.status().is_success() {
-            bail!("Failed to get pull request: {}", response.status());
-        }
+        ensure_success(&response)?;
 
         let pr: GitHubPullRequest = response.json().await?;
         Ok(pr.into())

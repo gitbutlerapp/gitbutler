@@ -69,6 +69,14 @@ const CLASSIFICATIONS: Partial<Record<Code, Classification>> = {
 		severity: "warning",
 	},
 	/**
+	 * Transport-level failure reaching a forge (DNS, timeout, connection
+	 * refused). The user is effectively offline; surfacing a toast every
+	 * time a polled `list_reviews` round-trip fails is just noise.
+	 */
+	NetworkError: {
+		severity: "silent",
+	},
+	/**
 	 * Auto-fetch / fetch-from-remotes failure caused by missing
 	 * credentials. Soft style — the user can fix it from project settings.
 	 */
