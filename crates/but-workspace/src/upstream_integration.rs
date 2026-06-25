@@ -167,6 +167,12 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     updates: Vec<BottomUpdate>,
     review_hints: &[ReviewIntegrationHint],
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
+    if matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc)
+        && workspace.ref_name().is_none()
+    {
+        bail!("Operation not possible while HEAD is detached");
+    }
+
     let mut ws_meta = workspace.metadata.clone();
     let target_sha = project_meta
         .target_commit_id

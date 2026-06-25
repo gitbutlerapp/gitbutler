@@ -2547,8 +2547,8 @@ export type WatcherGitFetchPayload = null;
 
 /** Git head (and operating mode) change event */
 export type WatcherGitHeadPayload = {
-  /** The SHA of the repository's HEAD. */
-  head: string;
+  /** The symbolic ref HEAD points at, or `null` when HEAD is detached. */
+  head: string | null;
   /** The GitButler operating mode (edit mode, oper workspace, ...). */
   operatingMode: OperatingMode;
 };

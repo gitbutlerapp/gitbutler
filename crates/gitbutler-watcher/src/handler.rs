@@ -216,13 +216,14 @@ impl Handler {
                 HEAD => {
                     let repo = ctx.repo.get()?;
                     let head_ref = repo.head().context("failed to get head")?;
-                    if let Some(head) = head_ref.referent_name() {
-                        self.emit_app_event(Change::GitHead {
-                            project_id: project_id.clone(),
-                            head: head.as_bstr().to_str_lossy().into_owned(),
-                            operating_mode: operating_mode(ctx, perm.read_permission())?,
-                        })?;
-                    }
+                    let head = head_ref
+                        .referent_name()
+                        .map(|name| name.as_bstr().to_str_lossy().into_owned());
+                    self.emit_app_event(Change::GitHead {
+                        project_id: project_id.clone(),
+                        head,
+                        operating_mode: operating_mode(ctx, perm.read_permission())?,
+                    })?;
                 }
                 _ => { /* Ignore other files */ }
             }
