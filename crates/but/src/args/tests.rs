@@ -147,7 +147,7 @@ mod agent_setup {
 
         match cmd {
             Subcommands::Agent(AgentPlatform {
-                cmd: AgentCmd::Setup { print },
+                cmd: Some(AgentCmd::Setup { print }),
             }) => assert!(!print),
             _ => panic!("unexpected command shape"),
         }
@@ -160,8 +160,21 @@ mod agent_setup {
 
         match cmd {
             Subcommands::Agent(AgentPlatform {
-                cmd: AgentCmd::Setup { print },
+                cmd: Some(AgentCmd::Setup { print }),
             }) => assert!(print),
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_bare_agent_as_no_subcommand() {
+        // Bare `but agent` parses with no subcommand; the handler treats this as
+        // running the setup wizard.
+        let args = Args::try_parse_from(["but", "agent"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::Agent(AgentPlatform { cmd: None }) => {}
             _ => panic!("unexpected command shape"),
         }
     }

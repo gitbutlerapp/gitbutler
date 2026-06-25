@@ -38,9 +38,15 @@ impl fmt::Display for UserCancelled {
 
 impl std::error::Error for UserCancelled {}
 
-pub fn handle(current_dir: &Path, out: &mut OutputChannel, cmd: agent::Subcommands) -> Result<()> {
+pub fn handle(
+    current_dir: &Path,
+    out: &mut OutputChannel,
+    cmd: Option<agent::Subcommands>,
+) -> Result<()> {
     match cmd {
-        agent::Subcommands::Setup { print } => setup(current_dir, out, print),
+        // Bare `but agent` runs the setup wizard, same as `but agent setup`.
+        None => setup(current_dir, out, false),
+        Some(agent::Subcommands::Setup { print }) => setup(current_dir, out, print),
     }
 }
 

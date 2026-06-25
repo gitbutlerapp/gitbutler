@@ -1198,10 +1198,10 @@ pub enum Subcommands {
     ///
     /// ## Examples
     ///
-    /// Start the interactive setup wizard:
+    /// Start the interactive setup wizard (`but agent setup` is equivalent):
     ///
     /// ```text
-    /// but agent setup
+    /// but agent
     /// ```
     ///
     /// Print the default generated steering text:
