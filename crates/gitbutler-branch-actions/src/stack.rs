@@ -128,7 +128,8 @@ pub fn update_branch_pr_number(
     pr_number: Option<usize>,
 ) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
-    ctx.verify(guard.write_permission())?;
+    // Pure metadata write — skip verify so background syncs aren't
+    // blocked when HEAD is off the workspace ref (e.g. edit mode).
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchPrNumber),
         guard.write_permission(),
