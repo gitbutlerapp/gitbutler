@@ -145,16 +145,29 @@ impl CopySelectionItem {
                 )
             }
             CopySelectionItem::PullRequestUrl(branch_name) => {
+                fn get_review(
+                    name: &str,
+                    ctx: &Context,
+                    cache_config: but_forge::CacheConfig,
+                ) -> anyhow::Result<Option<String>> {
+                    let review_map = crate::command::legacy::forge::review::get_review_map(
+                        ctx,
+                        Some(cache_config),
+                    )?;
+                    let url = review_map
+                        .get(name)
+                        .and_then(|reviews| reviews.first())
+                        .map(|review| review.html_url.clone());
+                    Ok(url)
+                }
+
                 let name = branch_name.shorten().to_str_lossy();
-                let review_map = crate::command::legacy::forge::review::get_review_map(
-                    ctx,
-                    Some(but_forge::CacheConfig::CacheOnly),
-                )?;
-                let url = review_map
-                    .get(&*name)
-                    .and_then(|reviews| reviews.first())
-                    .map(|review| review.html_url.clone())
+                let url = get_review(&name, ctx, but_forge::CacheConfig::CacheOnly)
+                    .transpose()
+                    .or_else(|| get_review(&name, ctx, but_forge::CacheConfig::NoCache).transpose())
+                    .transpose()?
                     .context("No pull request URL found")?;
+
                 Ok(url)
             }
         }
