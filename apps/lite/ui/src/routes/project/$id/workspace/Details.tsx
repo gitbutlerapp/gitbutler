@@ -27,6 +27,7 @@ import {
 import {
 	projectActions,
 	selectProjectFilesVisible,
+	selectProjectIgnoreWhitespace,
 	selectProjectPreferredDiffStyle,
 	type DiffStyle,
 } from "#ui/projects/state.ts";
@@ -172,6 +173,19 @@ const diffFileContents = (file: TreeChangeDiff["oldFile"]): FileContents => ({
 	cacheKey: file.cacheKey ?? undefined,
 });
 
+const diffFileContentsWithMode = (
+	file: TreeChangeDiff["oldFile"],
+	ignoreWhitespace: boolean,
+): FileContents => {
+	const contents = diffFileContents(file);
+	if (contents.cacheKey === undefined) return contents;
+
+	return {
+		...contents,
+		cacheKey: `${contents.cacheKey}:ignoreWhitespace=${ignoreWhitespace}`,
+	};
+};
+
 const emptyFileDiff = (diff: TreeChangeDiff): FileDiffMetadata => ({
 	name: diff.newFile.name,
 	prevName: diff.oldFile.name !== diff.newFile.name ? diff.oldFile.name : undefined,
@@ -184,11 +198,15 @@ const emptyFileDiff = (diff: TreeChangeDiff): FileDiffMetadata => ({
 	additionLines: [],
 });
 
-const mkCodeViewItem = (diff: TreeChangeDiff, changesetKey: string): CodeViewDiffItem => {
-	const oldFile = diffFileContents(diff.oldFile);
-	const newFile = diffFileContents(diff.newFile);
+const mkCodeViewItem = (
+	diff: TreeChangeDiff,
+	changesetKey: string,
+	ignoreWhitespace: boolean,
+): CodeViewDiffItem => {
+	const oldFile = diffFileContentsWithMode(diff.oldFile, ignoreWhitespace);
+	const newFile = diffFileContentsWithMode(diff.newFile, ignoreWhitespace);
 	const version = Hash.string(
-		`${oldFile.cacheKey ?? oldFile.contents}:${newFile.cacheKey ?? newFile.contents}`,
+		`${oldFile.cacheKey ?? oldFile.contents}:${newFile.cacheKey ?? newFile.contents}:${ignoreWhitespace}`,
 	);
 
 	return {
@@ -197,7 +215,10 @@ const mkCodeViewItem = (diff: TreeChangeDiff, changesetKey: string): CodeViewDif
 		version,
 		fileDiff:
 			diff.patch?.type === "Patch"
-				? parseDiffFromFile(oldFile, newFile, { context: diff.contextLines })
+				? parseDiffFromFile(oldFile, newFile, {
+						context: diff.contextLines,
+						ignoreWhitespace,
+					})
 				: emptyFileDiff(diff),
 	};
 };
@@ -207,6 +228,7 @@ type DiffViewDeps = {
 	changes: Array<TreeChange>;
 	treeChangeDiffs: Array<TreeChangeDiff>;
 	changesetKey: string;
+	ignoreWhitespace: boolean;
 };
 
 type DiffViewFile = {
@@ -237,6 +259,7 @@ const getDiffView = ({
 	changes,
 	treeChangeDiffs,
 	changesetKey,
+	ignoreWhitespace,
 }: DiffViewDeps): DiffView => {
 	const navigationIndex: NavigationIndex<HunkOperand> = {
 		items: [],
@@ -254,7 +277,7 @@ const getDiffView = ({
 		const mdiff = treeChangeDiffs[ci];
 		if (!mdiff) continue;
 
-		const item = mkCodeViewItem(mdiff, changesetKey);
+		const item = mkCodeViewItem(mdiff, changesetKey, ignoreWhitespace);
 
 		items.push(item);
 
@@ -678,6 +701,33 @@ const DiffStyleToggle: FC<{
 	</Tooltip.Root>
 );
 
+const IgnoreWhitespaceToggle: FC<{
+	ignoreWhitespace: boolean;
+	onIgnoreWhitespaceChange: (ignoreWhitespace: boolean) => void;
+}> = ({ ignoreWhitespace, onIgnoreWhitespaceChange }) => (
+	<Tooltip.Root>
+		<Tooltip.Trigger
+			render={
+				<Toggle
+					render={<ToggleStyles />}
+					aria-label="Ignore leading and trailing whitespace"
+					pressed={ignoreWhitespace}
+					onPressedChange={onIgnoreWhitespaceChange}
+				/>
+			}
+		>
+			<Icon name="text-wrap" />
+		</Tooltip.Trigger>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={4}>
+				<Tooltip.Popup render={<TooltipPopup />}>
+					Ignore leading and trailing whitespace
+				</Tooltip.Popup>
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
+);
+
 const FullWindowToggle: FC<{
 	className?: string;
 	fullWindow: boolean;
@@ -799,11 +849,15 @@ const Diff: FC<{
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
 
+	const ignoreWhitespace = useAppSelector((state) =>
+		selectProjectIgnoreWhitespace(state, projectId),
+	);
 	const diffView = getDiffView({
 		fileParent,
 		changes,
 		treeChangeDiffs,
 		changesetKey,
+		ignoreWhitespace,
 	});
 
 	const selectFileAndNavigateDiff = (selection: string) => {
@@ -870,15 +924,22 @@ const Diff: FC<{
 		<div className={styles.diffTab}>
 			<div className={styles.actions}>
 				<FilesToggle />
-				{canUseSplitDiff && (
-					<DiffStyleToggle
-						className={styles.actionsRight}
-						diffStyle={preferredDiffStyle}
-						onDiffStyleChange={(diffStyle) =>
-							dispatch(projectActions.setPreferredDiffStyle({ projectId, diffStyle }))
+				<div className={styles.actionsRight}>
+					<IgnoreWhitespaceToggle
+						ignoreWhitespace={ignoreWhitespace}
+						onIgnoreWhitespaceChange={(ignoreWhitespace) =>
+							dispatch(projectActions.setIgnoreWhitespace({ projectId, ignoreWhitespace }))
 						}
 					/>
-				)}
+					{canUseSplitDiff && (
+						<DiffStyleToggle
+							diffStyle={preferredDiffStyle}
+							onDiffStyleChange={(diffStyle) =>
+								dispatch(projectActions.setPreferredDiffStyle({ projectId, diffStyle }))
+							}
+						/>
+					)}
+				</div>
 			</div>
 
 			<Group

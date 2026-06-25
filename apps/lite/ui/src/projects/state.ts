@@ -24,6 +24,7 @@ type ProjectState = {
 	detailsFullWindow: boolean;
 	dialog: Dialog;
 	filesVisible: boolean;
+	ignoreWhitespace: boolean;
 	preferredDiffStyle: DiffStyle;
 	workspace: workspace.WorkspaceState;
 };
@@ -36,6 +37,7 @@ const createInitialProjectState = (): ProjectState => ({
 	detailsFullWindow: false,
 	dialog: { _tag: "None" },
 	filesVisible: false,
+	ignoreWhitespace: false,
 	preferredDiffStyle: "split",
 	workspace: workspace.createInitialState(),
 });
@@ -226,6 +228,13 @@ const projectSlice = createSlice({
 			projectState.preferredDiffStyle =
 				projectState.preferredDiffStyle === "split" ? "unified" : "split";
 		},
+		setIgnoreWhitespace: (
+			state,
+			action: PayloadAction<{ projectId: string; ignoreWhitespace: boolean }>,
+		) => {
+			const { projectId, ignoreWhitespace } = action.payload;
+			ensureProjectState(state, projectId).ignoreWhitespace = ignoreWhitespace;
+		},
 		setDetailsFullWindow: (
 			state,
 			action: PayloadAction<{ projectId: string; fullWindow: boolean }>,
@@ -280,6 +289,9 @@ export const selectProjectFilesVisible = (state: RootState, projectId: string) =
 
 export const selectProjectPreferredDiffStyle = (state: RootState, projectId: string) =>
 	selectProjectState(state, projectId).preferredDiffStyle;
+
+export const selectProjectIgnoreWhitespace = (state: RootState, projectId: string) =>
+	selectProjectState(state, projectId).ignoreWhitespace;
 
 export const selectProjectDetailsFullWindow = (state: RootState, projectId: string) =>
 	selectProjectState(state, projectId).detailsFullWindow;

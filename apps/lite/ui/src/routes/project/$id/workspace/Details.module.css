@@ -45,7 +45,10 @@
 }
 
 .actionsRight {
+	display: flex;
+	align-items: center;
 	margin-inline-start: auto;
+	gap: 6px;
 }
 
 .panels {
