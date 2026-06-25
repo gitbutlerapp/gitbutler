@@ -81,7 +81,7 @@ import {
 	Stack,
 	PushStatus,
 	TreeChange,
-	UnifiedPatch,
+	TreeChangeDiff,
 	WorkspaceState,
 	InsertSide,
 	BottomUpdate,
@@ -1660,12 +1660,12 @@ type LineStats = {
 	linesRemoved: number;
 };
 
-const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats => {
+const getLineStats = (diffs: Array<TreeChangeDiff | undefined>): LineStats => {
 	const stats: LineStats = { linesAdded: 0, linesRemoved: 0 };
 	for (const diff of diffs) {
-		if (diff?.type !== "Patch") continue;
-		stats.linesAdded += diff.subject.linesAdded;
-		stats.linesRemoved += diff.subject.linesRemoved;
+		if (diff?.patch?.type !== "Patch") continue;
+		stats.linesAdded += diff.patch.subject.linesAdded;
+		stats.linesRemoved += diff.patch.subject.linesRemoved;
 	}
 	return stats;
 };

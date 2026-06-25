@@ -41,17 +41,18 @@ import { classes } from "#ui/components/classes.ts";
 import { Field, Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import type {
 	CommitDetails,
-	DiffHunk,
 	TreeChange,
+	TreeChangeDiff,
 	TreeChanges,
-	UnifiedPatch,
 	WorktreeChanges,
 } from "@gitbutler/but-sdk";
 import {
 	type CodeViewDiffItem,
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
-	parsePatchFiles,
+	type FileContents,
+	type FileDiffMetadata,
+	parseDiffFromFile,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
@@ -84,7 +85,6 @@ import {
 	getHunkDependencyDiffsByPath,
 	contiguousSelectionByLine,
 	contiguousSelectionsFromHunk,
-	synthesizeFilePatch,
 } from "#ui/hunk.ts";
 import { buildIndexByKey, NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
@@ -166,28 +166,46 @@ const getBranchFileTreeItems = ({ branchDiff }: { branchDiff: TreeChanges }): Ar
 		}),
 	);
 
-const mkCodeViewItem = (
-	change: TreeChange,
-	changesetKey: string,
-	hunks: Array<DiffHunk>,
-): CodeViewDiffItem => {
-	const combinedFilePatch = synthesizeFilePatch(change, hunks);
-	const version = Hash.string(combinedFilePatch);
-	const parsed = parsePatchFiles(combinedFilePatch, String(version));
+const diffFileContents = (file: TreeChangeDiff["oldFile"]): FileContents => ({
+	name: file.name,
+	contents: file.contents,
+	cacheKey: file.cacheKey ?? undefined,
+});
+
+const emptyFileDiff = (diff: TreeChangeDiff): FileDiffMetadata => ({
+	name: diff.newFile.name,
+	prevName: diff.oldFile.name !== diff.newFile.name ? diff.oldFile.name : undefined,
+	type: "change",
+	hunks: [],
+	splitLineCount: 0,
+	unifiedLineCount: 0,
+	isPartial: false,
+	deletionLines: [],
+	additionLines: [],
+});
+
+const mkCodeViewItem = (diff: TreeChangeDiff, changesetKey: string): CodeViewDiffItem => {
+	const oldFile = diffFileContents(diff.oldFile);
+	const newFile = diffFileContents(diff.newFile);
+	const version = Hash.string(
+		`${oldFile.cacheKey ?? oldFile.contents}:${newFile.cacheKey ?? newFile.contents}`,
+	);
 
 	return {
 		type: "diff",
-		id: codeViewItemId({ changesetKey, path: change.path }),
+		id: codeViewItemId({ changesetKey, path: diff.newFile.name }),
 		version,
-		// oxlint-disable-next-line typescript/no-non-null-assertion: There should always be exactly one result given our one parsed hunk.
-		fileDiff: parsed[0]!.files[0]!,
+		fileDiff:
+			diff.patch?.type === "Patch"
+				? parseDiffFromFile(oldFile, newFile, { context: diff.contextLines })
+				: emptyFileDiff(diff),
 	};
 };
 
 type DiffViewDeps = {
 	fileParent: FileParent;
 	changes: Array<TreeChange>;
-	treeChangeDiffs: Array<UnifiedPatch | null>;
+	treeChangeDiffs: Array<TreeChangeDiff>;
 	changesetKey: string;
 };
 
@@ -195,7 +213,7 @@ type DiffViewFile = {
 	operand: FileOperand;
 	item: CodeViewDiffItem;
 	change: TreeChange;
-	patch: UnifiedPatch | null;
+	patch: TreeChangeDiff["patch"];
 	hunks: Array<DiffViewHunk>;
 };
 
@@ -234,12 +252,9 @@ const getDiffView = ({
 
 	for (const [ci, change] of changes.entries()) {
 		const mdiff = treeChangeDiffs[ci];
+		if (!mdiff) continue;
 
-		const item = mkCodeViewItem(
-			change,
-			changesetKey,
-			mdiff && "subject" in mdiff && "hunks" in mdiff.subject ? mdiff.subject.hunks : [],
-		);
+		const item = mkCodeViewItem(mdiff, changesetKey);
 
 		items.push(item);
 
@@ -251,20 +266,20 @@ const getDiffView = ({
 			operand: file,
 			item,
 			change,
-			patch: mdiff ?? null,
+			patch: mdiff.patch,
 			hunks: [],
 		};
 
 		fileByItemId.set(item.id, diffViewFile);
 		fileByPath.set(change.path, diffViewFile);
 
-		if (mdiff?.type === "Patch")
+		if (mdiff.patch?.type === "Patch")
 			for (const hunk of item.fileDiff.hunks)
 				for (const selection of contiguousSelectionsFromHunk(hunk)) {
 					const hunkOperand: HunkOperand = {
 						parent: file,
 						...selection,
-						isResultOfBinaryToTextConversion: mdiff.subject.isResultOfBinaryToTextConversion,
+						isResultOfBinaryToTextConversion: mdiff.patch.subject.isResultOfBinaryToTextConversion,
 					};
 					const hunkKey = hunkOperandIdentityKey(hunkOperand);
 

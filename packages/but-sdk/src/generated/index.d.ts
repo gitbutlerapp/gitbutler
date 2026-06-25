@@ -432,7 +432,7 @@ export declare function tearOffBranch(projectId: string, subjectBranch: string, 
  * `change` must not be a type change or a submodule change. For lower-level
  * implementation details, see [`but_core::TreeChange::unified_patch()`].
  */
-export declare function treeChangeDiffs(projectId: string, change: TreeChange): Promise<UnifiedPatch | null>
+export declare function treeChangeDiffs(projectId: string, change: TreeChange): Promise<TreeChangeDiff>
 
 /**
  * Take the stack identified by `stack_id` out of the workspace.
@@ -1124,6 +1124,16 @@ export type CreateForgeReviewParams = {
   sourceBranch: string;
   targetBranch: string;
   draft: boolean;
+};
+
+/** File contents for frontend diff rendering. */
+export type DiffFileContents = {
+  /** The worktree-relative file path to display. */
+  name: string;
+  /** The lossy UTF-8 decoded contents. */
+  contents: string;
+  /** Stable content identity when it is backed by a Git object. */
+  cacheKey: string | null;
 };
 
 /** A hunk as used in a [UnifiedPatch], which also contains all added and removed lines. */
@@ -2400,6 +2410,18 @@ export type TreeChange = {
   /** Something silently carried back and forth between the frontend and the backend. */
   pathBytes: Array<number>;
   status: TreeStatus;
+};
+
+/** A tree-change diff with the source files needed to render it. */
+export type TreeChangeDiff = {
+  /** The backend-computed patch used for hunk operations and stats. */
+  patch: UnifiedPatch | null;
+  /** The previous file contents. */
+  oldFile: DiffFileContents;
+  /** The current file contents. */
+  newFile: DiffFileContents;
+  /** The context line count used to compute `patch`. */
+  contextLines: number;
 };
 
 /** All the changes that were made to the tree, including stats */

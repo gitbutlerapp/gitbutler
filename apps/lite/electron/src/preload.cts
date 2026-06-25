@@ -28,7 +28,7 @@ import type {
 	MoveChangesResult,
 	InitialBranchIntegration,
 	IntegrateBranchResult,
-	UnifiedPatch,
+	TreeChangeDiff,
 	WatcherEvent,
 	WorktreeChanges,
 	WorkspaceIntegrateUpstreamOutcome,
@@ -194,7 +194,7 @@ const api: LiteElectronApi = {
 	showNativeMenu: (params) =>
 		ipcRenderer.invoke("lite:show-native-menu", params) as Promise<string | null>,
 	treeChangeDiffs: (params) =>
-		ipcRenderer.invoke("workspace:tree-change-diffs", params) as Promise<UnifiedPatch | null>,
+		ipcRenderer.invoke("workspace:tree-change-diffs", params) as Promise<TreeChangeDiff>,
 	unapplyStack: (params) => ipcRenderer.invoke("workspace:unapply-stack", params) as Promise<void>,
 	workspaceIntegrateUpstream: (params) =>
 		ipcRenderer.invoke(

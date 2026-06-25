@@ -1,5 +1,8 @@
+use anyhow::Context as _;
+use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_core::{
+    ChangeState,
     sync::{RepoExclusive, RepoShared},
     ui::TreeChange,
 };
@@ -17,6 +20,7 @@ use but_core::diff::CommitDetails;
 /// JSON types
 // TODO: add schemars
 pub mod json {
+    use bstr::{BString, ByteSlice};
     use but_core::diff::LineStats;
     use serde::Serialize;
 
@@ -55,6 +59,52 @@ pub mod json {
                 line_stats,
                 conflict_entries,
             }
+        }
+    }
+
+    /// File contents for frontend diff rendering.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct DiffFileContents {
+        /// The worktree-relative file path to display.
+        pub name: String,
+        /// The lossy UTF-8 decoded contents.
+        pub contents: String,
+        /// Stable content identity when it is backed by a Git object.
+        pub cache_key: Option<String>,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(DiffFileContents);
+
+    /// A tree-change diff with the source files needed to render it.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct TreeChangeDiff {
+        /// The backend-computed patch used for hunk operations and stats.
+        pub patch: Option<but_core::UnifiedPatch>,
+        /// The previous file contents.
+        pub old_file: DiffFileContents,
+        /// The current file contents.
+        pub new_file: DiffFileContents,
+        /// The context line count used to compute `patch`.
+        pub context_lines: u32,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(TreeChangeDiff);
+
+    pub(super) fn file_contents(
+        name: BString,
+        contents: Option<BString>,
+        cache_key: Option<String>,
+    ) -> DiffFileContents {
+        DiffFileContents {
+            name: name.to_str_lossy().into_owned(),
+            contents: contents
+                .map(|contents| contents.to_str_lossy().into_owned())
+                .unwrap_or_default(),
+            cache_key,
         }
     }
 }
@@ -97,10 +147,94 @@ pub fn commit_details_with_line_stats(
 pub fn tree_change_diffs(
     ctx: &Context,
     change: TreeChange,
-) -> anyhow::Result<Option<but_core::UnifiedPatch>> {
+) -> anyhow::Result<json::TreeChangeDiff> {
     let change: but_core::TreeChange = change.into();
     let repo = ctx.repo.get()?;
-    change.unified_patch(&repo, ctx.settings.context_lines)
+    let patch = change.unified_patch(&repo, ctx.settings.context_lines)?;
+    let read_contents = matches!(patch, Some(but_core::UnifiedPatch::Patch { .. }));
+    let (old_name, old_state, new_state) = file_sides(&change);
+
+    Ok(json::TreeChangeDiff {
+        old_file: json::file_contents(
+            old_name.clone(),
+            maybe_state_contents(read_contents, &repo, old_state, old_name)?,
+            old_state.and_then(cache_key),
+        ),
+        new_file: json::file_contents(
+            change.path.clone(),
+            maybe_state_contents(read_contents, &repo, new_state, &change.path)?,
+            new_state.and_then(cache_key),
+        ),
+        patch,
+        context_lines: ctx.settings.context_lines,
+    })
+}
+
+fn file_sides(
+    change: &but_core::TreeChange,
+) -> (&BString, Option<ChangeState>, Option<ChangeState>) {
+    match &change.status {
+        but_core::TreeStatus::Addition { state, .. } => (&change.path, None, Some(*state)),
+        but_core::TreeStatus::Deletion { previous_state } => {
+            (&change.path, Some(*previous_state), None)
+        }
+        but_core::TreeStatus::Modification {
+            previous_state,
+            state,
+            ..
+        } => (&change.path, Some(*previous_state), Some(*state)),
+        but_core::TreeStatus::Rename {
+            previous_path,
+            previous_state,
+            state,
+            ..
+        } => (previous_path, Some(*previous_state), Some(*state)),
+    }
+}
+
+fn cache_key(state: ChangeState) -> Option<String> {
+    (!state.id.is_null()).then(|| state.id.to_string())
+}
+
+fn maybe_state_contents(
+    read_contents: bool,
+    repo: &gix::Repository,
+    state: Option<ChangeState>,
+    path: &BString,
+) -> anyhow::Result<Option<BString>> {
+    if !read_contents {
+        return Ok(None);
+    }
+    state
+        .map(|state| state_contents(repo, state, path))
+        .transpose()
+        .map(Option::flatten)
+}
+
+fn state_contents(
+    repo: &gix::Repository,
+    state: ChangeState,
+    path: &BString,
+) -> anyhow::Result<Option<BString>> {
+    use gix::object::tree::EntryKind;
+
+    match state.kind {
+        EntryKind::Blob | EntryKind::BlobExecutable | EntryKind::Link => {}
+        EntryKind::Tree | EntryKind::Commit => return Ok(None),
+    }
+
+    if !state.id.is_null() {
+        return Ok(Some(repo.find_blob(state.id)?.detach().data.into()));
+    }
+
+    let workdir = repo.workdir().context("need non-bare repository")?;
+    let path = workdir.join(gix::path::from_bstr(path.as_bstr()));
+    let contents = if state.kind == EntryKind::Link {
+        gix::path::os_string_into_bstring(std::fs::read_link(path)?.into())?
+    } else {
+        std::fs::read(path)?.into()
+    };
+    Ok(Some(contents))
 }
 
 /// See [`changes_in_worktree_with_perm()`].

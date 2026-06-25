@@ -7,9 +7,9 @@
  * by their position in the diff, with context lines omitted.
  */
 
-import type { DiffHunk, HunkDependencies, HunkHeader, TreeChange } from "@gitbutler/but-sdk";
+import type { DiffHunk, HunkDependencies, HunkHeader } from "@gitbutler/but-sdk";
 import type { ChangeContent, Hunk, SelectedLineRange, SelectionSide } from "@pierre/diffs";
-import { Array, Match } from "effect";
+import { Array } from "effect";
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
@@ -168,63 +168,3 @@ export const diffSpecHunkHeadersForLineSelection = (
 			newLines: group.lines,
 		};
 	});
-
-const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
-
-// This is built with Pierre in mind. It's currently incomplete.
-const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
-	Match.value(change.status).pipe(
-		Match.when(
-			{ type: "Addition" },
-			() =>
-				[
-					`diff --git a/${change.path} b/${change.path}`,
-					"new file mode 100644",
-					"--- /dev/null",
-					`+++ b/${change.path}`,
-				].join(lineEnding) + lineEnding,
-		),
-
-		Match.when(
-			{ type: "Deletion" },
-			() =>
-				[
-					`diff --git a/${change.path} b/${change.path}`,
-					"deleted file mode 100644",
-					`--- a/${change.path}`,
-					"+++ /dev/null",
-				].join(lineEnding) + lineEnding,
-		),
-
-		Match.when(
-			{ type: "Modification" },
-			() =>
-				[
-					`diff --git a/${change.path} b/${change.path}`,
-					`--- a/${change.path}`,
-					`+++ b/${change.path}`,
-				].join(lineEnding) + lineEnding,
-		),
-
-		Match.when(
-			{ type: "Rename" },
-			({ subject }) =>
-				[
-					`diff --git a/${subject.previousPath} b/${change.path}`,
-					"similarity index 99%",
-					`rename from ${subject.previousPath}`,
-					`rename to ${change.path}`,
-					`--- a/${subject.previousPath}`,
-					`+++ b/${change.path}`,
-				].join(lineEnding) + lineEnding,
-		),
-
-		Match.exhaustive,
-	);
-
-/** Combine multiple hunks for one file into a single patch, consumable by Pierre. */
-export const synthesizeFilePatch = (change: TreeChange, hunks: Array<DiffHunk>): string => {
-	const lineEnding = lineEndingForDiff(hunks[0]?.diff ?? "");
-	const header = patchHeaderForChange(change, lineEnding);
-	return header + hunks.map((hunk) => hunk.diff).join("");
-};

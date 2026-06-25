@@ -34,6 +34,7 @@ import type {
 	RefInfo,
 	RepoInfo,
 	TreeChange,
+	TreeChangeDiff,
 	TreeChanges,
 	CommitCreateResult,
 	CommitDiscardResult,
@@ -45,7 +46,6 @@ import type {
 	MoveBranchResult,
 	MoveChangesResult,
 	PushFlag,
-	UnifiedPatch,
 	WatcherEvent,
 	WorktreeChanges,
 	WorkspaceIntegrateUpstreamOutcome,
@@ -473,7 +473,7 @@ export interface LiteElectronApi {
 	setReviewDraftiness: (params: SetReviewDraftinessParams) => Promise<void>;
 	setReviewTemplate: (params: SetReviewTemplateParams) => Promise<void>;
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
-	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
+	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<TreeChangeDiff>;
 	unapplyStack: (params: UnapplyStackParams) => Promise<void>;
 	workspaceIntegrateUpstream: (
 		params: WorkspaceIntegrateUpstreamParams,
