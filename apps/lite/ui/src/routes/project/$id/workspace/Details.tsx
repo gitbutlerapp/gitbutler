@@ -1063,7 +1063,7 @@ export const Details: FC<
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
 			<div className={styles.headerWrap}>
 				<div className={styles.titleRow}>
-					<div className={classes(detailsFullWindow && isMac && styles.titleRowMacSpacer)} />
+					{detailsFullWindow && isMac && <div className={styles.titleRowMacSpacer} />}
 					<Title
 						bodyCollapsed={commitBodyCollapsed}
 						bodyId={commitBodyId}
