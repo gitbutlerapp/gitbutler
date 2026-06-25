@@ -1516,7 +1516,7 @@ fn render_hunk_path_header(
             .chain(
                 status
                     .into_iter()
-                    .flat_map(|status| [status, Span::raw(": ")]),
+                    .flat_map(|status| [status, Span::raw(" ")]),
             )
             .chain([Span::raw(path)]),
     );
@@ -1541,7 +1541,7 @@ fn build_hunk_path_header(
             .chain(
                 status
                     .into_iter()
-                    .flat_map(|status| [status, Span::raw(": ")]),
+                    .flat_map(|status| [status, Span::raw(" ")]),
             )
             .chain([Span::raw(path)]),
     );
