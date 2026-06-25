@@ -727,23 +727,23 @@ mod workspace_disposition {
         let repo_log = visualize_commit_graph_all(&repo)?;
         insta::allow_duplicates! {
             insta::assert_snapshot!(repo_log, @r"
-            *   c49e4d8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+            *   3147679 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
             |\  
-            | * 09d8e52 (A) A
-            * | c813d8d (B) B
+            | * c813d8d (B) B
+            * | 09d8e52 (A) A
             |/  
             * 85efbe4 (origin/main, virtual-base, main) M
             ");
             insta::assert_snapshot!(graph_workspace(&ws), @"
             📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-            ├── ≡📙:5:virtual-base on 85efbe4 {1}
-            │   └── 📙:5:virtual-base
             ├── ≡📙:3:A on 85efbe4 {2}
             │   └── 📙:3:A
             │       └── ·09d8e52 (🏘️)
-            └── ≡📙:4:B on 85efbe4 {3}
-                └── 📙:4:B
-                    └── ·c813d8d (🏘️)
+            ├── ≡📙:4:B on 85efbe4 {3}
+            │   └── 📙:4:B
+            │       └── ·c813d8d (🏘️)
+            └── ≡📙:5:virtual-base on 85efbe4 {1}
+                └── 📙:5:virtual-base
             ");
         }
         Ok((tmp, repo, meta, ws))
@@ -927,10 +927,11 @@ fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
         )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * d03b217 (feature) F1
-    | *   dd3b979 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | *   db5f9ad (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | |\  
-    | * | d6bdeab missing-name
-    |/ /  
+    | | * d6bdeab missing-name
+    | |/  
+    |/|   
     | | * 5121eb9 (outside) advanced-outside
     | |/  
     | * 67c6397 advanced-inside
@@ -941,13 +942,13 @@ fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
     let ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-    ├── ≡:4:anon: on 3183e43
-    │   └── :4:anon:
-    │       └── ·d6bdeab (🏘️)
-    └── ≡📙:5:outside →:3: on 3183e43 {1}
-        └── 📙:5:outside →:3:
-            ├── ·5121eb9*
-            └── ·67c6397 (🏘️)
+    ├── ≡📙:4:outside →:3: on 3183e43 {1}
+    │   └── 📙:4:outside →:3:
+    │       ├── ·5121eb9*
+    │       └── ·67c6397 (🏘️)
+    └── ≡:5:anon: on 3183e43
+        └── :5:anon:
+            └── ·d6bdeab (🏘️)
     ");
 
     let out = but_workspace::branch::apply(
@@ -967,13 +968,13 @@ fn workspace_with_out_of_ws_ref_and_anon_stack() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&out.workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-    ├── ≡:5:anon: on 3183e43
-    │   └── :5:anon:
-    │       └── ·d6bdeab (🏘️)
     ├── ≡📙:3:outside on 3183e43 {1}
     │   └── 📙:3:outside
     │       ├── ·5121eb9 (🏘️)
     │       └── ·67c6397 (🏘️)
+    ├── ≡:5:anon: on 3183e43
+    │   └── :5:anon:
+    │       └── ·d6bdeab (🏘️)
     └── ≡📙:4:feature on 3183e43 {2ec}
         └── 📙:4:feature
             └── ·d03b217 (🏘️)
@@ -1068,12 +1069,12 @@ fn unapply_natural_stack_with_partial_workspace_metadata() -> anyhow::Result<()>
     let ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), "A is naturally visible, and B has metadata that matches it with an extra segment in metadata that's not there", @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:B on 85efbe4 {1}
-    │   └── 📙:3:B
-    │       └── ·c813d8d (🏘️)
-    └── ≡:4:A on 85efbe4
-        └── :4:A
-            └── ·09d8e52 (🏘️)
+    ├── ≡:4:A on 85efbe4
+    │   └── :4:A
+    │       └── ·09d8e52 (🏘️)
+    └── ≡📙:3:B on 85efbe4 {1}
+        └── 📙:3:B
+            └── ·c813d8d (🏘️)
     ");
 
     let out = but_workspace::branch::unapply(
@@ -1129,14 +1130,14 @@ fn unapply_natural_stack_branch_without_workspace_metadata() -> anyhow::Result<(
     let ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), "a single and multi-branch stack are visible without any workspace metadata", @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 893d602
-    ├── ≡:3:C on 893d602
-    │   ├── :3:C
-    │   │   └── ·356de85 (🏘️)
-    │   └── :5:B
-    │       └── ·f25f65c (🏘️)
-    └── ≡:4:A on 893d602
-        └── :4:A
-            └── ·26e45af (🏘️)
+    ├── ≡:3:A on 893d602
+    │   └── :3:A
+    │       └── ·26e45af (🏘️)
+    └── ≡:4:C on 893d602
+        ├── :4:C
+        │   └── ·356de85 (🏘️)
+        └── :5:B
+            └── ·f25f65c (🏘️)
     ");
 
     let out = but_workspace::branch::unapply(
@@ -1170,6 +1171,16 @@ fn unapply_natural_stack_branch_without_workspace_metadata() -> anyhow::Result<(
                 id: 1,
                 branches: [
                     WorkspaceStackBranch {
+                        ref_name: "refs/heads/A",
+                        archived: false,
+                    },
+                ],
+                workspacecommit_relation: Merged,
+            },
+            WorkspaceStack {
+                id: 2,
+                branches: [
+                    WorkspaceStackBranch {
                         ref_name: "refs/heads/C",
                         archived: false,
                     },
@@ -1179,16 +1190,6 @@ fn unapply_natural_stack_branch_without_workspace_metadata() -> anyhow::Result<(
                     },
                 ],
                 workspacecommit_relation: Outside,
-            },
-            WorkspaceStack {
-                id: 2,
-                branches: [
-                    WorkspaceStackBranch {
-                        ref_name: "refs/heads/A",
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Merged,
             },
         ],
         target_ref: "refs/remotes/origin/main",
@@ -4051,10 +4052,10 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
         )?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   c49e4d8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   3147679 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 09d8e52 (A) A
-    * | c813d8d (B) B
+    | * c813d8d (B) B
+    * | 09d8e52 (A) A
     |/  
     * 85efbe4 (origin/main, main) M
     ");

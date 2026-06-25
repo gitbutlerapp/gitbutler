@@ -996,12 +996,12 @@ mod with_workspace {
 
         insta::assert_snapshot!(graph_workspace(&ws), @"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:3:A on 3183e43 {0}
-        │   └── 📙:3:A
-        │       └── ·49d4b34 (🏘️)
-        └── ≡📙:4:B on 3183e43 {1}
-            └── 📙:4:B
-                └── ·f57c528 (🏘️)
+        ├── ≡📙:4:B on 3183e43 {1}
+        │   └── 📙:4:B
+        │       └── ·f57c528 (🏘️)
+        └── ≡📙:3:A on 3183e43 {0}
+            └── 📙:3:A
+                └── ·49d4b34 (🏘️)
         ");
 
         let bottom_ref_a = rc("refs/heads/a-bottom");
@@ -1020,13 +1020,13 @@ mod with_workspace {
         )?;
         insta::assert_snapshot!(graph_workspace(&ws), @"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:3:A on 3183e43 {0}
-        │   ├── 📙:3:A
-        │   │   └── ·49d4b34 (🏘️)
-        │   └── 📙:5:a-bottom
-        └── ≡📙:4:B on 3183e43 {1}
-            └── 📙:4:B
-                └── ·f57c528 (🏘️)
+        ├── ≡📙:4:B on 3183e43 {1}
+        │   └── 📙:4:B
+        │       └── ·f57c528 (🏘️)
+        └── ≡📙:3:A on 3183e43 {0}
+            ├── 📙:3:A
+            │   └── ·49d4b34 (🏘️)
+            └── 📙:5:a-bottom
         ");
 
         let bottom_ref_b = rc("refs/heads/b-bottom");
@@ -1046,14 +1046,14 @@ mod with_workspace {
 
         insta::assert_snapshot!(graph_workspace(&ws), @"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:3:A on 3183e43 {0}
-        │   ├── 📙:3:A
-        │   │   └── ·49d4b34 (🏘️)
-        │   └── 📙:6:a-bottom
-        └── ≡📙:4:B on 3183e43 {1}
-            ├── 📙:4:B
-            │   └── ·f57c528 (🏘️)
-            └── 📙:5:b-bottom
+        ├── ≡📙:4:B on 3183e43 {1}
+        │   ├── 📙:4:B
+        │   │   └── ·f57c528 (🏘️)
+        │   └── 📙:5:b-bottom
+        └── ≡📙:3:A on 3183e43 {0}
+            ├── 📙:3:A
+            │   └── ·49d4b34 (🏘️)
+            └── 📙:6:a-bottom
         ");
         Ok(())
     }
@@ -1382,12 +1382,12 @@ mod with_workspace {
         let ws = graph.into_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:3:A on 3183e43 {0}
-        │   └── 📙:3:A
-        │       └── ·49d4b34 (🏘️)
-        └── ≡📙:4:B on 3183e43 {1}
-            └── 📙:4:B
-                └── ·f57c528 (🏘️)
+        ├── ≡📙:4:B on 3183e43 {1}
+        │   └── 📙:4:B
+        │       └── ·f57c528 (🏘️)
+        └── ≡📙:3:A on 3183e43 {0}
+            └── 📙:3:A
+                └── ·49d4b34 (🏘️)
         ");
 
         // The new reference lands in the stack of its anchor.
@@ -1407,13 +1407,13 @@ mod with_workspace {
         )?;
         insta::assert_snapshot!(graph_workspace(&ws), @"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-        ├── ≡📙:3:A on 3183e43 {0}
-        │   └── 📙:3:A
-        │       └── ·49d4b34 (🏘️)
-        └── ≡📙:5:B on 3183e43 {1}
-            ├── 📙:5:B
-            └── 📙:6:new
-                └── ·f57c528 (🏘️)
+        ├── ≡📙:5:B on 3183e43 {1}
+        │   ├── 📙:5:B
+        │   └── 📙:6:new
+        │       └── ·f57c528 (🏘️)
+        └── ≡📙:3:A on 3183e43 {0}
+            └── 📙:3:A
+                └── ·49d4b34 (🏘️)
         ");
         Ok(())
     }

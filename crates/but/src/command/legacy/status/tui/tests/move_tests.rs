@@ -227,7 +227,7 @@ fn move_branch_to_merge_base_tears_off_branch() {
 
 #[test]
 fn moving_multiple_commits() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-second-double");
     env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);

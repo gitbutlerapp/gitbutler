@@ -149,7 +149,6 @@ fn detached() -> anyhow::Result<()> {
                     dst_id: Some(
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
-                    parent_order: 0,
                 },
             },
             free_node: NodeIndex(4294967295),

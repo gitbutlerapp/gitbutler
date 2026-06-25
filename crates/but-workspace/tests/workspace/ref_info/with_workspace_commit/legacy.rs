@@ -32,10 +32,10 @@ mod stacks {
             StackState::InWorkspace,
         );
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-        *   820f2b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+        *   fe1a116 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
         |\  
-        | * 4e5484a (B-on-A) add new file in B-on-A
-        * | 5f37dbf (C-on-A) add new file in C-on-A
+        | * 5f37dbf (C-on-A) add new file in C-on-A
+        * | 4e5484a (B-on-A) add new file in B-on-A
         |/  
         | * 89cc2d3 (origin/A) change in A
         |/  
@@ -48,28 +48,6 @@ mod stacks {
         [
             StackEntry {
                 id: Some(
-                    00000000-0000-0000-0000-000000000002,
-                ),
-                heads: [
-                    StackHeadInfo {
-                        name: "C-on-A",
-                        tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-                        review_id: None,
-                        is_checked_out: false,
-                    },
-                    StackHeadInfo {
-                        name: "A",
-                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-                        review_id: None,
-                        is_checked_out: false,
-                    },
-                ],
-                tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-                order: None,
-                is_checked_out: false,
-            },
-            StackEntry {
-                id: Some(
                     00000000-0000-0000-0000-000000000001,
                 ),
                 heads: [
@@ -87,6 +65,28 @@ mod stacks {
                     },
                 ],
                 tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                order: None,
+                is_checked_out: false,
+            },
+            StackEntry {
+                id: Some(
+                    00000000-0000-0000-0000-000000000002,
+                ),
+                heads: [
+                    StackHeadInfo {
+                        name: "C-on-A",
+                        tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                        review_id: None,
+                        is_checked_out: false,
+                    },
+                    StackHeadInfo {
+                        name: "A",
+                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        review_id: None,
+                        is_checked_out: false,
+                    },
+                ],
+                tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                 order: None,
                 is_checked_out: false,
             },
@@ -99,28 +99,6 @@ mod stacks {
         [
             StackEntry {
                 id: Some(
-                    00000000-0000-0000-0000-000000000002,
-                ),
-                heads: [
-                    StackHeadInfo {
-                        name: "C-on-A",
-                        tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-                        review_id: None,
-                        is_checked_out: false,
-                    },
-                    StackHeadInfo {
-                        name: "A",
-                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-                        review_id: None,
-                        is_checked_out: false,
-                    },
-                ],
-                tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-                order: None,
-                is_checked_out: false,
-            },
-            StackEntry {
-                id: Some(
                     00000000-0000-0000-0000-000000000001,
                 ),
                 heads: [
@@ -138,6 +116,28 @@ mod stacks {
                     },
                 ],
                 tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                order: None,
+                is_checked_out: false,
+            },
+            StackEntry {
+                id: Some(
+                    00000000-0000-0000-0000-000000000002,
+                ),
+                heads: [
+                    StackHeadInfo {
+                        name: "C-on-A",
+                        tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                        review_id: None,
+                        is_checked_out: false,
+                    },
+                    StackHeadInfo {
+                        name: "A",
+                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        review_id: None,
+                        is_checked_out: false,
+                    },
+                ],
+                tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                 order: None,
                 is_checked_out: false,
             },
@@ -155,7 +155,7 @@ mod stacks {
         [
             StackEntry {
                 id: Some(
-                    00000000-0000-0000-0000-000000000002,
+                    00000000-0000-0000-0000-000000000001,
                 ),
                 heads: [
                     StackHeadInfo {
@@ -165,7 +165,7 @@ mod stacks {
                         is_checked_out: true,
                     },
                 ],
-                tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
                 order: None,
                 is_checked_out: true,
             },
@@ -178,19 +178,19 @@ mod stacks {
         // filter.
         insta::assert_debug_snapshot!(details, @r#"
         StackDetails {
-            derived_name: "C-on-A",
+            derived_name: "B-on-A",
             push_status: CompletelyUnpushed,
             branch_details: [
                 BranchDetails {
-                    name: "C-on-A",
+                    name: "B-on-A",
                     reference: FullName(
-                        "refs/heads/C-on-A",
+                        "refs/heads/B-on-A",
                     ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
                     pr_number: None,
                     review_id: None,
-                    tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                    tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
                     base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     push_status: CompletelyUnpushed,
                     last_updated_at: None,
@@ -199,7 +199,7 @@ mod stacks {
                     ],
                     is_conflicted: false,
                     commits: [
-                        Commit(5f37dbf, "add new file in C-on-A", local),
+                        Commit(4e5484a, "add new file in B-on-A", local),
                     ],
                     upstream_commits: [],
                     is_remote_head: false,
@@ -361,10 +361,10 @@ mod stack_details {
     -> anyhow::Result<()> {
         let (repo, mut meta) = read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-        *   820f2b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+        *   fe1a116 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
         |\  
-        | * 4e5484a (B-on-A) add new file in B-on-A
-        * | 5f37dbf (C-on-A) add new file in C-on-A
+        | * 5f37dbf (C-on-A) add new file in C-on-A
+        * | 4e5484a (B-on-A) add new file in B-on-A
         |/  
         | * 89cc2d3 (origin/A) change in A
         |/  

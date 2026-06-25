@@ -14,7 +14,7 @@ use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
 use gix::refs::transaction::RefEdit;
 
-use crate::graph_rebase::util::collect_ordered_parents;
+use crate::graph_rebase::util::first_ordered_parent;
 
 use crate::graph_rebase::cherry_pick::{PickMode, TreeMergeMode};
 pub mod cherry_pick;
@@ -347,10 +347,9 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                         Step::None => None,
                         Step::Pick(Pick { id, .. }) => Some((*id, None)),
                         Step::Reference { refname } => {
-                            let parents = collect_ordered_parents(&self.graph, selector.id);
-
-                            if let Some(to_reference) = parents.first()
-                                && let Step::Pick(Pick { id, .. }) = self.graph[*to_reference]
+                            if let Some(to_reference) =
+                                first_ordered_parent(&self.graph, selector.id)
+                                && let Step::Pick(Pick { id, .. }) = self.graph[to_reference]
                             {
                                 Some((id, Some(refname.clone())))
                             } else {

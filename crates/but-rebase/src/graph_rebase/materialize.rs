@@ -13,7 +13,7 @@ use gix::refs::{
 };
 
 use crate::graph_rebase::{
-    Checkout, MaterializeOutcome, Pick, Step, SuccessfulRebase, util::collect_ordered_parents,
+    Checkout, MaterializeOutcome, Pick, Step, SuccessfulRebase, util::first_ordered_parent,
 };
 
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
@@ -38,11 +38,10 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         Step::None => bail!("Checkout selector is pointing to none"),
                         Step::Pick(Pick { id, .. }) => (id, None),
                         Step::Reference { refname } => {
-                            let parents = collect_ordered_parents(&self.graph, selector.id);
-                            let parent_step_id =
-                                parents.first().context("No first parent to reference")?;
-                            let Step::Pick(Pick { id, .. }) = self.graph[*parent_step_id] else {
-                                bail!("collect_ordered_parents should always return a commit pick");
+                            let parent_step_id = first_ordered_parent(&self.graph, selector.id)
+                                .context("No first parent to reference")?;
+                            let Step::Pick(Pick { id, .. }) = self.graph[parent_step_id] else {
+                                bail!("first_ordered_parent should always return a commit pick");
                             };
                             (id, Some(refname))
                         }

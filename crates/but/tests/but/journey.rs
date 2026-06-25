@@ -162,10 +162,10 @@ fn from_workspace() {
     use crate::utils::CommandExt;
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     insta::assert_snapshot!(env.git_log(), @r"
-    *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   8e93f22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 9477ae7 (A) add A
-    * | d3e2ba3 (B) add B
+    | * d3e2ba3 (B) add B
+    * | 9477ae7 (A) add A
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");

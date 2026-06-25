@@ -495,16 +495,35 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(())
     }
 
+    /// The order to give a new outgoing edge from `node` so it sorts after all existing ones.
+    fn next_outgoing_order(&self, node: petgraph::prelude::NodeIndex) -> usize {
+        self.graph
+            .edges_directed(node, Direction::Outgoing)
+            .map(|e| e.weight().order)
+            .max()
+            .map_or(0, |max| max + 1)
+    }
+
     /// Remove the child edge, and reconnect to the right parents.
     fn reconnect_edges_to_parents(
         &mut self,
         disconnected_parent_edges: &[(Edge, petgraph::prelude::NodeIndex)],
         child_node: petgraph::prelude::NodeIndex,
     ) {
-        // Reconnect the child node to all the disconnected parents.
-        for (parent_edge_weight, edge_target) in disconnected_parent_edges {
-            self.graph
-                .add_edge(child_node, *edge_target, parent_edge_weight.clone());
+        // Reconnect the child node to all the disconnected parents. Their orders came from a
+        // different parent context and can collide with `child_node`'s existing parents, so
+        // renumber them after the highest existing order, preserving their relative order.
+        let base_order = self.next_outgoing_order(child_node);
+        let mut disconnected_parent_edges = disconnected_parent_edges.iter().collect::<Vec<_>>();
+        disconnected_parent_edges.sort_by_key(|(weight, _)| weight.order);
+        for (offset, (_, edge_target)) in disconnected_parent_edges.into_iter().enumerate() {
+            self.graph.add_edge(
+                child_node,
+                *edge_target,
+                Edge {
+                    order: base_order + offset,
+                },
+            );
         }
     }
 
@@ -620,19 +639,13 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 if let Some(nodes_to_connect) = nodes_to_connect {
                     // If there were nodes to connect defined, create edges from them into the child node of the segment
                     // being inserted.
-                    for (index, any_selector) in nodes_to_connect.as_slice().iter().enumerate() {
+                    for any_selector in nodes_to_connect.as_slice() {
                         let selector = any_selector.to_selector(self)?;
                         let node = self.history.normalize_selector(selector)?;
-                        // Avoid weight collision by adding the order value of the highest order child plus one,
-                        // accommodating for order 0.
-                        let new_weight = if let Some((_, grand_child_weight, _)) =
-                            chubbiest_grand_child.as_ref()
-                        {
-                            Edge {
-                                order: index + grand_child_weight.order + 1,
-                            }
-                        } else {
-                            Edge { order: index }
+                        // This `node -> child` edge is read as `node`'s parent order, so order it
+                        // after node's existing parents rather than the inserted child's children.
+                        let new_weight = Edge {
+                            order: self.next_outgoing_order(node.id),
                         };
                         self.graph.add_edge(node.id, child.id, new_weight);
                     }

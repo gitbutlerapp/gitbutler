@@ -888,7 +888,6 @@ impl Graph {
                             propagated_flags,
                             src_sidx,
                             limit,
-                            0,
                         )?;
                         continue;
                     }
@@ -909,7 +908,6 @@ impl Graph {
                 Instruction::ConnectNewSegment {
                     parent_above,
                     at_commit,
-                    parent_order,
                 } => match seen.entry(id) {
                     Entry::Occupied(_) => {
                         possibly_split_occupied_segment(
@@ -920,7 +918,6 @@ impl Graph {
                             propagated_flags,
                             parent_above,
                             limit,
-                            parent_order,
                         )?;
                         continue;
                     }
@@ -937,7 +934,6 @@ impl Graph {
                             segment_below,
                             0,
                             id,
-                            parent_order,
                         );
                         e.insert(segment_below);
                         segment_below
@@ -2171,10 +2167,9 @@ impl Graph {
         dst: SegmentIndex,
         dst_commit: impl Into<Option<CommitIndex>>,
     ) {
-        self.connect_segments_with_ids(src, src_commit, None, dst, dst_commit, None, 0)
+        self.connect_segments_with_ids(src, src_commit, None, dst, dst_commit, None)
     }
 
-    #[expect(clippy::too_many_arguments)]
     pub(crate) fn connect_segments_with_ids(
         &mut self,
         src: SegmentIndex,
@@ -2183,7 +2178,6 @@ impl Graph {
         dst: SegmentIndex,
         dst_commit: impl Into<Option<CommitIndex>>,
         dst_id: Option<gix::ObjectId>,
-        parent_order: u32,
     ) {
         let src_commit = src_commit.into();
         let dst_commit = dst_commit.into();
@@ -2195,12 +2189,17 @@ impl Graph {
                 src_id: src_id.or_else(|| self[src].commit_id_by_index(src_commit)),
                 dst: dst_commit,
                 dst_id: dst_id.or_else(|| self[dst].commit_id_by_index(dst_commit)),
-                parent_order,
             },
         );
         self.rebuild_outgoing_edges_for_traversal_order(src, new_edge_id);
     }
 
+    /// Insert the just-added `new_edge_id` into `src`'s outgoing edges so they stay in first-parent
+    /// order — each destination's position among the source commit's parents. The existing edges
+    /// are already ordered, so this inserts the new one at its slot rather than re-sorting (a full
+    /// re-sort would also normalize any pre-existing order, changing the tie-break that downstream
+    /// stable sorts inherit). Commit-less edges (empty branches) carry no destination id and sort
+    /// last.
     fn rebuild_outgoing_edges_for_traversal_order(
         &mut self,
         src: SegmentIndex,
@@ -2224,8 +2223,19 @@ impl Graph {
             return;
         }
 
-        let insert_at = outgoing_edges
-            .partition_point(|edge| edge.weight.parent_order <= new_edge.weight.parent_order);
+        let src_parents: &[gix::ObjectId] = self[src]
+            .commits
+            .last()
+            .map(|c| c.parent_ids.as_slice())
+            .unwrap_or_default();
+        let order_of = |edge: &EdgeOwned| {
+            edge.weight
+                .dst_id()
+                .and_then(|dst| src_parents.iter().position(|p| *p == dst))
+                .unwrap_or(usize::MAX)
+        };
+        let insert_at =
+            outgoing_edges.partition_point(|edge| order_of(edge) <= order_of(&new_edge));
         outgoing_edges.insert(insert_at, new_edge);
 
         for edge in &outgoing_edges {
