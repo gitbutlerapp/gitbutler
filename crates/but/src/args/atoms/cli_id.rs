@@ -1,8 +1,12 @@
+use bstr::BString;
 use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliError, CliId, CliResult, IdMap, args::atoms::BranchArg, bad_input, id::UncommittedHunkOrFile,
+    CliError, CliId, CliResult, IdMap,
+    args::atoms::BranchArg,
+    bad_input,
+    id::{ShortId, UncommittedHunkOrFile},
 };
 
 /// An argument atom for cli ids that can match multiple things like branches, commits, files, etc.
@@ -67,7 +71,15 @@ impl CliIdArg {
                 ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(uncommitted))
             }
             CliId::PathPrefix { .. } => ResolvedCliIdArg::PathPrefix,
-            CliId::CommittedFile { .. } => ResolvedCliIdArg::CommittedFile,
+            CliId::CommittedFile {
+                commit_id,
+                path,
+                id,
+            } => ResolvedCliIdArg::CommittedFile {
+                commit_id,
+                path,
+                id,
+            },
             CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
             CliId::Stack { .. } => ResolvedCliIdArg::Stack,
         }))
@@ -348,10 +360,14 @@ pub enum ResolvedCliIdArg {
     Commit(gix::ObjectId),
     Branch(BranchArg),
     UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
+    CommittedFile {
+        commit_id: gix::ObjectId,
+        path: BString,
+        id: ShortId,
+    },
     // These have no data because we don't have any commands that use them. So just add data if you
     // have a use case
     PathPrefix,
-    CommittedFile,
     Uncommitted,
     Stack,
 }
@@ -363,8 +379,8 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::Commit(commit) => return Ok(BranchOrCommit::Commit(commit)),
             ResolvedCliIdArg::Branch(branch) => return Ok(BranchOrCommit::Branch(branch)),
             ResolvedCliIdArg::UncommittedHunkOrFile(..) => "an uncommitted change",
+            ResolvedCliIdArg::CommittedFile { .. } => "a committed file",
             ResolvedCliIdArg::PathPrefix => "a path",
-            ResolvedCliIdArg::CommittedFile => "a committed file",
             ResolvedCliIdArg::Uncommitted => "uncommitted changes",
             ResolvedCliIdArg::Stack => "a stack",
         };
@@ -379,7 +395,7 @@ impl std::fmt::Display for ResolvedCliIdArg {
             ResolvedCliIdArg::Branch(inner) => inner.fmt(f),
             ResolvedCliIdArg::UncommittedHunkOrFile(..) => f.write_str("uncommitted file or hunk"),
             ResolvedCliIdArg::PathPrefix => f.write_str("path"),
-            ResolvedCliIdArg::CommittedFile => f.write_str("committed file"),
+            ResolvedCliIdArg::CommittedFile { .. } => f.write_str("committed file"),
             ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
             ResolvedCliIdArg::Stack => f.write_str("stack"),
         }
