@@ -7,6 +7,7 @@
 #![forbid(missing_docs)]
 
 use std::collections::{BTreeMap, HashMap};
+use std::fmt::Write;
 use std::str::FromStr as _;
 
 use bstr::{BStr, BString, ByteSlice};
@@ -15,6 +16,7 @@ use but_core::{ChangeId, ref_metadata::StackId};
 use but_ctx::Context;
 use but_graph::workspace::{Stack, StackCommit, StackSegment};
 use but_hunk_assignment::HunkAssignment;
+use gix::hash::hasher;
 use nonempty::NonEmpty;
 use self_cell::self_cell;
 
@@ -106,7 +108,7 @@ type ChangesInCommitFn<'a> = Box<
     dyn FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>
         + 'a,
 >;
-trait Node<'a> {
+trait Node<'a>: std::fmt::Debug {
     fn parse(
         self: Box<Self>,
         element: &str,
@@ -117,6 +119,7 @@ trait Node<'a> {
     fn to_cli_id(self: Box<Self>, short_id: &str, id_map: &IdMap) -> anyhow::Result<Option<CliId>>;
 }
 
+#[derive(Debug)]
 struct Leaf {
     cli_id: CliId,
 }
@@ -489,12 +492,15 @@ impl IdMap {
 
         let mut uncommitted_hunks = HashMap::new();
         for uncommitted_file in uncommitted_files.values_mut() {
-            for (short_id, hunk_assignment) in uncommitted_file.short_id_hunk_assignments.iter_mut()
             {
-                let new_short_id = id_usage.next_available()?.to_short_id();
-                short_id.push_str(&new_short_id);
+                Self::assign_content_based_hunk_short_ids(
+                    uncommitted_file.short_id_hunk_assignments.iter_mut(),
+                )?;
+            }
+
+            for (short_id, hunk_assignment) in &uncommitted_file.short_id_hunk_assignments {
                 uncommitted_hunks.insert(
-                    new_short_id,
+                    format!("{}:{}", uncommitted_file.short_id, short_id),
                     UncommittedHunk {
                         hunk_assignment: hunk_assignment.clone(),
                     },
@@ -525,6 +531,92 @@ impl IdMap {
             uncommitted_files,
             uncommitted_hunks,
         })
+    }
+
+    const HUNK_EMPTY_CONTENT_PREFIX: &str = "q";
+
+    /// Assign unique hunk short IDs based on content hash into the input iterator's first element.
+    ///
+    /// The hunk IDs are computed as the shortest possible distinct prefix of the hash of the hunk's
+    /// content, where distinctness is computed only relative to the other hunks in the input. This
+    /// should typically be on a file-by-file basis.
+    ///
+    /// On hash collisions, the IDs are disambiguated based on the amount of collisions for that
+    /// particular hash.
+    ///
+    /// Hunks that lack a diff are prefixed with "q" and then rely on the disambiguation mechanism
+    /// if there are multiple such hunks.
+    ///
+    /// In summary, the formats are:
+    ///
+    /// * No collision: `<prefix>`
+    ///     - Example: `0`
+    /// * Collision: `<prefix>#<collision_index>-<num_collisions>`
+    ///     - `<collision_index>` is the 0-based index of the hunk relative to the other colliding
+    ///       hunks, in input order.
+    ///     - Example: `0#0-2` and `0#1-2`
+    ///
+    /// We include the number of collisions in the collision disambiguation to prevent
+    /// commit/discard of a leading colliding hunk from causing trailing colliding hunks to get new
+    /// IDs that previously pointed to other colliding hunks.
+    ///
+    /// Note that hunks that lack a diff follow the same rules, only that `<prefix>="q"` always.
+    fn assign_content_based_hunk_short_ids<'a>(
+        short_ids_and_hunks: impl Iterator<Item = &'a mut (ShortId, HunkAssignment)>,
+    ) -> anyhow::Result<()> {
+        let mut content_hash_to_short_ids: BTreeMap<ShortId, Vec<&'a mut String>> = BTreeMap::new();
+        for (short_id, hunk_assignment) in short_ids_and_hunks {
+            let content_hash = match hunk_assignment.diff.as_ref() {
+                Some(diff) => {
+                    let mut content_hasher = hasher(gix::hash::Kind::Sha1);
+                    for line in diff
+                        .lines_with_terminator()
+                        .filter(|line| !line.starts_with_str(b"@@"))
+                    {
+                        content_hasher.update(line);
+                    }
+                    content_hasher.try_finalize()?.to_string()
+                }
+                None => Self::HUNK_EMPTY_CONTENT_PREFIX.to_string(),
+            };
+
+            content_hash_to_short_ids
+                .entry(content_hash)
+                .or_default()
+                .push(short_id);
+        }
+
+        let mut all_hashes = content_hash_to_short_ids.into_iter();
+
+        let mut current = all_hashes.next();
+        let mut len_in_common_with_last: usize = 0;
+        while let Some((content_hash, mut short_ids)) = current {
+            let next = all_hashes.next();
+
+            let len_in_common_with_next = common_prefix_len(
+                content_hash.as_bytes(),
+                next.as_ref()
+                    .map(|(content_hash, _)| content_hash.as_bytes())
+                    .unwrap_or_default(),
+            );
+            let shortest_distinct_prefix = &content_hash[0..1
+                .max(len_in_common_with_next + 1)
+                .max(len_in_common_with_last + 1)];
+
+            let num_colliding_ids = short_ids.len();
+            for (i, short_id) in short_ids.iter_mut().enumerate() {
+                short_id.push_str(shortest_distinct_prefix);
+
+                if num_colliding_ids > 1 {
+                    write!(short_id, "#{i}-{num_colliding_ids}")?;
+                }
+            }
+
+            len_in_common_with_last = len_in_common_with_next;
+            current = next;
+        }
+
+        Ok(())
     }
 
     /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
@@ -735,6 +827,7 @@ impl IdMap {
             }
         }
         if element == UNCOMMITTED {
+            #[derive(Debug)]
             struct Unstaged {}
             impl<'a> Node<'a> for Unstaged {
                 fn parse(
@@ -755,9 +848,6 @@ impl IdMap {
                 }
             }
             matches.push(Box::new(Unstaged {}));
-        }
-        if let Some(uncommitted_hunk) = self.uncommitted_hunks.get(element) {
-            matches.push(Box::new(uncommitted_hunk));
         }
 
         // To avoid false positives, only check uncommitted files if nothing
@@ -1151,6 +1241,7 @@ impl UncommittedFile {
             .map(|(_, hunk_assignment)| hunk_assignment)
     }
 }
+
 impl<'a> Node<'a> for &'a UncommittedFile {
     fn parse(
         self: Box<Self>,
@@ -1158,17 +1249,37 @@ impl<'a> Node<'a> for &'a UncommittedFile {
         _id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        if let Ok(index) = usize::from_str(element)
-            && let Some((short_id, hunk_assignment)) = self.short_id_hunk_assignments.get(index)
-        {
-            let cli_id = CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
-                id: short_id.to_owned(),
-                hunk_assignments: NonEmpty::new(hunk_assignment.to_owned()),
-                is_entire_file: false,
-            });
-            return Ok(vec![Box::new(Leaf { cli_id })]);
+        match element.strip_prefix('#') {
+            Some(maybe_index) if let Ok(index) = usize::from_str(maybe_index) => {
+                if let Some((short_id, hunk_assignment)) = self.short_id_hunk_assignments.get(index)
+                {
+                    let cli_id = CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
+                        id: format!("{}:{}", self.short_id, short_id),
+                        hunk_assignments: NonEmpty::new(hunk_assignment.to_owned()),
+                        is_entire_file: false,
+                    });
+                    Ok(vec![Box::new(Leaf { cli_id })])
+                } else {
+                    Ok(vec![])
+                }
+            }
+            _ => {
+                let matches = self
+                    .short_id_hunk_assignments
+                    .iter()
+                    .filter(|(short_id, _)| short_id == element)
+                    .map(|(short_id, hunk_assignment)| {
+                        let cli_id = CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
+                            id: format!("{}:{}", self.short_id, short_id),
+                            hunk_assignments: NonEmpty::new(hunk_assignment.to_owned()),
+                            is_entire_file: false,
+                        });
+                        Box::new(Leaf { cli_id }) as Box<dyn Node<'a> + 'a>
+                    });
+
+                Ok(matches.collect())
+            }
         }
-        Ok(Vec::new())
     }
 
     fn to_cli_id(

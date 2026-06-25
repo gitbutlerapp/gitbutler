@@ -110,9 +110,9 @@ fn assign_uncommitted_file() -> anyhow::Result<()> {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+km:c a.txt│
+──────────╯
      1│+arbitrary text
 
 "#]]);
@@ -136,9 +136,9 @@ Unstaged the only hunk in a.txt in a stack
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:c a.txt│
+──────────╯
      1│+arbitrary text
 
 "#]]);
@@ -276,7 +276,7 @@ Uncommitted changes
   ],
   "stacks": [
     {
-      "cliId": "k0",
+      "cliId": "j0",
       "assignedChanges": [],
       "branches": [
         {
@@ -319,7 +319,7 @@ Uncommitted changes
 ...
     },
     {
-      "cliId": "l0",
+      "cliId": "k0",
       "assignedChanges": [],
       "branches": [
         {
@@ -359,17 +359,17 @@ fn shorthand_uncommitted_hunk_to_uncommitted_area() -> anyhow::Result<()> {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+km:2 a.txt│
+──────────╯
    1  │-first
      1│+firsta
    2 2│ line
    3 3│ line
    4 4│ line
-────────╮
-k0 a.txt│
-────────╯
+──────────╮
+km:e a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -377,7 +377,7 @@ k0 a.txt│
        9│+lasta
 
 "#]]);
-    env.but("rub j0 zz")
+    env.but("rub km:2 zz")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -404,7 +404,7 @@ Unstaged a hunk in a.txt in a stack
   ],
   "stacks": [
     {
-      "cliId": "m0",
+      "cliId": "k0",
       "assignedChanges": [
         {
           "cliId": "km",
@@ -438,17 +438,17 @@ fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:2 a.txt│
+──────────╯
    1  │-first
      1│+firsta
    2 2│ line
    3 3│ line
    4 4│ line
-────────╮
-k0 a.txt│
-────────╯
+──────────╮
+nk:e a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -456,7 +456,7 @@ k0 a.txt│
        9│+lasta
 
 "#]]);
-    env.but("rub j0 A")
+    env.but("rub nk:2 A")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -483,7 +483,7 @@ Staged a hunk in a.txt in the uncommitted area → [A].
   ],
   "stacks": [
     {
-      "cliId": "m0",
+      "cliId": "k0",
       "assignedChanges": [
         {
           "cliId": "km",
@@ -563,7 +563,7 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
   ],
   "stacks": [
     {
-      "cliId": "m0",
+      "cliId": "k0",
       "assignedChanges": [],
       "branches": [
 ...
@@ -899,7 +899,7 @@ fn stage_command() -> anyhow::Result<()> {
   "uncommittedChanges": [],
   "stacks": [
     {
-      "cliId": "l0",
+      "cliId": "j0",
       "assignedChanges": [
         {
           "cliId": "km",
@@ -1008,7 +1008,7 @@ fn unstage_command() -> anyhow::Result<()> {
   "uncommittedChanges": [],
   "stacks": [
     {
-      "cliId": "l0",
+      "cliId": "j0",
       "assignedChanges": [
         {
           "cliId": "km",
@@ -1039,7 +1039,7 @@ fn unstage_command() -> anyhow::Result<()> {
   ],
   "stacks": [
     {
-      "cliId": "l0",
+      "cliId": "j0",
       "assignedChanges": [],
 ...
 

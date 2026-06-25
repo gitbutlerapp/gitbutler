@@ -93,23 +93,23 @@ fn uncommitted_hunk() -> anyhow::Result<()> {
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
-    // Verify that the first hunk is j0, and absorb it.
+    // Verify that the first hunk is nk:2, and absorb it.
     env.but("diff a.txt")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:2 a.txt│
+──────────╯
    1  │-first
      1│+firsta
    2 2│ line
    3 3│ line
    4 4│ line
-────────╮
-k0 a.txt│
-────────╯
+──────────╮
+nk:e a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -117,7 +117,7 @@ k0 a.txt│
        9│+lasta
 
 "#]]);
-    env.but("absorb j0")
+    env.but("absorb nk:2")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -177,23 +177,22 @@ fn committed_hunk() -> anyhow::Result<()> {
     env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
-    // Verify that the first hunk is j0, and commit it.
     env.but("diff a.txt")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:2 a.txt│
+──────────╯
    1  │-first
      1│+firsta
    2 2│ line
    3 3│ line
    4 4│ line
-────────╮
-k0 a.txt│
-────────╯
+──────────╮
+nk:e a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -220,9 +219,9 @@ k0 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:f a.txt│
+──────────╯
    1  │-firsta
      1│+first
    2 2│ line
@@ -247,9 +246,9 @@ j0 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:1 a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -274,17 +273,17 @@ j0 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:b a.txt│
+──────────╯
    1  │-first
      1│+first new
    2 2│ line
    3 3│ line
    4 4│ line
-────────╮
-k0 a.txt│
-────────╯
+──────────╮
+nk:5 a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line

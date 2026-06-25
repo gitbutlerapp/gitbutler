@@ -165,18 +165,14 @@ fn fmt_hunk(hunk: &DiffHunk) -> String {
             '+' => {
                 // Added line: show blank old line number, show new line number
                 let line_nums = format!("{:>width$} {:>width$}", "", new_line, width = width);
-                let formatted_line = crate::theme::get()
-                    .addition
-                    .paint(format!("{line_nums}│+{content_str}"));
+                let formatted_line = t.addition.paint(format!("{line_nums}│+{content_str}"));
                 output.push_str(&format!("   {formatted_line}\n"));
                 new_line += 1;
             }
             '-' => {
                 // Removed line: show old line number, blank new line number
                 let line_nums = format!("{:>width$} {:>width$}", old_line, "", width = width);
-                let formatted_line = crate::theme::get()
-                    .deletion
-                    .paint(format!("{line_nums}│-{content_str}"));
+                let formatted_line = t.deletion.paint(format!("{line_nums}│-{content_str}"));
                 output.push_str(&format!("   {formatted_line}\n"));
                 old_line += 1;
             }
@@ -214,14 +210,11 @@ impl DiffDisplay for HunkAssignment {
         if let Some(id) = &short_id {
             output.push_str(&format!(
                 "{} {}│\n",
-                crate::theme::get().cli_id.paint(id),
-                crate::theme::get().important.paint(&self.path)
+                t.cli_id.paint(id),
+                t.important.paint(&self.path)
             ));
         } else {
-            output.push_str(&format!(
-                "{}│\n",
-                crate::theme::get().important.paint(&self.path)
-            ));
+            output.push_str(&format!("{}│\n", t.important.paint(&self.path)));
         }
         output.push_str(&format!("{}╯\n", t.hint.paint("─".repeat(content_width))));
 
