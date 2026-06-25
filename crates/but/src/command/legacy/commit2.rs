@@ -174,8 +174,6 @@ fn resolve(
         }
     };
 
-    let commit_op = route_commit_operation(&*ctx.repo.get()?, head_info, out, id_map, target_ish)?;
-
     let (guard, commit_selection) = if !changes.is_empty() {
         let changes = changes
             .into_iter()
@@ -224,6 +222,8 @@ fn resolve(
     } else {
         (guard, CommitSelection::AllChanges)
     };
+
+    let commit_op = route_commit_operation(&*ctx.repo.get()?, head_info, out, id_map, target_ish)?;
 
     let reword_op = RewordCommitOperation::resolve(no_message, message);
 
