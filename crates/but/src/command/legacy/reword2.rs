@@ -6,6 +6,7 @@ use gix::prelude::ObjectIdExt as _;
 
 use crate::command::legacy::{ShowDiffInEditor, reword::get_commit_message_from_editor};
 
+#[derive(Debug, Clone)]
 pub enum RewordCommitOperation {
     NoMessage,
     Message(String),
