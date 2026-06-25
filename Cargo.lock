@@ -1040,6 +1040,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-bitbucket"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "but-error",
+ "but-forge-storage",
+ "but-schemars",
+ "but-secret",
+ "reqwest",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
+ "urlencoding",
+]
+
+[[package]]
 name = "but-cherry-apply"
 version = "0.0.0"
 dependencies = [
