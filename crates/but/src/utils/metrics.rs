@@ -220,8 +220,9 @@ impl Subcommands {
                 skill::Subcommands::Install { .. } => SkillInstall,
                 skill::Subcommands::Check { .. } => SkillCheck,
             },
+            // Bare `but agent` (None) runs the setup wizard, same as `agent setup`.
             Subcommands::Agent(agent::Platform { cmd }) => match cmd {
-                agent::Subcommands::Setup { .. } => AgentSetup,
+                None | Some(agent::Subcommands::Setup { .. }) => AgentSetup,
             },
             Subcommands::Edit { .. } => Edit,
             #[cfg(feature = "legacy")]
@@ -692,8 +693,13 @@ mod tests {
         );
         assert_command(
             Subcommands::Agent(agent::Platform {
-                cmd: agent::Subcommands::Setup { print: false },
+                cmd: Some(agent::Subcommands::Setup { print: false }),
             }),
+            "agentSetup",
+        );
+        // Bare `but agent` (no subcommand) maps to the same metric.
+        assert_command(
+            Subcommands::Agent(agent::Platform { cmd: None }),
             "agentSetup",
         );
         assert_command(

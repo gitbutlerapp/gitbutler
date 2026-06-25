@@ -1,8 +1,9 @@
 /// Arguments for AI agent setup commands.
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
+    /// Running `but agent` with no subcommand runs the setup wizard.
     #[clap(subcommand)]
-    pub cmd: Subcommands,
+    pub cmd: Option<Subcommands>,
 }
 
 #[derive(Debug, clap::Subcommand)]
