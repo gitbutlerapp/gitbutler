@@ -35,6 +35,7 @@ impl PartialEq for ForgeRepoInfo {
 pub enum ForgeUser {
     GitHub(but_github::GithubAccountIdentifier),
     GitLab(but_gitlab::GitlabAccountIdentifier),
+    Bitbucket(but_bitbucket::BitbucketAccountIdentifier),
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ForgeUser);
@@ -49,6 +50,12 @@ impl ForgeUser {
     pub fn gitlab(&self) -> Option<&but_gitlab::GitlabAccountIdentifier> {
         match self {
             ForgeUser::GitLab(id) => Some(id),
+            _ => None,
+        }
+    }
+    pub fn bitbucket(&self) -> Option<&but_bitbucket::BitbucketAccountIdentifier> {
+        match self {
+            ForgeUser::Bitbucket(id) => Some(id),
             _ => None,
         }
     }

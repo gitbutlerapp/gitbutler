@@ -26,7 +26,15 @@ pub async fn get_repo_info(
                 .await
                 .map(RepoInfo::from)
         }
-        ForgeName::Bitbucket | ForgeName::Azure => Err(anyhow::anyhow!(
+        ForgeName::Bitbucket => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket());
+            but_bitbucket::fetch_repo(preferred_account, owner, repo, storage)
+                .await
+                .map(RepoInfo::from)
+        }
+        ForgeName::Azure => Err(anyhow::anyhow!(
             "Fetching repo info for forge {:?} is not implemented yet.",
             forge_repo_info.forge
         )),
@@ -78,6 +86,55 @@ impl From<but_github::GitHubRepository> for RepoInfo {
     }
 }
 
+impl From<but_bitbucket::BitbucketRepo> for RepoInfo {
+    fn from(value: but_bitbucket::BitbucketRepo) -> Self {
+        // Bitbucket permissions are `admin` > `write` > `read`. `value.permission`
+        // is `None` when it can't be determined — Bitbucket's
+        // `/user/permissions/repositories` returns no row for access inherited via
+        // workspace/group membership, and the call may lack scope or fail. We always
+        // produce `Some(RepoPermissions)`, defaulting that unknown case to optimistic
+        // (push allowed) so the merge button isn't wrongly disabled; Bitbucket
+        // enforces permissions server-side.
+        let permissions = Some(match value.permission.as_deref() {
+            Some("admin") => RepoPermissions {
+                admin: true,
+                maintain: true,
+                push: true,
+                triage: true,
+                pull: true,
+            },
+            Some("write") => RepoPermissions {
+                admin: false,
+                maintain: false,
+                push: true,
+                triage: true,
+                pull: true,
+            },
+            Some("read") => RepoPermissions {
+                admin: false,
+                maintain: false,
+                push: false,
+                triage: false,
+                pull: true,
+            },
+            _ => RepoPermissions {
+                admin: false,
+                maintain: false,
+                push: true,
+                triage: true,
+                pull: true,
+            },
+        });
+        RepoInfo {
+            permissions,
+            fork: value.is_fork,
+            // Bitbucket has no per-repo "delete source branch after merge" flag
+            // exposed on the repository object.
+            delete_branch_on_merge: None,
+        }
+    }
+}
+
 impl From<but_gitlab::GitLabProject> for RepoInfo {
     fn from(value: but_gitlab::GitLabProject) -> Self {
         // GitLab access levels: 10=Guest, 20=Reporter, 30=Developer,
@@ -94,5 +151,52 @@ impl From<but_gitlab::GitLabProject> for RepoInfo {
             fork: value.forked_from_project_id.is_some(),
             delete_branch_on_merge: value.remove_source_branch_after_merge,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bb_repo(permission: Option<&str>, is_fork: bool) -> but_bitbucket::BitbucketRepo {
+        but_bitbucket::BitbucketRepo {
+            is_fork,
+            permission: permission.map(str::to_owned),
+        }
+    }
+
+    #[test]
+    fn bitbucket_permission_maps_to_repo_permissions() {
+        let admin = RepoInfo::from(bb_repo(Some("admin"), false)).permissions;
+        assert_eq!(
+            admin.map(|p| (p.admin, p.push, p.pull)),
+            Some((true, true, true))
+        );
+
+        let write = RepoInfo::from(bb_repo(Some("write"), false)).permissions;
+        assert_eq!(
+            write.map(|p| (p.admin, p.push, p.pull)),
+            Some((false, true, true))
+        );
+
+        let read = RepoInfo::from(bb_repo(Some("read"), false)).permissions;
+        assert_eq!(
+            read.map(|p| (p.admin, p.push, p.pull)),
+            Some((false, false, true))
+        );
+    }
+
+    #[test]
+    fn bitbucket_unknown_permission_defaults_to_optimistic_push() {
+        let info = RepoInfo::from(bb_repo(None, false));
+        let perms = info.permissions.expect("should default to Some, not None");
+        assert!(perms.push, "unknown permission must default to push: true");
+        assert!(perms.pull);
+    }
+
+    #[test]
+    fn bitbucket_fork_flag_is_propagated() {
+        assert!(RepoInfo::from(bb_repo(Some("read"), true)).fork);
+        assert!(!RepoInfo::from(bb_repo(Some("read"), false)).fork);
     }
 }

@@ -274,6 +274,19 @@ impl From<but_gitlab::GitLabUser> for ForgeReviewUser {
     }
 }
 
+impl From<but_bitbucket::BitbucketUser> for ForgeReviewUser {
+    fn from(user: but_bitbucket::BitbucketUser) -> Self {
+        ForgeReviewUser {
+            id: user.id,
+            login: user.username,
+            name: user.name,
+            email: user.email,
+            avatar_url: user.avatar_url,
+            is_bot: user.is_bot,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
@@ -441,6 +454,43 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
     }
 }
 
+impl From<but_bitbucket::BitbucketPullRequest> for ForgeReview {
+    fn from(pr: but_bitbucket::BitbucketPullRequest) -> Self {
+        let merged_at = pr.merged_at();
+        let closed_at = pr.closed_at();
+        let integration_commit_shas = pr.merge_commit_hash.clone().into_iter().collect();
+        ForgeReview {
+            html_url: pr.html_url,
+            number: pr.id,
+            title: pr.title,
+            body: pr.description,
+            author: pr.author.map(ForgeReviewUser::from),
+            // Bitbucket Cloud pull requests don't carry labels.
+            labels: Vec::new(),
+            draft: pr.draft,
+            source_branch: pr.source_branch,
+            target_branch: pr.target_branch,
+            sha: pr.source_commit_hash,
+            integration_commit_shas,
+            created_at: pr.created_on,
+            modified_at: pr.updated_on,
+            merged_at,
+            closed_at,
+            repository_ssh_url: None,
+            repository_https_url: None,
+            repo_owner: None,
+            head_repo_is_fork: false,
+            reviewers: pr
+                .reviewers
+                .into_iter()
+                .map(ForgeReviewUser::from)
+                .collect(),
+            unit_symbol: "#".to_string(),
+            last_sync_at: chrono::Local::now().naive_local(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -516,6 +566,18 @@ impl From<but_gitlab::CredentialCheckResult> for ForgeAccountValidity {
     }
 }
 
+impl From<but_bitbucket::CredentialCheckResult> for ForgeAccountValidity {
+    fn from(value: but_bitbucket::CredentialCheckResult) -> Self {
+        match value {
+            but_bitbucket::CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
+            but_bitbucket::CredentialCheckResult::NoCredentials => {
+                ForgeAccountValidity::NoCredentials
+            }
+            but_bitbucket::CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
+        }
+    }
+}
+
 /// Check whether there's an account that would be used for this repository is authenticated.
 pub async fn check_forge_account_is_valid(
     preferred_forge_user: Option<crate::ForgeUser>,
@@ -562,6 +624,27 @@ pub async fn check_forge_account_is_valid(
             };
 
             but_gitlab::check_credentials(&preferred_account, storage)
+                .await
+                .map(Into::into)
+        }
+        ForgeName::Bitbucket => {
+            let preferred_account = match preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket().cloned())
+            {
+                Some(account) => account,
+                None => {
+                    let known_accounts = but_bitbucket::list_known_bitbucket_accounts(storage)?;
+                    match known_accounts.first() {
+                        Some(account) => account.clone(),
+                        None => {
+                            return Ok(ForgeAccountValidity::NoCredentials);
+                        }
+                    }
+                }
+            };
+
+            but_bitbucket::check_credentials(&preferred_account, storage)
                 .await
                 .map(Into::into)
         }
@@ -634,6 +717,33 @@ fn list_forge_reviews(
                 .map(ForgeReview::from)
                 .collect::<Vec<ForgeReview>>()
         }
+        ForgeName::Bitbucket => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket().cloned());
+
+            // Clone owned data for thread
+            let workspace = owner.clone();
+            let repo_slug = repo.clone();
+            let storage = storage.clone();
+
+            let prs = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new()
+                    .unwrap()
+                    .block_on(but_bitbucket::pr::list(
+                        preferred_account.as_ref(),
+                        &workspace,
+                        &repo_slug,
+                        &storage,
+                    ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
+
+            prs.into_iter()
+                .map(ForgeReview::from)
+                .collect::<Vec<ForgeReview>>()
+        }
         _ => {
             return Err(Error::msg(format!(
                 "Listing reviews for forge {forge:?} is not implemented yet.",
@@ -700,6 +810,21 @@ pub async fn list_forge_reviews_for_branch(
             .await?;
             let mrs = filter_mrs(mrs, &filter);
             Ok(mrs.into_iter().map(ForgeReview::from).collect())
+        }
+        ForgeName::Bitbucket => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket().cloned());
+            let prs = but_bitbucket::pr::list_all_for_target(
+                preferred_account.as_ref(),
+                owner,
+                repo,
+                branch,
+                storage,
+            )
+            .await?;
+            let prs = filter_bb_prs(prs, &filter);
+            Ok(prs.into_iter().map(ForgeReview::from).collect())
         }
         _ => Err(Error::msg(format!(
             "Listing reviews for forge {forge:?} is not implemented yet.",
@@ -793,6 +918,35 @@ fn filter_mrs(
         .collect()
 }
 
+fn filter_bb_prs(
+    prs: Vec<but_bitbucket::BitbucketPullRequest>,
+    filter: &ForgeReviewFilter,
+) -> Vec<but_bitbucket::BitbucketPullRequest> {
+    let now = chrono::Utc::now();
+    prs.into_iter()
+        .filter(|pr| {
+            let Some(merged_at_str) = pr.merged_at() else {
+                return false;
+            };
+            let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(&merged_at_str) else {
+                return false;
+            };
+            match filter {
+                ForgeReviewFilter::Today => merged_at.date_naive() == now.date_naive(),
+                ForgeReviewFilter::ThisWeek => {
+                    let week_start =
+                        now - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
+                    merged_at.date_naive() >= week_start.date_naive()
+                }
+                ForgeReviewFilter::ThisMonth => {
+                    merged_at.year() == now.year() && merged_at.month() == now.month()
+                }
+                ForgeReviewFilter::All => true,
+            }
+        })
+        .collect()
+}
+
 async fn get_forge_review_inner(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
@@ -815,6 +969,14 @@ async fn get_forge_review_inner(
             let mr =
                 but_gitlab::mr::get(preferred_account, project_id, review_number, storage).await?;
             Ok(ForgeReview::from(mr))
+        }
+        ForgeName::Bitbucket => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket());
+            let pr = but_bitbucket::pr::get(preferred_account, owner, repo, review_number, storage)
+                .await?;
+            Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(
             "Getting reviews for forge {forge:?} is not implemented yet.",
@@ -914,6 +1076,23 @@ pub async fn get_review_merge_status(
                 mergeable_state: status.mergeable_state,
                 comments_count: status.comments_count,
                 is_mergeable: status.is_mergeable,
+            })
+        }
+        ForgeName::Bitbucket => {
+            // Bitbucket has no dedicated mergeability endpoint; derive a basic
+            // status from the PR's state and comment count.
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket());
+            let pr = but_bitbucket::pr::get(preferred_account, owner, repo, review_number, storage)
+                .await?;
+            Ok(ReviewMergeStatus {
+                is_mergeable: pr.is_open(),
+                // Bitbucket's state strings ("OPEN"/"MERGED"/…) don't map to the
+                // forge-agnostic mergeable_state vocabulary the UI understands, so
+                // leave it unset rather than feed a value it can't interpret.
+                mergeable_state: None,
+                comments_count: pr.comment_count,
             })
         }
         _ => Err(anyhow::anyhow!(
@@ -1071,6 +1250,33 @@ pub async fn update_review(
             but_gitlab::mr::update(preferred_account, params, storage).await?;
             Ok(())
         }
+        ForgeName::Bitbucket => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket());
+            if matches!(state, Some(ReviewState::Open)) {
+                return Err(anyhow::anyhow!(
+                    "Bitbucket does not support reopening a declined pull request via the API."
+                ));
+            }
+            let id = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let params = but_bitbucket::UpdatePullRequestParams {
+                workspace: owner,
+                repo_slug: repo,
+                id,
+                title: title.as_deref(),
+                description: body.as_deref(),
+                target_branch: target_base.as_deref(),
+            };
+            but_bitbucket::pr::update(preferred_account, params, storage).await?;
+            if matches!(state, Some(ReviewState::Closed)) {
+                but_bitbucket::pr::decline(preferred_account, owner, repo, review_number, storage)
+                    .await?;
+            }
+            Ok(())
+        }
         _ => Err(anyhow::anyhow!(
             "Updating pull requests for forge {forge:?} is not implemented yet."
         )),
@@ -1145,6 +1351,26 @@ pub async fn merge_review(
 
             but_gitlab::mr::merge(preferred_account, params, storage).await
         }
+        ForgeName::Bitbucket => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket());
+            let id = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let strategy = match merge_method {
+                Some(ReviewMergeMethod::Squash) => but_bitbucket::MergeStrategy::Squash,
+                Some(ReviewMergeMethod::Rebase) => but_bitbucket::MergeStrategy::RebaseFastForward,
+                Some(ReviewMergeMethod::Merge) | None => but_bitbucket::MergeStrategy::MergeCommit,
+            };
+            let params = but_bitbucket::MergePullRequestParams {
+                workspace: owner,
+                repo_slug: repo,
+                id,
+                strategy,
+            };
+            but_bitbucket::pr::merge(preferred_account, params, storage).await
+        }
         _ => Err(Error::msg(format!(
             "Merging reviews for forge {forge:?} is not implemented yet.",
         ))),
@@ -1190,6 +1416,9 @@ pub async fn set_review_auto_merge_state(
             };
             but_gitlab::mr::set_auto_merge(preferred_account, params, storage).await
         }
+        ForgeName::Bitbucket => Err(Error::msg(
+            "Bitbucket Cloud does not support auto-merge for pull requests.",
+        )),
         _ => Err(Error::msg(format!(
             "Setting the auto-merge state of reviews for forge {forge:?} is not implemented yet.",
         ))),
@@ -1234,6 +1463,21 @@ pub async fn set_review_draftiness(
                 is_draft: draft,
             };
             but_gitlab::mr::set_draft_state(preferred_account, params, storage).await
+        }
+        ForgeName::Bitbucket => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket());
+            let id = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let params = but_bitbucket::SetPullRequestDraftStateParams {
+                workspace: owner,
+                repo_slug: repo,
+                id,
+                is_draft: draft,
+            };
+            but_bitbucket::pr::set_draft_state(preferred_account, params, storage).await
         }
         _ => Err(Error::msg(format!(
             "Setting the draftiness of reviews for forge {forge:?} is not implemented yet.",
@@ -1330,6 +1574,30 @@ pub async fn create_forge_review(
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
             let mr = but_gitlab::mr::create(preferred_account, mr_params, storage).await?;
             Ok(ForgeReview::from(mr))
+        }
+        ForgeName::Bitbucket => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket());
+            // When opening from a fork, the source repository is the push repo
+            // (`workspace/repo_slug`).
+            let source_repo_full_name = forge_push_repo_info
+                .as_ref()
+                .filter(|push| *push != forge_repo_info)
+                .map(|push| format!("{}/{}", push.owner, push.repo));
+
+            let pr_params = but_bitbucket::CreatePullRequestParams {
+                workspace: owner,
+                repo_slug: repo,
+                title: &params.title,
+                body: &params.body,
+                source_branch: &params.source_branch,
+                target_branch: &params.target_branch,
+                source_repo_full_name: source_repo_full_name.as_deref(),
+                draft: params.draft,
+            };
+            let pr = but_bitbucket::pr::create(preferred_account, pr_params, storage).await?;
+            Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(
             "Creating reviews for forge {forge:?} is not implemented yet.",
@@ -1454,6 +1722,40 @@ pub async fn sync_reviews(
 
                 if let Err(err) = but_gitlab::mr::update(preferred_account, params, storage).await {
                     errors.push(format!("MR !{}: {err}", review.number));
+                }
+            }
+        }
+        ForgeName::Bitbucket => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket());
+            let pr_ids: Vec<i64> = reviews.iter().map(|r| r.number).collect();
+
+            for review in reviews {
+                let updated_body = if has_footer_content {
+                    Some(update_body(
+                        review.body.as_deref(),
+                        review.number,
+                        &pr_ids,
+                        &review.unit_symbol,
+                    ))
+                } else {
+                    None
+                };
+
+                let params = but_bitbucket::UpdatePullRequestParams {
+                    workspace: owner,
+                    repo_slug: repo,
+                    id: review.number,
+                    title: None,
+                    description: updated_body.as_deref(),
+                    target_branch: review.target_branch.as_deref(),
+                };
+
+                if let Err(err) =
+                    but_bitbucket::pr::update(preferred_account, params, storage).await
+                {
+                    errors.push(format!("PR #{}: {err}", review.number));
                 }
             }
         }
@@ -2128,5 +2430,66 @@ mod tests {
         assert_eq!(result[0].target_branch, "main");
         assert_eq!(result[1].number, 3);
         assert_eq!(result[1].target_branch, "branch-b");
+    }
+
+    #[test]
+    fn forge_review_from_bitbucket_pull_request_maps_fields() {
+        let pr = but_bitbucket::BitbucketPullRequest {
+            html_url: "https://bitbucket.org/ws/repo/pull-requests/7".into(),
+            id: 7,
+            title: "Add feature".into(),
+            description: Some("body".into()),
+            state: "MERGED".into(),
+            draft: false,
+            source_branch: "feature".into(),
+            target_branch: "main".into(),
+            source_commit_hash: "deadbeef".into(),
+            merge_commit_hash: Some("cafef00d".into()),
+            created_on: Some("2026-06-01T00:00:00Z".into()),
+            updated_on: Some("2026-06-02T00:00:00Z".into()),
+            comment_count: 0,
+            author: Some(but_bitbucket::BitbucketUser {
+                id: 0,
+                username: "alice".into(),
+                name: Some("Alice".into()),
+                email: None,
+                avatar_url: Some("https://avatar".into()),
+                is_bot: false,
+            }),
+            reviewers: vec![but_bitbucket::BitbucketUser {
+                id: 0,
+                username: "bob".into(),
+                name: None,
+                email: None,
+                avatar_url: None,
+                is_bot: false,
+            }],
+        };
+
+        let review = ForgeReview::from(pr);
+
+        assert_eq!(review.number, 7);
+        assert_eq!(
+            review.html_url,
+            "https://bitbucket.org/ws/repo/pull-requests/7"
+        );
+        assert_eq!(review.title, "Add feature");
+        assert_eq!(review.body.as_deref(), Some("body"));
+        assert_eq!(review.source_branch, "feature");
+        assert_eq!(review.target_branch, "main");
+        assert_eq!(review.sha, "deadbeef");
+        assert_eq!(review.integration_commit_shas, vec!["cafef00d".to_string()]);
+        assert_eq!(review.merged_at.as_deref(), Some("2026-06-02T00:00:00Z"));
+        assert_eq!(review.closed_at, None);
+        assert!(review.labels.is_empty());
+        assert!(!review.draft);
+        assert!(!review.head_repo_is_fork);
+        assert_eq!(review.unit_symbol, "#");
+        assert_eq!(
+            review.author.as_ref().map(|a| a.login.as_str()),
+            Some("alice")
+        );
+        assert_eq!(review.reviewers.len(), 1);
+        assert_eq!(review.reviewers[0].login, "bob");
     }
 }
