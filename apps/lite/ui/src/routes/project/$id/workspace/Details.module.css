@@ -130,11 +130,6 @@
 	user-select: text;
 }
 
-.commitMessageBodyCollapsed {
-	max-height: 4.5lh;
-	overflow: auto;
-}
-
 .tabsRow {
 	display: flex;
 	column-gap: 12px;

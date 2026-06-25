@@ -718,16 +718,8 @@ const CommitDetailsContent: FC<{
 
 	return (
 		<>
-			{body !== undefined && (
-				<p
-					id={bodyId}
-					className={classes(
-						"text-monospace",
-						"text-body",
-						styles.commitMessageBody,
-						bodyCollapsed && styles.commitMessageBodyCollapsed,
-					)}
-				>
+			{body !== undefined && !bodyCollapsed && (
+				<p id={bodyId} className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
 					{body}
 				</p>
 			)}
