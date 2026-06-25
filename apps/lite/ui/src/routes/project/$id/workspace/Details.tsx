@@ -93,6 +93,10 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
 type BranchTab = "diff" | "pr";
 
+// This must be unique as to not collide with other IDs, and stable because it's
+// stored in local storage.
+type PanelId = "files-panel" | "diff-panel";
+
 const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: string }): string =>
 	`${changesetKey}:${path}`;
 
@@ -841,9 +845,10 @@ const Diff: FC<{
 	}, [diffContentsEl]);
 
 	const layoutId = `project=${projectId}:details`;
+	const panelIds: Array<PanelId> = filesVisible ? ["files-panel", "diff-panel"] : ["diff-panel"];
 	const diffLayout = useDefaultLayout({
 		id: layoutId,
-		panelIds: [...(filesVisible ? ["files"] : []), "diff"],
+		panelIds,
 	});
 
 	return (
@@ -870,7 +875,7 @@ const Diff: FC<{
 				{filesVisible && (
 					<>
 						<Panel
-							id="files"
+							id={"files-panel" satisfies PanelId}
 							className={styles.panel}
 							defaultSize={250}
 							minSize={180}
@@ -892,7 +897,7 @@ const Diff: FC<{
 					</>
 				)}
 
-				<Panel id="diff" minSize={300} className={styles.panel}>
+				<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
 					<div
 						id={"diff" satisfies SelectionScope}
 						data-selection-scope

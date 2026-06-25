@@ -56,6 +56,10 @@ import { getOperations } from "#ui/operations/operation.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { reverse } from "effect/Array";
 
+// This must be unique as to not collide with other IDs, and stable because it's
+// stored in local storage.
+type PanelId = "outline-panel" | "details-panel";
+
 const toggleFiles =
 	({
 		projectId,
@@ -368,9 +372,12 @@ const WorkspacePage: FC = () => {
 	});
 
 	const layoutId = `project=${projectId}:workspace`;
+	const panelIds: Array<PanelId> = detailsFullWindow
+		? ["details-panel"]
+		: ["outline-panel", "details-panel"];
 	const workspaceLayout = useDefaultLayout({
 		id: layoutId,
-		panelIds: detailsFullWindow ? ["details"] : ["outline", "details"],
+		panelIds,
 	});
 
 	const selectedProject = projects.find((project) => project.id === projectId);
@@ -387,7 +394,7 @@ const WorkspacePage: FC = () => {
 				{!detailsFullWindow && (
 					<>
 						<Panel
-							id="outline"
+							id={"outline-panel" satisfies PanelId}
 							className={styles.panel}
 							minSize={360}
 							defaultSize={400}
@@ -404,7 +411,7 @@ const WorkspacePage: FC = () => {
 					</>
 				)}
 
-				<Panel id="details" className={styles.panel}>
+				<Panel id={"details-panel" satisfies PanelId} className={styles.panel}>
 					<Details
 						key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
 						style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}

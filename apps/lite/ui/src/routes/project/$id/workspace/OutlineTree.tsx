@@ -1807,6 +1807,10 @@ const Changes: FC<{
 		conflictBehavior: "allow",
 	});
 
+	const commitTextareaLabel = `Compose commit message ${formatForDisplaySorted(
+		outlineHotkeys.composeCommitMessage.hotkey,
+	)}`;
+
 	return (
 		<TreeItem
 			projectId={projectId}
@@ -1827,12 +1831,10 @@ const Changes: FC<{
 				<textarea
 					id={commitMessageInputId}
 					ref={commitTextareaRef}
-					aria-label="Compose commit message"
+					aria-label={commitTextareaLabel}
 					disabled={!isDefaultMode}
 					readOnly={isCommitOrAmendPending}
-					placeholder={`Compose commit message ${formatForDisplaySorted(
-						outlineHotkeys.composeCommitMessage.hotkey,
-					)}`}
+					placeholder={commitTextareaLabel}
 					className={classes("text-13", "text-body", styles.commitTextarea)}
 					onFocus={selectChanges}
 				/>
