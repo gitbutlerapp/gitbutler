@@ -998,16 +998,16 @@ fn amend_uncommitted_hunks_into_commits() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────╮
-h0 file│
-───────╯
+─────────╮
+qs:9 file│
+─────────╯
      1│+topline
    1 2│ line
    2 3│ line
    3 4│ line
-───────╮
-i0 file│
-───────╯
+─────────╮
+qs:d file│
+─────────╯
     7  8│ line
     8  9│ line
     9 10│ line
@@ -1016,7 +1016,7 @@ i0 file│
 
 "#]]);
 
-    env.but("_squash2 h0 -t bcf07e2 -u")
+    env.but("_squash2 qs:9 -t bcf07e2 -u")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -1028,9 +1028,9 @@ Amended bcf07e2 to create cb08f3a
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────╮
-h0 file│
-───────╯
+─────────╮
+qs:d file│
+─────────╯
     8  8│ line
     9  9│ line
    10 10│ line
