@@ -65,6 +65,7 @@ pub(crate) fn commit_create_only_impl(
         rebase,
         commit_selector,
         rejected_specs,
+        ..
     } = but_workspace::commit::commit_create(
         editor,
         changes,

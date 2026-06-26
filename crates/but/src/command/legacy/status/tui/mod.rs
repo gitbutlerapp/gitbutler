@@ -2349,6 +2349,7 @@ impl App {
                     insert_side,
                     changes_to_commit,
                     String::new(),
+                    Vec::new(),
                 )?;
 
                 if commit_create_result.rejected_specs.is_empty() {

@@ -480,6 +480,7 @@ where
         side: InsertSide,
         changes: Vec<DiffSpec>,
         message: String,
+        existing_consumed: Vec<DiffSpec>,
     ) -> anyhow::Result<IntermediateCommitCreateResult> {
         let context_lines = self.inner.context_lines;
         self.rebase(|editor, commit_mappings, _| {
@@ -492,13 +493,15 @@ where
                 rebase,
                 commit_selector,
                 rejected_specs,
-            } = but_workspace::commit::commit_create(
+                consumed,
+            } = but_workspace::commit::commit_create_ex(
                 editor,
                 changes,
                 relative_to,
                 side,
                 &message,
                 context_lines,
+                existing_consumed,
             )?;
 
             let new_commit = commit_selector
@@ -509,6 +512,7 @@ where
                 IntermediateCommitCreateResult {
                     new_commit,
                     rejected_specs,
+                    consumed,
                 },
                 rebase,
             ))
@@ -560,6 +564,7 @@ where
                 IntermediateCommitCreateResult {
                     new_commit,
                     rejected_specs,
+                    consumed: Vec::new(),
                 },
                 rebase,
             ))
@@ -1017,4 +1022,6 @@ pub struct IntermediateCommitCreateResult {
     pub new_commit: Option<gix::ObjectId>,
     /// Any specs that failed to be committed.
     pub rejected_specs: Vec<(RejectionReason, DiffSpec)>,
+    ///
+    pub consumed: Vec<DiffSpec>,
 }

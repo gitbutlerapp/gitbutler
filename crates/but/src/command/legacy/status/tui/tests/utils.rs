@@ -162,6 +162,10 @@ impl TestTui {
         self.env.as_ref().unwrap()
     }
 
+    pub(super) fn debug(mut self) -> ! {
+        std::mem::take(&mut self.env).unwrap().debug()
+    }
+
     #[track_caller]
     pub(super) fn reload(&mut self) -> TestTuiInputThenRenderResult<'_> {
         self.render_with_messages(

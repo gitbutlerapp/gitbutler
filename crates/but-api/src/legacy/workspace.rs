@@ -302,6 +302,7 @@ pub fn stash_into_branch(
             rebase,
             commit_selector,
             rejected_specs,
+            ..
         } = but_workspace::commit::commit_create(
             editor,
             worktree_changes,
