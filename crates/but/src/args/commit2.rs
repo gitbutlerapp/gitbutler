@@ -24,12 +24,14 @@ pub struct Platform {
     /// Creates the commit without a commit message.
     #[clap(long, group = "commit_message")]
     pub no_message: bool,
+
     /// The message to use for the commit.
     ///
     /// Can be supplied any amount of times, each value being appended to the preceding ones with a
     /// blank line in between.
     #[clap(short, long, group = "commit_message")]
     pub message: Option<Vec<String>>,
+
     /// Place the commit on the branch `BRANCH`.
     ///
     /// If `BRANCH` does not exist, it is created as an unstacked branch.
@@ -39,6 +41,7 @@ pub struct Platform {
     /// Attempting to place a commit on a branch that exists but is not applied is an error.
     #[clap(short, long, value_name = "BRANCH", group = "targeting")]
     pub branch: Option<Option<CliIdArg>>,
+
     /// Place the commit above `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
     ///
     /// If `BRANCH_OR_COMMIT` is a commit, the new commit is placed on the same branch as the
@@ -53,6 +56,7 @@ pub struct Platform {
         group = "targeting"
     )]
     pub above: Option<CliIdArg>,
+
     /// Place the commit below `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
     ///
     /// If `BRANCH_OR_COMMIT` is a commit, the new commit is placed on the same branch as the targeted
@@ -68,12 +72,15 @@ pub struct Platform {
         group = "targeting"
     )]
     pub below: Option<CliIdArg>,
+
     /// Forces the commit to be empty regardless of repository state.
     #[clap(long, group = "changes_to_commit")]
     pub empty: bool,
+
     /// Open the TUI to interactively select what to commit.
     #[clap(short, long, group = "changes_to_commit")]
     pub interactive: bool,
+
     /// One or more changes to commit.
     ///
     /// A change can either be a file or a hunk.
