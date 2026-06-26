@@ -186,12 +186,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     #[cfg(feature = "legacy")]
     if matches!(
         &args.cmd,
-        Some(Subcommands::Status { .. })
-            | Some(Subcommands::Diff { tui: false, .. })
-            | Some(Subcommands::Stage {
-                file_or_hunk: Some(_),
-                ..
-            })
+        Some(Subcommands::Status { .. }) | Some(Subcommands::Diff { tui: false, .. })
     ) {
         out.request_pager();
     }
