@@ -218,6 +218,11 @@ const useOutlineTreeHotkeys = ({
 			: null;
 	const selectedCommitForgeUrl =
 		selectedCommit && forgeInfo ? commitForgeUrl(selectedCommit, forgeInfo) : null;
+	const selectedBranchPullRequest = selectedBranchSegment?.metadata?.review.pullRequest ?? null;
+	const selectedBranchPullRequestUrl =
+		selectedBranchPullRequest !== null && forgeInfo
+			? prForgeUrl(selectedBranchPullRequest, forgeInfo)
+			: null;
 
 	const dispatch = useAppDispatch();
 
@@ -463,6 +468,12 @@ const useOutlineTreeHotkeys = ({
 		await window.lite.openInWebBrowser(selectedCommitForgeUrl.url);
 	};
 
+	const openSelectedBranchPRInBrowser = async (): Promise<void> => {
+		if (selectedBranchPullRequestUrl === null) return;
+
+		await window.lite.openInWebBrowser(selectedBranchPullRequestUrl);
+	};
+
 	const defaultOutlineHotkeysEnabled = isDefaultMode;
 	const isSelectedCommit = selection?._tag === "Commit";
 	const isSelectedBranch = selection?._tag === "Branch";
@@ -648,6 +659,16 @@ const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && canPushSelectedBranch,
 				target: ref,
 				meta: outlineHotkeys.pushStack.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.openPRInBrowser.hotkey,
+			callback: () => void openSelectedBranchPRInBrowser(),
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && isSelectedBranch,
+				target: ref,
+				meta: outlineHotkeys.openPRInBrowser.meta,
 			},
 		},
 		{
@@ -2075,7 +2096,6 @@ const BranchRow: FC<
 		branchRef: refName.fullNameBytes,
 	};
 	const operand = branchOperand(branchOperandV);
-	const isSelected = useIsSelected({ projectId, operand });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -2235,12 +2255,6 @@ const BranchRow: FC<
 
 		await window.lite.openInWebBrowser(mforgeUrl);
 	};
-
-	useHotkey(outlineHotkeys.openPRInBrowser.hotkey, () => void openPRInBrowser(), {
-		conflictBehavior: "allow",
-		enabled: isSelected,
-		meta: outlineHotkeys.openPRInBrowser.meta,
-	});
 
 	const pushStackDisabled =
 		pushStackMutation.isPending || partialStackPushDisabled(partialStackState);
