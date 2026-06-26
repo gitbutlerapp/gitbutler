@@ -1,4 +1,5 @@
 <script lang="ts">
+	import bitbucketLogoSvg from "$lib/assets/unsized-logos/bitbucket.svg?raw";
 	import githubLogoSvg from "$lib/assets/unsized-logos/github.svg?raw";
 	import gitlabLogoSvg from "$lib/assets/unsized-logos/gitlab.svg?raw";
 	import { persistedDismissedForgeIntegrationPrompt } from "$lib/config/config";
@@ -23,7 +24,7 @@
 	const canSetupIntegration = $derived(
 		forgeInfo &&
 			!auth.authenticated.current &&
-			(forgeInfo.name === "github" || forgeInfo.name === "gitlab")
+			(forgeInfo.name === "github" || forgeInfo.name === "gitlab" || forgeInfo.name === "bitbucket")
 			? forgeInfo.name
 			: undefined,
 	);
@@ -62,18 +63,43 @@
 		dismissedTheIntegrationPrompt.set(true);
 	}
 
-	function forgeLabelFor(name: "github" | "gitlab"): string {
-		return name === "github" ? "GitHub" : "GitLab";
+	type SetupForgeName = "github" | "gitlab" | "bitbucket";
+
+	function forgeLabelFor(name: SetupForgeName): string {
+		switch (name) {
+			case "github":
+				return "GitHub";
+			case "gitlab":
+				return "GitLab";
+			case "bitbucket":
+				return "Bitbucket";
+		}
 	}
 
-	function forgeUnitFor(name: "github" | "gitlab"): string {
-		return name === "github" ? "Pull Requests" : "Merge Requests";
+	function forgeUnitFor(name: SetupForgeName): string {
+		return name === "gitlab" ? "Merge Requests" : "Pull Requests";
 	}
 
-	function forgeDocsLinkFor(name: "github" | "gitlab"): string {
-		return name === "github"
-			? "https://docs.gitbutler.com/features/forge-integration/github-integration"
-			: "https://docs.gitbutler.com/features/forge-integration/gitlab-integration";
+	function forgeDocsLinkFor(name: SetupForgeName): string {
+		switch (name) {
+			case "github":
+				return "https://docs.gitbutler.com/features/forge-integration/github-integration";
+			case "gitlab":
+				return "https://docs.gitbutler.com/features/forge-integration/gitlab-integration";
+			case "bitbucket":
+				return "https://docs.gitbutler.com/features/forge-integration/bitbucket-integration";
+		}
+	}
+
+	function forgeLogoFor(name: SetupForgeName): string {
+		switch (name) {
+			case "github":
+				return githubLogoSvg;
+			case "gitlab":
+				return gitlabLogoSvg;
+			case "bitbucket":
+				return bitbucketLogoSvg;
+		}
 	}
 </script>
 
@@ -85,7 +111,7 @@
 
 	<div class="forge-prompt">
 		<div class="forge-prompt__logo">
-			{@html forgeName === "github" ? githubLogoSvg : gitlabLogoSvg}
+			{@html forgeLogoFor(forgeName)}
 		</div>
 		<h3 class="text-13 text-body text-bold">It looks like you have a {forgeLabel} remote!</h3>
 		<p class="text-12 text-body m-b-8 clr-text-2">

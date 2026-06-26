@@ -266,6 +266,7 @@
 								<ReviewBadge
 									testId={TestId.PRReviewBadge}
 									type={prUnit?.abbr}
+									forge={forgeInfo?.name}
 									number={args.prNumber}
 									status={prStatus}
 								/>

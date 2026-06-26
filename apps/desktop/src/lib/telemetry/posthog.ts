@@ -154,6 +154,8 @@ export enum OnboardingEvent {
 	GitLabStorePatFailed = "onboarding_gitlab_store_pat_failed",
 	GitHubStoreGHEPatFailed = "onboarding_github_store_ghe_pat_failed",
 	GitLabStoreSelfHostedPatFailed = "onboarding_gitlab_store_self_hosted_pat_failed",
+	BitbucketStoreApiToken = "onboarding_bitbucket_store_api_token",
+	BitbucketStoreApiTokenFailed = "onboarding_bitbucket_store_api_token_failed",
 	GitCheckCredentials = "onboarding_git_check_credentials",
 	GitCheckCredentialsFailed = "onboarding_git_check_credentials_failed",
 	GitAuthenticationContinue = "onboarding_git_authentication_continue",

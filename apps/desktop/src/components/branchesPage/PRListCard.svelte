@@ -21,6 +21,7 @@
 
 	interface Props extends basePrData {
 		reviewUnit: ForgeUnitInfo | undefined;
+		forge?: string;
 		onclick?: (prData: basePrData) => void;
 		selected?: boolean;
 		noRemote?: boolean;
@@ -28,6 +29,7 @@
 
 	const {
 		reviewUnit,
+		forge,
 		selected,
 		noRemote,
 		isDraft,
@@ -70,7 +72,7 @@
 		</div>
 
 		<div class="text-12 sidebar-entry__about">
-			<ReviewBadge type={reviewUnit?.abbr} status={prStatus} {title} {number} />
+			<ReviewBadge type={reviewUnit?.abbr} {forge} status={prStatus} {title} {number} />
 			<span class="sidebar-entry__divider">•</span>
 
 			{#if noRemote || !sourceBranch}

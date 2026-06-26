@@ -25,6 +25,7 @@ export const iconNames = [
 	"arrow-up-righ",
 	"bell",
 	"bin",
+	"bitbucket",
 	"bluesky",
 	"branch",
 	"branch-bottom-down-arrow",

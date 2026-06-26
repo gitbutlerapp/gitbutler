@@ -34,7 +34,9 @@
 
 	const forgeInfoService = inject(FORGE_INFO_SERVICE);
 	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
-	const isGitLab = $derived(forgeInfoQuery.response?.name === "gitlab");
+	const forgeName = $derived(forgeInfoQuery.response?.name);
+	// GitLab doesn't offer a "rebase and merge" strategy.
+	const supportsRebase = $derived(forgeName !== "gitlab");
 
 	function persistedAction(projectId: string): Persisted<MergeMethod> {
 		const key = "projectMergeMethod";
@@ -43,9 +45,8 @@
 
 	const action = persistedAction(untrack(() => projectId));
 
-	// If GitLab and action is rebase, reset to merge
 	$effect(() => {
-		if (isGitLab && $action === MergeMethod.Rebase) {
+		if (!supportsRebase && $action === MergeMethod.Rebase) {
 			$action = MergeMethod.Merge;
 		}
 	});
@@ -55,9 +56,9 @@
 
 	// Available merge methods based on forge type
 	const availableMethods = $derived(
-		isGitLab
-			? [MergeMethod.Merge, MergeMethod.Squash]
-			: [MergeMethod.Merge, MergeMethod.Rebase, MergeMethod.Squash],
+		supportsRebase
+			? [MergeMethod.Merge, MergeMethod.Rebase, MergeMethod.Squash]
+			: [MergeMethod.Merge, MergeMethod.Squash],
 	);
 
 	const labels = $derived({
