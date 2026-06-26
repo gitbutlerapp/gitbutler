@@ -346,38 +346,31 @@ const FileRow: FC<
 					</Toolbar.Root>
 				)}
 
-				{item._tag === "Change" &&
-					(() => {
-						const badge = Match.value(item.change.status).pipe(
-							Match.when({ type: "Addition" }, () => "A"),
-							Match.when({ type: "Deletion" }, () => "D"),
-							Match.when({ type: "Modification" }, () => "M"),
-							Match.when({ type: "Rename" }, () => "R"),
-							Match.exhaustive,
-						);
-
-						return (
-							<Tooltip.Root disableHoverablePopup>
-								<Tooltip.Trigger
-									className={styles.fileStatusBadge}
-									aria-label={item.change.status.type}
-									data-char={badge}
-									// By default it's a button, but we don't want this to be
-									// interactive.
-									render={<span />}
-								>
-									{badge}
-								</Tooltip.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup />}>
-											{item.change.status.type}
-										</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							</Tooltip.Root>
-						);
-					})()}
+				{item._tag === "Change" && (
+					<Tooltip.Root disableHoverablePopup>
+						<Tooltip.Trigger
+							className={styles.fileStatusBadge}
+							aria-label={item.change.status.type}
+							data-status-type={item.change.status.type}
+							// By default it's a button, but we don't want this to be
+							// interactive.
+							render={<span />}
+						>
+							{Match.value(item.change.status).pipe(
+								Match.when({ type: "Addition" }, () => "A"),
+								Match.when({ type: "Deletion" }, () => "D"),
+								Match.when({ type: "Modification" }, () => "M"),
+								Match.when({ type: "Rename" }, () => "R"),
+								Match.exhaustive,
+							)}
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup />}>{item.change.status.type}</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				)}
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
