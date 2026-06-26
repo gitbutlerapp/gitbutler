@@ -310,6 +310,7 @@ const FileRow: FC<
 						</Tooltip.Portal>
 					</Tooltip.Root>
 				</div>
+
 				<WorkspaceItemRowLabelContainer>
 					<WorkspaceItemRowLabel singleLine>
 						{relativePath}
@@ -328,6 +329,7 @@ const FileRow: FC<
 						>
 							<Icon name="kebab" />
 						</Toolbar.Button>
+
 						{item._tag === "Change" &&
 							fileParent._tag === "UncommittedChanges" &&
 							item.dependencyCommitIds && (
