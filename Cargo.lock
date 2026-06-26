@@ -811,7 +811,6 @@ dependencies = [
  "but-llm",
  "but-path",
  "but-rebase",
- "but-rules",
  "but-secret",
  "but-serde",
  "but-settings",

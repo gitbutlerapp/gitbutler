@@ -344,7 +344,6 @@ fn build_status_context<'a>(
     flags: StatusFlags,
     render_mode: StatusRenderMode,
 ) -> anyhow::Result<StatusContext<'a>> {
-    // Process rules with exclusive access to create repo and workspace
     let (
         push_statuses_by_segment_id,
         local_commits_by_id,
@@ -352,24 +351,6 @@ fn build_status_context<'a>(
         stacks,
         resolved_target,
     ) = {
-        let context_lines = ctx.settings.context_lines;
-        let mut meta = ctx.meta()?;
-        {
-            let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-            if let Ok(rules) = but_rules::list_rules(&db) {
-                but_rules::process_rules(
-                    rules,
-                    &repo,
-                    &mut ws,
-                    &mut db,
-                    &mut meta,
-                    perm,
-                    context_lines,
-                )
-                .ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
-            }
-        }
-
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let head_info = but_workspace::graph_to_ref_info(
             &ws,
@@ -949,14 +930,6 @@ fn print_worktree_status(
     let mut has_merged_upstream_branch = false;
     for (i, (stack_id, (stack_with_id, assignments))) in status_ctx.stack_details.iter().enumerate()
     {
-        let mut stack_mark = stack_id.and_then(|stack_id| {
-            if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
-                Some(Span::styled("◀ Marked ▶", crate::theme::get().attention))
-            } else {
-                None
-            }
-        });
-
         // assignments to the stack
         if let Some(stack_with_id) = stack_with_id {
             let branch_name = stack_with_id
@@ -975,15 +948,8 @@ fn print_worktree_status(
             )?;
         }
 
-        has_merged_upstream_branch |= print_group(
-            ctx,
-            status_ctx,
-            stack_with_id,
-            assignments,
-            &mut stack_mark,
-            i == 0,
-            output,
-        )?;
+        has_merged_upstream_branch |=
+            print_group(ctx, status_ctx, stack_with_id, assignments, i == 0, output)?;
     }
 
     Ok(has_merged_upstream_branch)
@@ -1134,7 +1100,6 @@ fn print_group(
     status_ctx: &StatusContext<'_>,
     stack_with_id: &Option<StackWithId>,
     assignments: &[FileAssignment],
-    stack_mark: &mut Option<Span<'static>>,
     first: bool,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<bool> {
@@ -1263,10 +1228,6 @@ fn print_group(
                 branch_suffix.push(Span::raw(" "));
                 branch_suffix.push(Span::styled(no_commits, t.hint));
             }
-            if let Some(stack_mark) = stack_mark.as_ref().cloned() {
-                branch_suffix.push(Span::raw(" "));
-                branch_suffix.push(stack_mark);
-            }
 
             output.branch(
                 Vec::from([Span::raw(format!("┊{notch}┄"))]),
@@ -1283,7 +1244,6 @@ fn print_group(
                 branch_cli_id,
             )?;
 
-            *stack_mark = None; // Only show the stack mark for the first branch
             first = false;
 
             let has_remote_commits_to_print = segment.remote_commits.iter().any(|commit| {
@@ -1324,7 +1284,6 @@ fn print_group(
                     inner,
                     CommitChanges::Remote(&details.diff_with_first_parent),
                     CommitClassification::Upstream,
-                    false,
                     None,
                     output,
                 )?;
@@ -1337,11 +1296,6 @@ fn print_group(
                     .local_commits_by_id
                     .get(&commit.commit_id())
                     .context("BUG: head_info does not contain local commit that graph has")?;
-                let marked = crate::command::legacy::mark::commit_marked(
-                    ctx,
-                    commit.commit_id().to_string(),
-                )
-                .unwrap_or_default();
                 let classification = match inner.relation {
                     LocalCommitRelation::LocalOnly => CommitClassification::LocalOnly,
                     LocalCommitRelation::LocalAndRemote(object_id) => {
@@ -1362,7 +1316,6 @@ fn print_group(
                     &inner.inner,
                     CommitChanges::Workspace(&commit.tree_changes_using_repo(&repo)?),
                     classification,
-                    marked,
                     // TODO: populate the Gerrit review URL. It
                     // seems to be populated in handle_gerrit in
                     // crates/but-api/src/legacy/workspace.rs
@@ -1381,9 +1334,6 @@ fn print_group(
         ]);
         if assignments.is_empty() {
             line.extend([Span::raw(" "), Span::styled("(no changes)", t.hint)]);
-        }
-        if let Some(stack_mark) = stack_mark {
-            line.extend([Span::raw(" "), stack_mark.clone()]);
         }
         output.unstaged_changes(Vec::from([Span::raw("╭┄")]), line, cli_id.clone())?;
         if !assignments.is_empty() {
@@ -1480,7 +1430,6 @@ fn print_commit(
     commit: &but_workspace::ref_info::Commit,
     commit_changes: CommitChanges,
     classification: CommitClassification,
-    marked: bool,
     review_url: Option<String>,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
@@ -1538,12 +1487,6 @@ fn print_commit(
                             Span::raw("◗"),
                         ]
                     }))
-                    .chain(
-                        marked
-                            .then(|| [Span::raw(" "), Span::styled("◀ Marked ▶", t.attention)])
-                            .into_iter()
-                            .flatten(),
-                    )
                     .collect(),
             },
             commit_cli_id.clone(),
@@ -1586,12 +1529,6 @@ fn print_commit(
                             Span::raw("◗"),
                         ]
                     }))
-                    .chain(
-                        marked
-                            .then(|| [Span::raw(" "), Span::styled("◀ Marked ▶", t.attention)])
-                            .into_iter()
-                            .flatten(),
-                    )
                     .collect(),
             },
             commit_cli_id.clone(),

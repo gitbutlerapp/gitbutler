@@ -16,7 +16,6 @@ pub mod commit_message_prep;
 pub mod diff;
 pub mod discard;
 pub mod forge;
-pub mod mark;
 pub mod mcp;
 pub mod merge;
 pub mod oplog;

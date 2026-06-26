@@ -25,7 +25,6 @@ legacy = [
     "but-api/legacy",
     "but-ctx/legacy",
     "dep:but-action",
-    "dep:but-rules",
     "dep:but-gerrit",
     "dep:but-worktrees",
     "dep:but-cherry-apply",
@@ -76,7 +75,6 @@ but-error.workspace = true
 but-action = { workspace = true, optional = true }
 # Still uses `gitbutler-stack`, but otherwise it is non-legacy.
 but-hunk-assignment.workspace = true
-but-rules = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
 but-worktrees = { workspace = true, optional = true }
 but-cherry-apply = { workspace = true, optional = true }
