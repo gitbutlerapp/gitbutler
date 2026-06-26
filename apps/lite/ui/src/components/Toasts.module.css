@@ -8,16 +8,28 @@
 	row-gap: 8px;
 	flex-direction: column;
 	align-items: flex-end;
-	max-width: 400px;
 }
 
 .root {
-	padding: 8px;
+	width: 250px;
+	padding: 12px;
+	transition:
+		translate 0.3s,
+		opacity 0.2s;
+
+	&[data-starting-style] {
+		translate: 0 5px;
+		opacity: 0;
+	}
+}
+
+.content {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
 }
 
 .actions {
 	display: flex;
-	justify-content: flex-end;
-	margin-top: 8px;
 	gap: 8px;
 }

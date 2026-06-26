@@ -13,13 +13,14 @@ export const Toasts: FC = () => {
 			<Toast.Viewport className={styles.viewport}>
 				{toasts.map((toast) => (
 					<Toast.Root key={toast.id} toast={toast} className={classes(uiStyles.popup, styles.root)}>
-						<Toast.Content>
-							<Toast.Title />
+						<Toast.Content className={styles.content}>
+							<Toast.Title render={<strong />} className="text-15 text-semibold" />
 							<Toast.Description
 								render={
 									// Default is `p` which restricts content elements.
 									<div />
 								}
+								className="text-13"
 							/>
 							<div className={styles.actions}>
 								{toast.actionProps && <Toast.Action className={getButtonClassName({})} />}
