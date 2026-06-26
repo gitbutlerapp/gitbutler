@@ -26,6 +26,7 @@ import {
 } from "#ui/operands.ts";
 import {
 	projectActions,
+	selectProjectDetailsFullWindow,
 	selectProjectDiffBackgrounds,
 	selectProjectDiffOverflow,
 	selectProjectFilesVisible,
@@ -754,9 +755,11 @@ const DiffStyleToggleGroup: FC<
 
 const FullWindowToggle: FC<{
 	className?: string;
-	fullWindow: boolean;
-	onFullWindowChange: (fullWindow: boolean) => void;
-}> = ({ className, fullWindow, onFullWindowChange }) => {
+}> = ({ className }) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const fullWindow = useAppSelector((state) => selectProjectDetailsFullWindow(state, projectId));
+
 	const label = fullWindow ? "Exit full window details" : "Full window details";
 
 	return (
@@ -765,7 +768,9 @@ const FullWindowToggle: FC<{
 				aria-label={label}
 				aria-pressed={fullWindow}
 				className={className}
-				onClick={() => onFullWindowChange(!fullWindow)}
+				onClick={() =>
+					dispatch(projectActions.setDetailsFullWindow({ projectId, fullWindow: !fullWindow }))
+				}
 			>
 				<Icon name={fullWindow ? "fullscreen-exit" : "fullscreen-enter"} />
 			</Tooltip.Trigger>
@@ -1180,13 +1185,14 @@ const PullRequestPrimaryAction: FC<{
 
 export const Details: FC<
 	{
-		detailsFullWindow: boolean;
-		onDetailsFullWindowChange: (fullWindow: boolean) => void;
 		outlineSelection: Operand | null;
 	} & ComponentProps<"div">
-> = ({ detailsFullWindow, onDetailsFullWindowChange, outlineSelection, ...restProps }) => {
+> = ({ outlineSelection, ...restProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
+	const detailsFullWindow = useAppSelector((state) =>
+		selectProjectDetailsFullWindow(state, projectId),
+	);
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
 	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
@@ -1212,8 +1218,6 @@ export const Details: FC<
 					/>
 					<FullWindowToggle
 						className={classes(styles.titleRowActions, getButtonClassName({ iconOnly: true }))}
-						fullWindow={detailsFullWindow}
-						onFullWindowChange={onDetailsFullWindowChange}
 					/>
 				</div>
 
