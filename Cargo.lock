@@ -795,6 +795,7 @@ dependencies = [
  "but-agentlog",
  "but-api",
  "but-askpass",
+ "but-bitbucket",
  "but-cherry-apply",
  "but-core",
  "but-ctx",

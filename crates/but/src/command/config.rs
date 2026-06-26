@@ -535,14 +535,19 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
     let t = theme::get();
     let known_gh_accounts = but_api::github::list_known_github_accounts()?;
     let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts()?;
+    let known_bb_accounts = but_api::bitbucket::list_known_bitbucket_accounts()?;
+
+    let no_accounts = known_gh_accounts.is_empty()
+        && known_gl_accounts.is_empty()
+        && known_bb_accounts.is_empty();
 
     if let Some(out) = out.for_human() {
-        if known_gh_accounts.is_empty() && known_gl_accounts.is_empty() {
+        if no_accounts {
             writeln!(out, "\n{}", t.hint.paint("No forge accounts configured"))?;
             writeln!(out)?;
             writeln!(
                 out,
-                "Run {} to authenticate with GitHub or GitLab.",
+                "Run {} to authenticate with GitHub, GitLab or Bitbucket.",
                 t.command_suggestion.paint("but config forge auth")
             )?;
         } else {
@@ -550,6 +555,8 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
                 display_authenticated_github_accounts(&known_gh_accounts, out).await?;
             some_accounts_invalid |=
                 display_authenticated_gitlab_accounts(&known_gl_accounts, out).await?;
+            some_accounts_invalid |=
+                display_authenticated_bitbucket_accounts(&known_bb_accounts, out).await?;
 
             if some_accounts_invalid {
                 writeln!(
@@ -580,7 +587,7 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
             )?;
         }
     } else if let Some(out) = out.for_shell() {
-        if known_gh_accounts.is_empty() && known_gl_accounts.is_empty() {
+        if no_accounts {
             writeln!(out, "No forge accounts configured")?;
             return Ok(());
         }
@@ -597,8 +604,15 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
                 writeln!(out, "  {}", account.username())?;
             }
         }
+        if !known_bb_accounts.is_empty() {
+            writeln!(out, "Bitbucket accounts:")?;
+            for account in known_bb_accounts {
+                writeln!(out, "  {}", account.email())?;
+            }
+        }
     } else if let Some(out) = out.for_json() {
-        let accounts = extract_account_details(known_gh_accounts, known_gl_accounts);
+        let accounts =
+            extract_account_details(known_gh_accounts, known_gl_accounts, known_bb_accounts);
 
         out.write_value(serde_json::json!({ "accounts": accounts }))?;
     }
@@ -613,10 +627,11 @@ struct ForgeAccount {
     account_type: String,
 }
 
-/// Extract account details for JSON output, combining GitHub and GitLab accounts into a unified format
+/// Extract account details for JSON output, combining GitHub, GitLab and Bitbucket accounts into a unified format
 fn extract_account_details(
     known_gh_accounts: Vec<but_github::GithubAccountIdentifier>,
     known_gl_accounts: Vec<but_gitlab::GitlabAccountIdentifier>,
+    known_bb_accounts: Vec<but_bitbucket::BitbucketAccountIdentifier>,
 ) -> Vec<ForgeAccount> {
     let mut accounts: Vec<ForgeAccount> = Vec::new();
 
@@ -658,6 +673,20 @@ fn extract_account_details(
             account_type,
         });
     }
+
+    // Add Bitbucket accounts
+    for account in &known_bb_accounts {
+        let (username, account_type) = match account {
+            but_bitbucket::BitbucketAccountIdentifier::ApiToken { email } => {
+                (email.clone(), "API Token".to_string())
+            }
+        };
+        accounts.push(ForgeAccount {
+            provider: "Bitbucket".to_string(),
+            username,
+            account_type,
+        });
+    }
     accounts
 }
 
@@ -667,6 +696,7 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
     enum ForgeProvider {
         GitHub,
         GitLab,
+        Bitbucket,
     }
 
     impl From<ForgeProvider> for String {
@@ -674,13 +704,15 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
             match provider {
                 ForgeProvider::GitHub => "GitHub".to_string(),
                 ForgeProvider::GitLab => "GitLab".to_string(),
+                ForgeProvider::Bitbucket => "Bitbucket".to_string(),
             }
         }
     }
 
     let auth_options = nonempty::nonempty![
         ("GitHub", ForgeProvider::GitHub),
-        ("GitLab", ForgeProvider::GitLab)
+        ("GitLab", ForgeProvider::GitLab),
+        ("Bitbucket", ForgeProvider::Bitbucket)
     ];
     let selected_option = {
         let mut input = out
@@ -700,7 +732,56 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
     match selected_option {
         ForgeProvider::GitHub => github_auth(out).await,
         ForgeProvider::GitLab => gitlab_auth(out).await,
+        ForgeProvider::Bitbucket => bitbucket_auth(out).await,
     }
+}
+
+/// Authenticate with Bitbucket Cloud using an Atlassian API token.
+async fn bitbucket_auth(out: &mut OutputChannel) -> Result<()> {
+    use but_bitbucket::AuthStatusResponse;
+
+    let t = theme::get();
+    let mut inout = out
+        .prepare_for_terminal_input()
+        .context("Human input required - run this in a terminal")?;
+
+    writeln!(
+        inout,
+        "Create an API token with scopes at {} (choose \"Create API token with scopes\", select Bitbucket), granting:",
+        t.command_suggestion
+            .paint("https://id.atlassian.com/manage-profile/security/api-tokens")
+    )?;
+    writeln!(
+        inout,
+        "  • read:user:bitbucket       sign in & identify your account"
+    )?;
+    writeln!(inout, "  • read:repository:bitbucket  repository metadata")?;
+    writeln!(inout, "  • read:pullrequest:bitbucket   list pull requests")?;
+    writeln!(
+        inout,
+        "  • write:pullrequest:bitbucket  create, update & merge"
+    )?;
+    writeln!(inout)?;
+
+    let email = inout
+        .prompt("Please enter your Atlassian account email and hit enter:")?
+        .context("No email provided. Aborting authentication.")?;
+
+    let token = inout
+        .prompt_secret("Now, please enter your Bitbucket API token and hit enter:")?
+        .context("No API token provided. Aborting authentication.")?;
+
+    let AuthStatusResponse { username, .. } =
+        but_api::bitbucket::store_bitbucket_api_token(email, token)
+            .await
+            .map_err(|err| {
+                err.context(
+                    "Authentication failed. If you got a 403, your token is missing the read:user:bitbucket scope.",
+                )
+            })?;
+
+    writeln!(inout, "Authentication successful! Welcome, {username}.")?;
+    Ok(())
 }
 
 /// Authenticate with GitLab
@@ -964,10 +1045,55 @@ async fn display_authenticated_gitlab_accounts(
     Ok(some_accounts_invalid)
 }
 
+async fn display_authenticated_bitbucket_accounts(
+    known_bb_accounts: &Vec<but_bitbucket::BitbucketAccountIdentifier>,
+    out: &mut dyn Write,
+) -> Result<bool, anyhow::Error> {
+    let t = theme::get();
+    if known_bb_accounts.is_empty() {
+        return Ok(false);
+    }
+
+    writeln!(
+        out,
+        "\n{}:",
+        t.important.paint("Authenticated Bitbucket accounts")
+    )?;
+    writeln!(out)?;
+
+    let mut some_accounts_invalid = false;
+
+    for account in known_bb_accounts {
+        let account_status = but_api::bitbucket::check_bitbucket_credentials(account.clone())
+            .await
+            .ok();
+
+        let message = match account_status {
+            Some(but_bitbucket::CredentialCheckResult::Valid) => {
+                t.success.paint("(valid credentials)")
+            }
+            Some(but_bitbucket::CredentialCheckResult::Invalid) => {
+                some_accounts_invalid = true;
+                t.attention.paint("(invalid credentials)")
+            }
+            Some(but_bitbucket::CredentialCheckResult::NoCredentials) => {
+                some_accounts_invalid = true;
+                t.attention.paint("(no credentials)")
+            }
+            None => t.error.paint("(unknown status)"),
+        };
+
+        writeln!(out, "  • {account} {message}")?;
+    }
+    writeln!(out)?;
+    Ok(some_accounts_invalid)
+}
+
 #[derive(Debug, Clone)]
 enum AccountToForget {
     GitHub(but_github::GithubAccountIdentifier),
     GitLab(but_gitlab::GitlabAccountIdentifier),
+    Bitbucket(but_bitbucket::BitbucketAccountIdentifier),
 }
 
 impl Display for AccountToForget {
@@ -975,6 +1101,7 @@ impl Display for AccountToForget {
         match self {
             AccountToForget::GitHub(account) => write!(f, "GitHub account '{account}'"),
             AccountToForget::GitLab(account) => write!(f, "GitLab account '{account}'"),
+            AccountToForget::Bitbucket(account) => write!(f, "Bitbucket account '{account}'"),
         }
     }
 }
@@ -987,6 +1114,9 @@ fn forget_account(account: &AccountToForget) -> Result<()> {
         AccountToForget::GitLab(gl_account) => {
             but_api::gitlab::forget_gitlab_account(gl_account.clone())
         }
+        AccountToForget::Bitbucket(bb_account) => {
+            but_api::bitbucket::forget_bitbucket_account(bb_account.clone())
+        }
     }
 }
 
@@ -994,6 +1124,7 @@ fn forget_account(account: &AccountToForget) -> Result<()> {
 async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Result<()> {
     let known_gh_accounts = but_api::github::list_known_github_accounts()?;
     let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts()?;
+    let known_bb_accounts = but_api::bitbucket::list_known_bitbucket_accounts()?;
 
     // Gather all potential accounts to delete based on the provided username (or all if no username provided)
     let mut accounts_to_delete: Vec<AccountToForget> = Vec::new();
@@ -1010,10 +1141,16 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
         }
     }
 
+    for account in known_bb_accounts {
+        if username.as_ref().is_none_or(|u| account.email() == u) {
+            accounts_to_delete.push(AccountToForget::Bitbucket(account.clone()));
+        }
+    }
+
     // Handle case where no matching account was found
     if accounts_to_delete.is_empty() {
         if let Some((username, out)) = username.zip(out.for_human()) {
-            writeln!(out, "No known GitHub account with username '{username}'")?;
+            writeln!(out, "No known forge account matching '{username}'")?;
         }
         return Ok(());
     }
