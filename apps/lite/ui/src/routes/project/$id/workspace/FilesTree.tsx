@@ -362,6 +362,8 @@ const FileRow: FC<
 									className={styles.fileStatusBadge}
 									aria-label={item.change.status.type}
 									data-char={badge}
+									// By default it's a button, but we don't want this to be
+									// interactive.
 									render={<span />}
 								>
 									{badge}
