@@ -143,12 +143,7 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { prForgeUrl } from "#ui/pr.ts";
 
-type DryRunWorkspace = {
-	workspace: WorkspaceState;
-	headInfoIndex: HeadInfoIndex;
-};
-
-const DryRunWorkspaceContext = createContext<DryRunWorkspace | null>(null);
+const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
 const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(null);
 
@@ -799,12 +794,7 @@ export const OutlineTree: FC<
 
 	// TODO: debounce?
 	const dryRunOperationQuery = useDryRunOperation({ projectId, operation: dryRunOperation });
-	const dryRunWorkspace = dryRunOperationQuery.data?.workspace
-		? ({
-				workspace: dryRunOperationQuery.data.workspace,
-				headInfoIndex: getHeadInfoIndex(dryRunOperationQuery.data.workspace.headInfo),
-			} satisfies DryRunWorkspace)
-		: null;
+	const dryRunWorkspace = dryRunOperationQuery.data?.workspace ?? null;
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
@@ -2666,14 +2656,15 @@ const SegmentContent: FC<{
 	}
 
 	const dryRunWorkspace = use(DryRunWorkspaceContext);
+	const dryRunHeadInfoIndex = dryRunWorkspace ? getHeadInfoIndex(dryRunWorkspace.headInfo) : null;
 
 	return (
 		<div>
 			{segment.commits.map((commit) => {
-				const dryRunCommitId = dryRunWorkspace?.workspace.replacedCommits[commit.id];
+				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
-					dryRunWorkspace && dryRunCommitId !== undefined
-						? (dryRunWorkspace.headInfoIndex.commitById.get(dryRunCommitId) ?? null)
+					dryRunCommitId !== undefined
+						? (dryRunHeadInfoIndex?.commitById.get(dryRunCommitId) ?? null)
 						: null;
 				return (
 					<CommitC
