@@ -958,34 +958,48 @@ const Diff: FC<{
 		<div className={styles.diffTab}>
 			<div className={styles.actions}>
 				<FilesToggle className={classes(getButtonClassName({}), styles.toggle)}>Files</FilesToggle>
-				<div className={styles.diffControls}>
-					<DiffOverflowToggle
-						className={classes(
-							getButtonClassName({ iconOnly: true, variant: "outline" }),
-							styles.toggle,
-						)}
-					>
-						<Icon name="text-wrap" />
-					</DiffOverflowToggle>
-					<DiffBackgroundsToggle
-						className={classes(
-							getButtonClassName({ iconOnly: true, variant: "outline" }),
-							styles.toggle,
-						)}
-					>
-						<Icon name="text-block" />
-					</DiffBackgroundsToggle>
+				<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
+					<Toolbar.Button
+						render={
+							<DiffOverflowToggle
+								className={classes(
+									getButtonClassName({ iconOnly: true, variant: "outline" }),
+									styles.toggle,
+								)}
+							>
+								<Icon name="text-wrap" />
+							</DiffOverflowToggle>
+						}
+					/>
+					<Toolbar.Button
+						render={
+							<DiffBackgroundsToggle
+								className={classes(
+									getButtonClassName({ iconOnly: true, variant: "outline" }),
+									styles.toggle,
+								)}
+							>
+								<Icon name="text-block" />
+							</DiffBackgroundsToggle>
+						}
+					/>
 					{canUseSplitDiff && (
 						<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
-							<Toggle render={<ToggleStyles />} value={"split" satisfies DiffStyle}>
+							<Toolbar.Button
+								render={<Toggle render={<ToggleStyles />} />}
+								value={"split" satisfies DiffStyle}
+							>
 								Split
-							</Toggle>
-							<Toggle render={<ToggleStyles />} value={"unified" satisfies DiffStyle}>
+							</Toolbar.Button>
+							<Toolbar.Button
+								render={<Toggle render={<ToggleStyles />} />}
+								value={"unified" satisfies DiffStyle}
+							>
 								Unified
-							</Toggle>
+							</Toolbar.Button>
 						</DiffStyleToggleGroup>
 					)}
-				</div>
+				</Toolbar.Root>
 			</div>
 
 			<Group
