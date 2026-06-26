@@ -623,7 +623,7 @@ const Title: FC<{
 
 const FilesToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
-> = ({ children, ...toggleProps }) => {
+> = (toggleProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
@@ -639,9 +639,7 @@ const FilesToggle: FC<
 						onPressedChange={() => dispatch(projectActions.toggleFiles({ projectId }))}
 					/>
 				}
-			>
-				{children}
-			</Tooltip.Trigger>
+			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
 					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.toggleFiles.hotkey} />}>
@@ -655,7 +653,7 @@ const FilesToggle: FC<
 
 const DiffOverflowToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
-> = ({ children, ...toggleProps }) => {
+> = (toggleProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const diffOverflow = useAppSelector((state) => selectProjectDiffOverflow(state, projectId));
@@ -678,9 +676,7 @@ const DiffOverflowToggle: FC<
 						}
 					/>
 				}
-			>
-				{children}
-			</Tooltip.Trigger>
+			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
 					<Tooltip.Popup render={<TooltipPopup />}>Toggle line wrapping</Tooltip.Popup>
@@ -692,7 +688,7 @@ const DiffOverflowToggle: FC<
 
 const DiffBackgroundsToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
-> = ({ children, ...toggleProps }) => {
+> = (toggleProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const diffBackgrounds = useAppSelector((state) => selectProjectDiffBackgrounds(state, projectId));
@@ -710,9 +706,7 @@ const DiffBackgroundsToggle: FC<
 						}
 					/>
 				}
-			>
-				{children}
-			</Tooltip.Trigger>
+			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
 					<Tooltip.Popup render={<TooltipPopup />}>Toggle diff backgrounds</Tooltip.Popup>
@@ -724,7 +718,7 @@ const DiffBackgroundsToggle: FC<
 
 const DiffStyleToggleGroup: FC<
 	Omit<ToggleGroup.Props<DiffStyle>, "aria-label" | "value" | "onValueChange">
-> = ({ children, ...toggleGroupProps }) => {
+> = (toggleGroupProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const preferredDiffStyle = useAppSelector((state) =>
@@ -746,9 +740,7 @@ const DiffStyleToggleGroup: FC<
 						}}
 					/>
 				}
-			>
-				{children}
-			</Tooltip.Trigger>
+			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
 					<Tooltip.Popup render={<TooltipPopup kbd={diffHotkeys.toggleDiffStyle.hotkey} />}>
