@@ -7,7 +7,6 @@
 #![forbid(missing_docs)]
 
 use std::collections::{BTreeMap, HashMap};
-use std::fmt::Write;
 use std::str::FromStr as _;
 
 use bstr::{BStr, BString, ByteSlice};
@@ -38,6 +37,69 @@ mod tests;
 pub(crate) type ShortId = String;
 
 pub(crate) const UNCOMMITTED: &str = "zz";
+
+const INDEX_SEPARATOR: &str = "#";
+
+/// The ID of a hunk, without its namespace (file).
+#[derive(Debug, Clone, Default)]
+struct UnqualifiedHunkId {
+    /// The ID of the hunk.
+    id: String,
+    /// The smallest amount of prefix characters necessary to form a distinct ID.
+    min_short_id_chars: usize,
+    /// The collision index if there are other hunks with the exact same ID. Otherwise this is
+    /// empty.
+    collision_index: Option<String>,
+}
+
+impl UnqualifiedHunkId {
+    fn short_id(&self) -> String {
+        let prefix = &self.id[..self.min_short_id_chars];
+
+        match &self.collision_index {
+            Some(collision_index) => format!("{prefix}{INDEX_SEPARATOR}{collision_index}"),
+            None => prefix.to_string(),
+        }
+    }
+
+    /// Check if `prefix` matches this ID by non-strict prefix match.
+    ///
+    /// Note that collision indices are matched separately and must match exactly if provided. For
+    /// example, given the full ID `f1#0-2`, all of `f`, `f1`, `f#0-2` and `f1#0-2` are valid
+    /// prefixes, but e.g. `f#0` is not as the collision index is only a partial match.
+    ///
+    /// Similarly, if the full id is `f1` then the prefix `f#0-2` does not match due to the
+    /// collision index mismatch.
+    ///
+    /// It's also not allowed to specify _only_ a collision index (e.g. `#0-2`), that matches
+    /// nothing simply because it doesn't seem useful at all, and also clashes a bit semantically
+    /// with the file wide hunk indexing.
+    ///
+    /// These prefixing rules aren't here because they're particularly useful to know about and
+    /// utilize. The purpose is to not cause a shortening of an ID to invalidate a longer form of
+    /// that ID. As a practical example of where that would be inconvenient, consider the case where
+    /// two hunks have short IDs `f1` and `f2`, the second character necessary to disambiguate from
+    /// the other hunk. If one were to run a `but status` to show these IDs and then commit hunk
+    /// `f1`, the ID for the other hunk would be shortened `f2 -> f`. If you then try to reference
+    /// it with ID `f2`, we still want that to work so you don't have to run repeated `but status`
+    /// commands.
+    ///
+    /// The reverse problem still exists, where the addition of new hunks can cause existing short
+    /// IDs to become ambiguous. That's not a solvable problem, we'll simply get more hits on the
+    /// same prefix.
+    fn matches_prefix(&self, prefix: &str) -> bool {
+        let (prefix_id, prefix_collision_index) = match prefix.split_once(INDEX_SEPARATOR) {
+            Some((prefix_id, prefix_collision_index)) => (prefix_id, Some(prefix_collision_index)),
+            None => (prefix, None),
+        };
+
+        // We only care about matching against the collision index if the user provided it
+        let collision_index_mismatch = prefix_collision_index.is_some()
+            && self.collision_index.as_deref() != prefix_collision_index;
+
+        !prefix_id.is_empty() && self.id.starts_with(prefix_id) && !collision_index_mismatch
+    }
+}
 
 /// Create a CLI ID for the given staged file (if `stack_id` is `Some`) or the
 /// given unstaged file or committed file (if `stack_id` is `None`).
@@ -470,7 +532,7 @@ impl IdMap {
                 UncommittedFile {
                     short_id: ShortId::default(),
                     short_id_hunk_assignments: hunk_assignments
-                        .map(|hunk_assignment| (ShortId::default(), hunk_assignment)),
+                        .map(|hunk_assignment| (UnqualifiedHunkId::default(), hunk_assignment)),
                 },
             );
             // Skip an ID for stability of other IDs below with respect to older
@@ -493,14 +555,14 @@ impl IdMap {
         let mut uncommitted_hunks = HashMap::new();
         for uncommitted_file in uncommitted_files.values_mut() {
             {
-                Self::assign_content_based_hunk_short_ids(
+                Self::assign_content_based_hunk_ids(
                     uncommitted_file.short_id_hunk_assignments.iter_mut(),
                 )?;
             }
 
-            for (short_id, hunk_assignment) in &uncommitted_file.short_id_hunk_assignments {
+            for (hunk_id, hunk_assignment) in &uncommitted_file.short_id_hunk_assignments {
                 uncommitted_hunks.insert(
-                    format!("{}:{}", uncommitted_file.short_id, short_id),
+                    format!("{}:{}", uncommitted_file.short_id, hunk_id.short_id()),
                     UncommittedHunk {
                         hunk_assignment: hunk_assignment.clone(),
                     },
@@ -535,17 +597,13 @@ impl IdMap {
 
     const HUNK_EMPTY_CONTENT_PREFIX: &str = "q";
 
-    /// Assign unique hunk short IDs based on content hash into the input iterator's first element.
-    ///
-    /// The hunk IDs are computed as the shortest possible distinct prefix of the hash of the hunk's
-    /// content, where distinctness is computed only relative to the other hunks in the input. This
-    /// should typically be on a file-by-file basis.
+    /// Assign unique hunk IDs based on content hash into the input iterator's first element.
     ///
     /// On hash collisions, the IDs are disambiguated based on the amount of collisions for that
     /// particular hash.
     ///
-    /// Hunks that lack a diff are prefixed with "q" and then rely on the disambiguation mechanism
-    /// if there are multiple such hunks.
+    /// Hunks that lack a diff get a content hash of "q" and then rely on the disambiguation
+    /// mechanism if there are multiple such hunks.
     ///
     /// In summary, the formats are:
     ///
@@ -561,11 +619,12 @@ impl IdMap {
     /// IDs that previously pointed to other colliding hunks.
     ///
     /// Note that hunks that lack a diff follow the same rules, only that `<prefix>="q"` always.
-    fn assign_content_based_hunk_short_ids<'a>(
-        short_ids_and_hunks: impl Iterator<Item = &'a mut (ShortId, HunkAssignment)>,
+    fn assign_content_based_hunk_ids<'a>(
+        short_ids_and_hunks: impl Iterator<Item = &'a mut (UnqualifiedHunkId, HunkAssignment)>,
     ) -> anyhow::Result<()> {
-        let mut content_hash_to_short_ids: BTreeMap<ShortId, Vec<&'a mut String>> = BTreeMap::new();
-        for (short_id, hunk_assignment) in short_ids_and_hunks {
+        let mut content_hash_to_short_ids: BTreeMap<String, Vec<&'a mut UnqualifiedHunkId>> =
+            BTreeMap::new();
+        for (hunk_id, hunk_assignment) in short_ids_and_hunks {
             let content_hash = match hunk_assignment.diff.as_ref() {
                 Some(diff) => {
                     let mut content_hasher = hasher(gix::hash::Kind::Sha1);
@@ -583,14 +642,14 @@ impl IdMap {
             content_hash_to_short_ids
                 .entry(content_hash)
                 .or_default()
-                .push(short_id);
+                .push(hunk_id);
         }
 
         let mut all_hashes = content_hash_to_short_ids.into_iter();
 
         let mut current = all_hashes.next();
         let mut len_in_common_with_last: usize = 0;
-        while let Some((content_hash, mut short_ids)) = current {
+        while let Some((content_hash, mut ids)) = current {
             let next = all_hashes.next();
 
             let len_in_common_with_next = common_prefix_len(
@@ -599,16 +658,17 @@ impl IdMap {
                     .map(|(content_hash, _)| content_hash.as_bytes())
                     .unwrap_or_default(),
             );
-            let shortest_distinct_prefix = &content_hash[0..1
+            let min_short_id_chars = 1
                 .max(len_in_common_with_next + 1)
-                .max(len_in_common_with_last + 1)];
+                .max(len_in_common_with_last + 1);
 
-            let num_colliding_ids = short_ids.len();
-            for (i, short_id) in short_ids.iter_mut().enumerate() {
-                short_id.push_str(shortest_distinct_prefix);
+            let num_colliding_ids = ids.len();
+            for (i, hunk_id) in ids.iter_mut().enumerate() {
+                hunk_id.id.push_str(&content_hash);
+                hunk_id.min_short_id_chars = min_short_id_chars;
 
                 if num_colliding_ids > 1 {
-                    write!(short_id, "#{i}-{num_colliding_ids}")?;
+                    hunk_id.collision_index = Some(format!("{i}-{num_colliding_ids}"))
                 }
             }
 
@@ -1212,7 +1272,7 @@ pub struct UncommittedFile {
     pub short_id: ShortId,
     /// Every element has the same [HunkAssignment::stack_id] and [HunkAssignment::path_bytes],
     /// so the first assignment can be used to obtain both.
-    pub short_id_hunk_assignments: NonEmpty<(ShortId, HunkAssignment)>,
+    short_id_hunk_assignments: NonEmpty<(UnqualifiedHunkId, HunkAssignment)>,
 }
 
 impl UncommittedFile {
@@ -1249,12 +1309,12 @@ impl<'a> Node<'a> for &'a UncommittedFile {
         _id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        match element.strip_prefix('#') {
+        match element.strip_prefix(INDEX_SEPARATOR) {
             Some(maybe_index) if let Ok(index) = usize::from_str(maybe_index) => {
-                if let Some((short_id, hunk_assignment)) = self.short_id_hunk_assignments.get(index)
+                if let Some((hunk_id, hunk_assignment)) = self.short_id_hunk_assignments.get(index)
                 {
                     let cli_id = CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
-                        id: format!("{}:{}", self.short_id, short_id),
+                        id: format!("{}:{}", self.short_id, hunk_id.short_id()),
                         hunk_assignments: NonEmpty::new(hunk_assignment.to_owned()),
                         is_entire_file: false,
                     });
@@ -1267,10 +1327,10 @@ impl<'a> Node<'a> for &'a UncommittedFile {
                 let matches = self
                     .short_id_hunk_assignments
                     .iter()
-                    .filter(|(short_id, _)| short_id == element)
-                    .map(|(short_id, hunk_assignment)| {
+                    .filter(|(hunk_id, _)| hunk_id.matches_prefix(element))
+                    .map(|(hunk_id, hunk_assignment)| {
                         let cli_id = CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
-                            id: format!("{}:{}", self.short_id, short_id),
+                            id: format!("{}:{}", self.short_id, hunk_id.short_id()),
                             hunk_assignments: NonEmpty::new(hunk_assignment.to_owned()),
                             is_entire_file: false,
                         });
