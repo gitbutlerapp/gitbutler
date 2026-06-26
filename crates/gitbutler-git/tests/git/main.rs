@@ -1,3 +1,4 @@
+mod grit;
 mod refspec;
 
 #[cfg(test)]

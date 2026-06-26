@@ -434,6 +434,14 @@ where
         path: repo_path.to_owned(),
         source,
     })?;
+
+    // When `gitbutler.grit` is set, fetch in-process over grit-lib's transport
+    // stack instead of shelling out to the `git` binary.
+    if crate::grit::is_enabled(&repo) {
+        return crate::grit::fetch(&repo, remote)
+            .map_err(|err| crate::Error::Grit(format!("{err:#}")));
+    }
+
     let refspecs = fetch_refspecs(&repo, remote).map_err(|source| {
         let remote_not_found =
             matches!(source, gix::remote::find::existing::Error::NotFound { .. });
@@ -524,6 +532,26 @@ where
     F: FnMut(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
 {
+    // When `gitbutler.grit` is set, push in-process over grit-lib's transport
+    // stack instead of shelling out to the `git` binary.
+    {
+        let repo_path = repo_path.as_ref();
+        let repo = gix::open(repo_path).map_err(|source| Error::<E>::RepositoryOpen {
+            path: repo_path.to_owned(),
+            source,
+        })?;
+        if crate::grit::is_enabled(&repo) {
+            return crate::grit::push(
+                &repo,
+                remote,
+                &refspec,
+                force,
+                force && force_push_protection,
+            )
+            .map_err(|err| crate::Error::Grit(format!("{err:#}")));
+        }
+    }
+
     let mut args = vec!["push", "--quiet", "--no-verify"];
 
     let refspec = refspec.to_string();
@@ -605,6 +633,13 @@ where
     Fut: std::future::Future<Output = Option<String>>,
 {
     let target_dir = target_dir.as_ref();
+
+    // When `gitbutler.grit` is set (in global/system config, since no repository
+    // exists yet), clone in-process over grit-lib instead of the `git` binary.
+    if crate::grit::is_enabled_global() {
+        return crate::grit::clone(repository_url, target_dir)
+            .map_err(|err| crate::Error::Grit(format!("{err:#}")));
+    }
 
     // For clone, we run from the parent directory of the target
     let work_dir = target_dir.parent().unwrap_or(Path::new("."));

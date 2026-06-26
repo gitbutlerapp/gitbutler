@@ -42,6 +42,7 @@ rand.workspace = true
 futures.workspace = true
 sysinfo = { workspace = true, features = ["system"] }
 gix.workspace = true
+grit-lib.workspace = true
 serde.workspace = true
 
 [target."cfg(unix)".dependencies]
