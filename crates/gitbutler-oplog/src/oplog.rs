@@ -698,6 +698,9 @@ fn restore_snapshot(
     let before_restore_snapshot_result = prepare_snapshot(ctx, exclusive_access.read_permission());
     let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
 
+    // The worktree checkout below diffs from this tree, so capture it before any refs move.
+    let pre_restore_head_tree_id = repo.head_tree_id_or_empty()?.detach();
+
     let snapshot_tree = snapshot_commit.tree()?;
     let vb_toml_entry = snapshot_tree
         .lookup_entry_by_path("virtual_branches.toml")?
@@ -722,6 +725,8 @@ fn restore_snapshot(
 
     // walk through all the entries (branches by id)
     let workspace_ref: &gix::refs::FullNameRef = WORKSPACE_REF_NAME.try_into()?;
+    // The workspace commit to repoint `gitbutler/workspace` at, applied *after* the checkout below.
+    let mut restored_workspace_commit: Option<gix::ObjectId> = None;
     for branch_entry in vb_tree.iter() {
         let branch_entry = branch_entry?;
         let branch_tree = repo
@@ -754,21 +759,9 @@ fn restore_snapshot(
                 }
             }
 
-            // if branch_name is 'workspace', we need to create or update the gitbutler/workspace branch
             // TODO: in the next iteration, this of course can't be hardcoded.
             if branch_name == "workspace" {
-                let head = repo.head()?;
-                let head_ref = head
-                    .referent_name()
-                    .context("We will not change a worktree in detached HEAD state")?;
-                if head_ref == workspace_ref {
-                    repo.reference(
-                        workspace_ref,
-                        commit_oid,
-                        gix::refs::transaction::PreviousValue::Any,
-                        "restore snapshot workspace ref",
-                    )?;
-                }
+                restored_workspace_commit = Some(commit_oid);
             }
         }
     }
@@ -784,15 +777,28 @@ fn restore_snapshot(
     let gix_repo = ctx.clone_repo_for_merging()?;
     let workdir_tree_id = get_workdir_tree(None, snapshot_commit_id, &gix_repo, ctx)?;
 
-    // Define the checkout builder
+    // Check out the snapshot's worktree while HEAD still points at the pre-restore commit: both
+    // backends diff from the head tree, so the workspace ref is repointed only afterwards (below).
+    // The git2 backend reads HEAD for its baseline; cv3 gets `pre_restore_head_tree_id` directly.
     if ctx.settings.feature_flags.cv3 {
-        but_core::worktree::safe_checkout_from_head(
+        but_core::worktree::safe_checkout(
+            pre_restore_head_tree_id,
             workdir_tree_id,
             &gix_repo,
             but_core::worktree::checkout::Options::default(),
         )?;
     } else {
         checkout_workdir_tree(ctx, workdir_tree_id)?;
+    }
+
+    // Worktree now matches the snapshot; repoint gitbutler/workspace at the restored commit.
+    if let Some(commit_oid) = restored_workspace_commit {
+        repo.reference(
+            workspace_ref,
+            commit_oid,
+            gix::refs::transaction::PreviousValue::Any,
+            "restore snapshot workspace ref",
+        )?;
     }
 
     // Update virtual_branches.toml with the state from the snapshot
