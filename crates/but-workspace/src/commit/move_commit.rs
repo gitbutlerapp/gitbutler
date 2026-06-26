@@ -1,9 +1,10 @@
 //! Move a commit within or across branches and stacks.
 
+use anyhow::bail;
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{
-    Editor, SuccessfulRebase, ToCommitSelector, ToSelector,
-    mutate::{InsertSide, SegmentDelimiter, SelectorSet},
+    Editor, LookupStep as _, SuccessfulRebase, ToCommitSelector, ToSelector,
+    mutate::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet},
 };
 
 use crate::graph_manipulation::determine_parent_selector;
@@ -27,6 +28,48 @@ pub fn move_commit<'ws, 'meta, M: RefMetadata>(
     side: InsertSide,
 ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
     let editor = move_commit_no_rebase(editor, subject_commit, anchor, side)?;
+    editor.rebase()
+}
+
+/// Move multiple commits.
+///
+/// The commits are ordered by parentage before moving so callers do not need to
+/// provide them in graph order.
+pub fn move_commits<'ws, 'meta, M: RefMetadata>(
+    editor: Editor<'ws, 'meta, M>,
+    subject_commit_ids: impl IntoIterator<Item = gix::ObjectId>,
+    relative_to: RelativeTo,
+    side: InsertSide,
+) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    let subject_commit_ids = subject_commit_ids.into_iter().collect::<Vec<_>>();
+    if subject_commit_ids.is_empty() {
+        bail!("No commits were provided to move")
+    }
+
+    let ordered_selectors = editor.order_commit_selectors_by_parentage(subject_commit_ids)?;
+    let mut ordered_ids = ordered_selectors
+        .iter()
+        .map(|selector| editor.lookup_pick(*selector))
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    let ordered_ids = if matches!(side, InsertSide::Above) {
+        ordered_ids.reverse();
+        ordered_ids
+    } else {
+        ordered_ids
+    };
+
+    let mut subjects = ordered_ids.into_iter();
+    let first_subject = subjects
+        .next()
+        .expect("non-empty commit list always has a first subject");
+
+    let mut editor = move_commit_no_rebase(editor, first_subject, relative_to.clone(), side)?;
+
+    for subject_id in subjects {
+        editor = move_commit_no_rebase(editor, subject_id, relative_to.clone(), side)?;
+    }
+
     editor.rebase()
 }
 
