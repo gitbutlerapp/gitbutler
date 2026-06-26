@@ -559,9 +559,22 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, editorId, path, lineNr }: OpenInEditorParams) =>
 			openInEditor(projectId, editorId, path, lineNr),
 	);
-	senderValidatingHandle(liteIpcChannels.openInWebBrowser, (_e, url: string) =>
-		shell.openExternal(url),
-	);
+	senderValidatingHandle(liteIpcChannels.openInWebBrowser, (_e, url: string) => {
+		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
+		// program with shell.openExternal("file:///Applications/Numbers.app"). Similarly bad
+		// things are possible on Windows and Linux.
+		//
+		// We need to be able to open relatively arbitrary URLs so we can't lock this down too much,
+		// but we can at least make sure the URL is a reasonable protocol so we don't allow e.g.
+		// "file:///Applications/Numbers.app" to pass through.
+		//
+		// https://www.electronjs.org/docs/latest/tutorial/security#15-do-not-use-shellopenexternal-with-untrusted-content
+		const protocol = newUrlOrNull(url)?.protocol ?? "";
+		if (!["https:", "http:"].includes(protocol))
+			throw new Error(`URL ${url} with unsupported protocol ${protocol}`);
+
+		return shell.openExternal(url);
+	});
 	senderValidatingHandle(liteIpcChannels.pathJoin, (_e, ...paths: Array<string>) =>
 		path.join(...paths),
 	);
