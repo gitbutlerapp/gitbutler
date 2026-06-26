@@ -97,9 +97,7 @@ impl Handler {
         perm: &mut RepoExclusive,
     ) -> Result<()> {
         let context_lines = ctx.settings.context_lines;
-        let mut meta = ctx.meta()?;
-        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        let rules = but_rules::list_rules(&db)?;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
 
         let wt_changes = but_core::diff::worktree_changes(&repo)?;
 
@@ -117,7 +115,7 @@ impl Handler {
             context_lines,
         )?;
 
-        let mut changes = but_hunk_assignment::WorktreeChanges {
+        let changes = but_hunk_assignment::WorktreeChanges {
             worktree_changes: wt_changes.clone().into(),
             assignments: assignments.clone(),
             assignments_error: assignments_error.clone(),
@@ -127,36 +125,6 @@ impl Handler {
                 .err()
                 .map(|err| serde_error::Error::new(&**err)),
         };
-        if let Ok(update_count) = but_rules::handler::process_workspace_rules(
-            rules,
-            &assignments,
-            &repo,
-            &mut ws,
-            &mut db,
-            &mut meta,
-            perm,
-            context_lines,
-        ) && update_count > 0
-        {
-            // Getting these again since they were updated
-            let (assignments, assignments_error) = assignments_and_errors(
-                db.hunk_assignments_mut()?,
-                &repo,
-                &ws,
-                wt_changes.changes.clone(),
-                context_lines,
-            )?;
-            changes = but_hunk_assignment::WorktreeChanges {
-                worktree_changes: wt_changes.into(),
-                assignments,
-                assignments_error: assignments_error.clone(),
-                dependencies: dependencies.as_ref().ok().cloned(),
-                dependencies_error: dependencies
-                    .as_ref()
-                    .err()
-                    .map(|err| serde_error::Error::new(&**err)),
-            };
-        }
         let _ = self.emit_app_event(Change::WorktreeChanges {
             project_id,
             changes,

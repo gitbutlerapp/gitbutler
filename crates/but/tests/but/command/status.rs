@@ -1,5 +1,6 @@
 use super::util::{enter_edit_mode_with_conflicted_commit, status_json};
 use crate::utils::{CommandExt as _, Sandbox};
+use but_core::ref_metadata::StackId;
 
 #[test]
 fn worktrees() {
@@ -1089,14 +1090,9 @@ fn status_in_edit_mode_delegates_to_resolve_status() -> anyhow::Result<()> {
 #[test]
 fn status_shows_marked_stack() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    let stack_ids = env.setup_metadata(&["A"]);
 
-    let status = status_json(&env)?;
-    let branch_cli_id = status["stacks"][0]["branches"][0]["cliId"]
-        .as_str()
-        .expect("branch cli id should exist");
-
-    env.but(format!("mark {branch_cli_id}")).assert().success();
+    mark_stack(&env, stack_ids[0])?;
 
     env.but("status")
         .with_color_for_svg()
@@ -1107,5 +1103,22 @@ fn status_shows_marked_stack() -> anyhow::Result<()> {
             "snapshots/status/mark/status-shows-marked-stack.stdout.term.svg"
         ]);
 
+    Ok(())
+}
+
+fn mark_stack(env: &Sandbox, stack_id: StackId) -> anyhow::Result<()> {
+    let mut ctx = env.context();
+    let mut guard = ctx.exclusive_worktree_access();
+    but_rules::create_rule(
+        &mut ctx,
+        but_rules::CreateRuleRequest {
+            trigger: but_rules::Trigger::FileSytemChange,
+            filters: Vec::new(),
+            action: but_rules::Action::Explicit(but_rules::Operation::Assign {
+                target: but_rules::StackTarget::StackId(stack_id.to_string()),
+            }),
+        },
+        guard.write_permission(),
+    )?;
     Ok(())
 }
