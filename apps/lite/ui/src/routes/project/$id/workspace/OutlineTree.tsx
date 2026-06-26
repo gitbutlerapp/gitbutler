@@ -626,7 +626,7 @@ const useOutlineTreeHotkeys = ({
 			callback: () => void openSelectedCommitInBrowser(),
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
+				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !!selectedCommitForgeUrl,
 				target: ref,
 				meta: outlineHotkeys.openCommitInBrowser.meta,
 			},
@@ -666,7 +666,8 @@ const useOutlineTreeHotkeys = ({
 			callback: () => void openSelectedBranchPRInBrowser(),
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedBranch,
+				enabled:
+					defaultOutlineHotkeysEnabled && isSelectedBranch && selectedBranchPullRequestUrl !== null,
 				target: ref,
 				meta: outlineHotkeys.openPRInBrowser.meta,
 			},
