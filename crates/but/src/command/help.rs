@@ -152,6 +152,7 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Skill => Group::OtherCommands,
                 SubcommandDiscriminant::Agent => Group::OtherCommands,
                 SubcommandDiscriminant::Help => Group::OtherCommands,
+                SubcommandDiscriminant::Completions => Group::OtherCommands,
 
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Setup => Group::OtherCommands,
@@ -162,7 +163,6 @@ fn print_grouped_with_truncation(
 
                 SubcommandDiscriminant::Edit => continue,
                 SubcommandDiscriminant::Metrics => continue,
-                SubcommandDiscriminant::Completions => continue,
                 SubcommandDiscriminant::Onboarding => continue,
                 SubcommandDiscriminant::EvalHook => continue,
                 SubcommandDiscriminant::External => continue,
@@ -366,6 +366,7 @@ Other Commands:
   config       View and manage GitButler configuration
   skill        Manage AI agent skills for GitButler
   agent        Set up GitButler for AI coding agents
+  completions  Generate but shell completions
 
 To add command completion, add this to your shell rc: (for example ~/.zshrc)
   eval "$(but completions zsh)"
@@ -438,6 +439,7 @@ Other Commands:
   config       View and manage GitButler configuration
   skill        Manage AI agent skills for GitButler
   agent        Set up GitButler for AI coding agents
+  completions  Generate but shell completions
 
 To add command completion, add this to your shell rc: (for example ~/.zshrc)
   eval "$(but completions zsh)"
