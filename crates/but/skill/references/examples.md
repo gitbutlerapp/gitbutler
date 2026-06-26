@@ -456,6 +456,24 @@ but absorb <file-id> --dry-run  # See where specific file would be absorbed
 but push my-feature --dry-run   # See what would be pushed
 ```
 
+### Multiple Commits From One Diff
+
+File/hunk IDs copied from the original output generally remain usable across
+commits. Chain `but commit` calls to split a dirty diff into several commits in
+one go:
+
+```bash
+but diff   # read the file/hunk IDs once
+
+but commit my-branch -m "Add parser" --changes qs:5,qs:2 \
+  && but commit my-branch -m "Add tests" --changes uo:d
+```
+
+Only chain when each command references uncommitted IDs (plus the stable branch ID).
+If an ID stops resolving, re-read the diff and continue.
+Mutations that consume commit IDs — `amend`, `squash`, `move`, `uncommit` — rewrite
+those IDs, so run them one at a time and take fresh IDs from returned status.
+
 
 ### Auto-completion
 

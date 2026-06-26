@@ -66,38 +66,6 @@ pub struct Platform {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// Create multiple commits from selected uncommitted file or hunk IDs.
-    ///
-    /// Each `--message` occurrence pairs with the `--changes` occurrence at the
-    /// same index. Each `--changes` value is a comma-separated list of file or
-    /// hunk IDs from `but diff` or `but status -fv`.
-    ///
-    /// ## Example
-    ///
-    /// ```text
-    /// but commit batch topic --before ab -m "refactor helpers" --changes q0,o0 -m "add docs" --changes t0,n0
-    /// ```
-    #[cfg(feature = "legacy")]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Batch {
-        /// Branch CLI ID or name to commit to.
-        branch: Option<CliIdArg>,
-        /// Insert each commit before this commit or branch.
-        #[arg(long, conflicts_with = "after")]
-        before: Option<CliIdArg>,
-        /// Insert each commit after this commit or branch.
-        #[arg(long, conflicts_with = "before")]
-        after: Option<CliIdArg>,
-        /// Commit message. Pair by occurrence index with `--changes`.
-        #[arg(short = 'm', long = "message", required = true, value_name = "MESSAGE")]
-        messages: Vec<String>,
-        /// File or hunk CLI IDs for one commit. Pair by occurrence index with `--message`.
-        #[arg(long = "changes", short = 'p', required = true, value_name = "IDS")]
-        changes: Vec<String>,
-        /// Bypass git commit hooks.
-        #[arg(short = 'n', long = "no-hooks", alias = "no-verify")]
-        no_hooks: bool,
-    },
     /// Insert a blank commit before or after the specified commit.
     ///
     /// This is useful for creating a placeholder commit that you can

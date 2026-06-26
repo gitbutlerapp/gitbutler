@@ -128,7 +128,6 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Commit(crate::args::commit::Platform { cmd, .. }) => match cmd {
                 None => Commit,
-                Some(crate::args::commit::Subcommands::Batch { .. }) => Commit,
                 Some(crate::args::commit::Subcommands::Empty { .. }) => CommitEmpty,
             },
             #[cfg(all(feature = "legacy", feature = "but-2"))]

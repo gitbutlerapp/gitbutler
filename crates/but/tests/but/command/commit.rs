@@ -1066,6 +1066,53 @@ fn commit_with_multiple_file_ids() -> anyhow::Result<()> {
 }
 
 #[test]
+fn chained_commits_reuse_uncommitted_ids_from_one_status() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("one.txt", "one");
+    env.file("two.txt", "two");
+
+    let status = util::status_json(&env)?;
+    let one_id = find_uncommitted_cli_id(&status, "one.txt").expect("one.txt should have a CLI ID");
+    let two_id = find_uncommitted_cli_id(&status, "two.txt").expect("two.txt should have a CLI ID");
+
+    let add_one =
+        but_std_cmd(&env, &format!("commit A -m 'Add one' --changes {one_id}")).output()?;
+    assert!(
+        add_one.status.success(),
+        "first commit failed:\n{}",
+        String::from_utf8_lossy(&add_one.stderr)
+    );
+
+    let add_two =
+        but_std_cmd(&env, &format!("commit A -m 'Add two' --changes {two_id}")).output()?;
+    assert!(
+        add_two.status.success(),
+        "second commit failed:\n{}",
+        String::from_utf8_lossy(&add_two.stderr)
+    );
+    assert_eq!(uncommitted_file_count(&env), 0);
+    let messages = branch_commit_messages(&env, "A");
+    let newest_messages = messages
+        .iter()
+        .take(2)
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    assert_eq!(newest_messages, ["Add two", "Add one"]);
+    assert_eq!(
+        branch_commit_file_paths_by_message(&env, "A", "Add one"),
+        ["one.txt"]
+    );
+    assert_eq!(
+        branch_commit_file_paths_by_message(&env, "A", "Add two"),
+        ["two.txt"]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn commit_with_short_changes_flag() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
@@ -1414,151 +1461,6 @@ fn committing_to_existing_branch_via_short_id() {
 
 "#]])
         .success();
-}
-
-#[test]
-fn commit_batch_creates_multiple_selected_commits() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-
-    env.file("one.txt", "one");
-    env.file("two.txt", "two");
-
-    let status = util::status_json(&env)?;
-    let one_id = find_uncommitted_cli_id(&status, "one.txt").expect("one.txt should have a CLI ID");
-    let two_id = find_uncommitted_cli_id(&status, "two.txt").expect("two.txt should have a CLI ID");
-
-    env.but(format!(
-        "commit batch A -m 'Add one' --changes {one_id} -m 'Add two' --changes {two_id}"
-    ))
-    .assert()
-    .success()
-    .stdout_eq(str![[r#"
-✓ Created commit [..] on branch A
-✓ Created commit [..] on branch A
-
-"#]]);
-
-    assert_eq!(uncommitted_file_count(&env), 0);
-    let messages = branch_commit_messages(&env, "A");
-    let newest_messages = messages
-        .iter()
-        .take(2)
-        .map(String::as_str)
-        .collect::<Vec<_>>();
-    assert_eq!(newest_messages, ["Add two", "Add one"]);
-    assert_eq!(
-        branch_commit_file_paths_by_message(&env, "A", "Add one"),
-        ["one.txt"]
-    );
-    assert_eq!(
-        branch_commit_file_paths_by_message(&env, "A", "Add two"),
-        ["two.txt"]
-    );
-
-    Ok(())
-}
-
-#[test]
-fn commit_batch_with_position_on_different_branch_fails() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
-    env.setup_metadata(&["A", "B"]);
-    env.file("new-file.txt", "content");
-
-    let status = util::status_json(&env)?;
-    let file_id = find_uncommitted_cli_id(&status, "new-file.txt")
-        .expect("new-file.txt should have a CLI ID");
-
-    let output = env
-        .but(format!(
-            "commit batch A --before d3e2ba3 -m 'Wrong target' --changes {file_id}"
-        ))
-        .assert()
-        .failure();
-    let stderr = std::str::from_utf8(&output.get_output().stderr)?;
-    assert!(
-        stderr.contains("Target must belong to the branch being committed to"),
-        "unexpected stderr: {stderr}"
-    );
-
-    Ok(())
-}
-
-#[test]
-fn commit_batch_after_commit_preserves_batch_order() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-
-    env.file("one.txt", "one");
-    env.file("two.txt", "two");
-
-    let status = util::status_json(&env)?;
-    let one_id = find_uncommitted_cli_id(&status, "one.txt").expect("one.txt should have a CLI ID");
-    let two_id = find_uncommitted_cli_id(&status, "two.txt").expect("two.txt should have a CLI ID");
-
-    env.but(format!(
-        "commit batch A --after 9477ae7 -m 'Add one' --changes {one_id} -m 'Add two' --changes {two_id}"
-    ))
-    .assert()
-    .success();
-
-    let messages = branch_commit_messages(&env, "A");
-    let newest_messages = messages
-        .iter()
-        .take(3)
-        .map(|message| message.trim_end())
-        .collect::<Vec<_>>();
-    assert_eq!(newest_messages, ["Add two", "Add one", "add A"]);
-
-    Ok(())
-}
-
-#[test]
-fn commit_batch_json_outputs_single_document() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-
-    env.file("one.txt", "one");
-    env.file("two.txt", "two");
-
-    let status = util::status_json(&env)?;
-    let one_id = find_uncommitted_cli_id(&status, "one.txt").expect("one.txt should have a CLI ID");
-    let two_id = find_uncommitted_cli_id(&status, "two.txt").expect("two.txt should have a CLI ID");
-
-    let output = env
-        .but(format!(
-            "commit --format json batch A -m 'Add one' --changes {one_id} -m 'Add two' --changes {two_id}"
-        ))
-        .assert()
-        .success();
-    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout)?;
-
-    assert_eq!(json["branch"], "A");
-    let commits = json["commits"]
-        .as_array()
-        .expect("commits should be an array");
-    assert_eq!(commits.len(), 2);
-    assert!(commits[0]["commit_id"].is_string());
-    assert!(commits[1]["commit_id"].is_string());
-    assert!(json.get("branch_tip").is_none());
-
-    Ok(())
-}
-
-#[test]
-fn commit_batch_json_mode_multiple_branches_requires_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
-    env.setup_metadata_at_target(&["A", "B"], "origin/main");
-
-    env.file("new-file.txt", "test content");
-
-    env.but("commit --format json batch -m 'Test commit' --changes zz:new-file.txt")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Multiple branches found. Specify a branch to commit to using the branch argument
-
-"#]]);
 }
 
 /// Helper to build an isolated `std::process::Command` for `but` with the same

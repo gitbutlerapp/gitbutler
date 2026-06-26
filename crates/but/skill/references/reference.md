@@ -161,7 +161,6 @@ but commit <branch> -m "message" --changes <id>,<id>  # Commit specific files or
 but commit <branch> -m "message" --changes <id> --changes <id>  # Alternative: repeat flag
 but commit <branch> -m "message" --changes <id>,<id> --before <target>  # Insert before commit/branch
 but commit <branch> -m "message" --changes <id>,<id> --after <target>   # Insert after commit/branch
-but commit batch <branch> [--before <target>|--after <target>] -m "message" --changes id,id -m "message" --changes id,id
 but commit <branch> --message-file msg.txt  # Read commit message from file
 but commit <branch> -c -m "message"      # Create new branch (or use existing) and commit
 but commit <branch> -n -m "message"      # Bypass git commit hooks (pre-commit, commit-msg, post-commit)
@@ -183,7 +182,7 @@ but commit empty --after <target>        # Insert empty commit after target
 
 **Placing commits:** Use `--before <target>` or `--after <target>` when the new commit should be inserted at a specific position in existing history. After an insertion, later commit IDs may be rewritten; use fresh IDs from returned status output for subsequent history edits.
 
-**Batch selected commits:** Use `but commit batch` when multiple commits should be created from the same inspected dirty diff. Each `-m`/`--message` pairs with the `--changes`/`-p` group at the same occurrence index. Use comma-separated IDs inside each `--changes` group. Batch is useful for splitting a broad uncommitted change into several semantic commits because it applies the selected groups in one operation.
+**Several commits from one diff:** Chain `but commit` calls with `&&` to split a broad uncommitted change into several semantic commits: `but commit <branch> -m "msg1" --changes a1,b2 && but commit <branch> -m "msg2" --changes c3,d4`. File/hunk IDs copied from the original output generally remain usable across commits; if an ID stops resolving, re-read the diff and continue. Do not chain mutations that consume commit IDs (`amend`, `squash`, `move`, `uncommit`) — those get rewritten, so run them one at a time.
 
 Example: `but commit my-branch -m "Fix bug" --changes ab,cd` commits files/hunks `ab` and `cd`.
 

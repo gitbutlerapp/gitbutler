@@ -965,28 +965,6 @@ async fn match_subcommand(
             out.begin_status_after(status_after);
 
             let result = match &commit_args.cmd {
-                Some(crate::args::commit::Subcommands::Batch {
-                    branch,
-                    before,
-                    after,
-                    messages,
-                    changes,
-                    no_hooks,
-                }) => {
-                    command::legacy::commit::validate_batch_parent_args(&commit_args)?;
-
-                    command::legacy::commit::commit_batch(
-                        &mut ctx,
-                        out,
-                        branch.clone(),
-                        before.clone(),
-                        after.clone(),
-                        messages,
-                        changes,
-                        *no_hooks,
-                    )
-                    .emit_metrics(metrics_ctx)
-                }
                 Some(crate::args::commit::Subcommands::Empty {
                     target,
                     before,
