@@ -19,7 +19,9 @@ export type HeadInfoIndex = {
 	stackIdByCommitId: Map<string, string>;
 };
 
-export const getHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
+const headInfoIndexCache = new WeakMap<RefInfo, HeadInfoIndex>();
+
+const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	const branchNameByCommitId = new Map<string, string | undefined>();
 	const branchOperandByRef = new Map<string, BranchOperand>();
 	const commitById = new Map<string, Commit>();
@@ -59,6 +61,15 @@ export const getHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 		stackById,
 		stackIdByCommitId,
 	};
+};
+
+export const getHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
+	const cached = headInfoIndexCache.get(headInfo);
+	if (cached) return cached;
+
+	const index = buildHeadInfoIndex(headInfo);
+	headInfoIndexCache.set(headInfo, index);
+	return index;
 };
 
 export const findCommitStackId = (headInfo: RefInfo, commitId: string): string | null => {
