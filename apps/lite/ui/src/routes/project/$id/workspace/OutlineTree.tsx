@@ -135,6 +135,7 @@ import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
+import { prForgeUrl } from "#ui/pr.ts";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -2049,12 +2050,16 @@ const BranchRow: FC<
 	isTopSegment,
 	...restProps
 }) => {
+	const { data: forgeInfo } = useSuspenseQuery(forgeInfoOptions(projectId));
+	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
+
 	const dispatch = useAppDispatch();
 	const branchOperandV: BranchOperand = {
 		stackId,
 		branchRef: refName.fullNameBytes,
 	};
 	const operand = branchOperand(branchOperandV);
+	const isSelected = useIsSelected({ projectId, operand });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -2209,6 +2214,18 @@ const BranchRow: FC<
 		});
 	};
 
+	const openPRInBrowser = async (): Promise<void> => {
+		if (mforgeUrl === null) return;
+
+		await window.lite.openInWebBrowser(mforgeUrl);
+	};
+
+	useHotkey(outlineHotkeys.openPRInBrowser.hotkey, () => void openPRInBrowser(), {
+		conflictBehavior: "allow",
+		enabled: isSelected,
+		meta: outlineHotkeys.openPRInBrowser.meta,
+	});
+
 	const pushStackDisabled =
 		pushStackMutation.isPending || partialStackPushDisabled(partialStackState);
 
@@ -2255,6 +2272,12 @@ const BranchRow: FC<
 			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
 			onSelect: setCommitTarget,
 			enabled: isDefaultMode,
+		}),
+		nativeMenuItem({
+			label: "Open In Browser",
+			enabled: mforgeUrl !== null,
+			accelerator: toElectronAccelerator(outlineHotkeys.openPRInBrowser.hotkey),
+			onSelect: openPRInBrowser,
 		}),
 		insertBlankCommitMenuItem(insertBlankCommit, "below"),
 		nativeMenuSeparator,

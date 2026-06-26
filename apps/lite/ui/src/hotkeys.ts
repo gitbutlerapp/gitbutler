@@ -175,6 +175,10 @@ export const outlineHotkeys = {
 		hotkey: "O",
 		meta: { group: "Commit", name: "Open commit in browser" },
 	},
+	openPRInBrowser: {
+		hotkey: "O",
+		meta: { group: "Branch", name: "Open pull request in browser" },
+	},
 	setCommitTarget: {
 		hotkey: "Shift+C",
 		meta: { group: "Commit", name: "Set commit target" },
