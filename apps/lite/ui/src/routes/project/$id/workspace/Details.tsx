@@ -586,6 +586,7 @@ const Title: FC<{
 										className={getButtonClassName({
 											variant: bodyCollapsed ? "outline" : "gray",
 											iconOnly: true,
+											size: "small",
 										})}
 										onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
 									>
