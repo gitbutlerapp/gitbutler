@@ -25,10 +25,11 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import {
+	branchRefKey,
 	findBranchOperandByRef,
-	findCommit,
-	getCommitById,
+	getHeadInfoIndex,
 	resolveRelativeTo,
+	type HeadInfoIndex,
 } from "#ui/api/ref-info.ts";
 import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
@@ -144,7 +145,7 @@ import { prForgeUrl } from "#ui/pr.ts";
 
 type DryRunWorkspace = {
 	workspace: WorkspaceState;
-	commitById: ReadonlyMap<string, Commit>;
+	headInfoIndex: HeadInfoIndex;
 };
 
 const DryRunWorkspaceContext = createContext<DryRunWorkspace | null>(null);
@@ -191,7 +192,10 @@ const useOutlineTreeHotkeys = ({
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const isDefaultMode = useAppSelector(
@@ -200,14 +204,11 @@ const useOutlineTreeHotkeys = ({
 
 	const selectedStack =
 		selection && "stackId" in selection
-			? headInfo?.stacks.find((stack) => stack.id === selection.stackId)
+			? headInfoIndex?.stackById.get(selection.stackId)
 			: undefined;
 	const selectedBranchSegment =
 		selection?._tag === "Branch"
-			? selectedStack?.segments.find(
-					(segment) =>
-						!!segment.refName && bytesEqual(segment.refName.fullNameBytes, selection.branchRef),
-				)
+			? headInfoIndex?.segmentByBranchRef.get(branchRefKey(selection.branchRef))
 			: undefined;
 
 	const selectedBranchCommitsChecked = useAppSelector((state) =>
@@ -223,8 +224,8 @@ const useOutlineTreeHotkeys = ({
 			: false,
 	);
 	const selectedCommit =
-		selection?._tag === "Commit" && headInfo
-			? findCommit({ headInfo, commitId: selection.commitId })
+		selection?._tag === "Commit"
+			? (headInfoIndex?.commitById.get(selection.commitId) ?? null)
 			: null;
 	const selectedCommitForgeUrl =
 		selectedCommit && forgeInfo ? commitForgeUrl(selectedCommit, forgeInfo) : null;
@@ -801,11 +802,12 @@ export const OutlineTree: FC<
 	const dryRunWorkspace = dryRunOperationQuery.data?.workspace
 		? ({
 				workspace: dryRunOperationQuery.data.workspace,
-				commitById: getCommitById(dryRunOperationQuery.data.workspace.headInfo),
+				headInfoIndex: getHeadInfoIndex(dryRunOperationQuery.data.workspace.headInfo),
 			} satisfies DryRunWorkspace)
 		: null;
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -816,7 +818,11 @@ export const OutlineTree: FC<
 	});
 
 	const commitTargetState = useAppSelector((state) => selectProjectCommitTarget(state, projectId));
-	const targetComboboxItems = buildCommitTargetComboboxItems({ headInfo, commitTargetState });
+	const targetComboboxItems = buildCommitTargetComboboxItems({
+		headInfo,
+		headInfoIndex,
+		commitTargetState,
+	});
 	const commitTarget = selectCommitTargetComboboxItem({
 		items: targetComboboxItems,
 		commitTargetState,
@@ -1655,14 +1661,16 @@ type CommitTargetComboboxItem = {
 
 const buildCommitTargetComboboxItems = ({
 	headInfo,
+	headInfoIndex,
 	commitTargetState,
 }: {
 	headInfo: RefInfo | undefined;
+	headInfoIndex: HeadInfoIndex | undefined;
 	commitTargetState: RelativeTo | null;
 }): Array<CommitTargetComboboxItem> => {
 	const commitTarget =
-		headInfo && commitTargetState?.type === "commit"
-			? findCommit({ headInfo, commitId: commitTargetState.subject })
+		commitTargetState?.type === "commit"
+			? headInfoIndex?.commitById.get(commitTargetState.subject)
 			: null;
 
 	return [
@@ -1774,7 +1782,10 @@ const Changes: FC<{
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
 
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 	const isCommitOrAmendPending = commitCreateMutation.isPending || commitAmendMutation.isPending;
 	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
@@ -1782,8 +1793,8 @@ const Changes: FC<{
 		canCommitOrAmendBase &&
 		worktreeChanges &&
 		worktreeChanges.changes.length > 0 &&
-		headInfo &&
-		resolveRelativeTo({ headInfo, relativeTo: commitTarget.relativeTo }) !== null;
+		headInfoIndex &&
+		resolveRelativeTo({ headInfoIndex, relativeTo: commitTarget.relativeTo }) !== null;
 
 	const [open, setOpen] = useState(false);
 
@@ -1818,10 +1829,10 @@ const Changes: FC<{
 	};
 
 	const amendCommit = () => {
-		if (!commitTarget || !headInfo) return;
+		if (!commitTarget || !headInfoIndex) return;
 
 		const commitId = resolveRelativeTo({
-			headInfo,
+			headInfoIndex,
 			relativeTo: commitTarget.relativeTo,
 		});
 		if (commitId === null) throw new Error("No commit to amend.");
@@ -2662,7 +2673,7 @@ const SegmentContent: FC<{
 				const dryRunCommitId = dryRunWorkspace?.workspace.replacedCommits[commit.id];
 				const dryRunCommit =
 					dryRunWorkspace && dryRunCommitId !== undefined
-						? (dryRunWorkspace.commitById.get(dryRunCommitId) ?? null)
+						? (dryRunWorkspace.headInfoIndex.commitById.get(dryRunCommitId) ?? null)
 						: null;
 				return (
 					<CommitC

@@ -1,45 +1,64 @@
 import { encodeBytes, bytesEqual } from "#ui/api/bytes.ts";
-import { BranchOperand } from "#ui/operands.ts";
-import { type Commit, type RefInfo, type RelativeTo, type Segment } from "@gitbutler/but-sdk";
+import { type BranchOperand } from "#ui/operands.ts";
+import {
+	type Commit,
+	type RefInfo,
+	type RelativeTo,
+	type Segment,
+	type Stack,
+} from "@gitbutler/but-sdk";
 
-export const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string | undefined> => {
-	const byCommitId = new Map<string, string | undefined>();
+export const branchRefKey = (branchRef: Array<number>): string => branchRef.join(",");
 
-	for (const stack of headInfo.stacks)
+export type HeadInfoIndex = {
+	branchNameByCommitId: Map<string, string | undefined>;
+	branchOperandByRef: Map<string, BranchOperand>;
+	commitById: Map<string, Commit>;
+	segmentByBranchRef: Map<string, Segment>;
+	stackById: Map<string, Stack>;
+	stackIdByCommitId: Map<string, string>;
+};
+
+export const getHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
+	const branchNameByCommitId = new Map<string, string | undefined>();
+	const branchOperandByRef = new Map<string, BranchOperand>();
+	const commitById = new Map<string, Commit>();
+	const segmentByBranchRef = new Map<string, Segment>();
+	const stackById = new Map<string, Stack>();
+	const stackIdByCommitId = new Map<string, string>();
+
+	for (const stack of headInfo.stacks) {
+		if (stack.id !== null) stackById.set(stack.id, stack);
+
 		for (const segment of stack.segments) {
+			if (segment.refName) {
+				const key = branchRefKey(segment.refName.fullNameBytes);
+				if (!segmentByBranchRef.has(key)) segmentByBranchRef.set(key, segment);
+				if (stack.id !== null && !branchOperandByRef.has(key))
+					branchOperandByRef.set(key, {
+						stackId: stack.id,
+						branchRef: segment.refName.fullNameBytes,
+					});
+			}
+
 			const branchName = segment.refName?.displayName;
-			for (const commit of segment.commits) byCommitId.set(commit.id, branchName);
+			for (const commit of segment.commits) {
+				branchNameByCommitId.set(commit.id, branchName);
+				if (!commitById.has(commit.id)) commitById.set(commit.id, commit);
+				if (stack.id !== null && !stackIdByCommitId.has(commit.id))
+					stackIdByCommitId.set(commit.id, stack.id);
+			}
 		}
+	}
 
-	return byCommitId;
-};
-
-export const getCommitById = (headInfo: RefInfo): Map<string, Commit> => {
-	const byCommitId = new Map<string, Commit>();
-
-	for (const stack of headInfo.stacks)
-		for (const segment of stack.segments)
-			for (const commit of segment.commits) byCommitId.set(commit.id, commit);
-
-	return byCommitId;
-};
-
-export const findCommit = ({
-	headInfo,
-	commitId,
-}: {
-	headInfo: RefInfo;
-	commitId: string;
-}): Commit | null => {
-	for (const stack of headInfo.stacks)
-		for (const segment of stack.segments) {
-			const commit = segment.commits.find((candidate) => candidate.id === commitId);
-			if (!commit) continue;
-
-			return commit;
-		}
-
-	return null;
+	return {
+		branchNameByCommitId,
+		branchOperandByRef,
+		commitById,
+		segmentByBranchRef,
+		stackById,
+		stackIdByCommitId,
+	};
 };
 
 export const findCommitStackId = (headInfo: RefInfo, commitId: string): string | null => {
@@ -49,20 +68,6 @@ export const findCommitStackId = (headInfo: RefInfo, commitId: string): string |
 		for (const segment of stack.segments)
 			if (segment.commits.some((commit) => commit.id === commitId)) return stack.id;
 	}
-
-	return null;
-};
-
-export const findSegmentByBranchRef = ({
-	headInfo,
-	branchRef,
-}: {
-	headInfo: RefInfo;
-	branchRef: Array<number>;
-}): Segment | null => {
-	for (const stack of headInfo.stacks)
-		for (const segment of stack.segments)
-			if (segment.refName && bytesEqual(segment.refName.fullNameBytes, branchRef)) return segment;
 
 	return null;
 };
@@ -122,10 +127,10 @@ export const renameBranchInHeadInfo = ({
 });
 
 export const resolveRelativeTo = ({
-	headInfo,
+	headInfoIndex,
 	relativeTo,
 }: {
-	headInfo: RefInfo;
+	headInfoIndex: HeadInfoIndex;
 	relativeTo: RelativeTo;
 }): string | null => {
 	switch (relativeTo.type) {
@@ -133,12 +138,13 @@ export const resolveRelativeTo = ({
 			return relativeTo.subject;
 		case "referenceBytes":
 			return (
-				findSegmentByBranchRef({ headInfo, branchRef: relativeTo.subject })?.commits[0]?.id ?? null
+				headInfoIndex.segmentByBranchRef.get(branchRefKey(relativeTo.subject))?.commits[0]?.id ??
+				null
 			);
 		case "reference":
 			return (
-				findSegmentByBranchRef({ headInfo, branchRef: encodeBytes(relativeTo.subject) })?.commits[0]
-					?.id ?? null
+				headInfoIndex.segmentByBranchRef.get(branchRefKey(encodeBytes(relativeTo.subject)))
+					?.commits[0]?.id ?? null
 			);
 	}
 };

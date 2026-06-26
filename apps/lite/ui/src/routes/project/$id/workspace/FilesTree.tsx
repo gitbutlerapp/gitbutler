@@ -1,6 +1,6 @@
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
-import { getBranchNameByCommitId } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { uncommittedChangesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
 import {
@@ -132,9 +132,9 @@ export const FilesTree: FC<
 	...props
 }) => {
 	const selection = useFilesSelection(projectId, navigationIndex);
-	const { data: branchNameByCommitId } = useQuery({
+	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
-		select: getBranchNameByCommitId,
+		select: getHeadInfoIndex,
 	});
 
 	const ref = useRef<HTMLDivElement>(null);
@@ -190,7 +190,7 @@ export const FilesTree: FC<
 													onFileSelection={onFileSelection}
 													projectId={projectId}
 													fileParent={fileParent}
-													branchNameByCommitId={branchNameByCommitId}
+													branchNameByCommitId={headInfoIndex?.branchNameByCommitId}
 												/>
 											}
 										/>
