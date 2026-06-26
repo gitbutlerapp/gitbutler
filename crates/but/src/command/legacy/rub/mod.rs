@@ -14,7 +14,6 @@ mod amend;
 mod assign;
 pub(crate) mod squash;
 mod undo;
-pub(crate) use assign::branch_name_to_stack_id;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use gitbutler_oplog::{
     OplogExt,

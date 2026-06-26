@@ -120,10 +120,6 @@ impl Subcommands {
             Subcommands::Switch { .. } => Switch,
             #[cfg(feature = "legacy")]
             Subcommands::Worktree(worktree::Platform { cmd: _ }) => Worktree,
-            #[cfg(feature = "legacy")]
-            Subcommands::Mark { .. } => Mark,
-            #[cfg(feature = "legacy")]
-            Subcommands::Unmark => Unmark,
             Subcommands::Gui { .. } => Gui,
             #[cfg(feature = "legacy")]
             Subcommands::Commit(crate::args::commit::Platform { cmd, .. }) => match cmd {

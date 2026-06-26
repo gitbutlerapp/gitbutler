@@ -45,8 +45,6 @@ pub enum CommandName {
     BranchTearOff,
     Switch,
     Worktree,
-    Mark,
-    Unmark,
     ForgeAuth,
     ForgeListUsers,
     ForgeForget,

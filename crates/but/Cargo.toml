@@ -109,7 +109,6 @@ clap = { workspace = true, features = [
 clap_complete = "4.6.2"
 chrono.workspace = true
 bstr.workspace = true
-regex.workspace = true
 anyhow.workspace = true
 rmcp.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }

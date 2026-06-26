@@ -917,36 +917,6 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Mark { target, delete } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::mark::handle(&mut ctx, out, &target, delete)
-                .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Unmark => {
-            let ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::mark::unmark(&ctx, out)
-                .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
         Subcommands::Commit(commit_args) => {
             let status_after = args.status_after;
             let mut ctx = setup::init_ctx(

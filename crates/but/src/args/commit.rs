@@ -69,14 +69,13 @@ pub enum Subcommands {
     /// Insert a blank commit before or after the specified commit.
     ///
     /// This is useful for creating a placeholder commit that you can
-    /// then amend changes into later using `but mark`, `but rub` or `but absorb`.
+    /// then amend changes into later using `but rub` or `but absorb`.
     ///
     /// You can provide a message with `-m` or modify it later using `but reword`.
     ///
     /// This allows for a more Jujutsu style workflow where you create commits
-    /// first and then fill them in as you work. Create an empty commit, mark it
-    /// for auto-commit, and then just work on your changes. Write the commit
-    /// message whenever you prefer.
+    /// first and then fill them in as you work. Create an empty commit and
+    /// then rub or absorb changes into it whenever you prefer.
     ///
     /// ## Examples
     ///
