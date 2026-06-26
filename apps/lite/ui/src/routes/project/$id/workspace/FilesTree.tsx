@@ -310,6 +310,7 @@ const FileRow: FC<
 						</Tooltip.Portal>
 					</Tooltip.Root>
 				</div>
+
 				<WorkspaceItemRowLabelContainer>
 					<WorkspaceItemRowLabel singleLine>
 						{relativePath}
@@ -328,64 +329,50 @@ const FileRow: FC<
 						>
 							<Icon name="kebab" />
 						</Toolbar.Button>
-						{Match.value({ item, fileParent }).pipe(
-							Match.when(
-								{ item: { _tag: "Change" }, fileParent: { _tag: "UncommittedChanges" } },
-								({ item }) =>
-									item.dependencyCommitIds && (
-										<Toolbar.Button
-											render={
-												<DependencyIndicator
-													projectId={projectId}
-													commitIds={item.dependencyCommitIds}
-													className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-												/>
-											}
-										>
-											<Icon name="link" />
-										</Toolbar.Button>
-									),
-							),
-							Match.orElse(() => null),
-						)}
+
+						{item._tag === "Change" &&
+							fileParent._tag === "UncommittedChanges" &&
+							item.dependencyCommitIds && (
+								<Toolbar.Button
+									render={
+										<DependencyIndicator
+											projectId={projectId}
+											commitIds={item.dependencyCommitIds}
+											className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+										/>
+									}
+								>
+									<Icon name="link" />
+								</Toolbar.Button>
+							)}
 					</Toolbar.Root>
 				)}
 
-				{item._tag === "Change" &&
-					(() => {
-						const badge = Match.value(item.change.status).pipe(
-							Match.when({ type: "Addition" }, () => "A"),
-							Match.when({ type: "Deletion" }, () => "D"),
-							Match.when({ type: "Modification" }, () => "M"),
-							Match.when({ type: "Rename" }, () => "R"),
-							Match.exhaustive,
-						);
-						const label = Match.value(item.change.status).pipe(
-							Match.when({ type: "Addition" }, () => "Added"),
-							Match.when({ type: "Deletion" }, () => "Deleted"),
-							Match.when({ type: "Modification" }, () => "Modified"),
-							Match.when({ type: "Rename" }, () => "Renamed"),
-							Match.exhaustive,
-						);
-
-						return (
-							<Tooltip.Root disableHoverablePopup>
-								<Tooltip.Trigger
-									className={styles.fileStatusBadge}
-									aria-label={label}
-									data-char={badge}
-									render={<span />}
-								>
-									{badge}
-								</Tooltip.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							</Tooltip.Root>
-						);
-					})()}
+				{item._tag === "Change" && (
+					<Tooltip.Root disableHoverablePopup>
+						<Tooltip.Trigger
+							className={styles.fileStatusBadge}
+							aria-label={item.change.status.type}
+							data-status-type={item.change.status.type}
+							// By default it's a button, but we don't want this to be
+							// interactive.
+							render={<span />}
+						>
+							{Match.value(item.change.status).pipe(
+								Match.when({ type: "Addition" }, () => "A"),
+								Match.when({ type: "Deletion" }, () => "D"),
+								Match.when({ type: "Modification" }, () => "M"),
+								Match.when({ type: "Rename" }, () => "R"),
+								Match.exhaustive,
+							)}
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup />}>{item.change.status.type}</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				)}
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>

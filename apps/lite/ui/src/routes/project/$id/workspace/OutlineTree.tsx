@@ -2453,7 +2453,7 @@ const BranchRow: FC<
 			)}
 
 			{isDefaultMode && (
-				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar forceVisible />}>
+				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
 					<Toolbar.Button
 						aria-label="Branch menu"
 						onClick={(event) => {

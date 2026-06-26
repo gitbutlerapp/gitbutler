@@ -22,19 +22,19 @@
 	font-family: var(--text-fontfamily-base);
 	text-align: right;
 
-	&[data-char="A"] {
+	&[data-status-type="Addition"] {
 		color: var(--change-status-addition);
 	}
 
-	&[data-char="D"] {
+	&[data-status-type="Deletion"] {
 		color: var(--change-status-deletion);
 	}
 
-	&[data-char="M"] {
+	&[data-status-type="Modification"] {
 		color: var(--change-status-modification);
 	}
 
-	&[data-char="R"] {
+	&[data-status-type="Rename"] {
 		color: var(--change-status-renaming);
 	}
 }
