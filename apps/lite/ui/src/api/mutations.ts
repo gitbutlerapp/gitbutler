@@ -584,21 +584,9 @@ export const usePushStack = () => {
 
 	return useMutation({
 		mutationFn: window.lite.pushStack,
-		onSuccess: async (response, input, _context, mutation) => {
+		onSuccess: async (_response, input, _context, mutation) => {
 			await mutation.client.invalidateQueries({
 				queryKey: headInfoQueryOptions(input.projectId).queryKey,
-			});
-
-			if (response.branchToRemote.length === 0) return;
-
-			toastManager.add({
-				type: "success",
-				title: `Pushed ${response.branchToRemote.length} ${
-					new Intl.PluralRules(undefined).select(response.branchToRemote.length) === "one"
-						? "branch"
-						: "branches"
-				}`,
-				description: input.branch,
 			});
 		},
 		onError: (error) => {
@@ -623,11 +611,6 @@ export const useWorkspaceIntegrateUpstream = () => {
 		mutationFn: window.lite.workspaceIntegrateUpstream,
 		onSuccess: (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
-
-			toastManager.add({
-				type: "success",
-				title: input.updates.length === 1 ? "Updated stack" : "Updated stacks",
-			});
 		},
 		onError: (error, input) => {
 			// oxlint-disable-next-line no-console
