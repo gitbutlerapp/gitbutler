@@ -14,7 +14,7 @@
 
 .titleRow {
 	display: flex;
-	column-gap: 8px;
+	column-gap: 12px;
 	align-items: center;
 }
 
