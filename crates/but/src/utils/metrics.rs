@@ -293,6 +293,15 @@ impl Subcommands {
                     push_prop(&mut props, "skillCheckUpdate", *update);
                 }
             },
+            Subcommands::External(extra) => {
+                if let Some(command_name) = extra.first() {
+                    push_prop(
+                        &mut props,
+                        "externalSubcommand",
+                        external_subcommand_metric_value(command_name),
+                    );
+                }
+            }
             _ => {}
         }
         props
@@ -445,6 +454,24 @@ fn unrecognized_subcommand_metric_value(command_name: &std::ffi::OsStr) -> Strin
         || !command_name
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return INVALID_UNRECOGNIZED_SUBCOMMAND.to_string();
+    }
+
+    command_name
+        .chars()
+        .take(UNRECOGNIZED_SUBCOMMAND_MAX_CHARS)
+        .collect()
+}
+
+fn external_subcommand_metric_value(command_name: &std::ffi::OsStr) -> String {
+    let command_name = command_name.to_string_lossy();
+    let command_name = command_name.trim();
+
+    if command_name.is_empty()
+        || !command_name
+            .chars()
+            .all(|c| c.is_ascii_alphabetic() || c == '-' || c == '_')
     {
         return INVALID_UNRECOGNIZED_SUBCOMMAND.to_string();
     }
@@ -831,6 +858,27 @@ mod tests {
                 Some(&serde_json::json!("unassigned"))
             );
         }
+    }
+
+    #[test]
+    fn external_extra_props_include_sanitized_subcommand() {
+        let props = Subcommands::External(vec![" typo-OK ".into()]).to_metrics_extra_props();
+        assert_eq!(
+            prop(&props, "externalSubcommand"),
+            Some(&serde_json::json!("typo-OK"))
+        );
+
+        let props = Subcommands::External(vec!["/tmp/private".into()]).to_metrics_extra_props();
+        assert_eq!(
+            prop(&props, "externalSubcommand"),
+            Some(&serde_json::json!(INVALID_UNRECOGNIZED_SUBCOMMAND))
+        );
+
+        let props = Subcommands::External(vec!["customer123".into()]).to_metrics_extra_props();
+        assert_eq!(
+            prop(&props, "externalSubcommand"),
+            Some(&serde_json::json!(INVALID_UNRECOGNIZED_SUBCOMMAND))
+        );
     }
 
     #[test]
