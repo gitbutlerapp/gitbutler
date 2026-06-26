@@ -328,26 +328,21 @@ const FileRow: FC<
 						>
 							<Icon name="kebab" />
 						</Toolbar.Button>
-						{Match.value({ item, fileParent }).pipe(
-							Match.when(
-								{ item: { _tag: "Change" }, fileParent: { _tag: "UncommittedChanges" } },
-								({ item }) =>
-									item.dependencyCommitIds && (
-										<Toolbar.Button
-											render={
-												<DependencyIndicator
-													projectId={projectId}
-													commitIds={item.dependencyCommitIds}
-													className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-												/>
-											}
-										>
-											<Icon name="link" />
-										</Toolbar.Button>
-									),
-							),
-							Match.orElse(() => null),
-						)}
+						{item._tag === "Change" &&
+							fileParent._tag === "UncommittedChanges" &&
+							item.dependencyCommitIds && (
+								<Toolbar.Button
+									render={
+										<DependencyIndicator
+											projectId={projectId}
+											commitIds={item.dependencyCommitIds}
+											className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+										/>
+									}
+								>
+									<Icon name="link" />
+								</Toolbar.Button>
+							)}
 					</Toolbar.Root>
 				)}
 
