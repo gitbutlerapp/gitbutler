@@ -1,9 +1,10 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::BTreeSet};
 
 use anyhow::Context as _;
-use bstr::ByteSlice as _;
+use bstr::{BString, ByteSlice as _};
 use but_core::{CommitOwned, TreeChange, diff::CommitDetails};
 use but_ctx::Context;
+use but_hunk_assignment::HunkAssignment;
 use gix::{prelude::ObjectIdExt as _, refs::FullName};
 use nonempty::NonEmpty;
 use ratatui::style::Style;
@@ -12,6 +13,7 @@ use crate::{
     command::legacy::status::tui::{
         Col, FuzzyPicker, FuzzyPickerItem, Message, SearchableToken, ToastKind,
     },
+    id::{ShortId, UncommittedHunkOrFile},
     theme::Theme,
 };
 
@@ -48,6 +50,38 @@ pub(super) fn branch_picker(
     )
 }
 
+pub(super) fn uncommitted_hunk_picker(
+    hunk: UncommittedHunkOrFile,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    let path = hunk.hunk_assignments.head.path.clone();
+    picker(
+        NonEmpty::from_slice(&[
+            CopySelectionItem::ShortId(hunk.id.clone()),
+            CopySelectionItem::HunkDiff(Box::new(hunk)),
+            CopySelectionItem::FilePath(path),
+        ])
+        .unwrap(),
+        theme,
+    )
+}
+
+pub(super) fn committed_file_picker(
+    path: BString,
+    id: ShortId,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    // TODO(david): also support copying the diff for the file
+    picker(
+        NonEmpty::from_slice(&[
+            CopySelectionItem::ShortId(id),
+            CopySelectionItem::FilePath(path.to_string()),
+        ])
+        .unwrap(),
+        theme,
+    )
+}
+
 fn picker(
     items: NonEmpty<CopySelectionItem>,
     theme: &'static Theme,
@@ -69,15 +103,25 @@ fn picker(
 
 #[derive(Debug, Clone)]
 pub(super) enum CopySelectionItem {
+    // shared
+    ShortId(ShortId),
+    FilePath(String),
+
+    // commits
     CommitSha(gix::ObjectId),
     ShortCommitSha(gix::ObjectId),
     CommitMessageTitle(gix::ObjectId),
     WholeCommitMessage(gix::ObjectId),
     CommitAuthor(gix::ObjectId),
     CommitDiff(gix::ObjectId),
+
+    // branches
     BranchName(FullName),
     BranchDiff(FullName),
     PullRequestUrl(FullName),
+
+    // uncommitted files/hunks
+    HunkDiff(Box<UncommittedHunkOrFile>),
 }
 
 impl CopySelectionItem {
@@ -88,9 +132,13 @@ impl CopySelectionItem {
             CopySelectionItem::CommitMessageTitle(_) => "Message title",
             CopySelectionItem::WholeCommitMessage(_) => "Whole message",
             CopySelectionItem::CommitAuthor(_) => "Author",
-            CopySelectionItem::CommitDiff(_) | CopySelectionItem::BranchDiff(_) => "Diff",
+            CopySelectionItem::CommitDiff(_)
+            | CopySelectionItem::BranchDiff(_)
+            | CopySelectionItem::HunkDiff(_) => "Diff",
             CopySelectionItem::BranchName(_) => "Branch name",
             CopySelectionItem::PullRequestUrl(_) => "Pull Request URL",
+            CopySelectionItem::ShortId(_) => "Short ID",
+            CopySelectionItem::FilePath(_) => "File path",
         }
     }
 
@@ -170,6 +218,11 @@ impl CopySelectionItem {
 
                 Ok(url)
             }
+            CopySelectionItem::ShortId(id) => Ok(id.to_owned()),
+            CopySelectionItem::HunkDiff(uncommitted_hunk_or_file) => {
+                uncommitted_hunk_or_file_to_diff(ctx, uncommitted_hunk_or_file)
+            }
+            CopySelectionItem::FilePath(path) => Ok(path.to_owned()),
         }
     }
 }
@@ -185,6 +238,72 @@ impl FuzzyPickerItem for CopySelectionItem {
     fn style(&self, theme: &'static Theme) -> Style {
         theme.default
     }
+}
+
+// TODO(david): this is likely duplicated elswhere in the but crate or should otherwise be in a
+// shared place
+fn uncommitted_hunk_or_file_to_diff(
+    ctx: &Context,
+    uncommitted: &UncommittedHunkOrFile,
+) -> anyhow::Result<String> {
+    let repo = ctx.repo.get()?;
+    let worktree_changes = but_api::diff::changes_in_worktree(ctx)?;
+    let assignments: Vec<_> = worktree_changes
+        .assignments
+        .into_iter()
+        .filter(|assignment| uncommitted_hunk_matches_selection(assignment, uncommitted))
+        .collect();
+
+    let mut diff = String::new();
+    let mut whole_file_diff_paths = BTreeSet::new();
+    for assignment in assignments {
+        if assignment.hunk_header.is_some() {
+            diff.push_str(&hunk_assignment_to_diff(&assignment));
+        } else {
+            whole_file_diff_paths.insert(assignment.path_bytes);
+        }
+    }
+
+    let whole_file_changes = worktree_changes
+        .worktree_changes
+        .changes
+        .into_iter()
+        .filter(|change| whole_file_diff_paths.contains(&change.path_bytes))
+        .map(Into::into)
+        .collect();
+    diff.push_str(&tree_changes_to_diff(
+        whole_file_changes,
+        &repo,
+        ctx.settings.context_lines,
+    )?);
+
+    Ok(diff)
+}
+
+fn uncommitted_hunk_matches_selection(
+    hunk_assignment: &HunkAssignment,
+    uncommitted: &UncommittedHunkOrFile,
+) -> bool {
+    let selected_hunk = uncommitted.hunk_assignments.first();
+
+    if uncommitted.is_entire_file {
+        hunk_assignment.path_bytes == selected_hunk.path_bytes
+            && hunk_assignment.stack_id == selected_hunk.stack_id
+    } else {
+        hunk_assignment == selected_hunk && hunk_assignment.stack_id == selected_hunk.stack_id
+    }
+}
+
+fn hunk_assignment_to_diff(assignment: &HunkAssignment) -> String {
+    let path = assignment.path_bytes.to_str_lossy();
+    let mut diff = format!("diff --git a/{path} b/{path}\n--- a/{path}\n+++ b/{path}\n");
+    if let Some(hunk_diff) = &assignment.diff {
+        diff.push_str(&hunk_diff.to_str_lossy());
+        if !diff.ends_with('\n') {
+            diff.push('\n');
+        }
+    }
+    diff
 }
 
 fn lowercase_first_letter(s: &str) -> Cow<'_, str> {
