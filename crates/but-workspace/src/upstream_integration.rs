@@ -17,6 +17,7 @@ use but_rebase::{
 
 use crate::changeset::compute_similarity_by_commit_ids;
 use crate::graph_manipulation::traverse_nodes;
+use crate::resolve_tracking_branch_ref_name;
 
 /// Whether a bottom most commit should be rebased, or a merge commit should be
 /// created at the top of the commit run.
@@ -221,6 +222,9 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         &editor,
         from_target_sha,
         from_target_ref,
+        target_sha,
+        target_ref.ref_name.as_ref(),
+        target_ref_commit.detach(),
         review_hints,
     )?;
 
@@ -279,7 +283,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let mut fully_integrated_workspace_parents = HashSet::new();
     let mut direct_checkout_replacement_ref: Option<(Selector, gix::refs::FullName)> = None;
     for stack in &stacks {
-        let is_selected = stack.nodes.values().any(|attrs| attrs.to_rebase) || stack.to_merge;
+        let is_selected = stack.nodes.values().any(|attrs| attrs.to_rebase)
+            || stack.to_merge
+            || updates_with_selectors
+                .iter()
+                .any(|(selector, _)| stack.bottoms.contains(selector));
         let is_fully_integrated = stack
             .nodes
             .values()
@@ -321,18 +329,18 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         // Remove integrated refs from the workspace and from git.
         // TODO: allow to keep some references.
         for (selector, attrs) in &stack.nodes {
-            if let Some(ref_name) = attrs.reference_integrated.as_ref()
-                && should_delete_integrated_local_branch(ref_name.as_ref())
-            {
-                if direct_checkout_replacement_ref
-                    .as_ref()
-                    .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
-                {
-                    continue;
-                }
-                editor.replace(*selector, Step::None)?;
+            if let Some(ref_name) = attrs.reference_integrated.as_ref() {
                 if let Some(ws_meta) = ws_meta.as_mut() {
                     ws_meta.remove_segment(ref_name.as_ref());
+                }
+                if should_delete_integrated_local_branch(ref_name.as_ref()) {
+                    if direct_checkout_replacement_ref
+                        .as_ref()
+                        .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
+                    {
+                        continue;
+                    }
+                    editor.replace(*selector, Step::None)?;
                 }
             }
         }
@@ -452,12 +460,16 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     head_commit: gix::Commit<'_>,
     head_is_workspace_commit: bool,
     editor: &Editor<'ws, 'meta, M>,
     from_target_sha: HashSet<Selector>,
     from_target_ref: HashSet<Selector>,
+    target_sha: gix::ObjectId,
+    target_ref_name: &gix::refs::FullNameRef,
+    target_ref_commit: gix::ObjectId,
     review_hints: &[ReviewIntegrationHint],
 ) -> Result<Vec<Stack>> {
     let mut stacks = if head_is_workspace_commit {
@@ -510,12 +522,16 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
         output_stacks.push(out);
     }
 
-    let upstream_commits = commit_ids(
-        editor,
-        from_target_ref
-            .iter()
-            .filter_map(|s| (!from_target_sha.contains(s)).then_some(*s)),
-    )?;
+    let upstream_selectors = from_target_ref
+        .iter()
+        .filter_map(|s| (!from_target_sha.contains(s)).then_some(*s))
+        .collect::<Vec<_>>();
+    let upstream_selectors = if upstream_selectors.is_empty() {
+        from_target_ref.iter().copied().collect()
+    } else {
+        upstream_selectors
+    };
+    let upstream_commits = commit_ids(editor, upstream_selectors)?;
     let mut workspace_selectors = HashSet::new();
     for stack in &output_stacks {
         workspace_selectors.extend(stack.nodes.keys());
@@ -612,16 +628,116 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             let Some(node) = stack.nodes.get_mut(r_sel) else {
                 continue;
             };
-
+            let remote_tip_integrated = empty_local_reference_remote_tip_integrated(
+                editor,
+                *r_sel,
+                r_name.as_ref(),
+                &reference_nodes,
+                &from_target_ref,
+                target_sha,
+                target_ref_name,
+                target_ref_commit,
+            )?;
             if traversed_commits {
+                // The remote-tip check is only an empty-segment fallback. Once
+                // we have traversed local commits, those commits decide whether
+                // the segment is integrated so local work ahead of its tracking
+                // branch is not discarded.
                 node.reference_integrated = all_integrated.then_some(r_name.clone());
             } else {
-                node.reference_integrated = node.is_integrated().then_some(r_name.clone());
+                node.reference_integrated =
+                    (node.is_integrated() || remote_tip_integrated).then_some(r_name.clone());
             }
         }
     }
 
     Ok(output_stacks)
+}
+
+/// Return `true` if an empty local branch can be treated as integrated because
+/// its tracking branch tip is already contained in the target branch.
+///
+/// Empty branch segments have no local commits to compare content-wise, so this
+/// looks at the branch's configured remote-tracking ref instead. The check is
+/// deliberately conservative: it only applies to local branches, ignores the
+/// target branch itself, rejects stale tracking refs that still point at the old
+/// target, and preserves an empty branch if it sits on top of another local
+/// branch that is not itself target-integrated.
+#[allow(clippy::too_many_arguments)]
+fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
+    editor: &Editor<'ws, 'meta, M>,
+    selector: Selector,
+    ref_name: &gix::refs::FullNameRef,
+    reference_nodes: &HashMap<Selector, gix::refs::FullName>,
+    from_target_ref: &HashSet<Selector>,
+    target_sha: gix::ObjectId,
+    target_ref_name: &gix::refs::FullNameRef,
+    target_ref_commit: gix::ObjectId,
+) -> Result<bool> {
+    if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
+        return Ok(false);
+    }
+    if editor.direct_parents(selector)?.iter().any(|(parent, _)| {
+        reference_nodes.get(parent).is_some_and(|parent_ref| {
+            parent_ref.category() == Some(gix::refs::Category::LocalBranch)
+                && !from_target_ref.contains(parent)
+                && !reference_points_to_target(
+                    editor.repo(),
+                    parent_ref.as_ref(),
+                    target_sha,
+                    target_ref_commit,
+                )
+        })
+    }) {
+        return Ok(false);
+    }
+
+    let Ok(remote_ref_name) = resolve_tracking_branch_ref_name(ref_name, editor.repo()) else {
+        return Ok(false);
+    };
+    if remote_ref_name.as_bstr() == target_ref_name.as_bstr() {
+        return Ok(false);
+    }
+
+    let Some(remote_tip_id) = editor
+        .repo()
+        .try_find_reference(remote_ref_name.as_ref())?
+        .and_then(|mut reference| reference.peel_to_id().ok())
+        .map(|id| id.detach())
+    else {
+        return Ok(false);
+    };
+    if remote_tip_id == target_sha && remote_tip_id != target_ref_commit {
+        return Ok(false);
+    }
+
+    Ok(editor
+        .repo()
+        .merge_base(remote_tip_id, target_ref_commit)
+        .is_ok_and(|merge_base| merge_base.detach() == remote_tip_id))
+}
+
+/// Return `true` if `ref_name` currently resolves to either the old target
+/// commit or the advanced target tip.
+///
+/// This is used when checking the parent refs of an empty branch. Parent refs
+/// that point at either target boundary are safe to treat as target-frame
+/// anchors, while other local parent refs keep the empty branch alive.
+fn reference_points_to_target(
+    repo: &gix::Repository,
+    ref_name: &gix::refs::FullNameRef,
+    target_sha: gix::ObjectId,
+    target_ref_commit: gix::ObjectId,
+) -> bool {
+    repo.try_find_reference(ref_name)
+        .ok()
+        .flatten()
+        .and_then(|mut reference| reference.peel_to_id().ok())
+        .map(|id| {
+            let id = id.detach();
+            id == target_sha || id == target_ref_commit
+        })
+        .unwrap_or(false)
 }
 
 /// Whether an integrated local branch ref should be deleted during integration.
