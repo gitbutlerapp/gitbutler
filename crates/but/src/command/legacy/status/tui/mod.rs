@@ -2862,11 +2862,21 @@ impl App {
                 let branch = Category::LocalBranch.to_full_name(&**name)?;
                 copy_selection_picker::branch_picker(branch, self.theme)
             }
-            CliId::UncommittedHunkOrFile(..)
-            | CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
-            | CliId::Uncommitted { .. }
-            | CliId::Stack { .. } => return Ok(()),
+            CliId::UncommittedHunkOrFile(hunk) => {
+                copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
+            }
+            CliId::CommittedFile {
+                path,
+                id,
+                commit_id: _,
+            } => copy_selection_picker::committed_file_picker(
+                path.to_owned(),
+                id.to_owned(),
+                self.theme,
+            ),
+            CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
+                return Ok(());
+            }
         };
         self.modal = Some(Modal::CopySelectionPicker {
             picker: Box::new(picker),
