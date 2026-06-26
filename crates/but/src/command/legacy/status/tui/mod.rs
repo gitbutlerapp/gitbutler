@@ -13,20 +13,15 @@ use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api::{diff::ComputeLineStats, legacy::oplog::RestoreKind};
 use but_core::{DryRun, ref_metadata::StackId};
-use but_core::{diff::CommitDetails, tree::create_tree::RejectionReason};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use but_settings::AppSettingsWithDiskSync;
-use but_transaction::DynamicOutcome;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gix::{
-    prelude::ObjectIdExt as _,
-    refs::{Category, FullName},
-};
+use gix::refs::{Category, FullName};
 use nonempty::NonEmpty;
 use ratatui::prelude::*;
 use ratatui_textarea::{CursorMove, TextArea};
@@ -35,8 +30,9 @@ use tracing::Level;
 use crate::{
     CliId, IdMap,
     command::legacy::{
-        self, ShowDiffInEditor,
+        commit2,
         reword::get_branch_name_from_editor,
+        reword2,
         status::{
             StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome, TuiRunOptions,
             tui::{
@@ -781,7 +777,7 @@ impl App {
                     self.handle_commit_toggle_message_composer(composer);
                 }
                 CommitMessage::CommitToNewBranch => {
-                    self.handle_commit_to_new_branch(messages);
+                    self.handle_commit_to_new_branch(ctx, terminal_guard, messages)?;
                 }
                 CommitMessage::ToggleInsertSide => {
                     self.handle_commit_toggle_insert_side();
@@ -2255,249 +2251,107 @@ impl App {
         T: TerminalGuard,
         anyhow::Error: From<<T::Backend as Backend>::Error>,
     {
-        let Mode::Commit(CommitMode {
-            source,
-            insert_side,
-            scope_to_stack,
-            message_composer,
-        }) = &*self.mode
+        let Mode::Commit(
+            mode @ CommitMode {
+                source,
+                insert_side,
+                scope_to_stack: _,
+                message_composer: _,
+            },
+        ) = &*self.mode
         else {
             return Ok(());
         };
 
-        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+        let Some(data) = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|s| s.data.cli_id())
+        else {
             return Ok(());
         };
 
-        if selection
-            .data
-            .cli_id()
-            .is_some_and(|target| source.contains(target))
-        {
+        if source.contains(data) {
             messages.push(Message::EnterNormalModeAfterConfirmingOperation);
             return Ok(());
         }
 
-        let target = match &selection.data {
-            StatusOutputLineData::Branch { cli_id }
-            | StatusOutputLineData::Commit { cli_id, .. } => cli_id,
-            StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::Connector
-            | StatusOutputLineData::BetweenStacks
-            | StatusOutputLineData::StagedChanges { .. }
-            | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::UncommittedFile { .. }
-            | StatusOutputLineData::CommitMessage
-            | StatusOutputLineData::EmptyCommitMessage
-            | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::MergeBase
-            | StatusOutputLineData::UpstreamChanges
-            | StatusOutputLineData::Warning
-            | StatusOutputLineData::Hint
-            | StatusOutputLineData::NoAssignmentsUnstaged => {
-                return Ok(());
-            }
-        };
-
-        let Some((insert_commit_relative_to, insert_side)) =
-            operations::where_to_place_commit(ctx, target, *insert_side)?
-        else {
-            return Ok(());
-        };
-
-        let changes_to_commit = {
-            let context_lines = ctx.settings.context_lines;
-            let guard = ctx.shared_worktree_access();
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
-            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines)
-                .with_scope_to_stack(*scope_to_stack);
-            match &**source {
-                CommitSource::Marks(marks) => {
-                    for mark in marks {
-                        let Markable::Uncommitted(uncommitted) = mark else {
-                            unreachable!(
-                                "commit marks were validated to contain only uncommitted files"
-                            );
-                        };
-                        builder.push_changes_from_uncommitted(uncommitted)?;
-                    }
-                }
-                CommitSource::UncommittedArea(UncommittedAreaCommitSource { id: _ }) => {
-                    builder.push_changes_from_uncommitted_area()?;
-                }
-                CommitSource::Uncommitted(uncommitted) => {
-                    builder.push_changes_from_uncommitted(uncommitted)?;
-                }
-                CommitSource::Stack(StackCommitSource { stack_id }) => {
-                    builder.push_changes_from_stack(*stack_id)?;
-                }
-            }
-            builder.into_diff_specs()
-        };
-
-        let mut meta = ctx.meta()?;
-        let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
-        let commit_create_result = but_transaction::with_transaction(
-            ctx,
-            &mut meta,
-            snapshot_details,
-            DryRun::No,
-            |mut tx| {
-                let commit_create_result = tx.create_commit(
-                    insert_commit_relative_to,
-                    insert_side,
-                    changes_to_commit,
-                    String::new(),
-                )?;
-
-                if commit_create_result.rejected_specs.is_empty() {
-                    if let Some(new_commit) = commit_create_result.new_commit {
-                        match message_composer {
-                            CommitMessageComposer::Editor => {
-                                let repo = tx.repo();
-                                let commit_details = CommitDetails::from_commit_id(
-                                    new_commit.attach(repo),
-                                    ComputeLineStats::No.into(),
-                                )?;
-                                let current_message =
-                                    commit_details.commit.inner.message.to_string();
-
-                                let _suspend_guard = terminal_guard.suspend()?;
-
-                                let message = legacy::reword::get_commit_message_from_editor(
-                                    tx.repo(),
-                                    tx.context_lines(),
-                                    commit_details,
-                                    String::new(),
-                                    &current_message,
-                                    ShowDiffInEditor::Unspecified,
-                                )?
-                                .unwrap_or_default();
-
-                                let reworded_commit =
-                                    tx.reword_commit(new_commit, BString::from(message).as_ref())?;
-
-                                Ok(DynamicOutcome::Commit((Some(reworded_commit), None)))
-                            }
-                            CommitMessageComposer::Inline => {
-                                Ok(DynamicOutcome::Commit((
-                                    commit_create_result.new_commit,
-                                    // TODO(david): rewording separately isn't great because it
-                                    // results in two oplog entries. One for creating the commit
-                                    // and one for rewording it.
-                                    //
-                                    // Fixing that is a little tricky because we'd have to show a
-                                    // "temp" commit in the status while composing the message and
-                                    // then only commit when the user confirms.
-                                    Some(Message::Reword(RewordMessage::InlineStart)),
-                                )))
-                            }
-                            CommitMessageComposer::Empty => Ok(DynamicOutcome::Commit((
-                                commit_create_result.new_commit,
-                                None,
-                            ))),
-                        }
-                    } else {
-                        Ok(DynamicOutcome::Commit((
-                            commit_create_result.new_commit,
-                            None,
-                        )))
-                    }
-                } else {
-                    Ok(DynamicOutcome::Rollback(
-                        commit_create_result.rejected_specs,
-                    ))
-                }
+        let target = match &**data {
+            CliId::Branch { name, .. } => commit2::CommitRelativeToTarget::BranchTip {
+                name: Category::LocalBranch.to_full_name(&**name)?,
             },
-        )?;
+            CliId::Commit { commit_id, .. } => commit2::CommitRelativeToTarget::Commit {
+                commit_id: *commit_id,
+                position: commit2::CommitRelativeToTargetPosition::from(*insert_side),
+            },
+            CliId::UncommittedHunkOrFile(..)
+            | CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Uncommitted { .. }
+            | CliId::Stack { .. } => return Ok(()),
+        };
+        let commit_op = commit2::CommitOperation::CommitAt(commit2::CommitAtOperation { target });
 
-        match commit_create_result {
-            DynamicOutcome::Commit(((new_commit, reword_msg), _workspace)) => {
-                messages.extend(
-                    [
-                        Message::EnterNormalModeAfterConfirmingOperation,
-                        Message::Reload(
-                            new_commit.map(SelectAfterReload::Commit),
-                            ReloadCause::Mutation,
-                        ),
-                    ]
-                    .into_iter()
-                    .chain(reword_msg),
-                );
-            }
-            DynamicOutcome::Rollback(rejected_specs) => {
-                let mut full_error_msg =
-                    "Some selected changes could not be committed:\n".to_owned();
-                let mut errors_per_diff_spec = rejected_specs
-                .iter()
-                .map(|(rejection_reason, diff_spec)| {
-                    let human_reason = match rejection_reason {
-                        RejectionReason::NoEffectiveChanges => "Changes were a no-op",
-                        RejectionReason::CherryPickMergeConflict
-                        | RejectionReason::WorkspaceMergeConflict
-                        | RejectionReason::WorkspaceMergeConflictOfUnrelatedFile => {
-                            "Failed with a conflict. Try committing to a different stack"
-                        }
-                        RejectionReason::WorktreeFileMissingForObjectConversion => "File was deleted",
-                        RejectionReason::FileToLargeOrBinary => "File is too large or binary",
-                        RejectionReason::PathNotFoundInBaseTree => {
-                            "A change with multiple hunks to be applied wasn't present in the base-tree"
-                        }
-                        RejectionReason::UnsupportedDirectoryEntry => "Path is not a file",
-                        RejectionReason::UnsupportedTreeEntry => "Undiffable entry type",
-                        RejectionReason::MissingDiffSpecAssociation => "Missing association between diff and file",
-                    };
-                    (human_reason, diff_spec)
-                }).map(|(human_reason, diff_spec)| {
-                    let mut out = format!("- {}: {human_reason}", diff_spec.path);
-                    if let Some(previous_path) = &diff_spec.previous_path {
-                        out.push_str(&format!(" (previously {previous_path})"));
-                    }
-                    out
-                })
-                .peekable();
-                while let Some(line) = errors_per_diff_spec.next() {
-                    full_error_msg.push_str(&line);
-                    if errors_per_diff_spec.peek().is_some() {
-                        full_error_msg.push('\n');
-                    }
-                }
-
-                messages.push(Message::ShowToast {
-                    kind: ToastKind::Error,
-                    text: full_error_msg.into(),
-                });
-            }
-        }
+        commit_with(ctx, terminal_guard, messages, mode, commit_op)?;
 
         Ok(())
     }
 
-    fn handle_commit_to_new_branch(&mut self, messages: &mut Vec<Message>) {
-        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
-            return;
+    #[allow(warnings)]
+    fn handle_commit_to_new_branch<T>(
+        &mut self,
+        ctx: &mut Context,
+        terminal_guard: &mut T,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
+        let Mode::Commit(
+            mode @ CommitMode {
+                source,
+                insert_side,
+                scope_to_stack,
+                message_composer,
+            },
+        ) = &*self.mode
+        else {
+            return Ok(());
         };
-        match &selection.data {
-            StatusOutputLineData::UncommittedFile { .. }
-            | StatusOutputLineData::Branch { .. }
-            | StatusOutputLineData::UncommittedChanges { .. } => {}
-            StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::Connector
-            | StatusOutputLineData::BetweenStacks
-            | StatusOutputLineData::StagedChanges { .. }
-            | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::Commit { .. }
-            | StatusOutputLineData::CommitMessage
-            | StatusOutputLineData::EmptyCommitMessage
-            | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::MergeBase
-            | StatusOutputLineData::UpstreamChanges
-            | StatusOutputLineData::Warning
-            | StatusOutputLineData::Hint
-            | StatusOutputLineData::NoAssignmentsUnstaged => return,
-        }
-        messages.push(Message::NewBranch.and_then(Message::Commit(CommitMessage::Confirm)));
+
+        let Some(data) = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|s| s.data.cli_id())
+        else {
+            return Ok(());
+        };
+
+        let commit_op = match &**data {
+            CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => {
+                commit2::CommitOperation::CommitToNewBranch(commit2::CommitToNewBranchOperation {
+                    branch_name: None,
+                })
+            }
+            CliId::Branch { name, .. } => {
+                commit2::CommitOperation::CommitAt(commit2::CommitAtOperation {
+                    target: commit2::CommitRelativeToTarget::BranchBucket {
+                        name: Category::LocalBranch.to_full_name(&**name)?,
+                        position: commit2::CommitRelativeToTargetPosition::Above,
+                    },
+                })
+            }
+
+            CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Commit { .. }
+            | CliId::Stack { .. } => return Ok(()),
+        };
+
+        commit_with(ctx, terminal_guard, messages, mode, commit_op)?;
+
+        Ok(())
     }
 
     fn handle_commit_toggle_insert_side(&mut self) {
@@ -4265,6 +4119,7 @@ impl Message {
     }
 
     /// Send another message only if handling the first succeeds.
+    #[expect(dead_code)]
     pub(super) fn and_then(self, other: Self) -> Self {
         Self::AndThen {
             lhs: Box::new(self),
@@ -4548,4 +4403,100 @@ impl FuzzyPickerItem for ApplyBranchItem {
             theme.remote_branch
         }
     }
+}
+
+fn commit_with<T>(
+    ctx: &mut Context,
+    terminal_guard: &mut T,
+    messages: &mut Vec<Message>,
+    mode: &CommitMode,
+    commit_op: commit2::CommitOperation,
+) -> anyhow::Result<()>
+where
+    T: TerminalGuard,
+    anyhow::Error: From<<T::Backend as Backend>::Error>,
+{
+    let CommitMode {
+        source,
+        message_composer,
+        insert_side: _,
+        scope_to_stack,
+    } = mode;
+
+    anyhow::ensure!(
+        scope_to_stack.is_none(),
+        "committing stack assignments is not supported. Use `but commit`"
+    );
+
+    let commit_selection = match &**source {
+        CommitSource::Marks(marks) => {
+            let mut hunks = Vec::new();
+            for mark in marks {
+                match mark {
+                    Markable::Uncommitted(hunk) => {
+                        hunks.push(hunk.clone());
+                    }
+                    Markable::Commit { .. } => {
+                        anyhow::bail!("Error: Cannot commit a commit");
+                    }
+                }
+            }
+            let Some(hunks) = NonEmpty::from_vec(hunks) else {
+                return Ok(());
+            };
+            commit2::CommitSelection::Changes(Box::new(hunks))
+        }
+        CommitSource::UncommittedArea(..) => commit2::CommitSelection::AllChanges,
+        CommitSource::Uncommitted(hunk) => {
+            commit2::CommitSelection::Changes(Box::new(NonEmpty::new(hunk.clone())))
+        }
+        CommitSource::Stack(..) => {
+            anyhow::bail!("committing stack assignments is not supported. Use `but commit`")
+        }
+    };
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let mut meta = ctx.meta()?;
+
+    let (reword_op, reword_msg) = match message_composer {
+        CommitMessageComposer::Editor => (reword2::RewordCommitOperation::UseEditor, None),
+        CommitMessageComposer::Inline => (
+            reword2::RewordCommitOperation::NoMessage,
+            Some(Message::Reword(RewordMessage::InlineStart)),
+        ),
+        CommitMessageComposer::Empty => (reword2::RewordCommitOperation::NoMessage, None),
+    };
+
+    let _suspend_guard = reword_op
+        .will_open_editor()
+        .then(|| terminal_guard.suspend())
+        .transpose()?;
+
+    let commit2::CommitOutcome {
+        new_commit,
+        branch_name: _,
+    } = commit2::run(
+        ctx,
+        &mut meta,
+        guard.write_permission(),
+        commit_op,
+        commit_selection,
+        reword_op,
+    )?;
+
+    drop(_suspend_guard);
+
+    messages.extend(
+        [
+            Message::EnterNormalModeAfterConfirmingOperation,
+            Message::Reload(
+                Some(SelectAfterReload::Commit(new_commit)),
+                ReloadCause::Mutation,
+            ),
+        ]
+        .into_iter()
+        .chain(reword_msg),
+    );
+
+    Ok(())
 }

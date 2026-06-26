@@ -39,13 +39,13 @@ use crate::{
 
 #[must_use]
 pub struct CommitOutcome {
-    new_commit: gix::ObjectId,
-    branch_name: Option<BranchNameTarget>,
+    pub new_commit: gix::ObjectId,
+    pub branch_name: Option<BranchNameTarget>,
 }
 
 /// `--format json` should only include newly created things. So if the branch already existed it
 /// wont be included in the JSON output.
-enum BranchNameTarget {
+pub enum BranchNameTarget {
     Existing(FullName),
     New(FullName),
 }
@@ -125,14 +125,14 @@ pub fn commit(
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
         resolve(guard, ctx, args, &mut out, &head_info, &id_map)?
     };
-    run(
+    Ok(run(
         ctx,
         &mut meta,
         guard.write_permission(),
         commit_op,
         commit_selection,
         reword_op,
-    )
+    )?)
 }
 
 fn resolve(
@@ -229,14 +229,14 @@ fn resolve(
     Ok((guard, commit_op, commit_selection, reword_op))
 }
 
-fn run(
+pub fn run(
     ctx: &mut Context,
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     commit_op: CommitOperation,
     commit_selection: CommitSelection,
     reword_op: RewordCommitOperation,
-) -> CliResult<CommitOutcome> {
+) -> anyhow::Result<CommitOutcome> {
     let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
@@ -457,13 +457,13 @@ fn route_commit_above_or_below(
     Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
 }
 
-enum CommitSelection {
+pub enum CommitSelection {
     AllChanges,
     Changes(Box<NonEmpty<UncommittedHunkOrFile>>),
     Nothing,
 }
 
-enum CommitOperation {
+pub enum CommitOperation {
     CommitToNewBranch(CommitToNewBranchOperation),
     CommitAt(CommitAtOperation),
 }
@@ -481,8 +481,8 @@ impl CommitOperation {
     }
 }
 
-struct CommitToNewBranchOperation {
-    branch_name: Option<FullName>,
+pub struct CommitToNewBranchOperation {
+    pub branch_name: Option<FullName>,
 }
 
 impl CommitToNewBranchOperation {
@@ -515,8 +515,8 @@ impl CommitToNewBranchOperation {
     }
 }
 
-struct CommitAtOperation {
-    target: CommitRelativeToTarget,
+pub struct CommitAtOperation {
+    pub target: CommitRelativeToTarget,
 }
 
 impl CommitAtOperation {
@@ -562,7 +562,7 @@ impl CommitAtOperation {
 
 /// Place a commit relative to something in the workspace.
 #[derive(Clone)]
-enum CommitRelativeToTarget {
+pub enum CommitRelativeToTarget {
     /// Place the commit relative to this commit, within the same branch.
     Commit {
         commit_id: gix::ObjectId,
@@ -581,7 +581,7 @@ enum CommitRelativeToTarget {
 }
 
 #[derive(Clone)]
-enum CommitRelativeToTargetPosition {
+pub enum CommitRelativeToTargetPosition {
     Above,
     Below,
 }
@@ -601,6 +601,15 @@ impl From<CommitRelativeToTargetPosition> for InsertSide {
         match value {
             CommitRelativeToTargetPosition::Above => Self::Above,
             CommitRelativeToTargetPosition::Below => Self::Below,
+        }
+    }
+}
+
+impl From<InsertSide> for CommitRelativeToTargetPosition {
+    fn from(value: InsertSide) -> Self {
+        match value {
+            InsertSide::Above => CommitRelativeToTargetPosition::Above,
+            InsertSide::Below => CommitRelativeToTargetPosition::Below,
         }
     }
 }

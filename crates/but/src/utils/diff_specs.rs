@@ -40,6 +40,7 @@ impl<'a> DiffSpecBuilder<'a> {
         }
     }
 
+    #[expect(dead_code)] // TODO: remove this when we're removing assignments
     pub fn with_scope_to_stack(mut self, scope_to_stack: Option<StackId>) -> Self {
         self.scope_to_stack = scope_to_stack;
         self
