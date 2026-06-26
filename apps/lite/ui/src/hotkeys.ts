@@ -171,6 +171,10 @@ export const outlineHotkeys = {
 		hotkey: "B",
 		meta: { group: "Branch", name: "Create dependent branch above" },
 	},
+	openCommitInBrowser: {
+		hotkey: "O",
+		meta: { group: "Commit", name: "Open commit in browser" },
+	},
 	setCommitTarget: {
 		hotkey: "Shift+C",
 		meta: { group: "Commit", name: "Set commit target" },

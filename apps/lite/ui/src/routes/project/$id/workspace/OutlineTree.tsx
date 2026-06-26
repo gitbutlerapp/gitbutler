@@ -19,13 +19,14 @@ import {
 } from "#ui/api/mutations.ts";
 import {
 	changesInWorktreeQueryOptions,
+	forgeInfoOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
-import { commitBody, commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -1041,6 +1042,9 @@ const CommitRow: FC<
 		dryRunCommit: Commit | null;
 	} & ComponentProps<"div">
 > = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
+	const { data: forgeInfo } = useSuspenseQuery(forgeInfoOptions(projectId));
+	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
+
 	const isHighlighted = useAppSelector((state) =>
 		selectProjectHighlightedCommitIds(state, projectId).includes(commit.id),
 	);
@@ -1055,6 +1059,7 @@ const CommitRow: FC<
 		commitId: commit.id,
 	};
 	const operand = commitOperand(commitOperandV);
+	const isSelected = useIsSelected({ projectId, operand });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -1220,6 +1225,18 @@ const CommitRow: FC<
 		focusCommitMessageInput();
 	};
 
+	const openCommitInBrowser = async (): Promise<void> => {
+		if (!mforgeUrl) return;
+
+		await window.lite.openInWebBrowser(mforgeUrl.url);
+	};
+
+	useHotkey(outlineHotkeys.openCommitInBrowser.hotkey, () => void openCommitInBrowser(), {
+		conflictBehavior: "allow",
+		enabled: isSelected,
+		meta: outlineHotkeys.openCommitInBrowser.meta,
+	});
+
 	const title = commitTitle(commitWithOptimisticMessage.message);
 	const body = commitBody(commitWithOptimisticMessage.message);
 
@@ -1276,6 +1293,12 @@ const CommitRow: FC<
 					onSelect: () => window.lite.clipboardWriteText(body ?? ""),
 				}),
 			],
+		}),
+		nativeMenuItem({
+			label: mforgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
+			enabled: mforgeUrl !== null,
+			accelerator: toElectronAccelerator(outlineHotkeys.openCommitInBrowser.hotkey),
+			onSelect: openCommitInBrowser,
 		}),
 		insertBlankCommitMenuItem(insertBlankCommit, "above"),
 		nativeMenuSeparator,
