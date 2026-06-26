@@ -182,6 +182,7 @@ const useOutlineTreeHotkeys = ({
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
@@ -211,6 +212,12 @@ const useOutlineTreeHotkeys = ({
 			? selectProjectCommitChecked(state, projectId, selection.commitId)
 			: false,
 	);
+	const selectedCommit =
+		selection?._tag === "Commit" && headInfo
+			? findCommit({ headInfo, commitId: selection.commitId })
+			: null;
+	const selectedCommitForgeUrl =
+		selectedCommit && forgeInfo ? commitForgeUrl(selectedCommit, forgeInfo) : null;
 
 	const dispatch = useAppDispatch();
 
@@ -450,6 +457,12 @@ const useOutlineTreeHotkeys = ({
 			});
 	};
 
+	const openSelectedCommitInBrowser = async (): Promise<void> => {
+		if (!selectedCommitForgeUrl) return;
+
+		await window.lite.openInWebBrowser(selectedCommitForgeUrl.url);
+	};
+
 	const defaultOutlineHotkeysEnabled = isDefaultMode;
 	const isSelectedCommit = selection?._tag === "Commit";
 	const isSelectedBranch = selection?._tag === "Branch";
@@ -595,6 +608,16 @@ const useOutlineTreeHotkeys = ({
 					defaultOutlineHotkeysEnabled && isSelectedCommit && !commitDiscardMutation.isPending,
 				target: ref,
 				meta: outlineHotkeys.deleteCommit.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.openCommitInBrowser.hotkey,
+			callback: () => void openSelectedCommitInBrowser(),
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
+				target: ref,
+				meta: outlineHotkeys.openCommitInBrowser.meta,
 			},
 		},
 		{
@@ -1060,7 +1083,6 @@ const CommitRow: FC<
 		commitId: commit.id,
 	};
 	const operand = commitOperand(commitOperandV);
-	const isSelected = useIsSelected({ projectId, operand });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -1231,12 +1253,6 @@ const CommitRow: FC<
 
 		await window.lite.openInWebBrowser(mforgeUrl.url);
 	};
-
-	useHotkey(outlineHotkeys.openCommitInBrowser.hotkey, () => void openCommitInBrowser(), {
-		conflictBehavior: "allow",
-		enabled: isSelected,
-		meta: outlineHotkeys.openCommitInBrowser.meta,
-	});
 
 	const title = commitTitle(commitWithOptimisticMessage.message);
 	const body = commitBody(commitWithOptimisticMessage.message);
