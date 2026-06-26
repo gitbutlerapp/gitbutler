@@ -21,6 +21,7 @@ use crate::{
     },
     id::{ShortId, UNCOMMITTED, UncommittedHunkOrFile},
     tui::TerminalGuard,
+    utils::targeting,
 };
 
 #[derive(Debug, Clone)]
@@ -358,7 +359,7 @@ impl App {
             },
             CliId::Commit { commit_id, .. } => commit2::CommitRelativeToTarget::Commit {
                 commit_id: *commit_id,
-                position: commit2::CommitRelativeToTargetPosition::from(*insert_side),
+                side: targeting::Side::from(*insert_side),
             },
             CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
@@ -405,7 +406,7 @@ impl App {
                 commit2::CommitOperation::CommitAt(commit2::CommitAtOperation {
                     target: commit2::CommitRelativeToTarget::BranchBucket {
                         name: Category::LocalBranch.to_full_name(&**name)?,
-                        position: commit2::CommitRelativeToTargetPosition::Above,
+                        side: targeting::Side::Above,
                     },
                 })
             }
