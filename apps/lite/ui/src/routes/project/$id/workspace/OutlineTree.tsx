@@ -502,51 +502,57 @@ const useOutlineTreeHotkeys = ({
 			},
 		},
 		...Match.value(selection).pipe(
+			Match.withReturnType<Array<UseHotkeyDefinition>>(),
 			Match.tag(
 				"Commit",
-				(selection): UseHotkeyDefinition => ({
-					hotkey: outlineHotkeys.rewordCommit.hotkey,
-					callback: () => {
-						dispatch(projectActions.startRewordCommit({ projectId, commit: selection }));
+				(selection): Array<UseHotkeyDefinition> => [
+					{
+						hotkey: outlineHotkeys.rewordCommit.hotkey,
+						callback: () => {
+							dispatch(projectActions.startRewordCommit({ projectId, commit: selection }));
+						},
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
+							meta: outlineHotkeys.rewordCommit.meta,
+						},
 					},
-					options: {
-						conflictBehavior: "allow",
-						enabled: defaultOutlineHotkeysEnabled,
-						target: ref,
-						meta: outlineHotkeys.rewordCommit.meta,
-					},
-				}),
+				],
 			),
 			Match.tag(
 				"Branch",
-				(selection): UseHotkeyDefinition => ({
-					hotkey: outlineHotkeys.renameBranch.hotkey,
-					callback: () => {
-						dispatch(projectActions.startRenameBranch({ projectId, branch: selection }));
+				(selection): Array<UseHotkeyDefinition> => [
+					{
+						hotkey: outlineHotkeys.renameBranch.hotkey,
+						callback: () => {
+							dispatch(projectActions.startRenameBranch({ projectId, branch: selection }));
+						},
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
+							meta: outlineHotkeys.renameBranch.meta,
+						},
 					},
-					options: {
-						conflictBehavior: "allow",
-						enabled: defaultOutlineHotkeysEnabled,
-						target: ref,
-						meta: outlineHotkeys.renameBranch.meta,
-					},
-				}),
+				],
 			),
 			Match.tag(
 				"UncommittedChanges",
-				(): UseHotkeyDefinition => ({
-					hotkey: outlineHotkeys.composeCommitMessageFromChanges.hotkey,
-					callback: focusCommitMessageInput,
-					options: {
-						conflictBehavior: "allow",
-						enabled: defaultOutlineHotkeysEnabled,
-						target: ref,
-						meta: outlineHotkeys.composeCommitMessageFromChanges.meta,
+				(): Array<UseHotkeyDefinition> => [
+					{
+						hotkey: outlineHotkeys.composeCommitMessageFromChanges.hotkey,
+						callback: focusCommitMessageInput,
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
+							meta: outlineHotkeys.composeCommitMessageFromChanges.meta,
+						},
 					},
-				}),
+				],
 			),
-			Match.orElse(() => null),
-			(x) => (x ? [x] : []),
+			Match.orElse(() => []),
 		),
 		{
 			hotkey: outlineHotkeys.amendCommit.hotkey,
