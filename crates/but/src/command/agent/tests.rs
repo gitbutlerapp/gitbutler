@@ -16,6 +16,9 @@ fn generated_default_policy_includes_baseline_and_default_preferences() {
             .contains("Use GitButler (`but`) for version-control inspection and write operations")
     );
     assert!(policy.contains("otherwise modify another agent's work"));
+    assert!(policy.contains("For commit just/only/specific changes on a new branch"));
+    assert!(policy.contains("For that fast path, after the commit succeeds, stop and summarize"));
+    assert!(policy.contains("Use the installed GitButler skill for command recipes and syntax"));
     assert!(policy.contains("amend an unpublished local commit"));
     assert!(policy.contains("Use GitButler to move the relevant changes"));
     assert!(policy.contains("If one file contains unrelated changes"));
