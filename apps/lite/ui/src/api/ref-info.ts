@@ -14,6 +14,16 @@ export const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string |
 	return byCommitId;
 };
 
+export const getCommitById = (headInfo: RefInfo): Map<string, Commit> => {
+	const byCommitId = new Map<string, Commit>();
+
+	for (const stack of headInfo.stacks)
+		for (const segment of stack.segments)
+			for (const commit of segment.commits) byCommitId.set(commit.id, commit);
+
+	return byCommitId;
+};
+
 export const findCommit = ({
 	headInfo,
 	commitId,

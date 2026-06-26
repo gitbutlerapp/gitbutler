@@ -24,7 +24,12 @@ import {
 	listProjectsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
-import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
+import {
+	findBranchOperandByRef,
+	findCommit,
+	getCommitById,
+	resolveRelativeTo,
+} from "#ui/api/ref-info.ts";
 import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
@@ -137,7 +142,12 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { prForgeUrl } from "#ui/pr.ts";
 
-const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
+type DryRunWorkspace = {
+	workspace: WorkspaceState;
+	commitById: ReadonlyMap<string, Commit>;
+};
+
+const DryRunWorkspaceContext = createContext<DryRunWorkspace | null>(null);
 
 const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(null);
 
@@ -788,7 +798,12 @@ export const OutlineTree: FC<
 
 	// TODO: debounce?
 	const dryRunOperationQuery = useDryRunOperation({ projectId, operation: dryRunOperation });
-	const dryRunWorkspace = dryRunOperationQuery.data?.workspace ?? null;
+	const dryRunWorkspace = dryRunOperationQuery.data?.workspace
+		? ({
+				workspace: dryRunOperationQuery.data.workspace,
+				commitById: getCommitById(dryRunOperationQuery.data.workspace.headInfo),
+			} satisfies DryRunWorkspace)
+		: null;
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 
@@ -2644,10 +2659,10 @@ const SegmentContent: FC<{
 	return (
 		<div>
 			{segment.commits.map((commit) => {
-				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
+				const dryRunCommitId = dryRunWorkspace?.workspace.replacedCommits[commit.id];
 				const dryRunCommit =
 					dryRunWorkspace && dryRunCommitId !== undefined
-						? findCommit({ headInfo: dryRunWorkspace.headInfo, commitId: dryRunCommitId })
+						? (dryRunWorkspace.commitById.get(dryRunCommitId) ?? null)
 						: null;
 				return (
 					<CommitC
