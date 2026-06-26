@@ -553,6 +553,7 @@ fn commit_moved_and_modified_file() {
     tui.env().append_file("moved-test.txt", "new content\n");
     tui.reload();
 
+    eprintln!("about to commit");
     // commit the moved file
     tui.input_then_render('c');
     tui.input_then_render(KeyCode::Down);
@@ -560,6 +561,7 @@ fn commit_moved_and_modified_file() {
     tui.input_then_render(KeyCode::Enter);
     tui.input_then_render("move test.txt to moved-test.txt");
     tui.input_then_render(KeyCode::Enter);
+    // tui.debug();
 
     // there should be no more changes to commit
     tui.reload()

@@ -25,6 +25,8 @@ pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
     /// Rejected diff specs from commit creation. See [`create_commit`] for
     /// more details.
     pub rejected_specs: Vec<(but_core::tree::create_tree::RejectionReason, DiffSpec)>,
+    ///
+    pub consumed: Vec<DiffSpec>,
 }
 
 /// Create a commit from `changes` and insert it relative to `relative_to` on `side`.
@@ -53,6 +55,27 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     message: &str,
     context_lines: u32,
 ) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
+    commit_create_ex(
+        editor,
+        changes,
+        relative_to,
+        side,
+        message,
+        context_lines,
+        Vec::new(),
+    )
+}
+
+///
+pub fn commit_create_ex<'ws, 'meta, M: RefMetadata>(
+    mut editor: Editor<'ws, 'meta, M>,
+    changes: Vec<DiffSpec>,
+    relative_to: impl ToSelector,
+    side: InsertSide,
+    message: &str,
+    context_lines: u32,
+    existing_consumed: Vec<DiffSpec>,
+) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
     let relative_to_selector = relative_to.to_selector(&editor)?;
     let parent_commit_id =
         parent_commit_id_for_new_commit(&editor, editor.lookup_step(relative_to_selector)?, side)?;
@@ -76,6 +99,7 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
             rebase: editor.rebase()?,
             commit_selector: None,
             rejected_specs: create_out.rejected_specs,
+            consumed: Vec::new(),
         });
     };
 
@@ -86,12 +110,15 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
         .iter()
         .map(|(_, spec)| &spec.path)
         .collect();
-    let consumed: Vec<_> = all_changes
-        .into_iter()
-        .filter(|spec| !rejected_paths.contains(&spec.path))
-        .collect();
+    let mut consumed = existing_consumed;
+    consumed.extend(
+        all_changes
+            .into_iter()
+            .filter(|spec| !rejected_paths.contains(&spec.path)),
+    );
     if !consumed.is_empty() {
-        let merge_base = compute_merge_base_override(editor.repo(), consumed, context_lines)?;
+        let merge_base =
+            compute_merge_base_override(editor.repo(), consumed.clone(), context_lines)?;
         editor.set_merge_base_override(merge_base);
     }
 
@@ -105,6 +132,7 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
         rebase: editor.rebase()?,
         commit_selector: Some(commit_selector),
         rejected_specs: create_out.rejected_specs,
+        consumed,
     })
 }
 

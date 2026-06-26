@@ -13,6 +13,35 @@ use crate::update_head_reference;
 
 use super::{Options, Outcome, utils::merge_worktree_changes_into_destination_or_keep_snapshot};
 
+/// Update the index and working directory (but not any refs). If
+/// `baseline_treeish` is None, `HEAD^{tree}` is used instead.
+pub fn checkout_tree(
+    repo: &gix::Repository,
+    treeish: gix::ObjectId,
+    baseline_treeish: Option<gix::ObjectId>,
+) -> anyhow::Result<()> {
+    let git2_repo = git2::Repository::open(repo.git_dir())?;
+
+    // eprintln!("HEAD is {:?}, treeish is {:?}", repo.head_id(), treeish);
+    if let Some(baseline_treeish) = baseline_treeish {
+        let baseline = git2_repo
+            .find_object(baseline_treeish.to_git2(), None)?
+            .peel_to_tree()?;
+        git2_repo.index()?.read_tree(&baseline)?;
+        // eprintln!("baseline tree is {:?}", baseline.id());
+        let mut opts = git2::build::CheckoutBuilder::new();
+        opts.baseline(&baseline);
+        git2_repo.checkout_tree(
+            &git2_repo.find_object(treeish.to_git2(), None)?,
+            Some(&mut opts),
+        )?;
+    } else {
+        // eprintln!("baseline tree not given");
+        git2_repo.checkout_tree(&git2_repo.find_object(treeish.to_git2(), None)?, None)?;
+    }
+    Ok(())
+}
+
 /// Like [`safe_checkout()`], but the current tree will always be fetched from
 pub fn safe_checkout_from_head(
     new_head_id: gix::ObjectId,

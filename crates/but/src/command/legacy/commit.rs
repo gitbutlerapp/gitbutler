@@ -685,13 +685,16 @@ pub(crate) fn commit_batch(
         DryRun::No,
         |mut tx| {
             let mut new_commits = Vec::with_capacity(planned_commit_count);
+            let mut consumed = Vec::new();
             for planned_commit in planned_commits {
                 let outcome = tx.create_commit(
                     position.0.clone(),
                     position.1,
                     planned_commit.diff_specs,
                     planned_commit.message,
+                    consumed.clone(),
                 )?;
+                consumed.extend(outcome.consumed);
 
                 if !outcome.rejected_specs.is_empty() {
                     return Err(anyhow::anyhow!(
