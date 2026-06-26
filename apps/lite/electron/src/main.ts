@@ -133,6 +133,7 @@ import {
 	net,
 	protocol,
 	session,
+	shell,
 	type MenuItemConstructorOptions,
 } from "electron";
 import {
@@ -557,6 +558,9 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.openInEditor,
 		(_e, { projectId, editorId, path, lineNr }: OpenInEditorParams) =>
 			openInEditor(projectId, editorId, path, lineNr),
+	);
+	senderValidatingHandle(liteIpcChannels.openInWebBrowser, (_e, url: string) =>
+		shell.openExternal(url),
 	);
 	senderValidatingHandle(liteIpcChannels.pathJoin, (_e, ...paths: Array<string>) =>
 		path.join(...paths),

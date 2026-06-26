@@ -165,6 +165,8 @@ const api: LiteElectronApi = {
 	moveBranch: (params) =>
 		ipcRenderer.invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
 	openInEditor: (params) => ipcRenderer.invoke("workspace:open-in-editor", params) as Promise<void>,
+	openInWebBrowser: (url) =>
+		ipcRenderer.invoke("workspace:open-in-web-browser", url) as Promise<void>,
 	pathJoin: (path, ...paths) =>
 		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
 	publishReview: (params) =>

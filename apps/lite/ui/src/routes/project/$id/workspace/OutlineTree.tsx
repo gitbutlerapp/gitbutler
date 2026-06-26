@@ -19,13 +19,14 @@ import {
 } from "#ui/api/mutations.ts";
 import {
 	changesInWorktreeQueryOptions,
+	forgeInfoOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
-import { commitBody, commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -134,6 +135,7 @@ import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
+import { prForgeUrl } from "#ui/pr.ts";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -502,51 +504,57 @@ const useOutlineTreeHotkeys = ({
 			},
 		},
 		...Match.value(selection).pipe(
+			Match.withReturnType<Array<UseHotkeyDefinition>>(),
 			Match.tag(
 				"Commit",
-				(selection): UseHotkeyDefinition => ({
-					hotkey: outlineHotkeys.rewordCommit.hotkey,
-					callback: () => {
-						dispatch(projectActions.startRewordCommit({ projectId, commit: selection }));
+				(selection): Array<UseHotkeyDefinition> => [
+					{
+						hotkey: outlineHotkeys.rewordCommit.hotkey,
+						callback: () => {
+							dispatch(projectActions.startRewordCommit({ projectId, commit: selection }));
+						},
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
+							meta: outlineHotkeys.rewordCommit.meta,
+						},
 					},
-					options: {
-						conflictBehavior: "allow",
-						enabled: defaultOutlineHotkeysEnabled,
-						target: ref,
-						meta: outlineHotkeys.rewordCommit.meta,
-					},
-				}),
+				],
 			),
 			Match.tag(
 				"Branch",
-				(selection): UseHotkeyDefinition => ({
-					hotkey: outlineHotkeys.renameBranch.hotkey,
-					callback: () => {
-						dispatch(projectActions.startRenameBranch({ projectId, branch: selection }));
+				(selection): Array<UseHotkeyDefinition> => [
+					{
+						hotkey: outlineHotkeys.renameBranch.hotkey,
+						callback: () => {
+							dispatch(projectActions.startRenameBranch({ projectId, branch: selection }));
+						},
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
+							meta: outlineHotkeys.renameBranch.meta,
+						},
 					},
-					options: {
-						conflictBehavior: "allow",
-						enabled: defaultOutlineHotkeysEnabled,
-						target: ref,
-						meta: outlineHotkeys.renameBranch.meta,
-					},
-				}),
+				],
 			),
 			Match.tag(
 				"UncommittedChanges",
-				(): UseHotkeyDefinition => ({
-					hotkey: outlineHotkeys.composeCommitMessageFromChanges.hotkey,
-					callback: focusCommitMessageInput,
-					options: {
-						conflictBehavior: "allow",
-						enabled: defaultOutlineHotkeysEnabled,
-						target: ref,
-						meta: outlineHotkeys.composeCommitMessageFromChanges.meta,
+				(): Array<UseHotkeyDefinition> => [
+					{
+						hotkey: outlineHotkeys.composeCommitMessageFromChanges.hotkey,
+						callback: focusCommitMessageInput,
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
+							meta: outlineHotkeys.composeCommitMessageFromChanges.meta,
+						},
 					},
-				}),
+				],
 			),
-			Match.orElse(() => null),
-			(x) => (x ? [x] : []),
+			Match.orElse(() => []),
 		),
 		{
 			hotkey: outlineHotkeys.amendCommit.hotkey,
@@ -1035,6 +1043,9 @@ const CommitRow: FC<
 		dryRunCommit: Commit | null;
 	} & ComponentProps<"div">
 > = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
+	const { data: forgeInfo } = useSuspenseQuery(forgeInfoOptions(projectId));
+	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
+
 	const isHighlighted = useAppSelector((state) =>
 		selectProjectHighlightedCommitIds(state, projectId).includes(commit.id),
 	);
@@ -1049,6 +1060,7 @@ const CommitRow: FC<
 		commitId: commit.id,
 	};
 	const operand = commitOperand(commitOperandV);
+	const isSelected = useIsSelected({ projectId, operand });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -1214,6 +1226,18 @@ const CommitRow: FC<
 		focusCommitMessageInput();
 	};
 
+	const openCommitInBrowser = async (): Promise<void> => {
+		if (!mforgeUrl) return;
+
+		await window.lite.openInWebBrowser(mforgeUrl.url);
+	};
+
+	useHotkey(outlineHotkeys.openCommitInBrowser.hotkey, () => void openCommitInBrowser(), {
+		conflictBehavior: "allow",
+		enabled: isSelected,
+		meta: outlineHotkeys.openCommitInBrowser.meta,
+	});
+
 	const title = commitTitle(commitWithOptimisticMessage.message);
 	const body = commitBody(commitWithOptimisticMessage.message);
 
@@ -1270,6 +1294,12 @@ const CommitRow: FC<
 					onSelect: () => window.lite.clipboardWriteText(body ?? ""),
 				}),
 			],
+		}),
+		nativeMenuItem({
+			label: mforgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
+			enabled: mforgeUrl !== null,
+			accelerator: toElectronAccelerator(outlineHotkeys.openCommitInBrowser.hotkey),
+			onSelect: openCommitInBrowser,
 		}),
 		insertBlankCommitMenuItem(insertBlankCommit, "above"),
 		nativeMenuSeparator,
@@ -2020,12 +2050,16 @@ const BranchRow: FC<
 	isTopSegment,
 	...restProps
 }) => {
+	const { data: forgeInfo } = useSuspenseQuery(forgeInfoOptions(projectId));
+	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
+
 	const dispatch = useAppDispatch();
 	const branchOperandV: BranchOperand = {
 		stackId,
 		branchRef: refName.fullNameBytes,
 	};
 	const operand = branchOperand(branchOperandV);
+	const isSelected = useIsSelected({ projectId, operand });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -2180,6 +2214,18 @@ const BranchRow: FC<
 		});
 	};
 
+	const openPRInBrowser = async (): Promise<void> => {
+		if (mforgeUrl === null) return;
+
+		await window.lite.openInWebBrowser(mforgeUrl);
+	};
+
+	useHotkey(outlineHotkeys.openPRInBrowser.hotkey, () => void openPRInBrowser(), {
+		conflictBehavior: "allow",
+		enabled: isSelected,
+		meta: outlineHotkeys.openPRInBrowser.meta,
+	});
+
 	const pushStackDisabled =
 		pushStackMutation.isPending || partialStackPushDisabled(partialStackState);
 
@@ -2226,6 +2272,12 @@ const BranchRow: FC<
 			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
 			onSelect: setCommitTarget,
 			enabled: isDefaultMode,
+		}),
+		nativeMenuItem({
+			label: "Open In Browser",
+			enabled: mforgeUrl !== null,
+			accelerator: toElectronAccelerator(outlineHotkeys.openPRInBrowser.hotkey),
+			onSelect: openPRInBrowser,
 		}),
 		insertBlankCommitMenuItem(insertBlankCommit, "below"),
 		nativeMenuSeparator,

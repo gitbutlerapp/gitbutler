@@ -14,6 +14,7 @@ export enum QueryKey {
 	BranchDiff = "branchDiff",
 	ChangesInWorktree = "changesInWorktree",
 	CommitDetailsWithLineStats = "commitDetailsWithLineStats",
+	ForgeInfo = "forgeInfo",
 	HeadInfo = "headInfo",
 	Review = "review",
 	ReviewMergeStatus = "reviewMergeStatus",
@@ -50,6 +51,12 @@ export const commitDetailsWithLineStatsQueryOptions = ({
 	queryOptions({
 		queryKey: [QueryKey.CommitDetailsWithLineStats, projectId, params],
 		queryFn: () => window.lite.commitDetailsWithLineStats({ projectId, ...params }),
+	});
+
+export const forgeInfoOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: [QueryKey.ForgeInfo, projectId],
+		queryFn: () => window.lite.forgeInfo(projectId),
 	});
 
 export const headInfoQueryOptions = (projectId: string) =>

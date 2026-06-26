@@ -81,7 +81,7 @@ export const toElectronAccelerator = (hotkey: RegisterableHotkey): string | unde
 };
 
 type HotkeyWithMeta = {
-	hotkey: Hotkey;
+	hotkey: RegisterableHotkey;
 	meta: HotkeyMeta;
 };
 
@@ -170,6 +170,14 @@ export const outlineHotkeys = {
 	createDependentBranchAbove: {
 		hotkey: "B",
 		meta: { group: "Branch", name: "Create dependent branch above" },
+	},
+	openCommitInBrowser: {
+		hotkey: "O",
+		meta: { group: "Commit", name: "Open commit in browser" },
+	},
+	openPRInBrowser: {
+		hotkey: "O",
+		meta: { group: "Branch", name: "Open pull request in browser" },
 	},
 	setCommitTarget: {
 		hotkey: "Shift+C",
