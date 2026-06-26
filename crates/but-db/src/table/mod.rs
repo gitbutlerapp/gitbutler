@@ -9,7 +9,6 @@ pub(crate) mod gerrit_metadata;
 pub(crate) mod hunk_assignments;
 pub(crate) mod virtual_branches;
 pub(crate) mod workflows;
-pub(crate) mod workspace_rules;
 
 /// Move migrations that relate to tables that don't have their module anymore here.
 pub(crate) const M_FULLY_REMOVED: &[M<'static>] = &[
@@ -63,5 +62,23 @@ ALTER TABLE worktrees_new RENAME TO worktrees;",
         SchemaVersion::Zero,
         "-- Drop worktrees table as metadata is now stored in .git/worktrees/ as files
 DROP TABLE IF EXISTS worktrees;",
+    ),
+    M::up(
+        20250717150441,
+        SchemaVersion::Zero,
+        "CREATE TABLE `workspace_rules`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`enabled` BOOL NOT NULL,
+	`trigger` TEXT NOT NULL,
+	`filters` TEXT NOT NULL,
+	`action` TEXT NOT NULL
+);",
+    ),
+    M::up(
+        20260626120000,
+        SchemaVersion::Zero,
+        "-- Drop workspace_rules table as the rules feature has been removed
+DROP TABLE IF EXISTS workspace_rules;",
     ),
 ];
