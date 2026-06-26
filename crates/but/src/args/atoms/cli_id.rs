@@ -332,6 +332,7 @@ fn try_resolve_cli_id(
     Err(bad_input(format!(
         "Ambiguous {purpose} '{arg}', matches multiple items"
     ))
+    .hint("Use a longer ID to disambiguate")
     .into())
 }
 
