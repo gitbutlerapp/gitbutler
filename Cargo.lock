@@ -811,7 +811,6 @@ dependencies = [
  "but-llm",
  "but-path",
  "but-rebase",
- "but-rules",
  "but-secret",
  "but-serde",
  "but-settings",
@@ -958,7 +957,6 @@ dependencies = [
  "but-oplog",
  "but-path",
  "but-rebase",
- "but-rules",
  "but-schemars",
  "but-secret",
  "but-serde",
@@ -1505,29 +1503,6 @@ dependencies = [
  "tempfile",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
-]
-
-[[package]]
-name = "but-rules"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-core",
- "but-ctx",
- "but-db",
- "but-graph",
- "but-hunk-assignment",
- "but-rebase",
- "but-workspace",
- "chrono",
- "gix",
- "itertools",
- "regex",
- "serde",
- "serde_json",
- "serde_regex",
- "tracing",
- "uuid",
 ]
 
 [[package]]
@@ -9179,16 +9154,6 @@ dependencies = [
  "itoa",
  "serde",
  "serde_core",
-]
-
-[[package]]
-name = "serde_regex"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8136f1a4ea815d7eac4101cfd0b16dc0cb5e1fe1b8609dfd728058656b7badf"
-dependencies = [
- "regex",
- "serde",
 ]
 
 [[package]]

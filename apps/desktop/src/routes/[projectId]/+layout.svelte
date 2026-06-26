@@ -190,11 +190,6 @@
 					clientState.backendApi.util.invalidateTags([invalidatesList(ReduxTag.Diff)]),
 				);
 			}),
-			backend.listen(`project://${projectId}/rule-updates`, () => {
-				clientState.dispatch(
-					clientState.backendApi.util.invalidateTags([invalidatesList(ReduxTag.WorkspaceRules)]),
-				);
-			}),
 			// Activity that requires re-reading workspace state — emitted on
 			// remote-ref updates (push, external fetch) and on external
 			// writes to `virtual_branches.toml` (e.g. by the `but` CLI).

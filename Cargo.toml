@@ -51,8 +51,6 @@ members = [
     "crates/but-worktrees", # 📄Worktree creation and removal;
     # 👉Could be exemplary after review.
     "crates/but-update", # 📄Retrieve information about available program versions to guide updates.
-    # 👉Lacks top-level docs and tests; uses legacy features
-    "crates/but-rules", # 📄Decide what to do when files change in the worktree
     # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
     "crates/but-action", # 📄TBD
     # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
@@ -156,7 +154,6 @@ but-db = { path = "crates/but-db" }
 but-path = { path = "crates/but-path" }
 but-graph = { path = "crates/but-graph" }
 but-meta = { path = "crates/but-meta" }
-but-rules = { path = "crates/but-rules" }
 but-action = { path = "crates/but-action" }
 but-bot = { path = "crates/but-bot" }
 but-tools = { path = "crates/but-tools" }

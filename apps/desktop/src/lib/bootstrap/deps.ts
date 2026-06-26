@@ -42,7 +42,6 @@ import {
 import { ModeService, MODE_SERVICE } from "$lib/mode/modeService";
 import { ProjectsService, PROJECTS_SERVICE } from "$lib/project/projectsService";
 import { PROMPT_SERVICE, PromptService } from "$lib/prompt/promptService";
-import RulesService, { RULES_SERVICE } from "$lib/rules/rulesService.svelte";
 import { RustSecretService, SECRET_SERVICE } from "$lib/secrets/secretsService";
 import {
 	FileSelectionManager,
@@ -187,7 +186,6 @@ export function initDependencies(args: {
 
 	const stackService = new StackService(clientState.backendApi, clientState.dispatch, uiState);
 	const modeService = new ModeService(clientState.backendApi);
-	const rulesService = new RulesService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState.backendApi);
 
 	// ============================================================================
@@ -209,7 +207,6 @@ export function initDependencies(args: {
 		stackService,
 		uiState,
 		worktreeService,
-		rulesService,
 		fModeManager,
 		projectsService,
 	);
@@ -345,7 +342,6 @@ export function initDependencies(args: {
 		[PROMPT_SERVICE, promptService],
 		[REMOTES_SERVICE, remotesService],
 		[RESIZE_SYNC, resizeSync],
-		[RULES_SERVICE, rulesService],
 		[SECRET_SERVICE, secretsService],
 		[SETTINGS_SERVICE, settingsService],
 		[TERMINAL_SERVICE, terminalService],

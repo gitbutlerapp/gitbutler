@@ -1,4 +1,3 @@
-import { buildActionEndpoints } from "$lib/actions/actionEndpoints";
 import { buildBranchEndpoints } from "$lib/branches/branchEndpoints";
 import { buildGitEndpoints } from "$lib/git/gitEndpoints";
 import { buildIrcEndpoints } from "$lib/irc/ircEndpoints";
@@ -37,7 +36,6 @@ export function createBackendApi(ctx: HookContext) {
 			...buildGitEndpoints(build),
 			...buildModeEndpoints(build),
 			...buildProjectEndpoints(build),
-			...buildActionEndpoints(build),
 			...buildIrcEndpoints(build),
 			...buildUserEndpoints(build),
 		}),
