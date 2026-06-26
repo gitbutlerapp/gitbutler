@@ -9,6 +9,7 @@ import { type TransferOperationMode } from "#ui/outline/mode.ts";
 import * as workspace from "#ui/projects/workspace/state.ts";
 import type { RootState } from "#ui/store.ts";
 import { type AbsorptionTarget, type RefInfo, type RelativeTo } from "@gitbutler/but-sdk";
+import { BaseDiffOptions } from "@pierre/diffs";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 type Dialog =
@@ -18,8 +19,8 @@ type Dialog =
 	| { _tag: "CommandPalette" }
 	| { _tag: "ProjectPicker" };
 
-export type DiffStyle = "split" | "unified";
-export type DiffOverflow = "scroll" | "wrap";
+export type DiffStyle = NonNullable<BaseDiffOptions["diffStyle"]>;
+export type DiffOverflow = NonNullable<BaseDiffOptions["overflow"]>;
 
 type ProjectState = {
 	detailsFullWindow: boolean;
