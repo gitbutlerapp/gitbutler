@@ -129,7 +129,8 @@
 
 .commitMessageBody {
 	max-width: 70ch;
-	font-size: 13px;
+	font-size: 12px;
+	line-height: 160%;
 	white-space: pre-wrap;
 	user-select: text;
 }
