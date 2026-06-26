@@ -315,6 +315,15 @@ const FileRow: FC<
 
 				{outlineMode._tag === "Default" && (
 					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
+						<Toolbar.Button
+							aria-label="File menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+							}}
+							className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+						>
+							<Icon name="kebab" />
+						</Toolbar.Button>
 						{Match.value({ item, fileParent }).pipe(
 							Match.when(
 								{ item: { _tag: "Change" }, fileParent: { _tag: "UncommittedChanges" } },
@@ -335,15 +344,6 @@ const FileRow: FC<
 							),
 							Match.orElse(() => null),
 						)}
-						<Toolbar.Button
-							aria-label="File menu"
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-							}}
-							className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-						>
-							<Icon name="kebab" />
-						</Toolbar.Button>
 					</Toolbar.Root>
 				)}
 

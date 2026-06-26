@@ -16,16 +16,11 @@
 
 .fileStatusBadge {
 	align-self: center;
+	width: 12px;
 	font-weight: 700;
 	font-size: 11px;
-
 	font-family: var(--text-fontfamily-base);
-
-	.fileRow:hover &,
-	.fileRow:focus-within &,
-	.fileRow[aria-selected="true"] & {
-		display: none;
-	}
+	text-align: right;
 
 	&[data-char="A"] {
 		color: var(--change-status-addition);
