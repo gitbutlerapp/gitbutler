@@ -39,8 +39,8 @@ but_schemars::register_sdk_type!(WatcherGitFetchPayload);
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct WatcherGitHeadPayload {
-    /// The SHA of the repository's HEAD.
-    pub head: String,
+    /// The symbolic ref HEAD points at, or `null` when HEAD is detached.
+    pub head: Option<String>,
     /// The GitButler operating mode (edit mode, oper workspace, ...).
     pub operating_mode: OperatingMode,
 }
