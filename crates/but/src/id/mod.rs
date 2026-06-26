@@ -42,7 +42,7 @@ const INDEX_SEPARATOR: &str = "#";
 
 /// The ID of a hunk, without its namespace (file).
 #[derive(Debug, Clone, Default)]
-pub struct UnqualifiedHunkId {
+struct UnqualifiedHunkId {
     /// The ID of the hunk.
     id: String,
     /// The smallest amount of prefix characters necessary to form a distinct ID.
@@ -1272,7 +1272,7 @@ pub struct UncommittedFile {
     pub short_id: ShortId,
     /// Every element has the same [HunkAssignment::stack_id] and [HunkAssignment::path_bytes],
     /// so the first assignment can be used to obtain both.
-    pub short_id_hunk_assignments: NonEmpty<(UnqualifiedHunkId, HunkAssignment)>,
+    short_id_hunk_assignments: NonEmpty<(UnqualifiedHunkId, HunkAssignment)>,
 }
 
 impl UncommittedFile {
