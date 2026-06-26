@@ -582,6 +582,7 @@ const Title: FC<{
 										aria-controls={bodyId}
 										aria-expanded={!bodyCollapsed}
 										aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+										aria-pressed={!bodyCollapsed}
 										className={getButtonClassName({
 											variant: "ghost",
 											iconOnly: true,
