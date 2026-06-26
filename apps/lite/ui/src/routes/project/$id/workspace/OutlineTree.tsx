@@ -19,13 +19,14 @@ import {
 } from "#ui/api/mutations.ts";
 import {
 	changesInWorktreeQueryOptions,
+	forgeInfoOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
-import { commitBody, commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -35,7 +36,7 @@ import {
 } from "#ui/native-menu.ts";
 import {
 	branchOperand,
-	changesSectionOperand,
+	uncommittedChangesOperand,
 	commitOperand,
 	operandEquals,
 	operandIdentityKey,
@@ -86,12 +87,7 @@ import {
 	InsertSide,
 	BottomUpdate,
 } from "@gitbutler/but-sdk";
-import {
-	formatForDisplay,
-	useHotkey,
-	UseHotkeyDefinition,
-	useHotkeys,
-} from "@tanstack/react-hotkeys";
+import { useHotkey, UseHotkeyDefinition, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQueries, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
@@ -128,6 +124,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import {
 	changesHotkeys,
+	formatForDisplaySorted,
 	outlineHotkeys,
 	selectionOperationHotkeys,
 	toElectronAccelerator,
@@ -138,13 +135,14 @@ import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
+import { prForgeUrl } from "#ui/pr.ts";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
 const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(null);
 
 const isCommitDiscardBoundary = (operand: Operand): boolean =>
-	operand._tag === "Branch" || operand._tag === "ChangesSection";
+	operand._tag === "Branch" || operand._tag === "UncommittedChanges";
 
 const selectAfterDiscardedCommit = ({
 	navigationIndex,
@@ -184,6 +182,7 @@ const useOutlineTreeHotkeys = ({
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
@@ -213,6 +212,17 @@ const useOutlineTreeHotkeys = ({
 			? selectProjectCommitChecked(state, projectId, selection.commitId)
 			: false,
 	);
+	const selectedCommit =
+		selection?._tag === "Commit" && headInfo
+			? findCommit({ headInfo, commitId: selection.commitId })
+			: null;
+	const selectedCommitForgeUrl =
+		selectedCommit && forgeInfo ? commitForgeUrl(selectedCommit, forgeInfo) : null;
+	const selectedBranchPullRequest = selectedBranchSegment?.metadata?.review.pullRequest ?? null;
+	const selectedBranchPullRequestUrl =
+		selectedBranchPullRequest !== null && forgeInfo
+			? prForgeUrl(selectedBranchPullRequest, forgeInfo)
+			: null;
 
 	const dispatch = useAppDispatch();
 
@@ -452,16 +462,28 @@ const useOutlineTreeHotkeys = ({
 			});
 	};
 
+	const openSelectedCommitInBrowser = async (): Promise<void> => {
+		if (!selectedCommitForgeUrl) return;
+
+		await window.lite.openInWebBrowser(selectedCommitForgeUrl.url);
+	};
+
+	const openSelectedBranchPRInBrowser = async (): Promise<void> => {
+		if (selectedBranchPullRequestUrl === null) return;
+
+		await window.lite.openInWebBrowser(selectedBranchPullRequestUrl);
+	};
+
 	const defaultOutlineHotkeysEnabled = isDefaultMode;
 	const isSelectedCommit = selection?._tag === "Commit";
 	const isSelectedBranch = selection?._tag === "Branch";
-	const isSelectedChanges = selection?._tag === "ChangesSection";
+	const isSelectedChanges = selection?._tag === "UncommittedChanges";
 	const canPushSelectedBranch =
 		!!selectedPushContext &&
 		!pushStackMutation.isPending &&
-		partialStackPushDisabledReason(
+		!partialStackPushDisabled(
 			partialStackStateFromSegments(selectedPushContext.partialStackSegments),
-		) === null;
+		);
 
 	useNavigationIndexHotkeys({
 		ref,
@@ -474,7 +496,7 @@ const useOutlineTreeHotkeys = ({
 		getKey: operandIdentityKey,
 		operationSourceForItem: (operand) => operand,
 		selectSectionPredicate: (operand) =>
-			operand._tag === "Branch" || operand._tag === "ChangesSection",
+			operand._tag === "Branch" || operand._tag === "UncommittedChanges",
 	});
 
 	useHotkeys([
@@ -489,7 +511,7 @@ const useOutlineTreeHotkeys = ({
 		{
 			hotkey: outlineHotkeys.selectChanges.hotkey,
 			callback: () => {
-				dispatch(projectActions.selectOutline({ projectId, selection: changesSectionOperand }));
+				dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
 				focusSelectionScope("outline");
 			},
 			options: { conflictBehavior: "allow", meta: outlineHotkeys.selectChanges.meta },
@@ -497,7 +519,7 @@ const useOutlineTreeHotkeys = ({
 		{
 			hotkey: outlineHotkeys.composeCommitMessage.hotkey,
 			callback: () => {
-				dispatch(projectActions.selectOutline({ projectId, selection: changesSectionOperand }));
+				dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
 				focusCommitMessageInput();
 			},
 			options: {
@@ -506,51 +528,57 @@ const useOutlineTreeHotkeys = ({
 			},
 		},
 		...Match.value(selection).pipe(
+			Match.withReturnType<Array<UseHotkeyDefinition>>(),
 			Match.tag(
 				"Commit",
-				(selection): UseHotkeyDefinition => ({
-					hotkey: outlineHotkeys.rewordCommit.hotkey,
-					callback: () => {
-						dispatch(projectActions.startRewordCommit({ projectId, commit: selection }));
+				(selection): Array<UseHotkeyDefinition> => [
+					{
+						hotkey: outlineHotkeys.rewordCommit.hotkey,
+						callback: () => {
+							dispatch(projectActions.startRewordCommit({ projectId, commit: selection }));
+						},
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
+							meta: outlineHotkeys.rewordCommit.meta,
+						},
 					},
-					options: {
-						conflictBehavior: "allow",
-						enabled: defaultOutlineHotkeysEnabled,
-						target: ref,
-						meta: outlineHotkeys.rewordCommit.meta,
-					},
-				}),
+				],
 			),
 			Match.tag(
 				"Branch",
-				(selection): UseHotkeyDefinition => ({
-					hotkey: outlineHotkeys.renameBranch.hotkey,
-					callback: () => {
-						dispatch(projectActions.startRenameBranch({ projectId, branch: selection }));
+				(selection): Array<UseHotkeyDefinition> => [
+					{
+						hotkey: outlineHotkeys.renameBranch.hotkey,
+						callback: () => {
+							dispatch(projectActions.startRenameBranch({ projectId, branch: selection }));
+						},
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
+							meta: outlineHotkeys.renameBranch.meta,
+						},
 					},
-					options: {
-						conflictBehavior: "allow",
-						enabled: defaultOutlineHotkeysEnabled,
-						target: ref,
-						meta: outlineHotkeys.renameBranch.meta,
-					},
-				}),
+				],
 			),
 			Match.tag(
-				"ChangesSection",
-				(): UseHotkeyDefinition => ({
-					hotkey: outlineHotkeys.composeCommitMessageFromChanges.hotkey,
-					callback: focusCommitMessageInput,
-					options: {
-						conflictBehavior: "allow",
-						enabled: defaultOutlineHotkeysEnabled,
-						target: ref,
-						meta: outlineHotkeys.composeCommitMessageFromChanges.meta,
+				"UncommittedChanges",
+				(): Array<UseHotkeyDefinition> => [
+					{
+						hotkey: outlineHotkeys.composeCommitMessageFromChanges.hotkey,
+						callback: focusCommitMessageInput,
+						options: {
+							conflictBehavior: "allow",
+							enabled: defaultOutlineHotkeysEnabled,
+							target: ref,
+							meta: outlineHotkeys.composeCommitMessageFromChanges.meta,
+						},
 					},
-				}),
+				],
 			),
-			Match.orElse(() => null),
-			(x) => (x ? [x] : []),
+			Match.orElse(() => []),
 		),
 		{
 			hotkey: outlineHotkeys.amendCommit.hotkey,
@@ -594,6 +622,16 @@ const useOutlineTreeHotkeys = ({
 			},
 		},
 		{
+			hotkey: outlineHotkeys.openCommitInBrowser.hotkey,
+			callback: () => void openSelectedCommitInBrowser(),
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !!selectedCommitForgeUrl,
+				target: ref,
+				meta: outlineHotkeys.openCommitInBrowser.meta,
+			},
+		},
+		{
 			hotkey: outlineHotkeys.moveCommitUp.hotkey,
 			callback: () => moveSelectedCommit(-1),
 			options: {
@@ -621,6 +659,17 @@ const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && canPushSelectedBranch,
 				target: ref,
 				meta: outlineHotkeys.pushStack.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.openPRInBrowser.hotkey,
+			callback: () => void openSelectedBranchPRInBrowser(),
+			options: {
+				conflictBehavior: "allow",
+				enabled:
+					defaultOutlineHotkeysEnabled && isSelectedBranch && selectedBranchPullRequestUrl !== null,
+				target: ref,
+				meta: outlineHotkeys.openPRInBrowser.meta,
 			},
 		},
 		{
@@ -698,7 +747,7 @@ const useOutlineTreeHotkeys = ({
 		{
 			hotkey: outlineHotkeys.absorb.hotkey,
 			callback: () => {
-				enterAbsorbMode(changesSectionOperand, { type: "all" });
+				enterAbsorbMode(uncommittedChangesOperand, { type: "all" });
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -909,7 +958,6 @@ const OperandC: FC<
 		operand: Operand;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, operand, render, ...props }) => {
-	const dispatch = useAppDispatch();
 	const isSelected = useIsSelected({ projectId, operand });
 	const absorptionTargetKeys = assert(use(AbsorptionTargetKeysContext));
 	const isAbsorptionTarget = absorptionTargetKeys.has(operandIdentityKey(operand));
@@ -920,9 +968,6 @@ const OperandC: FC<
 			<OperationSourceC
 				projectId={projectId}
 				source={operand}
-				onDragStart={() =>
-					dispatch(projectActions.selectOutline({ projectId, selection: operand }))
-				}
 				render={
 					<OperationTarget
 						enabled={navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
@@ -996,11 +1041,11 @@ const InlineEditor: FC<{
 			</WorkspaceItemRowLabelContainer>
 			<div className={styles.inlineEditorHelp}>
 				<button type="submit" className={getWorkspaceItemRowButtonClassName({})}>
-					<kbd>{formatForDisplay("Enter")}</kbd>
+					<kbd>{formatForDisplaySorted("Enter")}</kbd>
 					<span className={styles.inlineEditorShortcutLabel}> to Save</span>
 				</button>
 				<button type="button" className={getWorkspaceItemRowButtonClassName({})} onClick={onExit}>
-					<kbd>{formatForDisplay("Escape")}</kbd>
+					<kbd>{formatForDisplaySorted("Escape")}</kbd>
 					<span className={styles.inlineEditorShortcutLabel}> to Cancel</span>
 				</button>
 			</div>
@@ -1043,6 +1088,9 @@ const CommitRow: FC<
 		dryRunCommit: Commit | null;
 	} & ComponentProps<"div">
 > = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
+
 	const isHighlighted = useAppSelector((state) =>
 		selectProjectHighlightedCommitIds(state, projectId).includes(commit.id),
 	);
@@ -1165,6 +1213,7 @@ const CommitRow: FC<
 				}),
 			}),
 		);
+		focusSelectionScope("outline");
 	};
 
 	const startEditing = () => {
@@ -1219,6 +1268,12 @@ const CommitRow: FC<
 	const composeCommitHere = () => {
 		setCommitTarget();
 		focusCommitMessageInput();
+	};
+
+	const openCommitInBrowser = async (): Promise<void> => {
+		if (!mforgeUrl) return;
+
+		await window.lite.openInWebBrowser(mforgeUrl.url);
 	};
 
 	const title = commitTitle(commitWithOptimisticMessage.message);
@@ -1277,6 +1332,12 @@ const CommitRow: FC<
 					onSelect: () => window.lite.clipboardWriteText(body ?? ""),
 				}),
 			],
+		}),
+		nativeMenuItem({
+			label: mforgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
+			enabled: mforgeUrl !== null,
+			accelerator: toElectronAccelerator(outlineHotkeys.openCommitInBrowser.hotkey),
+			onSelect: openCommitInBrowser,
 		}),
 		insertBlankCommitMenuItem(insertBlankCommit, "above"),
 		nativeMenuSeparator,
@@ -1441,7 +1502,7 @@ const ChangesSectionRow: FC<{
 	lineStats: LineStats | null;
 	projectId: string;
 }> = ({ changes, lineStats, projectId }) => {
-	const operand = changesSectionOperand;
+	const operand = uncommittedChangesOperand;
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -1456,8 +1517,21 @@ const ChangesSectionRow: FC<{
 		enterAbsorbMode(operand, { type: "all" });
 	};
 
+	const cutChanges = () => {
+		dispatch(
+			projectActions.enterTransferMode({
+				projectId,
+				mode: keyboardTransferOperationMode({
+					source: operand,
+					operationType: "into",
+				}),
+			}),
+		);
+		focusSelectionScope("outline");
+	};
+
 	const composeCommitMessage = () => {
-		dispatch(projectActions.selectOutline({ projectId, selection: changesSectionOperand }));
+		dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
 		focusCommitMessageInput();
 	};
 
@@ -1474,6 +1548,12 @@ const ChangesSectionRow: FC<{
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitMessageFromChanges.hotkey),
 			onSelect: composeCommitMessage,
 			enabled: isDefaultMode,
+		}),
+		nativeMenuItem({
+			label: "Cut Changes",
+			enabled: changes.length > 0,
+			onSelect: cutChanges,
+			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
@@ -1672,7 +1752,7 @@ const Changes: FC<{
 	});
 	const lineStats = getLineStats(treeChangeDiffs.map((result) => result.data));
 
-	const operand = changesSectionOperand;
+	const operand = uncommittedChangesOperand;
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
 	const isDefaultMode = useAppSelector(
@@ -1786,9 +1866,14 @@ const Changes: FC<{
 		},
 	]);
 
-	const focusCommitMessageHotkeyLabel = formatForDisplay(
+	useHotkey("Escape", () => focusSelectionScope("outline"), {
+		target: commitTextareaRef,
+		conflictBehavior: "allow",
+	});
+
+	const commitTextareaLabel = `Compose commit message ${formatForDisplaySorted(
 		outlineHotkeys.composeCommitMessage.hotkey,
-	);
+	)}`;
 
 	return (
 		<TreeItem
@@ -1810,17 +1895,12 @@ const Changes: FC<{
 				<textarea
 					id={commitMessageInputId}
 					ref={commitTextareaRef}
-					aria-label="Compose commit message"
+					aria-label={commitTextareaLabel}
 					disabled={!isDefaultMode}
 					readOnly={isCommitOrAmendPending}
-					placeholder={`Compose commit message ${focusCommitMessageHotkeyLabel}`}
-					className={classes("text-13", styles.commitTextarea)}
+					placeholder={commitTextareaLabel}
+					className={classes("text-13", "text-body", styles.commitTextarea)}
 					onFocus={selectChanges}
-					onKeyDown={(event) => {
-						if (event.key !== "Escape") return;
-						event.preventDefault();
-						focusSelectionScope("outline");
-					}}
 				/>
 
 				<div className={styles.commitControlsFooter}>
@@ -1934,12 +2014,8 @@ const addSegmentToPartialStackState = (
 	branchCount: segment.refName ? state.branchCount + 1 : state.branchCount,
 });
 
-const partialStackPushDisabledReason = (partialStackState: PartialStackState): string | null =>
-	partialStackState.hasConflicts
-		? "Resolve conflicts before pushing"
-		: !partialStackState.requiresPush
-			? "Nothing to push"
-			: null;
+const partialStackPushDisabled = (partialStackState: PartialStackState): boolean =>
+	!partialStackState.requiresPush || partialStackState.hasConflicts;
 
 const partialStackStateFromSegments = (segments: Array<Segment>): PartialStackState =>
 	segments.reduce(addSegmentToPartialStackState, emptyPartialStackState);
@@ -2012,6 +2088,9 @@ const BranchRow: FC<
 	isTopSegment,
 	...restProps
 }) => {
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
+
 	const dispatch = useAppDispatch();
 	const branchOperandV: BranchOperand = {
 		stackId,
@@ -2100,6 +2179,19 @@ const BranchRow: FC<
 		focusCommitMessageInput();
 	};
 
+	const cutBranch = () => {
+		dispatch(
+			projectActions.enterTransferMode({
+				projectId,
+				mode: keyboardTransferOperationMode({
+					source: operand,
+					operationType: "into",
+				}),
+			}),
+		);
+		focusSelectionScope("outline");
+	};
+
 	const insertBlankCommit = (side: "above" | "below") => {
 		commitInsertBlankMutation.mutate({
 			projectId,
@@ -2159,17 +2251,15 @@ const BranchRow: FC<
 		});
 	};
 
-	const pushStackDisabledReason = pushStackMutation.isPending
-		? "Pushing"
-		: partialStackPushDisabledReason(partialStackState);
-	const canPushStack = pushStackDisabledReason === null;
-	const pushButtonLabel = pushesMultipleBranches
-		? partialStackState.pushWithForce
-			? "Force push this and all branches below"
-			: "Push this and all branches below"
-		: partialStackState.pushWithForce
-			? "Force push branch"
-			: "Push branch";
+	const openPRInBrowser = async (): Promise<void> => {
+		if (mforgeUrl == null) return;
+
+		await window.lite.openInWebBrowser(mforgeUrl);
+	};
+
+	const pushStackDisabled =
+		pushStackMutation.isPending || partialStackPushDisabled(partialStackState);
+
 	const pushMenuLabel = pushesMultipleBranches
 		? partialStackState.pushWithForce
 			? "Force Push With Branches Below"
@@ -2181,7 +2271,7 @@ const BranchRow: FC<
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: pushMenuLabel,
-			enabled: canPushStack,
+			enabled: !pushStackDisabled,
 			accelerator: toElectronAccelerator(outlineHotkeys.pushStack.hotkey),
 			onSelect: pushStack,
 		}),
@@ -2191,6 +2281,11 @@ const BranchRow: FC<
 			enabled: !isRenamePending,
 			accelerator: toElectronAccelerator(outlineHotkeys.renameBranch.hotkey),
 			onSelect: startEditing,
+		}),
+		nativeMenuItem({
+			label: "Cut Branch",
+			onSelect: cutBranch,
+			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
 		}),
 		nativeMenuItem({
 			label: "Copy Branch Name",
@@ -2208,6 +2303,12 @@ const BranchRow: FC<
 			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
 			onSelect: setCommitTarget,
 			enabled: isDefaultMode,
+		}),
+		nativeMenuItem({
+			label: "Open In Browser",
+			enabled: mforgeUrl !== null,
+			accelerator: toElectronAccelerator(outlineHotkeys.openPRInBrowser.hotkey),
+			onSelect: openPRInBrowser,
 		}),
 		insertBlankCommitMenuItem(insertBlankCommit, "below"),
 		nativeMenuSeparator,
@@ -2278,7 +2379,7 @@ const BranchRow: FC<
 					</WorkspaceItemRowLabelContainer>
 
 					<div className={classes("text-13", styles.branchLabelMeta)}>
-						<span className={workspaceItemRowStyles.fadedText}>
+						<span className={classes(workspaceItemRowStyles.fadedText, styles.branchLabelMetaItem)}>
 							{Match.value(pushStatus).pipe(
 								Match.when("nothingToPush", () => "Nothing to push"),
 								Match.when("unpushedCommits", () => "Some unpushed"),
@@ -2298,38 +2399,61 @@ const BranchRow: FC<
 							</span>
 						)}
 
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								aria-label={pushButtonLabel}
-								onClick={pushStack}
-								className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
-								// We pass `disabled` here because we want to disable the button, not
-								// the tooltip. Other props should be passed above.
-								render={<Button focusableWhenDisabled disabled={!canPushStack} />}
-							>
-								{pushStackMutation.isPending ? (
-									<Icon name="spinner" />
-								) : pushesMultipleBranches ? (
-									<Icon name="arrow-double-line-up" />
-								) : (
-									<Icon name="arrow-line-up" />
-								)}
-								Push
-							</Tooltip.Trigger>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
-										{pushStackDisabledReason ?? pushButtonLabel}
-									</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
+						{partialStackState.requiresPush &&
+							(() => {
+								const pushStackDisabledReason = pushStackMutation.isPending
+									? "pushing"
+									: partialStackState.hasConflicts
+										? "disabled due to conflicts"
+										: null;
+
+								const pushButtonLabel = `${
+									pushesMultipleBranches
+										? partialStackState.pushWithForce
+											? "Force push this and all branches below"
+											: "Push this and all branches below"
+										: partialStackState.pushWithForce
+											? "Force push branch"
+											: "Push branch"
+								}${pushStackDisabledReason !== null ? ` (${pushStackDisabledReason})` : ""}`;
+
+								return (
+									<Tooltip.Root>
+										<Tooltip.Trigger
+											aria-label={pushButtonLabel}
+											onClick={pushStack}
+											className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
+											// We pass `disabled` here because we want to disable the button, not
+											// the tooltip. Other props should be passed above.
+											render={<Button focusableWhenDisabled disabled={pushStackDisabled} />}
+										>
+											Push
+											{pushStackMutation.isPending ? (
+												<Icon name="spinner" />
+											) : pushesMultipleBranches ? (
+												<Icon size={12} name="arrow-double-up" />
+											) : (
+												<Icon size={12} name="arrow-up" />
+											)}
+										</Tooltip.Trigger>
+										<Tooltip.Portal>
+											<Tooltip.Positioner sideOffset={4}>
+												<Tooltip.Popup
+													render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}
+												>
+													{pushButtonLabel}
+												</Tooltip.Popup>
+											</Tooltip.Positioner>
+										</Tooltip.Portal>
+									</Tooltip.Root>
+								);
+							})()}
 					</div>
 				</div>
 			)}
 
 			{isDefaultMode && (
-				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar forceVisible />}>
+				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
 					<Toolbar.Button
 						aria-label="Branch menu"
 						onClick={(event) => {

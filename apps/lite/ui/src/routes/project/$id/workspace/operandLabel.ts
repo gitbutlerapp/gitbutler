@@ -13,7 +13,7 @@ export const operandLabel = ({ operand, headInfo }: { operand: Operand; headInfo
 				return assert(segment?.refName).displayName;
 			},
 			File: ({ path }) => path,
-			ChangesSection: () => "Changes",
+			UncommittedChanges: () => "Uncommitted changes",
 			Commit: ({ commitId }) => {
 				const commit = findCommit({ headInfo, commitId });
 				return commit

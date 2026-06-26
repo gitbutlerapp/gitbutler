@@ -868,6 +868,14 @@ pub fn branch_checkout_new_with_perm(
     branch_checkout_with_perm(ctx, branch, perm)
 }
 
+/// Switch to the workspace reference
+#[but_api(napi, try_from = json::BranchCheckoutResult)]
+#[instrument(err(Debug))]
+pub fn workspace_checkout(ctx: &mut but_ctx::Context) -> anyhow::Result<BranchCheckoutResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    workspace_checkout_with_perm(ctx, guard.write_permission())
+}
+
 /// Checks out the GitButler workspace reference under caller-held exclusive repository access.
 pub fn workspace_checkout_with_perm(
     ctx: &mut but_ctx::Context,

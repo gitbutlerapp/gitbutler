@@ -3,12 +3,7 @@ import {
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import {
-	useBranchCreate,
-	useWorkspaceIntegrateUpstream,
-	useRestoreSnapshot,
-} from "#ui/api/mutations.ts";
-import { findBranchOperandByRef } from "#ui/api/ref-info.ts";
+import { useRestoreSnapshot } from "#ui/api/mutations.ts";
 import {
 	focusAdjacentSelectionScope,
 	focusSelectionScope,
@@ -18,7 +13,7 @@ import {
 } from "#ui/selection-scopes.ts";
 import {
 	projectActions,
-	selectProjectDetailsFullscreen,
+	selectProjectDetailsFullWindow,
 	selectProjectDialogState,
 	selectProjectFilesVisible,
 	selectProjectOutlineModeState,
@@ -27,14 +22,11 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
-import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { BottomUpdate, ProjectForFrontend, RefInfo, Segment } from "@gitbutler/but-sdk";
+import { ProjectForFrontend, RefInfo, Segment } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
-	useIsFetching,
-	useIsMutating,
 	useQueries,
 	useQuery,
 	useSuspenseQuery,
@@ -42,31 +34,31 @@ import {
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { type FC, Component, ReactNode, useDeferredValue } from "react";
+import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
-	changesSectionOperand,
 	commitOperand,
-	Operand,
 	operandContains,
 	operandEquals,
 	operandIdentityKey,
 	type BranchOperand,
+	type Operand,
+	uncommittedChangesOperand,
 } from "#ui/operands.ts";
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
-import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree.tsx";
-import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { useActiveElement } from "#ui/focus.ts";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { buildIndexByKey, NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import { reverse } from "effect/Array";
-import { getOperations } from "#ui/operations/operation.ts";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
+import { Outline } from "./Outline.tsx";
+import { getOperations } from "#ui/operations/operation.ts";
+import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { reverse } from "effect/Array";
+
+// This must be unique as to not collide with other IDs, and stable because it's
+// stored in local storage.
+type PanelId = "outline-panel" | "details-panel";
 
 const toggleFiles =
 	({
@@ -89,15 +81,15 @@ const toggleFiles =
 
 const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
-	const detailsFullscreen = useAppSelector((state) =>
-		selectProjectDetailsFullscreen(state, projectId),
+	const detailsFullWindow = useAppSelector((state) =>
+		selectProjectDetailsFullWindow(state, projectId),
 	);
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const activeElement = useActiveElement();
 	const focusedSelectionScope = getFocusedSelectionScope(activeElement);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const outlineVisible = !detailsFullscreen;
+	const outlineVisible = !detailsFullWindow;
 
 	const restoreSnapshotMutation = useRestoreSnapshot({ projectId });
 
@@ -164,23 +156,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	]);
 };
 
-const ActivitySpinner: FC = () => {
-	const fetchingCount = useIsFetching();
-	const mutatingCount = useIsMutating();
-
-	const isFetching = fetchingCount > 0;
-	const isMutating = mutatingCount > 0;
-
-	const status = Match.value({ isFetching, isMutating }).pipe(
-		Match.when({ isFetching: true, isMutating: true }, () => "Syncing"),
-		Match.when({ isFetching: true }, () => "Loading"),
-		Match.when({ isMutating: true }, () => "Saving"),
-		Match.orElse(() => null),
-	);
-
-	return status !== null && <Icon name="spinner" aria-label={status} />;
-};
-
 const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> => {
 	const segmentItems = (stackId: string, segment: Segment): Array<Operand> => [
 		...(segment.refName
@@ -190,7 +165,7 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 	];
 
 	return [
-		changesSectionOperand,
+		uncommittedChangesOperand,
 
 		...reverse(headInfo?.stacks ?? []).flatMap((stack) => {
 			// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
@@ -243,8 +218,6 @@ const useOutlineNavigationIndex = ({
 	return { items: filteredItems, indexByKey };
 };
 
-const isMac = window.lite.platform === "darwin";
-
 type ProjectPickerProps = {
 	open: boolean;
 	projects: Array<ProjectForFrontend>;
@@ -292,8 +265,8 @@ const WorkspacePage: FC = () => {
 
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
-	const detailsFullscreen = useAppSelector((state) =>
-		selectProjectDetailsFullscreen(state, projectId),
+	const detailsFullWindow = useAppSelector((state) =>
+		selectProjectDetailsFullWindow(state, projectId),
 	);
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -330,112 +303,36 @@ const WorkspacePage: FC = () => {
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
-	const openApplyBranchPicker = () => {
-		dispatch(projectActions.openApplyBranchPicker({ projectId }));
-	};
-
 	const openProjectPicker = () => {
 		dispatch(projectActions.openProjectPicker({ projectId }));
 	};
 
-	const branchCreateMutation = useBranchCreate();
-	const createIndependentBranch = () => {
-		branchCreateMutation.mutate(
-			{
-				projectId,
-				newRef: null,
-				placement: { type: "independent" },
-			},
-			{
-				onSuccess: (response) => {
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: response.newRef.fullNameBytes,
-					});
-					if (newBranch) selectBranch(newBranch);
-				},
-			},
-		);
-	};
-
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const rebaseUpdates =
-		headInfo?.stacks.flatMap((stack): Array<BottomUpdate> => {
-			const relativeTo = stackBottomRelativeTo(stack);
-			return relativeTo ? [{ kind: "rebase", selector: relativeTo }] : [];
-		}) ?? [];
-	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream();
-	const updateWorkspace = () => {
-		workspaceIntegrateUpstreamMutation.mutate({ projectId, updates: rebaseUpdates, dryRun: false });
-	};
-	const toggleDetailsFullscreen = () => {
+	const toggleDetailsFullWindow = () => {
 		if (
-			!detailsFullscreen &&
+			!detailsFullWindow &&
 			getFocusedSelectionScope(document.activeElement) === ("outline" satisfies SelectionScope)
 		)
 			requestAnimationFrame(() => focusSelectionScope("diff"));
 
-		dispatch(projectActions.toggleDetailsFullscreen({ projectId }));
+		dispatch(projectActions.toggleDetailsFullWindow({ projectId }));
 	};
-	// This should be false if all stacks are up-to-date, but we're currently
-	// lacking this information:
-	// https://linear.app/gitbutler/issue/GB-1560/add-information-about-the-relation-to-the-upstream-to-the-head-info
-	const canUpdateWorkspace =
-		outlineMode._tag === "Default" &&
-		rebaseUpdates.length > 0 &&
-		!workspaceIntegrateUpstreamMutation.isPending;
-
-	const canCreateIndependentBranch =
-		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
-
-	const canApplyBranch = outlineMode._tag === "Default";
 
 	useHotkeys([
 		{
-			hotkey: workspaceHotkeys.applyBranch.hotkey,
-			callback: openApplyBranchPicker,
+			hotkey: workspaceHotkeys.toggleDetailsFullWindow.hotkey,
+			callback: toggleDetailsFullWindow,
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.applyBranch.meta,
-				enabled: canApplyBranch,
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.createIndependentBranch.hotkey,
-			callback: createIndependentBranch,
-			options: {
-				conflictBehavior: "allow",
-				enabled: canCreateIndependentBranch,
-				meta: workspaceHotkeys.createIndependentBranch.meta,
-				ignoreInputs: true,
-				requireReset: true,
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.updateWorkspace.hotkey,
-			callback: updateWorkspace,
-			options: {
-				conflictBehavior: "allow",
-				enabled: canUpdateWorkspace,
-				meta: workspaceHotkeys.updateWorkspace.meta,
-				ignoreInputs: true,
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.toggleDetailsFullscreen.hotkey,
-			callback: toggleDetailsFullscreen,
-			options: {
-				conflictBehavior: "allow",
-				meta: workspaceHotkeys.toggleDetailsFullscreen.meta,
+				meta: workspaceHotkeys.toggleDetailsFullWindow.meta,
 				ignoreInputs: true,
 			},
 		},
 		{
 			hotkey: "Escape",
-			callback: toggleDetailsFullscreen,
+			callback: toggleDetailsFullWindow,
 			options: {
 				conflictBehavior: "allow",
-				enabled: detailsFullscreen,
+				enabled: detailsFullWindow,
 			},
 		},
 	]);
@@ -474,151 +371,53 @@ const WorkspacePage: FC = () => {
 		meta: globalHotkeys.selectProject.meta,
 	});
 
+	const layoutId = `project=${projectId}:workspace`;
+	const panelIds: Array<PanelId> = detailsFullWindow
+		? ["details-panel"]
+		: ["outline-panel", "details-panel"];
+	const workspaceLayout = useDefaultLayout({
+		id: layoutId,
+		panelIds,
+	});
+
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
 	return (
 		<>
-			<div className={classes(styles.page, detailsFullscreen && styles.pageDetailsFullscreen)}>
-				{!detailsFullscreen && (
-					<div className={styles.outlinePanel}>
-						<header className={styles.workspaceControls}>
-							<div className={classes(isMac && styles.workspaceControlsMacSpacer)} />
-							<div className={styles.workspaceControlsLeft}>
-								<button
-									type="button"
-									className={classes("text-15", "text-bold", styles.workspaceName)}
-									onClick={openProjectPicker}
-								>
-									<span className={styles.workspaceNameLabel}>{selectedProject.title}</span>
-									<Icon name="chevron-down" className={styles.workspaceNameChevron} />
-								</button>
-								<ActivitySpinner />
-							</div>
-
-							<div className={styles.workspaceControlsActions}>
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label={workspaceHotkeys.updateWorkspace.meta.name}
-										className={getButtonClassName({ iconOnly: true })}
-										onClick={updateWorkspace}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={!canUpdateWorkspace} />}
-									>
-										<Icon name="arrow-line-down" />
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup
-												render={<TooltipPopup kbd={workspaceHotkeys.updateWorkspace.hotkey} />}
-											>
-												{workspaceHotkeys.updateWorkspace.meta.name}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label={workspaceHotkeys.createIndependentBranch.meta.name}
-										className={getButtonClassName({ iconOnly: true })}
-										onClick={createIndependentBranch}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
-									>
-										{branchCreateMutation.isPending ? (
-											<Icon name="spinner" />
-										) : (
-											<Icon name="plus" />
-										)}
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup
-												render={
-													<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />
-												}
-											>
-												{workspaceHotkeys.createIndependentBranch.meta.name}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label={workspaceHotkeys.applyBranch.meta.name}
-										className={getButtonClassName({ iconOnly: true })}
-										onClick={openApplyBranchPicker}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={!canApplyBranch} />}
-									>
-										<Icon name="branch" />
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup
-												render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
-											>
-												{workspaceHotkeys.applyBranch.meta.name}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-							</div>
-						</header>
-
-						<div className={styles.navContainer}>
-							<ToggleGroup
-								render={<ToggleGroupStyles />}
-								aria-label="Navigation"
-								value={["workspace"]}
-							>
-								<Toggle render={<ToggleStyles />} value="workspace">
-									<Icon name="workbench" />
-									Workspace
-								</Toggle>
-								<Toggle render={<ToggleStyles />} value="upstream" disabled>
-									<Icon name="inbox" />
-									Upstream
-								</Toggle>
-								<Toggle render={<ToggleStyles />} value="branches" disabled>
-									<Icon name="branch" />
-									Branches
-								</Toggle>
-							</ToggleGroup>
-						</div>
-
-						<OutlineTree
-							id={"outline" satisfies SelectionScope}
-							data-selection-scope
-							tabIndex={0}
-							navigationIndex={outlineNavigationIndex}
-							absorptionTargetKeys={absorptionTargetKeys}
-							// Focus on page load.
-							ref={(el) => {
-								// Don't steal focus if this component is mounted later on.
-								if (document.activeElement !== document.body) return;
-
-								el?.focus({ focusVisible: false });
-							}}
-						/>
-					</div>
+			<Group
+				id={layoutId}
+				className={styles.page}
+				defaultLayout={workspaceLayout.defaultLayout}
+				onLayoutChanged={workspaceLayout.onLayoutChanged}
+			>
+				{!detailsFullWindow && (
+					<>
+						<Panel
+							id={"outline-panel" satisfies PanelId}
+							className={styles.panel}
+							minSize={330}
+							defaultSize={400}
+							groupResizeBehavior="preserve-pixel-size"
+						>
+							<Outline
+								projectId={projectId}
+								project={selectedProject}
+								navigationIndex={outlineNavigationIndex}
+								absorptionTargetKeys={absorptionTargetKeys}
+							/>
+						</Panel>
+						<Separator className={styles.resizeHandle} />
+					</>
 				)}
 
-				<Details
-					key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
-					style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}
-					outlineSelection={deferredOutlineSelection}
-					detailsFullscreen={detailsFullscreen}
-					onDetailsFullscreenChange={(fullscreen) =>
-						dispatch(projectActions.setDetailsFullscreen({ projectId, fullscreen }))
-					}
-				/>
-			</div>
+				<Panel id={"details-panel" satisfies PanelId} className={styles.panel}>
+					<Details
+						key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
+						outlineSelection={deferredOutlineSelection}
+					/>
+				</Panel>
+			</Group>
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({

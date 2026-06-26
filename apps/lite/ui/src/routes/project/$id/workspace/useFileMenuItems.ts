@@ -5,9 +5,14 @@ import {
 	useOpenInEditor,
 } from "#ui/api/mutations.ts";
 import { listEditorsQueryOptions, listProjectsQueryOptions } from "#ui/api/queries.ts";
-import { changesFileHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import {
+	changesFileHotkeys,
+	selectionOperationHotkeys,
+	toElectronAccelerator,
+} from "#ui/hotkeys.ts";
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
 import { fileOperand, type FileOperand } from "#ui/operands.ts";
+import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
@@ -39,6 +44,18 @@ export const useFileMenuItems = ({
 	const commitDiscardChanges = useCommitDiscardChanges();
 	const discardWorktreeChanges = useDiscardWorktreeChanges();
 	const openInEditor = useOpenInEditor();
+	const cutFile = () => {
+		dispatch(
+			projectActions.enterTransferMode({
+				projectId,
+				mode: keyboardTransferOperationMode({
+					source: fileOperand(operand),
+					operationType: "into",
+				}),
+			}),
+		);
+		focusSelectionScope("outline");
+	};
 
 	const menuItemGroups: Array<NonEmptyArray<NativeMenuItem>> = [
 		[
@@ -76,6 +93,17 @@ export const useFileMenuItems = ({
 				],
 			}),
 		],
+		...(change && operand.parent._tag !== "Branch"
+			? [
+					[
+						nativeMenuItem({
+							label: "Cut File",
+							onSelect: cutFile,
+							accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
+						}),
+					] satisfies NonEmptyArray<NativeMenuItem>,
+				]
+			: []),
 		...(change
 			? Match.value(operand).pipe(
 					Match.withReturnType<Array<NonEmptyArray<NativeMenuItem>>>(),
@@ -111,7 +139,7 @@ export const useFileMenuItems = ({
 							],
 						];
 					}),
-					Match.when({ parent: { _tag: "Changes" } }, (operand) => {
+					Match.when({ parent: { _tag: "UncommittedChanges" } }, (operand) => {
 						const absorb = () => {
 							dispatch(
 								projectActions.enterAbsorbMode({

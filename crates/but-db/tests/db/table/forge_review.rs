@@ -128,6 +128,7 @@ fn handles_optional_fields() -> anyhow::Result<()> {
         source_branch: "feature".to_string(),
         target_branch: "main".to_string(),
         sha: "abc123".to_string(),
+        integration_commit_shas: "[\"deadbeef\"]".to_string(),
         created_at: None,
         modified_at: None,
         merged_at: None,
@@ -178,12 +179,90 @@ fn upsert_updates_existing_review() -> anyhow::Result<()> {
     updated_review.author = Some("updated-author".to_string());
     updated_review.draft = true;
     updated_review.sha = "updatedsha123".to_string();
+    updated_review.integration_commit_shas = "[\"updated-landing-sha\"]".to_string();
     updated_review.reviewers = "[\"alice\"]".to_string();
     updated_review.head_repo_is_fork = true;
     db.forge_reviews_mut()?.upsert(updated_review.clone())?;
 
     let reviews = db.forge_reviews().list_all()?;
     assert_eq!(reviews, [updated_review]);
+
+    Ok(())
+}
+
+#[test]
+fn delete_merged_before_prunes_only_stale_merged_reviews() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let cutoff = chrono::DateTime::from_timestamp(2_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    let mut stale_merged = forge_review(1, "Stale merged PR", "stale-merged");
+    stale_merged.merged_at = Some(cutoff);
+    let mut recent_merged = forge_review(2, "Recent merged PR", "recent-merged");
+    recent_merged.merged_at = Some(cutoff + chrono::Duration::seconds(1));
+    let open = forge_review(3, "Open PR", "open");
+
+    db.forge_reviews_mut()?
+        .set_all(vec![stale_merged, recent_merged.clone(), open.clone()])?;
+    db.forge_reviews_mut()?.delete_merged_before(cutoff)?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(
+        reviews,
+        [recent_merged, open],
+        "only merged reviews at or before the cutoff should be pruned"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn reconcile_listed_prunes_stale_rows() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let cutoff = chrono::DateTime::from_timestamp(2_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    let stale_open = forge_review(1, "Stale open PR", "stale-open");
+    let mut listed_open = forge_review(2, "Cached open PR", "listed-open");
+    let mut closed = forge_review(3, "Closed PR", "closed");
+    closed.closed_at = Some(cutoff);
+    let mut recent_merged = forge_review(4, "Recent merged PR", "recent-merged");
+    recent_merged.merged_at = Some(cutoff + chrono::Duration::seconds(1));
+    let mut old_merged = forge_review(5, "Old merged PR", "old-merged");
+    old_merged.merged_at = Some(cutoff);
+
+    db.forge_reviews_mut()?.set_all(vec![
+        stale_open,
+        listed_open.clone(),
+        closed.clone(),
+        recent_merged.clone(),
+        old_merged,
+    ])?;
+
+    listed_open.title = "Fresh listed open PR".to_string();
+    db.forge_reviews_mut()?
+        .reconcile_listed(vec![listed_open.clone()], cutoff)?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(
+        reviews.len(),
+        3,
+        "stale open and old merged reviews should be pruned"
+    );
+    assert!(
+        reviews.contains(&listed_open),
+        "listed open review should be updated"
+    );
+    assert!(
+        reviews.contains(&closed),
+        "closed review should be retained when absent from open list"
+    );
+    assert!(
+        reviews.contains(&recent_merged),
+        "recent merged review should be retained for integration hints"
+    );
 
     Ok(())
 }
@@ -200,6 +279,7 @@ fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
         source_branch: source_branch.to_string(),
         target_branch: "main".to_string(),
         sha: "abc123def456".to_string(),
+        integration_commit_shas: "[\"deadbeef\"]".to_string(),
         created_at: Some(
             chrono::DateTime::from_timestamp(1000000, 0)
                 .unwrap()

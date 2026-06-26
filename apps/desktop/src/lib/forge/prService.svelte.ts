@@ -17,6 +17,23 @@ import type { StartQueryActionCreatorOptions } from "@reduxjs/toolkit/query";
 
 export const PR_SERVICE = new InjectionToken<PrService>("PrService");
 
+const pendingReviewFetches = new Map<string, Set<Promise<unknown>>>();
+
+function trackReviewFetch(projectId: string, pending: Promise<unknown>) {
+	let pendingForProject = pendingReviewFetches.get(projectId);
+	if (!pendingForProject) {
+		pendingForProject = new Set();
+		pendingReviewFetches.set(projectId, pendingForProject);
+	}
+	pendingForProject.add(pending);
+	pending.finally(() => {
+		pendingForProject.delete(pending);
+		if (pendingForProject.size === 0) {
+			pendingReviewFetches.delete(projectId);
+		}
+	});
+}
+
 export class PrService {
 	loading = writable(false);
 	private backendApi: ReturnType<typeof injectBackendEndpoints>;
@@ -81,6 +98,14 @@ export class PrService {
 			options,
 		);
 		return review ? mapForgeReviewToPullRequest(review) : undefined;
+	}
+
+	async waitForRefreshes(projectId: string): Promise<void> {
+		let pending = pendingReviewFetches.get(projectId);
+		while (pending && pending.size > 0) {
+			await Promise.allSettled([...pending]);
+			pending = pendingReviewFetches.get(projectId);
+		}
 	}
 
 	get(projectId: string, number: number, options?: StartQueryActionCreatorOptions) {
@@ -199,6 +224,10 @@ function injectBackendEndpoints(api: BackendApi) {
 				extraOptions: { command: "get_review" },
 				query: (args) => args,
 				providesTags: (_result, _error, args) => providesItem(ReduxTag.PullRequests, args.reviewId),
+				onQueryStarted: (args, { queryFulfilled }) => {
+					const pending = queryFulfilled.catch(() => undefined);
+					trackReviewFetch(args.projectId, pending);
+				},
 			}),
 			getMergeStatus: build.query<ReviewMergeStatus, { projectId: string; reviewId: number }>({
 				extraOptions: { command: "get_review_merge_status" },

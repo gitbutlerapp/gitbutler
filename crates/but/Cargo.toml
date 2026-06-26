@@ -109,7 +109,6 @@ clap = { workspace = true, features = [
 clap_complete = "4.6.2"
 chrono.workspace = true
 bstr.workspace = true
-regex.workspace = true
 anyhow.workspace = true
 rmcp.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
@@ -147,7 +146,6 @@ self_cell.workspace = true
 rand.workspace = true
 ratatui-textarea = "0.8.0"
 arboard = { version = "3.6.1", default-features = false }
-ansi-to-tui = "8.0.1"
 textwrap = "0.16.2"
 syntect = { version = "5.3.0", default-features = false, features = [
     "default-syntaxes",

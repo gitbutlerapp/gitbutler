@@ -1,12 +1,18 @@
 //! Functions that operate on the workspace.
 
+use std::{borrow::Cow, collections::HashSet};
+
 use crate::WorkspaceState;
 use but_api_macros::but_api;
-use but_core::{DryRun, RefMetadata, is_workspace_ref_name, sync::RepoExclusive};
+use but_core::{
+    DryRun, RefMetadata, extract_remote_name_and_short_name, is_workspace_ref_name,
+    sync::RepoExclusive,
+};
+use but_forge::ForgeReview;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_serde::BStringForFrontend;
-use but_workspace::IntegrateUpstreamOutcome;
-use tracing::instrument;
+use but_workspace::{IntegrateUpstreamOutcome, ReviewIntegrationHint};
+use tracing::{instrument, warn};
 
 /// Result of integrating upstream changes into the current workspace.
 #[derive(Debug, Clone)]
@@ -94,6 +100,83 @@ pub mod json {
             })
         }
     }
+}
+
+fn target_branch_name(
+    symbolic_remote_names: &[String],
+    project_meta: &but_core::ref_metadata::ProjectMeta,
+) -> Option<String> {
+    let target_ref = project_meta.target_ref.as_ref()?;
+    let mut symbolic_remote_names = symbolic_remote_names.iter().collect::<Vec<_>>();
+    symbolic_remote_names.sort_by_key(|name| name.len());
+    let remote_names = symbolic_remote_names
+        .iter()
+        .map(|name| Cow::Borrowed(name.as_str().into()))
+        .collect();
+    Some(
+        extract_remote_name_and_short_name(target_ref.as_ref(), &remote_names)
+            .map(|(_, short_name)| short_name.to_string())
+            .unwrap_or_else(|| target_ref.shorten().to_string()),
+    )
+}
+
+fn review_integration_hints_from_reviews(
+    target_branch_name: &str,
+    incoming_commit_ids: &HashSet<String>,
+    reviews: impl IntoIterator<Item = ForgeReview>,
+) -> Vec<ReviewIntegrationHint> {
+    let mut seen = HashSet::new();
+
+    reviews
+        .into_iter()
+        .filter(|review| {
+            review.is_merged()
+                && review.target_branch == target_branch_name
+                && review
+                    .integration_commit_shas
+                    .iter()
+                    .any(|sha| incoming_commit_ids.contains(sha))
+        })
+        .filter_map(|review| gix::ObjectId::from_hex(review.sha.as_bytes()).ok())
+        .filter(|head_commit_at_merge| seen.insert(*head_commit_at_merge))
+        .map(|head_commit_at_merge| ReviewIntegrationHint {
+            head_commit_at_merge,
+        })
+        .collect()
+}
+
+fn forge_review_integration_hints(
+    workspace: &but_graph::Workspace,
+    project_meta: &but_core::ref_metadata::ProjectMeta,
+    db: &but_db::DbHandle,
+) -> anyhow::Result<Vec<ReviewIntegrationHint>> {
+    let Some(target_branch_name) =
+        target_branch_name(&workspace.graph.symbolic_remote_names, project_meta)
+    else {
+        return Ok(vec![]);
+    };
+
+    let incoming_commit_ids = workspace
+        .incoming_target_commit_ids()?
+        .into_iter()
+        .map(|id| id.to_hex().to_string())
+        .collect::<HashSet<_>>();
+    if incoming_commit_ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let associated_reviews = db
+        .forge_reviews()
+        .list_all()?
+        .into_iter()
+        .map(but_forge::ForgeReview::try_from)
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    Ok(review_integration_hints_from_reviews(
+        &target_branch_name,
+        &incoming_commit_ids,
+        associated_reviews,
+    ))
 }
 
 /// Integrate upstream changes into the current workspace without recording an
@@ -190,13 +273,30 @@ pub fn workspace_integrate_upstream_only_with_perm(
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut meta = ctx.meta()?;
     let (workspace_state, worktree_conflicts) = {
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
         let project_meta = ctx.project_meta()?;
+        let review_hints = match forge_review_integration_hints(&ws, &project_meta, &db) {
+            Ok(review_hints) => review_hints,
+            Err(err) => {
+                warn!(
+                    ?err,
+                    "failed to derive forge review integration hints; continuing without hints"
+                );
+                Vec::new()
+            }
+        };
         let IntegrateUpstreamOutcome {
             rebase,
             ws_meta,
             project_meta,
-        } = but_workspace::integrate_upstream(&mut ws, &mut meta, project_meta, &repo, updates)?;
+        } = but_workspace::integrate_upstream_with_hints(
+            &mut ws,
+            &mut meta,
+            project_meta,
+            &repo,
+            updates,
+            &review_hints,
+        )?;
         let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 
         if dry_run.into() {
@@ -234,4 +334,150 @@ pub fn workspace_integrate_upstream_only_with_perm(
         workspace_state,
         worktree_conflicts,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{review_integration_hints_from_reviews, target_branch_name};
+    use std::collections::HashSet;
+
+    fn review(
+        sha: &str,
+        integration_commit_shas: &[&str],
+        target_branch: &str,
+        merged_at: Option<&str>,
+    ) -> but_forge::ForgeReview {
+        but_forge::ForgeReview {
+            html_url: "https://example.test/review/1".into(),
+            number: 1,
+            title: "review".into(),
+            body: None,
+            author: None,
+            labels: vec![],
+            draft: false,
+            source_branch: "feature".into(),
+            target_branch: target_branch.into(),
+            sha: sha.into(),
+            integration_commit_shas: integration_commit_shas
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            created_at: None,
+            modified_at: None,
+            merged_at: merged_at.map(str::to_owned),
+            closed_at: merged_at.map(str::to_owned),
+            repository_ssh_url: None,
+            repository_https_url: None,
+            repo_owner: None,
+            head_repo_is_fork: false,
+            reviewers: vec![],
+            unit_symbol: "#".into(),
+            last_sync_at: Default::default(),
+        }
+    }
+
+    #[test]
+    fn target_branch_name_prefers_longest_matching_remote_name() {
+        let project_meta = but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(
+                "refs/remotes/foo/bar/main"
+                    .try_into()
+                    .expect("target ref is a valid full ref name"),
+            ),
+            ..Default::default()
+        };
+        let remote_names = vec!["foo".to_string(), "foo/bar".to_string()];
+
+        assert_eq!(
+            target_branch_name(&remote_names, &project_meta).as_deref(),
+            Some("main"),
+            "the longest matching remote name should be stripped from the target ref"
+        );
+    }
+
+    #[test]
+    fn review_hints_keep_only_merged_reviews_on_the_target_branch() {
+        let hints = review_integration_hints_from_reviews(
+            "main",
+            &HashSet::from(["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()]),
+            vec![
+                review(
+                    "1234567890abcdef1234567890abcdef12345678",
+                    &["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+                    "main",
+                    Some("2026-06-24T12:00:00Z"),
+                ),
+                review(
+                    "abcdef1234567890abcdef1234567890abcdef12",
+                    &["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+                    "release",
+                    Some("2026-06-24T12:00:00Z"),
+                ),
+                review(
+                    "fedcba9876543210fedcba9876543210fedcba98",
+                    &["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+                    "main",
+                    None,
+                ),
+            ],
+        );
+
+        assert_eq!(
+            hints.len(),
+            1,
+            "only merged reviews targeting the current branch produce hints"
+        );
+        assert_eq!(
+            hints[0].head_commit_at_merge.to_hex().to_string(),
+            "1234567890abcdef1234567890abcdef12345678",
+            "the hint should use the review head SHA reported by the forge"
+        );
+    }
+
+    #[test]
+    fn review_hints_dedupe_duplicate_review_heads() {
+        let hints = review_integration_hints_from_reviews(
+            "main",
+            &HashSet::from(["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()]),
+            vec![
+                review(
+                    "1234567890abcdef1234567890abcdef12345678",
+                    &["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+                    "main",
+                    Some("2026-06-24T12:00:00Z"),
+                ),
+                review(
+                    "1234567890abcdef1234567890abcdef12345678",
+                    &["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+                    "main",
+                    Some("2026-06-24T12:00:00Z"),
+                ),
+            ],
+        );
+
+        assert_eq!(
+            hints.len(),
+            1,
+            "multiple incoming commits may map to the same merged review head"
+        );
+    }
+
+    #[test]
+    fn review_hints_ignore_reviews_without_matching_incoming_commit() {
+        let hints = review_integration_hints_from_reviews(
+            "main",
+            &HashSet::from(["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()]),
+            vec![review(
+                "1234567890abcdef1234567890abcdef12345678",
+                &["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+                "main",
+                Some("2026-06-24T12:00:00Z"),
+            )],
+        );
+
+        assert!(
+            hints.is_empty(),
+            "cached review hints should only match reviews whose landing commit is among incoming upstream commits"
+        );
+    }
 }

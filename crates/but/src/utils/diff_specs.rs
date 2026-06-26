@@ -1,5 +1,5 @@
 use anyhow::Context as _;
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BStr, BString};
 use but_core::{DiffSpec, HunkHeader, ref_metadata::StackId};
 use but_hunk_assignment::HunkAssignment;
 
@@ -58,13 +58,13 @@ impl<'a> DiffSpecBuilder<'a> {
             CliId::CommittedFile {
                 commit_id,
                 path,
-                id,
-            } => self.push_changes_from_committed_file(*commit_id, path.clone(), id),
+                id: _,
+            } => self.push_changes_from_committed_file(*commit_id, path.as_ref()),
             CliId::Branch { name, id, stack_id } => {
                 self.push_changes_from_branch(name, id, *stack_id)
             }
             CliId::Commit { commit_id, id } => self.push_changes_from_commit(*commit_id, id),
-            CliId::Uncommitted { id } => self.push_changes_from_uncommitted_area(id),
+            CliId::Uncommitted { id: _ } => self.push_changes_from_uncommitted_area(),
             CliId::Stack { id: _, stack_id } => self.push_changes_from_stack(*stack_id),
         }
     }
@@ -97,10 +97,9 @@ impl<'a> DiffSpecBuilder<'a> {
     pub fn push_changes_from_committed_file(
         &mut self,
         commit_id: gix::ObjectId,
-        path: BString,
-        _id: &ShortId,
+        path: &BStr,
     ) -> anyhow::Result<()> {
-        self.push_changes_from_path_in_commit(path.as_bstr(), commit_id, "First parent")
+        self.push_changes_from_path_in_commit(path, commit_id, "First parent")
     }
 
     pub fn push_changes_from_path_in_commit(
@@ -133,7 +132,7 @@ impl<'a> DiffSpecBuilder<'a> {
         Ok(())
     }
 
-    pub fn push_changes_from_uncommitted_area(&mut self, _id: &ShortId) -> anyhow::Result<()> {
+    pub fn push_changes_from_uncommitted_area(&mut self) -> anyhow::Result<()> {
         let changes = self.worktree_changes()?.to_vec();
         let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
             self.db.hunk_assignments_mut()?,
@@ -206,6 +205,7 @@ impl<'a> DiffSpecBuilder<'a> {
     /// for reconciling changes, whereas with overlapping hunks that is not the case.
     #[cfg(feature = "but-2")]
     pub fn reconcile_worktree_diff_specs(&mut self) -> anyhow::Result<()> {
+        use bstr::ByteSlice;
         use std::collections::HashMap;
 
         // This looks a bit odd, but we need to populate the worktree_changes cache without holding

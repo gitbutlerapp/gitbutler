@@ -18,7 +18,11 @@ use gix::{
     prelude::ObjectIdExt,
 };
 
-use crate::{RefInfo, ref_info::LocalCommitRelation, ui::PushStatus};
+use crate::{
+    RefInfo,
+    ref_info::{LocalCommit, LocalCommitRelation},
+    ui::PushStatus,
+};
 
 /// The ID of a changeset, calculated as Git hash for convenience.
 type ChangesetID = gix::ObjectId;
@@ -153,15 +157,23 @@ impl RefInfo {
             let base_commit_id = stack.segments.last().and_then(|s| s.base);
             let mut segments = stack.segments.iter_mut();
             while let Some(segment) = segments.next() {
-                let Some(topmost_unintegrated_commit) = segment
-                    .commits
-                    .first()
-                    .filter(|c| !matches!(c.relation, LocalCommitRelation::Integrated(_)))
+                // Find the topmost commit that isn't already integrated and carries changes of its
+                // own; that is the integration boundary for the squash-merge trial. Commits above it
+                // are either already integrated or introduce no changes of their own, so the trial
+                // must not mark them: otherwise a no-change commit at the tip would be treated as
+                // merged - because it borrows the cumulative content of the commits below it - and
+                // its branch deleted.
+                let Some((boundary, boundary_tree_id)) =
+                    segment.commits.iter().enumerate().find_map(|(i, c)| {
+                        let carries_changes =
+                            !matches!(c.relation, LocalCommitRelation::Integrated(_))
+                                && commit_introduces_changes(repo, c);
+                        carries_changes.then_some((i, c.tree_id))
+                    })
                 else {
                     continue;
                 };
-                let Some(changeset_id) =
-                    id_for_tree_diff(repo, base_commit_id, topmost_unintegrated_commit.tree_id)?
+                let Some(changeset_id) = id_for_tree_diff(repo, base_commit_id, boundary_tree_id)?
                 else {
                     continue;
                 };
@@ -172,8 +184,11 @@ impl RefInfo {
                     continue;
                 };
 
-                for segment in Some(segment).into_iter().chain(segments) {
-                    for commit in &mut segment.commits {
+                // Mark the boundary commit and everything below it (down to the base, across the
+                // lower segments) as integrated; leave the commits above the boundary untouched.
+                for (i, segment) in Some(segment).into_iter().chain(segments).enumerate() {
+                    let skip = if i == 0 { boundary } else { 0 };
+                    for commit in segment.commits.iter_mut().skip(skip) {
                         commit.relation = LocalCommitRelation::Integrated(squashed_commit_id)
                     }
                 }
@@ -581,6 +596,19 @@ fn should_stop(start: std::time::Instant, commit_idx: usize) -> bool {
 /// Produce a changeset ID to represent the changes between `lhs` and `rhs`, where `lhs` is
 /// the previous version of the treeish, and `rhs` is the current version of that treeish.
 /// We use the [`CURRENT_VERSION`], which must be considered when handling persisted values.
+/// Whether `commit` introduces changes of its own, i.e. its tree differs from its first
+/// parent's tree. This only compares tree ids and skips the full diff that [`id_for_tree_diff`]
+/// computes, which matters when scanning many commits. On a lookup failure we assume the commit
+/// carries changes, so a genuinely merged branch is never spared from squash-merge detection.
+fn commit_introduces_changes(repo: &gix::Repository, commit: &LocalCommit) -> bool {
+    match commit.parent_ids.first() {
+        None => !commit.tree_id.is_empty_tree(),
+        Some(parent) => id_to_tree(repo, *parent)
+            .map(|parent_tree| parent_tree.id != commit.tree_id)
+            .unwrap_or(true),
+    }
+}
+
 fn id_for_tree_diff(
     repo: &gix::Repository,
     lhs: Option<gix::ObjectId>,

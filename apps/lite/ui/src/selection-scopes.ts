@@ -369,15 +369,5 @@ export const useNavigationIndexHotkeys = <T>({
 				meta: { ...selectionOperationHotkeys.cut.meta, group },
 			},
 		},
-		{
-			hotkey: selectionOperationHotkeys.squash.hotkey,
-			callback: () => enterTransferModeForSelection("into"),
-			options: {
-				conflictBehavior: "allow",
-				enabled: operationEnabled,
-				target: ref,
-				meta: { ...selectionOperationHotkeys.squash.meta, group },
-			},
-		},
 	]);
 };

@@ -139,7 +139,8 @@
 		"electron-updater": "^6.8.4",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
-		"react-redux": "^9.2.0"
+		"react-redux": "^9.2.0",
+		"react-resizable-panels": "^4.11.2"
 	},
 	"devDependencies": {
 		"@storybook/addon-designs": "^11.1.3",

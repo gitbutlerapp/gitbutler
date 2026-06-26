@@ -1105,16 +1105,16 @@ fn hunks_within_file_are_not_order_dependent() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────╮
-i0 file│
-───────╯
+─────────╮
+qs:5 file│
+─────────╯
      1│+first hunk
    1 2│ enough
    2 3│ lines
    3 4│ to
-───────╮
-j0 file│
-───────╯
+─────────╮
+qs:2 file│
+─────────╯
     6  7│ hunks
     7  8│ when
     8  9│ editing
@@ -1122,7 +1122,9 @@ j0 file│
 
 "#]]);
 
-    env.but("_commit2 --no-message i0 j0").assert().success();
+    env.but("_commit2 --no-message qs:5 qs:2")
+        .assert()
+        .success();
 
     env.but("status -f")
         .assert()
@@ -1147,7 +1149,9 @@ Hint: run `but help` for all commands
 
     env.but("undo").assert().success();
 
-    env.but("_commit2 --no-message j0 i0").assert().success();
+    env.but("_commit2 --no-message qs:2 qs:5")
+        .assert()
+        .success();
 
     env.but("status -f")
         .assert()
@@ -1188,16 +1192,16 @@ fn overlapping_changes_to_modified_file_are_deduplicated() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────╮
-i0 file│
-───────╯
+─────────╮
+qs:5 file│
+─────────╯
      1│+first hunk
    1 2│ enough
    2 3│ lines
    3 4│ to
-───────╮
-j0 file│
-───────╯
+─────────╮
+qs:2 file│
+─────────╯
     6  7│ hunks
     7  8│ when
     8  9│ editing
@@ -1205,7 +1209,9 @@ j0 file│
 
 "#]]);
 
-    env.but("_commit2 --no-message i0 j0 i0").assert().success();
+    env.but("_commit2 --no-message qs:5 qs:2 qs:5")
+        .assert()
+        .success();
 
     env.but("status -f")
         .assert()
@@ -1230,7 +1236,9 @@ Hint: run `but help` for all commands
 
     env.but("undo").assert().success();
 
-    env.but("_commit2 --no-message file j0").assert().success();
+    env.but("_commit2 --no-message file qs:5")
+        .assert()
+        .success();
 
     env.but("status -f")
         .assert()
@@ -1264,6 +1272,8 @@ fn committing_something_that_isnt_a_cli_id() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Could not find uncommitted change: 'A'
+
+Hint: Run `but status` for applicable targets.
 
 "#]]);
 }
@@ -1673,6 +1683,130 @@ fn commit_to_new_branch_with_same_name_as_file() {
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn can_overspecify_hunk_id() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file", "hello");
+
+    env.but("diff")
+        .assert()
+        .success()
+        // Full ID is qs:3c81ccd4449094b2becf2b846fc69cfdfcaa613c
+        .stdout_eq(snapbox::str![[r#"
+─────────╮
+qs:3 file│
+─────────╯
+     1│+hello
+
+"#]]);
+
+    env.but("_commit2 -m 'Add file' qs:3c81").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   d215849 Add file
+┊│     d2:qs A file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn error_on_ambiguous_hunk_id() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file(
+        "file",
+        "
+1
+2
+3
+4
+5
+6
+
+1
+2
+3
+4
+5
+6
+",
+    );
+
+    env.but("_commit2 -m 'Add file'").assert().success();
+
+    env.file(
+        "file",
+        "
+1
+2
+3
+hellooo
+4
+5
+6
+
+1
+2
+3
+hellooooo
+4
+5
+6
+",
+    );
+
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+──────────╮
+qs:79 file│
+──────────╯
+   2 2│ 1
+   3 3│ 2
+   4 4│ 3
+     5│+hellooo
+   5 6│ 4
+   6 7│ 5
+   7 8│ 6
+──────────╮
+qs:78 file│
+──────────╯
+    9 10│ 1
+   10 11│ 2
+   11 12│ 3
+      13│+hellooooo
+   12 14│ 4
+   13 15│ 5
+   14 16│ 6
+
+"#]]);
+
+    env.but("_commit2 --no-message qs:7")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Ambiguous uncommitted change 'qs:7', matches multiple items
+
+Hint: Use a longer ID to disambiguate
 
 "#]]);
 }

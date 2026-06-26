@@ -423,13 +423,30 @@ fn get_stack_status(
     };
 
     let branches = details.branch_details;
+    // Branches are iterated bottom-to-top.
+    let mut lower_branch_seen = false;
     for branch in branches.into_iter().rev() {
+        let is_target_branch = branch
+            .remote_tracking_branch
+            .as_ref()
+            .is_some_and(|remote| remote.as_bstr() == target_commits.ref_name.as_bstr());
+        // An empty branch only counts as merged upstream if it is the bottom-most branch
+        // resting on the target. An empty branch resting on another branch merely inherits
+        // that branch's remote tip and was not itself merged, so treating it as merged
+        // would wrongly delete unmerged stacked branches.
+        let is_bottom_branch = !is_target_branch && !lower_branch_seen;
+        if !is_target_branch {
+            lower_branch_seen = true;
+        }
+
         let local_commits = &branch.commits;
 
         let Some(branch_head) = local_commits.first() else {
             branch_statuses.push(NameAndStatus {
                 name: branch.name.to_string(),
-                status: if empty_branch_is_merged_upstream(gix_repo, &branch, target_commits) {
+                status: if is_bottom_branch
+                    && empty_branch_is_merged_upstream(gix_repo, &branch, target_commits)
+                {
                     BranchStatus::Integrated
                 } else {
                     BranchStatus::Empty

@@ -31,6 +31,21 @@ pub async fn list_all_for_target(
     }
 }
 
+pub async fn list_for_commit(
+    preferred_account: Option<&crate::GitlabAccountIdentifier>,
+    project_id: GitLabProjectId,
+    commit_sha: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<crate::client::MergeRequest>> {
+    if let Ok(gl) = GitLabClient::from_storage(storage, preferred_account) {
+        gl.list_mrs_for_commit(project_id, commit_sha)
+            .await
+            .context("Failed to list merge requests for commit")
+    } else {
+        Ok(vec![])
+    }
+}
+
 pub async fn create(
     preferred_account: Option<&crate::GitlabAccountIdentifier>,
     params: crate::client::CreateMergeRequestParams<'_>,

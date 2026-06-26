@@ -36,8 +36,8 @@ mod run {
         let err = migration::run(&mut db, [good, bad]).unwrap_err();
         assert!(matches!(err, backoff::Error::Permanent(_)));
 
-        insta::assert_snapshot!(dump_schema(&db)?, @r"");
-        insta::assert_snapshot!(dump_data(&db)?, @r"");
+        snapbox::assert_data_eq!(dump_schema(&db)?, snapbox::str![""]);
+        snapbox::assert_data_eq!(dump_data(&db)?, snapbox::str![""]);
         Ok(())
     }
 
@@ -94,31 +94,41 @@ mod run {
             );
         }
 
-        insta::assert_snapshot!(dump_schema(&db1)?, @"
-        -- table T1
-        CREATE TABLE T1 ( first TEXT PRIMARY KEY );
+        snapbox::assert_data_eq!(
+            dump_schema(&db1)?,
+            snapbox::str![[r#"
+-- table T1
+CREATE TABLE T1 ( first TEXT PRIMARY KEY );
 
-        -- table T2
-        CREATE TABLE T2 ( first TEXT PRIMARY KEY );
+-- table T2
+CREATE TABLE T2 ( first TEXT PRIMARY KEY );
 
-        -- table __diesel_schema_migrations
-        CREATE TABLE __diesel_schema_migrations (
-               version VARCHAR(50) PRIMARY KEY NOT NULL,
-               run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- table __diesel_schema_migrations
+CREATE TABLE __diesel_schema_migrations (
+       version VARCHAR(50) PRIMARY KEY NOT NULL,
+       run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+
+"#]]
         );
-        ");
-        insta::assert_snapshot!(dump_data(&db1)?, @r#"
-        Table: __diesel_schema_migrations
-        version
-        Text("0")
-        Text("1")
+        snapbox::assert_data_eq!(
+            dump_data(&db1)?,
+            snapbox::str![[r#"
+Table: __diesel_schema_migrations
+version
+Text("0")
+Text("1")
 
-        Table: T1
-        first
+Table: T1
+first
 
-        Table: T2
-        first
-        "#);
+Table: T2
+first
+
+
+"#]]
+        );
         Ok(())
     }
 
@@ -184,25 +194,35 @@ mod run {
         let count = migration::run(&mut db, incorrectly_ordered)?;
         assert_eq!(count, 0, "everything is up-to-date already");
 
-        insta::assert_snapshot!(dump_schema(&db)?, @"
-        -- table T1
-        CREATE TABLE T1 ( first VARCHAR(50) PRIMARY KEY , `two` TEXT);
+        snapbox::assert_data_eq!(
+            dump_schema(&db)?,
+            snapbox::str![[r#"
+-- table T1
+CREATE TABLE T1 ( first VARCHAR(50) PRIMARY KEY , `two` TEXT);
 
-        -- table __diesel_schema_migrations
-        CREATE TABLE __diesel_schema_migrations (
-               version VARCHAR(50) PRIMARY KEY NOT NULL,
-               run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+-- table __diesel_schema_migrations
+CREATE TABLE __diesel_schema_migrations (
+       version VARCHAR(50) PRIMARY KEY NOT NULL,
+       run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+
+"#]]
         );
-        ");
-        insta::assert_snapshot!(dump_data(&db)?, @r#"
-        Table: __diesel_schema_migrations
-        version
-        Text("0")
-        Text("1")
+        snapbox::assert_data_eq!(
+            dump_data(&db)?,
+            snapbox::str![[r#"
+Table: __diesel_schema_migrations
+version
+Text("0")
+Text("1")
 
-        Table: T1
-        first | two
-        "#);
+Table: T1
+first | two
+
+
+"#]]
+        );
 
         let count = migration::run(&mut db, [old])
             .expect("older migration list is accepted if DB is compatible");
@@ -334,305 +354,315 @@ mod run {
         let mut db = rusqlite::Connection::open_in_memory()?;
         migration::run(&mut db, but_db::migration::ours())?;
 
-        insta::assert_snapshot!(dump_schema(&db)?, @"
-        -- table __diesel_schema_migrations
-        CREATE TABLE __diesel_schema_migrations (
-               version VARCHAR(50) PRIMARY KEY NOT NULL,
-               run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        snapbox::assert_data_eq!(
+            dump_schema(&db)?,
+            snapbox::str![[r#"
+-- table __diesel_schema_migrations
+CREATE TABLE __diesel_schema_migrations (
+       version VARCHAR(50) PRIMARY KEY NOT NULL,
+       run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- table butler_actions
+CREATE TABLE `butler_actions`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`handler` TEXT NOT NULL,
+	`snapshot_before` TEXT NOT NULL,
+	`snapshot_after` TEXT NOT NULL,
+	`response` TEXT,
+	`error` TEXT
+, `external_summary` TEXT NOT NULL, `external_prompt` TEXT, `source` TEXT);
+
+-- table ci_checks
+CREATE TABLE `ci_checks`(
+	`id` BIGINT NOT NULL PRIMARY KEY,
+	`name` TEXT NOT NULL,
+	`output_summary` TEXT NOT NULL,
+	`output_text` TEXT NOT NULL,
+	`output_title` TEXT NOT NULL,
+	`started_at` TIMESTAMP,
+	`status_type` TEXT NOT NULL,
+	`status_conclusion` TEXT,
+	`status_completed_at` TIMESTAMP,
+	`head_sha` TEXT NOT NULL,
+	`url` TEXT NOT NULL,
+	`html_url` TEXT NOT NULL,
+	`details_url` TEXT NOT NULL,
+	`pull_requests` TEXT NOT NULL,
+	`reference` TEXT NOT NULL,
+	`last_sync_at` TIMESTAMP NOT NULL,
+	`struct_version` INTEGER NOT NULL
+);
+
+-- table claude_messages
+CREATE TABLE `claude_messages`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`session_id` TEXT NOT NULL REFERENCES claude_sessions(id),
+	`created_at` TIMESTAMP NOT NULL,
+	`content_type` TEXT NOT NULL,
+	`content` TEXT NOT NULL
+);
+
+-- table claude_permission_requests
+CREATE TABLE `claude_permission_requests`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`updated_at` TIMESTAMP NOT NULL,
+	`tool_name` TEXT NOT NULL,
+	`input` TEXT NOT NULL,
+	`decision` TEXT, `use_wildcard` BOOLEAN NOT NULL DEFAULT 0);
+
+-- table claude_sessions
+CREATE TABLE `claude_sessions`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`current_id` TEXT NOT NULL UNIQUE,
+	`created_at` TIMESTAMP NOT NULL,
+	`updated_at` TIMESTAMP NOT NULL
+, in_gui BOOLEAN NOT NULL DEFAULT FALSE, session_ids TEXT NOT NULL DEFAULT '[]', approved_permissions TEXT NOT NULL DEFAULT '[]', denied_permissions TEXT NOT NULL DEFAULT '[]');
+
+-- table file_write_locks
+CREATE TABLE `file_write_locks`(
+	`path` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`owner` TEXT NOT NULL
+);
+
+-- table forge_reviews
+CREATE TABLE `forge_reviews`(
+	`html_url` TEXT NOT NULL,
+	`number` BIGINT NOT NULL PRIMARY KEY,
+	`title` TEXT NOT NULL,
+	`body` TEXT,
+	`author` TEXT,
+	`labels` TEXT NOT NULL,
+	`draft` BOOL NOT NULL,
+	`source_branch` TEXT NOT NULL,
+	`target_branch` TEXT NOT NULL,
+	`sha` TEXT NOT NULL,
+	`created_at` TIMESTAMP,
+	`modified_at` TIMESTAMP,
+	`merged_at` TIMESTAMP,
+	`closed_at` TIMESTAMP,
+	`repository_ssh_url` TEXT,
+	`repository_https_url` TEXT,
+	`repo_owner` TEXT,
+	`reviewers` TEXT NOT NULL,
+	`unit_symbol` TEXT NOT NULL,
+	`last_sync_at` TIMESTAMP NOT NULL,
+	`struct_version` INTEGER NOT NULL
+, `head_repo_is_fork` BOOL NOT NULL DEFAULT FALSE, `integration_commit_shas` TEXT NOT NULL DEFAULT '[]');
+
+-- table gerrit_metadata
+CREATE TABLE `gerrit_metadata`(
+	`change_id` TEXT NOT NULL PRIMARY KEY,
+	`commit_id` TEXT NOT NULL,
+	`review_url` TEXT NOT NULL,
+	`created_at` TIMESTAMP NOT NULL,
+	`updated_at` TIMESTAMP NOT NULL
+);
+
+-- table hunk_assignments
+CREATE TABLE `hunk_assignments`(
+	`hunk_header` TEXT,
+	`path` TEXT NOT NULL,
+	`path_bytes` BINARY NOT NULL,
+	`stack_id` TEXT,
+	`id` TEXT, `branch_ref` BINARY,
+	PRIMARY KEY(`path`, `hunk_header`)
+);
+
+-- table vb_branch_targets
+CREATE TABLE `vb_branch_targets`(
+	`stack_id` TEXT NOT NULL PRIMARY KEY,
+	`remote_name` TEXT NOT NULL,
+	`branch_name` TEXT NOT NULL,
+	`remote_url` TEXT NOT NULL,
+	`sha` TEXT NOT NULL,
+	`push_remote_name` TEXT,
+	FOREIGN KEY(`stack_id`) REFERENCES `vb_stacks`(`id`) ON DELETE CASCADE
+);
+
+-- table vb_stack_heads
+CREATE TABLE `vb_stack_heads`(
+	`stack_id` TEXT NOT NULL,
+	`position` INTEGER NOT NULL,
+	`name` TEXT NOT NULL,
+	`head_sha` TEXT NOT NULL,
+	`pr_number` INTEGER,
+	`archived` INTEGER NOT NULL DEFAULT 0,
+	`review_id` TEXT,
+	PRIMARY KEY(`stack_id`, `position`),
+	FOREIGN KEY(`stack_id`) REFERENCES `vb_stacks`(`id`) ON DELETE CASCADE
+);
+
+-- table vb_stacks
+CREATE TABLE `vb_stacks`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`source_refname` TEXT,
+	`upstream_remote_name` TEXT,
+	`upstream_branch_name` TEXT,
+	`sort_order` INTEGER NOT NULL,
+	`in_workspace` INTEGER NOT NULL,
+	`legacy_name` TEXT NOT NULL DEFAULT '',
+	`legacy_notes` TEXT NOT NULL DEFAULT '',
+	`legacy_ownership` TEXT NOT NULL DEFAULT '',
+	`legacy_allow_rebasing` INTEGER NOT NULL DEFAULT 1,
+	`legacy_post_commits` INTEGER NOT NULL DEFAULT 0,
+	`legacy_tree_sha` TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000',
+	`legacy_head_sha` TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000',
+	`legacy_created_timestamp_ms` TEXT NOT NULL DEFAULT '0',
+	`legacy_updated_timestamp_ms` TEXT NOT NULL DEFAULT '0'
+);
+
+-- table vb_state
+CREATE TABLE `vb_state`(
+	`id` INTEGER PRIMARY KEY CHECK (`id` = 1),
+	`initialized` INTEGER NOT NULL DEFAULT 0,
+	`default_target_remote_name` TEXT,
+	`default_target_branch_name` TEXT,
+	`default_target_remote_url` TEXT,
+	`default_target_sha` TEXT,
+	`default_target_push_remote_name` TEXT,
+	`last_pushed_base_sha` TEXT,
+	`toml_last_seen_mtime_ns` INTEGER,
+	`toml_last_seen_sha256` TEXT
+);
+
+-- table workflows
+CREATE TABLE `workflows`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`kind` TEXT NOT NULL,
+	`triggered_by` TEXT NOT NULL,
+	`status` TEXT NOT NULL,
+	`input_commits` TEXT NOT NULL,
+	`output_commits` TEXT NOT NULL,
+	`summary` TEXT
+);
+
+-- table workspace_rules
+CREATE TABLE `workspace_rules`(
+	`id` TEXT NOT NULL PRIMARY KEY,
+	`created_at` TIMESTAMP NOT NULL,
+	`enabled` BOOL NOT NULL,
+	`trigger` TEXT NOT NULL,
+	`filters` TEXT NOT NULL,
+	`action` TEXT NOT NULL
+);
+
+-- index idx_butler_actions_created_at
+CREATE INDEX `idx_butler_actions_created_at` ON `butler_actions`(`created_at`);
+
+-- index idx_ci_checks_reference
+CREATE INDEX `idx_ci_checks_reference` ON `ci_checks`(`reference`);
+
+-- index idx_vb_stack_heads_stack_id
+CREATE INDEX `idx_vb_stack_heads_stack_id` ON `vb_stack_heads`(`stack_id`);
+
+-- index idx_vb_stacks_in_workspace
+CREATE INDEX `idx_vb_stacks_in_workspace` ON `vb_stacks`(`in_workspace`);
+
+-- index idx_vb_stacks_sort_order
+CREATE INDEX `idx_vb_stacks_sort_order` ON `vb_stacks`(`sort_order`);
+
+-- index index_claude_messages_on_created_at
+CREATE INDEX index_claude_messages_on_created_at ON claude_messages (created_at);
+
+-- index index_claude_messages_on_session_id
+CREATE INDEX index_claude_messages_on_session_id ON claude_messages (session_id);
+
+-- index index_claude_sessions_on_current_id
+CREATE INDEX index_claude_sessions_on_current_id ON claude_sessions (current_id);
+
+
+"#]]
         );
 
-        -- table butler_actions
-        CREATE TABLE `butler_actions`(
-        	`id` TEXT NOT NULL PRIMARY KEY,
-        	`created_at` TIMESTAMP NOT NULL,
-        	`handler` TEXT NOT NULL,
-        	`snapshot_before` TEXT NOT NULL,
-        	`snapshot_after` TEXT NOT NULL,
-        	`response` TEXT,
-        	`error` TEXT
-        , `external_summary` TEXT NOT NULL, `external_prompt` TEXT, `source` TEXT);
+        snapbox::assert_data_eq!(
+            dump_data(&db)?,
+            snapbox::str![[r#"
+Table: __diesel_schema_migrations
+version
+Text("20250526145725")
+Text("20250529110746")
+Text("20250530112246")
+Text("20250603111503")
+Text("20250607113323")
+Text("20250616090656")
+Text("20250619181700")
+Text("20250619192246")
+Text("20250703203544")
+Text("20250704130757")
+Text("20250717150441")
+Text("20250811130145")
+Text("20250812093543")
+Text("20250817195624")
+Text("20250821095340")
+Text("20250821142109")
+Text("20251013092749")
+Text("20251014144801")
+Text("20251015105125")
+Text("20251015212443")
+Text("20251017092314")
+Text("20251106102333")
+Text("20251107134016")
+Text("20251110103940")
+Text("20260101223932")
+Text("20260105095934")
+Text("20260219130000")
+Text("20260407120000")
+Text("20260618093000")
+Text("20260624170000")
 
-        -- table ci_checks
-        CREATE TABLE `ci_checks`(
-        	`id` BIGINT NOT NULL PRIMARY KEY,
-        	`name` TEXT NOT NULL,
-        	`output_summary` TEXT NOT NULL,
-        	`output_text` TEXT NOT NULL,
-        	`output_title` TEXT NOT NULL,
-        	`started_at` TIMESTAMP,
-        	`status_type` TEXT NOT NULL,
-        	`status_conclusion` TEXT,
-        	`status_completed_at` TIMESTAMP,
-        	`head_sha` TEXT NOT NULL,
-        	`url` TEXT NOT NULL,
-        	`html_url` TEXT NOT NULL,
-        	`details_url` TEXT NOT NULL,
-        	`pull_requests` TEXT NOT NULL,
-        	`reference` TEXT NOT NULL,
-        	`last_sync_at` TIMESTAMP NOT NULL,
-        	`struct_version` INTEGER NOT NULL
+Table: hunk_assignments
+hunk_header | path | path_bytes | stack_id | id | branch_ref
+
+Table: butler_actions
+id | created_at | handler | snapshot_before | snapshot_after | response | error | external_summary | external_prompt | source
+
+Table: workflows
+id | created_at | kind | triggered_by | status | input_commits | output_commits | summary
+
+Table: file_write_locks
+path | created_at | owner
+
+Table: workspace_rules
+id | created_at | enabled | trigger | filters | action
+
+Table: claude_sessions
+id | current_id | created_at | updated_at | in_gui | session_ids | approved_permissions | denied_permissions
+
+Table: claude_messages
+id | session_id | created_at | content_type | content
+
+Table: claude_permission_requests
+id | created_at | updated_at | tool_name | input | decision | use_wildcard
+
+Table: gerrit_metadata
+change_id | commit_id | review_url | created_at | updated_at
+
+Table: forge_reviews
+html_url | number | title | body | author | labels | draft | source_branch | target_branch | sha | created_at | modified_at | merged_at | closed_at | repository_ssh_url | repository_https_url | repo_owner | reviewers | unit_symbol | last_sync_at | struct_version | head_repo_is_fork | integration_commit_shas
+
+Table: ci_checks
+id | name | output_summary | output_text | output_title | started_at | status_type | status_conclusion | status_completed_at | head_sha | url | html_url | details_url | pull_requests | reference | last_sync_at | struct_version
+
+Table: vb_state
+id | initialized | default_target_remote_name | default_target_branch_name | default_target_remote_url | default_target_sha | default_target_push_remote_name | last_pushed_base_sha | toml_last_seen_mtime_ns | toml_last_seen_sha256
+
+Table: vb_stacks
+id | source_refname | upstream_remote_name | upstream_branch_name | sort_order | in_workspace | legacy_name | legacy_notes | legacy_ownership | legacy_allow_rebasing | legacy_post_commits | legacy_tree_sha | legacy_head_sha | legacy_created_timestamp_ms | legacy_updated_timestamp_ms
+
+Table: vb_stack_heads
+stack_id | position | name | head_sha | pr_number | archived | review_id
+
+Table: vb_branch_targets
+stack_id | remote_name | branch_name | remote_url | sha | push_remote_name
+
+
+"#]]
         );
-
-        -- table claude_messages
-        CREATE TABLE `claude_messages`(
-        	`id` TEXT NOT NULL PRIMARY KEY,
-        	`session_id` TEXT NOT NULL REFERENCES claude_sessions(id),
-        	`created_at` TIMESTAMP NOT NULL,
-        	`content_type` TEXT NOT NULL,
-        	`content` TEXT NOT NULL
-        );
-
-        -- table claude_permission_requests
-        CREATE TABLE `claude_permission_requests`(
-        	`id` TEXT NOT NULL PRIMARY KEY,
-        	`created_at` TIMESTAMP NOT NULL,
-        	`updated_at` TIMESTAMP NOT NULL,
-        	`tool_name` TEXT NOT NULL,
-        	`input` TEXT NOT NULL,
-        	`decision` TEXT, `use_wildcard` BOOLEAN NOT NULL DEFAULT 0);
-
-        -- table claude_sessions
-        CREATE TABLE `claude_sessions`(
-        	`id` TEXT NOT NULL PRIMARY KEY,
-        	`current_id` TEXT NOT NULL UNIQUE,
-        	`created_at` TIMESTAMP NOT NULL,
-        	`updated_at` TIMESTAMP NOT NULL
-        , in_gui BOOLEAN NOT NULL DEFAULT FALSE, session_ids TEXT NOT NULL DEFAULT '[]', approved_permissions TEXT NOT NULL DEFAULT '[]', denied_permissions TEXT NOT NULL DEFAULT '[]');
-
-        -- table file_write_locks
-        CREATE TABLE `file_write_locks`(
-        	`path` TEXT NOT NULL PRIMARY KEY,
-        	`created_at` TIMESTAMP NOT NULL,
-        	`owner` TEXT NOT NULL
-        );
-
-        -- table forge_reviews
-        CREATE TABLE `forge_reviews`(
-        	`html_url` TEXT NOT NULL,
-        	`number` BIGINT NOT NULL PRIMARY KEY,
-        	`title` TEXT NOT NULL,
-        	`body` TEXT,
-        	`author` TEXT,
-        	`labels` TEXT NOT NULL,
-        	`draft` BOOL NOT NULL,
-        	`source_branch` TEXT NOT NULL,
-        	`target_branch` TEXT NOT NULL,
-        	`sha` TEXT NOT NULL,
-        	`created_at` TIMESTAMP,
-        	`modified_at` TIMESTAMP,
-        	`merged_at` TIMESTAMP,
-        	`closed_at` TIMESTAMP,
-        	`repository_ssh_url` TEXT,
-        	`repository_https_url` TEXT,
-        	`repo_owner` TEXT,
-        	`reviewers` TEXT NOT NULL,
-        	`unit_symbol` TEXT NOT NULL,
-        	`last_sync_at` TIMESTAMP NOT NULL,
-        	`struct_version` INTEGER NOT NULL
-        , `head_repo_is_fork` BOOL NOT NULL DEFAULT FALSE);
-
-        -- table gerrit_metadata
-        CREATE TABLE `gerrit_metadata`(
-        	`change_id` TEXT NOT NULL PRIMARY KEY,
-        	`commit_id` TEXT NOT NULL,
-        	`review_url` TEXT NOT NULL,
-        	`created_at` TIMESTAMP NOT NULL,
-        	`updated_at` TIMESTAMP NOT NULL
-        );
-
-        -- table hunk_assignments
-        CREATE TABLE `hunk_assignments`(
-        	`hunk_header` TEXT,
-        	`path` TEXT NOT NULL,
-        	`path_bytes` BINARY NOT NULL,
-        	`stack_id` TEXT,
-        	`id` TEXT, `branch_ref` BINARY,
-        	PRIMARY KEY(`path`, `hunk_header`)
-        );
-
-        -- table vb_branch_targets
-        CREATE TABLE `vb_branch_targets`(
-        	`stack_id` TEXT NOT NULL PRIMARY KEY,
-        	`remote_name` TEXT NOT NULL,
-        	`branch_name` TEXT NOT NULL,
-        	`remote_url` TEXT NOT NULL,
-        	`sha` TEXT NOT NULL,
-        	`push_remote_name` TEXT,
-        	FOREIGN KEY(`stack_id`) REFERENCES `vb_stacks`(`id`) ON DELETE CASCADE
-        );
-
-        -- table vb_stack_heads
-        CREATE TABLE `vb_stack_heads`(
-        	`stack_id` TEXT NOT NULL,
-        	`position` INTEGER NOT NULL,
-        	`name` TEXT NOT NULL,
-        	`head_sha` TEXT NOT NULL,
-        	`pr_number` INTEGER,
-        	`archived` INTEGER NOT NULL DEFAULT 0,
-        	`review_id` TEXT,
-        	PRIMARY KEY(`stack_id`, `position`),
-        	FOREIGN KEY(`stack_id`) REFERENCES `vb_stacks`(`id`) ON DELETE CASCADE
-        );
-
-        -- table vb_stacks
-        CREATE TABLE `vb_stacks`(
-        	`id` TEXT NOT NULL PRIMARY KEY,
-        	`source_refname` TEXT,
-        	`upstream_remote_name` TEXT,
-        	`upstream_branch_name` TEXT,
-        	`sort_order` INTEGER NOT NULL,
-        	`in_workspace` INTEGER NOT NULL,
-        	`legacy_name` TEXT NOT NULL DEFAULT '',
-        	`legacy_notes` TEXT NOT NULL DEFAULT '',
-        	`legacy_ownership` TEXT NOT NULL DEFAULT '',
-        	`legacy_allow_rebasing` INTEGER NOT NULL DEFAULT 1,
-        	`legacy_post_commits` INTEGER NOT NULL DEFAULT 0,
-        	`legacy_tree_sha` TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000',
-        	`legacy_head_sha` TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000',
-        	`legacy_created_timestamp_ms` TEXT NOT NULL DEFAULT '0',
-        	`legacy_updated_timestamp_ms` TEXT NOT NULL DEFAULT '0'
-        );
-
-        -- table vb_state
-        CREATE TABLE `vb_state`(
-        	`id` INTEGER PRIMARY KEY CHECK (`id` = 1),
-        	`initialized` INTEGER NOT NULL DEFAULT 0,
-        	`default_target_remote_name` TEXT,
-        	`default_target_branch_name` TEXT,
-        	`default_target_remote_url` TEXT,
-        	`default_target_sha` TEXT,
-        	`default_target_push_remote_name` TEXT,
-        	`last_pushed_base_sha` TEXT,
-        	`toml_last_seen_mtime_ns` INTEGER,
-        	`toml_last_seen_sha256` TEXT
-        );
-
-        -- table workflows
-        CREATE TABLE `workflows`(
-        	`id` TEXT NOT NULL PRIMARY KEY,
-        	`created_at` TIMESTAMP NOT NULL,
-        	`kind` TEXT NOT NULL,
-        	`triggered_by` TEXT NOT NULL,
-        	`status` TEXT NOT NULL,
-        	`input_commits` TEXT NOT NULL,
-        	`output_commits` TEXT NOT NULL,
-        	`summary` TEXT
-        );
-
-        -- table workspace_rules
-        CREATE TABLE `workspace_rules`(
-        	`id` TEXT NOT NULL PRIMARY KEY,
-        	`created_at` TIMESTAMP NOT NULL,
-        	`enabled` BOOL NOT NULL,
-        	`trigger` TEXT NOT NULL,
-        	`filters` TEXT NOT NULL,
-        	`action` TEXT NOT NULL
-        );
-
-        -- index idx_butler_actions_created_at
-        CREATE INDEX `idx_butler_actions_created_at` ON `butler_actions`(`created_at`);
-
-        -- index idx_ci_checks_reference
-        CREATE INDEX `idx_ci_checks_reference` ON `ci_checks`(`reference`);
-
-        -- index idx_vb_stack_heads_stack_id
-        CREATE INDEX `idx_vb_stack_heads_stack_id` ON `vb_stack_heads`(`stack_id`);
-
-        -- index idx_vb_stacks_in_workspace
-        CREATE INDEX `idx_vb_stacks_in_workspace` ON `vb_stacks`(`in_workspace`);
-
-        -- index idx_vb_stacks_sort_order
-        CREATE INDEX `idx_vb_stacks_sort_order` ON `vb_stacks`(`sort_order`);
-
-        -- index index_claude_messages_on_created_at
-        CREATE INDEX index_claude_messages_on_created_at ON claude_messages (created_at);
-
-        -- index index_claude_messages_on_session_id
-        CREATE INDEX index_claude_messages_on_session_id ON claude_messages (session_id);
-
-        -- index index_claude_sessions_on_current_id
-        CREATE INDEX index_claude_sessions_on_current_id ON claude_sessions (current_id);
-        ");
-
-        insta::assert_snapshot!(dump_data(&db)?, @r#"
-        Table: __diesel_schema_migrations
-        version
-        Text("20250526145725")
-        Text("20250529110746")
-        Text("20250530112246")
-        Text("20250603111503")
-        Text("20250607113323")
-        Text("20250616090656")
-        Text("20250619181700")
-        Text("20250619192246")
-        Text("20250703203544")
-        Text("20250704130757")
-        Text("20250717150441")
-        Text("20250811130145")
-        Text("20250812093543")
-        Text("20250817195624")
-        Text("20250821095340")
-        Text("20250821142109")
-        Text("20251013092749")
-        Text("20251014144801")
-        Text("20251015105125")
-        Text("20251015212443")
-        Text("20251017092314")
-        Text("20251106102333")
-        Text("20251107134016")
-        Text("20251110103940")
-        Text("20260101223932")
-        Text("20260105095934")
-        Text("20260219130000")
-        Text("20260407120000")
-        Text("20260618093000")
-
-        Table: hunk_assignments
-        hunk_header | path | path_bytes | stack_id | id | branch_ref
-
-        Table: butler_actions
-        id | created_at | handler | snapshot_before | snapshot_after | response | error | external_summary | external_prompt | source
-
-        Table: workflows
-        id | created_at | kind | triggered_by | status | input_commits | output_commits | summary
-
-        Table: file_write_locks
-        path | created_at | owner
-
-        Table: workspace_rules
-        id | created_at | enabled | trigger | filters | action
-
-        Table: claude_sessions
-        id | current_id | created_at | updated_at | in_gui | session_ids | approved_permissions | denied_permissions
-
-        Table: claude_messages
-        id | session_id | created_at | content_type | content
-
-        Table: claude_permission_requests
-        id | created_at | updated_at | tool_name | input | decision | use_wildcard
-
-        Table: gerrit_metadata
-        change_id | commit_id | review_url | created_at | updated_at
-
-        Table: forge_reviews
-        html_url | number | title | body | author | labels | draft | source_branch | target_branch | sha | created_at | modified_at | merged_at | closed_at | repository_ssh_url | repository_https_url | repo_owner | reviewers | unit_symbol | last_sync_at | struct_version | head_repo_is_fork
-
-        Table: ci_checks
-        id | name | output_summary | output_text | output_title | started_at | status_type | status_conclusion | status_completed_at | head_sha | url | html_url | details_url | pull_requests | reference | last_sync_at | struct_version
-
-        Table: vb_state
-        id | initialized | default_target_remote_name | default_target_branch_name | default_target_remote_url | default_target_sha | default_target_push_remote_name | last_pushed_base_sha | toml_last_seen_mtime_ns | toml_last_seen_sha256
-
-        Table: vb_stacks
-        id | source_refname | upstream_remote_name | upstream_branch_name | sort_order | in_workspace | legacy_name | legacy_notes | legacy_ownership | legacy_allow_rebasing | legacy_post_commits | legacy_tree_sha | legacy_head_sha | legacy_created_timestamp_ms | legacy_updated_timestamp_ms
-
-        Table: vb_stack_heads
-        stack_id | position | name | head_sha | pr_number | archived | review_id
-
-        Table: vb_branch_targets
-        stack_id | remote_name | branch_name | remote_url | sha | push_remote_name
-        "#);
-
         let count = migration::run(&mut db, but_db::migration::ours())?;
         assert_eq!(count, 0, "nothing has to run as everything is uptodate");
 

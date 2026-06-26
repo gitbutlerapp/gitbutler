@@ -1,8 +1,12 @@
+use bstr::BString;
 use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliError, CliId, CliResult, IdMap, args::atoms::BranchArg, bad_input, id::UncommittedHunkOrFile,
+    CliError, CliId, CliResult, IdMap,
+    args::atoms::BranchArg,
+    bad_input,
+    id::{ShortId, UncommittedHunkOrFile},
 };
 
 /// An argument atom for cli ids that can match multiple things like branches, commits, files, etc.
@@ -25,6 +29,9 @@ impl std::fmt::Display for CliIdArg {
 }
 
 impl CliIdArg {
+    #[expect(missing_docs)]
+    pub const TARGET_MISSING_HINT: &str = "Run `but status` for applicable targets.";
+
     /// Resolve the argument to something that exists in the workspace.
     ///
     /// Returns an error if attempting to resolve a branch that isn't applied, since its not in the
@@ -39,7 +46,9 @@ impl CliIdArg {
         if let Some(id) = self.try_resolve(repo, id_map, purpose, priority)? {
             Ok(id)
         } else {
-            Err(bad_input(format!("Could not find {purpose}: '{self}'")).into())
+            Err(bad_input(format!("Could not find {purpose}: '{self}'"))
+                .hint(Self::TARGET_MISSING_HINT)
+                .into())
         }
     }
 
@@ -63,7 +72,15 @@ impl CliIdArg {
                 ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(uncommitted))
             }
             CliId::PathPrefix { .. } => ResolvedCliIdArg::PathPrefix,
-            CliId::CommittedFile { .. } => ResolvedCliIdArg::CommittedFile,
+            CliId::CommittedFile {
+                commit_id,
+                path,
+                id,
+            } => ResolvedCliIdArg::CommittedFile {
+                commit_id,
+                path,
+                id,
+            },
             CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
             CliId::Stack { .. } => ResolvedCliIdArg::Stack,
         }))
@@ -78,7 +95,9 @@ impl CliIdArg {
         if let Some(commit) = self.try_resolve_commit(repo, id_map)? {
             Ok(commit)
         } else {
-            Err(bad_input(format!("Could not find commit: '{self}'")).into())
+            Err(bad_input(format!("Could not find commit: '{self}'"))
+                .hint(Self::TARGET_MISSING_HINT)
+                .into())
         }
     }
 
@@ -110,7 +129,9 @@ impl CliIdArg {
         if let Some(branch) = self.try_resolve_branch(repo, id_map)? {
             Ok(branch)
         } else {
-            Err(bad_input(format!("Could not find branch: '{self}'")).into())
+            Err(bad_input(format!("Could not find branch: '{self}'"))
+                .hint(Self::TARGET_MISSING_HINT)
+                .into())
         }
     }
 
@@ -197,7 +218,11 @@ impl CliIdArg {
         if let Some(uncommitted) = self.try_resolve_uncommitted(repo, id_map)? {
             Ok(uncommitted)
         } else {
-            Err(bad_input(format!("Could not find uncommitted change: '{self}'")).into())
+            Err(
+                bad_input(format!("Could not find uncommitted change: '{self}'"))
+                    .hint(Self::TARGET_MISSING_HINT)
+                    .into(),
+            )
         }
     }
 
@@ -229,6 +254,8 @@ pub enum Priority {
     Branch,
     /// Prioritize commits.
     Commit,
+    /// Prioritize branches and commits.
+    BranchAndCommit,
     /// Prioritize uncommitted changes.
     Uncommitted,
 }
@@ -290,12 +317,22 @@ fn try_resolve_cli_id(
                     return Ok(Some(uncommitted.pop().unwrap()));
                 }
             }
+            Priority::BranchAndCommit => match (branches.len(), commits.len()) {
+                (1, 0) => {
+                    return Ok(Some(branches.pop().unwrap()));
+                }
+                (0, 1) => {
+                    return Ok(Some(commits.pop().unwrap()));
+                }
+                _ => {}
+            },
         }
     }
 
     Err(bad_input(format!(
         "Ambiguous {purpose} '{arg}', matches multiple items"
     ))
+    .hint("Use a longer ID to disambiguate")
     .into())
 }
 
@@ -336,10 +373,14 @@ pub enum ResolvedCliIdArg {
     Commit(gix::ObjectId),
     Branch(BranchArg),
     UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
+    CommittedFile {
+        commit_id: gix::ObjectId,
+        path: BString,
+        id: ShortId,
+    },
     // These have no data because we don't have any commands that use them. So just add data if you
     // have a use case
     PathPrefix,
-    CommittedFile,
     Uncommitted,
     Stack,
 }
@@ -351,8 +392,8 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::Commit(commit) => return Ok(BranchOrCommit::Commit(commit)),
             ResolvedCliIdArg::Branch(branch) => return Ok(BranchOrCommit::Branch(branch)),
             ResolvedCliIdArg::UncommittedHunkOrFile(..) => "an uncommitted change",
+            ResolvedCliIdArg::CommittedFile { .. } => "a committed file",
             ResolvedCliIdArg::PathPrefix => "a path",
-            ResolvedCliIdArg::CommittedFile => "a committed file",
             ResolvedCliIdArg::Uncommitted => "uncommitted changes",
             ResolvedCliIdArg::Stack => "a stack",
         };
@@ -367,7 +408,7 @@ impl std::fmt::Display for ResolvedCliIdArg {
             ResolvedCliIdArg::Branch(inner) => inner.fmt(f),
             ResolvedCliIdArg::UncommittedHunkOrFile(..) => f.write_str("uncommitted file or hunk"),
             ResolvedCliIdArg::PathPrefix => f.write_str("path"),
-            ResolvedCliIdArg::CommittedFile => f.write_str("committed file"),
+            ResolvedCliIdArg::CommittedFile { .. } => f.write_str("committed file"),
             ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
             ResolvedCliIdArg::Stack => f.write_str("stack"),
         }

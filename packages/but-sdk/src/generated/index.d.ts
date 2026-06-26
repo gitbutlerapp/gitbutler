@@ -477,6 +477,9 @@ export declare function warmCiChecksCache(projectId: string): Promise<void>
 /** Push a branch and any parent references that lie within the current workspace projection. */
 export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
 
+/** Switch to the workspace reference */
+export declare function workspaceCheckout(projectId: string): Promise<BranchCheckoutResult>
+
 /**
  * Integrate upstream changes into the current workspace and record an oplog
  * snapshot on success.
@@ -1314,6 +1317,8 @@ export type ForgeReview = {
   targetBranch: string;
   /** The git commit SHA that this review is based on. */
   sha: string;
+  /** Commits on the target branch that represent this review having landed. */
+  integrationCommitShas: Array<string>;
   /** ISO 8601 timestamp of when the review was created. */
   createdAt: string | null;
   /** ISO 8601 timestamp of when the review was last modified. */
@@ -2542,8 +2547,8 @@ export type WatcherGitFetchPayload = null;
 
 /** Git head (and operating mode) change event */
 export type WatcherGitHeadPayload = {
-  /** The SHA of the repository's HEAD. */
-  head: string;
+  /** The symbolic ref HEAD points at, or `null` when HEAD is detached. */
+  head: string | null;
   /** The GitButler operating mode (edit mode, oper workspace, ...). */
   operatingMode: OperatingMode;
 };

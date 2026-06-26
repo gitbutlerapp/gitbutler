@@ -458,6 +458,7 @@ export interface LiteElectronApi {
 	listReviewsForBranch: (params: ListReviewsForBranchParams) => Promise<Array<ForgeReview>>;
 	mergeReview: (params: MergeReviewParams) => Promise<void>;
 	moveBranch: (params: MoveBranchParams) => Promise<MoveBranchResult>;
+	openInWebBrowser: (url: string) => Promise<void>;
 	openInEditor: (params: OpenInEditorParams) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
 	publishReview: (params: PublishReviewParams) => Promise<ForgeReview>;
@@ -536,6 +537,7 @@ export const liteIpcChannels = {
 	mergeReview: "workspace:merge-review",
 	moveBranch: "workspace:move-branch",
 	openInEditor: "workspace:open-in-editor",
+	openInWebBrowser: "workspace:open-in-web-browser",
 	pathJoin: "lite:path-join",
 	publishReview: "workspace:publish-review",
 	updateBranchName: "workspace:update-branch-name",

@@ -16,23 +16,25 @@
 
 .fileStatusBadge {
 	align-self: center;
+	width: 12px;
 	font-weight: 700;
 	font-size: 11px;
-
 	font-family: var(--text-fontfamily-base);
-	&[data-char="A"] {
+	text-align: right;
+
+	&[data-status-type="Addition"] {
 		color: var(--change-status-addition);
 	}
 
-	&[data-char="D"] {
+	&[data-status-type="Deletion"] {
 		color: var(--change-status-deletion);
 	}
 
-	&[data-char="M"] {
+	&[data-status-type="Modification"] {
 		color: var(--change-status-modification);
 	}
 
-	&[data-char="R"] {
+	&[data-status-type="Rename"] {
 		color: var(--change-status-renaming);
 	}
 }

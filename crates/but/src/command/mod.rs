@@ -2,6 +2,7 @@
 #[cfg(feature = "legacy")]
 pub mod legacy;
 
+pub mod agent;
 pub mod alias;
 pub mod branch;
 pub mod commit;

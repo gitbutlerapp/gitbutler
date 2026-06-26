@@ -1,9 +1,15 @@
 import { classes } from "#ui/components/classes.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { ComponentProps, FC, useLayoutEffect, useRef } from "react";
+import { ComponentProps, FC, MouseEvent, useLayoutEffect, useRef } from "react";
 import styles from "./WorkspaceItemRow.module.css";
 import { mergeProps, useRender } from "@base-ui/react";
 import { Match } from "effect";
+
+const isFromInteractiveDescendant = (event: MouseEvent<HTMLDivElement>): boolean => {
+	if (!(event.target instanceof Element)) return false;
+	const interactiveElement = event.target.closest(["button", "input[type='checkbox']"].join(","));
+	return interactiveElement !== null && event.currentTarget.contains(interactiveElement);
+};
 
 export const WorkspaceItemRow: FC<
 	{
@@ -38,13 +44,25 @@ export const WorkspaceItemRow: FC<
 				isHighlighted && styles.containerHighlighted,
 				interactive && styles.containerInteractive,
 			)}
+			onMouseDown={(event) => {
+				props.onMouseDown?.(event);
+
+				if (
+					!event.defaultPrevented &&
+					// Prevent clicks on interactive descendants from stealing focus from the tree.
+					isFromInteractiveDescendant(event)
+				)
+					event.preventDefault();
+			}}
 			onClick={(event) => {
 				props.onClick?.(event);
-				if (!event.defaultPrevented) onSelect?.();
-			}}
-			onContextMenu={(event) => {
-				props.onContextMenu?.(event);
-				onSelect?.();
+
+				if (
+					!event.defaultPrevented &&
+					// Prevent clicks on interactive descendants from stealing selection.
+					!isFromInteractiveDescendant(event)
+				)
+					onSelect?.();
 			}}
 		/>
 	);

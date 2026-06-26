@@ -53,6 +53,7 @@
 	display: flex;
 	flex-grow: 1;
 	flex-direction: column;
+	min-width: 0;
 }
 
 .inlineEditorInput {
@@ -104,6 +105,8 @@
 .branchLabelMetaItem {
 	display: flex;
 	align-items: center;
+	/* Match small button height to prevent layout shift when buttons appear/disappear. */
+	height: 20px;
 	gap: 4px;
 }
 
@@ -112,12 +115,17 @@
 	row-gap: 10px;
 	flex-direction: column;
 	padding: 8px;
-	border: 1px solid var(--bg-1);
 	border-radius: var(--radius-m);
 	background: var(--bg-1);
+	box-shadow: inset 0 0 0 1px var(--border-2);
 
-	&:focus-within {
-		box-shadow: var(--focus-ring);
+	&:not(:has(.commitTextarea[disabled])) {
+		&:hover {
+			box-shadow: inset 0 0 0 1px var(--border-1);
+		}
+		&:focus-within {
+			box-shadow: var(--focus-ring);
+		}
 	}
 }
 
@@ -184,8 +192,8 @@
 	color: color-mix(in srgb, var(--text-1) 60%, transparent);
 	white-space: nowrap;
 
-	&:hover,
-	&[aria-expanded="true"] {
+	&:not([data-disabled]):hover,
+	&:not([data-disabled])[aria-expanded="true"] {
 		background-color: color-mix(in srgb, var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
 	}
 }

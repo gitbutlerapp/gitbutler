@@ -1,5 +1,6 @@
+import { formatForDisplaySorted } from "#ui/hotkeys.ts";
 import styles from "./Kbd.module.css";
-import { formatForDisplay, formatHotkeySequence, HotkeySequence } from "@tanstack/react-hotkeys";
+import { HotkeySequence } from "@tanstack/react-hotkeys";
 import { FC } from "react";
 
 type Props = {
@@ -8,7 +9,9 @@ type Props = {
 };
 
 const formatKeys = (hotkey: string | HotkeySequence): string =>
-	typeof hotkey === "string" ? formatForDisplay(hotkey) : formatHotkeySequence(hotkey);
+	typeof hotkey === "string"
+		? formatForDisplaySorted(hotkey)
+		: hotkey.map(formatForDisplaySorted).join(" ");
 
 export const Kbd: FC<Props> = ({ hotkey }) => (
 	<span className={styles.keys}>

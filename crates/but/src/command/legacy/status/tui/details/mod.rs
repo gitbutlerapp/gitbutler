@@ -152,6 +152,7 @@ impl Details {
         match msg {
             Message::JustRender
             | Message::CopySelection
+            | Message::CopySelectionPicker
             | Message::Quit
             | Message::ConfirmAndQuit
             | Message::DetailsLayout(DetailsLayoutMessage::Focus { .. })
@@ -1515,7 +1516,7 @@ fn render_hunk_path_header(
             .chain(
                 status
                     .into_iter()
-                    .flat_map(|status| [status, Span::raw(": ")]),
+                    .flat_map(|status| [status, Span::raw(" ")]),
             )
             .chain([Span::raw(path)]),
     );
@@ -1540,7 +1541,7 @@ fn build_hunk_path_header(
             .chain(
                 status
                     .into_iter()
-                    .flat_map(|status| [status, Span::raw(": ")]),
+                    .flat_map(|status| [status, Span::raw(" ")]),
             )
             .chain([Span::raw(path)]),
     );

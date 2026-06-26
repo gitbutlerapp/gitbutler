@@ -6,7 +6,6 @@ but squash --message-file <path>
 but squash --no-message
 but squash --use-source-message
 but squash -u/--use-target-message
-but squash -i/--interactive
 but squash --format human/json/shell
 but squash --abort-on-conflicts
 ```
@@ -20,7 +19,7 @@ Q: Can you squash a branch into another commit
 A: Yes. That'll squash all the commits in the branch and remove the reference
 
 Q: Can you squash into branches
-A: No
+A: Yes! `-t branch` will resolve the commit at the tip of the branch
 
 Q: Does the editor open to edit the squashed messages
 A: Yes

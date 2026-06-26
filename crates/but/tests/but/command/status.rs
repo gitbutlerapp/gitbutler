@@ -1,5 +1,6 @@
 use super::util::{enter_edit_mode_with_conflicted_commit, status_json};
 use crate::utils::{CommandExt as _, Sandbox};
+use but_core::ref_metadata::StackId;
 
 #[test]
 fn worktrees() {
@@ -115,7 +116,7 @@ fn json_shows_paths_as_strings() {
   ],
   "stacks": [
     {
-      "cliId": "k0",
+      "cliId": "j0",
       "assignedChanges": [],
       "branches": [
         {
@@ -142,7 +143,7 @@ fn json_shows_paths_as_strings() {
       ]
     },
     {
-      "cliId": "l0",
+      "cliId": "k0",
       "assignedChanges": [],
       "branches": [
         {
@@ -662,6 +663,150 @@ Applied remote branch 'origin/document-but-pr-skill' to workspace
     assert_pull_removes_merged_upstream_branch(&env);
 }
 
+/// An empty branch stacked on top of a branch that merged upstream must not be treated
+/// as merged itself: it contributed no commits of its own. Regression test for `but status`
+/// labelling it `(merged upstream)` and `but pull` deleting the whole stack (including the
+/// unmerged top branch) because every branch was wrongly classified as integrated.
+#[test]
+fn unmerged_empty_branch_above_merged_one_is_not_treated_as_merged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-merged-branch-below-empty-branch",
+    );
+    env.setup_metadata(&["bottom"]);
+    // Stack `top` directly above `bottom` so they form a single two-branch stack.
+    {
+        use but_core::RefMetadata as _;
+        use std::ops::DerefMut as _;
+        let mut meta = env.meta();
+        let ws_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+        let mut ws = meta.workspace(ws_ref).unwrap();
+        ws.deref_mut()
+            .insert_new_segment_above_anchor_if_not_present(
+                "refs/heads/top".try_into().unwrap(),
+                "refs/heads/bottom".try_into().unwrap(),
+            );
+        meta.set_workspace(&ws).unwrap();
+    }
+
+    // `bottom` merged upstream; `top` rests on it and must not be labelled merged.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄op [top] (no commits)
+┊│
+┊├┄bo [bottom] (merged upstream) (no commits)
+├╯
+┊
+┊● 334227d (upstream) ⏫ 1 commit
+├╯ 334227d (common base) 2000-01-02 merge bottom
+
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").env("NO_BG_TASKS", "1").assert().success();
+
+    let branches: Vec<String> = status_json(&env).unwrap()["stacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().into_iter().flatten())
+        .map(|b| b["name"].as_str().unwrap_or_default().to_string())
+        .collect();
+    assert!(
+        branches.iter().any(|b| b == "top"),
+        "`but pull` must keep the unmerged `top` branch, got: {branches:?}"
+    );
+}
+
+/// A branch whose only commit introduces no changes of its own, stacked on top of a
+/// branch that was *squash-merged* upstream, must not be treated as merged itself: it
+/// contributed nothing that was merged. Regression test for the data-loss bug where the
+/// squash-merge trial let the no-change top commit "borrow" the cumulative content of the
+/// squash-merged `bottom` below it, so `but status` labelled `top` `(merged upstream)` and
+/// `but pull` deleted the whole stack — losing the unmerged `top` branch. The genuinely
+/// squash-merged `bottom` must still be detected and removed.
+#[test]
+fn no_change_commit_above_squash_merged_branch_is_not_treated_as_merged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-squash-merged-below-no-change-branch",
+    );
+    env.setup_metadata(&["bottom"]);
+    // Stack `top` directly above `bottom` so they form a single two-branch stack.
+    {
+        use but_core::RefMetadata as _;
+        use std::ops::DerefMut as _;
+        let mut meta = env.meta();
+        let ws_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+        let mut ws = meta.workspace(ws_ref).unwrap();
+        ws.deref_mut()
+            .insert_new_segment_above_anchor_if_not_present(
+                "refs/heads/top".try_into().unwrap(),
+                "refs/heads/bottom".try_into().unwrap(),
+            );
+        meta.set_workspace(&ws).unwrap();
+    }
+
+    // `bottom` was squash-merged upstream and must be labelled `(merged upstream)`.
+    // `top`'s sole commit introduces no changes, so it must NOT be labelled merged.
+    let status = env
+        .but("status --format json")
+        .allow_json()
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let status: serde_json::Value = serde_json::from_slice(&status).unwrap();
+    let branch_status_of = |name: &str| -> String {
+        status["stacks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|stack| stack["branches"].as_array().into_iter().flatten())
+            .find(|b| b["name"].as_str() == Some(name))
+            .and_then(|b| b["branchStatus"].as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    assert_eq!(
+        branch_status_of("bottom"),
+        "integrated",
+        "`bottom` was squash-merged upstream and must be detected as integrated"
+    );
+    assert_ne!(
+        branch_status_of("top"),
+        "integrated",
+        "`top`'s no-change commit must NOT be treated as integrated"
+    );
+
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").env("NO_BG_TASKS", "1").assert().success();
+
+    let branches: Vec<String> = status_json(&env).unwrap()["stacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().into_iter().flatten())
+        .map(|b| b["name"].as_str().unwrap_or_default().to_string())
+        .collect();
+    assert!(
+        branches.iter().any(|b| b == "top"),
+        "`but pull` must keep the unmerged `top` branch, got: {branches:?}"
+    );
+    assert!(
+        !branches.iter().any(|b| b == "bottom"),
+        "`but pull` must remove the genuinely squash-merged `bottom` branch, got: {branches:?}"
+    );
+}
+
 fn assert_pull_removes_merged_upstream_branch(env: &Sandbox) {
     env.invoke_git("remote set-url origin .");
     env.but("pull").env("NO_BG_TASKS", "1").assert().success();
@@ -945,14 +1090,9 @@ fn status_in_edit_mode_delegates_to_resolve_status() -> anyhow::Result<()> {
 #[test]
 fn status_shows_marked_stack() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    let stack_ids = env.setup_metadata(&["A"]);
 
-    let status = status_json(&env)?;
-    let branch_cli_id = status["stacks"][0]["branches"][0]["cliId"]
-        .as_str()
-        .expect("branch cli id should exist");
-
-    env.but(format!("mark {branch_cli_id}")).assert().success();
+    mark_stack(&env, stack_ids[0])?;
 
     env.but("status")
         .with_color_for_svg()
@@ -963,5 +1103,22 @@ fn status_shows_marked_stack() -> anyhow::Result<()> {
             "snapshots/status/mark/status-shows-marked-stack.stdout.term.svg"
         ]);
 
+    Ok(())
+}
+
+fn mark_stack(env: &Sandbox, stack_id: StackId) -> anyhow::Result<()> {
+    let mut ctx = env.context();
+    let mut guard = ctx.exclusive_worktree_access();
+    but_rules::create_rule(
+        &mut ctx,
+        but_rules::CreateRuleRequest {
+            trigger: but_rules::Trigger::FileSytemChange,
+            filters: Vec::new(),
+            action: but_rules::Action::Explicit(but_rules::Operation::Assign {
+                target: but_rules::StackTarget::StackId(stack_id.to_string()),
+            }),
+        },
+        guard.write_permission(),
+    )?;
     Ok(())
 }

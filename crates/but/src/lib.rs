@@ -31,7 +31,7 @@ use clap::Parser;
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, forge,
+    Args, OutputFormat, Subcommands, actions, agent, alias as alias_args, branch, forge,
     update as update_args, worktree,
 };
 use but_settings::AppSettings;
@@ -186,12 +186,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     #[cfg(feature = "legacy")]
     if matches!(
         &args.cmd,
-        Some(Subcommands::Status { .. })
-            | Some(Subcommands::Diff { tui: false, .. })
-            | Some(Subcommands::Stage {
-                file_or_hunk: Some(_),
-                ..
-            })
+        Some(Subcommands::Status { .. }) | Some(Subcommands::Diff { tui: false, .. })
     ) {
         out.request_pager();
     }
@@ -503,6 +498,11 @@ async fn match_subcommand(
             {
                 return Ok(());
             }
+
+            result.emit_metrics(metrics_ctx).map_err(CliError::from)
+        }
+        Subcommands::Agent(agent::Platform { cmd }) => {
+            let result = command::agent::handle(&args.current_dir, out, cmd);
 
             result.emit_metrics(metrics_ctx).map_err(CliError::from)
         }
@@ -917,36 +917,6 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Mark { target, delete } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::mark::handle(&mut ctx, out, &target, delete)
-                .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Unmark => {
-            let ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::mark::unmark(&ctx, out)
-                .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
         Subcommands::Commit(commit_args) => {
             let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
@@ -960,28 +930,6 @@ async fn match_subcommand(
             out.begin_status_after(status_after);
 
             let result = match &commit_args.cmd {
-                Some(crate::args::commit::Subcommands::Batch {
-                    branch,
-                    before,
-                    after,
-                    messages,
-                    changes,
-                    no_hooks,
-                }) => {
-                    command::legacy::commit::validate_batch_parent_args(&commit_args)?;
-
-                    command::legacy::commit::commit_batch(
-                        &mut ctx,
-                        out,
-                        branch.clone(),
-                        before.clone(),
-                        after.clone(),
-                        messages,
-                        changes,
-                        *no_hooks,
-                    )
-                    .emit_metrics(metrics_ctx)
-                }
                 Some(crate::args::commit::Subcommands::Empty {
                     target,
                     before,

@@ -1,7 +1,3 @@
-:root {
-	--diffs-font-size: 12px;
-}
-
 .container {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
@@ -18,12 +14,23 @@
 
 .titleRow {
 	display: flex;
-	column-gap: 8px;
+	column-gap: 12px;
 	align-items: center;
+}
+
+.titleRowMacSpacer {
+	flex-shrink: 0;
+	align-self: stretch;
+	width: 60px;
 }
 
 .titleRowActions {
 	margin-inline-start: auto;
+}
+
+.compactButton {
+	width: 24px;
+	height: 14px;
 }
 
 .title {
@@ -38,8 +45,37 @@
 	gap: 6px;
 }
 
-.actionsRight {
+.diffControls {
+	display: flex;
 	margin-inline-start: auto;
+	gap: 6px;
+}
+
+.toggle {
+	&[data-pressed] {
+		--button-border: 1px solid var(--border-2);
+		--button-bg: var(--bg-2);
+		--button-icon-opacity: 0.9;
+	}
+}
+
+.panels {
+	column-gap: 6px;
+}
+
+.panel {
+	/* Stretch single child element to fill this element. */
+	display: grid;
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.resizeHandle {
+	width: 1px;
+
+	&[data-separator="hover"],
+	&[data-separator="active"] {
+		background-color: var(--border-2);
+	}
 }
 
 .loadingTab {
@@ -54,17 +90,6 @@
 	padding-inline: var(--panel-padding);
 }
 
-.diff {
-	display: grid;
-	grid-template-rows: minmax(0, 1fr);
-	grid-template-columns: 1fr;
-	column-gap: 12px;
-}
-
-.diffWithFiles {
-	grid-template-columns: 250px minmax(300px, 1fr);
-}
-
 .diffFiles {
 	padding-bottom: var(--panel-padding);
 }
@@ -74,14 +99,26 @@
 }
 
 .diffContents {
-	--diffs-bg-selection-number-override: color-mix(var(--fill-gray-bg) 60%, transparent);
+	--diffs-font-size: 12px;
+	--diffs-bg-selection-number-override: color-mix(
+		var(--fill-gray-bg) var(--opacity-bg-selected-blur),
+		transparent
+	);
 	--diffs-bg-selection-override: transparent;
 
 	overflow: auto;
 	user-select: text;
 
+	diffs-container {
+		--diffs-selection-number-fg: var(--text-1);
+	}
+
 	[data-selection-scope]:focus-within & {
 		--diffs-bg-selection-number-override: var(--fill-gray-bg);
+
+		diffs-container {
+			--diffs-selection-number-fg: var(--fill-gray-fg);
+		}
 	}
 }
 
@@ -109,16 +146,11 @@
 }
 
 .commitMessageBody {
-	max-width: 700px;
-	background-color: var(--bg-2);
-	font-size: 13px;
+	max-width: 70ch;
+	font-size: 12px;
+	line-height: 160%;
 	white-space: pre-wrap;
 	user-select: text;
-}
-
-.commitMessageBodyCollapsed {
-	max-height: 4.5lh;
-	overflow: auto;
 }
 
 .tabsRow {

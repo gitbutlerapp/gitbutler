@@ -198,11 +198,6 @@ fn undo_opens_confirm_for_latest_snapshot() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/undo_opens_confirm_for_latest_snapshot_001.svg"
         ]);
-
-    tui.input_then_render(KeyCode::Enter)
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/undo_opens_confirm_for_latest_snapshot_002.svg"
-        ]);
 }
 
 #[test]

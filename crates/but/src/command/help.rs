@@ -13,7 +13,6 @@ enum Group {
     EditingCommits,
     OperationHistory,
     ServerInteractions,
-    Rules,
     OtherCommands,
 }
 
@@ -22,7 +21,6 @@ impl std::fmt::Display for Group {
         f.write_str(match self {
             Group::Inspection => "Inspection",
             Group::BranchingAndCommitting => "Branching and Committing",
-            Group::Rules => "Rules",
             Group::ServerInteractions => "Server Interactions",
             Group::EditingCommits => "Editing Commits",
             Group::OperationHistory => "Operation History",
@@ -111,11 +109,6 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Resolve => Group::BranchingAndCommitting,
 
                 #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Mark => Group::Rules,
-                #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Unmark => Group::Rules,
-
-                #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Push => Group::ServerInteractions,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pull => Group::ServerInteractions,
@@ -150,7 +143,9 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Alias => Group::OtherCommands,
                 SubcommandDiscriminant::Config => Group::OtherCommands,
                 SubcommandDiscriminant::Skill => Group::OtherCommands,
+                SubcommandDiscriminant::Agent => Group::OtherCommands,
                 SubcommandDiscriminant::Help => Group::OtherCommands,
+                SubcommandDiscriminant::Completions => Group::OtherCommands,
 
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Setup => Group::OtherCommands,
@@ -161,7 +156,6 @@ fn print_grouped_with_truncation(
 
                 SubcommandDiscriminant::Edit => continue,
                 SubcommandDiscriminant::Metrics => continue,
-                SubcommandDiscriminant::Completions => continue,
                 SubcommandDiscriminant::Onboarding => continue,
                 SubcommandDiscriminant::EvalHook => continue,
                 SubcommandDiscriminant::External => continue,
@@ -351,10 +345,6 @@ Server Interactions:
   pull         Updates all applied branches to be up to date with the target b…
   pr           Commands for creating and managing reviews on a forge, e.g. Git…
 
-Rules:
-  mark         Mark a commit or branch for auto-stage or auto-commit
-  unmark       Removes any marks from the workspace
-
 Other Commands:
   setup        Sets up a GitButler project from a git repository in the curren…
   teardown     Exit GitButler mode and return to normal Git workflow
@@ -364,6 +354,8 @@ Other Commands:
   alias        Manage command aliases
   config       View and manage GitButler configuration
   skill        Manage AI agent skills for GitButler
+  agent        Set up GitButler for AI coding agents
+  completions  Generate but shell completions
 
 To add command completion, add this to your shell rc: (for example ~/.zshrc)
   eval "$(but completions zsh)"
@@ -435,6 +427,8 @@ Other Commands:
   alias        Manage command aliases
   config       View and manage GitButler configuration
   skill        Manage AI agent skills for GitButler
+  agent        Set up GitButler for AI coding agents
+  completions  Generate but shell completions
 
 To add command completion, add this to your shell rc: (for example ~/.zshrc)
   eval "$(but completions zsh)"

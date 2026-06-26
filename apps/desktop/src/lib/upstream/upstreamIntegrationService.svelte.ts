@@ -4,6 +4,7 @@ import {
 	type UpstreamIntegrationStatuses,
 } from "$lib/upstream/types";
 import { InjectionToken } from "@gitbutler/core/context";
+import type { PrService } from "$lib/forge/prService.svelte";
 import type { StackService } from "$lib/stacks/stackService.svelte";
 import type { BackendApi } from "$lib/state/backendApi";
 
@@ -15,9 +16,12 @@ export class UpstreamIntegrationService {
 	constructor(
 		private backendApi: BackendApi,
 		private stackService: StackService,
+		private prService: PrService,
 	) {}
 
 	async upstreamStatuses(projectId: string): Promise<UpstreamIntegrationStatuses> {
+		await this.prService.waitForRefreshes(projectId);
+
 		const stacks = await this.stackService.fetchStacks(projectId);
 		const updates = buildUpstreamIntegrationUpdates(stacks);
 

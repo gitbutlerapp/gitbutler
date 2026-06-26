@@ -63,7 +63,8 @@ use but_graph::{SegmentIndex, workspace::TargetCommit};
 
 mod upstream_integration;
 pub use upstream_integration::{
-    BottomUpdate, BottomUpdateKind, IntegrateUpstreamOutcome, integrate_upstream,
+    BottomUpdate, BottomUpdateKind, IntegrateUpstreamOutcome, ReviewIntegrationHint,
+    integrate_upstream, integrate_upstream_with_hints,
 };
 mod worktree;
 pub use worktree::worktree_conflicts_for_rebase;

@@ -42,6 +42,7 @@ use crate::{
             tui::{
                 backstack::{Backstack, BackstackEntry, RememberToUpdateBackstack},
                 confirm::{Confirm, ConfirmMessage},
+                copy_selection_picker::CopySelectionItem,
                 cursor::{Cursor, is_selectable_in_mode},
                 details::{Details, DetailsMessage, RenderNextChunkResult},
                 event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
@@ -86,6 +87,7 @@ use render::{details_viewport, ensure_cursor_visible, render_app, status_viewpor
 
 mod backstack;
 mod confirm;
+mod copy_selection_picker;
 mod cursor;
 mod details;
 mod event_polling;
@@ -297,7 +299,11 @@ where
     // poll terminal events
     for event in event_polling.poll(event_poll_timeout)? {
         let picker_shown = match &app.modal {
-            Some(Modal::GotoBranchPicker { .. } | Modal::ApplyStackPicker { .. }) => true,
+            Some(
+                Modal::GotoBranchPicker { .. }
+                | Modal::ApplyStackPicker { .. }
+                | Modal::CopySelectionPicker { .. },
+            ) => true,
             Some(Modal::Confirm { .. } | Modal::Help { .. }) | None => false,
         };
         event_to_messages(
@@ -469,6 +475,10 @@ enum Modal {
         confirm: Confirm,
         key_binds: KeyBinds,
     },
+    CopySelectionPicker {
+        picker: Box<FuzzyPicker<CopySelectionItem>>,
+        key_binds: KeyBinds,
+    },
     GotoBranchPicker {
         picker: Box<FuzzyPicker<GotoBranchItem>>,
         key_binds: KeyBinds,
@@ -558,6 +568,7 @@ impl App {
             Some(Modal::Confirm { key_binds, .. })
             | Some(Modal::GotoBranchPicker { key_binds, .. })
             | Some(Modal::ApplyStackPicker { key_binds, .. })
+            | Some(Modal::CopySelectionPicker { key_binds, .. })
             | Some(Modal::Help { key_binds, .. }) => key_binds,
             None => {
                 if let Mode::Normal(NormalMode { marks }) = &*self.mode
@@ -602,9 +613,6 @@ impl App {
         T: TerminalGuard,
         anyhow::Error: From<<T::Backend as Backend>::Error>,
     {
-        let start = Instant::now();
-        let discriminant = MessageDiscriminant::from(&msg);
-
         self.should_render = true;
         let terminal_area: Rect = terminal_guard.terminal_mut().size()?.into();
         let visible_height = status_viewport_height(self, terminal_area);
@@ -808,6 +816,9 @@ impl App {
             Message::CopySelection => {
                 self.handle_copy_selection()?;
             }
+            Message::CopySelectionPicker => {
+                self.handle_copy_selection_picker()?;
+            }
             Message::ShowToast { kind, text } => {
                 self.toasts.insert(kind, text);
             }
@@ -834,6 +845,14 @@ impl App {
                             self.modal = picker
                                 .handle_message(fuzzy_picker_message, ctx, messages)?
                                 .map(|picker| Modal::ApplyStackPicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                        Modal::CopySelectionPicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::CopySelectionPicker {
                                     picker: Box::new(picker),
                                     key_binds,
                                 });
@@ -879,7 +898,7 @@ impl App {
             Message::Debug(text) => {
                 messages.push(Message::ShowToast {
                     kind: ToastKind::Debug,
-                    text: text.to_owned(),
+                    text: text.to_owned().into(),
                 });
             }
             Message::GrowDetails => {
@@ -912,35 +931,21 @@ impl App {
                 self.has_focus = has_focus;
             }
             Message::Undo => {
-                self.handle_undo(ctx)?;
+                self.handle_undo(ctx, messages)?;
             }
             Message::Redo => {
-                self.handle_redo(ctx)?;
+                self.handle_redo(ctx, messages)?;
             }
             Message::Stack(stack_message) => match stack_message {
                 StackMessage::Enter => self.handle_stack_enter(ctx)?,
                 StackMessage::ShowApplyPicker => self.handle_stack_show_apply_picker(ctx)?,
-                StackMessage::Unapply => self.handle_stack_unapply(),
+                StackMessage::Unapply => self.handle_stack_unapply(ctx, messages)?,
                 StackMessage::MoveStart => self.handle_stack_move_start(),
                 StackMessage::MoveConfirm => self.handle_stack_move_confirm(ctx, messages)?,
             },
         }
 
         ensure_cursor_visible(self, visible_height);
-
-        if cfg!(feature = "tui-profiling") && !cfg!(test) {
-            let elapsed_ms = start.elapsed().as_millis();
-            if !matches!(
-                discriminant,
-                MessageDiscriminant::Reload | MessageDiscriminant::Command
-            ) && elapsed_ms > 60
-            {
-                self.toasts.insert(
-                    ToastKind::Debug,
-                    format!("Slow message: {discriminant:?} {elapsed_ms:?} ms"),
-                );
-            }
-        }
 
         Ok(())
     }
@@ -2318,8 +2323,8 @@ impl App {
                         builder.push_changes_from_uncommitted(uncommitted)?;
                     }
                 }
-                CommitSource::UncommittedArea(UncommittedAreaCommitSource { id }) => {
-                    builder.push_changes_from_uncommitted_area(id)?;
+                CommitSource::UncommittedArea(UncommittedAreaCommitSource { id: _ }) => {
+                    builder.push_changes_from_uncommitted_area()?;
                 }
                 CommitSource::Uncommitted(uncommitted) => {
                     builder.push_changes_from_uncommitted(uncommitted)?;
@@ -2461,7 +2466,7 @@ impl App {
 
                 messages.push(Message::ShowToast {
                     kind: ToastKind::Error,
-                    text: full_error_msg,
+                    text: full_error_msg.into(),
                 });
             }
         }
@@ -2835,6 +2840,48 @@ impl App {
 
         self.highlight
             .insert(Arc::unwrap_or_clone(Arc::clone(cli_id)));
+
+        Ok(())
+    }
+
+    fn handle_copy_selection_picker(&mut self) -> anyhow::Result<()> {
+        let Some(selection) = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|selection| selection.data.cli_id())
+        else {
+            return Ok(());
+        };
+
+        let picker = match &**selection {
+            CliId::Commit { commit_id, .. } => {
+                let commit_id = *commit_id;
+                copy_selection_picker::commit_picker(commit_id, self.theme)
+            }
+            CliId::Branch { name, .. } => {
+                let branch = Category::LocalBranch.to_full_name(&**name)?;
+                copy_selection_picker::branch_picker(branch, self.theme)
+            }
+            CliId::UncommittedHunkOrFile(hunk) => {
+                copy_selection_picker::uncommitted_hunk_picker(hunk.clone(), self.theme)
+            }
+            CliId::CommittedFile {
+                path,
+                id,
+                commit_id: _,
+            } => copy_selection_picker::committed_file_picker(
+                path.to_owned(),
+                id.to_owned(),
+                self.theme,
+            ),
+            CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
+                return Ok(());
+            }
+        };
+        self.modal = Some(Modal::CopySelectionPicker {
+            picker: Box::new(picker),
+            key_binds: fuzzy_picker_key_binds(),
+        });
 
         Ok(())
     }
@@ -3398,12 +3445,20 @@ impl App {
         self.mode.marks()
     }
 
-    fn handle_undo(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
-        self.restore_to_target_snapshot(UndoOrRedo::Undo, ctx)
+    fn handle_undo(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        self.restore_to_target_snapshot(UndoOrRedo::Undo, ctx, messages)
     }
 
-    fn handle_redo(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
-        self.restore_to_target_snapshot(UndoOrRedo::Redo, ctx)
+    fn handle_redo(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        self.restore_to_target_snapshot(UndoOrRedo::Redo, ctx, messages)
     }
 
     fn selected_stack_id(&self) -> Option<StackId> {
@@ -3548,12 +3603,16 @@ impl App {
         Ok(())
     }
 
-    fn handle_stack_unapply(&mut self) {
+    fn handle_stack_unapply(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
-            return;
+            return Ok(());
         };
         let Some(selection) = selection.data.cli_id() else {
-            return;
+            return Ok(());
         };
 
         let (stack_id, name) = match &**selection {
@@ -3568,24 +3627,24 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
             | CliId::Uncommitted { .. }
-            | CliId::Stack { .. } => return,
+            | CliId::Stack { .. } => return Ok(()),
         };
 
-        self.modal = Some(Modal::Confirm {
-            confirm: Confirm::new(
-                NonEmpty::new(format!("Unapply '{name}'?").into()),
-                self.theme,
-                move |ctx, messages| {
-                    but_api::legacy::virtual_branches::unapply_stack(ctx, stack_id)?;
-                    messages.extend([
-                        Message::EnterNormalModeAfterConfirmingOperation,
-                        Message::Reload(None, ReloadCause::Mutation),
-                    ]);
-                    Ok(())
-                },
-            ),
-            key_binds: confirm_key_binds(),
-        });
+        but_api::legacy::virtual_branches::unapply_stack(ctx, stack_id)?;
+
+        messages.extend([
+            Message::EnterNormalModeAfterConfirmingOperation,
+            Message::Reload(None, ReloadCause::Mutation),
+            Message::ShowToast {
+                kind: ToastKind::Info,
+                text: Text::from(Line::from_iter([
+                    Span::raw("Unapplied "),
+                    Span::styled(format!("'{name}'"), self.theme.local_branch),
+                ])),
+            },
+        ]);
+
+        Ok(())
     }
 
     fn handle_stack_move_start(&mut self) {
@@ -3686,6 +3745,7 @@ impl App {
         &mut self,
         kind: UndoOrRedo,
         ctx: &mut Context,
+        messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
         let target_snapshot = match kind {
             UndoOrRedo::Undo => operations::get_undo_target_snapshot_legacy(ctx)?,
@@ -3715,8 +3775,8 @@ impl App {
             Line::from_iter(
                 [
                     Span::raw(match kind {
-                        UndoOrRedo::Undo => "Undo ",
-                        UndoOrRedo::Redo => "Redo ",
+                        UndoOrRedo::Undo => "Undid ",
+                        UndoOrRedo::Redo => "Redid ",
                     }),
                     Span::raw(commit.to_string()).style(self.theme.cli_id),
                 ]
@@ -3727,27 +3787,27 @@ impl App {
                         Span::raw(" "),
                         Span::raw(details.operation.title()).style(self.theme.attention),
                     ]
-                }))
-                .chain([Span::raw("?")]),
+                })),
             )
         };
 
         let commit = target_snapshot.commit_id;
-        self.modal = Some(Modal::Confirm {
-            confirm: Confirm::new(NonEmpty::new(text), self.theme, move |ctx, messages| {
-                operations::restore_snapshot_with_kind_legacy(
-                    ctx,
-                    match kind {
-                        UndoOrRedo::Undo => RestoreKind::RestoreFromSnapshotViaUndo,
-                        UndoOrRedo::Redo => RestoreKind::RestoreFromSnapshotViaRedo,
-                    },
-                    commit,
-                )?;
-                messages.push(Message::Reload(None, ReloadCause::Mutation));
-                Ok(())
-            }),
-            key_binds: confirm_key_binds(),
-        });
+
+        operations::restore_snapshot_with_kind_legacy(
+            ctx,
+            match kind {
+                UndoOrRedo::Undo => RestoreKind::RestoreFromSnapshotViaUndo,
+                UndoOrRedo::Redo => RestoreKind::RestoreFromSnapshotViaRedo,
+            },
+            commit,
+        )?;
+        messages.extend([
+            Message::Reload(None, ReloadCause::Mutation),
+            Message::ShowToast {
+                kind: ToastKind::Info,
+                text: text.into(),
+            },
+        ]);
 
         Ok(())
     }
@@ -4118,8 +4178,7 @@ fn commits_on_branch(
     Ok(commits)
 }
 
-#[derive(Debug, Clone, strum::EnumDiscriminants)]
-#[strum_discriminants(name(MessageDiscriminant))]
+#[derive(Debug, Clone)]
 enum Message {
     // Lifecycle
     JustRender,
@@ -4130,7 +4189,7 @@ enum Message {
     ShowError(Arc<anyhow::Error>),
     ShowToast {
         kind: ToastKind,
-        text: String,
+        text: Text<'static>,
     },
     Confirm(ConfirmMessage),
     Discard,
@@ -4172,6 +4231,7 @@ enum Message {
 
     // Utilities
     CopySelection,
+    CopySelectionPicker,
     #[expect(clippy::enum_variant_names)]
     RegisterOutOfBandMessage(Rc<Receiver<Message>>),
     WithOneFrameDelay(Box<Message>),

@@ -3,6 +3,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use anyhow::Context as _;
 use bstr::BStr;
 use but_api::WorkspaceState;
 use but_core::{
@@ -533,6 +534,28 @@ where
         })
     }
 
+    pub fn move_commits(
+        &mut self,
+        subject_commit_ids: impl IntoIterator<Item = ObjectId>,
+        relative_to: RelativeTo,
+        side: InsertSide,
+    ) -> anyhow::Result<()> {
+        self.rebase(|editor, commit_mappings, _| {
+            let subject_commit_ids = subject_commit_ids
+                .into_iter()
+                .map(|commit| commit_mappings.map(commit));
+            let relative_to = match relative_to {
+                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
+                RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
+            };
+
+            let rebase =
+                but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
+
+            Ok(((), rebase))
+        })
+    }
+
     pub fn amend_commit(
         &mut self,
         target: ObjectId,
@@ -570,22 +593,29 @@ where
         source: ObjectId,
         target: ObjectId,
         changes: Vec<but_core::DiffSpec>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ObjectId> {
         let context_lines = self.context_lines();
         self.rebase(|editor, commit_mappings, _| {
             let source = commit_mappings.map(source);
             let target = commit_mappings.map(target);
 
-            let MoveChangesOutcome { rebase, .. } =
-                but_workspace::commit::move_changes_between_commits(
-                    editor,
-                    source,
-                    target,
-                    changes,
-                    context_lines,
-                )?;
+            let MoveChangesOutcome {
+                rebase,
+                destination_selector,
+                ..
+            } = but_workspace::commit::move_changes_between_commits(
+                editor,
+                source,
+                target,
+                changes,
+                context_lines,
+            )?;
 
-            Ok(((), rebase))
+            let new_commit = rebase
+                .lookup_pick(destination_selector)
+                .context("failed to find rebased commit")?;
+
+            Ok((new_commit, rebase))
         })
     }
 

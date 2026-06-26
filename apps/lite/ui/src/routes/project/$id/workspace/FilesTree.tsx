@@ -1,7 +1,7 @@
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
-import { changesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
+import { uncommittedChangesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectHasCheckedCommits,
@@ -63,7 +63,7 @@ const useFilesTreeHotkeys = ({
 
 	const dispatch = useAppDispatch();
 
-	const selectedChangesFile = fileParent._tag === "Changes" ? selection : null;
+	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
 
 	const absorbSelectedFile = () => {
 		if (selectedChangesFile === null) return;
@@ -74,7 +74,7 @@ const useFilesTreeHotkeys = ({
 		dispatch(
 			projectActions.enterAbsorbMode({
 				projectId,
-				source: fileOperand({ parent: changesFileParent, path: selectedChangesFile }),
+				source: fileOperand({ parent: uncommittedChangesFileParent, path: selectedChangesFile }),
 				sourceTarget: {
 					type: "treeChanges",
 					subject: {
@@ -177,7 +177,6 @@ export const FilesTree: FC<
 										<OperationSourceC
 											projectId={projectId}
 											source={fileOperand({ parent: fileParent, path: item.path })}
-											onDragStart={() => onFileSelection(item.path)}
 											render={
 												<FileRow
 													item={item}
@@ -256,7 +255,7 @@ const FileRow: FC<
 		projectId: string;
 		fileParent: FileParent;
 	} & Omit<ComponentProps<typeof ItemRow>, "projectId">
-> = ({ item, projectId, fileParent, ...restProps }) => {
+> = ({ item, projectId, fileParent, id, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -274,6 +273,10 @@ const FileRow: FC<
 	return (
 		<Tooltip.Root disableHoverablePopup>
 			<Tooltip.Trigger
+				// We pass the ID here instead of including it with the other props as a
+				// workaround for Base UI issue:
+				// https://github.com/mui/base-ui/issues/5108
+				id={id}
 				render={
 					<ItemRow
 						{...restProps}
@@ -307,32 +310,16 @@ const FileRow: FC<
 						</Tooltip.Portal>
 					</Tooltip.Root>
 				</div>
+
 				<WorkspaceItemRowLabelContainer>
-					<WorkspaceItemRowLabel singleLine>{relativePath}</WorkspaceItemRowLabel>
+					<WorkspaceItemRowLabel singleLine>
+						{relativePath}
+						{item._tag === "Conflict" && " ⚠️"}
+					</WorkspaceItemRowLabel>
 				</WorkspaceItemRowLabelContainer>
 
 				{outlineMode._tag === "Default" && (
 					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-						{Match.value({ item, fileParent }).pipe(
-							Match.when(
-								{ item: { _tag: "Change" }, fileParent: { _tag: "Changes" } },
-								({ item }) =>
-									item.dependencyCommitIds && (
-										<Toolbar.Button
-											render={
-												<DependencyIndicator
-													projectId={projectId}
-													commitIds={item.dependencyCommitIds}
-													className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-												/>
-											}
-										>
-											<Icon name="link" />
-										</Toolbar.Button>
-									),
-							),
-							Match.orElse(() => null),
-						)}
 						<Toolbar.Button
 							aria-label="File menu"
 							onClick={(event) => {
@@ -342,45 +329,50 @@ const FileRow: FC<
 						>
 							<Icon name="kebab" />
 						</Toolbar.Button>
+
+						{item._tag === "Change" &&
+							fileParent._tag === "UncommittedChanges" &&
+							item.dependencyCommitIds && (
+								<Toolbar.Button
+									render={
+										<DependencyIndicator
+											projectId={projectId}
+											commitIds={item.dependencyCommitIds}
+											className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+										/>
+									}
+								>
+									<Icon name="link" />
+								</Toolbar.Button>
+							)}
 					</Toolbar.Root>
 				)}
 
-				{item._tag === "Change"
-					? (() => {
-							const label = Match.value(item.change.status).pipe(
+				{item._tag === "Change" && (
+					<Tooltip.Root disableHoverablePopup>
+						<Tooltip.Trigger
+							className={styles.fileStatusBadge}
+							aria-label={item.change.status.type}
+							data-status-type={item.change.status.type}
+							// By default it's a button, but we don't want this to be
+							// interactive.
+							render={<span />}
+						>
+							{Match.value(item.change.status).pipe(
 								Match.when({ type: "Addition" }, () => "A"),
 								Match.when({ type: "Deletion" }, () => "D"),
 								Match.when({ type: "Modification" }, () => "M"),
 								Match.when({ type: "Rename" }, () => "R"),
 								Match.exhaustive,
-							);
-							const tooltip = Match.value(item.change.status).pipe(
-								Match.when({ type: "Addition" }, () => "Added"),
-								Match.when({ type: "Deletion" }, () => "Deleted"),
-								Match.when({ type: "Modification" }, () => "Modified"),
-								Match.when({ type: "Rename" }, () => "Renamed"),
-								Match.exhaustive,
-							);
-
-							return (
-								<Tooltip.Root disableHoverablePopup>
-									<Tooltip.Trigger
-										className={styles.fileStatusBadge}
-										aria-label={tooltip}
-										data-char={label}
-										render={<span />}
-									>
-										{label}
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>{tooltip}</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-							);
-						})()
-					: "C"}
+							)}
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup />}>{item.change.status.type}</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				)}
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>

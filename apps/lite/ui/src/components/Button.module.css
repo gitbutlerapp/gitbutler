@@ -53,7 +53,7 @@
 	padding-inline: 6px;
 	--icon-size: 14px;
 
-	&.iconOnly {
+	&:where(.iconOnly) {
 		width: 22px;
 		padding-inline: 3px;
 	}
@@ -65,7 +65,7 @@
 	padding-inline: 10px;
 	--icon-size: 16px;
 
-	&.iconOnly {
+	&:where(.iconOnly) {
 		width: 28px;
 		padding-inline: 8px;
 	}

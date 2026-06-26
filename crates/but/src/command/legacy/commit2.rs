@@ -8,7 +8,6 @@ use but_core::{
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
 use but_ctx::Context;
-use but_error::Code;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{DynamicOutcome, IntermediateCommitCreateResult, Transaction};
 use but_workspace::{
@@ -31,7 +30,7 @@ use crate::{
         reword2::RewordCommitOperation,
         status::{TuiOutcome, TuiRunOptions, tui_with_options},
     },
-    id::{UNCOMMITTED, UncommittedHunkOrFile},
+    id::UncommittedHunkOrFile,
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
@@ -174,8 +173,6 @@ fn resolve(
         }
     };
 
-    let commit_op = route_commit_operation(&*ctx.repo.get()?, head_info, out, id_map, target_ish)?;
-
     let (guard, commit_selection) = if !changes.is_empty() {
         let changes = changes
             .into_iter()
@@ -225,6 +222,8 @@ fn resolve(
         (guard, CommitSelection::AllChanges)
     };
 
+    let commit_op = route_commit_operation(&*ctx.repo.get()?, head_info, out, id_map, target_ish)?;
+
     let reword_op = RewordCommitOperation::resolve(no_message, message);
 
     Ok((guard, commit_op, commit_selection, reword_op))
@@ -245,7 +244,7 @@ fn run(
 
         match commit_selection {
             CommitSelection::AllChanges => {
-                builder.push_changes_from_uncommitted_area(&UNCOMMITTED.to_string())?;
+                builder.push_changes_from_uncommitted_area()?;
             }
             CommitSelection::Changes(changes) => {
                 for change in *changes {
@@ -287,22 +286,9 @@ fn run(
                 branch_name,
             )))
         },
-    );
+    )?;
 
-    let DynamicOutcome::Commit(((new_commit, branch_name), _ws)) = match result {
-        Ok(outcome) => outcome,
-        Err(err) => {
-            return Err(
-                if let Some(Code::EditorExitedWithNonZeroStatus) =
-                    err.downcast_ref::<but_error::Code>()
-                {
-                    bad_input("Editor exited with non-zero status").into()
-                } else {
-                    err.into()
-                },
-            );
-        }
-    };
+    let DynamicOutcome::Commit(((new_commit, branch_name), _ws)) = result;
 
     Ok(CommitOutcome {
         new_commit,
@@ -411,6 +397,10 @@ fn route_commit_operation(
                     );
                 };
 
+                let mut stack_heads =
+                    stack_heads.map(|(name, branch)| (name, PickerItem::StackHead(branch)));
+                stack_heads.push(("Create new stack".into(), PickerItem::NewStack));
+
                 let Some(selection) = input.prompt_select(
                     "Multiple stacks found. Choose one to commit to",
                     &stack_heads,
@@ -419,14 +409,26 @@ fn route_commit_operation(
                     return Err(bad_input("No stack picked").into());
                 };
 
-                Ok(CommitOperation::CommitAt(CommitAtOperation {
-                    target: CommitRelativeToTarget::BranchTip {
-                        name: (*selection).clone(),
-                    },
-                }))
+                match selection {
+                    PickerItem::StackHead(full_name) => {
+                        Ok(CommitOperation::CommitAt(CommitAtOperation {
+                            target: CommitRelativeToTarget::BranchTip {
+                                name: (*full_name).clone(),
+                            },
+                        }))
+                    }
+                    PickerItem::NewStack => Ok(CommitOperation::CommitToNewBranch(
+                        CommitToNewBranchOperation { branch_name: None },
+                    )),
+                }
             }
         },
     }
+}
+
+enum PickerItem<'a> {
+    StackHead(&'a FullName),
+    NewStack,
 }
 
 fn route_commit_above_or_below(
