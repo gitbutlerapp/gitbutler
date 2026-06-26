@@ -612,7 +612,10 @@ const Title: FC<{
 		}),
 	);
 
-const FilesToggle: FC = () => {
+const FilesToggle: FC<Omit<ComponentProps<typeof Toggle>, "pressed" | "onPressedChange">> = ({
+	children,
+	...toggleProps
+}) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
@@ -622,13 +625,13 @@ const FilesToggle: FC = () => {
 			<Tooltip.Trigger
 				render={
 					<Toggle
-						className={classes(getButtonClassName({}), styles.toggle)}
+						{...toggleProps}
 						pressed={filesVisible}
 						onPressedChange={() => dispatch(projectActions.toggleFiles({ projectId }))}
 					/>
 				}
 			>
-				Files
+				{children}
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
@@ -874,7 +877,7 @@ const Diff: FC<{
 	return (
 		<div className={styles.diffTab}>
 			<div className={styles.actions}>
-				<FilesToggle />
+				<FilesToggle className={classes(getButtonClassName({}), styles.toggle)}>Files</FilesToggle>
 				{canUseSplitDiff && (
 					<DiffStyleToggle
 						className={styles.actionsRight}
