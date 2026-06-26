@@ -18,14 +18,7 @@
 	align-self: center;
 	font-weight: 700;
 	font-size: 11px;
-
 	font-family: var(--text-fontfamily-base);
-
-	.fileRow:hover &,
-	.fileRow:focus-within &,
-	.fileRow[aria-selected="true"] & {
-		display: none;
-	}
 
 	&[data-char="A"] {
 		color: var(--change-status-addition);
