@@ -612,10 +612,9 @@ const Title: FC<{
 		}),
 	);
 
-const FilesToggle: FC<Omit<ComponentProps<typeof Toggle>, "pressed" | "onPressedChange">> = ({
-	children,
-	...toggleProps
-}) => {
+const FilesToggle: FC<
+	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
+> = ({ children, ...toggleProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
@@ -626,6 +625,7 @@ const FilesToggle: FC<Omit<ComponentProps<typeof Toggle>, "pressed" | "onPressed
 				render={
 					<Toggle
 						{...toggleProps}
+						aria-label="Toggle files"
 						pressed={filesVisible}
 						onPressedChange={() => dispatch(projectActions.toggleFiles({ projectId }))}
 					/>
