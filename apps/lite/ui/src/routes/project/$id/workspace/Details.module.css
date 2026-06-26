@@ -40,8 +40,18 @@
 	gap: 6px;
 }
 
-.actionsRight {
+.diffControls {
+	display: flex;
 	margin-inline-start: auto;
+	gap: 6px;
+}
+
+.toggle {
+	&[data-pressed] {
+		--button-border: 1px solid var(--border-2);
+		--button-bg: var(--bg-2);
+		--button-icon-opacity: 0.9;
+	}
 }
 
 .panels {

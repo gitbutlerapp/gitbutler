@@ -26,8 +26,11 @@ import {
 } from "#ui/operands.ts";
 import {
 	projectActions,
+	selectProjectDiffBackgrounds,
+	selectProjectDiffOverflow,
 	selectProjectFilesVisible,
 	selectProjectPreferredDiffStyle,
+	type DiffOverflow,
 	type DiffStyle,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -301,6 +304,8 @@ const DiffContents: FC<{
 	changesetKey: string;
 	projectId: string;
 	diffView: DiffView;
+	diffBackgrounds: boolean;
+	diffOverflow: DiffOverflow;
 	diffStyle: DiffStyle;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
@@ -311,6 +316,8 @@ const DiffContents: FC<{
 	changesetKey,
 	projectId,
 	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
+	diffBackgrounds,
+	diffOverflow,
 	diffStyle,
 	viewerRef,
 	didScrollToViaFileRef,
@@ -434,6 +441,8 @@ const DiffContents: FC<{
 			onSelectedLinesChange={handleLinesSelected}
 			options={{
 				diffStyle,
+				disableBackground: !diffBackgrounds,
+				overflow: diffOverflow,
 				themeType: "system",
 				stickyHeaders: true,
 				enableLineSelection: true,
@@ -612,7 +621,9 @@ const Title: FC<{
 		}),
 	);
 
-const FilesToggle: FC = () => {
+const FilesToggle: FC<
+	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
+> = ({ children, ...toggleProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
@@ -620,11 +631,16 @@ const FilesToggle: FC = () => {
 	return (
 		<Tooltip.Root>
 			<Tooltip.Trigger
-				className={getButtonClassName({})}
-				aria-pressed={filesVisible}
-				onClick={() => dispatch(projectActions.toggleFiles({ projectId }))}
+				render={
+					<Toggle
+						{...toggleProps}
+						aria-label="Toggle files"
+						pressed={filesVisible}
+						onPressedChange={() => dispatch(projectActions.toggleFiles({ projectId }))}
+					/>
+				}
 			>
-				Files
+				{children}
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
@@ -637,43 +653,112 @@ const FilesToggle: FC = () => {
 	);
 };
 
-const DiffStyleToggle: FC<{
-	className?: string;
-	diffStyle: DiffStyle;
-	onDiffStyleChange: (diffStyle: DiffStyle) => void;
-}> = ({ className, diffStyle, onDiffStyleChange }) => (
-	<Tooltip.Root>
-		<Tooltip.Trigger
-			render={
-				<ToggleGroup
-					className={className}
-					render={<ToggleGroupStyles />}
-					aria-label={diffHotkeys.toggleDiffStyle.meta.name}
-					value={[diffStyle]}
-					onValueChange={(value: Array<DiffStyle>) => {
-						const head = value[0];
-						if (head === undefined) return;
-						onDiffStyleChange(head);
-					}}
-				/>
-			}
-		>
-			<Toggle render={<ToggleStyles />} value={"split" satisfies DiffStyle}>
-				Split
-			</Toggle>
-			<Toggle render={<ToggleStyles />} value={"unified" satisfies DiffStyle}>
-				Unified
-			</Toggle>
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup kbd={diffHotkeys.toggleDiffStyle.hotkey} />}>
-					{diffHotkeys.toggleDiffStyle.meta.name}
-				</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
-);
+const DiffOverflowToggle: FC<
+	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
+> = ({ children, ...toggleProps }) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const diffOverflow = useAppSelector((state) => selectProjectDiffOverflow(state, projectId));
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<Toggle
+						{...toggleProps}
+						aria-label="Toggle line wrapping"
+						pressed={diffOverflow === "wrap"}
+						onPressedChange={(pressed) =>
+							dispatch(
+								projectActions.setDiffOverflow({
+									projectId,
+									diffOverflow: pressed ? "wrap" : "scroll",
+								}),
+							)
+						}
+					/>
+				}
+			>
+				{children}
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup />}>Toggle line wrapping</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
+const DiffBackgroundsToggle: FC<
+	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
+> = ({ children, ...toggleProps }) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const diffBackgrounds = useAppSelector((state) => selectProjectDiffBackgrounds(state, projectId));
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<Toggle
+						{...toggleProps}
+						aria-label="Toggle diff backgrounds"
+						pressed={diffBackgrounds}
+						onPressedChange={(enabled) =>
+							dispatch(projectActions.setDiffBackgrounds({ projectId, enabled }))
+						}
+					/>
+				}
+			>
+				{children}
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup />}>Toggle diff backgrounds</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
+const DiffStyleToggleGroup: FC<
+	Omit<ToggleGroup.Props<DiffStyle>, "aria-label" | "value" | "onValueChange">
+> = ({ children, ...toggleGroupProps }) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const preferredDiffStyle = useAppSelector((state) =>
+		selectProjectPreferredDiffStyle(state, projectId),
+	);
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<ToggleGroup
+						{...toggleGroupProps}
+						aria-label={diffHotkeys.toggleDiffStyle.meta.name}
+						value={[preferredDiffStyle]}
+						onValueChange={(value: Array<DiffStyle>) => {
+							const head = value[0];
+							if (head === undefined) return;
+							dispatch(projectActions.setPreferredDiffStyle({ projectId, diffStyle: head }));
+						}}
+					/>
+				}
+			>
+				{children}
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup kbd={diffHotkeys.toggleDiffStyle.hotkey} />}>
+						{diffHotkeys.toggleDiffStyle.meta.name}
+					</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
 
 const FullWindowToggle: FC<{
 	className?: string;
@@ -826,6 +911,8 @@ const Diff: FC<{
 	const preferredDiffStyle = useAppSelector((state) =>
 		selectProjectPreferredDiffStyle(state, projectId),
 	);
+	const diffOverflow = useAppSelector((state) => selectProjectDiffOverflow(state, projectId));
+	const diffBackgrounds = useAppSelector((state) => selectProjectDiffBackgrounds(state, projectId));
 	const diffContentsEl = useRef<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
 
@@ -870,16 +957,49 @@ const Diff: FC<{
 	return (
 		<div className={styles.diffTab}>
 			<div className={styles.actions}>
-				<FilesToggle />
-				{canUseSplitDiff && (
-					<DiffStyleToggle
-						className={styles.actionsRight}
-						diffStyle={preferredDiffStyle}
-						onDiffStyleChange={(diffStyle) =>
-							dispatch(projectActions.setPreferredDiffStyle({ projectId, diffStyle }))
+				<FilesToggle className={classes(getButtonClassName({}), styles.toggle)}>Files</FilesToggle>
+				<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
+					<Toolbar.Button
+						render={
+							<DiffOverflowToggle
+								className={classes(
+									getButtonClassName({ iconOnly: true, variant: "outline" }),
+									styles.toggle,
+								)}
+							>
+								<Icon name="text-wrap" />
+							</DiffOverflowToggle>
 						}
 					/>
-				)}
+					<Toolbar.Button
+						render={
+							<DiffBackgroundsToggle
+								className={classes(
+									getButtonClassName({ iconOnly: true, variant: "outline" }),
+									styles.toggle,
+								)}
+							>
+								<Icon name="text-block" />
+							</DiffBackgroundsToggle>
+						}
+					/>
+					{canUseSplitDiff && (
+						<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
+							<Toolbar.Button
+								render={<Toggle render={<ToggleStyles />} />}
+								value={"split" satisfies DiffStyle}
+							>
+								Split
+							</Toolbar.Button>
+							<Toolbar.Button
+								render={<Toggle render={<ToggleStyles />} />}
+								value={"unified" satisfies DiffStyle}
+							>
+								Unified
+							</Toolbar.Button>
+						</DiffStyleToggleGroup>
+					)}
+				</Toolbar.Root>
 			</div>
 
 			<Group
@@ -928,6 +1048,8 @@ const Diff: FC<{
 							changesetKey={changesetKey}
 							projectId={projectId}
 							diffView={diffView}
+							diffBackgrounds={diffBackgrounds}
+							diffOverflow={diffOverflow}
 							diffStyle={canUseSplitDiff ? preferredDiffStyle : "unified"}
 							selectionScopeRef={selectionScopeRef}
 							viewerRef={viewerRef}
