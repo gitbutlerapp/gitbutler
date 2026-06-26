@@ -1,12 +1,10 @@
 import { autoSelectBranchNameFeature, stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
-import { getFilterCountMap, getStackTargetTypeCountMap, type WorkspaceRule } from "$lib/rules/rule";
 import { StackService } from "$lib/stacks/stackService.svelte";
 import { UiState } from "$lib/state/uiState.svelte";
 import { WorktreeService } from "$lib/worktree/worktreeService.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
 import { get } from "svelte/store";
 import type { ProjectsService } from "$lib/project/projectsService";
-import type RulesService from "$lib/rules/rulesService.svelte";
 import type { Stack } from "$lib/stacks/stack";
 import type { EventProperties } from "$lib/state/customHooks.svelte";
 import type { HunkAssignment } from "@gitbutler/but-sdk";
@@ -20,7 +18,6 @@ export class CommitAnalytics {
 		private stackService: StackService,
 		private uiState: UiState,
 		private worktreeService: WorktreeService,
-		private rulesService: RulesService,
 		private fModeManager: FModeManager,
 		private projectsService: ProjectsService,
 	) {}
@@ -62,7 +59,6 @@ export class CommitAnalytics {
 
 			const assignments = worktreeData.hunkAssignments;
 
-			const rules = await this.rulesService.fetchListWorkspaceRules(args.projectId);
 			const project = await this.projectsService.fetchProject(args.projectId);
 
 			return {
@@ -95,8 +91,6 @@ export class CommitAnalytics {
 				fKeyActivations: this.fModeManager.activations,
 				// Whether gerrit mode is enabled for this project
 				gerritMode: project.gerrit_mode,
-				// Rule metrics
-				...this.getRuleMetrics(rules),
 				// Behavior metrics
 				...this.getBehaviorMetrics(),
 			};
@@ -171,25 +165,6 @@ export class CommitAnalytics {
 		return Array.from(paths);
 	}
 
-	private getRuleMetrics(rules: WorkspaceRule[]): EventProperties {
-		const filterCount = rules.map((rule) => rule.filters.length);
-		const filterCountByType = getFilterCountMap(rules);
-		const assignmentTargetTypes = getStackTargetTypeCountMap(rules);
-
-		const ruleMetrics = {
-			// Total number of rules in the workspace
-			totalWorkspaceRules: rules.length,
-			// Average number of filters per rule
-			averageFiltersPerRule: average(filterCount),
-			/// Count of filter types. Ignores multiple types of the same type in a single rule.
-			...filterCountByType,
-			/// Count the stack target types used
-			...assignmentTargetTypes,
-		};
-
-		return namespaceProps(ruleMetrics, "workspaceRules");
-	}
-
 	private getBehaviorMetrics(): EventProperties {
 		// Placeholder for future behavior metrics
 		const stagingBehavior = get(stagingBehaviorFeature);
@@ -209,10 +184,4 @@ function namespaceProps(props: EventProperties, namespace: string): EventPropert
 		namespacedProps[`${namespace}:${key}`] = value;
 	}
 	return namespacedProps;
-}
-
-function average(arr: number[]): number {
-	if (arr.length === 0) return 0;
-	const sum = arr.reduce((a, b) => a + b, 0);
-	return sum / arr.length;
 }

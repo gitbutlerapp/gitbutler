@@ -25,7 +25,6 @@ export enum ReduxTag {
 	BranchListing = "BranchListing",
 	BranchDetails = "BranchDetails",
 	SnapshotDiff = "SnapshotDiff",
-	WorkspaceRules = "WorkspaceRules",
 	Project = "Project",
 	ProjectGerrit = "ProjectGerrit",
 	InitalEditListing = "InitialEditListing",
