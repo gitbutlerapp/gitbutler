@@ -1043,7 +1043,7 @@ const CommitRow: FC<
 		dryRunCommit: Commit | null;
 	} & ComponentProps<"div">
 > = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
-	const { data: forgeInfo } = useSuspenseQuery(forgeInfoOptions(projectId));
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
 
 	const isHighlighted = useAppSelector((state) =>
@@ -2050,7 +2050,7 @@ const BranchRow: FC<
 	isTopSegment,
 	...restProps
 }) => {
-	const { data: forgeInfo } = useSuspenseQuery(forgeInfoOptions(projectId));
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
 
 	const dispatch = useAppDispatch();
@@ -2215,7 +2215,7 @@ const BranchRow: FC<
 	};
 
 	const openPRInBrowser = async (): Promise<void> => {
-		if (mforgeUrl === null) return;
+		if (mforgeUrl == null) return;
 
 		await window.lite.openInWebBrowser(mforgeUrl);
 	};
