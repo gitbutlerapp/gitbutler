@@ -81,7 +81,7 @@ export const toElectronAccelerator = (hotkey: RegisterableHotkey): string | unde
 };
 
 type HotkeyWithMeta = {
-	hotkey: Hotkey;
+	hotkey: RegisterableHotkey;
 	meta: HotkeyMeta;
 };
 
