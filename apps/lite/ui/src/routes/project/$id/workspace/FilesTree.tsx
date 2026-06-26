@@ -1,5 +1,6 @@
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
-import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
+import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import { getBranchNameByCommitId } from "#ui/api/ref-info.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { uncommittedChangesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
 import {
@@ -131,6 +132,10 @@ export const FilesTree: FC<
 	...props
 }) => {
 	const selection = useFilesSelection(projectId, navigationIndex);
+	const { data: branchNameByCommitId } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getBranchNameByCommitId,
+	});
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -185,6 +190,7 @@ export const FilesTree: FC<
 													onFileSelection={onFileSelection}
 													projectId={projectId}
 													fileParent={fileParent}
+													branchNameByCommitId={branchNameByCommitId}
 												/>
 											}
 										/>
@@ -255,8 +261,9 @@ const FileRow: FC<
 		item: FileTreeItem;
 		projectId: string;
 		fileParent: FileParent;
+		branchNameByCommitId?: Map<string, string | undefined>;
 	} & Omit<ComponentProps<typeof ItemRow>, "projectId">
-> = ({ item, projectId, fileParent, id, ...restProps }) => {
+> = ({ item, projectId, fileParent, branchNameByCommitId, id, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -339,6 +346,7 @@ const FileRow: FC<
 										<DependencyIndicator
 											projectId={projectId}
 											commitIds={item.dependencyCommitIds}
+											branchNameByCommitId={branchNameByCommitId}
 											className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
 										/>
 									}
