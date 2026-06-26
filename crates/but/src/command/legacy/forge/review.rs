@@ -302,7 +302,9 @@ pub async fn create_review(
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
 
-    let review_map = get_review_map(ctx, Some(but_forge::CacheConfig::CacheOnly))?;
+    // Publishing reviews is a write path, so use fresh forge state. A stale cache can
+    // make stacked publication try to recreate a dependency review that already exists.
+    let review_map = get_review_map_strict(ctx, Some(but_forge::CacheConfig::NoCache))?;
     let applied_stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     // If branch is specified, resolve it
@@ -674,20 +676,18 @@ async fn publish_reviews_for_branch_and_dependents(
             )?;
         }
 
-        let message_for_head = if branch.name == branch_name {
-            message
-        } else {
-            None
-        };
+        let message_plan =
+            review_message_plan_for_branch(&branch.name, branch_name, default_message, message);
         let published_review = publish_review_for_branch(
             ctx,
             stack_entry.id,
             &branch.name,
+            branch.review_id,
             current_target_branch,
             review_map,
-            default_message,
+            message_plan.default_message,
             draft,
-            message_for_head,
+            message_plan.message,
         )
         .await?;
         match published_review {
@@ -828,6 +828,27 @@ enum PublishReviewResult {
     AlreadyExists(Vec<but_forge::ForgeReview>),
 }
 
+struct ReviewMessagePlan<'a> {
+    default_message: bool,
+    message: Option<&'a ForgeReviewMessage>,
+}
+
+fn review_message_plan_for_branch<'a>(
+    branch_name: &str,
+    selected_branch_name: &str,
+    default_message: bool,
+    selected_branch_message: Option<&'a ForgeReviewMessage>,
+) -> ReviewMessagePlan<'a> {
+    let is_selected_branch = branch_name == selected_branch_name;
+    ReviewMessagePlan {
+        default_message: default_message
+            || (!is_selected_branch && selected_branch_message.is_some()),
+        message: is_selected_branch
+            .then_some(selected_branch_message)
+            .flatten(),
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ForgeReviewMessage {
     pub title: String,
@@ -858,6 +879,7 @@ async fn publish_review_for_branch(
     ctx: &mut Context,
     stack_id: Option<StackId>,
     branch_name: &str,
+    associated_review_id: Option<usize>,
     target_branch: &str,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     default_message: bool,
@@ -871,6 +893,13 @@ async fn publish_review_for_branch(
         && !reviews.is_empty()
     {
         return Ok(PublishReviewResult::AlreadyExists(reviews.clone()));
+    }
+    if let Some(review_id) = associated_review_id
+        && let Ok(review) = but_api::legacy::forge::get_review(ctx, review_id)
+        && review.is_open()
+        && review_source_branch_matches(&review, branch_name)
+    {
+        return Ok(PublishReviewResult::AlreadyExists(vec![review]));
     }
 
     let commit = default_commit(ctx, stack_id, branch_name)?;
@@ -1095,24 +1124,42 @@ pub fn get_review_map(
     cache_config: Option<but_forge::CacheConfig>,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
     let reviews = but_api::legacy::forge::list_reviews(ctx, cache_config).unwrap_or_default();
-    let branch_review_map =
-        reviews
-            .into_iter()
-            .fold(std::collections::HashMap::new(), |mut acc, r| {
-                // TODO: Handle forks properly
-                let clean_branch_name = r
-                    .source_branch
-                    .split(':')
-                    .next_back()
-                    .unwrap_or(&r.source_branch)
-                    .to_string();
-                acc.entry(clean_branch_name)
-                    .or_insert_with(Vec::new)
-                    .push(r);
-                acc
-            });
+    Ok(review_map_from_reviews(reviews))
+}
 
-    Ok(branch_review_map)
+fn get_review_map_strict(
+    ctx: &Context,
+    cache_config: Option<but_forge::CacheConfig>,
+) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
+    let reviews = but_api::legacy::forge::list_reviews(ctx, cache_config)?;
+    Ok(review_map_from_reviews(reviews))
+}
+
+fn review_map_from_reviews(
+    reviews: Vec<but_forge::ForgeReview>,
+) -> std::collections::HashMap<String, Vec<but_forge::ForgeReview>> {
+    reviews
+        .into_iter()
+        .fold(std::collections::HashMap::new(), |mut acc, r| {
+            let clean_branch_name = clean_review_source_branch(&r).to_string();
+            acc.entry(clean_branch_name)
+                .or_insert_with(Vec::new)
+                .push(r);
+            acc
+        })
+}
+
+fn clean_review_source_branch(review: &but_forge::ForgeReview) -> &str {
+    // GitHub can report forked PR heads as `owner:branch`.
+    review
+        .source_branch
+        .split(':')
+        .next_back()
+        .unwrap_or(&review.source_branch)
+}
+
+fn review_source_branch_matches(review: &but_forge::ForgeReview, branch_name: &str) -> bool {
+    clean_review_source_branch(review) == branch_name
 }
 
 pub(crate) fn from_branch_details(
@@ -1277,6 +1324,99 @@ fn extract_valid_ids(selector: &str) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn review_message() -> ForgeReviewMessage {
+        ForgeReviewMessage {
+            title: "Top branch title".to_string(),
+            body: "Top branch body".to_string(),
+        }
+    }
+
+    fn forge_review(source_branch: &str) -> but_forge::ForgeReview {
+        but_forge::ForgeReview {
+            html_url: "https://example.com/review/1".to_string(),
+            number: 1,
+            title: "Review".to_string(),
+            body: None,
+            author: None,
+            labels: vec![],
+            draft: false,
+            source_branch: source_branch.to_string(),
+            target_branch: "main".to_string(),
+            sha: "abc123".to_string(),
+            integration_commit_shas: vec![],
+            created_at: None,
+            modified_at: None,
+            merged_at: None,
+            closed_at: None,
+            repository_ssh_url: None,
+            repository_https_url: None,
+            repo_owner: None,
+            head_repo_is_fork: false,
+            reviewers: vec![],
+            unit_symbol: "#".to_string(),
+            last_sync_at: chrono::Local::now().naive_local(),
+        }
+    }
+
+    #[test]
+    fn clean_review_source_branch_strips_fork_owner_prefix() {
+        let review = forge_review("contributor:feature");
+
+        assert_eq!(clean_review_source_branch(&review), "feature");
+    }
+
+    #[test]
+    fn review_source_branch_matches_normalized_branch_name() {
+        let review = forge_review("contributor:feature");
+
+        assert!(review_source_branch_matches(&review, "feature"));
+        assert!(!review_source_branch_matches(&review, "other"));
+    }
+
+    #[test]
+    fn review_map_from_reviews_keys_by_normalized_source_branch() {
+        let reviews = review_map_from_reviews(vec![forge_review("contributor:feature")]);
+
+        assert!(reviews.contains_key("feature"));
+        assert!(!reviews.contains_key("contributor:feature"));
+    }
+
+    #[test]
+    fn review_message_plan_uses_explicit_message_for_selected_branch() {
+        let message = review_message();
+
+        let plan = review_message_plan_for_branch("top", "top", false, Some(&message));
+
+        assert!(!plan.default_message);
+        assert_eq!(plan.message.unwrap().title, "Top branch title");
+    }
+
+    #[test]
+    fn review_message_plan_defaults_dependencies_when_selected_branch_has_message() {
+        let message = review_message();
+
+        let plan = review_message_plan_for_branch("dependency", "top", false, Some(&message));
+
+        assert!(plan.default_message);
+        assert!(plan.message.is_none());
+    }
+
+    #[test]
+    fn review_message_plan_keeps_interactive_dependency_behavior_without_message_or_default() {
+        let plan = review_message_plan_for_branch("dependency", "top", false, None);
+
+        assert!(!plan.default_message);
+        assert!(plan.message.is_none());
+    }
+
+    #[test]
+    fn review_message_plan_applies_default_flag_to_selected_branch() {
+        let plan = review_message_plan_for_branch("top", "top", true, None);
+
+        assert!(plan.default_message);
+        assert!(plan.message.is_none());
+    }
 
     #[test]
     fn parse_pr_message_title_only() {
