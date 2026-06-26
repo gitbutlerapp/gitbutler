@@ -220,7 +220,7 @@ fn resolve(
             ClassifiedSquashables::UncommittedHunks(source_hunks) => {
                 let (target, reword) = match target {
                     SquashTarget::Commit { commit, reword } => {
-                        (commit, reword.try_into_no_source()?)
+                        (commit, reword.try_into_uncommitting()?)
                     }
                     SquashTarget::Uncommitted => {
                         return Err(cannot_uncommit_uncommitted_changes_error());
@@ -235,7 +235,7 @@ fn resolve(
             ClassifiedSquashables::Uncommitted => {
                 let (target, reword) = match target {
                     SquashTarget::Commit { commit, reword } => {
-                        (commit, reword.try_into_no_source()?)
+                        (commit, reword.try_into_uncommitting()?)
                     }
                     SquashTarget::Uncommitted => {
                         return Err(cannot_uncommit_uncommitted_changes_error());
@@ -413,7 +413,7 @@ enum SquashTarget {
 enum MoveCommittedChangesTarget {
     Commit {
         commit: ObjectId,
-        reword: HowToRewordMovedChanges,
+        reword: HowToRewordTargetNoSource,
     },
     Uncommitted,
 }
@@ -423,7 +423,7 @@ impl MoveCommittedChangesTarget {
         match target {
             SquashTarget::Commit { commit, reword } => Ok(Self::Commit {
                 commit,
-                reword: HowToRewordMovedChanges::from_target_reword(reword)?,
+                reword: reword.try_into_moving_changes()?,
             }),
             SquashTarget::Uncommitted => Ok(Self::Uncommitted),
         }
@@ -588,6 +588,13 @@ enum HowToRewordTarget {
 }
 
 impl HowToRewordTarget {
+    fn will_open_editor(&self) -> bool {
+        match self {
+            Self::UseTargetMessage | Self::UseSourceMessage => false,
+            Self::Reword(op) => op.will_open_editor(),
+        }
+    }
+
     fn how_to_combine_messages(&self) -> MessageCombinationStrategy {
         match self {
             Self::UseTargetMessage => MessageCombinationStrategy::KeepTarget,
@@ -607,10 +614,21 @@ impl HowToRewordTarget {
         }
     }
 
-    fn try_into_no_source(self) -> CliResult<HowToRewordTargetNoSource> {
+    fn try_into_uncommitting(self) -> CliResult<HowToRewordTargetNoSource> {
         match self {
             HowToRewordTarget::UseSourceMessage => Err(bad_input(
                 "--use-source-message cannot be used when squashing uncommitted changes",
+            )
+            .into()),
+            HowToRewordTarget::UseTargetMessage => Ok(HowToRewordTargetNoSource::UseTargetMessage),
+            HowToRewordTarget::Reword(op) => Ok(HowToRewordTargetNoSource::Reword(op)),
+        }
+    }
+
+    fn try_into_moving_changes(self) -> CliResult<HowToRewordTargetNoSource> {
+        match self {
+            HowToRewordTarget::UseSourceMessage => Err(bad_input(
+                "--use-source-message cannot be used when moving committed changes",
             )
             .into()),
             HowToRewordTarget::UseTargetMessage => Ok(HowToRewordTargetNoSource::UseTargetMessage),
@@ -629,37 +647,10 @@ enum HowToRewordTargetNoSource {
 }
 
 impl HowToRewordTargetNoSource {
-    fn execute(
-        self,
-        commit: ObjectId,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<gix::ObjectId> {
+    fn will_open_editor(&self) -> bool {
         match self {
-            Self::UseTargetMessage => Ok(commit),
-            Self::Reword(reword_commit_operation) => reword_commit_operation.execute(commit, tx),
-        }
-    }
-}
-
-/// How to reword a commit after moving a subset of changes from another commit.
-///
-/// `--use-source-message` is intentionally not representable here because the
-/// source is a set of committed changes, not a whole commit being squashed.
-#[derive(Debug, Clone)]
-enum HowToRewordMovedChanges {
-    UseTargetMessage,
-    Reword(RewordCommitOperation),
-}
-
-impl HowToRewordMovedChanges {
-    fn from_target_reword(reword: HowToRewordTarget) -> CliResult<Self> {
-        match reword {
-            HowToRewordTarget::UseSourceMessage => Err(bad_input(
-                "--use-source-message cannot be used when moving committed changes",
-            )
-            .into()),
-            HowToRewordTarget::UseTargetMessage => Ok(Self::UseTargetMessage),
-            HowToRewordTarget::Reword(op) => Ok(Self::Reword(op)),
+            Self::UseTargetMessage => false,
+            Self::Reword(op) => op.will_open_editor(),
         }
     }
 
@@ -1035,10 +1026,24 @@ enum SquashOperation {
         target: ObjectId,
         source: ObjectId,
         source_paths: Vec<BString>,
-        reword: HowToRewordMovedChanges,
+        reword: HowToRewordTargetNoSource,
     },
     Uncommit(UncommitOperation),
     UncommitCommittedFiles(UncommitCommittedFilesOperation),
+}
+
+impl SquashOperation {
+    #[expect(dead_code)]
+    pub fn will_open_editor(&self) -> bool {
+        match self {
+            SquashOperation::Commits(op) => op.reword.will_open_editor(),
+            SquashOperation::Branch(op) => op.reword.will_open_editor(),
+            SquashOperation::UncommittedHunks(op) => op.reword.will_open_editor(),
+            SquashOperation::Uncommitted { reword, .. } => reword.will_open_editor(),
+            SquashOperation::MoveCommittedFiles { reword, .. } => reword.will_open_editor(),
+            SquashOperation::Uncommit(..) | SquashOperation::UncommitCommittedFiles(..) => false,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -1151,7 +1156,7 @@ struct MoveCommittedFilesOperation {
     target: ObjectId,
     source: ObjectId,
     changes: Vec<but_core::DiffSpec>,
-    reword: HowToRewordMovedChanges,
+    reword: HowToRewordTargetNoSource,
 }
 
 impl MoveCommittedFilesOperation {
