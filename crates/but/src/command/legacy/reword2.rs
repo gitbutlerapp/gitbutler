@@ -1,6 +1,7 @@
 use bstr::BString;
 use but_api::diff::ComputeLineStats;
 use but_core::{RefMetadata, diff::CommitDetails};
+use but_error::Code;
 use but_transaction::Transaction;
 use gix::prelude::ObjectIdExt as _;
 
@@ -42,15 +43,27 @@ impl RewordCommitOperation {
 
                 let current_message = commit_details.commit.inner.message.to_string();
 
-                get_commit_message_from_editor(
+                match get_commit_message_from_editor(
                     tx.repo(),
                     tx.context_lines(),
                     commit_details,
                     current_message,
                     "",
                     ShowDiffInEditor::Unspecified,
-                )?
-                .unwrap_or_default()
+                ) {
+                    Ok(message) => message.unwrap_or_default(),
+                    Err(err) => {
+                        return Err(
+                            if let Some(Code::EditorExitedWithNonZeroStatus) =
+                                err.downcast_ref::<but_error::Code>()
+                            {
+                                anyhow::anyhow!("Editor exited with non-zero status")
+                            } else {
+                                err
+                            },
+                        );
+                    }
+                }
             }
         };
 

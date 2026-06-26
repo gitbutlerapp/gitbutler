@@ -774,7 +774,7 @@ fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     squash_op: SquashOperation,
-) -> CliResult<SquashOutcome> {
+) -> anyhow::Result<SquashOutcome> {
     let executable_op = match squash_op {
         SquashOperation::Commits(SquashCommitsOperation {
             mut sources,
@@ -968,12 +968,10 @@ fn run(
                     perm,
                 )?;
 
-                if is_workspace_conflicted(&workspace) {
-                    return Err(anyhow::anyhow!(
-                        "Cannot uncommit commits that would result in merge conflicts"
-                    )
-                    .into());
-                }
+                anyhow::ensure!(
+                    !is_workspace_conflicted(&workspace),
+                    "Cannot uncommit commits that would result in merge conflicts"
+                );
             }
 
             let but_api::commit::types::UncommitResult {
@@ -1003,12 +1001,10 @@ fn run(
                         perm,
                     )?;
 
-                if is_workspace_conflicted(&workspace) {
-                    return Err(anyhow::anyhow!(
-                        "Cannot uncommit hunks that would result in merge conflicts"
-                    )
-                    .into());
-                }
+                anyhow::ensure!(
+                    !is_workspace_conflicted(&workspace),
+                    "Cannot uncommit hunks that would result in merge conflicts"
+                );
             }
 
             let but_api::commit::types::MoveChangesResult { workspace: _ } =

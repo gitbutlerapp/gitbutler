@@ -8,7 +8,6 @@ use but_core::{
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
 use but_ctx::Context;
-use but_error::Code;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{DynamicOutcome, IntermediateCommitCreateResult, Transaction};
 use but_workspace::{
@@ -287,22 +286,9 @@ fn run(
                 branch_name,
             )))
         },
-    );
+    )?;
 
-    let DynamicOutcome::Commit(((new_commit, branch_name), _ws)) = match result {
-        Ok(outcome) => outcome,
-        Err(err) => {
-            return Err(
-                if let Some(Code::EditorExitedWithNonZeroStatus) =
-                    err.downcast_ref::<but_error::Code>()
-                {
-                    bad_input("Editor exited with non-zero status").into()
-                } else {
-                    err.into()
-                },
-            );
-        }
-    };
+    let DynamicOutcome::Commit(((new_commit, branch_name), _ws)) = result;
 
     Ok(CommitOutcome {
         new_commit,
