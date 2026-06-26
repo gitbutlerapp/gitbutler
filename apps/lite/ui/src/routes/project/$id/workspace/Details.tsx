@@ -722,43 +722,43 @@ const DiffBackgroundsToggle: FC<
 	);
 };
 
-const DiffStyleToggle: FC<{
-	className?: string;
-	diffStyle: DiffStyle;
-	onDiffStyleChange: (diffStyle: DiffStyle) => void;
-}> = ({ className, diffStyle, onDiffStyleChange }) => (
-	<Tooltip.Root>
-		<Tooltip.Trigger
-			render={
-				<ToggleGroup
-					className={className}
-					render={<ToggleGroupStyles />}
-					aria-label={diffHotkeys.toggleDiffStyle.meta.name}
-					value={[diffStyle]}
-					onValueChange={(value: Array<DiffStyle>) => {
-						const head = value[0];
-						if (head === undefined) return;
-						onDiffStyleChange(head);
-					}}
-				/>
-			}
-		>
-			<Toggle render={<ToggleStyles />} value={"split" satisfies DiffStyle}>
-				Split
-			</Toggle>
-			<Toggle render={<ToggleStyles />} value={"unified" satisfies DiffStyle}>
-				Unified
-			</Toggle>
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup kbd={diffHotkeys.toggleDiffStyle.hotkey} />}>
-					{diffHotkeys.toggleDiffStyle.meta.name}
-				</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
-);
+const DiffStyleToggleGroup: FC<
+	Omit<ToggleGroup.Props<DiffStyle>, "aria-label" | "value" | "onValueChange">
+> = ({ children, ...toggleGroupProps }) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const preferredDiffStyle = useAppSelector((state) =>
+		selectProjectPreferredDiffStyle(state, projectId),
+	);
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<ToggleGroup
+						{...toggleGroupProps}
+						aria-label={diffHotkeys.toggleDiffStyle.meta.name}
+						value={[preferredDiffStyle]}
+						onValueChange={(value: Array<DiffStyle>) => {
+							const head = value[0];
+							if (head === undefined) return;
+							dispatch(projectActions.setPreferredDiffStyle({ projectId, diffStyle: head }));
+						}}
+					/>
+				}
+			>
+				{children}
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup kbd={diffHotkeys.toggleDiffStyle.hotkey} />}>
+						{diffHotkeys.toggleDiffStyle.meta.name}
+					</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
 
 const FullWindowToggle: FC<{
 	className?: string;
@@ -976,12 +976,14 @@ const Diff: FC<{
 						<Icon name="text-block" />
 					</DiffBackgroundsToggle>
 					{canUseSplitDiff && (
-						<DiffStyleToggle
-							diffStyle={preferredDiffStyle}
-							onDiffStyleChange={(diffStyle) =>
-								dispatch(projectActions.setPreferredDiffStyle({ projectId, diffStyle }))
-							}
-						/>
+						<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
+							<Toggle render={<ToggleStyles />} value={"split" satisfies DiffStyle}>
+								Split
+							</Toggle>
+							<Toggle render={<ToggleStyles />} value={"unified" satisfies DiffStyle}>
+								Unified
+							</Toggle>
+						</DiffStyleToggleGroup>
 					)}
 				</div>
 			</div>
