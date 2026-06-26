@@ -303,6 +303,7 @@ const DiffContents: FC<{
 	diffView: DiffView;
 	diffStyle: DiffStyle;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
+	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({
 	selectionScopeRef,
 	onViewerFileSelection,
@@ -312,6 +313,7 @@ const DiffContents: FC<{
 	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
 	diffStyle,
 	viewerRef,
+	didScrollToViaFileRef,
 }) => {
 	const dispatch = useAppDispatch();
 
@@ -351,7 +353,12 @@ const DiffContents: FC<{
 		operationSourceForItem: hunkOperand,
 	});
 
-	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>) => {
+	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>): void => {
+		if (didScrollToViaFileRef.current) {
+			didScrollToViaFileRef.current = false;
+			return;
+		}
+
 		const activeItem = viewer
 			.getRenderedItems()
 			// oxlint-disable-next-line typescript/no-non-null-assertion: It can only be undefined if the item ID is invalid.
@@ -751,6 +758,17 @@ const Diff: FC<{
 }> = ({ changes, filesVisible, filesItems, onFileSelection, outlineSelection, projectId }) => {
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
+
+	// On file selection we select the first hunk/block in that file and scroll to it, which triggers
+	// CodeView's scroll handler, which in turn updates file selection again (as per usual scrolling
+	// scenario). That latter file selection is based upon the first file visible in the viewport,
+	// which may exclude trailing files collectively shorter than the scroll container.
+	//
+	// The callback doesn't provide any way of knowing what triggered the scroll, so we use this ref
+	// to bypass that latter file selection. We could alternatively attempt to pad the scroll
+	// container, but that comes with other complexities and tradeoffs.
+	const didScrollToViaFileRef = useRef(false);
+
 	const dispatch = useAppDispatch();
 	const files = filesItems.map((item) => item.path);
 	const filesIndexByKey = buildIndexByKey(files, identity);
@@ -793,6 +811,7 @@ const Diff: FC<{
 			}),
 		);
 
+		didScrollToViaFileRef.current = true;
 		viewerRef.current?.scrollTo({
 			type: "item",
 			id: codeViewItemId({ changesetKey, path: selection }),
@@ -907,6 +926,7 @@ const Diff: FC<{
 							diffStyle={canUseSplitDiff ? preferredDiffStyle : "unified"}
 							selectionScopeRef={selectionScopeRef}
 							viewerRef={viewerRef}
+							didScrollToViaFileRef={didScrollToViaFileRef}
 						/>
 					</div>
 				</Panel>
