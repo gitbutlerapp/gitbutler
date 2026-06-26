@@ -182,6 +182,7 @@ const useOutlineTreeHotkeys = ({
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
@@ -211,6 +212,17 @@ const useOutlineTreeHotkeys = ({
 			? selectProjectCommitChecked(state, projectId, selection.commitId)
 			: false,
 	);
+	const selectedCommit =
+		selection?._tag === "Commit" && headInfo
+			? findCommit({ headInfo, commitId: selection.commitId })
+			: null;
+	const selectedCommitForgeUrl =
+		selectedCommit && forgeInfo ? commitForgeUrl(selectedCommit, forgeInfo) : null;
+	const selectedBranchPullRequest = selectedBranchSegment?.metadata?.review.pullRequest ?? null;
+	const selectedBranchPullRequestUrl =
+		selectedBranchPullRequest !== null && forgeInfo
+			? prForgeUrl(selectedBranchPullRequest, forgeInfo)
+			: null;
 
 	const dispatch = useAppDispatch();
 
@@ -450,6 +462,18 @@ const useOutlineTreeHotkeys = ({
 			});
 	};
 
+	const openSelectedCommitInBrowser = async (): Promise<void> => {
+		if (!selectedCommitForgeUrl) return;
+
+		await window.lite.openInWebBrowser(selectedCommitForgeUrl.url);
+	};
+
+	const openSelectedBranchPRInBrowser = async (): Promise<void> => {
+		if (selectedBranchPullRequestUrl === null) return;
+
+		await window.lite.openInWebBrowser(selectedBranchPullRequestUrl);
+	};
+
 	const defaultOutlineHotkeysEnabled = isDefaultMode;
 	const isSelectedCommit = selection?._tag === "Commit";
 	const isSelectedBranch = selection?._tag === "Branch";
@@ -598,6 +622,16 @@ const useOutlineTreeHotkeys = ({
 			},
 		},
 		{
+			hotkey: outlineHotkeys.openCommitInBrowser.hotkey,
+			callback: () => void openSelectedCommitInBrowser(),
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !!selectedCommitForgeUrl,
+				target: ref,
+				meta: outlineHotkeys.openCommitInBrowser.meta,
+			},
+		},
+		{
 			hotkey: outlineHotkeys.moveCommitUp.hotkey,
 			callback: () => moveSelectedCommit(-1),
 			options: {
@@ -625,6 +659,17 @@ const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && canPushSelectedBranch,
 				target: ref,
 				meta: outlineHotkeys.pushStack.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.openPRInBrowser.hotkey,
+			callback: () => void openSelectedBranchPRInBrowser(),
+			options: {
+				conflictBehavior: "allow",
+				enabled:
+					defaultOutlineHotkeysEnabled && isSelectedBranch && selectedBranchPullRequestUrl !== null,
+				target: ref,
+				meta: outlineHotkeys.openPRInBrowser.meta,
 			},
 		},
 		{
@@ -1043,7 +1088,7 @@ const CommitRow: FC<
 		dryRunCommit: Commit | null;
 	} & ComponentProps<"div">
 > = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
-	const { data: forgeInfo } = useSuspenseQuery(forgeInfoOptions(projectId));
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
 
 	const isHighlighted = useAppSelector((state) =>
@@ -1060,7 +1105,6 @@ const CommitRow: FC<
 		commitId: commit.id,
 	};
 	const operand = commitOperand(commitOperandV);
-	const isSelected = useIsSelected({ projectId, operand });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -1231,12 +1275,6 @@ const CommitRow: FC<
 
 		await window.lite.openInWebBrowser(mforgeUrl.url);
 	};
-
-	useHotkey(outlineHotkeys.openCommitInBrowser.hotkey, () => void openCommitInBrowser(), {
-		conflictBehavior: "allow",
-		enabled: isSelected,
-		meta: outlineHotkeys.openCommitInBrowser.meta,
-	});
 
 	const title = commitTitle(commitWithOptimisticMessage.message);
 	const body = commitBody(commitWithOptimisticMessage.message);
@@ -2050,7 +2088,7 @@ const BranchRow: FC<
 	isTopSegment,
 	...restProps
 }) => {
-	const { data: forgeInfo } = useSuspenseQuery(forgeInfoOptions(projectId));
+	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
 
 	const dispatch = useAppDispatch();
@@ -2059,7 +2097,6 @@ const BranchRow: FC<
 		branchRef: refName.fullNameBytes,
 	};
 	const operand = branchOperand(branchOperandV);
-	const isSelected = useIsSelected({ projectId, operand });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -2215,16 +2252,10 @@ const BranchRow: FC<
 	};
 
 	const openPRInBrowser = async (): Promise<void> => {
-		if (mforgeUrl === null) return;
+		if (mforgeUrl == null) return;
 
 		await window.lite.openInWebBrowser(mforgeUrl);
 	};
-
-	useHotkey(outlineHotkeys.openPRInBrowser.hotkey, () => void openPRInBrowser(), {
-		conflictBehavior: "allow",
-		enabled: isSelected,
-		meta: outlineHotkeys.openPRInBrowser.meta,
-	});
 
 	const pushStackDisabled =
 		pushStackMutation.isPending || partialStackPushDisabled(partialStackState);
