@@ -604,7 +604,7 @@ const Title: FC<{
 												iconOnly: true,
 												size: "small",
 											}),
-											styles.compactButton,
+											styles.commitBodyToggle,
 										)}
 										onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
 									>
