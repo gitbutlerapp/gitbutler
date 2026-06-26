@@ -355,19 +355,12 @@ const FileRow: FC<
 							Match.when({ type: "Rename" }, () => "R"),
 							Match.exhaustive,
 						);
-						const label = Match.value(item.change.status).pipe(
-							Match.when({ type: "Addition" }, () => "Added"),
-							Match.when({ type: "Deletion" }, () => "Deleted"),
-							Match.when({ type: "Modification" }, () => "Modified"),
-							Match.when({ type: "Rename" }, () => "Renamed"),
-							Match.exhaustive,
-						);
 
 						return (
 							<Tooltip.Root disableHoverablePopup>
 								<Tooltip.Trigger
 									className={styles.fileStatusBadge}
-									aria-label={label}
+									aria-label={item.change.status.type}
 									data-char={badge}
 									render={<span />}
 								>
@@ -375,7 +368,9 @@ const FileRow: FC<
 								</Tooltip.Trigger>
 								<Tooltip.Portal>
 									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
+										<Tooltip.Popup render={<TooltipPopup />}>
+											{item.change.status.type}
+										</Tooltip.Popup>
 									</Tooltip.Positioner>
 								</Tooltip.Portal>
 							</Tooltip.Root>
