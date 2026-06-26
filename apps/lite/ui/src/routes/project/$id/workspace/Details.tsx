@@ -753,27 +753,27 @@ const DiffStyleToggleGroup: FC<
 	);
 };
 
-const FullWindowToggle: FC<{
-	className?: string;
-}> = ({ className }) => {
+const FullWindowToggle: FC<
+	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
+> = (toggleProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const fullWindow = useAppSelector((state) => selectProjectDetailsFullWindow(state, projectId));
 
-	const label = fullWindow ? "Exit full window details" : "Full window details";
-
 	return (
 		<Tooltip.Root>
 			<Tooltip.Trigger
-				aria-label={label}
-				aria-pressed={fullWindow}
-				className={className}
-				onClick={() =>
-					dispatch(projectActions.setDetailsFullWindow({ projectId, fullWindow: !fullWindow }))
+				render={
+					<Toggle
+						{...toggleProps}
+						aria-label={workspaceHotkeys.toggleDetailsFullWindow.meta.name}
+						pressed={fullWindow}
+						onPressedChange={(fullWindow) =>
+							dispatch(projectActions.setDetailsFullWindow({ projectId, fullWindow }))
+						}
+					/>
 				}
-			>
-				<Icon name={fullWindow ? "fullscreen-exit" : "fullscreen-enter"} />
-			</Tooltip.Trigger>
+			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
 					<Tooltip.Popup
@@ -1217,8 +1217,14 @@ export const Details: FC<
 						selection={outlineSelection}
 					/>
 					<FullWindowToggle
-						className={classes(styles.titleRowActions, getButtonClassName({ iconOnly: true }))}
-					/>
+						className={classes(
+							styles.titleRowActions,
+							getButtonClassName({ iconOnly: true }),
+							styles.toggle,
+						)}
+					>
+						<Icon name={detailsFullWindow ? "fullscreen-exit" : "fullscreen-enter"} />
+					</FullWindowToggle>
 				</div>
 
 				{outlineSelection._tag === "Branch" && (
