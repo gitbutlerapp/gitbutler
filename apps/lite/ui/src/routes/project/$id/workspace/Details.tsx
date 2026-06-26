@@ -584,12 +584,12 @@ const Title: FC<{
 										aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
 										aria-pressed={!bodyCollapsed}
 										className={getButtonClassName({
-											variant: "ghost",
+											variant: bodyCollapsed ? "outline" : "gray",
 											iconOnly: true,
 										})}
 										onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
 									>
-										<Icon name={bodyCollapsed ? "uncollapse" : "collapse"} />
+										<Icon name="kebab" />
 									</Tooltip.Trigger>
 									<Tooltip.Portal>
 										<Tooltip.Positioner sideOffset={4}>
