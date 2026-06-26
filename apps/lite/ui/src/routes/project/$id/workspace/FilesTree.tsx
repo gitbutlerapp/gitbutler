@@ -255,7 +255,7 @@ const FileRow: FC<
 		projectId: string;
 		fileParent: FileParent;
 	} & Omit<ComponentProps<typeof ItemRow>, "projectId">
-> = ({ item, projectId, fileParent, ...restProps }) => {
+> = ({ item, projectId, fileParent, id, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -273,6 +273,10 @@ const FileRow: FC<
 	return (
 		<Tooltip.Root disableHoverablePopup>
 			<Tooltip.Trigger
+				// We pass the ID here instead of including it with the other props as a
+				// workaround for Base UI issue:
+				// https://github.com/mui/base-ui/issues/5108
+				id={id}
 				render={
 					<ItemRow
 						{...restProps}
