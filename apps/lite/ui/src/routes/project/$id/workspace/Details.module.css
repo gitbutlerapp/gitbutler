@@ -32,6 +32,11 @@
 	margin-inline-start: auto;
 }
 
+.compactButton {
+	width: 24px;
+	height: 14px;
+}
+
 .title {
 	display: flex;
 	column-gap: 8px;

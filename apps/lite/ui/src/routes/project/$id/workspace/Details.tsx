@@ -583,11 +583,14 @@ const Title: FC<{
 										aria-expanded={!bodyCollapsed}
 										aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
 										aria-pressed={!bodyCollapsed}
-										className={getButtonClassName({
-											variant: bodyCollapsed ? "outline" : "gray",
-											iconOnly: true,
-											size: "small",
-										})}
+										className={classes(
+											getButtonClassName({
+												variant: bodyCollapsed ? "outline" : "gray",
+												iconOnly: true,
+												size: "small",
+											}),
+											styles.compactButton,
+										)}
 										onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
 									>
 										<Icon name="kebab" />
