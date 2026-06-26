@@ -1300,8 +1300,20 @@ pub enum Subcommands {
         props: String,
     },
 
-    /// UTILITY: Generate shell completion scripts for the specified or inferred shell.
-    #[clap(hide = true)]
+    /// Generate `but` shell completions.
+    ///
+    /// ## Examples
+    ///
+    /// ```bash
+    /// # bash, put in .bashrc or .bash_profile depending on system setup
+    /// eval "$(but completions bash)"
+    ///
+    /// # zsh, put in .zshrc
+    /// eval "$(but completions zsh)"
+    ///
+    /// # fish, put in config.fish
+    /// but completions fish | source
+    /// ```
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Completions {
         /// The shell to generate completions for, or the one extracted from the `SHELL` environment variable.
