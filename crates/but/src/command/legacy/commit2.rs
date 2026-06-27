@@ -20,21 +20,21 @@ use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
+    command::legacy::reword2::RewordCommitOperation,
+    id::UncommittedHunkOrFile,
+    theme::{self, Theme},
+    utils::{CliOutput, CliOutputHuman, WriteWithUtils, diff_specs::DiffSpecBuilder},
+};
+
+use crate::{
     CliId, CliResult, CliResultExt, IdMap,
     args::{
         atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
         commit2::Platform,
     },
     bad_input,
-    command::legacy::{
-        reword2::RewordCommitOperation,
-        status::{TuiOutcome, TuiRunOptions, tui_with_options},
-    },
-    id::UncommittedHunkOrFile,
-    theme::{self, Theme},
-    utils::{
-        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
-    },
+    command::legacy::status::{TuiOutcome, TuiRunOptions, tui_with_options},
+    utils::IntermediateChannel,
 };
 
 #[must_use]
@@ -112,6 +112,7 @@ impl CliOutput for CommitOutcome {
     }
 }
 
+#[cfg_attr(not(feature = "but-2"), expect(dead_code))]
 pub fn commit(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,

@@ -2,7 +2,6 @@ use std::io::Write;
 
 mod output_channel;
 pub(crate) use output_channel::PromptLine;
-#[cfg_attr(not(feature = "but-2"), expect(unused_imports))]
 pub use output_channel::experimental::*;
 pub use output_channel::{
     Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel, OutputChannel, WriteWithUtils,

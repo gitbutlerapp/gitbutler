@@ -183,7 +183,6 @@ pub enum CliError {
 
 pub type CliResult<T> = Result<T, CliError>;
 
-#[cfg_attr(not(feature = "but-2"), expect(dead_code))]
 pub trait CliResultExt<T> {
     /// Add a hint if the result is a [`CliError::BadInput`].
     fn hint<S: AsRef<str>>(self, hint: S) -> Self;

@@ -10,7 +10,6 @@ pub mod ai;
 pub mod branch;
 pub mod clean;
 pub mod commit;
-#[cfg(all(feature = "legacy", feature = "but-2"))]
 pub mod commit2;
 pub mod commit_message_prep;
 pub mod diff;
@@ -25,7 +24,6 @@ pub mod push;
 pub mod refresh;
 pub mod resolve;
 pub mod reword;
-#[cfg(all(feature = "legacy", feature = "but-2"))]
 pub mod reword2;
 pub mod rub;
 pub mod setup;
