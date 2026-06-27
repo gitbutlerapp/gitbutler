@@ -183,7 +183,7 @@ const mkCodeViewItem = (
 		type: "diff",
 		id: codeViewItemId({ changesetKey, path: change.path }),
 		version,
-		// oxlint-disable-next-line typescript/no-non-null-assertion: There should always be exactly one result given our one parsed hunk.
+		// oxlint-disable-next-line typescript/no-non-null-assertion -- There should always be exactly one result given our one parsed hunk.
 		fileDiff: parsed[0]!.files[0]!,
 	};
 };
@@ -353,7 +353,7 @@ const DiffContents: FC<{
 		selection: diffSelection,
 		selectSectionPredicate: (hunk) => {
 			const k = hunkOperandIdentityKey(hunk);
-			// oxlint-disable-next-line typescript/no-non-null-assertion: Absurd.
+			// oxlint-disable-next-line typescript/no-non-null-assertion -- Absurd.
 			return hunkOperandIdentityKey(fileByHunkKey.get(k)!.hunks[0]!.operand) === k;
 		},
 		ref: selectionScopeRef,
@@ -369,7 +369,7 @@ const DiffContents: FC<{
 
 		const activeItem = viewer
 			.getRenderedItems()
-			// oxlint-disable-next-line typescript/no-non-null-assertion: It can only be undefined if the item ID is invalid.
+			// oxlint-disable-next-line typescript/no-non-null-assertion -- It can only be undefined if the item ID is invalid.
 			.findLast((item) => viewer.getTopForItem(item.id)! <= scrollTop);
 
 		// This can happen on very fast scroll.

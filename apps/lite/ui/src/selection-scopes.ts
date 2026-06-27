@@ -60,7 +60,7 @@ export const focusAdjacentSelectionScope = ({
 		if (nextSelectionScope !== undefined) focusSelectionScope(nextSelectionScope);
 	} else {
 		const curr = orderedSelectionScopes.indexOf(currentSelectionScope);
-		// oxlint-disable-next-line typescript/no-non-null-assertion: This shouldn't ever fail.
+		// oxlint-disable-next-line typescript/no-non-null-assertion -- This shouldn't ever fail.
 		const nextSelectionScope = orderedSelectionScopes.at(
 			(curr + offset) % orderedSelectionScopes.length,
 		)!;
