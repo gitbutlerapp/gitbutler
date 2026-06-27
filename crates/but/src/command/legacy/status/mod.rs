@@ -127,7 +127,6 @@ pub struct TuiLaunchOptions {
 pub enum TuiRunOptions {
     #[default]
     Normal,
-    #[cfg_attr(all(not(feature = "but-2"), not(test)), expect(dead_code))]
     PickChanges,
 }
 
@@ -141,7 +140,6 @@ pub enum TuiRunOptions {
 #[must_use]
 pub enum TuiOutcome {
     None,
-    #[cfg_attr(all(not(feature = "but-2"), not(test)), expect(dead_code))]
     CliIds(Vec<CliId>),
 }
 
@@ -294,7 +292,6 @@ pub(crate) async fn worktree(
     Ok(())
 }
 
-#[cfg_attr(not(feature = "but-2"), expect(dead_code))]
 pub(crate) fn tui_with_options(
     ctx: &mut Context,
     mut guard: RepoExclusiveGuard,

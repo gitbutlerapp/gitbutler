@@ -208,6 +208,7 @@ pub(super) struct CommitMode {
     /// If set, then the commit must be made on this stack
     ///
     /// Used when committing changes staged to a specific stack
+    // TODO: remove this when we no dont support assignments
     pub(super) scope_to_stack: Option<StackId>,
     /// How to compose the commit message.
     pub(super) message_composer: CommitMessageComposer,

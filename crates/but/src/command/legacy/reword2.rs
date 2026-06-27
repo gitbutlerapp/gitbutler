@@ -15,6 +15,16 @@ pub enum RewordCommitOperation {
 }
 
 impl RewordCommitOperation {
+    /// Check if this operation will open an editor.
+    ///
+    /// Used by the TUI to suspend itself.
+    pub fn will_open_editor(&self) -> bool {
+        match self {
+            RewordCommitOperation::UseEditor => true,
+            RewordCommitOperation::NoMessage | RewordCommitOperation::Message(_) => false,
+        }
+    }
+
     pub fn resolve(no_message: bool, message: Option<Vec<String>>) -> Self {
         match (no_message, message) {
             (true, None) => Self::NoMessage,

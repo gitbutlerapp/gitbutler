@@ -34,7 +34,6 @@ impl<'out> IntermediateChannel<'out> {
         Self { out }
     }
 
-    #[cfg_attr(not(feature = "but-2"), expect(dead_code))]
     pub fn prepare_for_terminal_input(&mut self) -> Option<InputOutputChannel<'_>> {
         self.out.prepare_for_terminal_input()
     }

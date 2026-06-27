@@ -18,7 +18,6 @@ use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::entry::Snapshot;
 
 use crate::{
-    CliId,
     args::OutputFormat,
     command::legacy::{
         self, ShowDiffInEditor,
@@ -96,29 +95,6 @@ pub(super) fn create_empty_commit_relative_to_commit(
         InsertSide::Above,
         DryRun::No,
     )
-}
-
-pub(super) fn where_to_place_commit(
-    ctx: &Context,
-    target: &CliId,
-    insert_side: InsertSide,
-) -> anyhow::Result<Option<(RelativeTo, InsertSide)>> {
-    match target {
-        CliId::Branch { name, .. } => {
-            let repo = ctx.repo.get()?;
-            let reference = repo.find_reference(name)?;
-            Ok(Some((
-                RelativeTo::Reference(reference.name().to_owned()),
-                InsertSide::Below,
-            )))
-        }
-        CliId::Commit { commit_id, .. } => Ok(Some((RelativeTo::Commit(*commit_id), insert_side))),
-        CliId::UncommittedHunkOrFile(_)
-        | CliId::PathPrefix { .. }
-        | CliId::CommittedFile { .. }
-        | CliId::Uncommitted { .. }
-        | CliId::Stack { .. } => Ok(None),
-    }
 }
 
 pub(super) fn rub(
