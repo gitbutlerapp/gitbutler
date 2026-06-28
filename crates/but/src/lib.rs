@@ -1600,15 +1600,6 @@ async fn match_subcommand(
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Merge { branch } => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::merge::handle(&mut ctx, out, &branch)
-                .await
-                .context("Failed to merge branch.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
         Subcommands::Land { branch, yes, no_ff } => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::land::handle(&mut ctx, out, &branch, yes, no_ff)

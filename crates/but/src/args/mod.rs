@@ -303,33 +303,6 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Branch(branch::Platform),
 
-    /// Merge a branch into your local target branch.
-    ///
-    /// If the target branch is local (`gb-local`), finds the local branch that the target
-    /// references (e.g., `gb-local/master` becomes `master`) and merges the specified
-    /// branch into that local branch. After merging, runs the equivalent of `but pull`
-    /// to update all branches.
-    ///
-    /// ## Examples
-    ///
-    /// Merge a branch by its CLI ID:
-    ///
-    /// ```text
-    /// but merge bu
-    /// ```
-    ///
-    /// Merge a branch by name:
-    ///
-    /// ```text
-    /// but merge my-feature-branch
-    /// ```
-    #[cfg(feature = "legacy")]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Merge {
-        /// Branch ID or name to merge
-        branch: String,
-    },
-
     /// Land a branch directly onto the target branch.
     ///
     /// Lands the branch onto the configured target (for example `origin/master`) without going

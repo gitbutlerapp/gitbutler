@@ -209,8 +209,6 @@ impl Subcommands {
             #[cfg(all(feature = "legacy", feature = "but-2"))]
             Subcommands::_Squash2(..) => Squash2,
             #[cfg(feature = "legacy")]
-            Subcommands::Merge { .. } => Merge,
-            #[cfg(feature = "legacy")]
             Subcommands::Land { .. } => Land,
             Subcommands::Move { .. } => Move,
             #[cfg(feature = "legacy")]

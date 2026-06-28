@@ -64,7 +64,6 @@ pub enum CommandName {
     UpdateCheck,
     UpdateSuppress,
     UpdateInstall,
-    Merge,
     Land,
     SkillInstall,
     SkillCheck,
