@@ -4,12 +4,12 @@ use crate::{
 };
 
 #[derive(Default, Debug, Clone, PartialEq)]
-pub(super) struct Marks {
+pub struct Marks {
     marks: Vec<Markable>,
 }
 
 impl Marks {
-    pub(super) fn toggle(&mut self, markable: Markable) {
+    pub fn toggle(&mut self, markable: Markable) {
         if self.marks.contains(&markable) {
             self.remove(&markable);
         } else {
@@ -17,35 +17,35 @@ impl Marks {
         }
     }
 
-    pub(super) fn insert(&mut self, markable: Markable) {
+    pub fn insert(&mut self, markable: Markable) {
         self.marks.push(markable);
     }
 
-    pub(super) fn remove(&mut self, markable: &Markable) {
+    pub fn remove(&mut self, markable: &Markable) {
         self.marks.retain(|item| item != markable);
     }
 
-    pub(super) fn clear(&mut self) {
+    pub fn clear(&mut self) {
         self.marks.clear();
     }
 
-    pub(super) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.marks.is_empty()
     }
 
-    pub(super) fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.marks.len()
     }
 
-    pub(super) fn contains(&self, markable: &Markable) -> bool {
+    pub fn contains(&self, markable: &Markable) -> bool {
         self.marks.contains(markable)
     }
 
-    pub(super) fn iter(&self) -> impl Iterator<Item = &Markable> {
+    pub fn iter(&self) -> impl Iterator<Item = &Markable> {
         self.into_iter()
     }
 
-    pub(super) fn classify(&self) -> MarkClasses {
+    pub fn classify(&self) -> MarkClasses {
         let mut marked_commits = false;
         let mut marked_uncommitted = false;
         for mark in &self.marks {
@@ -71,7 +71,7 @@ impl<'a> IntoIterator for &'a Marks {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub(super) enum Markable {
+pub enum Markable {
     Uncommitted(UncommittedHunkOrFile),
     Commit {
         commit_id: gix::ObjectId,
@@ -80,7 +80,7 @@ pub(super) enum Markable {
 }
 
 impl Markable {
-    pub(super) fn try_from_cli_id(cli_id: &CliId) -> Option<Self> {
+    pub fn try_from_cli_id(cli_id: &CliId) -> Option<Self> {
         match cli_id {
             CliId::Commit { commit_id, id } => Some(Self::Commit {
                 commit_id: *commit_id,

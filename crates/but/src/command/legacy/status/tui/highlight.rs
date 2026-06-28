@@ -5,7 +5,7 @@ use ratatui::{style::Style, text::Span};
 const DURATION: Duration = Duration::from_millis(150);
 
 #[derive(Debug)]
-pub(super) struct Highlights<T> {
+pub struct Highlights<T> {
     ids: Vec<Highlighted<T>>,
 }
 
@@ -25,7 +25,7 @@ impl<T> Highlights<T>
 where
     T: PartialEq,
 {
-    pub(super) fn insert(&mut self, id: T) {
+    pub fn insert(&mut self, id: T) {
         if self.contains(&id) {
             return;
         }
@@ -35,11 +35,11 @@ where
         });
     }
 
-    pub(super) fn contains(&self, id: &T) -> bool {
+    pub fn contains(&self, id: &T) -> bool {
         self.ids.iter().any(|h| &h.id == id)
     }
 
-    pub(super) fn update(&mut self) -> bool {
+    pub fn update(&mut self) -> bool {
         let now = Instant::now();
         let len_before = self.ids.len();
         self.ids.retain(|id| id.expire_at > now);
@@ -48,10 +48,10 @@ where
     }
 }
 
-pub(super) fn style() -> Style {
+pub fn style() -> Style {
     Style::new().black().on_white().not_dim()
 }
 
-pub(super) fn with_highlight(span: Span<'static>) -> Span<'static> {
+pub fn with_highlight(span: Span<'static>) -> Span<'static> {
     span.style(style())
 }

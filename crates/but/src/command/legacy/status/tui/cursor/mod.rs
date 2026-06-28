@@ -9,7 +9,8 @@ use crate::{
         FilesStatusFlag, StatusOutputLine,
         output::StatusOutputLineData,
         tui::{
-            CommitSource, Mode, NormalMode, PickUncommittedMode, SelectAfterReload,
+            Mode, NormalMode, PickChangesMode, SelectAfterReload,
+            app::{CommitSource, prefix_match},
             marking::{MarkClasses, Markable, Marks},
             render::{
                 commit_operation_display, move_operation_display, reorder_operation_display,
@@ -19,17 +20,15 @@ use crate::{
     },
 };
 
-use super::jump;
-
 #[cfg(test)]
 mod tests;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[must_use]
-pub(super) struct Cursor(usize);
+pub struct Cursor(usize);
 
 impl Cursor {
-    pub(super) fn new(lines: &[StatusOutputLine]) -> Self {
+    pub fn new(lines: &[StatusOutputLine]) -> Self {
         Self(
             lines
                 .iter()
@@ -38,11 +37,11 @@ impl Cursor {
         )
     }
 
-    pub(super) fn index(self) -> usize {
+    pub fn index(self) -> usize {
         self.0
     }
 
-    pub(super) fn restore(selected_cli_id: &CliId, lines: &[StatusOutputLine]) -> Option<Self> {
+    pub fn restore(selected_cli_id: &CliId, lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines
             .iter()
             .enumerate()
@@ -60,7 +59,7 @@ impl Cursor {
         Some(Self(idx))
     }
 
-    pub(super) fn select_closest_commit_source(
+    pub fn select_closest_commit_source(
         self,
         lines: &[StatusOutputLine],
         source: &CommitSource,
@@ -77,10 +76,7 @@ impl Cursor {
             .map(|(idx, _)| Self(idx))
     }
 
-    pub(super) fn select_commit(
-        object_id: gix::ObjectId,
-        lines: &[StatusOutputLine],
-    ) -> Option<Self> {
+    pub fn select_commit(object_id: gix::ObjectId, lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {
             if let Some(CliId::Commit { commit_id, .. }) = line.data.cli_id().map(|id| &**id)
                 && *commit_id == object_id
@@ -94,7 +90,7 @@ impl Cursor {
     }
 
     /// Selects what should be focused after discarding the currently selected commit.
-    pub(super) fn select_after_discarded_commit(
+    pub fn select_after_discarded_commit(
         self,
         lines: &[StatusOutputLine],
     ) -> Option<SelectAfterReload> {
@@ -110,7 +106,7 @@ impl Cursor {
     }
 
     /// Selects what should be focused after discarding marked items.
-    pub(super) fn select_after_discarded_marks(
+    pub fn select_after_discarded_marks(
         self,
         lines: &[StatusOutputLine],
         discarded_marks: &Marks,
@@ -187,7 +183,7 @@ impl Cursor {
     }
 
     /// Selects what should be focused after discarding marked commits.
-    pub(super) fn select_after_discarded_commits(
+    pub fn select_after_discarded_commits(
         self,
         lines: &[StatusOutputLine],
         discarded_commits: &[gix::ObjectId],
@@ -240,7 +236,7 @@ impl Cursor {
     }
 
     /// Selects what should be focused after discarding the currently selected branch.
-    pub(super) fn select_after_discarded_branch(
+    pub fn select_after_discarded_branch(
         self,
         lines: &[StatusOutputLine],
     ) -> Option<SelectAfterReload> {
@@ -272,7 +268,7 @@ impl Cursor {
         None
     }
 
-    pub(super) fn select_first_file_in_commit(
+    pub fn select_first_file_in_commit(
         object_id: gix::ObjectId,
         lines: &[StatusOutputLine],
     ) -> Option<Self> {
@@ -289,7 +285,7 @@ impl Cursor {
     }
 
     /// Select the first line that points to the given branch name.
-    pub(super) fn select_branch(branch_name: &str, lines: &[StatusOutputLine]) -> Option<Self> {
+    pub fn select_branch(branch_name: &str, lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {
             if let Some(CliId::Branch { name, .. }) = line.data.cli_id().map(|id| &**id)
                 && *name == branch_name
@@ -303,7 +299,7 @@ impl Cursor {
     }
 
     /// Select the first line that points to the given stack.
-    pub(super) fn select_stack(stack_id: StackId, lines: &[StatusOutputLine]) -> Option<Self> {
+    pub fn select_stack(stack_id: StackId, lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {
             if let Some(CliId::Stack { stack_id: id, .. }) = line.data.cli_id().map(|id| &**id)
                 && stack_id == *id
@@ -317,7 +313,7 @@ impl Cursor {
     }
 
     /// Select the first uncommitted file line that points to the given path in the given stack.
-    pub(super) fn select_uncommitted_file(
+    pub fn select_uncommitted_file(
         path: &BStr,
         stack_id: Option<StackId>,
         lines: &[StatusOutputLine],
@@ -336,7 +332,7 @@ impl Cursor {
     }
 
     /// Select the first line that points to the uncommitted section.
-    pub(super) fn select_uncommitted(lines: &[StatusOutputLine]) -> Option<Self> {
+    pub fn select_uncommitted(lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {
             matches!(
                 line.data.cli_id().map(|id| &**id),
@@ -347,14 +343,14 @@ impl Cursor {
     }
 
     /// Select the merge-base line.
-    pub(super) fn select_merge_base(lines: &[StatusOutputLine]) -> Option<Self> {
+    pub fn select_merge_base(lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines
             .iter()
             .position(|line| matches!(line.data, StatusOutputLineData::MergeBase))?;
         Some(Self(idx))
     }
 
-    pub(super) fn selected_line(self, lines: &[StatusOutputLine]) -> Option<&StatusOutputLine> {
+    pub fn selected_line(self, lines: &[StatusOutputLine]) -> Option<&StatusOutputLine> {
         lines.get(self.0)
     }
 
@@ -362,7 +358,7 @@ impl Cursor {
     ///
     /// Falls back to selecting the uncommitted section if there is no previous
     /// selectable row.
-    pub(super) fn select_previous_cli_id_or_uncommitted(
+    pub fn select_previous_cli_id_or_uncommitted(
         self,
         lines: &[StatusOutputLine],
         mode: &Mode,
@@ -375,7 +371,7 @@ impl Cursor {
             .unwrap_or(SelectAfterReload::Uncommitted)
     }
 
-    pub(super) fn selection_cli_id_for_reload(
+    pub fn selection_cli_id_for_reload(
         self,
         lines: &[StatusOutputLine],
         show_files: FilesStatusFlag,
@@ -431,7 +427,7 @@ impl Cursor {
     }
 
     #[must_use]
-    pub(super) fn move_up(
+    pub fn move_up(
         self,
         lines: &[StatusOutputLine],
         mode: &Mode,
@@ -451,7 +447,7 @@ impl Cursor {
     }
 
     #[must_use]
-    pub(super) fn move_down(
+    pub fn move_down(
         self,
         lines: &[StatusOutputLine],
         mode: &Mode,
@@ -470,7 +466,7 @@ impl Cursor {
     }
 
     #[must_use]
-    pub(super) fn move_down_within_section(
+    pub fn move_down_within_section(
         self,
         lines: &[StatusOutputLine],
         mode: &Mode,
@@ -495,7 +491,7 @@ impl Cursor {
 
     /// Moves the cursor to the first selectable row in the next section.
     #[must_use]
-    pub(super) fn move_next_section(
+    pub fn move_next_section(
         self,
         lines: &[StatusOutputLine],
         mode: &Mode,
@@ -523,7 +519,7 @@ impl Cursor {
     /// If the cursor is already on that row, this jumps to the previous section's first selectable
     /// row.
     #[must_use]
-    pub(super) fn move_previous_section(
+    pub fn move_previous_section(
         self,
         lines: &[StatusOutputLine],
         mode: &Mode,
@@ -712,7 +708,7 @@ fn is_noop_move_stack_target(idx: usize, lines: &[StatusOutputLine], mode: &Mode
         return false;
     }
 
-    let current_stack_order = super::stack_ids_in_display_order(lines);
+    let current_stack_order = super::app::stack_ids_in_display_order(lines);
     let Some(source_index) = current_stack_order
         .iter()
         .position(|stack| *stack == move_mode.source.stack)
@@ -720,11 +716,11 @@ fn is_noop_move_stack_target(idx: usize, lines: &[StatusOutputLine], mode: &Mode
         return false;
     };
 
-    let target_index = super::stack_ids_in_display_order(&lines[..idx]).len();
+    let target_index = super::app::stack_ids_in_display_order(&lines[..idx]).len();
     target_index == source_index || target_index == source_index + 1
 }
 
-pub(super) fn is_selectable_in_mode(
+pub fn is_selectable_in_mode(
     line: &StatusOutputLine,
     mode: &Mode,
     show_files_flag: FilesStatusFlag,
@@ -780,7 +776,7 @@ pub(super) fn is_selectable_in_mode(
 
     // don't allow mixing marks
     match mode {
-        Mode::Normal(NormalMode { marks }) | Mode::PickChanges(PickUncommittedMode { marks }) => {
+        Mode::Normal(NormalMode { marks }) | Mode::PickChanges(PickChangesMode { marks }) => {
             if !marks.is_empty() {
                 let MarkClasses {
                     marked_commits,
@@ -856,7 +852,7 @@ pub(super) fn is_selectable_in_mode(
             // but returning `false` would dim every line which hurts UX
             true
         }
-        Mode::Jump(jump_mode) => jump::prefix_match(
+        Mode::Jump(jump_mode) => prefix_match(
             jump_mode.query(),
             line,
             &jump_mode.return_mode,

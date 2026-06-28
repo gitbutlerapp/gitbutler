@@ -37,20 +37,22 @@ use crate::{
     CliId, IdMap,
     command::legacy::status::tui::{
         CommandMessage, CommitMessage, DebugAsType, DetailsLayoutMessage, FilesMessage, Message,
-        MessageOnDrop, MoveMessage, RewordMessage, RubMessage,
-        details::details_cursor::DetailsCursor, highlight, message_on_drop::message_on_drop,
-        mode::CommittedHunk,
+        MessageOnDrop, MoveMessage,
+        app::{CommittedHunk, RewordMessage, RubMessage},
+        details::details_cursor::DetailsCursor,
+        highlight,
+        message_on_drop::message_on_drop,
     },
     id::{UncommittedHunk, UncommittedHunkOrFile},
     theme::Theme,
 };
 
-use super::{HelpMessage, JumpMessage, RubSource, StackMessage};
+use super::{HelpMessage, JumpMessage, StackMessage, app::RubSource};
 
 mod details_cursor;
 
 #[derive(Debug, Clone)]
-pub(super) enum DetailsMessage {
+pub enum DetailsMessage {
     Deselect,
     SelectFirstSection,
     CopyCurrentHunk,
@@ -75,7 +77,7 @@ type LineHighlightCache = HashMap<BString, HashMap<Box<str>, Vec<Span<'static>>>
 //                                file path        raw line  highlighted line
 
 #[derive(Debug)]
-pub(super) struct Details {
+pub struct Details {
     is_dirty: bool,
     cursor: DetailsCursor,
     scroll_top: usize,
@@ -90,7 +92,7 @@ pub(super) struct Details {
 }
 
 impl Details {
-    pub(super) fn new(theme: &'static Theme) -> Self {
+    pub fn new(theme: &'static Theme) -> Self {
         Self {
             is_dirty: false,
             is_locked: false,
@@ -106,16 +108,16 @@ impl Details {
         }
     }
 
-    pub(super) fn mark_dirty(&mut self) {
+    pub fn mark_dirty(&mut self) {
         self.widget = None;
         self.is_dirty = true;
     }
 
-    pub(super) fn is_dirty(&self) -> bool {
+    pub fn is_dirty(&self) -> bool {
         self.is_dirty
     }
 
-    pub(super) fn update_highlight(&mut self) -> bool {
+    pub fn update_highlight(&mut self) -> bool {
         self.copied_hunk_highlight.update()
     }
 
@@ -124,7 +126,7 @@ impl Details {
         message_on_drop(Message::Details(DetailsMessage::Unlock), messages)
     }
 
-    pub(super) fn unlock(&mut self) {
+    pub fn unlock(&mut self) {
         if !self.is_locked {
             return;
         }
@@ -132,16 +134,16 @@ impl Details {
         self.mark_dirty();
     }
 
-    pub(super) fn needs_update(&self, is_visible: bool) -> bool {
+    pub fn needs_update(&self, is_visible: bool) -> bool {
         is_visible && self.is_dirty()
     }
 
-    pub(super) fn reset_scroll(&mut self) {
+    pub fn reset_scroll(&mut self) {
         self.cursor = DetailsCursor::default();
         self.scroll_top = 0;
     }
 
-    pub(super) fn needs_update_after_message(&self, is_visible: bool, msg: &Message) -> bool {
+    pub fn needs_update_after_message(&self, is_visible: bool, msg: &Message) -> bool {
         if self.is_locked {
             return false;
         }
@@ -264,7 +266,7 @@ impl Details {
         }
     }
 
-    pub(super) fn try_handle_message(
+    pub fn try_handle_message(
         &mut self,
         msg: DetailsMessage,
         viewport: Rect,
@@ -344,7 +346,7 @@ impl Details {
         Ok(())
     }
 
-    pub(super) fn ensure_selection_visible(&mut self, viewport: Rect) {
+    pub fn ensure_selection_visible(&mut self, viewport: Rect) {
         let Some(selection) = self.cursor.selection() else {
             return;
         };
@@ -375,7 +377,7 @@ impl Details {
         }
     }
 
-    pub(super) fn selection(&self) -> Option<&SectionId> {
+    pub fn selection(&self) -> Option<&SectionId> {
         self.cursor.selection()
     }
 
@@ -473,7 +475,7 @@ impl Details {
         self.scroll_top = self.scroll_top.min(max_scroll_top);
     }
 
-    pub(super) fn update(
+    pub fn update(
         &mut self,
         ctx: &mut Context,
         selection: Option<&CliId>,
@@ -621,7 +623,7 @@ impl Details {
         }
     }
 
-    pub(super) fn render(&self, help_shown: bool, has_focus: bool, area: Rect, frame: &mut Frame) {
+    pub fn render(&self, help_shown: bool, has_focus: bool, area: Rect, frame: &mut Frame) {
         if let Some(diff) = &self.widget {
             diff.render(
                 &self.cursor,
@@ -1234,7 +1236,7 @@ enum IncrementalDiffRendererState {
 /// An id only used by the TUI to identify this section. Doesn't have any meaning in the
 /// rest of the system.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub(super) struct TuiId(Uuid);
+pub struct TuiId(Uuid);
 
 impl TuiId {
     fn new() -> Self {
@@ -1243,7 +1245,7 @@ impl TuiId {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(super) enum SectionId {
+pub enum SectionId {
     ShortId(Arc<CliId>),
     CommittedHunk { id: TuiId, hunk: CommittedHunk },
     Opaque(TuiId),
@@ -1283,7 +1285,7 @@ enum SectionContent {
 }
 
 /// The result of rendering the one diff chunk.
-pub(super) enum RenderNextChunkResult {
+pub enum RenderNextChunkResult {
     /// We're done. All chunks have been rendered.
     Done,
     /// Some meta data, such as the commit messages was rendered.

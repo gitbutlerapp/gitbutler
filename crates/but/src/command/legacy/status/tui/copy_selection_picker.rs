@@ -17,7 +17,7 @@ use crate::{
     theme::Theme,
 };
 
-pub(super) fn commit_picker(
+pub fn commit_picker(
     commit_id: gix::ObjectId,
     theme: &'static Theme,
 ) -> FuzzyPicker<CopySelectionItem> {
@@ -35,10 +35,7 @@ pub(super) fn commit_picker(
     )
 }
 
-pub(super) fn branch_picker(
-    branch: FullName,
-    theme: &'static Theme,
-) -> FuzzyPicker<CopySelectionItem> {
+pub fn branch_picker(branch: FullName, theme: &'static Theme) -> FuzzyPicker<CopySelectionItem> {
     picker(
         NonEmpty::from_slice(&[
             CopySelectionItem::BranchName(branch.clone()),
@@ -50,7 +47,7 @@ pub(super) fn branch_picker(
     )
 }
 
-pub(super) fn uncommitted_hunk_picker(
+pub fn uncommitted_hunk_picker(
     hunk: UncommittedHunkOrFile,
     theme: &'static Theme,
 ) -> FuzzyPicker<CopySelectionItem> {
@@ -66,7 +63,7 @@ pub(super) fn uncommitted_hunk_picker(
     )
 }
 
-pub(super) fn committed_file_picker(
+pub fn committed_file_picker(
     path: BString,
     id: ShortId,
     theme: &'static Theme,
@@ -102,7 +99,7 @@ fn picker(
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum CopySelectionItem {
+pub enum CopySelectionItem {
     // shared
     ShortId(ShortId),
     FilePath(String),

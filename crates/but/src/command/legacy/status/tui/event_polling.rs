@@ -3,7 +3,7 @@ use std::{convert::Infallible, time::Duration};
 use crossterm::event::{self, Event};
 
 /// Trait for abstracting event polling so we can hardcode events in tests.
-pub(super) trait EventPolling {
+pub trait EventPolling {
     type Error: std::error::Error + Send + Sync + 'static;
 
     fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error>;
@@ -11,7 +11,7 @@ pub(super) trait EventPolling {
 
 /// An [`EventPolling`] implementation that polls events for real using crossterm.
 #[derive(Copy, Clone)]
-pub(super) struct CrosstermEventPolling;
+pub struct CrosstermEventPolling;
 
 impl EventPolling for CrosstermEventPolling {
     type Error = std::io::Error;
@@ -30,7 +30,7 @@ impl EventPolling for CrosstermEventPolling {
 /// This is used for non-interactive runs where touching terminal input can stop the process when
 /// profilers launch the target in a background process group.
 #[derive(Copy, Clone)]
-pub(super) struct NoopEventPolling;
+pub struct NoopEventPolling;
 
 impl EventPolling for NoopEventPolling {
     type Error = Infallible;

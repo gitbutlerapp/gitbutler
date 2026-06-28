@@ -9,26 +9,26 @@ use ratatui::{
 use crate::theme::Theme;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum ToastKind {
+pub enum ToastKind {
     Error,
     Info,
     Debug,
 }
 
 #[derive(Debug, Default)]
-pub(super) struct Toasts {
+pub struct Toasts {
     toasts: Vec<Toast>,
 }
 
 #[derive(Debug)]
-pub(super) struct Toast {
+pub struct Toast {
     kind: ToastKind,
     text: Text<'static>,
     dismiss_at: Instant,
 }
 
 impl Toasts {
-    pub(super) fn insert(&mut self, kind: ToastKind, text: impl Into<Text<'static>>) {
+    pub fn insert(&mut self, kind: ToastKind, text: impl Into<Text<'static>>) {
         let text = text.into();
         if text_is_blank(&text) {
             return;
@@ -40,7 +40,7 @@ impl Toasts {
         });
     }
 
-    pub(super) fn update(&mut self) -> bool {
+    pub fn update(&mut self) -> bool {
         let now = Instant::now();
         let len_before = self.toasts.len();
         self.toasts.retain(|toast| toast.dismiss_at > now);
@@ -48,7 +48,7 @@ impl Toasts {
     }
 }
 
-pub(super) fn render_toasts(frame: &mut Frame, area: Rect, toasts: &Toasts, theme: &'static Theme) {
+pub fn render_toasts(frame: &mut Frame, area: Rect, toasts: &Toasts, theme: &'static Theme) {
     let mut bottom_margin = 1;
     for toast in &toasts.toasts {
         if bottom_margin >= area.height {

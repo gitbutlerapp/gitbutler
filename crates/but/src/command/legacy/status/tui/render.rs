@@ -21,26 +21,27 @@ use crate::{
             BranchLineContent, StatusOutputContent, StatusOutputLineData, UncommittedLineContent,
         },
         tui::{
-            JumpMode, Markable,
-            mode::{MoveStackMode, StackMode},
+            CommandModeKind, Markable,
+            app::{
+                CommandMode, CommitMessageComposer, CommitMode, JumpMode, MoveMode, MoveSource,
+                MoveStackMode, RubMode, RubSource, StackMode,
+                rub_from_detail_view_operation_display, rub_operation_display,
+            },
         },
     },
     theme::Theme,
 };
 
 use super::{
-    App, CURSOR_CONTEXT_ROWS, Modal, NOOP,
+    App, CURSOR_CONTEXT_ROWS, InlineRewordMode, Modal, NOOP,
     cursor::is_selectable_in_mode,
     graph_extension::{ExtensionDirection, extend_connector_spans},
     highlight::with_highlight,
-    mode::{
-        CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, InlineRewordMode, Mode,
-        ModeDiscriminant, MoveMode, MoveSource, RubMode, RubSource,
-    },
-    nonempty_from_refs, rub, rub_from_detail_view, toast,
+    mode::{Mode, ModeDiscriminant},
+    nonempty_from_refs, toast,
 };
 
-pub(super) fn render_app(app: &App, frame: &mut Frame) {
+pub fn render_app(app: &App, frame: &mut Frame) {
     let content_layout =
         Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(frame.area());
     let main_content_area = content_layout[0];
@@ -193,7 +194,7 @@ fn pane_block(app: &App, focused: bool, borders: Borders) -> Block<'static> {
         .borders(borders)
 }
 
-pub(super) fn status_layout(app: &App, area: Rect) -> StatusLayout {
+pub fn status_layout(app: &App, area: Rect) -> StatusLayout {
     if let Mode::Details(details_mode) = &*app.mode
         && details_mode.full_screen
     {
@@ -359,7 +360,7 @@ fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
     }
 }
 
-pub(super) fn render_status_list_item(
+pub fn render_status_list_item(
     app: &App,
     tui_line: &StatusOutputLine,
     is_selected: bool,
@@ -832,12 +833,12 @@ fn render_rub_inline_labels_for_selected_line(
 
     let display = match source {
         RubSource::CliId(source) => Cow::Borrowed(
-            rub::rub_operation_display(NonEmpty::new(source), target, how_to_combine_messages)
+            rub_operation_display(NonEmpty::new(source), target, how_to_combine_messages)
                 .unwrap_or("invalid"),
         ),
-        RubSource::CommittedHunk(hunk) => Cow::Borrowed(
-            rub_from_detail_view::rub_operation_display(hunk, target).unwrap_or("invalid"),
-        ),
+        RubSource::CommittedHunk(hunk) => {
+            Cow::Borrowed(rub_from_detail_view_operation_display(hunk, target).unwrap_or("invalid"))
+        }
         RubSource::Marks(marks) => {
             let sources = marks
                 .iter()
@@ -852,7 +853,7 @@ fn render_rub_inline_labels_for_selected_line(
                 return;
             };
             Cow::Borrowed(
-                rub::rub_operation_display(sources, target, how_to_combine_messages).unwrap_or({
+                rub_operation_display(sources, target, how_to_combine_messages).unwrap_or({
                     if source.contains(target) {
                         NOOP
                     } else {
@@ -1259,7 +1260,7 @@ fn render_debug(app: &App, area: Rect, frame: &mut Frame) {
     frame.render_widget(list, area);
 }
 
-pub(super) fn commit_operation_display(
+pub fn commit_operation_display(
     data: &StatusOutputLineData,
     mode: &CommitMode,
 ) -> Option<&'static str> {
@@ -1313,7 +1314,7 @@ pub(super) fn commit_operation_display(
     }
 }
 
-pub(super) fn move_operation_display(
+pub fn move_operation_display(
     data: &StatusOutputLineData,
     mode: &MoveMode,
 ) -> Option<&'static str> {
@@ -1396,7 +1397,7 @@ pub(super) fn move_operation_display(
     }
 }
 
-pub(super) fn reorder_operation_display(
+pub fn reorder_operation_display(
     data: &StatusOutputLineData,
     _mode: &MoveStackMode,
 ) -> Option<&'static str> {
@@ -1421,7 +1422,7 @@ pub(super) fn reorder_operation_display(
     }
 }
 
-pub(super) fn stack_operation_display(
+pub fn stack_operation_display(
     data: &StatusOutputLineData,
     mode: &StackMode,
 ) -> Option<&'static str> {
@@ -1460,7 +1461,7 @@ fn source_span(theme: &'static Theme) -> Span<'static> {
     Span::raw("<< source >>").mode_colors(ModeDiscriminant::Normal, theme)
 }
 
-pub(super) trait SpanExt<M> {
+pub trait SpanExt<M> {
     fn mode_colors(self, mode: M, theme: &'static Theme) -> Self;
 }
 
@@ -1476,7 +1477,7 @@ impl SpanExt<ModeDiscriminant> for Span<'_> {
     }
 }
 
-pub(super) enum StatusListItem {
+pub enum StatusListItem {
     Single(Line<'static>),
     Double(Line<'static>, Line<'static>),
 }
@@ -1496,9 +1497,9 @@ impl IntoIterator for StatusListItem {
     }
 }
 
-pub(super) struct StatusLayout {
-    pub(super) status_area: Rect,
-    pub(super) details_area: Option<Rect>,
+pub struct StatusLayout {
+    pub status_area: Rect,
+    pub details_area: Option<Rect>,
 }
 
 /// Returns the status content area within the terminal.
@@ -1507,7 +1508,7 @@ fn status_content_area(terminal_area: Rect) -> Rect {
 }
 
 /// Returns the details viewport for the terminal area.
-pub(super) fn details_viewport(app: &App, terminal_area: Rect) -> Rect {
+pub fn details_viewport(app: &App, terminal_area: Rect) -> Rect {
     let content_area = status_content_area(terminal_area);
     status_layout(app, content_area)
         .details_area
@@ -1516,7 +1517,7 @@ pub(super) fn details_viewport(app: &App, terminal_area: Rect) -> Rect {
 }
 
 /// Returns the number of terminal rows available for rendering the status list.
-pub(super) fn status_viewport_height(app: &App, terminal_area: Rect) -> usize {
+pub fn status_viewport_height(app: &App, terminal_area: Rect) -> usize {
     let content_area = status_content_area(terminal_area);
     let status_area = status_layout(app, content_area).status_area;
 
@@ -1538,14 +1539,14 @@ fn rendered_height_for_status_line(app: &App, line_idx: usize) -> usize {
 }
 
 /// Returns the total rendered height of the entire status list.
-pub(super) fn total_rendered_height(app: &App) -> usize {
+pub fn total_rendered_height(app: &App) -> usize {
     (0..app.status_lines.len())
         .map(|idx| rendered_height_for_status_line(app, idx))
         .sum()
 }
 
 /// Returns the rendered row range occupied by the selected line.
-pub(super) fn selected_row_range(app: &App) -> Option<std::ops::Range<usize>> {
+pub fn selected_row_range(app: &App) -> Option<std::ops::Range<usize>> {
     let selected_idx = app.cursor.index();
     let selected_line = app.status_lines.get(selected_idx)?;
     let start = (0..selected_idx)
@@ -1565,7 +1566,7 @@ fn clamp_scroll_top(app: &mut App, visible_height: usize) {
 
 /// Adjusts the viewport so the selected line stays visible with context rows above and below
 /// whenever possible.
-pub(super) fn ensure_cursor_visible(app: &mut App, visible_height: usize) {
+pub fn ensure_cursor_visible(app: &mut App, visible_height: usize) {
     clamp_scroll_top(app, visible_height);
 
     let Some(selected_rows) = selected_row_range(app) else {
