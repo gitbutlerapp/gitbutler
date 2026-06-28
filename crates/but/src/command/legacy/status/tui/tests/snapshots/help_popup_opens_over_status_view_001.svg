@@ -176,6 +176,11 @@
   <text x="154" y="114" style="fill:#CCCCCC;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">n</text>
   <text x="802" y="114" style="fill:#555555;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">║</text>
   <text x="10" y="132" style="fill:#555555;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">│</text>
+  <text x="26" y="132" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">f</text>
+  <text x="34" y="132" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">t</text>
+  <text x="42" y="132" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">+</text>
+  <text x="50" y="132" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">↓</text>
+  <text x="58" y="132" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">/</text>
   <text x="66" y="132" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">s</text>
   <text x="74" y="132" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">h</text>
   <text x="82" y="132" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">i</text>
@@ -196,6 +201,11 @@
   <text x="218" y="132" style="fill:#CCCCCC;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">n</text>
   <text x="802" y="132" style="fill:#555555;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">║</text>
   <text x="10" y="150" style="fill:#555555;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">│</text>
+  <text x="26" y="150" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">f</text>
+  <text x="34" y="150" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">t</text>
+  <text x="42" y="150" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">+</text>
+  <text x="50" y="150" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">↑</text>
+  <text x="58" y="150" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">/</text>
   <text x="66" y="150" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">s</text>
   <text x="74" y="150" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">h</text>
   <text x="82" y="150" style="fill:#0000AA;" font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">i</text>

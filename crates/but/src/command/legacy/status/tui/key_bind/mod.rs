@@ -405,7 +405,10 @@ impl KeyBindsBuilder<'_> {
     fn next_section(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "next section",
-            press().shift().code(KeyCode::Char('J')),
+            press()
+                .shift()
+                .code(KeyCode::Char('J'))
+                .alt_code(KeyCode::Down),
             Message::MoveCursorNextSection,
         )
         .hide_from_hotbar()
@@ -415,7 +418,10 @@ impl KeyBindsBuilder<'_> {
     fn prev_section(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "prev section",
-            press().shift().code(KeyCode::Char('K')),
+            press()
+                .shift()
+                .code(KeyCode::Char('K'))
+                .alt_code(KeyCode::Up),
             Message::MoveCursorPreviousSection,
         )
         .hide_from_hotbar()
@@ -643,7 +649,7 @@ impl KeyBindsBuilder<'_> {
     fn focus_details(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "focus details",
-            press().code(KeyCode::Char('l')),
+            press().code(KeyCode::Char('l')).alt_code(KeyCode::Right),
             Message::DetailsLayout(DetailsLayoutMessage::Focus { full_screen: false }),
         )
     }
@@ -906,7 +912,10 @@ impl KeyBindsBuilder<'_> {
     fn details_next_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "next hunk",
-            press().shift().code(KeyCode::Char('J')),
+            press()
+                .shift()
+                .code(KeyCode::Char('J'))
+                .alt_code(KeyCode::Down),
             Message::Details(DetailsMessage::SelectNextSection),
         )
     }
@@ -914,7 +923,10 @@ impl KeyBindsBuilder<'_> {
     fn details_prev_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "prev hunk",
-            press().shift().code(KeyCode::Char('K')),
+            press()
+                .shift()
+                .code(KeyCode::Char('K'))
+                .alt_code(KeyCode::Up),
             Message::Details(DetailsMessage::SelectPrevSection),
         )
     }
@@ -972,7 +984,7 @@ impl KeyBindsBuilder<'_> {
     fn details_focus_status(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "focus status",
-            press().code(KeyCode::Char('h')),
+            press().code(KeyCode::Char('h')).alt_code(KeyCode::Left),
             Message::UnfocusDetails,
         )
     }
