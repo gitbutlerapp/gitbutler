@@ -57,10 +57,10 @@ use crate::{
                 message_on_drop::MessageOnDrop,
                 mode::{
                     CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, CommitSource,
-                    DetailsMode, DetailsReturnMode, InlineRewordMode, Mode, ModeDiscriminant,
-                    MoveMode, MoveSource, MoveStackMode, NormalMode, PickUncommittedMode,
-                    ReorderStackSource, RubMode, RubSource, StackCommitSource, StackMode,
-                    UncommittedAreaCommitSource,
+                    DetailsMode, DetailsReturnMode, InlineRewordMode, JumpMode, Mode,
+                    ModeDiscriminant, MoveMode, MoveSource, MoveStackMode, NormalMode,
+                    PickUncommittedMode, ReorderStackSource, RubMode, RubSource, StackCommitSource,
+                    StackMode, UncommittedAreaCommitSource,
                 },
                 operations::stack_has_assigned_changes,
                 toast::{ToastKind, Toasts},
@@ -93,6 +93,7 @@ mod fuzzy_picker;
 mod graph_extension;
 mod help;
 mod highlight;
+mod jump;
 mod key_bind;
 mod marking;
 mod message_on_drop;
@@ -939,6 +940,13 @@ impl App {
                 StackMessage::MoveStart => self.handle_stack_move_start(),
                 StackMessage::MoveConfirm => self.handle_stack_move_confirm(ctx, messages)?,
             },
+            Message::Jump(jump_message) => match jump_message {
+                JumpMessage::Enter => self.handle_jump_enter(),
+                JumpMessage::Input(event) => self.handle_jump_input(event, messages),
+                JumpMessage::Confirm => self.handle_jump_confirm(messages),
+                JumpMessage::Previous => self.handle_jump_previous(),
+                JumpMessage::Next => self.handle_jump_next(),
+            },
         }
 
         ensure_cursor_visible(self, visible_height);
@@ -960,6 +968,7 @@ impl App {
             | Mode::Move(..)
             | Mode::Details(..)
             | Mode::Stack(..)
+            | Mode::Jump(..)
             | Mode::MoveStack(..) => Some(TuiOutcome::None),
             Mode::PickChanges(PickUncommittedMode { marks }) => {
                 let ids = marks
@@ -1037,7 +1046,7 @@ impl App {
     fn handle_backstack_entry(&mut self, entry: BackstackEntry, messages: &mut Vec<Message>) {
         match entry {
             BackstackEntry::LeaveNormalMode => {
-                if !self.restore_mode_before_details(messages) {
+                if !self.restore_mode_before_details(messages) && !self.restore_mode_before_jump() {
                     let marks = self.marks().cloned().unwrap_or_default();
                     self.mode.update(&mut self.backstack, |backstack, mode| {
                         let _ = backstack;
@@ -1075,6 +1084,7 @@ impl App {
                 | Mode::Move(..)
                 | Mode::Stack(..)
                 | Mode::MoveStack(..)
+                | Mode::Jump(..)
                 | Mode::Details(..) => {}
             },
             BackstackEntry::OpenSplitDetailsView | BackstackEntry::OpenFullScreenDetailsView => {
@@ -1109,6 +1119,21 @@ impl App {
                     Mode::PickChanges(pick_uncommitted_mode)
                 }
             };
+            true
+        })
+    }
+
+    fn restore_mode_before_jump(&mut self) -> bool {
+        self.mode.update(&mut self.backstack, |backstack, mode| {
+            let previous_mode = std::mem::replace(mode, Mode::Normal(NormalMode::default()));
+            let Mode::Jump(jump_mode) = previous_mode else {
+                *mode = previous_mode;
+                return false;
+            };
+
+            *mode = *jump_mode.return_mode;
+            *backstack = jump_mode.return_backstack;
+
             true
         })
     }
@@ -1181,6 +1206,7 @@ impl App {
                     | Mode::Commit(..)
                     | Mode::Move(..)
                     | Mode::MoveStack(..)
+                    | Mode::Jump(..)
                     | Mode::Stack(..) => DetailsReturnMode::Normal(NormalMode::default()),
                 };
                 *mode = Mode::Details(DetailsMode {
@@ -1212,6 +1238,7 @@ impl App {
             | Mode::Commit(..)
             | Mode::Stack(..)
             | Mode::MoveStack(..)
+            | Mode::Jump(..)
             | Mode::Move(..) => {}
         }
     }
@@ -3245,6 +3272,7 @@ impl App {
                         | Mode::Move(..)
                         | Mode::Details(..)
                         | Mode::MoveStack(..)
+                        | Mode::Jump(..)
                         | Mode::Stack(..) => {}
                     }
                 }
@@ -3266,6 +3294,7 @@ impl App {
                     | Mode::Move(..)
                     | Mode::Details(..)
                     | Mode::MoveStack(..)
+                    | Mode::Jump(..)
                     | Mode::Stack(..) => {}
                 }
             }
@@ -3665,6 +3694,144 @@ impl App {
 
         Ok(())
     }
+
+    fn handle_jump_enter(&mut self) {
+        // TODO(david): dont enter if commit file list is open
+
+        match self.flags.show_files {
+            FilesStatusFlag::None | FilesStatusFlag::All => {}
+            FilesStatusFlag::Commit(..) => return,
+        }
+
+        let previous_mode = match &*self.mode {
+            Mode::Details(..) => return,
+            mode @ (Mode::Normal(..)
+            | Mode::Rub(..)
+            | Mode::InlineReword(..)
+            | Mode::Command(..)
+            | Mode::Commit(..)
+            | Mode::Move(..)
+            | Mode::Stack(..)
+            | Mode::MoveStack(..)
+            | Mode::PickChanges(..)
+            | Mode::Jump(..)) => mode.clone(),
+        };
+        let backstack = self.backstack.clone();
+
+        let mut textarea = TextArea::default();
+        textarea.set_cursor_line_style(self.theme.default);
+        textarea.move_cursor(CursorMove::End);
+
+        self.mode
+            .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
+                *mode = Mode::Jump(JumpMode {
+                    textarea: Box::new(textarea),
+                    return_mode: Box::new(previous_mode),
+                    return_backstack: backstack,
+                });
+            });
+    }
+
+    fn handle_jump_input(&mut self, ev: Event, _messages: &mut Vec<Message>) {
+        let Mode::Jump(mode) = self
+            .mode
+            .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
+        else {
+            return;
+        };
+
+        mode.textarea.input(ev);
+
+        if let Some(line) = jump::find_line_by_short_id(
+            mode.query(),
+            &self.status_lines,
+            &mode.return_mode,
+            self.flags.show_files,
+        ) && let Some(data) = line.data.cli_id()
+            && let Some(new_cursor) = cursor::Cursor::restore(data, &self.status_lines)
+        {
+            self.cursor = new_cursor;
+
+            self.details.mark_dirty();
+
+            let return_mode = mode.return_mode.clone();
+            let return_backstack = mode.return_backstack.clone();
+
+            self.mode.update(&mut self.backstack, |backstack, mode| {
+                *mode = *return_mode;
+                *backstack = return_backstack;
+            });
+        }
+    }
+
+    fn handle_jump_confirm(&mut self, _messages: &mut Vec<Message>) {
+        let Mode::Jump(mode) = &*self.mode else {
+            return;
+        };
+
+        let new_cursor = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .filter(|line| {
+                jump::prefix_match(mode.query(), line, &mode.return_mode, self.flags.show_files)
+            })
+            .map(|_| self.cursor)
+            .or_else(|| {
+                self.status_lines
+                    .iter()
+                    .find(|line| {
+                        jump::prefix_match(
+                            mode.query(),
+                            line,
+                            &mode.return_mode,
+                            self.flags.show_files,
+                        )
+                    })
+                    .and_then(|line| line.data.cli_id())
+                    .and_then(|data| cursor::Cursor::restore(data, &self.status_lines))
+            });
+
+        if let Some(new_cursor) = new_cursor {
+            self.cursor = new_cursor;
+            self.details.mark_dirty();
+
+            let return_mode = mode.return_mode.clone();
+            let return_backstack = mode.return_backstack.clone();
+
+            self.mode.update(&mut self.backstack, |backstack, mode| {
+                *mode = *return_mode;
+                *backstack = return_backstack;
+            });
+        }
+    }
+
+    fn handle_jump_next(&mut self) {
+        let Mode::Jump(_) = &*self.mode else {
+            return;
+        };
+
+        if let Some(new_cursor) =
+            self.cursor
+                .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+        {
+            self.cursor = new_cursor;
+            self.details.mark_dirty();
+        }
+    }
+
+    fn handle_jump_previous(&mut self) {
+        let Mode::Jump(_) = &*self.mode else {
+            return;
+        };
+
+        if let Some(new_cursor) =
+            self.cursor
+                .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+        {
+            self.cursor = new_cursor;
+            self.details.mark_dirty();
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -3702,6 +3869,9 @@ fn event_to_messages(
                         Mode::Command(..) => {
                             messages.push(Message::Command(CommandMessage::Input(ev)));
                         }
+                        Mode::Jump(..) => {
+                            messages.push(Message::Jump(JumpMessage::Input(ev)));
+                        }
                         Mode::Normal(..)
                         | Mode::Details(..)
                         | Mode::Rub(..)
@@ -3723,6 +3893,9 @@ fn event_to_messages(
             }
             Mode::Command(..) => {
                 messages.push(Message::Command(CommandMessage::Input(ev)));
+            }
+            Mode::Jump(..) => {
+                messages.push(Message::Jump(JumpMessage::Input(ev)));
             }
             Mode::Normal(..)
             | Mode::Details(..)
@@ -3808,6 +3981,7 @@ fn handle_mark_cli_id(commit: &CliId, mode: &mut Mode) -> bool {
         | Mode::Move(..)
         | Mode::Stack(..)
         | Mode::MoveStack(..)
+        | Mode::Jump(..)
         | Mode::Details(..) => {
             return false;
         }
@@ -4076,6 +4250,7 @@ enum Message {
     DetailsLayout(DetailsLayoutMessage),
     FuzzyPicker(FuzzyPickerMessage),
     Help(HelpMessage),
+    Jump(JumpMessage),
     NewBranch,
     ToggleHelp,
     Mark,
@@ -4198,6 +4373,15 @@ enum StackMessage {
     Unapply,
     MoveStart,
     MoveConfirm,
+}
+
+#[derive(Debug, Clone)]
+enum JumpMessage {
+    Enter,
+    Input(Event),
+    Previous,
+    Next,
+    Confirm,
 }
 
 #[derive(Debug, Clone)]

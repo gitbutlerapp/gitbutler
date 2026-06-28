@@ -19,6 +19,7 @@ mod command_tests;
 mod commit_tests;
 mod details_tests;
 mod discard_tests;
+mod jump_tests;
 mod marking_tests;
 mod move_tests;
 mod rub_tests;

@@ -30,6 +30,7 @@ use crate::{
         forge::review,
         status::output::{
             BranchLineContent, CommitLineContent, FileLineContent, StatusOutput, StatusOutputLine,
+            UncommittedLineContent,
         },
         workspace_target,
     },
@@ -1345,15 +1346,17 @@ fn print_group(
         }
     } else {
         let cli_id = status_ctx.id_map.uncommitted();
-        let mut line = Vec::from([
-            Span::styled(cli_id.to_short_string().to_string(), t.cli_id),
-            Span::raw(" ["),
-            Span::styled("uncommitted", t.info),
-            Span::raw("]"),
-        ]);
-        if assignments.is_empty() {
-            line.extend([Span::raw(" "), Span::styled("(no changes)", t.hint)]);
-        }
+        let line = UncommittedLineContent {
+            id: Vec::from([Span::styled(cli_id.to_short_string().to_string(), t.cli_id)]),
+            decoration_start: Vec::from([Span::raw(" [")]),
+            label: Vec::from([Span::styled("uncommitted", t.info)]),
+            decoration_end: Vec::from([Span::raw("]")]),
+            suffix: if assignments.is_empty() {
+                Vec::from([Span::raw(" "), Span::styled("(no changes)", t.hint)])
+            } else {
+                Vec::new()
+            },
+        };
         output.unstaged_changes(Vec::from([Span::raw("╭┄")]), line, cli_id.clone())?;
         if !assignments.is_empty() {
             print_assignments(&repo, status_ctx, None, None, assignments, true, output)?;

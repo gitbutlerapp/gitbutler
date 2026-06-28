@@ -19,6 +19,8 @@ use crate::{
     },
 };
 
+use super::jump;
+
 #[cfg(test)]
 mod tests;
 
@@ -662,6 +664,7 @@ fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
         | Mode::Move(..)
         | Mode::Stack(..)
         | Mode::MoveStack(..)
+        | Mode::Jump(..)
         | Mode::Details(..) => {
             matches!(
                 line.data,
@@ -771,6 +774,7 @@ pub(super) fn is_selectable_in_mode(
         | Mode::Normal(..)
         | Mode::PickChanges(..)
         | Mode::Details(..)
+        | Mode::Jump(..)
         | Mode::Stack(..) => {}
     }
 
@@ -808,6 +812,7 @@ pub(super) fn is_selectable_in_mode(
         | Mode::Move(..)
         | Mode::Details(..)
         | Mode::MoveStack(..)
+        | Mode::Jump(..)
         | Mode::Stack(..) => {}
     }
 
@@ -851,5 +856,11 @@ pub(super) fn is_selectable_in_mode(
             // but returning `false` would dim every line which hurts UX
             true
         }
+        Mode::Jump(jump_mode) => jump::prefix_match(
+            jump_mode.query(),
+            line,
+            &jump_mode.return_mode,
+            show_files_flag,
+        ),
     }
 }

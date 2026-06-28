@@ -17,9 +17,11 @@ use crate::{
     CliId,
     command::legacy::status::{
         CommitLineContent, FileLineContent, StatusOutputLine,
-        output::{BranchLineContent, StatusOutputContent, StatusOutputLineData},
+        output::{
+            BranchLineContent, StatusOutputContent, StatusOutputLineData, UncommittedLineContent,
+        },
         tui::{
-            Markable,
+            JumpMode, Markable,
             mode::{MoveStackMode, StackMode},
         },
     },
@@ -408,6 +410,7 @@ fn render_status_list_item_with_stack_highlight(
         }
     }
 
+    let line_has_copied_highlight = data.cli_id().is_some_and(|id| app.highlight.contains(id));
     let line_is_to_be_discarded = data.cli_id().is_some_and(|selection| {
         app.to_be_discarded
             .iter()
@@ -422,6 +425,7 @@ fn render_status_list_item_with_stack_highlight(
             | Mode::PickChanges(..)
             | Mode::InlineReword(..)
             | Mode::Command(..)
+            | Mode::Jump(..)
             | Mode::Details(..) => {}
             Mode::Rub(RubMode {
                 source,
@@ -480,6 +484,7 @@ fn render_status_list_item_with_stack_highlight(
             | Mode::InlineReword(..)
             | Mode::Command(..)
             | Mode::Details(..)
+            | Mode::Jump(..)
             | Mode::Stack(..) => {}
             Mode::Rub(RubMode {
                 source,
@@ -527,8 +532,10 @@ fn render_status_list_item_with_stack_highlight(
         }) => {
             let mut spans =
                 Vec::with_capacity(sha.len() + author.len() + message.len() + suffix.len());
-            if data.cli_id().is_some_and(|id| app.highlight.contains(id)) {
+            if line_has_copied_highlight {
                 spans.extend(sha.iter().cloned().map(with_highlight));
+            } else if let Mode::Jump(jump_mode) = &*app.mode {
+                spans.extend(style_jump_mode_matches(sha, jump_mode));
             } else {
                 spans.extend(sha.iter().cloned());
             }
@@ -551,9 +558,15 @@ fn render_status_list_item_with_stack_highlight(
                     + decoration_end.len()
                     + suffix.len(),
             );
-            spans.extend(id.iter().cloned());
+            if line_has_copied_highlight {
+                spans.extend(id.iter().cloned());
+            } else if let Mode::Jump(jump_mode) = &*app.mode {
+                spans.extend(style_jump_mode_matches(id, jump_mode));
+            } else {
+                spans.extend(id.iter().cloned());
+            }
             spans.extend(decoration_start.iter().cloned());
-            if data.cli_id().is_some_and(|id| app.highlight.contains(id)) {
+            if line_has_copied_highlight {
                 spans.extend(branch_name.iter().cloned().map(with_highlight));
             } else {
                 spans.extend(branch_name.iter().cloned());
@@ -564,13 +577,46 @@ fn render_status_list_item_with_stack_highlight(
         }
         StatusOutputContent::File(FileLineContent { id, status, path }) => {
             let mut spans = Vec::with_capacity(id.len() + status.len() + path.len());
-            spans.extend(id.iter().cloned());
+            if line_has_copied_highlight {
+                spans.extend(id.iter().cloned());
+            } else if let Mode::Jump(jump_mode) = &*app.mode {
+                spans.extend(style_jump_mode_matches(id, jump_mode));
+            } else {
+                spans.extend(id.iter().cloned());
+            }
             spans.extend(status.iter().cloned());
-            if data.cli_id().is_some_and(|id| app.highlight.contains(id)) {
+            if line_has_copied_highlight {
                 spans.extend(path.iter().cloned().map(with_highlight));
             } else {
                 spans.extend(path.iter().cloned());
             }
+            spans
+        }
+        StatusOutputContent::Uncommitted(UncommittedLineContent {
+            id,
+            decoration_start,
+            label,
+            decoration_end,
+            suffix,
+        }) => {
+            let mut spans = Vec::with_capacity(
+                id.len()
+                    + decoration_start.len()
+                    + label.len()
+                    + decoration_end.len()
+                    + suffix.len(),
+            );
+            if line_has_copied_highlight {
+                spans.extend(id.iter().cloned().map(with_highlight));
+            } else if let Mode::Jump(jump_mode) = &*app.mode {
+                spans.extend(style_jump_mode_matches(id, jump_mode));
+            } else {
+                spans.extend(id.iter().cloned());
+            }
+            spans.extend(decoration_start.iter().cloned());
+            spans.extend(label.iter().cloned());
+            spans.extend(decoration_end.iter().cloned());
+            spans.extend(suffix.iter().cloned());
             spans
         }
     };
@@ -621,6 +667,7 @@ fn render_status_list_item_with_stack_highlight(
         | Mode::Stack(..)
         | Mode::Command(..)
         | Mode::Rub(..)
+        | Mode::Jump(..)
         | Mode::Commit(..) => {
             if is_selectable_in_mode(tui_line, &app.mode, app.flags.show_files) {
                 line.extend(content_spans);
@@ -746,6 +793,7 @@ fn render_status_list_item_with_stack_highlight(
             | Mode::Rub(..)
             | Mode::Stack(..)
             | Mode::InlineReword(..)
+            | Mode::Jump(..)
             | Mode::Command(..) => {}
         }
     }
@@ -1045,6 +1093,9 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
                 }
             }
             frame.render_widget(&**textarea, command_layout[1]);
+        }
+        Mode::Jump(JumpMode { textarea, .. }) => {
+            frame.render_widget(&**textarea, layout[2]);
         }
     }
 }
@@ -1538,4 +1589,60 @@ pub(super) fn ensure_cursor_visible(app: &mut App, visible_height: usize) {
 fn cursor_at_end(textarea: &TextArea<'_>) -> bool {
     let (_, col) = textarea.cursor();
     col == textarea.lines()[0].chars().count()
+}
+
+fn style_jump_mode_matches(
+    content: &[Span<'static>],
+    jump_mode: &JumpMode,
+) -> impl IntoIterator<Item = Span<'static>> {
+    use itertools::Either;
+
+    let query = jump_mode.query();
+
+    let Some(first_non_whitespace_index) = content
+        .iter()
+        .position(|span| !span.content.as_ref().chars().all(char::is_whitespace))
+    else {
+        return Either::Left(content.iter().cloned());
+    };
+
+    let (leading, rest) = content.split_at(first_non_whitespace_index);
+    let Some((first_non_whitespace, trailing)) = rest.split_first() else {
+        return Either::Left(content.iter().cloned());
+    };
+
+    let first_non_whitespace_content = first_non_whitespace.content.as_ref();
+    if !first_non_whitespace_content.starts_with(query) {
+        return Either::Left(content.iter().cloned());
+    }
+
+    let next_char_style = Style::default().black().on_white();
+    let mut styled_content = Vec::with_capacity(content.len() + 2);
+    styled_content.extend(leading.iter().cloned());
+    if query.len() >= first_non_whitespace_content.len() {
+        styled_content.push(first_non_whitespace.clone());
+    } else {
+        let (matching, rest_of_first) = first_non_whitespace_content.split_at(query.len());
+        let next_char_len = rest_of_first
+            .chars()
+            .next()
+            .map(char::len_utf8)
+            .unwrap_or_default();
+        let (next_char, remaining) = rest_of_first.split_at(next_char_len);
+        styled_content.push(Span::styled(
+            matching.to_owned(),
+            first_non_whitespace.style,
+        ));
+        styled_content.push(
+            Span::styled(next_char.to_owned(), first_non_whitespace.style).style(next_char_style),
+        );
+        if !remaining.is_empty() {
+            styled_content.push(Span::styled(
+                remaining.to_owned(),
+                first_non_whitespace.style,
+            ));
+        }
+    }
+    styled_content.extend(trailing.iter().cloned());
+    Either::Right(styled_content.into_iter())
 }

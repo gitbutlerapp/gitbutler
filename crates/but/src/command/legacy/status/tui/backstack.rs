@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, ops::Deref};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(super) struct Backstack {
     stack: VecDeque<BackstackEntry>,
 }
