@@ -62,7 +62,7 @@ fn details_view_supports_scroll_controls() {
         env,
         TestTuiOptions {
             width: 100,
-            height: 10,
+            height: 12,
             ..Default::default()
         },
     );
@@ -178,7 +178,7 @@ fn commit_message_wraps_in_details_view() {
         env,
         TestTuiOptions {
             width: 80,
-            height: 14,
+            height: 22,
             ..Default::default()
         },
     );
@@ -229,7 +229,7 @@ fn details_view_renders_multiple_hunks_and_files() {
         env,
         TestTuiOptions {
             width: 100,
-            height: 18,
+            height: 24,
             ..Default::default()
         },
     );
@@ -275,12 +275,12 @@ fn toggling_details_off_and_on_resets_scroll_position() {
         env,
         TestTuiOptions {
             width: 100,
-            height: 10,
+            height: 12,
             ..Default::default()
         },
     );
 
-    tui.input_then_render('d')
+    tui.input_then_render('l')
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggling_details_off_and_on_resets_scroll_position_001.svg"
         ]);
@@ -290,12 +290,14 @@ fn toggling_details_off_and_on_resets_scroll_position() {
             "snapshots/toggling_details_off_and_on_resets_scroll_position_002.svg"
         ]);
 
+    tui.input_then_render('h');
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggling_details_off_and_on_resets_scroll_position_003.svg"
         ]);
 
-    tui.input_then_render('d')
+    tui.input_then_render('d');
+    tui.render_with_messages(None, Vec::new())
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggling_details_off_and_on_resets_scroll_position_004.svg"
         ]);
@@ -319,12 +321,12 @@ fn details_view_syntax_highlighting_survives_scrolling() {
         env,
         TestTuiOptions {
             width: 100,
-            height: 10,
+            height: 12,
             ..Default::default()
         },
     );
 
-    tui.input_then_render('d')
+    tui.input_then_render('l')
         .assert_rendered_term_svg_eq(file![
             "snapshots/details_view_syntax_highlighting_survives_scrolling_001.svg"
         ]);
@@ -550,9 +552,9 @@ fn rubbing_from_full_screen_details() {
             "snapshots/rubbing_from_full_screen_details_rubbing.svg"
         ]);
 
-    tui.input_then_render('j').assert_current_line_eq(str![[
-        "┊●   << amend >> 9477ae7 add A                    │@@ -1,0 +1,1 @@"
-    ]]);
+    tui.input_then_render('j').assert_current_line_eq(str![
+        "┊●   << amend >> 9477ae7 add A                    │───────────────╯"
+    ]);
 
     // The details view should close. The split shouldn't show either
     tui.input_then_render(KeyCode::Enter)
@@ -579,9 +581,9 @@ fn rubbing_from_split_details() {
     tui.render_with_messages('r', Vec::new())
         .assert_rendered_term_svg_eq(file!["snapshots/rubbing_from_split_details_rubbing.svg"]);
 
-    tui.input_then_render('j').assert_current_line_eq(str![[
-        "┊●   << amend >> 9477ae7 add A                    │@@ -1,0 +1,1 @@"
-    ]]);
+    tui.input_then_render('j').assert_current_line_eq(str![
+        "┊●   << amend >> 9477ae7 add A                    │───────────────╯"
+    ]);
 
     // the details view should remain open
     tui.input_then_render(KeyCode::Enter)
@@ -598,7 +600,7 @@ fn details_view_with_no_changes() {
     tui.input_then_render((KeyModifiers::SHIFT, 'D'));
 
     tui.render_with_messages(None, Vec::new())
-        .assert_rendered_contains("No changes");
+        .assert_rendered_contains("0 files changed, +0 -0");
 }
 
 #[test]

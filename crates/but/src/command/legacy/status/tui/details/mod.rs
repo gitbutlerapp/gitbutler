@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     iter::{empty, once, repeat_n},
     sync::Arc,
     time::Instant,
@@ -10,13 +10,14 @@ use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{
     HunkHeader, UnifiedPatch,
+    diff::LineStats,
     ui::{TreeChange, TreeStatus},
     unified_diff::DiffHunk,
 };
 use but_ctx::{Context, OnDemand};
 use but_hunk_assignment::HunkAssignment;
 use gix::actor::Signature;
-use itertools::Either;
+use itertools::{Either, Itertools, Position};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -717,9 +718,11 @@ enum DetailsAndDiffWidget {
     FromCommit {
         header_items: Vec<ListItem<'static>>,
         message: String,
+        line_stats: Vec<ListItem<'static>>,
         diff_line_items: Vec<RenderedDiffLine>,
     },
     FromDiffLines {
+        line_stats: Vec<ListItem<'static>>,
         diff_line_items: Vec<RenderedDiffLine>,
     },
 }
@@ -742,17 +745,28 @@ impl DetailsAndDiffWidget {
                 header_items,
                 message,
                 diff_line_items,
-                ..
+                line_stats,
             } => {
                 header_items.len()
-                    + 1 // +1 to match the empty line added in `render`
-                    + textwrap::wrap(message, textwrap::Options::new(width as usize)).len()
-                    + 1 // +1 to match the empty line added in `render`
+                    // +1 to match the empty line added in `render`
+                    + 1
+                    + commit_message_row_count(message, width)
+                    // +1 to match the empty line added in `render`
+                    + 1
+                    + line_stats.len()
+                    // +1 to match the empty line added in `render`
+                    + (if line_stats.is_empty() { 0 } else { 1 })
                     + diff_line_items.len()
             }
             DetailsAndDiffWidget::FromDiffLines {
-                diff_line_items, ..
-            } => diff_line_items.len(),
+                diff_line_items,
+                line_stats,
+            } => {
+                line_stats.len()
+                // +1 to match the empty line added in `render`
+                + (if line_stats.is_empty() { 0 } else { 1 })
+                + diff_line_items.len()
+            }
         }
     }
 
@@ -761,14 +775,25 @@ impl DetailsAndDiffWidget {
             DetailsAndDiffWidget::FromCommit {
                 header_items,
                 message,
-                ..
+                line_stats,
+                diff_line_items: _,
             } => {
                 header_items.len()
                     + 1 // +1 to match the empty line added in `render`
-                    + textwrap::wrap(message, textwrap::Options::new(width as usize)).len()
+                    + commit_message_row_count(message, width)
                     + 1 // +1 to match the empty line added in `render`
+                    + line_stats.len()
+                    // +1 to match the empty line added in `render`
+                    + (if line_stats.is_empty() { 0 } else { 1 })
             }
-            DetailsAndDiffWidget::FromDiffLines { .. } => 0,
+            DetailsAndDiffWidget::FromDiffLines {
+                line_stats,
+                diff_line_items: _,
+            } => {
+                line_stats.len()
+                // +1 to match the empty line added in `render`
+                + (if line_stats.is_empty() { 0 } else { 1 })
+            }
         }
     }
 
@@ -777,7 +802,9 @@ impl DetailsAndDiffWidget {
             DetailsAndDiffWidget::FromCommit {
                 diff_line_items, ..
             }
-            | DetailsAndDiffWidget::FromDiffLines { diff_line_items } => diff_line_items,
+            | DetailsAndDiffWidget::FromDiffLines {
+                diff_line_items, ..
+            } => diff_line_items,
         }
     }
 
@@ -856,29 +883,54 @@ impl DetailsAndDiffWidget {
         }
 
         let empty_list_item = ListItem::new("");
+        let no_commit_message = ListItem::new("(no commit message)").style(theme.hint);
 
         let wrapped_message_iter = match self {
-            DetailsAndDiffWidget::FromCommit { message, .. } => Some(
-                textwrap::wrap(message, textwrap::Options::new(area.width as usize))
-                    .into_iter()
-                    .map(ListItemOrString::Str),
-            ),
+            DetailsAndDiffWidget::FromCommit { message, .. } => {
+                if message.is_empty() {
+                    let item = ListItemOrString::ListItem(&no_commit_message);
+                    Some(Either::Left(once(item)))
+                } else {
+                    Some(Either::Right(
+                        wrapped_commit_message_lines(message, area.width)
+                            .map(ListItemOrString::Str),
+                    ))
+                }
+            }
             DetailsAndDiffWidget::FromDiffLines { .. } => None,
         }
         .into_iter()
         .flatten();
 
+        let rendered_line_stats = match self {
+            DetailsAndDiffWidget::FromCommit { line_stats, .. }
+            | DetailsAndDiffWidget::FromDiffLines { line_stats, .. } => {
+                if line_stats.is_empty() {
+                    Either::Left(empty())
+                } else {
+                    let iter = empty()
+                        .chain(line_stats.iter().map(ListItemOrString::ListItem))
+                        .chain([ListItemOrString::ListItem(&empty_list_item)]);
+                    Either::Right(iter)
+                }
+            }
+        };
+
         let mut items = match self {
             DetailsAndDiffWidget::FromCommit {
                 header_items,
                 diff_line_items,
-                ..
+                // message rendered in `wrapped_message_iter`
+                message: _,
+                // `line_stats` rendered in `rendered_line_stats`
+                line_stats: _,
             } => {
                 let iter = empty()
                     .chain(header_items.iter().map(ListItemOrString::ListItem))
                     .chain([ListItemOrString::ListItem(&empty_list_item)])
                     .chain(wrapped_message_iter)
                     .chain([ListItemOrString::ListItem(&empty_list_item)])
+                    .chain(rendered_line_stats)
                     .chain(diff_line_items.iter().map(|item| match item {
                         RenderedDiffLine::Separator => ListItemOrString::ListItem(&empty_list_item),
                         RenderedDiffLine::DiffLine { section_id, item } => {
@@ -888,13 +940,20 @@ impl DetailsAndDiffWidget {
                 Either::Left(iter)
             }
             DetailsAndDiffWidget::FromDiffLines {
-                diff_line_items, ..
-            } => Either::Right(diff_line_items.iter().map(|item| match item {
-                RenderedDiffLine::Separator => ListItemOrString::ListItem(&empty_list_item),
-                RenderedDiffLine::DiffLine { section_id, item } => {
-                    ListItemOrString::ListItemInSection(section_id, item)
-                }
-            })),
+                diff_line_items,
+                // `line_stats` rendered in `rendered_line_stats`
+                line_stats: _,
+            } => {
+                let iter = empty()
+                    .chain(rendered_line_stats)
+                    .chain(diff_line_items.iter().map(|item| match item {
+                        RenderedDiffLine::Separator => ListItemOrString::ListItem(&empty_list_item),
+                        RenderedDiffLine::DiffLine { section_id, item } => {
+                            ListItemOrString::ListItemInSection(section_id, item)
+                        }
+                    }));
+                Either::Right(iter)
+            }
         }
         // ensure we `skip` and `take` before allocating anything
         .skip(scroll_top)
@@ -927,6 +986,46 @@ impl DetailsAndDiffWidget {
             Span::styled("No changes", theme.hint).render(area, buf.buffer_mut());
         }
     }
+}
+
+fn commit_message_row_count(message: &str, width: u16) -> usize {
+    if message.is_empty() {
+        1
+    } else {
+        wrapped_commit_message_lines(message, width).count()
+    }
+}
+
+fn wrapped_commit_message_lines(message: &str, width: u16) -> impl Iterator<Item = Cow<'_, str>> {
+    textwrap::wrap(message, textwrap::Options::new(width as usize))
+        .into_iter()
+        .with_position()
+        .filter_map(|(pos, line)| match pos {
+            Position::First | Position::Middle | Position::Only => Some(line),
+            Position::Last => (!line.is_empty()).then_some(line),
+        })
+}
+
+fn render_line_stats(line_stats: LineStats) -> Vec<ListItem<'static>> {
+    let LineStats {
+        lines_added,
+        lines_removed,
+        files_changed,
+    } = line_stats;
+
+    let line = Line::from_iter([
+        if files_changed == 1 {
+            Span::raw(format!("{files_changed} file changed"))
+        } else {
+            Span::raw(format!("{files_changed} files changed"))
+        },
+        Span::raw(", "),
+        Span::raw(format!("+{lines_added}")).green(),
+        Span::raw(" "),
+        Span::raw(format!("-{lines_removed}")).red(),
+    ]);
+
+    Vec::from([ListItem::from(line)])
 }
 
 fn from_commit(
@@ -963,18 +1062,22 @@ fn from_commit(
         .map(|change| TreeChange::from(change.clone()))
         .collect::<Vec<_>>();
 
+    let mut line_stats = LineStats::default();
+
     build_tree_changes(
         ctx,
         &tree_changes,
         Some(commit_id),
         syntax_set,
         renderer,
+        &mut line_stats,
         theme,
     );
 
     Ok(DetailsAndDiffWidget::FromCommit {
         header_items,
         message,
+        line_stats: render_line_stats(line_stats),
         diff_line_items: diff_line_items.unwrap_or_default(),
     })
 }
@@ -986,7 +1089,21 @@ fn from_uncommitted_hunks(
     diff_line_items: Option<Vec<RenderedDiffLine>>,
     theme: &'static Theme,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
+    let mut line_stats = LineStats::default();
+    let mut unique_paths = HashSet::new();
+
     for (raw_id, cli_id, UncommittedHunk { hunk_assignment }) in uncommitted_hunks {
+        unique_paths.insert(&hunk_assignment.path_bytes);
+
+        line_stats.lines_added += hunk_assignment
+            .line_nums_added
+            .as_ref()
+            .map_or(0, |lines| lines.len() as u64);
+        line_stats.lines_removed += hunk_assignment
+            .line_nums_removed
+            .as_ref()
+            .map_or(0, |lines| lines.len() as u64);
+
         let section = renderer.new_section_mut(SectionId::ShortId(cli_id));
 
         build_hunk_path_header(
@@ -999,8 +1116,11 @@ fn from_uncommitted_hunks(
         build_hunk_assignment(hunk_assignment, syntax_set, theme, &mut section.content);
     }
 
+    line_stats.files_changed = unique_paths.len() as u64;
+
     Ok(DetailsAndDiffWidget::FromDiffLines {
         diff_line_items: diff_line_items.unwrap_or_default(),
+        line_stats: render_line_stats(line_stats),
     })
 }
 
@@ -1023,16 +1143,20 @@ fn from_committed_file(
         .map(|change| TreeChange::from(change.clone()))
         .collect::<Vec<_>>();
 
+    let mut line_stats = LineStats::default();
+
     build_tree_changes(
         ctx,
         &tree_changes,
         Some(commit_id),
         syntax_set,
         renderer,
+        &mut line_stats,
         theme,
     );
 
     Ok(DetailsAndDiffWidget::FromDiffLines {
+        line_stats: render_line_stats(line_stats),
         diff_line_items: diff_line_items.unwrap_or_default(),
     })
 }
@@ -1047,16 +1171,20 @@ fn from_branch(
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     let tree_changes = but_api::branch::branch_diff(ctx, name)?;
 
+    let mut line_stats = LineStats::default();
+
     build_tree_changes(
         ctx,
         &tree_changes.changes,
         None,
         syntax_set,
         renderer,
+        &mut line_stats,
         theme,
     );
 
     Ok(DetailsAndDiffWidget::FromDiffLines {
+        line_stats: render_line_stats(line_stats),
         diff_line_items: diff_line_items.unwrap_or_default(),
     })
 }
@@ -1491,9 +1619,14 @@ fn build_tree_changes(
     commit_id: Option<gix::ObjectId>,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
+    line_stats: &mut LineStats,
     theme: &'static Theme,
 ) {
+    let mut unique_paths = HashSet::new();
+
     for tree_change in tree_changes {
+        unique_paths.insert(&tree_change.path_bytes);
+
         if let Some(patch) = but_api::diff::tree_change_diffs(ctx, tree_change.clone())
             .ok()
             .flatten()
@@ -1502,9 +1635,12 @@ fn build_tree_changes(
                 UnifiedPatch::Patch {
                     hunks,
                     is_result_of_binary_to_text_conversion,
-                    lines_added: _,
-                    lines_removed: _,
+                    lines_added,
+                    lines_removed,
                 } => {
+                    line_stats.lines_added += u64::from(lines_added);
+                    line_stats.lines_removed += u64::from(lines_removed);
+
                     let mut first_hunk = true;
                     for diff_hunk in hunks {
                         let section_id = if let Some(commit_id) = commit_id {
@@ -1578,6 +1714,8 @@ fn build_tree_changes(
             }
         }
     }
+
+    line_stats.files_changed = unique_paths.len() as _;
 }
 
 enum ShortIdOrTreeStatus<'a> {
