@@ -9,7 +9,7 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_transaction::{DynamicOutcome, IntermediateCommitCreateResult, Transaction};
+use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{
     RefInfo,
     branch::create_reference::{Anchor, Position},
@@ -260,7 +260,7 @@ pub fn run(
         builder.into_diff_specs()
     };
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
-    let result = but_transaction::with_transaction_with_perm(
+    let ((new_commit, branch_name), _ws) = but_transaction::with_transaction_with_perm(
         ctx,
         meta,
         perm,
@@ -282,14 +282,9 @@ pub fn run(
 
             let reworded_commit = reword_op.execute(new_commit, &mut tx)?;
 
-            Ok(DynamicOutcome::<_, std::convert::Infallible>::Commit((
-                reworded_commit,
-                branch_name,
-            )))
+            Ok(but_transaction::Commit((reworded_commit, branch_name)))
         },
     )?;
-
-    let DynamicOutcome::Commit(((new_commit, branch_name), _ws)) = result;
 
     Ok(CommitOutcome {
         new_commit,

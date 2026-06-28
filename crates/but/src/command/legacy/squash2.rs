@@ -4,7 +4,7 @@ use but_api::{WorkspaceState, json::HexHash};
 use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
 use but_graph::Workspace;
-use but_transaction::{DynamicOutcome, IntermediateCommitCreateResult, Transaction};
+use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::{ObjectId, refs::FullName};
@@ -893,7 +893,7 @@ fn run(
     match executable_op {
         ExecutableSquashOperation::TransactionCompatible(op) => {
             let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
-            let result = but_transaction::with_transaction_with_perm(
+            let (new_commit, _ws) = but_transaction::with_transaction_with_perm(
                 ctx,
                 meta,
                 perm,
@@ -911,13 +911,9 @@ fn run(
                         }
                     };
 
-                    Ok(DynamicOutcome::<_, std::convert::Infallible>::Commit(
-                        new_commit,
-                    ))
+                    Ok(but_transaction::Commit(new_commit))
                 },
             )?;
-
-            let DynamicOutcome::Commit((new_commit, _ws)) = result;
 
             match op.clone() {
                 TransactionCompatibleOperation::Commits(SquashCommitsOperation {
