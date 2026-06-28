@@ -45,7 +45,7 @@ use crate::{
     theme::Theme,
 };
 
-use super::{HelpMessage, RubSource, StackMessage};
+use super::{HelpMessage, JumpMessage, RubSource, StackMessage};
 
 mod details_cursor;
 
@@ -250,6 +250,14 @@ impl Details {
                 | StackMessage::ShowApplyPicker
                 | StackMessage::MoveStart
                 | StackMessage::MoveConfirm => false,
+            },
+            Message::Jump(jump_message) => match jump_message {
+                // the handler functions themselves mark the details as dirty if necessary
+                JumpMessage::Enter
+                | JumpMessage::Input(..)
+                | JumpMessage::Confirm
+                | JumpMessage::Previous
+                | JumpMessage::Next => false,
             },
 
             Message::AndThen { .. } => true,

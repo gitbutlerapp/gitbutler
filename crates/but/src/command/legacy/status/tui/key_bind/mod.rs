@@ -5,8 +5,8 @@ use strum::IntoEnumIterator;
 
 use crate::command::legacy::status::tui::{
     CommandMessage, CommitMessageComposer, ConfirmMessage, DetailsLayoutMessage,
-    FuzzyPickerMessage, Message, RewordMessage, RubMessage, StackMessage, help::HelpMessage,
-    mode::ModeDiscriminant,
+    FuzzyPickerMessage, JumpMessage, Message, RewordMessage, RubMessage, StackMessage,
+    help::HelpMessage, mode::ModeDiscriminant,
 };
 
 use super::{
@@ -105,6 +105,13 @@ pub(super) fn default_key_binds() -> KeyBinds {
             ModeDiscriminant::Command => {
                 builder.command_confirm().register();
 
+                builder.normal_mode().register();
+                builder.back().register();
+            }
+            ModeDiscriminant::Jump => {
+                builder.jump_confirm().register();
+                builder.jump_previous().register();
+                builder.jump_next().register();
                 builder.normal_mode().register();
                 builder.back().register();
             }
@@ -448,6 +455,41 @@ impl KeyBindsBuilder<'_> {
         )
         .hide_from_hotbar()
         .show_only_in_normal_mode_help_section()
+    }
+
+    fn jump_enter(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "jump",
+            press().code(KeyCode::Char('/')),
+            Message::Jump(JumpMessage::Enter),
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+        .long_description("Search for short IDs and jump there")
+    }
+
+    fn jump_previous(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "previous",
+            press().control().code(KeyCode::Char('p')),
+            Message::Jump(JumpMessage::Previous),
+        )
+    }
+
+    fn jump_next(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "next",
+            press().control().code(KeyCode::Char('n')),
+            Message::Jump(JumpMessage::Next),
+        )
+    }
+
+    fn jump_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "confirm",
+            press().code(KeyCode::Enter),
+            Message::Jump(JumpMessage::Confirm),
+        )
     }
 
     fn toggle_details(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -1054,6 +1096,7 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
     builder.undo().register();
     builder.redo().register();
 
+    builder.jump_enter().register();
     builder.branch_picker().register();
     builder.uncommitted_area().register();
     builder.merge_base().register();
@@ -1095,6 +1138,7 @@ fn register_non_mode_specific_key_binds(
 
     builder.grow_details().register();
     builder.shrink_details().register();
+    builder.jump_enter().register();
     builder.branch_picker().register();
     builder.uncommitted_area().register();
     builder.merge_base().register();

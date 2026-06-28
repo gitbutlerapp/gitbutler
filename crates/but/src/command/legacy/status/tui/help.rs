@@ -43,6 +43,7 @@ impl Help {
                     | ModeDiscriminant::Move
                     | ModeDiscriminant::Details
                     | ModeDiscriminant::MoveStack
+                    | ModeDiscriminant::Jump
                     | ModeDiscriminant::Stack => {}
                 }
 

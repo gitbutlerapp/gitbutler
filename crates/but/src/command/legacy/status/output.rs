@@ -102,12 +102,12 @@ impl StatusOutput<'_> {
     pub(super) fn unstaged_changes(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: UncommittedLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
+            StatusOutputContent::Uncommitted(line),
             StatusOutputLineData::UncommittedChanges {
                 cli_id: Arc::new(id),
             },
@@ -263,6 +263,7 @@ pub(super) enum StatusOutputContent {
     Commit(CommitLineContent),
     Branch(BranchLineContent),
     File(FileLineContent),
+    Uncommitted(UncommittedLineContent),
 }
 
 #[derive(Debug, Default, Clone)]
@@ -299,6 +300,22 @@ pub(super) struct FileLineContent {
     pub(super) status: Vec<Span<'static>>,
     /// "a/b/c.rs" in the example
     pub(super) path: Vec<Span<'static>>,
+}
+
+/// Considering the example "zz [uncommitted] (no changes)" see the field docs for what exactly
+/// they correspond to.
+#[derive(Debug, Default, Clone)]
+pub(super) struct UncommittedLineContent {
+    /// "zz" in the example
+    pub(super) id: Vec<Span<'static>>,
+    /// " [" in the example
+    pub(super) decoration_start: Vec<Span<'static>>,
+    /// "uncommitted" in the example
+    pub(super) label: Vec<Span<'static>>,
+    /// "]" in the example
+    pub(super) decoration_end: Vec<Span<'static>>,
+    /// " (no changes)" in the example
+    pub(super) suffix: Vec<Span<'static>>,
 }
 
 #[derive(Debug, Clone)]

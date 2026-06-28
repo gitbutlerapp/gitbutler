@@ -10,12 +10,12 @@ use ratatui_textarea::TextArea;
 
 use crate::{
     CliId,
-    command::legacy::status::tui::{Markable, Marks, MessageOnDrop},
+    command::legacy::status::tui::{Backstack, Markable, Marks, MessageOnDrop},
     id::{ShortId, UncommittedHunkOrFile},
     theme::Theme,
 };
 
-#[derive(Debug, strum::EnumDiscriminants)]
+#[derive(Debug, Clone, strum::EnumDiscriminants)]
 #[strum_discriminants(derive(strum::EnumIter, Hash))]
 #[strum_discriminants(name(ModeDiscriminant))]
 pub(super) enum Mode {
@@ -29,6 +29,7 @@ pub(super) enum Mode {
     Stack(StackMode),
     MoveStack(MoveStackMode),
     PickChanges(PickUncommittedMode),
+    Jump(JumpMode),
 }
 
 impl Default for Mode {
@@ -66,9 +67,11 @@ impl Mode {
                 MoveSource::Marks(marks) => Some(marks),
                 MoveSource::Commit { .. } | MoveSource::Branch { .. } => None,
             },
-            Mode::InlineReword(..) | Mode::Command(..) | Mode::Stack(..) | Mode::MoveStack(..) => {
-                None
-            }
+            Mode::InlineReword(..)
+            | Mode::Command(..)
+            | Mode::Stack(..)
+            | Mode::MoveStack(..)
+            | Mode::Jump(..) => None,
         }
     }
 }
@@ -78,7 +81,7 @@ impl ModeDiscriminant {
         match self {
             Self::Normal => theme.tui_mode_normal.bg.unwrap_or(Color::DarkGray),
             Self::Commit | Self::PickChanges => theme.tui_mode_commit.bg.unwrap_or(Color::Green),
-            Self::Rub => theme.tui_mode_rub.bg.unwrap_or(Color::Blue),
+            Self::Rub | Self::Jump => theme.tui_mode_rub.bg.unwrap_or(Color::Blue),
             Self::InlineReword | Self::Stack => {
                 theme.tui_mode_inline_reword.bg.unwrap_or(Color::Magenta)
             }
@@ -95,7 +98,7 @@ impl ModeDiscriminant {
         match self {
             Self::Normal => theme.tui_mode_normal.fg.unwrap_or(Color::White),
             Self::Commit | Self::PickChanges => theme.tui_mode_commit.fg.unwrap_or(Color::Black),
-            Self::Rub => theme.tui_mode_rub.fg.unwrap_or(Color::Black),
+            Self::Rub | Self::Jump => theme.tui_mode_rub.fg.unwrap_or(Color::Black),
             Self::InlineReword | Self::Stack => {
                 theme.tui_mode_inline_reword.fg.unwrap_or(Color::Black)
             }
@@ -117,16 +120,17 @@ impl ModeDiscriminant {
             Self::Details => "details",
             Self::Stack => "stack",
             Self::MoveStack => "move stack",
+            Self::Jump => "jump",
         }
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(super) struct NormalMode {
     pub(super) marks: Marks,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct RubMode {
     pub(super) source: RubSource,
     pub(super) available_targets: Vec<Arc<CliId>>,
@@ -160,7 +164,7 @@ pub(super) struct CommittedHunk {
     pub(super) path: Arc<BString>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) enum InlineRewordMode {
     Commit {
         commit_id: gix::ObjectId,
@@ -189,7 +193,7 @@ impl InlineRewordMode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct CommandMode {
     pub(super) textarea: Box<TextArea<'static>>,
     pub(super) kind: CommandModeKind,
@@ -201,7 +205,7 @@ pub(super) enum CommandModeKind {
     Shell,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct CommitMode {
     pub(super) source: Arc<CommitSource>,
     pub(super) insert_side: InsertSide,
@@ -225,7 +229,7 @@ pub(super) enum CommitMessageComposer {
     Empty,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct MoveMode {
     pub(super) source: Arc<MoveSource>,
     pub(super) insert_side: InsertSide,
@@ -379,13 +383,13 @@ impl TryFrom<CliId> for MoveSource {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct DetailsMode {
     pub(super) full_screen: bool,
     pub(super) return_mode: DetailsReturnMode,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) enum DetailsReturnMode {
     Normal(NormalMode),
     PickChanges(PickUncommittedMode),
@@ -400,22 +404,22 @@ impl DetailsReturnMode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct StackMode {
     pub(super) stack_heads: Vec<FullName>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(super) struct PickUncommittedMode {
     pub(super) marks: Marks,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct MoveStackMode {
     pub(super) source: ReorderStackSource,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct ReorderStackSource {
     pub(super) stack: StackId,
     pub(super) branch: String,
@@ -434,5 +438,23 @@ impl ReorderStackSource {
             | CliId::Commit { .. }
             | CliId::Uncommitted { .. } => false,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct JumpMode {
+    pub(super) textarea: Box<TextArea<'static>>,
+    pub(super) return_mode: Box<Mode>,
+    pub(super) return_backstack: Backstack,
+}
+
+impl JumpMode {
+    pub(super) fn query(&self) -> &str {
+        self.textarea
+            .lines()
+            .first()
+            .map(|s| &**s)
+            .unwrap_or_default()
+            .trim()
     }
 }
