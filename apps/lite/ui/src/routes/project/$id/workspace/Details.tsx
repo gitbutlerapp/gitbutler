@@ -965,32 +965,26 @@ const Diff: FC<{
 	return (
 		<div className={styles.diffTab}>
 			<div className={styles.actions}>
-				<FilesToggle className={classes(getButtonClassName({}), styles.toggle)}>Files</FilesToggle>
+				<div>
+					<FilesToggle render={<ToggleStyles />}>Toggle files</FilesToggle>
+				</div>
 				<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
-					<Toolbar.Button
-						render={
-							<DiffOverflowToggle
-								className={classes(
-									getButtonClassName({ iconOnly: true, variant: "outline" }),
-									styles.toggle,
-								)}
-							>
-								<Icon name="text-wrap" />
-							</DiffOverflowToggle>
-						}
-					/>
-					<Toolbar.Button
-						render={
-							<DiffBackgroundsToggle
-								className={classes(
-									getButtonClassName({ iconOnly: true, variant: "outline" }),
-									styles.toggle,
-								)}
-							>
-								<Icon name="text-block" />
-							</DiffBackgroundsToggle>
-						}
-					/>
+					<ToggleGroupStyles>
+						<Toolbar.Button
+							render={
+								<DiffOverflowToggle render={<ToggleStyles iconOnly />}>
+									<Icon name="text-wrap" />
+								</DiffOverflowToggle>
+							}
+						/>
+						<Toolbar.Button
+							render={
+								<DiffBackgroundsToggle render={<ToggleStyles iconOnly />}>
+									<Icon name="text-block" />
+								</DiffBackgroundsToggle>
+							}
+						/>
+					</ToggleGroupStyles>
 					{canUseSplitDiff && (
 						<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
 							<Toolbar.Button

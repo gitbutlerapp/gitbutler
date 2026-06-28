@@ -63,14 +63,6 @@
 	gap: 6px;
 }
 
-.toggle {
-	&[data-pressed] {
-		--button-border: 1px solid var(--border-2);
-		--button-bg: var(--bg-2);
-		--button-icon-opacity: 0.9;
-	}
-}
-
 .panels {
 	column-gap: 6px;
 }
