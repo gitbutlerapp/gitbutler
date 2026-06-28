@@ -1095,7 +1095,11 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
             frame.render_widget(&**textarea, command_layout[1]);
         }
         Mode::Jump(JumpMode { textarea, .. }) => {
-            frame.render_widget(&**textarea, layout[2]);
+            let jump_layout =
+                Layout::horizontal([Constraint::Length(2), Constraint::Min(1)]).split(layout[2]);
+
+            frame.render_widget("/ ", jump_layout[0]);
+            frame.render_widget(&**textarea, jump_layout[1]);
         }
     }
 }
