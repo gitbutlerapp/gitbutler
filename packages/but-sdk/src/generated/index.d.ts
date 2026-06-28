@@ -973,7 +973,7 @@ export type Claude = {
  *
  * In practice, it should match its [frontend counterpart](https://github.com/gitbutlerapp/gitbutler/blob/fa973fd8f1ae8807621f47601803d98b8a9cf348/app/src/lib/backend/ipc.ts#L5).
  */
-export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
+export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
 
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch. */
 export type Commit = {

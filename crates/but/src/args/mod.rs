@@ -303,31 +303,46 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Branch(branch::Platform),
 
-    /// Merge a branch into your local target branch.
+    /// Land a branch directly onto the target branch.
     ///
-    /// If the target branch is local (`gb-local`), finds the local branch that the target
-    /// references (e.g., `gb-local/master` becomes `master`) and merges the specified
-    /// branch into that local branch. After merging, runs the equivalent of `but pull`
-    /// to update all branches.
+    /// Lands the branch onto the configured target (for example `origin/master`) without going
+    /// through a pull request — the "just push to the target" workflow. By default the target is
+    /// fast-forwarded to the branch tip when possible (no merge commit); otherwise a merge commit
+    /// is created. For a local (`gb-local`) target the refs are moved locally; otherwise the result
+    /// is pushed to the remote. After landing, the remaining applied branches are reconciled onto
+    /// the moved target, just like `but pull`.
+    ///
+    /// Requires an active GitButler workspace. Updating the target is direct and not easily
+    /// reversible, so a confirmation is required (use `--yes` to skip it in scripts).
+    ///
+    /// When NOT to use this: if your project lands changes through pull requests / code review,
+    /// use `but push` and open a PR (`but pr new`) instead — `but land` deliberately bypasses that
+    /// process. On a real remote, a branch protected against direct pushes will reject the land.
     ///
     /// ## Examples
     ///
-    /// Merge a branch by its CLI ID:
+    /// Land a branch by its CLI ID:
     ///
     /// ```text
-    /// but merge bu
+    /// but land bu
     /// ```
     ///
-    /// Merge a branch by name:
+    /// Land a branch by name, forcing a merge commit:
     ///
     /// ```text
-    /// but merge my-feature-branch
+    /// but land my-feature-branch --no-ff
     /// ```
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Merge {
-        /// Branch ID or name to merge
+    Land {
+        /// Branch ID or name to land onto the target branch.
         branch: String,
+        /// Skip the confirmation prompt.
+        #[clap(long)]
+        yes: bool,
+        /// Always create a merge commit, even when the branch can be fast-forwarded.
+        #[clap(long)]
+        no_ff: bool,
     },
 
     /// Discard uncommitted changes from the worktree.
