@@ -40,23 +40,6 @@ pub struct FeatureFlags {
     pub cv3: bool,
     /// Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref.
     pub unapply_v3_pgm: bool,
-    /// Enable undo/redo support.
-    ///
-    /// ### Progression for implementation
-    ///
-    /// * use snapshot system in undo/redo queue
-    ///     - consider not referring to these objects by reference to `git gc` will catch them,
-    ///       or even purge them on shutdown. Alternatively, keep them in-memory with in-memory objects.
-    /// * add user-control to snapshot system to purge now, or purge after time X. That way data isn't stored forever.
-    /// * Finally, consider implementing undo/redo with invasive primitives that are undoable/redoable themselves for
-    ///   the most efficient solution, inherently in memory, i.e.
-    ///     - CRUD reference
-    ///     - CRUD metadata
-    ///     - CRUD workspace
-    ///     - CRUD files
-    pub undo: bool,
-    /// Enable processing of workspace rules.
-    pub rules: bool,
     /// Enable single branch mode.
     pub single_branch: bool,
     /// Enable IRC integration.

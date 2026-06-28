@@ -18,7 +18,6 @@ pub struct TelemetryUpdate {
 pub struct FeatureFlagsUpdate {
     pub cv3: Option<bool>,
     pub unapply_v3_pgm: Option<bool>,
-    pub rules: Option<bool>,
     pub single_branch: Option<bool>,
     pub irc: Option<bool>,
 }
@@ -118,7 +117,6 @@ impl AppSettingsWithDiskSync {
         FeatureFlagsUpdate {
             cv3,
             unapply_v3_pgm,
-            rules,
             single_branch,
             irc,
         }: FeatureFlagsUpdate,
@@ -129,9 +127,6 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(unapply_v3_pgm) = unapply_v3_pgm {
             settings.feature_flags.unapply_v3_pgm = unapply_v3_pgm;
-        }
-        if let Some(rules) = rules {
-            settings.feature_flags.rules = rules;
         }
         if let Some(single_branch) = single_branch {
             settings.feature_flags.single_branch = single_branch;
@@ -373,7 +368,6 @@ mod tests {
             .update_feature_flags(FeatureFlagsUpdate {
                 cv3: None,
                 unapply_v3_pgm: Some(true),
-                rules: None,
                 single_branch: None,
                 irc: None,
             })
