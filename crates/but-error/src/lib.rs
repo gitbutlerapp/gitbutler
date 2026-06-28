@@ -156,6 +156,9 @@ pub enum Code {
     SecretKeychainNotFound,
     MissingLoginKeychain,
     GitForcePushProtection,
+    /// A push (or local target ref update) was rejected because the target moved and the update
+    /// would not be a fast-forward. Recoverable by re-fetching and retrying.
+    GitNonFastForward,
     NetworkError,
     ProjectDatabaseIncompatible,
     DefaultTerminalNotFound,
