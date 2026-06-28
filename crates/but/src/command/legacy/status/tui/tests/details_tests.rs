@@ -108,6 +108,68 @@ fn details_view_supports_scroll_controls() {
 }
 
 #[test]
+fn details_scroll_down_updates_selection_when_selected_hunk_leaves_view() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("alpha.txt", numbered_lines("alpha", 8));
+    env.file("bravo.txt", numbered_lines("bravo", 8));
+    env.file("charlie.txt", numbered_lines("charlie", 8));
+
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 16,
+            ..Default::default()
+        },
+    );
+
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'));
+    tui.render_with_messages(None, Vec::new());
+
+    tui.render_with_messages(['j'; 8], Vec::new())
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/details_scroll_down_updates_selection_when_selected_hunk_leaves_view_001.svg"
+        ]);
+}
+
+#[test]
+fn details_scroll_up_updates_selection_to_previous_visible_hunk() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("alpha.txt", numbered_lines("alpha", 8));
+    env.file("bravo.txt", numbered_lines("bravo", 8));
+    env.file("charlie.txt", numbered_lines("charlie", 8));
+
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 16,
+            ..Default::default()
+        },
+    );
+
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'));
+    tui.render_with_messages(None, Vec::new());
+    tui.render_with_messages((KeyModifiers::SHIFT, 'J'), Vec::new());
+    tui.render_with_messages((KeyModifiers::SHIFT, 'J'), Vec::new());
+
+    tui.render_with_messages(['k'; 8], Vec::new())
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/details_scroll_up_updates_selection_to_previous_visible_hunk_001.svg"
+        ]);
+}
+
+fn numbered_lines(prefix: &str, count: usize) -> String {
+    (1..=count)
+        .map(|line| format!("{prefix}-{line:02}\n"))
+        .collect::<String>()
+}
+
+#[test]
 fn commit_message_wraps_in_details_view() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
