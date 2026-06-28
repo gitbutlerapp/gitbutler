@@ -264,9 +264,13 @@ impl Details {
         match msg {
             DetailsMessage::ScrollUp(n) => {
                 self.scroll_top = self.scroll_top.saturating_sub(n);
+                self.clamp_scroll_top(viewport);
+                self.select_visible_section_if_selection_is_hidden(viewport);
             }
             DetailsMessage::ScrollDown(n) => {
                 self.scroll_top = self.scroll_top.saturating_add(n);
+                self.clamp_scroll_top(viewport);
+                self.select_visible_section_if_selection_is_hidden(viewport);
             }
             DetailsMessage::SelectNextSection => {
                 self.cursor
@@ -364,6 +368,42 @@ impl Details {
 
     pub(super) fn selection(&self) -> Option<&SectionId> {
         self.cursor.selection()
+    }
+
+    fn select_visible_section_if_selection_is_hidden(&mut self, viewport: Rect) {
+        let Some(selection) = self.cursor.selection() else {
+            return;
+        };
+
+        let Some(widget) = self.widget.as_ref() else {
+            return;
+        };
+
+        let content_width = details_content_width(viewport);
+        let content_height = details_content_height(viewport);
+        let viewport_start = self.scroll_top;
+        let viewport_end = viewport_start.saturating_add(content_height);
+        let Some((selection_start, selection_end)) =
+            widget.section_row_range(selection, content_width)
+        else {
+            return;
+        };
+
+        if selection_start < viewport_end && selection_end > viewport_start {
+            return;
+        }
+
+        let select_last_visible = selection_start >= viewport_end;
+        let Some(section) = widget.visible_section(
+            viewport_start,
+            content_height,
+            content_width,
+            select_last_visible,
+        ) else {
+            return;
+        };
+
+        self.cursor.select_section(section);
     }
 
     fn copy_current_hunk(&mut self) -> anyhow::Result<()> {
@@ -716,26 +756,37 @@ impl DetailsAndDiffWidget {
         }
     }
 
+    fn rows_before_diff(&self, width: u16) -> usize {
+        match self {
+            DetailsAndDiffWidget::FromCommit {
+                header_items,
+                message,
+                ..
+            } => {
+                header_items.len()
+                    + 1 // +1 to match the empty line added in `render`
+                    + textwrap::wrap(message, textwrap::Options::new(width as usize)).len()
+                    + 1 // +1 to match the empty line added in `render`
+            }
+            DetailsAndDiffWidget::FromDiffLines { .. } => 0,
+        }
+    }
+
+    fn diff_line_items(&self) -> &[RenderedDiffLine] {
+        match self {
+            DetailsAndDiffWidget::FromCommit {
+                diff_line_items, ..
+            }
+            | DetailsAndDiffWidget::FromDiffLines { diff_line_items } => diff_line_items,
+        }
+    }
+
     /// Returns the start and end (exclusive) row index for a rendered section.
     ///
     /// Row indexes are absolute in the same coordinate space as `Details::scroll_top`.
     fn section_row_range(&self, section: &SectionId, width: u16) -> Option<(usize, usize)> {
-        let (rows_before_diff, diff_line_items) = match self {
-            DetailsAndDiffWidget::FromCommit {
-                header_items,
-                message,
-                diff_line_items,
-            } => {
-                let rows_before_diff = header_items.len()
-                    + 1 // +1 to match the empty line added in `render`
-                    + textwrap::wrap(message, textwrap::Options::new(width as usize)).len()
-                    + 1; // +1 to match the empty line added in `render`
-                (rows_before_diff, diff_line_items.as_slice())
-            }
-            DetailsAndDiffWidget::FromDiffLines { diff_line_items } => {
-                (0, diff_line_items.as_slice())
-            }
-        };
+        let rows_before_diff = self.rows_before_diff(width);
+        let diff_line_items = self.diff_line_items();
 
         let first = diff_line_items
             .iter()
@@ -749,6 +800,41 @@ impl DetailsAndDiffWidget {
             rows_before_diff.saturating_add(first),
             rows_before_diff.saturating_add(last).saturating_add(1),
         ))
+    }
+
+    fn visible_section(
+        &self,
+        scroll_top: usize,
+        height: usize,
+        width: u16,
+        last: bool,
+    ) -> Option<SectionId> {
+        let rows_before_diff = self.rows_before_diff(width);
+        let diff_line_items = self.diff_line_items();
+        let viewport_end = scroll_top.saturating_add(height);
+        let diff_start = scroll_top.saturating_sub(rows_before_diff);
+        let diff_end = viewport_end
+            .saturating_sub(rows_before_diff)
+            .min(diff_line_items.len());
+
+        if diff_start >= diff_end {
+            return None;
+        }
+
+        let visible = &diff_line_items[diff_start..diff_end];
+        let section_id = if last {
+            visible.iter().rev().find_map(|line| match line {
+                RenderedDiffLine::DiffLine { section_id, .. } => Some(section_id),
+                RenderedDiffLine::Separator => None,
+            })
+        } else {
+            visible.iter().find_map(|line| match line {
+                RenderedDiffLine::DiffLine { section_id, .. } => Some(section_id),
+                RenderedDiffLine::Separator => None,
+            })
+        }?;
+
+        Some(section_id.clone())
     }
 
     fn render(
