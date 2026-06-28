@@ -44,10 +44,10 @@ export const WithIcons = meta.story({
 export const IconOnly = meta.story({
 	render: () => (
 		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">
-			<Toggle render={<ToggleStyles />} value="list" aria-label="List view">
+			<Toggle render={<ToggleStyles iconOnly />} value="list" aria-label="List view">
 				<Icon name="list" size={14} />
 			</Toggle>
-			<Toggle render={<ToggleStyles />} value="tree" aria-label="Tree view">
+			<Toggle render={<ToggleStyles iconOnly />} value="tree" aria-label="Tree view">
 				<Icon name="folder-tree" size={14} />
 			</Toggle>
 		</ToggleGroup>
@@ -57,13 +57,79 @@ export const IconOnly = meta.story({
 export const ThreeItems = meta.story({
 	render: () => (
 		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">
-			<Toggle render={<ToggleStyles />} value="list">
+			<Toggle render={<ToggleStyles iconOnly />} value="list">
 				<Icon name="list" size={14} />
 			</Toggle>
-			<Toggle render={<ToggleStyles />} value="tree">
+			<Toggle render={<ToggleStyles iconOnly />} value="tree">
 				<Icon name="folder-tree" size={14} />
 			</Toggle>
-			<Toggle render={<ToggleStyles />} value="grid">
+			<Toggle render={<ToggleStyles iconOnly />} value="grid">
+				<Icon name="text-block" size={14} />
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+export const MultipleSelection = meta.story({
+	render: () => (
+		<ToggleGroup
+			multiple
+			render={<ToggleGroupStyles />}
+			defaultValue={["bold", "italic"]}
+			aria-label="Text formatting"
+		>
+			<Toggle render={<ToggleStyles />} value="bold">
+				Bold
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="italic">
+				Italic
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="underline">
+				Underline
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+export const MultipleSelectionWithIconsAndLabels = meta.story({
+	render: () => (
+		<ToggleGroup
+			multiple
+			render={<ToggleGroupStyles />}
+			defaultValue={["wrap", "contain"]}
+			aria-label="Text options"
+		>
+			<Toggle render={<ToggleStyles />} value="wrap">
+				<Icon name="text-wrap" size={14} />
+				Wrap
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="contain">
+				<Icon name="text-contain" size={14} />
+				Contain
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="block">
+				<Icon name="text-block" size={14} />
+				Block
+			</Toggle>
+		</ToggleGroup>
+	),
+});
+
+export const MultipleSelectionIconOnly = meta.story({
+	render: () => (
+		<ToggleGroup
+			multiple
+			render={<ToggleGroupStyles />}
+			defaultValue={["wrap", "contain"]}
+			aria-label="Text options"
+		>
+			<Toggle render={<ToggleStyles iconOnly />} value="wrap" aria-label="Text wrap">
+				<Icon name="text-wrap" size={14} />
+			</Toggle>
+			<Toggle render={<ToggleStyles iconOnly />} value="contain" aria-label="Text contain">
+				<Icon name="text-contain" size={14} />
+			</Toggle>
+			<Toggle render={<ToggleStyles iconOnly />} value="block" aria-label="Text block">
 				<Icon name="text-block" size={14} />
 			</Toggle>
 		</ToggleGroup>
