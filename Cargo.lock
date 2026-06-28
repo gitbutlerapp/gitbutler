@@ -3954,9 +3954,9 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-workspace",
  "gix",
- "insta",
  "schemars 1.2.1",
  "serde",
+ "snapbox",
  "tempfile",
  "tracing",
 ]
