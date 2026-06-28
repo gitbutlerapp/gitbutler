@@ -113,6 +113,8 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pull => Group::ServerInteractions,
                 #[cfg(feature = "legacy")]
+                SubcommandDiscriminant::Land => Group::ServerInteractions,
+                #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pr => Group::ServerInteractions,
 
                 #[cfg(feature = "legacy")]
