@@ -3,7 +3,7 @@ use ratatui::text::Span;
 
 /// Direction in which to extend a graph connector line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum ExtensionDirection {
+pub enum ExtensionDirection {
     /// Build the connector for a synthetic line rendered above the source line.
     Above,
     /// Build the connector for a synthetic line rendered below the source line.
@@ -26,11 +26,8 @@ impl From<InsertSide> for ExtensionDirection {
 ///
 /// If the input connector is empty, this returns two spaces (`"  "`) so
 /// extension-only lines still align with regular graph rows.
-pub(super) fn extend_connector_spans<E>(
-    connector: &[Span<'_>],
-    direction: ExtensionDirection,
-    out: &mut E,
-) where
+pub fn extend_connector_spans<E>(connector: &[Span<'_>], direction: ExtensionDirection, out: &mut E)
+where
     E: Extend<Span<'static>>,
 {
     let connector_text = connector

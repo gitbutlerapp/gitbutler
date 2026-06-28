@@ -25,8 +25,8 @@ use crate::{
     utils::{OutputChannel, WriteWithUtils},
 };
 
-pub(super) struct TestTui {
-    pub(super) app: App,
+pub struct TestTui {
+    pub app: App,
     terminal: Terminal<TestBackend>,
     env: Option<Sandbox>,
     out: OutputChannel,
@@ -41,11 +41,11 @@ enum SvgSnapshotComparison {
     Hint,
 }
 
-pub(super) struct TestTuiOptions {
-    pub(super) width: u16,
-    pub(super) height: u16,
-    pub(super) run_options: TuiRunOptions,
-    pub(super) show_file_browser: bool,
+pub struct TestTuiOptions {
+    pub width: u16,
+    pub height: u16,
+    pub run_options: TuiRunOptions,
+    pub show_file_browser: bool,
 }
 
 impl Default for TestTuiOptions {
@@ -59,7 +59,7 @@ impl Default for TestTuiOptions {
     }
 }
 
-pub(super) fn test_tui(env: Sandbox) -> TestTui {
+pub fn test_tui(env: Sandbox) -> TestTui {
     test_tui_with_options(
         env,
         TestTuiOptions {
@@ -70,7 +70,7 @@ pub(super) fn test_tui(env: Sandbox) -> TestTui {
     )
 }
 
-pub(super) fn test_tui_with_options(env: Sandbox, options: TestTuiOptions) -> TestTui {
+pub fn test_tui_with_options(env: Sandbox, options: TestTuiOptions) -> TestTui {
     let TestTuiOptions {
         width,
         height,
@@ -130,7 +130,7 @@ pub(super) fn test_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
     }
 }
 
-pub(super) fn with_stable_commit_env<R>(closure: impl FnOnce() -> R) -> R {
+pub fn with_stable_commit_env<R>(closure: impl FnOnce() -> R) -> R {
     with_vars(
         [
             ("GIT_AUTHOR_DATE", Some("2000-01-01 00:00:00 +0000")),
@@ -158,12 +158,12 @@ pub(super) fn with_stable_commit_env<R>(closure: impl FnOnce() -> R) -> R {
 
 impl TestTui {
     #[track_caller]
-    pub(super) fn env(&self) -> &Sandbox {
+    pub fn env(&self) -> &Sandbox {
         self.env.as_ref().unwrap()
     }
 
     #[track_caller]
-    pub(super) fn reload(&mut self) -> TestTuiInputThenRenderResult<'_> {
+    pub fn reload(&mut self) -> TestTuiInputThenRenderResult<'_> {
         self.render_with_messages(
             None,
             Vec::from([Message::Reload(None, ReloadCause::Mutation)]),
@@ -171,7 +171,7 @@ impl TestTui {
     }
 
     #[track_caller]
-    pub(super) fn input_then_render<E>(&mut self, event: E) -> TestTuiInputThenRenderResult<'_>
+    pub fn input_then_render<E>(&mut self, event: E) -> TestTuiInputThenRenderResult<'_>
     where
         E: InputEventPolling,
     {
@@ -179,7 +179,7 @@ impl TestTui {
     }
 
     #[track_caller]
-    pub(super) fn render_with_messages<E>(
+    pub fn render_with_messages<E>(
         &mut self,
         event: E,
         mut messages: Vec<Message>,
@@ -210,7 +210,7 @@ impl TestTui {
     }
 
     #[track_caller]
-    pub(super) fn recreate(mut self) -> Self {
+    pub fn recreate(mut self) -> Self {
         let env = self.env.take().expect(
             "env already removed?! This shouldn't happen, only TestTui::recreate removes the env",
         );
@@ -290,11 +290,11 @@ impl TerminalGuard for Terminal<TestBackend> {
     }
 }
 
-pub(super) struct TestTuiInputThenRenderResult<'a>(&'a mut TestTui);
+pub struct TestTuiInputThenRenderResult<'a>(&'a mut TestTui);
 
 impl TestTuiInputThenRenderResult<'_> {
     #[track_caller]
-    pub(super) fn assert_rendered_contains(self, expected: &str) -> Self {
+    pub fn assert_rendered_contains(self, expected: &str) -> Self {
         let output = self.rendered_output();
         assert!(
             output.contains(expected),
@@ -306,7 +306,7 @@ impl TestTuiInputThenRenderResult<'_> {
 
     #[track_caller]
     #[allow(dead_code)]
-    pub(super) fn assert_rendered_not_contains(self, expected: &str) -> Self {
+    pub fn assert_rendered_not_contains(self, expected: &str) -> Self {
         let output = self.rendered_output();
         assert!(
             !output.contains(expected),
@@ -316,7 +316,7 @@ impl TestTuiInputThenRenderResult<'_> {
         self
     }
 
-    pub(super) fn rendered_output(&self) -> String {
+    pub fn rendered_output(&self) -> String {
         self.0.terminal.backend().to_string()
     }
 
@@ -337,7 +337,7 @@ impl TestTuiInputThenRenderResult<'_> {
     }
 
     #[track_caller]
-    pub(super) fn assert_current_line_eq(self, expected: impl snapbox::IntoData) -> Self {
+    pub fn assert_current_line_eq(self, expected: impl snapbox::IntoData) -> Self {
         let backend = self.0.terminal.backend();
         let buffer = backend.buffer();
         let area = *buffer.area();
@@ -363,7 +363,7 @@ impl TestTuiInputThenRenderResult<'_> {
     }
 
     #[track_caller]
-    pub(super) fn assert_rendered_term_svg_eq(self, expected: snapbox::Data) -> Self {
+    pub fn assert_rendered_term_svg_eq(self, expected: snapbox::Data) -> Self {
         let svg = backend_to_svg(self.0.terminal.backend());
         self.0.svg_snapshot_comparison = write_svg_snapshot_comparison_if_enabled(
             &expected,
@@ -374,15 +374,12 @@ impl TestTuiInputThenRenderResult<'_> {
         self
     }
 
-    pub(super) fn take_outcome(self) -> Option<TuiOutcome> {
+    pub fn take_outcome(self) -> Option<TuiOutcome> {
         self.0.app.outcome.take()
     }
 
     #[track_caller]
-    pub(super) fn assert_backstack_eq(
-        self,
-        entries: impl IntoIterator<Item = BackstackEntry>,
-    ) -> Self {
+    pub fn assert_backstack_eq(self, entries: impl IntoIterator<Item = BackstackEntry>) -> Self {
         let expected = entries.into_iter().collect::<Vec<_>>();
         let actual = self.0.app.backstack.iter().copied().collect::<Vec<_>>();
         if expected != actual {
@@ -665,7 +662,7 @@ impl EventPolling for Option<Event> {
     }
 }
 
-pub(super) trait InputEventPolling: EventPolling {}
+pub trait InputEventPolling: EventPolling {}
 
 impl<const N: usize, T> InputEventPolling for [T; N] where
     T: InputEventPolling + EventPolling<Error = Infallible>

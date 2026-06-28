@@ -17,21 +17,17 @@ use ratatui::{
 use crate::CliId;
 
 #[derive(Debug, Default)]
-pub(super) struct FileBrowser {
+pub struct FileBrowser {
     selection: Option<CliId>,
     tree: FileTree,
 }
 
 impl FileBrowser {
-    pub(super) fn needs_update(&self, is_visible: bool) -> bool {
+    pub fn needs_update(&self, is_visible: bool) -> bool {
         is_visible
     }
 
-    pub(super) fn update(
-        &mut self,
-        ctx: &mut Context,
-        selection: Option<&CliId>,
-    ) -> anyhow::Result<bool> {
+    pub fn update(&mut self, ctx: &mut Context, selection: Option<&CliId>) -> anyhow::Result<bool> {
         match (selection, self.selection.as_ref()) {
             (None, None) => Ok(false),
             (None, Some(_)) => {
@@ -87,7 +83,7 @@ impl FileBrowser {
         Ok(())
     }
 
-    pub(super) fn render(&self, area: Rect, frame: &mut Frame) {
+    pub fn render(&self, area: Rect, frame: &mut Frame) {
         if self.tree.0.is_empty() {
             frame.render_widget(ratatui::widgets::Clear, area);
             return;

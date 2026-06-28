@@ -7,7 +7,7 @@ use crate::command::legacy::status::tui::Message;
 ///
 /// This can be used as a sort of RAII guard that'll guarantee we clean up state, such as unlocking
 /// the details view.
-pub(super) fn message_on_drop(msg: Message, messages: &mut Vec<Message>) -> MessageOnDrop {
+pub fn message_on_drop(msg: Message, messages: &mut Vec<Message>) -> MessageOnDrop {
     let (tx, rx) = std::sync::mpsc::channel::<Message>();
 
     messages.push(Message::RegisterOutOfBandMessage(Rc::new(rx)));
@@ -20,7 +20,7 @@ pub(super) fn message_on_drop(msg: Message, messages: &mut Vec<Message>) -> Mess
 
 #[derive(Debug, Clone)]
 #[must_use]
-pub(super) struct MessageOnDrop(#[expect(dead_code)] Rc<Shared>);
+pub struct MessageOnDrop(#[expect(dead_code)] Rc<Shared>);
 
 #[derive(Debug)]
 struct Shared {

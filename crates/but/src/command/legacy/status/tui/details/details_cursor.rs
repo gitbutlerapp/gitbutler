@@ -1,12 +1,12 @@
 use crate::command::legacy::status::tui::details::{PartiallyRenderedDiffSection, SectionId};
 
 #[derive(Default, Debug)]
-pub(super) struct DetailsCursor {
+pub struct DetailsCursor {
     selection_section: Option<SectionId>,
 }
 
 impl DetailsCursor {
-    pub(super) fn move_selection_by<F>(&mut self, sections: &[PartiallyRenderedDiffSection], f: F)
+    pub fn move_selection_by<F>(&mut self, sections: &[PartiallyRenderedDiffSection], f: F)
     where
         F: FnOnce(usize) -> usize,
     {
@@ -25,15 +25,15 @@ impl DetailsCursor {
         self.select_section(next.id.clone());
     }
 
-    pub(super) fn select_section(&mut self, id: SectionId) {
+    pub fn select_section(&mut self, id: SectionId) {
         self.selection_section = Some(id);
     }
 
-    pub(super) fn deselect(&mut self) {
+    pub fn deselect(&mut self) {
         self.selection_section = None;
     }
 
-    pub(super) fn selection(&self) -> Option<&SectionId> {
+    pub fn selection(&self) -> Option<&SectionId> {
         self.selection_section.as_ref()
     }
 }

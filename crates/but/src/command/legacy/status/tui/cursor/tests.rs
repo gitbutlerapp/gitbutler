@@ -15,9 +15,11 @@ use crate::{
         CommitClassification, FilesStatusFlag,
         output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
         tui::{
-            CommitMessageComposer, CommitMode, CommitSource, InlineRewordMode, Mode, MoveMode,
-            MoveSource, MoveStackMode, NormalMode, ReorderStackSource, RubMode, RubSource,
-            SelectAfterReload, UncommittedAreaCommitSource,
+            InlineRewordMode, Mode, NormalMode, SelectAfterReload,
+            app::{
+                CommitMessageComposer, CommitMode, CommitSource, MoveMode, MoveSource,
+                MoveStackMode, ReorderStackSource, RubMode, RubSource, UncommittedAreaCommitSource,
+            },
             marking::{Markable, Marks},
         },
     },
