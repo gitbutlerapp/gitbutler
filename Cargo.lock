@@ -1326,11 +1326,11 @@ dependencies = [
  "but-serde",
  "but-testsupport",
  "gix",
- "insta",
  "itertools",
  "schemars 1.2.1",
  "serde",
  "serde_json",
+ "snapbox",
  "tracing",
 ]
 
