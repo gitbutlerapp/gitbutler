@@ -855,6 +855,7 @@ mod sealed {
     impl Sealed for () {}
     impl<T> Sealed for super::Rollback<T> {}
     impl<T, K> Sealed for super::DynamicOutcome<T, K> {}
+    impl<T> Sealed for super::Commit<T> {}
 }
 
 pub trait TransactionOutcome: sealed::Sealed {
@@ -931,6 +932,43 @@ impl<T> TransactionOutcome for Rollback<T> {
         _dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome> {
         Ok(self.0)
+    }
+}
+
+/// Always commit the transaction.
+#[must_use]
+pub struct Commit<T>(pub T);
+
+impl<T> TransactionOutcome for Commit<T> {
+    type Outcome = (T, WorkspaceState);
+
+    fn should_rollback(&self) -> bool {
+        false
+    }
+
+    #[expect(private_interfaces)]
+    fn maybe_commit<M: RefMetadata>(
+        self,
+        repo: &gix::Repository,
+        rebase: SuccessfulRebase<'_, '_, M>,
+        db_tx: but_db::Transaction<'_>,
+        pending_metadata_removals: Vec<FullName>,
+        pending_metadata_updates: Vec<PendingMetadataUpdate>,
+        pending_created_independent_refs: Vec<FullName>,
+        dry_run: DryRun,
+    ) -> anyhow::Result<Self::Outcome> {
+        let workspace = workspace_state_from_rebase(
+            rebase,
+            repo,
+            pending_metadata_removals,
+            pending_metadata_updates,
+            pending_created_independent_refs,
+            dry_run,
+        )?;
+        if dry_run == DryRun::No {
+            db_tx.commit()?;
+        }
+        Ok((self.0, workspace))
     }
 }
 

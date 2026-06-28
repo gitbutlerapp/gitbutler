@@ -5,7 +5,6 @@ use bstr::{BString, ByteSlice};
 use but_api::{commit::create::commit_create, diff, legacy::repo};
 use but_core::{DryRun, ref_metadata::StackId, sync::RepoExclusive, ui::TreeChange};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_transaction::DynamicOutcome;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_repo::hooks;
 
@@ -129,26 +128,23 @@ pub(crate) fn insert_blank_commit(
     };
 
     let mut meta = ctx.meta()?;
-    let DynamicOutcome::Commit((new_commit, _workspace)) =
-        but_transaction::with_transaction_with_perm(
-            ctx,
-            &mut meta,
-            guard.write_permission(),
-            SnapshotDetails::new(OperationKind::InsertBlankCommit),
-            DryRun::No,
-            |mut tx| {
-                let new_commit = tx.insert_blank_commit(relative_to, insert_side)?;
-                let new_commit = if let Some(message) = message {
-                    tx.reword_commit(new_commit, message.as_bytes().as_bstr())?
-                } else {
-                    new_commit
-                };
+    let (new_commit, _workspace) = but_transaction::with_transaction_with_perm(
+        ctx,
+        &mut meta,
+        guard.write_permission(),
+        SnapshotDetails::new(OperationKind::InsertBlankCommit),
+        DryRun::No,
+        |mut tx| {
+            let new_commit = tx.insert_blank_commit(relative_to, insert_side)?;
+            let new_commit = if let Some(message) = message {
+                tx.reword_commit(new_commit, message.as_bytes().as_bstr())?
+            } else {
+                new_commit
+            };
 
-                Ok(DynamicOutcome::<_, std::convert::Infallible>::Commit(
-                    new_commit,
-                ))
-            },
-        )?;
+            Ok(but_transaction::Commit(new_commit))
+        },
+    )?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "{success_message}")?;
