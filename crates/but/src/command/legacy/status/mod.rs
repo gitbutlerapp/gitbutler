@@ -195,6 +195,7 @@ struct StatusContext<'a> {
     ci_map: BTreeMap<String, Vec<but_forge::CiCheck>>,
     branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus>,
     has_branches: bool,
+    is_agent_invocation: bool,
     is_paged: bool,
     should_truncate_for_terminal: bool,
     id_map: IdMap,
@@ -535,6 +536,8 @@ fn build_status_context<'a>(
         branch_merge_statuses,
         flags,
         has_branches,
+        is_agent_invocation: matches!(format, OutputFormat::Agent)
+            || crate::utils::detect_agent::detect().is_some(),
         is_paged,
         should_truncate_for_terminal,
         id_map,
@@ -630,6 +633,13 @@ fn print_hint(
     // Determine what hint to show based on workspace state
     let has_uncommitted_files = !status_ctx.worktree_changes.is_empty();
 
+    if should_explain_rewritten_commit_marker(status_ctx) {
+        output.hint(Vec::from([Span::styled(
+            "Hint: ◐ means rewritten locally vs upstream.",
+            crate::theme::get().hint,
+        )]))?;
+    }
+
     let hint_text = if not_on_workspace {
         "Hint: run `but setup` to switch back to GitButler managed mode."
     } else if has_merged_upstream_branch {
@@ -648,6 +658,21 @@ fn print_hint(
     )]))?;
 
     Ok(())
+}
+
+fn should_explain_rewritten_commit_marker(status_ctx: &StatusContext<'_>) -> bool {
+    status_ctx.is_agent_invocation
+        && status_ctx
+            .local_commits_by_id
+            .values()
+            .any(is_rewritten_local_commit)
+}
+
+fn is_rewritten_local_commit(commit: &LocalCommit) -> bool {
+    matches!(
+        commit.relation,
+        LocalCommitRelation::LocalAndRemote(remote_id) if remote_id != commit.inner.id
+    )
 }
 
 fn branch_merge_status<'a>(
@@ -1295,13 +1320,10 @@ fn print_group(
                     .context("BUG: head_info does not contain local commit that graph has")?;
                 let classification = match inner.relation {
                     LocalCommitRelation::LocalOnly => CommitClassification::LocalOnly,
-                    LocalCommitRelation::LocalAndRemote(object_id) => {
-                        if object_id == commit.commit_id() {
-                            CommitClassification::Pushed
-                        } else {
-                            CommitClassification::Modified
-                        }
+                    LocalCommitRelation::LocalAndRemote(_) if is_rewritten_local_commit(inner) => {
+                        CommitClassification::Modified
                     }
+                    LocalCommitRelation::LocalAndRemote(_) => CommitClassification::Pushed,
                     LocalCommitRelation::Integrated(_) => CommitClassification::Integrated,
                 };
 
