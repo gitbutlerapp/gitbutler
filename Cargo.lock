@@ -1408,7 +1408,6 @@ dependencies = [
  "gitbutler-reference",
  "gix",
  "hex",
- "insta",
  "itertools",
  "md5",
  "serde",
