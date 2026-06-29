@@ -2,6 +2,11 @@ use crate::args::atoms::CliIdArg;
 
 #[derive(Debug, clap::Parser)]
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+#[clap(group(
+    clap::ArgGroup::new("targeting")
+        .args(["above", "below"])
+        .required(true)
+))]
 pub struct Platform {
     /// Place the commit above `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
     ///
@@ -10,12 +15,7 @@ pub struct Platform {
     ///
     /// If `BRANCH_OR_COMMIT` is a branch, the source commit is placed on a new branch above the
     /// targeted branch.
-    #[clap(
-        short = 'A',
-        long,
-        value_name = "BRANCH_OR_COMMIT",
-        group = "targeting"
-    )]
+    #[clap(short = 'A', long, value_name = "BRANCH_OR_COMMIT")]
     pub above: Option<CliIdArg>,
     /// Place the commit below `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
     ///
@@ -25,12 +25,7 @@ pub struct Platform {
     /// If `BRANCH_OR_COMMIT` is a branch, the source commit is placed on a new branch below the
     /// targeted branch. Branches are treated as buckets, meaning that "below a branch" is treated
     /// as below the oldest ancestor on that branch.
-    #[clap(
-        short = 'B',
-        long,
-        value_name = "BRANCH_OR_COMMIT",
-        group = "targeting"
-    )]
+    #[clap(short = 'B', long, value_name = "BRANCH_OR_COMMIT")]
     pub below: Option<CliIdArg>,
     /// One or more sources to move.
     ///
