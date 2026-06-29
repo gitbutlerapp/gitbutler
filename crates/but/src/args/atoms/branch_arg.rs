@@ -105,6 +105,41 @@ impl BranchArg {
         Ok(self.0.clone())
     }
 
+    /// TODO replace head_info version with this
+    pub fn resolve_for_creation_ws(
+        &self,
+        repo: &gix::Repository,
+        ws: &but_graph::Workspace,
+    ) -> CliResult<FullName> {
+        let branch_name = self.0.as_str();
+        let normalized = but_core::branch::normalize_short_name(branch_name).map_err(|err| {
+            CliError::from(bad_input(format!("Invalid branch name: {err}")).arg_value(branch_name))
+        })?;
+
+        if normalized != <&BStr>::from(branch_name) {
+            return Err(bad_input("Invalid branch name")
+                .arg_value(branch_name)
+                .hint(format!("Try '{normalized}' instead"))
+                .into());
+        }
+
+        let local_name = self.resolve_local_branch_name()?;
+        if ws.is_reachable_from_entrypoint(local_name.as_ref()) {
+            return Err(
+                bad_input(format!("A branch named '{branch_name}' is already applied")).into(),
+            );
+        }
+
+        if repo.try_find_reference(&local_name)?.is_some() {
+            return Err(bad_input(format!(
+                "A branch named '{branch_name}' exists but is not applied"
+            ))
+            .into());
+        }
+
+        Ok(local_name)
+    }
+
     /// Resolve the argument to a branch that exists in the repository.
     pub fn resolve_branch(&self, repo: &gix::Repository) -> CliResult<ResolvedBranchRef> {
         for category in [Category::LocalBranch, Category::RemoteBranch] {

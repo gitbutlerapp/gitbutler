@@ -13,7 +13,7 @@ use nonempty::NonEmpty;
 use crate::{
     CliResult, IdMap,
     args::{
-        atoms::{BranchOrCommit, CliIdArg, Purpose},
+        atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
         move2::Platform,
     },
     bad_input,
@@ -115,11 +115,16 @@ impl MoveCommitsRelativeToOperation {
 #[derive(Clone)]
 struct MoveCommitsToNewBranchOperation {
     sources: NonEmpty<gix::ObjectId>,
+    branch_name: Option<FullName>,
 }
 
 impl MoveCommitsToNewBranchOperation {
     fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<FullName> {
-        let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
+        let new_branch_name = if let Some(branch_name) = self.branch_name {
+            branch_name
+        } else {
+            but_core::branch::unique_canned_refname(tx.repo())?
+        };
         tx.create_reference(
             new_branch_name.as_ref(),
             None,
@@ -180,7 +185,7 @@ fn resolve(
         branch,
     } = args;
 
-    let (repo, _ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
 
     match (branch, above, below) {
         (Some(Some(branch)), None, None) => {
@@ -198,7 +203,16 @@ fn resolve(
                         name: branch.resolve_local_branch_name()?,
                     },
                 })),
-                None => todo!(),
+                None => {
+                    let branch_name =
+                        BranchArg(branch.to_string()).resolve_for_creation_ws(&repo, &ws)?;
+                    Ok(MoveOperation::ToNewBranch(
+                        MoveCommitsToNewBranchOperation {
+                            sources,
+                            branch_name: Some(branch_name),
+                        },
+                    ))
+                }
             }
         }
         (Some(None), None, None) => {
@@ -209,7 +223,10 @@ fn resolve(
             let sources = NonEmpty::from_vec(resolved_sources)
                 .expect("BUG: Empty sources should not be possible as it's a required argument");
             Ok(MoveOperation::ToNewBranch(
-                MoveCommitsToNewBranchOperation { sources },
+                MoveCommitsToNewBranchOperation {
+                    sources,
+                    branch_name: None,
+                },
             ))
         }
         (None, Some(above), None) => {
@@ -301,7 +318,10 @@ fn run(
                 new_branch_name,
             }
         }
-        MoveOperation::ToNewBranch(MoveCommitsToNewBranchOperation { sources }) => MoveOutcome {
+        MoveOperation::ToNewBranch(MoveCommitsToNewBranchOperation {
+            sources,
+            branch_name: _,
+        }) => MoveOutcome {
             sources,
             target: None,
             new_branch_name,
