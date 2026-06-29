@@ -11,45 +11,37 @@ import {
 export const branchRefKey = (branchRef: Array<number>): string => branchRef.join(",");
 
 export type HeadInfoIndex = {
-	// files tree
-	branchNameByCommitId: Map<string, string | undefined>;
-	commitById: Map<string, Commit>;
-	// outline & label. label could probably get by w/o it
-	segmentByBranchRef: Map<string, Segment>;
-	// outline
-	stackById: Map<string, Stack>;
+	stackContextById: Map<string, { stack: Stack }>;
+	branchContextByRef: Map<string, { stack: Stack; segment: Segment }>;
+	commitContextById: Map<string, { stack: Stack; segment: Segment; commit: Commit }>;
 };
 
 const headInfoIndexCache = new WeakMap<RefInfo, HeadInfoIndex>();
 
 const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
-	const branchNameByCommitId = new Map<string, string | undefined>();
-	const commitById = new Map<string, Commit>();
-	const segmentByBranchRef = new Map<string, Segment>();
-	const stackById = new Map<string, Stack>();
+	const stackContextById = new Map<string, { stack: Stack }>();
+	const branchContextByRef = new Map<string, { stack: Stack; segment: Segment }>();
+	const commitContextById = new Map<string, { stack: Stack; segment: Segment; commit: Commit }>();
 
 	for (const stack of headInfo.stacks) {
-		if (stack.id !== null) stackById.set(stack.id, stack);
+		if (stack.id !== null) stackContextById.set(stack.id, { stack });
 
 		for (const segment of stack.segments) {
 			if (segment.refName) {
 				const key = branchRefKey(segment.refName.fullNameBytes);
-				if (!segmentByBranchRef.has(key)) segmentByBranchRef.set(key, segment);
+				if (!branchContextByRef.has(key)) branchContextByRef.set(key, { stack, segment });
 			}
 
-			const branchName = segment.refName?.displayName;
-			for (const commit of segment.commits) {
-				branchNameByCommitId.set(commit.id, branchName);
-				if (!commitById.has(commit.id)) commitById.set(commit.id, commit);
-			}
+			for (const commit of segment.commits)
+				if (!commitContextById.has(commit.id))
+					commitContextById.set(commit.id, { stack, segment, commit });
 		}
 	}
 
 	return {
-		branchNameByCommitId,
-		commitById,
-		segmentByBranchRef,
-		stackById,
+		stackContextById,
+		branchContextByRef,
+		commitContextById,
 	};
 };
 
@@ -139,13 +131,13 @@ export const resolveRelativeTo = ({
 			return relativeTo.subject;
 		case "referenceBytes":
 			return (
-				headInfoIndex.segmentByBranchRef.get(branchRefKey(relativeTo.subject))?.commits[0]?.id ??
-				null
+				headInfoIndex.branchContextByRef.get(branchRefKey(relativeTo.subject))?.segment.commits[0]
+					?.id ?? null
 			);
 		case "reference":
 			return (
-				headInfoIndex.segmentByBranchRef.get(branchRefKey(encodeBytes(relativeTo.subject)))
-					?.commits[0]?.id ?? null
+				headInfoIndex.branchContextByRef.get(branchRefKey(encodeBytes(relativeTo.subject)))?.segment
+					.commits[0]?.id ?? null
 			);
 	}
 };

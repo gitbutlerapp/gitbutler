@@ -14,13 +14,13 @@ export const operandLabel = ({
 	Match.value(operand).pipe(
 		Match.tagsExhaustive({
 			Branch: ({ branchRef }) => {
-				const segment = headInfoIndex.segmentByBranchRef.get(branchRefKey(branchRef));
+				const segment = headInfoIndex.branchContextByRef.get(branchRefKey(branchRef))?.segment;
 				return assert(segment?.refName).displayName;
 			},
 			File: ({ path }) => path,
 			UncommittedChanges: () => "Uncommitted changes",
 			Commit: ({ commitId }) => {
-				const commit = headInfoIndex.commitById.get(commitId);
+				const commit = headInfoIndex.commitContextById.get(commitId)?.commit;
 				return commit
 					? `${commitTitle(commit.message) ?? "(no message)"}${commit.hasConflicts ? " ⚠️" : ""}`
 					: shortCommitId(commitId);

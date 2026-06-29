@@ -190,7 +190,9 @@ export const FilesTree: FC<
 													onFileSelection={onFileSelection}
 													projectId={projectId}
 													fileParent={fileParent}
-													branchNameByCommitId={headInfoIndex?.branchNameByCommitId}
+													branchNameByCommitId={(cid) =>
+														headInfoIndex?.commitContextById.get(cid)?.segment.refName?.displayName
+													}
 												/>
 											}
 										/>
@@ -261,7 +263,7 @@ const FileRow: FC<
 		item: FileTreeItem;
 		projectId: string;
 		fileParent: FileParent;
-		branchNameByCommitId?: Map<string, string | undefined>;
+		branchNameByCommitId?: (commitId: string) => string | undefined;
 	} & Omit<ComponentProps<typeof ItemRow>, "projectId">
 > = ({ item, projectId, fileParent, branchNameByCommitId, id, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;

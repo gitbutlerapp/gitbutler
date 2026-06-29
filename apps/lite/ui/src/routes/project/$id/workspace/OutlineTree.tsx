@@ -199,11 +199,11 @@ const useOutlineTreeHotkeys = ({
 
 	const selectedStack =
 		selection && "stackId" in selection
-			? headInfoIndex?.stackById.get(selection.stackId)
+			? headInfoIndex?.stackContextById.get(selection.stackId)?.stack
 			: undefined;
 	const selectedBranchSegment =
 		selection?._tag === "Branch"
-			? headInfoIndex?.segmentByBranchRef.get(branchRefKey(selection.branchRef))
+			? headInfoIndex?.branchContextByRef.get(branchRefKey(selection.branchRef))?.segment
 			: undefined;
 
 	const selectedBranchCommitsChecked = useAppSelector((state) =>
@@ -220,7 +220,7 @@ const useOutlineTreeHotkeys = ({
 	);
 	const selectedCommit =
 		selection?._tag === "Commit"
-			? (headInfoIndex?.commitById.get(selection.commitId) ?? null)
+			? (headInfoIndex?.commitContextById.get(selection.commitId) ?? null)?.commit
 			: null;
 	const selectedCommitForgeUrl =
 		selectedCommit && forgeInfo ? commitForgeUrl(selectedCommit, forgeInfo) : null;
@@ -1660,7 +1660,7 @@ const buildCommitTargetComboboxItems = ({
 }): Array<CommitTargetComboboxItem> => {
 	const commitTarget =
 		commitTargetState?.type === "commit"
-			? headInfoIndex?.commitById.get(commitTargetState.subject)
+			? headInfoIndex?.commitContextById.get(commitTargetState.subject)?.commit
 			: null;
 
 	return [
@@ -2664,7 +2664,7 @@ const SegmentContent: FC<{
 				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
 					dryRunCommitId !== undefined
-						? (dryRunHeadInfoIndex?.commitById.get(dryRunCommitId) ?? null)
+						? (dryRunHeadInfoIndex?.commitContextById.get(dryRunCommitId)?.commit ?? null)
 						: null;
 				return (
 					<CommitC
