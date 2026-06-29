@@ -16,12 +16,13 @@ import {
 import { focusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { monitorForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useIsFetching, useIsMutating, useQuery } from "@tanstack/react-query";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Match } from "effect";
-import { type ComponentProps, type FC } from "react";
+import { type ComponentProps, type FC, useEffect } from "react";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import {
 	buildCommitTargetComboboxItems,
@@ -29,6 +30,7 @@ import {
 } from "#ui/routes/project/$id/workspace/OutlineTree/commitTargetComboboxItems.ts";
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree/OutlineTree.tsx";
 import styles from "./Outline.module.css";
+import { parseDragData } from "#ui/routes/project/$id/workspace/DragData.ts";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 
 const ActivitySpinner: FC = () => {
@@ -163,6 +165,25 @@ export const Outline: FC<
 			},
 		},
 	]);
+
+	// Cancel mode when dropping outside of a target or pressing escape.
+	//
+	// This event handler must be defined here instead of on the source to ensure
+	// it runs even if the source unmounts, e.g. as it does when grabbing a file
+	// and dragging it over another commit (because the selection changes).
+	//
+	// Note also that there may be a delay in the `onDrop` event firing due to the
+	// library being unable to detect cancellation of the native drag.
+	// https://github.com/atlassian/pragmatic-drag-and-drop/blob/637a9aa640306194726e85b269d03deb94902198/packages/core/src/util/detect-broken-drag.ts#L12
+	// Reduced test case: https://stackblitz.com/github/OliverJAsh/pragmatic-dnd-cancel-no-target-repro
+	useEffect(
+		() =>
+			monitorForElements({
+				canMonitor: ({ source }) => parseDragData(source.data) !== null,
+				onDrop: () => dispatch(projectActions.cancelMode({ projectId })),
+			}),
+		[dispatch, projectId],
+	);
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
