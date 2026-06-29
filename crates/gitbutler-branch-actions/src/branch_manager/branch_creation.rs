@@ -109,7 +109,7 @@ impl BranchManager<'_> {
         let branch_to_apply = target_ref.as_str().try_into()?;
         let mut out = but_workspace::branch::apply(
             branch_to_apply,
-            &ws,
+            ws,
             &repo,
             &mut meta,
             but_workspace::branch::apply::Options {
@@ -121,7 +121,7 @@ impl BranchManager<'_> {
                 new_stack_id: None,
             },
         )?;
-        let ws = out.workspace.into_owned();
+        let ws = out.workspace;
         let applied_branch_ref = out
             .applied_branches
             .pop()

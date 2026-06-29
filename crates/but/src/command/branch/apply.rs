@@ -39,7 +39,7 @@ pub fn apply(mut ctx: Context, branch_name: &str, out: &mut OutputChannel) -> an
 
 fn apply_error_message(
     requested_branch: &gix::refs::FullNameRef,
-    outcome: &but_workspace::branch::apply::Outcome<'_>,
+    outcome: &but_workspace::branch::apply::Outcome,
 ) -> Option<String> {
     if !outcome.conflicting_stacks.is_empty() {
         let short_name = requested_branch.shorten();
@@ -65,7 +65,7 @@ fn apply_error_message(
 fn write_shell_apply_outcome(
     out: &mut dyn crate::utils::WriteWithUtils,
     requested_branch: &gix::refs::FullNameRef,
-    outcome: &but_workspace::branch::apply::Outcome<'_>,
+    outcome: &but_workspace::branch::apply::Outcome,
 ) -> std::fmt::Result {
     writeln!(out, "status={}", outcome.status.as_str())?;
     writeln!(out, "requested_branch={requested_branch}")?;
@@ -87,7 +87,7 @@ fn write_shell_apply_outcome(
 fn write_human_apply_outcome(
     out: &mut dyn crate::utils::WriteWithUtils,
     requested_branch: &gix::refs::FullNameRef,
-    outcome: &but_workspace::branch::apply::Outcome<'_>,
+    outcome: &but_workspace::branch::apply::Outcome,
 ) -> std::fmt::Result {
     match outcome.status {
         OutcomeStatus::AlreadyApplied => {

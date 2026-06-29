@@ -25,7 +25,7 @@ pub(crate) fn apply(
 
     let outcome = but_workspace::branch::apply(
         branch.as_ref(),
-        &ws,
+        ws.clone(),
         &repo,
         &mut meta,
         but_workspace::branch::apply::Options {
@@ -38,7 +38,7 @@ pub(crate) fn apply(
     )?;
 
     writeln!(out, "{outcome:#?}")?;
-    *ws = outcome.workspace.into_owned();
+    *ws = outcome.workspace;
     emit_after(&ws, &mutation_args.debug, err)
 }
 
