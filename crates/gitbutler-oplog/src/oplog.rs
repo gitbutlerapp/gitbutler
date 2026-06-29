@@ -18,11 +18,7 @@ use gitbutler_repo::{
     signature_gix,
 };
 use gix::objs::Write as _;
-use gix::{
-    ObjectId,
-    bstr::{BString, ByteSlice, ByteVec},
-    object::tree::EntryKind,
-};
+use gix::{ObjectId, bstr::ByteSlice, object::tree::EntryKind};
 use tracing::instrument;
 
 use super::{
@@ -324,53 +320,6 @@ fn write_index_tree(ctx: &Context) -> Result<gix::ObjectId> {
     let git2_repo = ctx.git2_repo.get()?;
     let mut index = git2_repo.index()?;
     Ok(index.write_tree()?.to_gix())
-}
-
-fn checkout_workdir_tree(ctx: &Context, workdir_tree_id: gix::ObjectId) -> Result<()> {
-    #[expect(deprecated, reason = "checkout/materialization boundary")]
-    let git2_repo = ctx.git2_repo.get()?;
-    ignore_large_files_in_diffs(&git2_repo, AUTO_TRACK_LIMIT_BYTES)?;
-    let workdir_tree = git2_repo.find_tree(workdir_tree_id.to_git2())?;
-    let mut checkout_builder = git2::build::CheckoutBuilder::new();
-    checkout_builder.remove_untracked(true);
-    checkout_builder.force();
-    git2_repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
-    Ok(())
-}
-
-fn ignore_large_files_in_diffs(repo: &git2::Repository, limit_in_bytes: u64) -> Result<()> {
-    if limit_in_bytes == 0 {
-        return Ok(());
-    }
-    let gix_repo = gix::open(repo.path())?;
-    let worktree_dir = gix_repo
-        .workdir()
-        .context("All repos are expected to have a worktree")?;
-    let files_to_exclude: Vec<_> = gix_repo
-        .dirwalk_iter(
-            gix_repo.index_or_empty()?,
-            None::<BString>,
-            Default::default(),
-            gix_repo
-                .dirwalk_options()?
-                .emit_ignored(None)
-                .emit_pruned(false)
-                .emit_untracked(gix::dir::walk::EmissionMode::Matching),
-        )?
-        .filter_map(Result::ok)
-        .filter_map(|item| {
-            let path = worktree_dir.join(gix::path::from_bstr(item.entry.rela_path.as_bstr()));
-            let file_is_too_large = path
-                .metadata()
-                .is_ok_and(|md| md.is_file() && md.len() > limit_in_bytes);
-            file_is_too_large
-                .then(|| Vec::from(item.entry.rela_path).into_string().ok())
-                .flatten()
-        })
-        .collect();
-    let ignore_list = files_to_exclude.join("\n");
-    repo.add_ignore_rule(&ignore_list)?;
-    Ok(())
 }
 
 fn reset_index_to_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<()> {
@@ -777,21 +726,18 @@ fn restore_snapshot(
     let gix_repo = ctx.clone_repo_for_merging()?;
     let workdir_tree_id = get_workdir_tree(None, snapshot_commit_id, &gix_repo, ctx)?;
 
-    // Check out the snapshot's worktree while HEAD still points at the pre-restore commit: both
-    // backends diff from the head tree, so the workspace ref is repointed only afterwards (below).
-    // The git2 backend reads HEAD for its baseline; cv3 gets `pre_restore_head_tree_id` directly.
-    if ctx.settings.feature_flags.cv3 {
-        but_core::worktree::safe_checkout(
-            pre_restore_head_tree_id,
-            workdir_tree_id,
-            &gix_repo,
-            but_core::worktree::checkout::Options::default(),
-        )?;
-    } else {
-        checkout_workdir_tree(ctx, workdir_tree_id)?;
-    }
+    // Check out the snapshot's worktree while HEAD still points at the pre-restore commit:
+    // safe_checkout diffs from `pre_restore_head_tree_id`, so the workspace ref is repointed
+    // only afterwards (below).
+    but_core::worktree::safe_checkout(
+        pre_restore_head_tree_id,
+        workdir_tree_id,
+        &gix_repo,
+        but_core::worktree::checkout::Options::default(),
+    )?;
 
-    // Worktree now matches the snapshot; repoint gitbutler/workspace at the restored commit.
+    // Tracked content now matches the snapshot (untracked files outside the restored diff are
+    // left in place); repoint gitbutler/workspace at the restored commit.
     if let Some(commit_oid) = restored_workspace_commit {
         repo.reference(
             workspace_ref,

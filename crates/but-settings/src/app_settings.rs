@@ -36,8 +36,6 @@ but_schemars::register_sdk_type!(GitHubOAuthAppSettings);
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct FeatureFlags {
-    /// Turn on the set a v3 version of checkout
-    pub cv3: bool,
     /// Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref.
     pub unapply_v3_pgm: bool,
     /// Enable single branch mode.

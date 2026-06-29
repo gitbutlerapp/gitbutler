@@ -779,13 +779,8 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            ctx.branch_manager().unapply(
-                *stack_id,
-                permission,
-                false,
-                Vec::new(),
-                ctx.settings.feature_flags.cv3,
-            )?;
+            ctx.branch_manager()
+                .unapply(*stack_id, permission, false, Vec::new())?;
         }
 
         let mut stacks = virtual_branches_state.list_stacks_in_workspace()?;

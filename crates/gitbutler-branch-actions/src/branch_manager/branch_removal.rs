@@ -1,7 +1,6 @@
 use anyhow::{Context as _, Result};
-use but_core::{DiffSpec, RepositoryExt, ref_metadata::StackId};
+use but_core::{DiffSpec, ref_metadata::StackId};
 use but_ctx::access::RepoExclusive;
-use but_oxidize::ObjectIdExt;
 use but_rebase::graph_rebase::{
     Editor,
     mutate::{InsertSide, RelativeToRef},
@@ -20,7 +19,6 @@ impl BranchManager<'_> {
         perm: &mut RepoExclusive,
         delete_vb_state: bool,
         assigned_diffspec: Vec<DiffSpec>,
-        safe_checkout: bool,
     ) -> Result<String> {
         let mut vb_state = self.ctx.virtual_branches();
         let mut stack = vb_state.get_stack(stack_id)?;
@@ -34,9 +32,6 @@ impl BranchManager<'_> {
                 .full_name()?
                 .to_string());
         }
-
-        #[expect(deprecated, reason = "checkout/materialization boundary")]
-        let git2_repo = self.ctx.git2_repo.get()?;
 
         // Commit any assigned diffspecs if such exist so that it will be part of the unapplied branch.
         if !assigned_diffspec.is_empty()
@@ -71,65 +66,14 @@ impl BranchManager<'_> {
         vb_state.set_stack(stack.clone())?;
 
         let repo = self.ctx.clone_repo_for_merging()?;
-        if safe_checkout {
-            // This reads the just stored data and re-merges it all stacks, excluding the unapplied one.
-            let res = checkout_remerged_head(self.ctx, &repo);
-            // Undo the removal, stack is still there officially now.
-            if res.is_err() {
-                stack.in_workspace = true;
-                vb_state.set_stack(stack.clone())?;
-            }
-            res?
-        } else {
-            // We want to transition the worktree from its current state (all
-            // stacks merged + uncommitted edits) to the new state (remaining
-            // stacks only), while preserving any uncommitted worktree changes.
-            //
-            // The correct 3-way merge for this is:
-            //   base  = current workspace commit tree (all stacks merged)
-            //   ours  = cwdt (workspace + uncommitted changes)
-            //   theirs = remerged tree (target + remaining stacks only)
-            //
-            // For files with no uncommitted edits: base==ours, so theirs wins
-            // → cleanly transitions to the new workspace state.
-            // For files with uncommitted edits: base≠ours, and on conflict
-            // FileFavor::Ours preserves the user's uncommitted work.
-
-            let merge_options = repo
-                .tree_merge_options()?
-                .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))
-                .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours));
-
-            #[expect(deprecated)]
-            let cwdt = repo.create_wd_tree(0)?;
-            let (remerged_tree_id, _, _) =
-                but_workspace::legacy::remerged_workspace_tree_v2(self.ctx, &repo)?;
-
-            // The current workspace commit tree represents the committed state
-            // with all stacks merged (before this unapply). Using it as the
-            // merge base means only uncommitted changes show up as "ours" diffs.
-            let current_workspace_tree = {
-                let mut head = repo.head()?;
-                head.peel_to_commit()?.tree_id()?.detach()
-            };
-
-            let mut merge = repo.merge_trees(
-                current_workspace_tree,
-                cwdt,
-                remerged_tree_id,
-                repo.default_merge_labels(),
-                merge_options,
-            )?;
-            let new_workspace_tree_with_worktree_changes =
-                git2_repo.find_tree(merge.tree.write()?.to_git2())?;
-
-            git2_repo
-                .checkout_tree(
-                    new_workspace_tree_with_worktree_changes.as_object(),
-                    Some(git2::build::CheckoutBuilder::new().force()),
-                )
-                .context("failed to checkout tree")?;
+        // This reads the just stored data and re-merges it all stacks, excluding the unapplied one.
+        let res = checkout_remerged_head(self.ctx, &repo);
+        // Undo the removal, stack is still there officially now.
+        if res.is_err() {
+            stack.in_workspace = true;
+            vb_state.set_stack(stack.clone())?;
         }
+        res?;
 
         if delete_vb_state {
             self.ctx.delete_branch_reference(&stack)?;
