@@ -12,24 +12,21 @@
 	height: 28px;
 	padding-inline: 8px;
 	border-radius: var(--radius-ml);
-	outline: none;
+	outline: 1px solid var(--border-2);
 	background-color: var(--bg-1);
-	box-shadow: inset 0 0 0 1px var(--border-2);
 	color: var(--text-1);
-	transition:
-		border-color var(--transition-fast),
-		box-shadow var(--transition-fast);
+	transition: outline-color var(--transition-fast);
 
 	&::placeholder {
 		color: var(--text-3);
 	}
 
 	&:hover:not(:focus, :disabled, [data-disabled]) {
-		box-shadow: inset 0 0 0 1px var(--border-1);
+		outline-color: var(--border-1);
 	}
 
 	&:focus {
-		box-shadow: var(--focus-ring);
+		outline: var(--focus-ring);
 	}
 
 	&:disabled,

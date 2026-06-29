@@ -116,15 +116,15 @@
 	flex-direction: column;
 	padding: 8px;
 	border-radius: var(--radius-m);
+	outline: 1px solid var(--border-2);
 	background: var(--bg-1);
-	box-shadow: inset 0 0 0 1px var(--border-2);
 
 	&:not(:has(.commitTextarea[disabled])) {
 		&:hover {
-			box-shadow: inset 0 0 0 1px var(--border-1);
+			outline-color: var(--border-1);
 		}
 		&:focus-within {
-			box-shadow: var(--focus-ring);
+			outline: var(--focus-ring);
 		}
 	}
 }
