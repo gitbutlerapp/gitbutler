@@ -172,6 +172,24 @@ impl BranchArg {
         Ok(None)
     }
 
+    /// Try to resolve as a branch that's applied in the workspace.
+    ///
+    /// Errors if the branch does not exist.
+    ///
+    /// Returns `Ok(None)` if the branch exists but is not applied.
+    pub fn try_resolve_applied_branch(
+        &self,
+        repo: &gix::Repository,
+        ws: &Workspace,
+    ) -> CliResult<Option<FullName>> {
+        let branch = self.resolve_existing_local_branch(repo)?;
+        if ws.refname_is_segment(branch.as_ref()) {
+            Ok(Some(branch))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Try to resolve the branch to a stack that exists in the workspace.
     ///
     /// Returns `None` if the branch can't be found which might be caused it not being applied.

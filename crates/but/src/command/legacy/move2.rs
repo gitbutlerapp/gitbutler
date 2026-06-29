@@ -1,16 +1,21 @@
 use std::fmt::Display;
 
-use but_core::{DryRun, RefMetadata, sync::RepoExclusive};
+use but_core::{DryRun, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_transaction::Transaction;
+use but_workspace::branch::create_reference::Anchor;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
+use gix::refs::FullName;
 use itertools::Itertools;
 use nonempty::NonEmpty;
 
 use crate::{
     CliResult, IdMap,
-    args::move2::Platform,
+    args::{
+        atoms::{BranchOrCommit, Purpose},
+        move2::Platform,
+    },
     bad_input,
     theme::{self, Theme},
     utils::{CliOutputHuman, IntermediateChannel, WriteWithUtils, targeting::Side},
@@ -66,6 +71,17 @@ impl MoveCommitsOperation {
     fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
         let (relative_to, side) = match self.target {
             MoveTarget::Commit { commit_id, side } => (RelativeTo::Commit(commit_id), side.into()),
+            MoveTarget::BranchBucket { name, side } => {
+                let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
+                let anchor = Anchor::at_segment(name.as_ref(), side.into());
+                tx.create_reference(
+                    new_branch_name.as_ref(),
+                    anchor,
+                    |_| StackId::generate(),
+                    Some(0),
+                )?;
+                (RelativeTo::Reference(new_branch_name), Side::Below.into())
+            }
         };
 
         tx.move_commits(self.sources, relative_to, side)?;
@@ -80,13 +96,20 @@ pub enum MoveTarget {
         commit_id: gix::ObjectId,
         side: Side,
     },
+    BranchBucket {
+        name: FullName,
+        side: Side,
+    },
 }
 
 impl Display for MoveTarget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Commit { commit_id, side } => {
-                write!(f, "{} {}", side, theme::Commit(*commit_id))
+                write!(f, "{} commit {}", side, theme::Commit(*commit_id))
+            }
+            Self::BranchBucket { name, side } => {
+                write!(f, "{} branch {}", side, theme::Branch(name))
             }
         }
     }
@@ -104,7 +127,7 @@ fn resolve(
         sources,
     } = args;
 
-    let (repo, _ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
 
     let (unresolved_target, side) = match (above, below) {
         (Some(above), None) => (above, Side::Above),
@@ -113,8 +136,18 @@ fn resolve(
     };
 
     let target = {
-        let commit_id = unresolved_target.resolve_commit_in_workspace(&repo, id_map)?;
-        MoveTarget::Commit { commit_id, side }
+        match unresolved_target
+            .resolve_in_workspace(&repo, id_map, Purpose::Anchor, None)?
+            .into_branch_or_commit()?
+        {
+            BranchOrCommit::Commit(commit_id) => MoveTarget::Commit { commit_id, side },
+            BranchOrCommit::Branch(branch_arg) => {
+                let name = branch_arg
+                    .try_resolve_applied_branch(&repo, &ws)?
+                    .expect("TODO: What if branch is not applied?");
+                MoveTarget::BranchBucket { name, side }
+            }
+        }
     };
 
     let sources = sources
