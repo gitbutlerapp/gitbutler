@@ -2,13 +2,20 @@ use std::fs::{File, Permissions};
 
 use crate::support::testing_repository::TestingRepository;
 use but_core::RepositoryExt as _;
-use but_testsupport::{gix_testtools::scripted_fixture_read_only, open_repo, visualize_tree};
+use but_testsupport::{
+    gix_testtools::scripted_fixture_read_only, open_repo, visualize_tree as visualize_tree_inner,
+};
 use gix::prelude::ObjectIdExt as _;
+use snapbox::IntoData;
 
 const MAX_FILE_SIZE_BYTES: u64 = 20;
 
 fn tree_entry_count(tree: gix::Id<'_>) -> anyhow::Result<usize> {
     Ok(tree.object()?.peel_to_tree()?.iter().count())
+}
+
+fn visualize_tree(tree: gix::Id<'_>) -> String {
+    visualize_tree_inner(tree).to_string()
 }
 
 /// These tests exercise the truth table that we use to update the HEAD
@@ -76,10 +83,15 @@ mod head_upsert_truthtable {
         let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
         // We should ignore whatever happens to the index - the current worktree state matters.
-        insta::assert_snapshot!(visualize_tree(tree), @r#"
-        7cd1c45
-        └── file1.txt:100644:dd954e7 "content1"
-        "#);
+        snapbox::assert_data_eq!(
+            visualize_tree(tree),
+            snapbox::str![[r#"
+7cd1c45
+└── file1.txt:100644:dd954e7 "content1"
+
+"#]]
+            .raw()
+        );
         Ok(())
     }
 
@@ -92,10 +104,15 @@ mod head_upsert_truthtable {
         let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
         // Tree should match whatever is written on disk
-        insta::assert_snapshot!(visualize_tree(tree), @r#"
-        f87e9ef
-        └── file1.txt:100644:db00fd6 "content2"
-        "#);
+        snapbox::assert_data_eq!(
+            visualize_tree(tree),
+            snapbox::str![[r#"
+f87e9ef
+└── file1.txt:100644:db00fd6 "content2"
+
+"#]]
+            .raw()
+        );
         Ok(())
     }
 
@@ -107,10 +124,15 @@ mod head_upsert_truthtable {
         let repo = gix_repo(&test)?;
         let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
-        insta::assert_snapshot!(visualize_tree(tree), @r#"
-        f87e9ef
-        └── file1.txt:100644:db00fd6 "content2"
-        "#);
+        snapbox::assert_data_eq!(
+            visualize_tree(tree),
+            snapbox::str![[r#"
+f87e9ef
+└── file1.txt:100644:db00fd6 "content2"
+
+"#]]
+            .raw()
+        );
         Ok(())
     }
 
@@ -124,10 +146,15 @@ mod head_upsert_truthtable {
         let repo = gix_repo(&test)?;
         let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
-        insta::assert_snapshot!(visualize_tree(tree), @r#"
-        f87e9ef
-        └── file1.txt:100644:db00fd6 "content2"
-        "#);
+        snapbox::assert_data_eq!(
+            visualize_tree(tree),
+            snapbox::str![[r#"
+f87e9ef
+└── file1.txt:100644:db00fd6 "content2"
+
+"#]]
+            .raw()
+        );
         Ok(())
     }
 
@@ -139,10 +166,15 @@ mod head_upsert_truthtable {
         let repo = gix_repo(&test)?;
         let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
-        insta::assert_snapshot!(visualize_tree(tree), @r#"
-        f87e9ef
-        └── file1.txt:100644:db00fd6 "content2"
-        "#);
+        snapbox::assert_data_eq!(
+            visualize_tree(tree),
+            snapbox::str![[r#"
+f87e9ef
+└── file1.txt:100644:db00fd6 "content2"
+
+"#]]
+            .raw()
+        );
         Ok(())
     }
 
@@ -154,10 +186,15 @@ mod head_upsert_truthtable {
         let repo = gix_repo(&test)?;
         let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
-        insta::assert_snapshot!(visualize_tree(tree), @r#"
-        d377861
-        └── file1.txt:100644:a2b3229 "content3"
-        "#);
+        snapbox::assert_data_eq!(
+            visualize_tree(tree),
+            snapbox::str![[r#"
+d377861
+└── file1.txt:100644:a2b3229 "content3"
+
+"#]]
+            .raw()
+        );
         Ok(())
     }
 
@@ -169,10 +206,15 @@ mod head_upsert_truthtable {
         let repo = gix_repo(&test)?;
         let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
-        insta::assert_snapshot!(visualize_tree(tree), @r#"
-        f87e9ef
-        └── file1.txt:100644:db00fd6 "content2"
-        "#);
+        snapbox::assert_data_eq!(
+            visualize_tree(tree),
+            snapbox::str![[r#"
+f87e9ef
+└── file1.txt:100644:db00fd6 "content2"
+
+"#]]
+            .raw()
+        );
         Ok(())
     }
 }
@@ -187,11 +229,16 @@ fn lists_uncommited_changes() -> anyhow::Result<()> {
     let repo = gix_repo(&test)?;
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    1ae8c21
-    ├── file1.txt:100644:dd954e7 "content1"
-    └── file2.txt:100644:db00fd6 "content2"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+1ae8c21
+├── file1.txt:100644:dd954e7 "content1"
+└── file2.txt:100644:db00fd6 "content2"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -202,11 +249,16 @@ fn does_not_include_staged_but_deleted_files() -> anyhow::Result<()> {
     let repo = gix_repo(&test)?;
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    1ae8c21
-    ├── file1.txt:100644:dd954e7 "content1"
-    └── file2.txt:100644:db00fd6 "content2"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+1ae8c21
+├── file1.txt:100644:dd954e7 "content1"
+└── file2.txt:100644:db00fd6 "content2"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -236,10 +288,15 @@ fn should_track_deleted_files() -> anyhow::Result<()> {
     let repo = gix_repo(&test)?;
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    295a2e4
-    └── file2.txt:100644:db00fd6 "content2"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+295a2e4
+└── file2.txt:100644:db00fd6 "content2"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -256,10 +313,15 @@ fn should_not_change_index() -> anyhow::Result<()> {
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
     // Tree should match whatever is written on disk
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    7cd1c45
-    └── file1.txt:100644:dd954e7 "content1"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+7cd1c45
+└── file1.txt:100644:dd954e7 "content1"
+
+"#]]
+        .raw()
+    );
     assert_eq!(repo.index()?.entries().len(), 0, "the index is untouched");
     Ok(())
 }
@@ -280,15 +342,20 @@ fn tree_behavior() -> anyhow::Result<()> {
     let repo = gix_repo(&test)?;
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    c8aa4f7
-    ├── dir1:dce0d03 
-    │   └── file1.txt:100644:e4a8953 "new1"
-    ├── dir2:295a2e4 
-    │   └── file2.txt:100644:db00fd6 "content2"
-    └── dir3:92e07f7 
-        └── file1.txt:100644:1fda1b4 "new2"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+c8aa4f7
+├── dir1:dce0d03 
+│   └── file1.txt:100644:e4a8953 "new1"
+├── dir2:295a2e4 
+│   └── file2.txt:100644:db00fd6 "content2"
+└── dir3:92e07f7 
+    └── file1.txt:100644:1fda1b4 "new2"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -307,10 +374,15 @@ fn executable_blobs() -> anyhow::Result<()> {
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
     // The executable bit is also present in the tree.
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    4cb9de9
-    └── file1.txt:100755:dd954e7 "content1"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+4cb9de9
+└── file1.txt:100755:dd954e7 "content1"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -325,11 +397,16 @@ fn links() -> anyhow::Result<()> {
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
     // Links are also present in the tree.
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    0aefe10
-    ├── link1.txt:120000:1de5659 "target"
-    └── target:100644:620ffd0 "helloworld"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+0aefe10
+├── link1.txt:120000:1de5659 "target"
+└── target:100644:620ffd0 "helloworld"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -346,11 +423,16 @@ fn tracked_file_becomes_directory_in_worktree() -> anyhow::Result<()> {
 
     let repo = gix_repo(&test)?;
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    8b80519
-    └── soon-directory:df6d699 
-        └── file:100644:dadf628 "content in directory"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+8b80519
+└── soon-directory:df6d699 
+    └── file:100644:dadf628 "content in directory"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -366,10 +448,15 @@ fn tracked_directory_becomes_file_in_worktree() -> anyhow::Result<()> {
 
     let repo = gix_repo(&test)?;
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    637be29
-    └── soon-file:100644:6b584e8 "content"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+637be29
+└── soon-file:100644:6b584e8 "content"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -433,11 +520,16 @@ fn ignored_files() -> anyhow::Result<()> {
     let repo = gix_repo(&test)?;
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
     // ignored files aren't picked up.
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    38b94c0
-    ├── .gitignore:100644:669be81 "*.ignored"
-    └── tracked:100644:6b584e8 "content"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+38b94c0
+├── .gitignore:100644:669be81 "*.ignored"
+└── tracked:100644:6b584e8 "content"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -451,10 +543,15 @@ fn can_autotrack_empty_files() -> anyhow::Result<()> {
     let repo = gix_repo(&test)?;
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
     // ignored files aren't picked up.
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    4fe2781
-    └── soon-empty:100644:e69de29 ""
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+4fe2781
+└── soon-empty:100644:e69de29 ""
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -464,10 +561,15 @@ fn intent_to_add_is_picked_up_just_like_untracked() -> anyhow::Result<()> {
 
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
     // We pick up what's in the worktree, independently of the intent-to-add flag.
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    d6a22f9
-    └── to-be-added:100644:6b584e8 "content"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+d6a22f9
+└── to-be-added:100644:6b584e8 "content"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -478,11 +580,16 @@ fn submodule_in_index_is_picked_up() -> anyhow::Result<()> {
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
     // Everything that is not contending with the worktree that is already in the index
     // is picked up, even if it involves submodules.
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    de956ee
-    ├── .gitmodules:100644:db28142 "[submodule \"sm\"]\n\tpath = sm\n\turl = ../module\n"
-    └── sm:160000:2e70126
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+de956ee
+├── .gitmodules:100644:db28142 "[submodule \"sm\"]\n\tpath = sm\n\turl = ../module\n"
+└── sm:160000:2e70126 
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -493,11 +600,16 @@ fn submodule_change() -> anyhow::Result<()> {
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
     // Changes to submodule heads are also picked up.
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    8b0adff
-    ├── .gitmodules:100644:db28142 "[submodule \"sm\"]\n\tpath = sm\n\turl = ../module\n"
-    └── sm:160000:e8a2d3a
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+8b0adff
+├── .gitmodules:100644:db28142 "[submodule \"sm\"]\n\tpath = sm\n\turl = ../module\n"
+└── sm:160000:e8a2d3a 
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -512,11 +624,16 @@ fn big_files_check_is_disabled_with_zero() -> anyhow::Result<()> {
     let tree = create_wd_tree(&repo, 0)?;
 
     // Everything goes with 0
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    f6e159b
-    ├── empty:100644:e69de29 ""
-    └── with-content:100644:6b584e8 "content"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+f6e159b
+├── empty:100644:e69de29 ""
+└── with-content:100644:6b584e8 "content"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -532,10 +649,15 @@ fn big_files_are_ignored_based_on_threshold_in_working_tree() -> anyhow::Result<
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
     // It does not pickup the big worktree change.
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    26ea3c5
-    └── soon-too-big:100644:7d72316 "still small enough"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+26ea3c5
+└── soon-too-big:100644:7d72316 "still small enough"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 
@@ -547,10 +669,15 @@ fn big_files_are_fine_when_in_the_index() -> anyhow::Result<()> {
     let tree = create_wd_tree(&repo, MAX_FILE_SIZE_BYTES)?;
 
     // It keeps files that were already added.
-    insta::assert_snapshot!(visualize_tree(tree), @r#"
-    bbd82c6
-    └── soon-too-big:100644:1799e5a "a massive file above the threshold"
-    "#);
+    snapbox::assert_data_eq!(
+        visualize_tree(tree),
+        snapbox::str![[r#"
+bbd82c6
+└── soon-too-big:100644:1799e5a "a massive file above the threshold"
+
+"#]]
+        .raw()
+    );
     Ok(())
 }
 

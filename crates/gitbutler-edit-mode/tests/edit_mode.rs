@@ -1,5 +1,5 @@
 use anyhow::{Context as _, Result, anyhow};
-use bstr::{BString, ByteSlice as _};
+use bstr::BString;
 use but_core::{
     RefMetadata, RepositoryExt,
     ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
@@ -13,6 +13,7 @@ use gitbutler_edit_mode::commands::{
 use gitbutler_operating_modes::{
     EditModeMetadata, INTEGRATION_BRANCH_REF, read_edit_mode_metadata, write_edit_mode_metadata,
 };
+use snapbox::prelude::*;
 use tempfile::TempDir;
 
 fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
@@ -137,9 +138,21 @@ fn basic_leaving_edit_mode() -> Result<()> {
 
     let repo = ctx.repo.get()?;
     let blob = repo.rev_parse_single(b"HEAD^{/foobar}:file")?.object()?;
-    insta::assert_snapshot!(blob.data.as_bstr(), @"edited during edit mode");
+    snapbox::assert_data_eq!(
+        &*blob.data,
+        snapbox::str![[r#"
+edited during edit mode
+
+"#]]
+    );
     let blob = repo.rev_parse_single(b"HEAD^{/foobar}:newfile")?.object()?;
-    insta::assert_snapshot!(blob.data.as_bstr(), @"created during edit mode");
+    snapbox::assert_data_eq!(
+        &*blob.data,
+        snapbox::str![[r#"
+created during edit mode
+
+"#]]
+    );
 
     Ok(())
 }
@@ -174,15 +187,19 @@ fn evolution_parents_written() -> Result<()> {
                 .to_string(),
         )?)
         .get_value("evolution-parent")?;
-    insta::assert_debug_snapshot!(evolution_parent, @r#"
-    Some(
-        Set(
-            {
-                "26804c33bfc7bf602e778b8dd847283bbf886b6a",
-            },
-        ),
-    )
-    "#);
+    snapbox::assert_data_eq!(
+        evolution_parent.to_debug(),
+        snapbox::str![[r#"
+Some(
+    Set(
+        {
+            "26804c33bfc7bf602e778b8dd847283bbf886b6a",
+        },
+    ),
+)
+
+"#]]
+    );
 
     Ok(())
 }
@@ -235,20 +252,36 @@ fn multiple_commits_created_during_edit_mode() -> Result<()> {
     save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
 
     let repo = &*ctx.repo.get()?;
-    insta::assert_snapshot!(visualize_commit_graph(repo, "refs/heads/gitbutler/workspace")?, @"
-    * 33e3bfc (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * f6d3539 (branchy) second commit added
-    * d39dd61 first commit added
-    * 26804c3 foobar
-    * 7950f06 (origin/main, origin/HEAD, main, gitbutler/target) init
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph(repo, "refs/heads/gitbutler/workspace")?,
+        snapbox::str![[r#"
+* 33e3bfc (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* f6d3539 (branchy) second commit added
+* d39dd61 first commit added
+* 26804c3 foobar
+* 7950f06 (origin/main, origin/HEAD, main, gitbutler/target) init
+
+"#]]
+    );
     // As usual, any uncommitted changes (to "file" in this test) is applied
     // onto the HEAD commit at the time of exiting edit mode.
     let blob = repo.rev_parse_single(b"HEAD^{/second}:file")?.object()?;
-    insta::assert_snapshot!(blob.data.as_bstr(), @"edited during edit mode");
+    snapbox::assert_data_eq!(
+        &*blob.data,
+        snapbox::str![[r#"
+edited during edit mode
+
+"#]]
+    );
     // Rebase also happens correctly.
     let blob = repo.rev_parse_single(b"HEAD:file")?.object()?;
-    insta::assert_snapshot!(blob.data.as_bstr(), @"edited during edit mode");
+    snapbox::assert_data_eq!(
+        &*blob.data,
+        snapbox::str![[r#"
+edited during edit mode
+
+"#]]
+    );
 
     Ok(())
 }
@@ -294,12 +327,16 @@ fn apply_commit_on_itself() -> Result<()> {
 
     let repo = &*ctx.repo.get()?;
     // It works, and the gitbutler/edit ref is cleaned up on the way out.
-    insta::assert_snapshot!(visualize_commit_graph(repo, "refs/heads/gitbutler/workspace")?, @"
-    * 16b549b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 6eb9642 (branchy) GitButler Workspace Commit
-    * 26804c3 foobar
-    * 7950f06 (origin/main, origin/HEAD, main, gitbutler/target) init
-    ");
+    snapbox::assert_data_eq!(
+        visualize_commit_graph(repo, "refs/heads/gitbutler/workspace")?,
+        snapbox::str![[r#"
+* 16b549b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 6eb9642 (branchy) GitButler Workspace Commit
+* 26804c3 foobar
+* 7950f06 (origin/main, origin/HEAD, main, gitbutler/target) init
+
+"#]]
+    );
     assert_edit_mode_cleaned_up(&ctx)?;
 
     Ok(())
@@ -323,16 +360,17 @@ fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
     save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
 
     let repo = ctx.repo.get()?;
-    insta::assert_snapshot!(
+    snapbox::assert_data_eq!(
         std::fs::read_to_string(repo.workdir().unwrap().join("conflict"))?,
-        @"
-    <<<<<<< ours
-    left
-    |||||||
-    =======
-    right
-    >>>>>>> theirs
-    "
+        snapbox::str![[r#"
+<<<<<<< ours
+left
+|||||||
+=======
+right
+>>>>>>> theirs
+
+"#]]
     );
 
     Ok(())
@@ -353,15 +391,16 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
     enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
 
     let repo = ctx.repo.get()?;
-    insta::assert_debug_snapshot!(
-        repo.head_name()?,
-        @r#"
-    Some(
-        FullName(
-            "refs/heads/gitbutler/edit",
-        ),
-    )
-    "#
+    snapbox::assert_data_eq!(
+        repo.head_name()?.to_debug(),
+        snapbox::str![[r#"
+Some(
+    FullName(
+        "refs/heads/gitbutler/edit",
+    ),
+)
+
+"#]]
     );
     let worktree_dir = repo.workdir().unwrap().to_owned();
     drop(repo);
@@ -369,38 +408,44 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
     std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
 
     let result = abort_and_return_to_workspace(&mut ctx, false, guard.write_permission());
-    insta::assert_debug_snapshot!(result.as_ref().map(|_| ()).is_err(), @"true");
+    snapbox::assert_data_eq!(
+        result.as_ref().map(|_| ()).is_err().to_debug(),
+        snapbox::str![[r#"
+true
+
+"#]]
+    );
     let err = result
         .err()
         .ok_or_else(|| anyhow!("expected forced abort to fail without --force"))?;
-    insta::assert_snapshot!(
-        err,
-        @"
-    The working tree differs from the original commit. A forced abort is necessary.
-    If you are seeing this message, please report it as a bug. The UI should have prevented this line getting hit.
-    "
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["The working tree differs from the original commit. A forced abort is necessary.
+If you are seeing this message, please report it as a bug. The UI should have prevented this line getting hit."]
     );
-    insta::assert_debug_snapshot!(
-        ctx.repo.get()?.head_name()?,
-        @r#"
-    Some(
-        FullName(
-            "refs/heads/gitbutler/edit",
-        ),
-    )
-    "#
+    snapbox::assert_data_eq!(
+        ctx.repo.get()?.head_name()?.to_debug(),
+        snapbox::str![[r#"
+Some(
+    FullName(
+        "refs/heads/gitbutler/edit",
+    ),
+)
+
+"#]]
     );
 
     abort_and_return_to_workspace(&mut ctx, true, guard.write_permission())?;
-    insta::assert_debug_snapshot!(
-        ctx.repo.get()?.head_name()?,
-        @r#"
-    Some(
-        FullName(
-            "refs/heads/gitbutler/workspace",
-        ),
-    )
-    "#
+    snapbox::assert_data_eq!(
+        ctx.repo.get()?.head_name()?.to_debug(),
+        snapbox::str![[r#"
+Some(
+    FullName(
+        "refs/heads/gitbutler/workspace",
+    ),
+)
+
+"#]]
     );
     // Leaving edit mode cleans up every edit-mode artifact instead of leaving them dangling.
     assert_edit_mode_cleaned_up(&ctx)?;
@@ -433,60 +478,67 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
     )?;
 
     let repo = ctx.repo.get()?;
-    insta::assert_debug_snapshot!(
-        repo.head_name()?,
-        @r#"
-    Some(
-        FullName(
-            "refs/heads/gitbutler/edit",
-        ),
-    )
-    "#
+    snapbox::assert_data_eq!(
+        repo.head_name()?.to_debug(),
+        snapbox::str![[r#"
+Some(
+    FullName(
+        "refs/heads/gitbutler/edit",
+    ),
+)
+
+"#]]
     );
-    insta::assert_debug_snapshot!(
-        repo.head_commit()?.message()?.summary(),
-        @r#""Changes to make millions""#
+    snapbox::assert_data_eq!(
+        repo.head_commit()?.message()?.summary().to_debug(),
+        snapbox::str![[r#"
+"Changes to make millions"
+
+"#]]
     );
-    insta::assert_debug_snapshot!(
-        repo.head_commit()?.decode()?.extra_headers,
-        @r#"
-    [
-        (
-            "gitbutler-headers-version",
-            "2",
-        ),
-        (
-            "change-id",
-            "00000000-0000-0000-0000-000000000001",
-        ),
-    ]
-    "#
+    snapbox::assert_data_eq!(
+        repo.head_commit()?.decode()?.extra_headers.to_debug(),
+        snapbox::str![[r#"
+[
+    (
+        "gitbutler-headers-version",
+        "2",
+    ),
+    (
+        "change-id",
+        "00000000-0000-0000-0000-000000000001",
+    ),
+]
+
+"#]]
     );
 
-    insta::assert_snapshot!(
+    snapbox::assert_data_eq!(
         std::fs::read_to_string(repo.path().parent().unwrap().join("conflict"))?,
-        @r"
-    <<<<<<< New base: foobar
-    left
-    ||||||| Common ancestor
-    base
-    =======
-    right
-    >>>>>>> Current commit: Changes to make millions
-    "
+        snapbox::str![[r#"
+<<<<<<< New base: foobar
+left
+||||||| Common ancestor
+base
+=======
+right
+>>>>>>> Current commit: Changes to make millions
+
+"#]]
     );
     drop(repo);
 
     abort_and_return_to_workspace(&mut ctx, true, guard.write_permission())?;
-    insta::assert_debug_snapshot!(
-        ctx.repo.get()?.head_name()?,
-        @r#"
-    Some(
-        FullName(
-            "refs/heads/gitbutler/workspace",
-        ),
-    )
-    "#
+    snapbox::assert_data_eq!(
+        ctx.repo.get()?.head_name()?.to_debug(),
+        snapbox::str![[r#"
+Some(
+    FullName(
+        "refs/heads/gitbutler/workspace",
+    ),
+)
+
+"#]]
     );
     // Leaving edit mode cleans up every edit-mode artifact instead of leaving them dangling.
     assert_edit_mode_cleaned_up(&ctx)?;
@@ -533,15 +585,16 @@ fn enter_edit_mode_works_with_only_integration_ref_present() -> Result<()> {
     };
     enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
 
-    insta::assert_debug_snapshot!(
-        ctx.repo.get()?.head_name()?,
-        @r#"
-    Some(
-        FullName(
-            "refs/heads/gitbutler/edit",
-        ),
-    )
-    "#
+    snapbox::assert_data_eq!(
+        ctx.repo.get()?.head_name()?.to_debug(),
+        snapbox::str![[r#"
+Some(
+    FullName(
+        "refs/heads/gitbutler/edit",
+    ),
+)
+
+"#]]
     );
 
     Ok(())

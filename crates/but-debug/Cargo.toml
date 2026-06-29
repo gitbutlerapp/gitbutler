@@ -48,7 +48,7 @@ zip.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
-insta.workspace = true
+snapbox.workspace = true
 termtree = "0.5.1"
 tempfile.workspace = true
 
