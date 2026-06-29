@@ -3,13 +3,24 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import gerritLogoSvg from "$lib/assets/gerrit-logo.svg?raw";
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from "$lib/branches/branchUtils";
+	import { projectLandDirectly } from "$lib/config/config";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { combineResults } from "$lib/state/helpers";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { unique } from "$lib/utils/array";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, CardGroup, Icon, Link, Select, SelectItem, TestId, Toggle } from "@gitbutler/ui";
+	import {
+		Button,
+		CardGroup,
+		Checkbox,
+		Icon,
+		Link,
+		Select,
+		SelectItem,
+		TestId,
+		Toggle,
+	} from "@gitbutler/ui";
 	import { slide } from "svelte/transition";
 	import type { RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
 
@@ -27,6 +38,8 @@
 
 	const gbConfig = $derived(gitConfig.gbConfig(projectId));
 	const gerritMode = $derived(gbConfig.response?.gitbutlerGerritMode ?? false);
+
+	const landDirectly = $derived(projectLandDirectly(projectId));
 
 	let loading = $state<boolean>(false);
 	let showMoreInfo = $state<boolean>(false);
@@ -51,7 +64,9 @@
 
 	async function onSetTargetClick() {
 		if (!branch || !remote) return;
-		posthog.captureOnboarding(OnboardingEvent.ProjectSetupContinue);
+		posthog.captureOnboarding(OnboardingEvent.ProjectSetupContinue, undefined, {
+			landDirectly: $landDirectly,
+		});
 		onBranchSelected?.([branch.name, remote]);
 	}
 
@@ -160,6 +175,11 @@
 		</ReduxResult>
 	</div>
 
+	<label for="landDirectly" class="land-directly">
+		<Checkbox name="landDirectly" small bind:checked={$landDirectly} />
+		<span class="text-12 clr-text-2">Push to main / Skip pull requests mode</span>
+	</label>
+
 	<div
 		class="project-setup__info"
 		role="presentation"
@@ -248,6 +268,13 @@
 	.project-setup__field-caption {
 		width: 90%;
 		color: var(--text-2);
+	}
+
+	.land-directly {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		cursor: pointer;
 	}
 
 	.action-buttons {

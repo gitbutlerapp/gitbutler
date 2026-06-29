@@ -6,6 +6,7 @@
 	import BranchDividerLine from "$components/branch/BranchDividerLine.svelte";
 	import BranchHeaderContextMenu from "$components/branch/BranchHeaderContextMenu.svelte";
 	import BranchReorderDropzone from "$components/branch/BranchReorderDropzone.svelte";
+	import LandBranchModal from "$components/branch/LandBranchModal.svelte";
 	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
 	import PushButton from "$components/forge/PushButton.svelte";
 	import {
@@ -17,6 +18,7 @@
 	import BranchCommitList from "$components/views/BranchCommitList.svelte";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { projectLandDirectly } from "$lib/config/config";
 	import { StartCommitDzHandler } from "$lib/dragging/dropHandlers/branchDropHandler";
 	import { REORDER_DROPZONE_FACTORY } from "$lib/dragging/stackingReorderDropzoneManager";
 	import { useForgeAuth } from "$lib/forge/forgeAuth.svelte";
@@ -55,6 +57,7 @@
 
 	let addDependentBranchModalContext = $state<AddDependentBranchModalProps>();
 	let addDependentBranchModal = $state<AddDependentBranchModal>();
+	let landBranchModal = $state<LandBranchModal>();
 
 	const selection = $derived(controller.selection);
 	const selectedCommitId = $derived(controller.commitId);
@@ -87,8 +90,10 @@
 	);
 
 	const canPublishPR = $derived(auth.authenticated.current);
-	const baseBranchNameResponse = $derived(baseBranchService.baseBranchShortName(projectId));
-	const baseBranchName = $derived(baseBranchNameResponse.response);
+	const landDirectly = $derived(projectLandDirectly(projectId));
+	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
+	const baseBranchName = $derived(baseBranchResponse.response?.shortName);
+	const landTargetName = $derived(baseBranchResponse.response?.branchName);
 
 	// Compute stack-wide derived values once per render so the per-iteration
 	// segmentContext() call below stays O(1) instead of O(n) per index.
@@ -212,7 +217,26 @@
 				/>
 			{/if}
 
-			{#if canPublishPR && !isNewBranch && branchName}
+			{#if $landDirectly}
+				{#if lastBranch && !isNewBranch && branchName}
+					<Button
+						size="tag"
+						kind="outline"
+						shrinkable
+						onclick={(e) => {
+							e.stopPropagation();
+							landBranchModal?.show(branchName);
+						}}
+						disabled={!!controller.exclusiveAction || isConflicted}
+						tooltip={isConflicted
+							? "Resolve conflicts before landing"
+							: "Land directly into the target branch"}
+						icon="branch-merge"
+					>
+						Land
+					</Button>
+				{/if}
+			{:else if canPublishPR && !isNewBranch && branchName}
 				{#if !prNumber}
 					<Button
 						size="tag"
@@ -343,6 +367,8 @@
 		{...addDependentBranchModalContext}
 	/>
 {/if}
+
+<LandBranchModal bind:this={landBranchModal} {projectId} targetBranchName={landTargetName} />
 
 <style lang="postcss">
 	.branches-wrapper {

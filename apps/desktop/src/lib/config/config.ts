@@ -41,6 +41,16 @@ export function projectRunCommitHooks(projectId: string): Persisted<boolean> {
 	return persisted(false, key + projectId);
 }
 
+/**
+ * When enabled, the branch's "Create PR" button is replaced with a "Land"
+ * button that integrates the branch straight into the target branch. This is a
+ * frontend-only preference and does not require a forge integration.
+ */
+export function projectLandDirectly(projectId: string): Persisted<boolean> {
+	const key = "projectLandDirectly_";
+	return persisted(false, key + projectId);
+}
+
 export function persistedChatModelName<T extends string>(
 	projectId: string,
 	defaultValue: T,
