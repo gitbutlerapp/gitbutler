@@ -363,6 +363,13 @@ CREATE TABLE __diesel_schema_migrations (
        run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- table branch_order
+CREATE TABLE `branch_order`(
+    `branch_ref_name` TEXT NOT NULL PRIMARY KEY,
+    `parent_ref_name` TEXT UNIQUE,
+    CHECK (`parent_ref_name` IS NULL OR `branch_ref_name` != `parent_ref_name`)
+);
+
 -- table butler_actions
 CREATE TABLE `butler_actions`(
 	`id` TEXT NOT NULL PRIMARY KEY,
@@ -541,6 +548,9 @@ CREATE TABLE `workflows`(
 	`summary` TEXT
 );
 
+-- index idx_branch_order_parent_ref_name
+CREATE INDEX `idx_branch_order_parent_ref_name` ON `branch_order`(`parent_ref_name`);
+
 -- index idx_butler_actions_created_at
 CREATE INDEX `idx_butler_actions_created_at` ON `butler_actions`(`created_at`);
 
@@ -605,6 +615,7 @@ Text("20260407120000")
 Text("20260618093000")
 Text("20260624170000")
 Text("20260626120000")
+Text("20260626120100")
 
 Table: hunk_assignments
 hunk_header | path | path_bytes | stack_id | id | branch_ref
@@ -647,6 +658,9 @@ stack_id | position | name | head_sha | pr_number | archived | review_id
 
 Table: vb_branch_targets
 stack_id | remote_name | branch_name | remote_url | sha | push_remote_name
+
+Table: branch_order
+branch_ref_name | parent_ref_name
 
 
 "#]]

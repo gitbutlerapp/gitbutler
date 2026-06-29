@@ -1,5 +1,6 @@
 use crate::{M, SchemaVersion};
 
+pub(crate) mod branch_order;
 pub(crate) mod butler_actions;
 pub(crate) mod ci_checks;
 pub(crate) mod claude;

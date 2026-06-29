@@ -199,7 +199,6 @@ impl Graph {
                 ),
             }
         };
-
         let configured_target_ref = self
             .project_meta
             .target_ref
@@ -432,6 +431,9 @@ impl Graph {
                         // Cut the stack off at the lower base if we have one. This is only
                         // the case if we have a remote.
                         if Some(s.id) == lowest_base_sidx {
+                            if self.is_ordered_ad_hoc_lower_bound(start, s) {
+                                return stop;
+                            }
                             has_seen_base.replace(true);
                             return stop;
                         }
@@ -460,6 +462,35 @@ impl Graph {
             }
         }
         Ok(stacks)
+    }
+
+    /// Return whether `candidate` is below `start` in a persisted ad-hoc branch order.
+    ///
+    /// In ad-hoc/single-branch mode, ordinary local branches below the entrypoint can become
+    /// workspace lower bounds. GitButler-created empty dependent branches are different: their
+    /// lower branch is still part of the same user-visible stack. This lets projection keep
+    /// walking through ordered branch segments instead of truncating the stack at the next local
+    /// branch boundary.
+    fn is_ordered_ad_hoc_lower_bound(&self, start: &Segment, candidate: &Segment) -> bool {
+        let Some(start_ref) = start.ref_name() else {
+            return false;
+        };
+        let Some(candidate_ref) = candidate.ref_name() else {
+            return false;
+        };
+        if candidate_ref.category() != Some(Category::LocalBranch) {
+            return false;
+        }
+
+        self.ad_hoc_branch_stack_orders.iter().any(|order| {
+            let start_idx = order.iter().position(|branch| branch.as_ref() == start_ref);
+            let candidate_idx = order
+                .iter()
+                .position(|branch| branch.as_ref() == candidate_ref);
+            start_idx
+                .zip(candidate_idx)
+                .is_some_and(|(start_idx, candidate_idx)| start_idx < candidate_idx)
+        })
     }
 
     /// Compute the lowest base (i.e. the highest generation) for the
@@ -1123,7 +1154,26 @@ impl WorkspaceState {
         };
 
         let metadata = self.metadata.as_ref();
-        let keep_empty_segment_id = matches!(self.kind, WorkspaceKind::AdHoc).then_some(self.id);
+        let keep_empty_segment_ids = if matches!(self.kind, WorkspaceKind::AdHoc) {
+            let ordered_refs = graph
+                .ad_hoc_branch_stack_orders
+                .iter()
+                .flatten()
+                .map(|ref_name| ref_name.as_ref())
+                .collect::<BTreeSet<_>>();
+            graph
+                .node_weights()
+                .filter_map(|segment| {
+                    (segment.id == self.id
+                        || segment
+                            .ref_name()
+                            .is_some_and(|ref_name| ordered_refs.contains(ref_name)))
+                    .then_some(segment.id)
+                })
+                .collect::<HashSet<_>>()
+        } else {
+            HashSet::new()
+        };
         let keep_if_fully_integrated =
             upstream_advanced_past_target && !matches!(self.kind, WorkspaceKind::AdHoc);
         for stack in &mut self.stacks {
@@ -1131,7 +1181,7 @@ impl WorkspaceState {
             // tip in managed workspaces so it survives for `integrate_upstream`. Single-branch
             // mode keeps the branch shell, but prunes integrated target/base commits from it.
             prune_integrated_stack_segments(stack, &prune_segments, keep_if_fully_integrated);
-            remove_empty_branches(stack, metadata, keep_empty_segment_id);
+            remove_empty_branches(stack, metadata, &keep_empty_segment_ids);
             if upstream_advanced_past_target {
                 // Pruning moved the stack's bottom; refresh its base to the new fork point.
                 stack.recompute_last_segment_base(&graph.inner);
@@ -1414,14 +1464,14 @@ fn commits_are_integrated(commits: &[StackCommit]) -> bool {
 fn remove_empty_branches(
     stack: &mut Stack,
     metadata: Option<&but_core::ref_metadata::Workspace>,
-    keep_empty_segment_id: Option<SegmentIndex>,
+    keep_empty_segment_ids: &HashSet<SegmentIndex>,
 ) {
     let own_metadata_stack = stack.id.and_then(|stack_id| {
         metadata.and_then(|meta| meta.stacks(Applied).find(|ms| ms.id == stack_id))
     });
     stack.segments.retain(|seg| {
         !seg.commits.is_empty()
-            || Some(seg.id) == keep_empty_segment_id
+            || keep_empty_segment_ids.contains(&seg.id)
             || own_metadata_stack.is_some_and(|ms| {
                 seg.ref_info
                     .as_ref()

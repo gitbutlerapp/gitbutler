@@ -231,6 +231,50 @@ pub trait RefMetadata {
     /// Set branch metadata to match `value`.
     fn set_branch(&mut self, value: &Self::Handle<ref_metadata::Branch>) -> anyhow::Result<()>;
 
+    /// Return the ordered local branch refs in the same stack as `ref_name`, from tip to base.
+    ///
+    /// Implementations that don't persist branch stack order can return `Ok(None)`.
+    fn branch_stack_order(
+        &self,
+        _ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<Vec<gix::refs::FullName>>> {
+        Ok(None)
+    }
+
+    /// Persist the ordered local branch refs for an ad-hoc/single-branch stack, from tip to base.
+    ///
+    /// Implementations that don't persist branch stack order should return an error.
+    fn set_branch_stack_order(&mut self, _branches: &[gix::refs::FullName]) -> anyhow::Result<()> {
+        anyhow::bail!("This metadata backend doesn't support branch stack order")
+    }
+
+    /// Return `true` if this backend can persist ad-hoc/single-branch stack order.
+    fn can_persist_branch_stack_order(&self) -> bool {
+        false
+    }
+
+    /// Rename a local branch ref in persisted ad-hoc/single-branch stack order metadata.
+    ///
+    /// Implementations that don't persist branch stack order can ignore this.
+    fn rename_branch_stack_order_reference(
+        &mut self,
+        _old_ref_name: &gix::refs::FullNameRef,
+        _new_ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    /// Remove persisted ad-hoc/single-branch stack order entries for refs that no longer exist.
+    ///
+    /// `existing_ref_names` must contain the complete set of existing local branch refs.
+    /// Implementations that don't persist branch stack order can ignore this.
+    fn remove_missing_branch_stack_order_references(
+        &mut self,
+        _existing_ref_names: &[gix::refs::FullName],
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     /// Delete the metadata associated with the given `ref_name` and return `true` if it existed, or `false` otherwise.
     ///
     /// It is OK to delete something that doesn't exist.

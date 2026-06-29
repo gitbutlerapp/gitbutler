@@ -91,6 +91,16 @@ impl Overlay {
         self.workspace = metadata;
         self
     }
+
+    /// Serve the given ad-hoc branch stack order from memory.
+    pub fn with_branch_stack_order_override(
+        mut self,
+        branches: impl IntoIterator<Item = gix::refs::FullName>,
+    ) -> Self {
+        self.branch_stack_orders
+            .push(branches.into_iter().collect());
+        self
+    }
 }
 
 impl Overlay {
@@ -107,6 +117,7 @@ impl Overlay {
             overriding_references,
             dropped_references,
             meta_branches,
+            branch_stack_orders,
             workspace,
             entrypoint,
         } = self;
@@ -134,6 +145,7 @@ impl Overlay {
             OverlayMetadata {
                 inner: meta,
                 meta_branches,
+                branch_stack_orders,
                 workspace,
             },
             entrypoint,
@@ -443,6 +455,7 @@ impl<'repo> OverlayRepo<'repo> {
 pub(crate) struct OverlayMetadata<'meta, T> {
     inner: &'meta T,
     meta_branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
+    branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
     workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }
 
@@ -502,5 +515,19 @@ where
         }
         let opt = self.inner.branch_opt(ref_name)?;
         Ok(opt.map(|data| data.clone()))
+    }
+
+    pub fn branch_stack_order(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<Vec<gix::refs::FullName>>> {
+        if let Some(branches) = self
+            .branch_stack_orders
+            .iter()
+            .find(|branches| branches.iter().any(|branch| branch.as_ref() == ref_name))
+        {
+            return Ok(Some(branches.clone()));
+        }
+        self.inner.branch_stack_order(ref_name)
     }
 }

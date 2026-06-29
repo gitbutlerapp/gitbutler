@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use but_utils::OnDemand;
+use rusqlite::OpenFlags;
 use tracing::instrument;
 
 use crate::{CacheHandle, DbHandle, migration, migration::improve_concurrency};
@@ -23,6 +24,34 @@ impl DbHandle {
             std::fs::create_dir_all(parent_dir_to_create)?;
         }
         Self::new_at_path(db_file_path)
+    }
+
+    /// Open the project database for read-only access if it already exists.
+    ///
+    /// Unlike [`Self::new_in_directory()`], this never creates parent directories,
+    /// creates the database file, or runs migrations.
+    pub fn open_existing_read_only_in_directory(
+        db_dir: impl AsRef<Path>,
+    ) -> anyhow::Result<Option<Self>> {
+        let db_file_path = Self::db_file_path(db_dir);
+        if !db_file_path.exists() {
+            return Ok(None);
+        }
+        Self::open_existing_read_only_at_path(db_file_path).map(Some)
+    }
+
+    /// Open an existing project database for read-only access.
+    #[instrument(
+        name = "DbHandle::open_existing_read_only_at_path",
+        level = "trace",
+        skip(path),
+        err(Debug)
+    )]
+    pub fn open_existing_read_only_at_path(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
+        let path = path.into();
+        let conn = rusqlite::Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        let cache = cache_for_db_path(&path);
+        Ok(DbHandle { conn, path, cache })
     }
 
     /// A new instance connecting to the project database at the given `path`.
