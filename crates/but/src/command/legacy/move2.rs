@@ -127,7 +127,7 @@ fn resolve(
         sources,
     } = args;
 
-    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+    let (repo, _ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
 
     let (unresolved_target, side) = match (above, below) {
         (Some(above), None) => (above, Side::Above),
@@ -141,12 +141,10 @@ fn resolve(
             .into_branch_or_commit()?
         {
             BranchOrCommit::Commit(commit_id) => MoveTarget::Commit { commit_id, side },
-            BranchOrCommit::Branch(branch_arg) => {
-                let name = branch_arg
-                    .try_resolve_applied_branch(&repo, &ws)?
-                    .expect("TODO: What if branch is not applied?");
-                MoveTarget::BranchBucket { name, side }
-            }
+            BranchOrCommit::Branch(branch_arg) => MoveTarget::BranchBucket {
+                name: branch_arg.resolve_existing_local_branch(&repo)?,
+                side,
+            },
         }
     };
 
