@@ -1,5 +1,5 @@
 use bstr::ByteSlice;
-use but_core::worktree::{checkout, safe_checkout};
+use but_core::worktree::{checkout_commit, checkout_unconflicted_commit, safe_checkout};
 use but_testsupport::{
     CommandExt, git_at_dir, git_status, open_repo, read_only_in_memory_scenario,
     visualize_commit_graph_all, visualize_disk_tree_skip_dot_git, visualize_index,
@@ -18,15 +18,7 @@ fn update_unborn_head() -> anyhow::Result<()> {
     let empty_tree = repo.empty_tree().id;
     let head_commit = repo.new_commit("init", empty_tree, None::<gix::ObjectId>)?;
 
-    let out = safe_checkout(empty_tree, head_commit.id, &repo, Default::default())?;
-    insta::assert_debug_snapshot!(out, @r#"
-    Outcome {
-        snapshot_tree: None,
-        num_deleted_files: 0,
-        num_added_or_updated_files: 0,
-        head_update: "Update refs/heads/main to Some(Object(Sha1(31ec8eacfba4051fd673e4fe23c775e87896a463)))",
-    }
-    "#);
+    checkout_commit(&repo, head_commit.id, Some(empty_tree))?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 31ec8ea (HEAD -> main) init");
     insta::assert_snapshot!(git_status(&repo)?, @"");
@@ -54,15 +46,7 @@ fn no_op_trees_never_touch_worktree() -> anyhow::Result<()> {
     let a_commit = repo.head_commit()?;
     let a_tree = a_commit.tree_id()?.detach();
 
-    let out = safe_checkout(a_tree, a_commit.id, &repo, Default::default())?;
-    insta::assert_debug_snapshot!(out, @r#"
-    Outcome {
-        snapshot_tree: None,
-        num_deleted_files: 0,
-        num_added_or_updated_files: 0,
-        head_update: "None",
-    }
-    "#);
+    checkout_commit(&repo, a_commit.id, Some(a_tree))?;
 
     // Nothing changed
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 4e26689 (HEAD -> main) init");
@@ -88,23 +72,15 @@ fn conflicted_commits_cannot_be_checked_out() -> anyhow::Result<()> {
     let normal = repo.rev_parse_single("normal")?.detach();
     let conflicted = repo.rev_parse_single("conflicted")?.detach();
 
-    let err = safe_checkout(normal, conflicted, &repo, Default::default())
-        .expect_err("safe_checkout must reject GitButler-conflicted commits");
+    let err = checkout_unconflicted_commit(&repo, conflicted, Some(normal))
+        .expect_err("must reject GitButler-conflicted commits");
     assert_eq!(
         err.to_string(),
         "Refusing to check out conflicted commit 84503317a1e1464381fcff65ece14bc1f4315b7c",
     );
 
-    safe_checkout(
-        repo.head_id()?.detach(),
-        conflicted,
-        &repo,
-        checkout::Options {
-            allow_conflicted_commit_checkout: true,
-            ..Default::default()
-        },
-    )
-    .expect("internal callers can explicitly opt into conflicted commit checkout");
+    checkout_commit(&repo, conflicted, Some(repo.head_id()?.detach()))
+        .expect("internal callers can explicitly opt into conflicted commit checkout");
 
     Ok(())
 }
@@ -136,15 +112,7 @@ fn pure_deletion_checkout_does_not_restore_unrelated_worktree_deletions() -> any
         "delete executable",
     )?;
 
-    let out = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default())?;
-    insta::assert_debug_snapshot!(out, @r#"
-    Outcome {
-        snapshot_tree: None,
-        num_deleted_files: 1,
-        num_added_or_updated_files: 0,
-        head_update: "Update refs/heads/main to Some(Object(Sha1(5eedd314adfb480212989a303c7651717062a9b2)))",
-    }
-    "#);
+    checkout_commit(&repo, new_commit.id, Some(head_commit.id))?;
     insta::assert_snapshot!(visualize_index(&*repo.index()?), @r"
     100644:3aac70f file
     120000:c4c364c link
@@ -171,12 +139,7 @@ fn pure_deletion_checkout_keeps_non_intersecting_worktree_deletion() -> anyhow::
     editor.upsert("c.txt", EntryKind::Blob, blob_id)?;
     let initial_tree_id = editor.write()?.detach();
     let initial_commit = repo.new_commit("init", initial_tree_id, None::<gix::ObjectId>)?;
-    safe_checkout(
-        repo.empty_tree().id,
-        initial_commit.id,
-        &repo,
-        Default::default(),
-    )?;
+    checkout_commit(&repo, initial_commit.id, Some(repo.empty_tree().id))?;
 
     std::fs::remove_file(repo.workdir_path("b.txt").expect("non-bare repository"))?;
     insta::assert_snapshot!(git_status(&repo)?, @" D b.txt");
@@ -189,11 +152,7 @@ fn pure_deletion_checkout_keeps_non_intersecting_worktree_deletion() -> anyhow::
         },
         "delete a.txt",
     )?;
-    let out = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default())?;
-    assert!(out.snapshot_tree.is_none());
-    assert_eq!(out.num_deleted_files, 1);
-    assert_eq!(out.num_added_or_updated_files, 0);
-    assert!(out.head_update.is_some());
+    checkout_commit(&repo, new_commit.id, Some(head_commit.id))?;
 
     assert!(!repo.workdir_path("a.txt").unwrap().exists());
     assert!(!repo.workdir_path("b.txt").unwrap().exists());
@@ -230,12 +189,7 @@ fn pure_deletion_checkout_keeps_empty_worktree_root() -> anyhow::Result<()> {
     editor.upsert("nested/only.txt", EntryKind::Blob, blob_id)?;
     let initial_tree_id = editor.write()?.detach();
     let initial_commit = repo.new_commit("init", initial_tree_id, None::<gix::ObjectId>)?;
-    safe_checkout(
-        repo.empty_tree().id,
-        initial_commit.id,
-        &repo,
-        Default::default(),
-    )?;
+    checkout_commit(&repo, initial_commit.id, Some(repo.empty_tree().id))?;
 
     insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(&worktree)?, @r"
     .
@@ -251,9 +205,7 @@ fn pure_deletion_checkout_keeps_empty_worktree_root() -> anyhow::Result<()> {
         },
         "delete only file",
     )?;
-    let out = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default())?;
-    assert_eq!(out.num_deleted_files, 1);
-    assert_eq!(out.num_added_or_updated_files, 0);
+    checkout_commit(&repo, new_commit.id, Some(head_commit.id))?;
     assert!(
         worktree.is_dir(),
         "safe checkout must not delete the worktree root while cleaning up empty parents"
@@ -281,7 +233,7 @@ fn worktree_and_index_deletions_are_ignored_in_snapshots() -> anyhow::Result<()>
     ");
 
     // Turn deleted files into directory - these won't conflict no matter what they were in the index.
-    let (head_commit, new_commit) = build_commit(
+    let (_head_commit, new_commit) = build_commit(
         &repo,
         |tree| {
             let empty_blob = repo.empty_blob();
@@ -295,15 +247,7 @@ fn worktree_and_index_deletions_are_ignored_in_snapshots() -> anyhow::Result<()>
         "turn changed file into a directory",
     )?;
 
-    let out = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default())?;
-    insta::assert_debug_snapshot!(out, @r#"
-    Outcome {
-        snapshot_tree: None,
-        num_deleted_files: 1,
-        num_added_or_updated_files: 1,
-        head_update: "Update refs/heads/main to Some(Object(Sha1(24f802a1250d2f84e1f49094e3b8bb1e5c0d29ad)))",
-    }
-    "#);
+    checkout_commit(&repo, new_commit.id, None)?;
 
     // Nothing changed as the checkout was aborted.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -374,10 +318,10 @@ this will cause a conflict
         "edited 'file' (add single line)",
     )?;
 
-    let err = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default()).unwrap_err();
+    let err = checkout_commit(&repo, new_commit.id, Some(head_commit.id)).unwrap_err();
     assert_eq!(
         err.to_string(),
-        "Uncommitted files would be overwritten by checkout: \"file\"",
+        "1 conflict prevents checkout; class=Checkout (20); code=Conflict (-13)",
         "we check for conflict markers, and fail."
     );
     // Nothing else changes
@@ -592,13 +536,6 @@ fn worktree_snapshot_of_legacy_crlf_blob_merges_cleanly_with_independent_target_
 
 #[test]
 fn checkout_handles_directory_and_file_replacements() -> anyhow::Result<()> {
-    if but_testsupport::gix_testtools::is_ci::cached() {
-        // TODO(gix): remove this once `gitoxide` unconditional reset/checkout is available.
-        // Fails on checkout on CI Linux as it can't deal with `file`.
-        // Probably the `git2` OS error code handling isn't working cross-platform?
-        eprintln!("SKIPPING TEST KNOWN TO FAIL ON CI ONLY");
-        return Ok(());
-    }
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   2a6d103 (HEAD -> merge) Merge branch 'A' into merge
@@ -623,15 +560,7 @@ fn checkout_handles_directory_and_file_replacements() -> anyhow::Result<()> {
         },
         "turn file into a directory",
     )?;
-    let out = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default())?;
-    insta::assert_debug_snapshot!(out, @r#"
-    Outcome {
-        snapshot_tree: None,
-        num_deleted_files: 1,
-        num_added_or_updated_files: 3,
-        head_update: "Update refs/heads/merge to Some(Object(Sha1(df178e3012ac0862407185ae7dd8d634a6cde677)))",
-    }
-    "#);
+    checkout_commit(&repo, new_commit.id, Some(head_commit.id))?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * df178e3 (HEAD -> merge) turn file into a directory
@@ -658,15 +587,7 @@ fn checkout_handles_directory_and_file_replacements() -> anyhow::Result<()> {
         },
         "turn a directory back into a file",
     )?;
-    let out = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default())?;
-    insta::assert_debug_snapshot!(out, @r#"
-    Outcome {
-        snapshot_tree: None,
-        num_deleted_files: 3,
-        num_added_or_updated_files: 1,
-        head_update: "Update refs/heads/merge to Some(Object(Sha1(94cc54fa25411ad51e319a9895d031d8da97b7ab)))",
-    }
-    "#);
+    checkout_commit(&repo, new_commit.id, Some(head_commit.id))?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 94cc54f (HEAD -> merge) turn a directory back into a file
@@ -710,15 +631,7 @@ fn unrelated_additions_do_not_affect_worktree_changes() -> anyhow::Result<()> {
         },
         "add unrelated file",
     )?;
-    let out = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default())?;
-    insta::assert_debug_snapshot!(out, @r#"
-    Outcome {
-        snapshot_tree: None,
-        num_deleted_files: 0,
-        num_added_or_updated_files: 1,
-        head_update: "Update refs/heads/main to Some(Object(Sha1(7add6cadcf636e5b3a6c15c75e82abbec97d6eef)))",
-    }
-    "#);
+    checkout_commit(&repo, new_commit.id, Some(head_commit.id))?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 7add6ca (HEAD -> main) add unrelated file
@@ -768,10 +681,9 @@ fn partial_commit_with_adjacent_lines_conflicts_on_checkout() -> anyhow::Result<
     // (added-a) because both add at the same position. Without a merge-base
     // override that includes the consumed changes, the 3-way merge treats this
     // as a conflict.
-    let err = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default()).unwrap_err();
+    let err = checkout_commit(&repo, new_commit.id, Some(head_commit.id)).unwrap_err();
     assert!(
-        err.to_string()
-            .contains("Uncommitted files would be overwritten"),
+        err.to_string().contains("1 conflict prevents checkout"),
         "checkout must abort on partial-commit conflict: {err}"
     );
 
@@ -802,10 +714,9 @@ fn partial_commit_with_deletion_plus_insertion_conflicts_on_checkout() -> anyhow
     // The three-way merge sees ours deleting old-line and theirs replacing it
     // with new-line — both modify the same region. Same class of bug as the
     // adjacent-line case: commit_create avoids this by skipping checkout entirely.
-    let err = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default()).unwrap_err();
+    let err = checkout_commit(&repo, new_commit.id, Some(head_commit.id)).unwrap_err();
     assert!(
-        err.to_string()
-            .contains("Uncommitted files would be overwritten"),
+        err.to_string().contains("1 conflict prevents checkout"),
         "checkout must abort on partial-commit conflict: {err}"
     );
 

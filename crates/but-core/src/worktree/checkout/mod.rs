@@ -8,7 +8,7 @@ pub struct Options {
     /// If set, use this tree instead of `HEAD^{tree}` as the merge base when
     /// resolving the worktree snapshot against the new HEAD.
     ///
-    /// Set this to `HEAD^{tree}` + consumed changes (additive-only) after a
+    /// Set this to `HEAD^{tree}` + consumed changes after a
     /// commit/amend so the consumed hunks cancel in the 3-way merge and don't
     /// reappear as uncommitted changes.
     pub merge_base_override: Option<gix::ObjectId>,

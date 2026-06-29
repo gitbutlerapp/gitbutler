@@ -5,38 +5,16 @@ use but_core::ref_metadata::MaybeDebug;
 
 use crate::WorkspaceCommit;
 
-/// Build a merge-base override tree from `HEAD^{tree}` + `consumed` changes
-/// (additive-only). During checkout, the 3-way snapshot merge uses this as its
-/// base so consumed hunks cancel out and don't reappear as uncommitted changes.
-///
-/// Two kinds of changes are excluded to keep the tree additive-only:
-///
-/// * `previous_path` is stripped so rename-source deletions don't leak in.
-/// * Full-file deletions (empty `hunk_headers`, file absent from worktree) are
-///   skipped — including them would remove the path from the base, causing the
-///   snapshot merge to misinterpret the worktree copy as a new addition.
+/// Build a merge-base override tree from `HEAD^{tree}` + `consumed` changes.
+/// During checkout, this is used as the baseline so consumed hunks don't
+/// reappear as uncommitted changes.
 fn compute_merge_base_override(
     repo: &gix::Repository,
     consumed: Vec<DiffSpec>,
     context_lines: u32,
 ) -> anyhow::Result<gix::ObjectId> {
     let head_tree = repo.head_tree_id_or_empty()?;
-    let workdir = repo.workdir().context("non-bare repository")?;
-    let mut specs: Vec<_> = consumed
-        .into_iter()
-        .filter(|spec| {
-            if spec.hunk_headers.is_empty() {
-                return workdir
-                    .join(gix::path::from_bstr(spec.path.as_bstr()))
-                    .exists();
-            }
-            true
-        })
-        .map(|mut spec| {
-            spec.previous_path = None;
-            Ok(spec)
-        })
-        .collect();
+    let mut specs: Vec<_> = consumed.into_iter().map(Ok).collect();
     if specs.is_empty() {
         return Ok(head_tree.detach());
     }
