@@ -24,8 +24,8 @@ import {
 	listProjectsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
-import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
+import { getHeadInfoIndex, resolveRelativeTo, type HeadInfoIndex } from "#ui/api/ref-info.ts";
+import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
@@ -181,7 +181,10 @@ const useOutlineTreeHotkeys = ({
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const isDefaultMode = useAppSelector(
@@ -190,14 +193,11 @@ const useOutlineTreeHotkeys = ({
 
 	const selectedStack =
 		selection && "stackId" in selection
-			? headInfo?.stacks.find((stack) => stack.id === selection.stackId)
+			? headInfoIndex?.stackContextById(selection.stackId)?.stack
 			: undefined;
 	const selectedBranchSegment =
 		selection?._tag === "Branch"
-			? selectedStack?.segments.find(
-					(segment) =>
-						!!segment.refName && bytesEqual(segment.refName.fullNameBytes, selection.branchRef),
-				)
+			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segment
 			: undefined;
 
 	const selectedBranchCommitsChecked = useAppSelector((state) =>
@@ -213,8 +213,8 @@ const useOutlineTreeHotkeys = ({
 			: false,
 	);
 	const selectedCommit =
-		selection?._tag === "Commit" && headInfo
-			? findCommit({ headInfo, commitId: selection.commitId })
+		selection?._tag === "Commit"
+			? (headInfoIndex?.commitContextById(selection.commitId) ?? null)?.commit
 			: null;
 	const selectedCommitForgeUrl =
 		selectedCommit && forgeInfo ? commitForgeUrl(selectedCommit, forgeInfo) : null;
@@ -303,15 +303,18 @@ const useOutlineTreeHotkeys = ({
 			},
 			{
 				onSuccess: (response) => {
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: response.newRef.fullNameBytes,
-					});
-					if (newBranch)
+					const newBranchStack = getHeadInfoIndex(
+						response.workspace.headInfo,
+					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
+
+					if (newBranchStack && newBranchStack.id !== null)
 						dispatch(
 							projectActions.selectOutline({
 								projectId,
-								selection: branchOperand(newBranch),
+								selection: branchOperand({
+									stackId: newBranchStack.id,
+									branchRef: response.newRef.fullNameBytes,
+								}),
 							}),
 						);
 				},
@@ -405,32 +408,20 @@ const useOutlineTreeHotkeys = ({
 		);
 	};
 
-	const selectedPushContext = Match.value(selection).pipe(
-		Match.tags({
-			Branch: (selection) => {
-				if (!selectedStack || selectedStack.id === null) return null;
+	const selectedSegmentIndex =
+		selection?._tag === "Branch"
+			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segmentIndex
+			: selection?._tag === "Commit"
+				? headInfoIndex?.commitContextById(selection.commitId)?.segmentIndex
+				: undefined;
 
-				const segmentIndex = selectedStack.segments.findIndex(
-					(segment) =>
-						!!segment.refName && bytesEqual(segment.refName.fullNameBytes, selection.branchRef),
-				);
-				if (segmentIndex === -1) return null;
-
-				return pushContextForSegment({ segments: selectedStack.segments, segmentIndex });
-			},
-			Commit: (selection) => {
-				if (!selectedStack || selectedStack.id === null) return null;
-
-				const segmentIndex = selectedStack.segments.findIndex((segment) =>
-					segment.commits.some((commit) => commit.id === selection.commitId),
-				);
-				if (segmentIndex === -1) return null;
-
-				return pushContextForSegment({ segments: selectedStack.segments, segmentIndex });
-			},
-		}),
-		Match.orElse(() => null),
-	);
+	const selectedPushContext =
+		selectedStack && selectedSegmentIndex !== undefined
+			? pushContextForSegment({
+					segments: selectedStack.segments,
+					segmentIndex: selectedSegmentIndex,
+				})
+			: null;
 	const selectedStackRelativeTo = selectedStack ? stackBottomRelativeTo(selectedStack) : null;
 	const selectedStackRebaseUpdate: BottomUpdate | null = selectedStackRelativeTo
 		? { kind: "rebase", selector: selectedStackRelativeTo }
@@ -791,6 +782,7 @@ export const OutlineTree: FC<
 	const dryRunWorkspace = dryRunOperationQuery.data?.workspace ?? null;
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -801,7 +793,11 @@ export const OutlineTree: FC<
 	});
 
 	const commitTargetState = useAppSelector((state) => selectProjectCommitTarget(state, projectId));
-	const targetComboboxItems = buildCommitTargetComboboxItems({ headInfo, commitTargetState });
+	const targetComboboxItems = buildCommitTargetComboboxItems({
+		headInfo,
+		headInfoIndex,
+		commitTargetState,
+	});
 	const commitTarget = selectCommitTargetComboboxItem({
 		items: targetComboboxItems,
 		commitTargetState,
@@ -1158,15 +1154,18 @@ const CommitRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: response.newRef.fullNameBytes,
-					});
-					if (newBranch)
+					const newBranchStack = getHeadInfoIndex(
+						response.workspace.headInfo,
+					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
+
+					if (newBranchStack && newBranchStack.id !== null)
 						dispatch(
 							projectActions.selectOutline({
 								projectId,
-								selection: branchOperand(newBranch),
+								selection: branchOperand({
+									stackId: newBranchStack.id,
+									branchRef: response.newRef.fullNameBytes,
+								}),
 							}),
 						);
 				},
@@ -1640,14 +1639,16 @@ type CommitTargetComboboxItem = {
 
 const buildCommitTargetComboboxItems = ({
 	headInfo,
+	headInfoIndex,
 	commitTargetState,
 }: {
 	headInfo: RefInfo | undefined;
+	headInfoIndex: HeadInfoIndex | undefined;
 	commitTargetState: RelativeTo | null;
 }): Array<CommitTargetComboboxItem> => {
 	const commitTarget =
-		headInfo && commitTargetState?.type === "commit"
-			? findCommit({ headInfo, commitId: commitTargetState.subject })
+		commitTargetState?.type === "commit"
+			? headInfoIndex?.commitContextById(commitTargetState.subject)?.commit
 			: null;
 
 	return [
@@ -1759,7 +1760,10 @@ const Changes: FC<{
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
 
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 	const isCommitOrAmendPending = commitCreateMutation.isPending || commitAmendMutation.isPending;
 	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
@@ -1767,8 +1771,8 @@ const Changes: FC<{
 		canCommitOrAmendBase &&
 		worktreeChanges &&
 		worktreeChanges.changes.length > 0 &&
-		headInfo &&
-		resolveRelativeTo({ headInfo, relativeTo: commitTarget.relativeTo }) !== null;
+		headInfoIndex &&
+		resolveRelativeTo({ headInfoIndex, relativeTo: commitTarget.relativeTo }) !== null;
 
 	const [open, setOpen] = useState(false);
 
@@ -1803,10 +1807,10 @@ const Changes: FC<{
 	};
 
 	const amendCommit = () => {
-		if (!commitTarget || !headInfo) return;
+		if (!commitTarget || !headInfoIndex) return;
 
 		const commitId = resolveRelativeTo({
-			headInfo,
+			headInfoIndex,
 			relativeTo: commitTarget.relativeTo,
 		});
 		if (commitId === null) throw new Error("No commit to amend.");
@@ -2217,15 +2221,18 @@ const BranchRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: response.newRef.fullNameBytes,
-					});
-					if (newBranch)
+					const newBranchStack = getHeadInfoIndex(
+						response.workspace.headInfo,
+					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
+
+					if (newBranchStack && newBranchStack.id !== null)
 						dispatch(
 							projectActions.selectOutline({
 								projectId,
-								selection: branchOperand(newBranch),
+								selection: branchOperand({
+									stackId: newBranchStack.id,
+									branchRef: response.newRef.fullNameBytes,
+								}),
 							}),
 						);
 				},
@@ -2640,14 +2647,15 @@ const SegmentContent: FC<{
 	}
 
 	const dryRunWorkspace = use(DryRunWorkspaceContext);
+	const dryRunHeadInfoIndex = dryRunWorkspace ? getHeadInfoIndex(dryRunWorkspace.headInfo) : null;
 
 	return (
 		<div>
 			{segment.commits.map((commit) => {
 				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
-					dryRunWorkspace && dryRunCommitId !== undefined
-						? findCommit({ headInfo: dryRunWorkspace.headInfo, commitId: dryRunCommitId })
+					dryRunCommitId !== undefined
+						? (dryRunHeadInfoIndex?.commitContextById(dryRunCommitId)?.commit ?? null)
 						: null;
 				return (
 					<CommitC

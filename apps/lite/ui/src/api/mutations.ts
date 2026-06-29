@@ -1,5 +1,5 @@
 import { encodeBytes } from "#ui/api/bytes.ts";
-import { findCommitStackId, renameBranchInHeadInfo } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex, renameBranchInHeadInfo } from "#ui/api/ref-info.ts";
 import {
 	changesInWorktreeQueryOptions,
 	getReviewMergeStatusQueryOptions,
@@ -464,8 +464,10 @@ export const useCommitInsertBlank = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 
-			const stackId = findCommitStackId(response.workspace.headInfo, response.newCommit);
-			if (stackId !== null)
+			const stackId = getHeadInfoIndex(response.workspace.headInfo).commitContextById(
+				response.newCommit,
+			)?.stack.id;
+			if (stackId != null)
 				dispatch(
 					projectActions.selectOutline({
 						projectId: input.projectId,

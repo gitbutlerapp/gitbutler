@@ -1,5 +1,6 @@
 import { useAbsorb } from "#ui/api/mutations.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { assert } from "#ui/assert.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -26,7 +27,6 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Tooltip } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import { type RefInfo } from "@gitbutler/but-sdk";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
@@ -162,10 +162,10 @@ const CheckedCommitOperationControls: FC<{ checkedCommitCount: number; projectId
 };
 
 const AbsorbOperationControls: FC<{
-	headInfo: RefInfo;
+	headInfoIndex: HeadInfoIndex;
 	projectId: string;
 	mode: AbsorbMode;
-}> = ({ headInfo, projectId, mode }) => {
+}> = ({ headInfoIndex, projectId, mode }) => {
 	const dispatch = useAppDispatch();
 	const absorptionPlan = useQuery(
 		absorptionPlanQueryOptions({ projectId, target: mode.sourceTarget }),
@@ -195,7 +195,7 @@ const AbsorbOperationControls: FC<{
 					<Label>Failed to load absorb plan</Label>
 				) : (
 					<Label>
-						Absorb {operandLabel({ headInfo, operand: mode.source })} into{" "}
+						Absorb {operandLabel({ headInfoIndex, operand: mode.source })} into{" "}
 						{absorptionPlan.data.length} commits
 					</Label>
 				)}
@@ -292,11 +292,11 @@ const TransferTypeToggleGroup: FC<{
 };
 
 const TransferKeyboardOperationControls: FC<{
-	headInfo: RefInfo;
+	headInfoIndex: HeadInfoIndex;
 	projectId: string;
 	mode: KeyboardTransferOperationMode;
 	target: Operand;
-}> = ({ headInfo, projectId, mode, target }) => {
+}> = ({ headInfoIndex, projectId, mode, target }) => {
 	const dispatch = useAppDispatch();
 	const { mutate: runOperation } = useRunOperation();
 	const operations = getOperations(mode.source, target);
@@ -326,8 +326,8 @@ const TransferKeyboardOperationControls: FC<{
 			<Separator />
 			<ControlsRow>
 				<Label>
-					<div>Source: {operandLabel({ headInfo, operand: mode.source })}</div>
-					<div>Target: {operandLabel({ headInfo, operand: target })}</div>
+					<div>Source: {operandLabel({ headInfoIndex, operand: mode.source })}</div>
+					<div>Target: {operandLabel({ headInfoIndex, operand: target })}</div>
 				</Label>
 				<Controls
 					onCancel={cancel}
@@ -352,7 +352,10 @@ export const OperationControls: FC = () => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 	const checkedCommitCount = useAppSelector((state) =>
 		selectProjectCheckedCommitCount(state, projectId),
 	);
@@ -367,17 +370,21 @@ export const OperationControls: FC = () => {
 					/>
 				),
 			Absorb: (mode) =>
-				headInfo && (
-					<AbsorbOperationControls headInfo={headInfo} projectId={projectId} mode={mode} />
+				headInfoIndex && (
+					<AbsorbOperationControls
+						headInfoIndex={headInfoIndex}
+						projectId={projectId}
+						mode={mode}
+					/>
 				),
 			Transfer: ({ value: mode }) =>
 				Match.value(mode).pipe(
 					Match.tags({
 						Keyboard: (mode) =>
 							selection &&
-							headInfo && (
+							headInfoIndex && (
 								<TransferKeyboardOperationControls
-									headInfo={headInfo}
+									headInfoIndex={headInfoIndex}
 									projectId={projectId}
 									mode={mode}
 									target={selection}
