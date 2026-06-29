@@ -14,10 +14,7 @@ import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
-
-export type DragData = {
-	source: Operand;
-};
+import type { DragData } from "./DragData.ts";
 
 const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes(styles.dragPreview, "text-13")}>{children}</div>
