@@ -191,7 +191,7 @@ export const FilesTree: FC<
 													projectId={projectId}
 													fileParent={fileParent}
 													branchNameByCommitId={(cid) =>
-														headInfoIndex?.commitContextById.get(cid)?.segment.refName?.displayName
+														headInfoIndex?.commitContextById(cid)?.segment.refName?.displayName
 													}
 												/>
 											}

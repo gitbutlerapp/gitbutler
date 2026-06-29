@@ -11,9 +11,11 @@ import {
 export const branchRefKey = (branchRef: Array<number>): string => branchRef.join(",");
 
 export type HeadInfoIndex = {
-	stackContextById: Map<string, { stack: Stack }>;
-	branchContextByRef: Map<string, { stack: Stack; segment: Segment }>;
-	commitContextById: Map<string, { stack: Stack; segment: Segment; commit: Commit }>;
+	stackContextById: (stackId: string) => { stack: Stack } | undefined;
+	branchContextByRef: (ref: string) => { stack: Stack; segment: Segment } | undefined;
+	commitContextById: (
+		commitId: string,
+	) => { stack: Stack; segment: Segment; commit: Commit } | undefined;
 };
 
 const headInfoIndexCache = new WeakMap<RefInfo, HeadInfoIndex>();
@@ -39,9 +41,9 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	}
 
 	return {
-		stackContextById,
-		branchContextByRef,
-		commitContextById,
+		stackContextById: (id: string) => stackContextById.get(id),
+		branchContextByRef: (ref: string) => branchContextByRef.get(ref),
+		commitContextById: (id: string) => commitContextById.get(id),
 	};
 };
 
@@ -131,12 +133,12 @@ export const resolveRelativeTo = ({
 			return relativeTo.subject;
 		case "referenceBytes":
 			return (
-				headInfoIndex.branchContextByRef.get(branchRefKey(relativeTo.subject))?.segment.commits[0]
+				headInfoIndex.branchContextByRef(branchRefKey(relativeTo.subject))?.segment.commits[0]
 					?.id ?? null
 			);
 		case "reference":
 			return (
-				headInfoIndex.branchContextByRef.get(branchRefKey(encodeBytes(relativeTo.subject)))?.segment
+				headInfoIndex.branchContextByRef(branchRefKey(encodeBytes(relativeTo.subject)))?.segment
 					.commits[0]?.id ?? null
 			);
 	}
