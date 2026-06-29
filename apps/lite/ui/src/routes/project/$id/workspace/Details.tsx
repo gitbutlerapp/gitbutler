@@ -968,7 +968,7 @@ const Diff: FC<{
 				<FilesToggle className={getButtonClassName({})}>Toggle files</FilesToggle>
 
 				<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
-					<ToggleGroupStyles>
+					<ToggleGroup multiple render={<ToggleGroupStyles />}>
 						<Toolbar.Button
 							render={
 								<DiffOverflowToggle render={<ToggleStyles iconOnly />}>
@@ -983,7 +983,7 @@ const Diff: FC<{
 								</DiffBackgroundsToggle>
 							}
 						/>
-					</ToggleGroupStyles>
+					</ToggleGroup>
 					{canUseSplitDiff && (
 						<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
 							<Toolbar.Button
