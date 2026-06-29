@@ -431,6 +431,25 @@ pub fn apply<'ws>(
     let ws_md_orig = ws_md.clone();
     {
         let ws_mut: &mut Workspace = &mut ws_md;
+        // After a `git switch` out of a managed workspace onto a foreign branch, the metadata is
+        // stale: old stacks are still marked in-workspace though they're gone from the projection.
+        // Demote those so only the applied branches survive. Skip when HEAD still points at the
+        // workspace ref (re-entering it) or the stack is still projected (a genuinely enclosed
+        // adhoc checkout).
+        let head_points_at_workspace_ref = repo
+            .head_name()?
+            .is_some_and(|name| name == workspace_ref_name_to_update);
+        if matches!(ws.kind, WorkspaceKind::AdHoc) && !head_points_at_workspace_ref {
+            for stack in &mut ws_mut.stacks {
+                let visible = stack.branches.iter().any(|b| {
+                    ws.find_segment_and_stack_by_refname(b.ref_name.as_ref())
+                        .is_some()
+                });
+                if !visible {
+                    stack.workspacecommit_relation = Outside;
+                }
+            }
+        }
         for rn in &branches_to_apply {
             add_branch_as_stack_forcefully(ws_mut, rn.as_ref(), order, new_stack_id);
         }

@@ -1479,6 +1479,65 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
 }
 
 #[test]
+fn apply_after_switching_out_of_workspace_drops_stale_stacks() -> anyhow::Result<()> {
+    // A managed workspace exists with `outside` marked in-workspace. The user then `git switch`es
+    // onto `feature`, a branch outside the workspace, leaving the metadata stale.
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "advanced-stack-and-unnamed-stack-in-workspace",
+            |meta| {
+                add_stack_with_segments(meta, 1, "outside", StackState::InWorkspace, &[]);
+            },
+        )?;
+    git(&repo).args(["branch", "applied", "feature"]).run();
+    git(&repo).args(["checkout", "feature"]).run();
+
+    let ws = Graph::from_head(
+        &repo,
+        &meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_traversal_options(),
+    )?
+    .into_workspace()?;
+
+    // Apply a different branch from the adhoc `feature` checkout. The new workspace should hold the
+    // current branch plus the applied one, while the stale `outside` stack is demoted.
+    let out = but_workspace::branch::apply(
+        r("refs/heads/applied"),
+        &ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+    assert_eq!(out.status, OutcomeStatus::Applied);
+
+    let ws_md = meta.workspace(WORKSPACE_REF_NAME.try_into().unwrap())?;
+    let in_workspace = |name: &str| {
+        ws_md
+            .stacks
+            .iter()
+            .find(|s| s.name().is_some_and(|n| n.shorten() == name))
+            .map(|s| s.is_in_workspace())
+    };
+    assert_eq!(
+        in_workspace("outside"),
+        Some(false),
+        "the stale stack from the abandoned workspace is demoted to outside"
+    );
+    assert_eq!(
+        in_workspace("feature"),
+        Some(true),
+        "the foreign branch we switched to joins the new workspace"
+    );
+    assert_eq!(
+        in_workspace("applied"),
+        Some(true),
+        "the newly applied branch is in the new workspace"
+    );
+    Ok(())
+}
+
+#[test]
 fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> anyhow::Result<()> {
     let (_tmp, ws_graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
