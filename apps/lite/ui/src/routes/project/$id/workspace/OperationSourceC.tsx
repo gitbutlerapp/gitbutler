@@ -25,11 +25,10 @@ const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 
 export const OperationSourceC: FC<
 	{
-		onDragStart?: () => void;
 		projectId: string;
 		source: Operand;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
-> = ({ onDragStart: onDragStartProp, projectId, source, render, ...props }) => {
+> = ({ projectId, source, render, ...props }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
@@ -59,7 +58,6 @@ export const OperationSourceC: FC<
 		() => outlineMode._tag !== "RenameBranch" && outlineMode._tag !== "RewordCommit",
 	);
 	const onDragStart = useEffectEvent(() => {
-		onDragStartProp?.();
 		dispatch(
 			projectActions.enterTransferMode({
 				projectId,
