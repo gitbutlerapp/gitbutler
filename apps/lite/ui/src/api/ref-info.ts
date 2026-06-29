@@ -11,10 +11,12 @@ import {
 export const branchRefKey = (branchRef: Array<number>): string => branchRef.join(",");
 
 export type HeadInfoIndex = {
+	// files tree
 	branchNameByCommitId: Map<string, string | undefined>;
-	branchOperandByRef: Map<string, BranchOperand>;
 	commitById: Map<string, Commit>;
+	// outline & label. label could probably get by w/o it
 	segmentByBranchRef: Map<string, Segment>;
+	// outline
 	stackById: Map<string, Stack>;
 };
 
@@ -22,7 +24,6 @@ const headInfoIndexCache = new WeakMap<RefInfo, HeadInfoIndex>();
 
 const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	const branchNameByCommitId = new Map<string, string | undefined>();
-	const branchOperandByRef = new Map<string, BranchOperand>();
 	const commitById = new Map<string, Commit>();
 	const segmentByBranchRef = new Map<string, Segment>();
 	const stackById = new Map<string, Stack>();
@@ -34,11 +35,6 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 			if (segment.refName) {
 				const key = branchRefKey(segment.refName.fullNameBytes);
 				if (!segmentByBranchRef.has(key)) segmentByBranchRef.set(key, segment);
-				if (stack.id !== null && !branchOperandByRef.has(key))
-					branchOperandByRef.set(key, {
-						stackId: stack.id,
-						branchRef: segment.refName.fullNameBytes,
-					});
 			}
 
 			const branchName = segment.refName?.displayName;
@@ -51,7 +47,6 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 
 	return {
 		branchNameByCommitId,
-		branchOperandByRef,
 		commitById,
 		segmentByBranchRef,
 		stackById,
