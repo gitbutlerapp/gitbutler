@@ -590,35 +590,35 @@ const Title: FC<{
 							<h3 className={classes("text-15", "text-semibold")}>
 								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
 								{commitDetails.commit.hasConflicts && " ⚠️"}
+								{commitBody(commitDetails.commit.message) !== undefined && (
+									<Tooltip.Root>
+										<Tooltip.Trigger
+											aria-controls={bodyId}
+											aria-expanded={!bodyCollapsed}
+											aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+											aria-pressed={!bodyCollapsed}
+											className={classes(
+												getButtonClassName({
+													variant: bodyCollapsed ? "outline" : "gray",
+													iconOnly: true,
+													size: "small",
+												}),
+												styles.commitBodyToggle,
+											)}
+											onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
+										>
+											<Icon name="kebab" />
+										</Tooltip.Trigger>
+										<Tooltip.Portal>
+											<Tooltip.Positioner sideOffset={4}>
+												<Tooltip.Popup render={<TooltipPopup />}>
+													{bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+												</Tooltip.Popup>
+											</Tooltip.Positioner>
+										</Tooltip.Portal>
+									</Tooltip.Root>
+								)}
 							</h3>
-							{commitBody(commitDetails.commit.message) !== undefined && (
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-controls={bodyId}
-										aria-expanded={!bodyCollapsed}
-										aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-										aria-pressed={!bodyCollapsed}
-										className={classes(
-											getButtonClassName({
-												variant: bodyCollapsed ? "outline" : "gray",
-												iconOnly: true,
-												size: "small",
-											}),
-											styles.compactButton,
-										)}
-										onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
-									>
-										<Icon name="kebab" />
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>
-												{bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-							)}
 						</div>
 					)}
 				</SuspenseQuery>

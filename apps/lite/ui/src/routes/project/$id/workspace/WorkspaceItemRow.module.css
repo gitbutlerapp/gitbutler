@@ -145,21 +145,23 @@
 }
 
 .bubbleClrSafe {
-	background-color: color-mix(in srgb, var(--clr-safe-50) 18%, transparent);
-	color: var(--clr-safe-40);
+	--background-color: light-dark(var(--clr-safe-50), var(--clr-safe-30));
+	background-color: color-mix(in srgb, var(--background-color) 18%, transparent);
+	color: light-dark(var(--clr-safe-40), var(--clr-safe-60));
 
 	[data-selection-scope]:focus .containerSelected & {
-		background-color: color-mix(in srgb, var(--clr-safe-50) 22%, transparent);
-		color: var(--clr-safe-60);
+		background-color: color-mix(in srgb, var(--background-color) 22%, transparent);
+		color: light-dark(var(--clr-safe-60), var(--clr-safe-30));
 	}
 }
 
 .bubbleClrDanger {
-	background-color: color-mix(in srgb, var(--clr-danger-50) 18%, transparent);
-	color: var(--clr-danger-40);
+	--background-color: light-dark(var(--clr-danger-50), var(--clr-danger-30));
+	background-color: color-mix(in srgb, var(--background-color) 18%, transparent);
+	color: light-dark(var(--clr-danger-40), var(--clr-danger-60));
 
 	[data-selection-scope]:focus .containerSelected & {
-		background-color: color-mix(in srgb, var(--clr-danger-50) 22%, transparent);
-		color: var(--clr-danger-60);
+		background-color: color-mix(in srgb, var(--background-color) 22%, transparent);
+		color: light-dark(var(--clr-danger-60), var(--clr-danger-30));
 	}
 }
