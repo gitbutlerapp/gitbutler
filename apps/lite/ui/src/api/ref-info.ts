@@ -16,7 +16,6 @@ export type HeadInfoIndex = {
 	commitById: Map<string, Commit>;
 	segmentByBranchRef: Map<string, Segment>;
 	stackById: Map<string, Stack>;
-	stackIdByCommitId: Map<string, string>;
 };
 
 const headInfoIndexCache = new WeakMap<RefInfo, HeadInfoIndex>();
@@ -27,7 +26,6 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	const commitById = new Map<string, Commit>();
 	const segmentByBranchRef = new Map<string, Segment>();
 	const stackById = new Map<string, Stack>();
-	const stackIdByCommitId = new Map<string, string>();
 
 	for (const stack of headInfo.stacks) {
 		if (stack.id !== null) stackById.set(stack.id, stack);
@@ -47,8 +45,6 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 			for (const commit of segment.commits) {
 				branchNameByCommitId.set(commit.id, branchName);
 				if (!commitById.has(commit.id)) commitById.set(commit.id, commit);
-				if (stack.id !== null && !stackIdByCommitId.has(commit.id))
-					stackIdByCommitId.set(commit.id, stack.id);
 			}
 		}
 	}
@@ -59,7 +55,6 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 		commitById,
 		segmentByBranchRef,
 		stackById,
-		stackIdByCommitId,
 	};
 };
 
