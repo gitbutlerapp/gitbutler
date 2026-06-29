@@ -9,11 +9,13 @@
 	/* Border-radius and inline-start border only apply inside a group */
 	& .item {
 		--button-border-radius: none;
-		--button-border-inline-start: none;
 
 		&:first-child {
 			--button-border-radius: var(--radius-m) 0 0 var(--radius-m);
-			--button-border-inline-start: var(--button-border);
+		}
+
+		&:not(:first-child) {
+			border-inline-start: none;
 		}
 
 		&:last-child {
