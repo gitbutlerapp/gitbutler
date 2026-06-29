@@ -3,7 +3,7 @@
 	align-items: center;
 	justify-content: center;
 	border: var(--button-border);
-	border-radius: var(--button-border-radius, 8px);
+	border-radius: 8px;
 	background-color: var(--button-bg);
 	color: var(--button-fg);
 	line-height: 1;

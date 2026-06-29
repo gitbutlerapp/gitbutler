@@ -8,18 +8,22 @@
 
 	/* Border-radius and inline-start border only apply inside a group */
 	& .item {
-		--button-border-radius: none;
-
 		&:first-child {
-			--button-border-radius: var(--radius-m) 0 0 var(--radius-m);
+			border-start-end-radius: 0;
+			border-end-end-radius: 0;
 		}
 
 		&:not(:first-child) {
 			border-inline-start: none;
 		}
 
+		&:not(:first-child, :last-child) {
+			border-radius: 0;
+		}
+
 		&:last-child {
-			--button-border-radius: 0 var(--radius-m) var(--radius-m) 0;
+			border-start-start-radius: 0;
+			border-end-start-radius: 0;
 		}
 	}
 }
