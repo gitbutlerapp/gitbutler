@@ -1,4 +1,4 @@
-import { branchRefKey, type HeadInfoIndex } from "#ui/api/ref-info.ts";
+import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitTitle, shortCommitId } from "#ui/commit.ts";
 import { Match } from "effect";
 import { Operand } from "#ui/operands.ts";
@@ -14,7 +14,7 @@ export const operandLabel = ({
 	Match.value(operand).pipe(
 		Match.tagsExhaustive({
 			Branch: ({ branchRef }) => {
-				const segment = headInfoIndex.branchContextByRef(branchRefKey(branchRef))?.segment;
+				const segment = headInfoIndex.branchContextByRefBytes(branchRef)?.segment;
 				return assert(segment?.refName).displayName;
 			},
 			File: ({ path }) => path,

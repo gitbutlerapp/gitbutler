@@ -8,11 +8,9 @@ import {
 	type Stack,
 } from "@gitbutler/but-sdk";
 
-export const branchRefKey = (branchRef: Array<number>): string => branchRef.join(",");
-
 export type HeadInfoIndex = {
 	stackContextById: (stackId: string) => { stack: Stack } | undefined;
-	branchContextByRef: (ref: string) => { stack: Stack; segment: Segment } | undefined;
+	branchContextByRefBytes: (ref: Array<number>) => { stack: Stack; segment: Segment } | undefined;
 	commitContextById: (
 		commitId: string,
 	) => { stack: Stack; segment: Segment; commit: Commit } | undefined;
@@ -24,6 +22,8 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	const stackContextById = new Map<string, { stack: Stack }>();
 	const branchContextByRef = new Map<string, { stack: Stack; segment: Segment }>();
 	const commitContextById = new Map<string, { stack: Stack; segment: Segment; commit: Commit }>();
+
+	const branchRefKey = (ref: Array<number>): string => ref.join(",");
 
 	for (const stack of headInfo.stacks) {
 		if (stack.id !== null) stackContextById.set(stack.id, { stack });
@@ -42,7 +42,7 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 
 	return {
 		stackContextById: (id: string) => stackContextById.get(id),
-		branchContextByRef: (ref: string) => branchContextByRef.get(ref),
+		branchContextByRefBytes: (ref: Array<number>) => branchContextByRef.get(branchRefKey(ref)),
 		commitContextById: (id: string) => commitContextById.get(id),
 	};
 };
@@ -133,13 +133,12 @@ export const resolveRelativeTo = ({
 			return relativeTo.subject;
 		case "referenceBytes":
 			return (
-				headInfoIndex.branchContextByRef(branchRefKey(relativeTo.subject))?.segment.commits[0]
-					?.id ?? null
+				headInfoIndex.branchContextByRefBytes(relativeTo.subject)?.segment.commits[0]?.id ?? null
 			);
 		case "reference":
 			return (
-				headInfoIndex.branchContextByRef(branchRefKey(encodeBytes(relativeTo.subject)))?.segment
-					.commits[0]?.id ?? null
+				headInfoIndex.branchContextByRefBytes(encodeBytes(relativeTo.subject))?.segment.commits[0]
+					?.id ?? null
 			);
 	}
 };

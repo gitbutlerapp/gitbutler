@@ -25,7 +25,6 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import {
-	branchRefKey,
 	findBranchOperandByRef,
 	getHeadInfoIndex,
 	resolveRelativeTo,
@@ -203,7 +202,7 @@ const useOutlineTreeHotkeys = ({
 			: undefined;
 	const selectedBranchSegment =
 		selection?._tag === "Branch"
-			? headInfoIndex?.branchContextByRef(branchRefKey(selection.branchRef))?.segment
+			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segment
 			: undefined;
 
 	const selectedBranchCommitsChecked = useAppSelector((state) =>
