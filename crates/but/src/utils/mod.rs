@@ -10,6 +10,8 @@ pub use output_channel::{
 mod object_id;
 pub use object_id::{shorten_hex_object_id, shorten_object_id, split_short_id};
 
+pub mod rejection;
+
 mod pager;
 
 mod debug_as_type;

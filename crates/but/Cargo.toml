@@ -64,6 +64,7 @@ but-forge-storage.workspace = true
 but-workspace = { workspace = true }
 but-api = { workspace = true, features = ["path-bytes"] }
 but-graph.workspace = true
+but-hunk-dependency.workspace = true
 but-llm.workspace = true
 but-agentlog.workspace = true
 but-transaction.workspace = true

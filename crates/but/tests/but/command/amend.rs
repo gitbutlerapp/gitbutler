@@ -30,6 +30,40 @@ fn branch_commits_contain_file(
 }
 
 #[test]
+fn amend_reports_dependency_changes() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    // Commit `first` to branch foo and an unrelated file to branch bar.
+    env.file("first", "Some text");
+    env.but("commit -m 'add first' -c foo").assert().success();
+    env.file("second", "Other text");
+    env.but("commit -m 'add second' -c bar").assert().success();
+
+    // Change `first` (which depends on foo) and try to amend it into bar's
+    // commit. It cannot land there, so amend should name the branch/commit it
+    // depends on and suggest stacking bar onto foo.
+    env.file("first", "changes");
+    let status = status_json(&env)?;
+    let bar_commit = branch_commit_ids(&status, "bar")[0].clone();
+    env.but(format!("amend {bar_commit} --changes first"))
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Amended the only hunk in first in the uncommitted area → [..]
+Note: 1 change could not be applied:
+  first
+    line 1 depends on foo ([..])
+
+Hint: you can stack bar on top of foo to apply these changes:
+  but move bar foo
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn amend_accepts_comma_separated_uncommitted_changes() {
     assert_multiple_amend(|target_commit| {
         format!("amend {target_commit} --changes one.txt,two.txt")
