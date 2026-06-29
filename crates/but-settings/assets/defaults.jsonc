@@ -19,8 +19,6 @@
 		"oauthClientId": "cd51880daa675d9e6452"
 	},
 	"featureFlags": {
-		// Enables the v3 safe checkout.
-		"cv3": false,
 		/// Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref.
 		"unapplyV3Pgm": false,
 		/// Enable single branch mode.

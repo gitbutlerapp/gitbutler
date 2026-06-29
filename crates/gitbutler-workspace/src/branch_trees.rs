@@ -85,18 +85,11 @@ pub fn update_uncommitted_changes(
     new: WorkspaceState,
     perm: &mut RepoExclusive,
 ) -> Result<()> {
-    let repo = &*ctx.repo.get()?;
-    let uncommitted_changes = if ctx.settings.feature_flags.cv3 {
-        None
-    } else {
-        #[expect(deprecated)]
-        Some(repo.create_wd_tree(0)?)
-    };
-
-    update_uncommitted_changes_with_tree(ctx, old, new, uncommitted_changes, None, perm)
+    update_uncommitted_changes_with_tree(ctx, old, new, None, None, perm)
 }
 
-/// `old_uncommitted_changes` is `None` if the `safe_checkout` feature is toggled on in `ctx`
+/// Pass `None` for `old_uncommitted_changes` to transition the worktree via safe checkout;
+/// pass `Some(tree_id)` to move that materialized worktree tree between workspaces instead.
 pub fn update_uncommitted_changes_with_tree(
     ctx: &Context,
     old: WorkspaceState,

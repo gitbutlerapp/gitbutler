@@ -4052,7 +4052,6 @@ dependencies = [
  "but-serde",
  "but-testsupport",
  "but-utils",
- "git2",
  "gitbutler-branch",
  "gitbutler-cherry-pick",
  "gitbutler-repo",

@@ -16,7 +16,6 @@ pub struct TelemetryUpdate {
 #[serde(rename_all = "camelCase")]
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
-    pub cv3: Option<bool>,
     pub unapply_v3_pgm: Option<bool>,
     pub single_branch: Option<bool>,
     pub irc: Option<bool>,
@@ -115,16 +114,12 @@ impl AppSettingsWithDiskSync {
     pub fn update_feature_flags(
         &self,
         FeatureFlagsUpdate {
-            cv3,
             unapply_v3_pgm,
             single_branch,
             irc,
         }: FeatureFlagsUpdate,
     ) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
-        if let Some(cv3) = cv3 {
-            settings.feature_flags.cv3 = cv3;
-        }
         if let Some(unapply_v3_pgm) = unapply_v3_pgm {
             settings.feature_flags.unapply_v3_pgm = unapply_v3_pgm;
         }
@@ -366,7 +361,6 @@ mod tests {
 
         settings
             .update_feature_flags(FeatureFlagsUpdate {
-                cv3: None,
                 unapply_v3_pgm: Some(true),
                 single_branch: None,
                 irc: None,

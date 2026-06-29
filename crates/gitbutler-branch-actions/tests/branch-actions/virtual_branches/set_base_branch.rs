@@ -192,16 +192,17 @@ mod go_back_to_workspace {
         std::fs::write(repo.path().join("file.txt"), "tree").unwrap();
 
         let mut guard = ctx.exclusive_worktree_access();
-        assert!(matches!(
-            gitbutler_branch_actions::set_base_branch(
-                ctx,
-                &"refs/remotes/origin/master".parse().unwrap(),
-                guard.write_permission(),
-            )
-            .unwrap_err()
-            .downcast_ref(),
-            Some(Marker::ProjectConflict)
-        ));
+        let err = gitbutler_branch_actions::set_base_branch(
+            ctx,
+            &"refs/remotes/origin/master".parse().unwrap(),
+            guard.write_permission(),
+        )
+        .unwrap_err();
+        // Going back to the workspace aborts up-front rather than leaving the project conflicted.
+        assert_eq!(
+            err.custom_context().map(|ctx| ctx.code),
+            Some(Code::PreconditionFailed)
+        );
     }
 
     #[test]
@@ -230,16 +231,17 @@ mod go_back_to_workspace {
         std::fs::write(repo.path().join("file.txt"), "tree").unwrap();
 
         let mut guard = ctx.exclusive_worktree_access();
-        assert!(matches!(
-            gitbutler_branch_actions::set_base_branch(
-                ctx,
-                &"refs/remotes/origin/master".parse().unwrap(),
-                guard.write_permission(),
-            )
-            .unwrap_err()
-            .downcast_ref(),
-            Some(Marker::ProjectConflict)
-        ));
+        let err = gitbutler_branch_actions::set_base_branch(
+            ctx,
+            &"refs/remotes/origin/master".parse().unwrap(),
+            guard.write_permission(),
+        )
+        .unwrap_err();
+        // Going back to the workspace aborts up-front rather than leaving the project conflicted.
+        assert_eq!(
+            err.custom_context().map(|ctx| ctx.code),
+            Some(Code::PreconditionFailed)
+        );
     }
 
     #[test]
