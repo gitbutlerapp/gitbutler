@@ -11,7 +11,7 @@ use but_core::{
     sync::RepoExclusive,
     ui::TreeChanges,
     update_head_reference,
-    worktree::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout},
+    worktree::{checkout, safe_checkout},
 };
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
@@ -651,7 +651,6 @@ pub fn apply_only_with_perm(
             workspace_merge: WorkspaceMerge::default(),
             on_workspace_conflict: OnWorkspaceMergeConflict::default(),
             workspace_reference_naming: WorkspaceReferenceNaming::default(),
-            uncommitted_changes: UncommitedWorktreeChanges::default(),
             order: None,
             new_stack_id: None,
         },
@@ -937,7 +936,6 @@ fn checkout_ref_with_perm(
             &repo,
             checkout::Options {
                 skip_head_update: true,
-                uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                 ..Default::default()
             },
         )

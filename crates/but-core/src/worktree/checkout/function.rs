@@ -36,7 +36,6 @@ pub fn safe_checkout_from_head(
 /// If `new_head_id` is a *commit*, we will also set `HEAD` (or the ref it points to if symbolic) to the `new_head_id`.
 /// We will also update the `.git/index` to match the `new_head_id^{tree}`.
 /// GitButler-conflicted commits are rejected by default before any worktree, index, or ref update.
-/// Note that the value for [`super::UncommitedWorktreeChanges`] is critical to determine what happens if a change would be overwritten.
 ///
 /// We will always handle changes in the worktree safely to avoid loss of uncommitted information. This also means that deletions
 /// never cause us to conflict. Conflicted files that would be checked out will cause an error.
@@ -52,7 +51,6 @@ pub fn safe_checkout(
     new_head_id: gix::ObjectId,
     repo: &gix::Repository,
     Options {
-        uncommitted_changes: conflicting_worktree_changes_opts,
         skip_head_update,
         merge_base_override,
         allow_conflicted_commit_checkout,
@@ -85,7 +83,6 @@ pub fn safe_checkout(
         source_tree.id,
         destination_tree.id,
         &mut opts,
-        conflicting_worktree_changes_opts,
         merge_base_override,
     )?
     .map(|(snapshot_id, new_destination_id)| {

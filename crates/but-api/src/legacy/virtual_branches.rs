@@ -7,7 +7,6 @@ use but_core::{
     DiffSpec, RefMetadata,
     ref_metadata::{StackId, StackKind, WorkspaceStack},
     sync::{RepoExclusive, RepoShared},
-    worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_ctx::{Context, ThreadSafeContext};
 use but_error::bail_precondition;
@@ -675,7 +674,6 @@ fn unapply_stack_v3_with_perm(
         &mut meta,
         but_workspace::branch::unapply::Options {
             workspace_disposition,
-            uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
         },
     )?;
     *ws = outcome.workspace.into_owned();

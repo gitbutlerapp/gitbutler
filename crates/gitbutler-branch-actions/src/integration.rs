@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use anyhow::{Context as _, Result, anyhow};
-use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_ctx::{Context, access::RepoExclusive};
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt};
@@ -181,7 +180,6 @@ pub fn update_workspace_commit_with_vb_state(
             final_commit,
             &gix_repo,
             but_core::worktree::checkout::Options {
-                uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                 skip_head_update: true,
                 ..Default::default()
             },

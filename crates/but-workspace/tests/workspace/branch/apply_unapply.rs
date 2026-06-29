@@ -9,7 +9,6 @@ use bstr::ByteSlice;
 use but_core::{
     RefMetadata, WORKSPACE_REF_NAME, ref_metadata,
     ref_metadata::{StackId, StackKind, WorkspaceCommitRelation::Outside},
-    worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_graph::{
     Graph,
@@ -4304,7 +4303,6 @@ fn apply_options() -> but_workspace::branch::apply::Options {
         workspace_merge: WorkspaceMerge::MergeIfNeeded,
         on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
         workspace_reference_naming: WorkspaceReferenceNaming::Default,
-        uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
         order: None,
         new_stack_id: Some(stack_id_for_name),
     }
@@ -4314,7 +4312,6 @@ fn unapply_options() -> but_workspace::branch::unapply::Options {
     but_workspace::branch::unapply::Options {
         // TODO: make this the Default once it's KeepWorkspaceReference.
         workspace_disposition: WorkspaceDisposition::KeepWorkspaceReference,
-        uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
     }
 }
 
@@ -4328,7 +4325,6 @@ fn unapply_options_with(
 ) -> but_workspace::branch::unapply::Options {
     but_workspace::branch::unapply::Options {
         workspace_disposition: disposition,
-        ..unapply_options()
     }
 }
 

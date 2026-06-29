@@ -12,19 +12,13 @@ use gix::{
     prelude::ObjectIdExt,
 };
 
-use crate::{
-    TreeStatus,
-    ext::ObjectStorageExt,
-    snapshot,
-    worktree::checkout::{Outcome, UncommitedWorktreeChanges},
-};
+use crate::{TreeStatus, ext::ObjectStorageExt, snapshot, worktree::checkout::Outcome};
 
 /// Preserve any uncommitted worktree changes that would be affected by a checkout from one tree to another.
 ///
 /// If the checkout would touch paths with local worktree changes, the *relevant* worktree changes are first
 /// captured in a snapshot tree based on `source_tree_id`. That snapshot is then resolved onto
-/// `destination_tree_id`; depending on `uncommitted_changes`, unresolved conflicts either abort the
-/// checkout or are kept in the snapshot while the checkout proceeds.
+/// `destination_tree_id`.
 ///
 /// Returns `None` if there are no checkout changes, or if no local worktree changes need to be preserved.
 /// Otherwise returns the snapshot tree ID and, if resolving the snapshot changed the checkout target, the
@@ -59,16 +53,12 @@ use crate::{
 ///   to checkout the whole destination tree.
 ///
 ///   Normal added or modified checkout paths are still added by the caller.
-/// * `uncommitted_changes` - Policy for preserved worktree changes that do not apply cleanly to
-///   `destination_tree_id`: either abort before checkout, or keep the conflicting content in the
-///   snapshot while allowing the checkout to overwrite the worktree.
 pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
     files_to_checkout: &[(ChangeKind, BString)],
     repo: &gix::Repository,
     source_tree_id: gix::ObjectId,
     destination_tree_id: gix::ObjectId,
     checkout_opts: &mut git2::build::CheckoutBuilder,
-    uncommitted_changes: UncommitedWorktreeChanges,
     merge_base_override: Option<gix::ObjectId>,
 ) -> anyhow::Result<Option<(gix::ObjectId, Option<gix::ObjectId>)>> {
     if files_to_checkout.is_empty() {
@@ -248,26 +238,22 @@ pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
                 let new_destination_id =
                     if let Some(mut worktree_cherry_pick) = resolve.worktree_cherry_pick {
                         // re-apply snapshot of just what we need and see if they apply cleanly.
-                        match uncommitted_changes {
-                            UncommitedWorktreeChanges::KeepAndAbortOnConflict => {
-                                let unresolved = TreatAsUnresolved::git();
-                                if worktree_cherry_pick.has_unresolved_conflicts(unresolved) {
-                                    let mut paths = worktree_cherry_pick
-                                        .conflicts
-                                        .iter()
-                                        .filter(|c| c.is_unresolved(unresolved))
-                                        .map(|c| format!("{:?}", c.ours.location()))
-                                        .collect::<Vec<_>>();
-                                    paths.sort();
-                                    paths.dedup();
-                                    bail_precondition!(
-                                        "Uncommitted files would be overwritten by checkout: {}",
-                                        paths.join(", ")
-                                    );
-                                }
-                            }
-                            UncommitedWorktreeChanges::KeepConflictingInSnapshotAndOverwrite => {}
+                        let unresolved = TreatAsUnresolved::git();
+                        if worktree_cherry_pick.has_unresolved_conflicts(unresolved) {
+                            let mut paths = worktree_cherry_pick
+                                .conflicts
+                                .iter()
+                                .filter(|c| c.is_unresolved(unresolved))
+                                .map(|c| format!("{:?}", c.ours.location()))
+                                .collect::<Vec<_>>();
+                            paths.sort();
+                            paths.dedup();
+                            bail_precondition!(
+                                "Uncommitted files would be overwritten by checkout: {}",
+                                paths.join(", ")
+                            );
                         }
+
                         let res = Some(worktree_cherry_pick.tree.write()?.detach());
                         if let Some(memory) = repo_in_memory.objects.take_object_memory() {
                             memory.persist(repo_in_memory)?;

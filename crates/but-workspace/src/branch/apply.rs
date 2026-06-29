@@ -3,7 +3,6 @@ use std::borrow::Cow;
 use but_core::{
     WORKSPACE_REF_NAME,
     ref_metadata::{StackId, StackKind},
-    worktree::checkout::UncommitedWorktreeChanges,
 };
 
 use crate::branch::{OnWorkspaceMergeConflict, try_find_validated_ref};
@@ -189,9 +188,6 @@ pub struct Options {
     /// How the workspace reference should be named should it be created.
     /// The creation is always needed if there are more than one branch applied.
     pub workspace_reference_naming: WorkspaceReferenceNaming,
-    /// How the worktree checkout should behave when uncommitted changes are present in the worktree that it would
-    /// want to modify to accommodate the new workspace commit, with the applied stack added.
-    pub uncommitted_changes: UncommitedWorktreeChanges,
     /// If not `None`, the applied branch should be merged into the workspace commit at the N'th parent position.
     /// This is useful if the tip of a branch (at a specific position) was unapplied, and a segment within that branch
     /// should now be re-applied, but of course, be placed at the same spot and not end up at the end of the workspace.
@@ -257,7 +253,6 @@ pub fn apply<'ws>(
         workspace_merge: integration_mode,
         on_workspace_conflict,
         workspace_reference_naming,
-        uncommitted_changes,
         order,
         new_stack_id,
     }: Options,
@@ -313,7 +308,6 @@ pub fn apply<'ws>(
             commit_to_checkout,
             repo,
             but_core::worktree::checkout::Options {
-                uncommitted_changes,
                 skip_head_update: false,
                 ..Default::default()
             },
@@ -744,7 +738,6 @@ pub fn apply<'ws>(
         new_head_id,
         repo,
         but_core::worktree::checkout::Options {
-            uncommitted_changes,
             skip_head_update: true,
             ..Default::default()
         },

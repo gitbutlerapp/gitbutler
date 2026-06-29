@@ -5,7 +5,6 @@ use but_core::{
     WORKSPACE_REF_NAME,
     git_config::{edit_repo_config, ensure_config_value},
     sync::RepoShared,
-    worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_ctx::Context;
 use but_error::Code;
@@ -145,7 +144,6 @@ fn go_back_to_integration(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch
             tree_to_checkout_to_avoid_ref_update.detach(),
             &repo,
             but_core::worktree::checkout::Options {
-                uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                 skip_head_update: false,
                 ..Default::default()
             },

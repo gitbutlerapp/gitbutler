@@ -1,22 +1,6 @@
-/// What to do when uncommitted changes are in the way of files that will be affected by the checkout, and that
-/// don't re-apply cleanly on top of the new worktree commit.
-#[derive(Default, Debug, Copy, Clone)]
-pub enum UncommitedWorktreeChanges {
-    /// Do not alter anything if local worktree changes conflict with the incoming one, but abort the operation instead.
-    #[default]
-    KeepAndAbortOnConflict,
-    /// Place the files that would be altered, AND at least one conflicts when brought back, into a snapshot based
-    /// on the current `HEAD`, and overwrite them.
-    /// Note that uncommitted changes that aren't affected will just be left as is.
-    // TODO: Add a ref-name with which to associate the snapshot commit for safekeeping, but needs UI support.
-    KeepConflictingInSnapshotAndOverwrite,
-}
-
 /// Options for use in [super::safe_checkout()].
 #[derive(Default, Debug, Clone)]
 pub struct Options {
-    /// How to deal with uncommitted changes.
-    pub uncommitted_changes: UncommitedWorktreeChanges,
     /// If `true`, do not change `HEAD` to the new commit.
     ///
     /// This is typically to be avoided, but may be used if you want to change the HEAD location yourself.

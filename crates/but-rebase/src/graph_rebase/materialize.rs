@@ -2,10 +2,7 @@
 use anyhow::{Context, Result, bail};
 use but_core::{
     ObjectStorageExt as _, RefMetadata,
-    worktree::{
-        checkout::{Options, UncommitedWorktreeChanges},
-        safe_checkout_from_head,
-    },
+    worktree::{checkout::Options, safe_checkout_from_head},
 };
 use gix::refs::{
     Target,
@@ -55,7 +52,6 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         new_head,
                         &repo,
                         Options {
-                            uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                             skip_head_update: true,
                             merge_base_override,
                             allow_conflicted_commit_checkout: true,

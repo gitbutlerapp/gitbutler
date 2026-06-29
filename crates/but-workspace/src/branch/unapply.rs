@@ -1,4 +1,3 @@
-use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use std::borrow::Cow;
 
 /// Returned by [unapply()](function::unapply()).
@@ -120,9 +119,6 @@ impl WorkspaceDisposition {
 pub struct Options {
     /// How to represent the workspace after the stack has been removed.
     pub workspace_disposition: WorkspaceDisposition,
-    /// How the worktree checkout should behave when uncommitted changes are present in the worktree that it would
-    /// want to modify to accommodate the new workspace commit, with the unapplied stack removed.
-    pub uncommitted_changes: UncommitedWorktreeChanges,
 }
 
 pub(crate) mod function {
@@ -199,7 +195,6 @@ pub(crate) mod function {
         meta: &mut impl RefMetadata,
         Options {
             workspace_disposition,
-            uncommitted_changes,
         }: Options,
     ) -> anyhow::Result<Outcome<'ws>> {
         let ws = workspace;
@@ -237,7 +232,6 @@ pub(crate) mod function {
                 meta,
                 workspace_ref_name.as_ref(),
                 workspace_disposition,
-                uncommitted_changes,
             );
         }
 
@@ -323,7 +317,6 @@ pub(crate) mod function {
             workspace_ref_name.as_ref(),
             &ws_md,
             workspace_disposition,
-            uncommitted_changes,
             branch_commit_id,
         )?;
         meta.set_workspace(&ws_md)?;
@@ -373,7 +366,6 @@ pub(crate) mod function {
                     repo,
                     &ref_to_switch_to,
                     but_core::worktree::checkout::Options {
-                        uncommitted_changes,
                         // We will be setting the HEAD ourselves.
                         skip_head_update: true,
                         ..Default::default()
@@ -470,15 +462,13 @@ pub(crate) mod function {
     /// `ws_md` is the metadata that produced that projection. `repo` is the repository whose
     /// workspace ref and worktree may be updated. `workspace_ref_name` is the managed workspace
     /// ref to move to the new workspace commit. `disposition` controls whether an unnecessary
-    /// workspace merge commit is kept or not. `uncommitted_changes` controls checkout conflict
-    /// handling.
+    /// workspace merge commit is kept or not.
     fn update_workspace_ref_after_unapply(
         ws: &but_graph::Workspace,
         repo: &gix::Repository,
         workspace_ref_name: &FullNameRef,
         ws_md: &but_core::ref_metadata::Workspace,
         disposition: WorkspaceDisposition,
-        uncommitted_changes: but_core::worktree::checkout::UncommitedWorktreeChanges,
         excluded_anonymous_tip_id: Option<gix::ObjectId>,
     ) -> anyhow::Result<WorkspaceRefUpdateAfterUnapply> {
         let prev_head_id = ws
@@ -504,13 +494,7 @@ pub(crate) mod function {
         if !keep_workspace_commit {
             let new_head_id =
                 commit_to_point_workspace_ref_to_after_unapply(ws, &future_workspace_tips)?;
-            checkout_and_update_workspace_ref(
-                repo,
-                prev_head_id,
-                new_head_id,
-                workspace_ref_name,
-                uncommitted_changes,
-            )?;
+            checkout_and_update_workspace_ref(repo, prev_head_id, new_head_id, workspace_ref_name)?;
             return Ok(WorkspaceRefUpdateAfterUnapply {
                 entrypoint_id: new_head_id,
                 workspace_merge: None,
@@ -526,13 +510,7 @@ pub(crate) mod function {
             storage.persist(repo)?;
             drop(in_memory_repo);
         }
-        checkout_and_update_workspace_ref(
-            repo,
-            prev_head_id,
-            new_head_id,
-            workspace_ref_name,
-            uncommitted_changes,
-        )?;
+        checkout_and_update_workspace_ref(repo, prev_head_id, new_head_id, workspace_ref_name)?;
         Ok(WorkspaceRefUpdateAfterUnapply {
             entrypoint_id: new_head_id,
             workspace_merge: merge.workspace_merge,
@@ -592,7 +570,6 @@ pub(crate) mod function {
         meta: &mut impl RefMetadata,
         workspace_ref_name: &FullNameRef,
         disposition: WorkspaceDisposition,
-        uncommitted_changes: but_core::worktree::checkout::UncommitedWorktreeChanges,
     ) -> anyhow::Result<Outcome<'static>> {
         if !disposition.may_switch_away_from_workspace() {
             bail!(
@@ -607,7 +584,6 @@ pub(crate) mod function {
             repo,
             &ref_to_checkout,
             but_core::worktree::checkout::Options {
-                uncommitted_changes,
                 skip_head_update: true,
                 ..Default::default()
             },
@@ -842,14 +818,12 @@ pub(crate) mod function {
         prev_head_id: gix::ObjectId,
         new_head_id: gix::ObjectId,
         workspace_ref_name: &FullNameRef,
-        uncommitted_changes: but_core::worktree::checkout::UncommitedWorktreeChanges,
     ) -> anyhow::Result<()> {
         safe_checkout(
             repo,
             prev_head_id,
             new_head_id,
             but_core::worktree::checkout::Options {
-                uncommitted_changes,
                 skip_head_update: true,
                 ..Default::default()
             },
