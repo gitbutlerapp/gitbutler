@@ -1,11 +1,5 @@
 import { encodeBytes, bytesEqual } from "#ui/api/bytes.ts";
-import {
-	type Commit,
-	type RefInfo,
-	type RelativeTo,
-	type Segment,
-	type Stack,
-} from "@gitbutler/but-sdk";
+import type { Commit, RefInfo, RelativeTo, Segment, Stack } from "@gitbutler/but-sdk";
 
 export type HeadInfoIndex = {
 	stackContextById: (stackId: string) => { stack: Stack } | undefined;
