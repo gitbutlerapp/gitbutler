@@ -1,9 +1,13 @@
 //! Putting the landed commit onto the target: a local two-ref move for a self-remote, or a push
 //! for a real remote. Both report a moved-target race as a retryable `Code::GitNonFastForward`.
+//!
+//! Lifted from the `but land` CLI command. The push path still takes `but_ctx::Context` because the
+//! only push helper available today is the legacy `gitbutler_git` one; this is the one piece of land
+//! that keeps a `Context` dependency until a graph-shaped push primitive exists.
 
 use anyhow::bail;
 use but_ctx::Context;
-use gitbutler_git::GitContextExt;
+use gitbutler_git::GitContextExt as _;
 use gix::refs::{
     Target,
     transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
@@ -90,15 +94,17 @@ pub(super) fn push_to_target(
 ) -> anyhow::Result<()> {
     let push_remote_tracking_ref = format!("refs/remotes/{push_remote_name}/{target_branch_name}");
     let refspec = format!("{new_target_oid}:refs/heads/{target_branch_name}");
-    // Askpass is disabled in the CLI (`but_askpass::disable()` in main.rs), so authenticated
-    // remotes rely on git's own non-interactive credential helpers; passing a broker is inert.
+    // Enable the askpass broker (`Some(None)`: no stack context) so authenticated remotes get
+    // credentials when called from desktop/SDK, where the broker is installed. The CLI disables
+    // askpass (`but_askpass::disable()` in main.rs), so there it falls back to git's own
+    // non-interactive credential helpers.
     ctx.push(
         new_target_oid,
         push_remote_tracking_ref,
         false,
         false,
         Some(refspec),
-        None,
+        Some(None),
         vec![],
     )?;
     Ok(())

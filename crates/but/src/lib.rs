@@ -1624,7 +1624,6 @@ async fn match_subcommand(
         Subcommands::Land { branch, yes, no_ff } => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::land::handle(&mut ctx, out, &branch, yes, no_ff)
-                .await
                 .context("Failed to land branch.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
