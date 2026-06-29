@@ -279,7 +279,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved fe12bcd above branch 'A'
+Moved fe12bcd to new branch 'a-branch-1' above branch 'A'
 
 "#]]);
 
@@ -329,7 +329,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9ac4652 above branch 'A'
+Moved 9ac4652 to new branch 'a-branch-1' above branch 'A'
 
 "#]]);
 
@@ -379,7 +379,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9ac4652 below branch 'A'
+Moved 9ac4652 to new branch 'a-branch-1' below branch 'A'
 
 "#]]);
 
@@ -429,7 +429,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved fe12bcd below branch 'A'
+Moved fe12bcd to new branch 'a-branch-1' below branch 'A'
 
 "#]]);
 
@@ -479,7 +479,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9ac4652, fe12bcd above branch 'A'
+Moved 9ac4652, fe12bcd to new branch 'a-branch-1' above branch 'A'
 
 "#]]);
 
@@ -529,7 +529,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved 9ac4652, fe12bcd below branch 'A'
+Moved 9ac4652, fe12bcd to new branch 'a-branch-1' below branch 'A'
 
 "#]]);
 
@@ -597,13 +597,19 @@ Hint: Run `but status` for applicable targets.
 
 "#]]);
 
-    env.but("_move2 94 --above no-such-branch").assert().failure().stderr_eq(snapbox::str![[r#"
+    env.but("_move2 94 --above no-such-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
 Error: Could not find anchor: 'no-such-branch'
 
 Hint: Run `but status` for applicable targets.
 
 "#]]);
-    env.but("_move2 94 --below no-such-branch").assert().failure().stderr_eq(snapbox::str![[r#"
+    env.but("_move2 94 --below no-such-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
 Error: Could not find anchor: 'no-such-branch'
 
 Hint: Run `but status` for applicable targets.

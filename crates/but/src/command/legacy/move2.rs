@@ -21,21 +21,29 @@ use crate::{
     utils::{CliOutputHuman, IntermediateChannel, WriteWithUtils, targeting::Side},
 };
 
-pub enum MoveOutcome {
-    Commits {
-        sources: NonEmpty<gix::ObjectId>,
-        target: MoveTarget,
-    },
+pub struct MoveOutcome {
+    pub sources: NonEmpty<gix::ObjectId>,
+    pub target: MoveTarget,
+    pub new_branch_name: Option<FullName>,
 }
 
 impl CliOutputHuman for MoveOutcome {
     fn on_human(self, out: &mut dyn WriteWithUtils, _theme: &Theme) -> anyhow::Result<()> {
-        match self {
-            Self::Commits { sources, target } => {
-                let sources = sources.into_iter().map(theme::Commit).join(", ");
+        let Self {
+            sources,
+            target,
+            new_branch_name,
+        } = self;
+        let sources = sources.into_iter().map(theme::Commit).join(", ");
 
-                writeln!(out, "Moved {sources} {target}")?;
-            }
+        if let Some(new_branch_name) = new_branch_name {
+            writeln!(
+                out,
+                "Moved {sources} to new branch {} {target}",
+                theme::Branch(new_branch_name)
+            )?;
+        } else {
+            writeln!(out, "Moved {sources} {target}")?;
         }
 
         Ok(())
@@ -68,9 +76,14 @@ struct MoveCommitsOperation {
 }
 
 impl MoveCommitsOperation {
-    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
-        let (relative_to, side) = match self.target {
-            MoveTarget::Commit { commit_id, side } => (RelativeTo::Commit(commit_id), side.into()),
+    fn execute(
+        self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+    ) -> anyhow::Result<Option<FullName>> {
+        let (relative_to, side, new_branch_name) = match self.target {
+            MoveTarget::Commit { commit_id, side } => {
+                (RelativeTo::Commit(commit_id), side.into(), None)
+            }
             MoveTarget::BranchBucket { name, side } => {
                 let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
                 let anchor = Anchor::at_segment(name.as_ref(), side.into());
@@ -80,12 +93,16 @@ impl MoveCommitsOperation {
                     |_| StackId::generate(),
                     Some(0),
                 )?;
-                (RelativeTo::Reference(new_branch_name), Side::Below.into())
+                (
+                    RelativeTo::Reference(new_branch_name.clone()),
+                    Side::Below.into(),
+                    Some(new_branch_name),
+                )
             }
         };
 
         tx.move_commits(self.sources, relative_to, side)?;
-        Ok(())
+        Ok(new_branch_name)
     }
 }
 
@@ -183,25 +200,27 @@ fn run(
     move_op: MoveOperation,
 ) -> CliResult<MoveOutcome> {
     let snapshot_details = SnapshotDetails::new(OperationKind::MoveCommit);
-    let ((), _ws) = but_transaction::with_transaction_with_perm(
+    let (new_branch_name, _ws) = but_transaction::with_transaction_with_perm(
         ctx,
         meta,
         perm,
         snapshot_details,
         DryRun::No,
         |mut tx| {
-            match move_op.clone() {
+            let new_branch_name = match move_op.clone() {
                 MoveOperation::Commit(op) => op.execute(&mut tx)?,
             };
 
-            Ok(but_transaction::Commit(()))
+            Ok(but_transaction::Commit(new_branch_name))
         },
     )?;
 
     let outcome = match move_op {
-        MoveOperation::Commit(MoveCommitsOperation { sources, target }) => {
-            MoveOutcome::Commits { sources, target }
-        }
+        MoveOperation::Commit(MoveCommitsOperation { sources, target }) => MoveOutcome {
+            sources,
+            target,
+            new_branch_name,
+        },
     };
 
     Ok(outcome)
