@@ -66,6 +66,69 @@ fn commit_with_message_from_file() {
 }
 
 #[test]
+fn commit_reports_dependency_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    // Commit a file to branch `foo`.
+    env.file("first", "Some text");
+    env.but("commit -m 'add first' -c foo").assert().success();
+
+    // Change the same file, then try to commit it onto a new, independent
+    // branch. The change depends on `foo`'s commit, so it cannot land here; the
+    // CLI should name the branch/commit it depends on and suggest stacking.
+    env.file("first", "changes");
+    env.but("commit -m 'change first elsewhere' -c bar")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Created new independent branch 'bar'
+✓ Created commit [..] on branch bar
+Note: 1 change could not be applied:
+  first
+    line 1 depends on foo ([..])
+
+Hint: you can stack bar on top of foo to apply these changes:
+  but move bar foo
+
+"#]]);
+}
+
+#[test]
+fn commit_reports_dependency_changes_json() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("first", "Some text");
+    env.but("commit -m 'add first' -c foo").assert().success();
+
+    // The change to `first` depends on foo, so committing it onto bar is
+    // rejected; assert the `--json` shape of the reported dependency.
+    env.file("first", "changes");
+    let output = env
+        .but("commit -m 'change first elsewhere' -c bar --format json")
+        .assert()
+        .success();
+    let stdout = std::str::from_utf8(&output.get_output().stdout)?;
+    let json: serde_json::Value = serde_json::from_str(stdout)?;
+
+    let rejected = json["rejected"].as_array().expect("rejected array");
+    assert_eq!(rejected.len(), 1, "exactly one change should be rejected");
+    let change = &rejected[0];
+    assert_eq!(change["path"], "first");
+    assert!(change["reason"].is_string(), "reason should be a string");
+    let commit = &change["dependencies"][0]["commits"][0];
+    assert_eq!(commit["branch"], "foo");
+    assert!(
+        commit["commitId"].as_str().is_some_and(|id| id.len() == 40),
+        "commitId should serialize as a full hex object id, got {:?}",
+        commit["commitId"]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn commit_with_message_file_not_found() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
 

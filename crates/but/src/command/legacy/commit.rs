@@ -18,7 +18,7 @@ use crate::{
     legacy::workspace::{HeadInfoBranch, HeadInfoStack},
     theme::{self, Paint},
     tui,
-    utils::{InputOutputChannel, OutputChannel, diff_specs},
+    utils::{InputOutputChannel, OutputChannel, diff_specs, rejection},
 };
 
 type TargetStack = (StackId, HeadInfoStack);
@@ -634,19 +634,20 @@ pub(crate) fn commit(
         guard.write_permission(),
     )?;
 
-    if !outcome.rejected_specs.is_empty() {
+    let rejected = if outcome.rejected_specs.is_empty() {
+        Vec::new()
+    } else {
         tracing::warn!(
             ?outcome.rejected_specs,
             "Failed to commit at least one selected change"
         );
-        if let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "{} Some selected changes could not be committed.",
-                t.attention.paint("Warning:"),
-            )?;
-        }
-    }
+        // Explain against the pre-commit workspace: the rejected hunks are still
+        // in the worktree, and the just-created commit must not be in the
+        // projection (or a rejected hunk could resolve to it). This relies on
+        // `commit_create` not invalidating the cached workspace.
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        rejection::explain_rejections(&repo, &ws, &outcome.rejected_specs)
+    };
 
     if let Some(out) = out.for_human() {
         let commit_short = match outcome.new_commit {
@@ -660,6 +661,7 @@ pub(crate) fn commit(
             t.commit_id.paint(commit_short),
             t.local_branch.paint(&target_branch.name),
         )?;
+        rejection::write_rejection_report(out, &rejected, Some(target_branch.name.as_str()))?;
     } else if let Some(json_out) = out.for_json() {
         let commit_id = outcome.new_commit.map(|id| id.to_string());
         let mut commit_data = serde_json::json!({
@@ -669,6 +671,7 @@ pub(crate) fn commit(
         if !is_positioned_commit {
             commit_data["branch_tip"] = commit_data["commit_id"].clone();
         }
+        commit_data["rejected"] = serde_json::to_value(&rejected).unwrap_or_default();
         json_out.write_value(commit_data)?;
     }
 
