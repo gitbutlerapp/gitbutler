@@ -1,4 +1,7 @@
 //! Deciding the merge topology and building the commit that lands on the target.
+//!
+//! Lifted from the `but land` CLI command. This is pure `gix`/topology logic with no
+//! workspace, stack, or `Context` dependency — it takes a repository and two refs.
 
 use anyhow::bail;
 use bstr::ByteSlice;
@@ -10,9 +13,7 @@ use gix::prelude::ObjectIdExt;
 
 /// The merge topology decision for a single landing attempt.
 pub(super) enum LandOutcome {
-    AlreadyIntegrated {
-        target_oid: gix::ObjectId,
-    },
+    AlreadyIntegrated,
     FastForward {
         feature_oid: gix::ObjectId,
         target_oid: gix::ObjectId,
@@ -54,7 +55,7 @@ pub(super) fn decide_land_outcome(
     };
 
     if merge_base == feature_oid {
-        return Ok(LandOutcome::AlreadyIntegrated { target_oid });
+        return Ok(LandOutcome::AlreadyIntegrated);
     }
     if merge_base == target_oid && !no_ff {
         return Ok(LandOutcome::FastForward {

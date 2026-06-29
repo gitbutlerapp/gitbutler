@@ -28,6 +28,13 @@ pub mod branch;
 /// Functions that operate on the workspace.
 pub mod workspace;
 
+/// Land a branch directly onto the target ref (the "avoid pull requests" workflow).
+///
+/// Gated behind `legacy` for now because the real-remote push relies on the legacy `gitbutler-git`
+/// push helper; the boundary itself is modern (ref input, [`WorkspaceState`] output).
+#[cfg(feature = "legacy")]
+pub mod land;
+
 /// Functions that operate commits
 pub mod commit;
 

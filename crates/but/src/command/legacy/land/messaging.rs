@@ -1,6 +1,7 @@
 //! Confirmation prompt and end-of-command reporting, kept honest about what actually happened.
 
 use anyhow::bail;
+use but_api::land::{BranchLandKind, BranchLandResult};
 use but_ctx::Context;
 
 use crate::{
@@ -8,68 +9,145 @@ use crate::{
     utils::{Confirm, ConfirmDefault, OutputChannel},
 };
 
-use super::Landed;
+/// Render the outcome of a land: the headline, a note when the remaining branches were left
+/// un-reconciled, stale pull-request warnings for rebased siblings, and the undo caveat.
+pub(super) fn report_land_result(
+    out: &mut OutputChannel,
+    ctx: &Context,
+    result: &BranchLandResult,
+    branch_name: &str,
+    target_display: &str,
+    push_remote_name: &str,
+    target_branch_name: &str,
+) -> anyhow::Result<()> {
+    let t = theme::get();
 
-/// The headline reported at the end of a land, honest about whether the branch was actually moved
-/// onto the target this run or was already there.
-pub(super) fn land_headline(landed: &Landed, branch_name: &str, target_display: &str) -> String {
-    match landed {
-        Landed::AlreadyIntegrated => format!("{branch_name} was already on {target_display}."),
-        Landed::Updated { .. } => format!("Landed {branch_name} onto {target_display}."),
+    if let Some(out) = out.for_human() {
+        let headline = match result.landed {
+            BranchLandKind::AlreadyIntegrated => {
+                format!("{branch_name} was already on {target_display}.")
+            }
+            BranchLandKind::Updated { .. } => {
+                format!("Landed {branch_name} onto {target_display}.")
+            }
+        };
+        let style = if result.reconcile_skipped {
+            t.attention
+        } else {
+            t.success
+        };
+        writeln!(out, "\n{}", style.paint(headline))?;
     }
+
+    if result.reconcile_skipped {
+        if let Some(out) = out.for_human() {
+            // One message for both skip causes (the fetch tracking ref hadn't caught up, or
+            // uncommitted changes blocked the rebase). Both are resolved by a later `but pull`, so
+            // we don't assert a cause the user may not have.
+            writeln!(
+                out,
+                "{}",
+                t.attention.paint(
+                    "The remaining branches were not updated onto the new target. Run `but pull` \
+                     to finish."
+                )
+            )?;
+        }
+    } else {
+        warn_stale_sibling_prs(ctx, out, result, branch_name)?;
+    }
+
+    if let BranchLandKind::Updated {
+        prev_target_oid, ..
+    } = &result.landed
+    {
+        print_undo_caveat(
+            out,
+            result.local_delivery,
+            *prev_target_oid,
+            push_remote_name,
+            target_branch_name,
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Warn for each sibling branch that the reconcile actually rewrote and that still has an open pull
+/// request: its pushed branch and PR are now stale. We never auto-force-push a sibling's PR branch —
+/// we only tell the user it needs re-pushing.
+///
+/// "Actually rewrote" is the key: only branches whose head is a replacement commit are warned, so a
+/// branch that wasn't rebased (or isn't applied in the workspace) is not falsely flagged.
+fn warn_stale_sibling_prs(
+    ctx: &Context,
+    out: &mut OutputChannel,
+    result: &BranchLandResult,
+    landed_branch: &str,
+) -> anyhow::Result<()> {
+    let rewritten: std::collections::HashSet<gix::ObjectId> = result
+        .workspace
+        .replaced_commits
+        .values()
+        .copied()
+        .collect();
+    if rewritten.is_empty() {
+        return Ok(());
+    }
+    let Some(out) = out.for_human() else {
+        return Ok(());
+    };
+    let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
+    let t = theme::get();
+    for branch in &branches {
+        let name = branch.name.to_string();
+        if name == landed_branch || !rewritten.contains(&branch.head) {
+            continue;
+        }
+        let pr = branch
+            .stack
+            .as_ref()
+            .and_then(|stack| stack.pull_requests.get(&name).copied());
+        if let Some(pr) = pr {
+            writeln!(
+                out,
+                "{}",
+                t.attention.paint(format!(
+                    "Branch {name} (PR #{pr}) was rebased onto the new target — its pushed branch \
+                     and pull request are now stale. Re-push it to update the PR."
+                ))
+            )?;
+        }
+    }
+    Ok(())
 }
 
 /// Print an honest note about reversibility. `but undo` cannot un-push a real remote, so on that
 /// path we point at the manual revert recipe instead of promising a clean undo.
-pub(super) fn print_undo_caveat(
+fn print_undo_caveat(
     out: &mut OutputChannel,
-    update_target_locally: bool,
-    landed: &Landed,
+    local_delivery: bool,
+    prev_target_oid: gix::ObjectId,
     push_remote_name: &str,
     target_branch_name: &str,
 ) -> anyhow::Result<()> {
-    if update_target_locally {
+    let Some(out) = out.for_human() else {
+        return Ok(());
+    };
+    let t = theme::get();
+    if local_delivery {
         // The local-ref move is not captured by the oplog snapshot yet, so `but undo` rolls back
         // the branch reconcile but not the target move. Say so rather than over-promising.
-        if let (
-            Some(out),
-            Landed::Updated {
-                prev_target_oid, ..
-            },
-        ) = (out.for_human(), landed)
-        {
-            let t = theme::get();
-            writeln!(
-                out,
-                "{}",
-                t.hint.paint(format!(
-                    "`but undo` reverts the branch reconcile; to also move the local target back: \
-                     git update-ref refs/heads/{target_branch_name} {prev_target_oid} && \
-                     git update-ref refs/remotes/{push_remote_name}/{target_branch_name} {prev_target_oid}"
-                ))
-            )?;
-        }
-        Ok(())
+        writeln!(
+            out,
+            "{}",
+            t.hint.paint(format!(
+                "`but undo` reverts the branch reconcile; to also move the local target back: \
+                 git update-ref refs/heads/{target_branch_name} {prev_target_oid} && \
+                 git update-ref refs/remotes/{push_remote_name}/{target_branch_name} {prev_target_oid}"
+            ))
+        )?;
     } else {
-        print_push_undo_caveat(out, landed, push_remote_name, target_branch_name)
-    }
-}
-
-/// The real-remote variant of the undo note: undo cannot un-push, so show the force-with-lease recipe.
-pub(super) fn print_push_undo_caveat(
-    out: &mut OutputChannel,
-    landed: &Landed,
-    push_remote_name: &str,
-    target_branch_name: &str,
-) -> anyhow::Result<()> {
-    if let (
-        Some(out),
-        Landed::Updated {
-            prev_target_oid, ..
-        },
-    ) = (out.for_human(), landed)
-    {
-        let t = theme::get();
         writeln!(
             out,
             "{}",
@@ -91,17 +169,12 @@ pub(super) fn confirm_direct_target_update(
     branch_name: &str,
     pr_number: Option<usize>,
     target_display: &str,
-    update_target_locally: bool,
     yes: bool,
 ) -> anyhow::Result<()> {
-    let action = if update_target_locally {
-        format!("This will move your local target {target_display} directly.")
-    } else {
-        format!(
-            "This lands {branch_name} directly onto {target_display} without a pull request — \
-             skipping any code review, CI checks, or branch protections your team may rely on."
-        )
-    };
+    let action = format!(
+        "This lands {branch_name} directly onto {target_display} without a pull request — \
+         skipping any code review, CI checks, or branch protections your team may rely on."
+    );
     let warning = if let Some(pr_number) = pr_number {
         format!(
             "Branch {branch_name} has PR #{pr_number} attached. {action} The pull request will be \
@@ -136,41 +209,12 @@ pub(super) fn confirm_direct_target_update(
     Ok(())
 }
 
-/// Pre-flight facts about the branch being landed, read from its stack.
-pub(super) struct BranchLandingInfo {
-    /// An open pull-request number attached to the branch, if any.
-    pub pr_number: Option<usize>,
-    /// Stack segments below the branch (oldest last). Landing the branch's tip would also publish
-    /// these, so a non-empty list means the user named a non-bottom segment.
-    pub lower_segments: Vec<String>,
-}
-
-/// Read the branch's stack to learn its attached PR and any segments stacked below it.
-pub(super) fn branch_landing_info(
-    ctx: &Context,
-    branch_name: &str,
-) -> anyhow::Result<BranchLandingInfo> {
-    let stack = but_api::legacy::virtual_branches::list_branches(ctx, None)?
+/// The open pull-request number attached to `branch_name`, if any, read from its stack.
+pub(super) fn branch_pr_number(ctx: &Context, branch_name: &str) -> anyhow::Result<Option<usize>> {
+    let pr_number = but_api::legacy::virtual_branches::list_branches(ctx, None)?
         .into_iter()
         .find(|branch| branch.name.to_string() == branch_name)
-        .and_then(|branch| branch.stack);
-    let Some(stack) = stack else {
-        return Ok(BranchLandingInfo {
-            pr_number: None,
-            lower_segments: Vec::new(),
-        });
-    };
-    // `stack.branches` is ordered newest -> oldest, so the segments AFTER `branch_name` are the
-    // ones stacked below it whose commits the branch's tip carries along.
-    let lower_segments = stack
-        .branches
-        .iter()
-        .skip_while(|name| name.as_str() != branch_name)
-        .skip(1)
-        .cloned()
-        .collect();
-    Ok(BranchLandingInfo {
-        pr_number: stack.pull_requests.get(branch_name).copied(),
-        lower_segments,
-    })
+        .and_then(|branch| branch.stack)
+        .and_then(|stack| stack.pull_requests.get(branch_name).copied());
+    Ok(pr_number)
 }

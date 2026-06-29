@@ -88,6 +88,20 @@ export declare function branchDetails(projectId: string, branchName: string, rem
  */
 export declare function branchDiff(projectId: string, branch: string): Promise<TreeChanges>
 
+/**
+ * Land `branch` directly onto the configured target ref.
+ *
+ * `branch` is the short name of the branch to land (its `refs/heads/<branch>` ref). The branch
+ * must be the bottom segment of its stack and free of conflicted commits, and the workspace must
+ * be a managed GitButler workspace with a configured, non-triangular target remote.
+ *
+ * This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
+ * the target moves underneath us), then reconciles the remaining applied branches onto the moved
+ * target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
+ * workspace state for what to report.
+ */
+export declare function branchLand(projectId: string, branch: string, noFf: boolean): Promise<BranchLandResult>
+
 /** See [`changes_in_worktree_with_perm()`]. */
 export declare function changesInWorktree(projectId: string): Promise<WorktreeChanges>
 
@@ -790,6 +804,29 @@ export type BranchIdentity = string;
 
 /** JSON transport type for the preset used to generate initial branch integration steps. */
 export type BranchIntegrationStrategy = "pullRebase" | "merge" | "pickRemote" | "smartSquash";
+
+/** JSON transport type for what landing did to the target. */
+export type BranchLandKind = {
+  type: "alreadyIntegrated";
+} | {
+  /** The commit the target now points at. */
+  newTargetOid: string;
+  /** The commit the target pointed at before landing. */
+  prevTargetOid: string;
+  type: "updated";
+};
+
+/** JSON transport type returned by [`branch_land`](super::branch_land). */
+export type BranchLandResult = {
+  /** What landing did to the target. */
+  landed: BranchLandKind;
+  /** Whether delivery moved local refs rather than pushing to a remote. */
+  localDelivery: boolean;
+  /** Whether the remaining branches were left un-reconciled (run `but pull` to finish). */
+  reconcileSkipped: boolean;
+  /** The post-land workspace state. */
+  workspace: WorkspaceState;
+};
 
 /**
  * Represents a branch that exists for the repository
