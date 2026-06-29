@@ -25,7 +25,7 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, resolveRelativeTo, type HeadInfoIndex } from "#ui/api/ref-info.ts";
-import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
+import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
