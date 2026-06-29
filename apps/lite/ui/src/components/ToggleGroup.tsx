@@ -16,10 +16,6 @@ export const ToggleStyles: FC<ComponentProps<"button"> & { iconOnly?: boolean }>
 	<button
 		{...props}
 		type="button"
-		className={classes(
-			props.className,
-			getButtonClassName({ variant: "outline", size: "regular", iconOnly }),
-			styles.item,
-		)}
+		className={classes(props.className, getButtonClassName({ iconOnly }), styles.item)}
 	/>
 );
