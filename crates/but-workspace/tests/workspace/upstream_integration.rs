@@ -884,6 +884,69 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
 }
 
 #[test]
+fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    let mut workspace = graph.into_workspace()?;
+    let project_meta = project_meta(&meta)?;
+    let out = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta.clone(),
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+        }],
+    )?;
+    let ws_meta = out
+        .ws_meta
+        .as_ref()
+        .context("workspace metadata should be returned")?;
+    assert_eq!(
+        ws_meta.stacks.len(),
+        1,
+        "non-bottom update selectors should not mark integrated stacks as selected for pruning"
+    );
+    out.rebase.materialize()?;
+
+    assert!(
+        repo.try_find_reference("A")?.is_some(),
+        "local branch should remain when update selector is not a stack bottom"
+    );
+    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 8d5739f
+    └── ≡📙:3:A on 8d5739f {1}
+        └── 📙:3:A
+            ├── ·ffde79e (🏘️|✓)
+            └── ·86b55e6 (🏘️|✓)
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_target() -> Result<()>
 {
     let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
@@ -1822,6 +1885,270 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
         repo.rev_parse_single("origin/main")?.detach(),
         "orphaned workspace commit should be reparented to the target tip after integrating an empty stack"
     );
+
+    Ok(())
+}
+
+#[test]
+fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("empty-branch-remote-tip-integrated")?;
+    let target_sha = repo.rev_parse_single("main^")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack(&mut meta, 1, "topic", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+ * 6b2e0ef (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+ | *   364a08f (origin/main, main) merge topic
+ | |\  
+ | |/  
+ |/|   
+ * | 6ba217e (origin/topic, topic) add topic
+ |/  
+ * 563a7fc add base
+ ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
+    └── ≡📙:4:topic <> origin/topic →:5: on 563a7fc {1}
+        └── 📙:4:topic <> origin/topic →:5:
+            └── ❄️6ba217e (🏘️|✓)
+    ");
+
+    let topic_bottom_commit = repo.rev_parse_single("topic")?.object()?.id;
+
+    let project_meta = project_meta(&meta)?;
+    let out = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta.clone(),
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(topic_bottom_commit),
+        }],
+    )?;
+    let ws_meta = out
+        .ws_meta
+        .as_ref()
+        .context("workspace metadata should be returned")?;
+    assert!(
+        ws_meta.stacks.is_empty(),
+        "workspace metadata should no longer expose the integrated empty branch"
+    );
+    out.rebase.materialize()?;
+    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
+    └── ≡:2:main <> origin/main →:1: on 563a7fc
+        └── :2:main <> origin/main →:1:
+            └── ❄️364a08f (🏘️|✓)
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * cf134fb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   364a08f (origin/main, main) merge topic
+    |\  
+    | * 6ba217e (origin/topic) add topic
+    |/  
+    * 563a7fc add base
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("non-empty-branch-remote-tip-integrated")?;
+    let target_sha = repo.rev_parse_single("main^")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack(&mut meta, 1, "topic", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+  * bb8f85a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+  * f1a3cba (topic) add local
+  | *   364a08f (origin/main, main) merge topic
+  | |\  
+  | |/  
+  |/|   
+  * | 6ba217e (origin/topic) add topic
+  |/  
+  * 563a7fc add base
+  ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
+    └── ≡📙:4:topic <> origin/topic →:5:⇡1 on 563a7fc {1}
+        └── 📙:4:topic <> origin/topic →:5:⇡1
+            ├── ·f1a3cba (🏘️)
+            └── ❄️6ba217e (🏘️|✓)
+    ");
+    let topic_base = repo.rev_parse_single("topic~")?.object()?.id;
+    let project_meta = project_meta(&meta)?;
+    integrate_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(topic_base),
+        }],
+    )?;
+
+    assert!(
+        repo.try_find_reference("topic")?.is_some(),
+        "branch should remain because it still has local work above its integrated tracking tip",
+    );
+    assert_eq!(
+        repo.find_commit(repo.rev_parse_single("topic")?.detach())?
+            .message_raw()?
+            .to_str()?
+            .trim_end(),
+        "add local",
+    );
+    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
+    └── ≡📙:4:topic <> origin/topic →:5:⇡1 on 563a7fc {1}
+        ├── 📙:4:topic <> origin/topic →:5:⇡1
+        │   └── ·f3ceb3d (🏘️)
+        └── :2:main <> origin/main →:1:
+            └── ❄️364a08f (🏘️|✓)
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * d0cd028 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * f3ceb3d (topic) add local
+    *   364a08f (origin/main, main) merge topic
+    |\  
+    | * 6ba217e (origin/topic) add topic
+    |/  
+    * 563a7fc add base
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("merged-branch-below-empty-branch")?;
+    let target_sha = repo.rev_parse_single("main^")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack_with_segments(&mut meta, 1, "top", StackState::InWorkspace, &["bottom"]);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+* 07e525c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| *   334227d (origin/main, main) merge bottom
+| |\  
+| |/  
+|/|   
+* | 141de4f (origin/top, origin/bottom, top, bottom) add bottom
+|/  
+* 563a7fc add base
+");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
+    └── ≡📙:7:top <> origin/top →:6: on 563a7fc {1}
+        ├── 📙:7:top <> origin/top →:6:
+        └── 📙:8:bottom <> origin/bottom →:5:
+            └── ❄️141de4f (🏘️|✓)
+    ");
+
+    let bottom_bottom_commit = repo.rev_parse_single("bottom")?.object()?.id;
+    let project_meta = project_meta(&meta)?;
+    let out = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta.clone(),
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(bottom_bottom_commit),
+        }],
+    )?;
+
+    let ws_meta = out
+        .ws_meta
+        .as_ref()
+        .context("workspace metadata should be returned")?;
+    let branch_names = ws_meta
+        .stacks
+        .iter()
+        .flat_map(|stack| stack.branches.iter())
+        .map(|branch| branch.ref_name.as_ref())
+        .map(|ref_name| ref_name.shorten().to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        branch_names,
+        vec!["top"],
+        "workspace metadata should retain only the unmerged empty top branch"
+    );
+    out.rebase.materialize()?;
+    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
+    └── ≡📙:2:top <> origin/top →:4: on 563a7fc {1}
+        └── 📙:2:top <> origin/top →:4:
+            └── ·334227d (🏘️|✓)
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f381153 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   334227d (origin/main, top, main) merge bottom
+    |\  
+    | * 141de4f (origin/top, origin/bottom) add bottom
+    |/  
+    * 563a7fc add base
+    ");
 
     Ok(())
 }
