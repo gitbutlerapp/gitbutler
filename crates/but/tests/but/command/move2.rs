@@ -695,6 +695,7 @@ Error: Could not find anchor: 'B'
 Hint: Run `but status` for applicable targets.
 
 "#]]);
+
     env.but("_move2 94 --below B")
         .assert()
         .failure()
@@ -714,6 +715,7 @@ Error: Could not find anchor: 'no-such-branch'
 Hint: Run `but status` for applicable targets.
 
 "#]]);
+
     env.but("_move2 94 --below no-such-branch")
         .assert()
         .failure()
@@ -726,7 +728,113 @@ Hint: Run `but status` for applicable targets.
 }
 
 #[test]
-fn cannot_combine_above_and_below() {
+fn move_to_tip_of_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 94 -b B")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 9477ae7 to the tip of branch 'B'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A] (no commits)
+├╯
+┊
+┊╭┄h0 [B]
+┊●   22c3ce2 add A
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_to_tip_of_empty_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 94 -b B")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 9477ae7 to the tip of branch 'B'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A] (no commits)
+├╯
+┊
+┊╭┄h0 [B]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn cannot_combine_targets() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
     env.setup_metadata(&["A"]);
 
@@ -753,7 +861,7 @@ Hint: run `but help` for all commands
         .stderr_eq(snapbox::str![[r#"
 error: the argument '--below <BRANCH_OR_COMMIT>' cannot be used with '--above <BRANCH_OR_COMMIT>'
 
-Usage: but _move2 <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>> <SOURCES>...
+Usage: but _move2 <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]> <SOURCES>...
 
 For more information, try '--help'.
 
@@ -770,9 +878,9 @@ fn must_specify_target() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 error: the following required arguments were not provided:
-  <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>>
+  <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]>
 
-Usage: but _move2 <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>> <SOURCES>...
+Usage: but _move2 <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]> <SOURCES>...
 
 For more information, try '--help'.
 
