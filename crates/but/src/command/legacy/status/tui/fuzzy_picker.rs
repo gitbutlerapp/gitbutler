@@ -21,7 +21,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub(super) struct FuzzyPicker<T> {
+pub struct FuzzyPicker<T> {
     items: NonEmpty<T>,
     items_to_show: Vec<ItemToShow>,
     textarea: TextArea<'static>,
@@ -33,20 +33,20 @@ pub(super) struct FuzzyPicker<T> {
     theme: &'static Theme,
 }
 
-pub(super) trait FuzzyPickerItem: Clone {
+pub trait FuzzyPickerItem: Clone {
     fn columns(&self, searchable: SearchableToken) -> impl IntoIterator<Item = Col<'_>>;
 
     fn style(&self, theme: &'static Theme) -> Style;
 }
 
-pub(super) struct Col<'a> {
-    pub(super) text: Cow<'a, str>,
-    pub(super) searchable: Option<SearchableToken>,
+pub struct Col<'a> {
+    pub text: Cow<'a, str>,
+    pub searchable: Option<SearchableToken>,
 }
 
 // intentionally not constructable by parent modules, that way we're guaranteed that
 // `FuzzyPickerItem::columns` only has one searchable row
-pub(super) struct SearchableToken(());
+pub struct SearchableToken(());
 
 #[derive(Debug)]
 enum ItemToShow {
@@ -63,7 +63,7 @@ impl<T> FuzzyPicker<T>
 where
     T: FuzzyPickerItem,
 {
-    pub(super) fn new<F>(items: NonEmpty<T>, theme: &'static Theme, on_item_selected: F) -> Self
+    pub fn new<F>(items: NonEmpty<T>, theme: &'static Theme, on_item_selected: F) -> Self
     where
         F: FnOnce(T, &mut Context, &mut Vec<Message>) -> anyhow::Result<()> + 'static,
     {
@@ -86,7 +86,7 @@ where
         this
     }
 
-    pub(super) fn render(&self, has_focus: bool, area: Rect, frame: &mut Frame) {
+    pub fn render(&self, has_focus: bool, area: Rect, frame: &mut Frame) {
         let padding = Padding {
             left: 0,
             right: 0,
@@ -284,7 +284,7 @@ where
         }
     }
 
-    pub(super) fn handle_message(
+    pub fn handle_message(
         mut self,
         msg: FuzzyPickerMessage,
         ctx: &mut Context,
@@ -330,7 +330,7 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum FuzzyPickerMessage {
+pub enum FuzzyPickerMessage {
     MoveCursorDown,
     MoveCursorUp,
     Input(Event),

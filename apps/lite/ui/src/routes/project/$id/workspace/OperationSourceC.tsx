@@ -3,6 +3,7 @@ import { getOperationSource, pointerTransferOperationMode } from "#ui/outline/mo
 import styles from "./OperationSourceC.module.css";
 import { operandLabel } from "./operandLabel.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { classes } from "#ui/components/classes.ts";
 import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -29,7 +30,10 @@ export const OperationSourceC: FC<
 		source: Operand;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
 > = ({ onDragStart: onDragStartProp, projectId, source, render, ...props }) => {
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
@@ -40,9 +44,11 @@ export const OperationSourceC: FC<
 				nativeSetDragImage,
 				getOffset: centerUnderPointer,
 				render: ({ container }) => {
-					if (!headInfo) return;
+					if (!headInfoIndex) return;
 					const root = createRoot(container);
-					root.render(<DragPreview>{operandLabel({ operand: source, headInfo })}</DragPreview>);
+					root.render(
+						<DragPreview>{operandLabel({ operand: source, headInfoIndex })}</DragPreview>,
+					);
 					return () => {
 						root.unmount();
 					};

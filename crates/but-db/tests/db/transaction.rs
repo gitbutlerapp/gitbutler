@@ -96,20 +96,13 @@ fn savepoint_read_snapshot_stays_consistent_across_tables_with_interleaved_write
     );
 
     db2.execute(
-        "INSERT INTO workspace_rules (id, created_at, enabled, trigger, filters, action)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        rusqlite::params![
-            "rule-1",
-            "2024-01-01 00:00:00",
-            true,
-            "on_change",
-            "{}",
-            "{}",
-        ],
+        "INSERT INTO file_write_locks (path, created_at, owner)
+         VALUES (?1, ?2, ?3)",
+        rusqlite::params!["path/to/lock", "2024-01-01 00:00:00", "owner-1",],
     )?;
 
     let count = sp1
-        .query_row("SELECT COUNT(*) FROM workspace_rules", [], |row| {
+        .query_row("SELECT COUNT(*) FROM file_write_locks", [], |row| {
             row.get::<_, i64>(0)
         })
         .expect("no database error, we see the pre-write state");
@@ -120,8 +113,9 @@ fn savepoint_read_snapshot_stays_consistent_across_tables_with_interleaved_write
 
     sp1.commit()?;
 
-    let latest_count: i64 =
-        db1.query_row("SELECT COUNT(*) FROM workspace_rules", [], |row| row.get(0))?;
+    let latest_count: i64 = db1.query_row("SELECT COUNT(*) FROM file_write_locks", [], |row| {
+        row.get(0)
+    })?;
     assert_eq!(
         latest_count, 1,
         "after savepoint ends, new writes are visible"

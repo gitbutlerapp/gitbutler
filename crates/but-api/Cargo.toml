@@ -68,7 +68,6 @@ legacy = [
     "dep:gitbutler-oplog",
     "dep:gitbutler-git",
     "dep:but-action",
-    "dep:but-rules",
     "dep:but-gerrit",
     "dep:but-worktrees",
     "dep:but-cherry-apply",
@@ -103,7 +102,6 @@ itertools.workspace = true
 # so need some refactoring/rethinking to become usable.
 but-cherry-apply = { workspace = true, optional = true }
 but-action = { workspace = true, optional = true }
-but-rules = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
 but-worktrees = { workspace = true, optional = true }
 gitbutler-user = { workspace = true, optional = true }

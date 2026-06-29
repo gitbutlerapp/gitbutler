@@ -93,8 +93,6 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Unstage => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Merge => Group::BranchingAndCommitting,
-                #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Discard => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Unapply => Group::BranchingAndCommitting,
@@ -113,6 +111,8 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pull => Group::ServerInteractions,
                 #[cfg(feature = "legacy")]
+                SubcommandDiscriminant::Land => Group::ServerInteractions,
+                #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pr => Group::ServerInteractions,
 
                 #[cfg(feature = "legacy")]
@@ -130,6 +130,8 @@ fn print_grouped_with_truncation(
                 #[cfg(all(feature = "legacy", feature = "but-2"))]
                 SubcommandDiscriminant::_Squash2 => Group::EditingCommits,
                 SubcommandDiscriminant::Move => Group::EditingCommits,
+                #[cfg(all(feature = "legacy", feature = "but-2"))]
+                SubcommandDiscriminant::_Move2 => Group::EditingCommits,
 
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Oplog => Group::OperationHistory,
@@ -318,7 +320,6 @@ Branching and Committing:
   commit       Commit changes to a stack
   stage        Stages a file or hunk to a specific branch
   branch       Commands for managing branches
-  merge        Merge a branch into your local target branch
   discard      Discard uncommitted changes from the worktree
   resolve      Resolve conflicts in a commit
   unapply      Unapply a branch from the workspace
@@ -341,6 +342,7 @@ Operation History:
   redo         Redo the last undo
 
 Server Interactions:
+  land         Land a branch directly onto the target branch
   push         Push changes in a branch to remote
   pull         Updates all applied branches to be up to date with the target b…
   pr           Commands for creating and managing reviews on a forge, e.g. Git…

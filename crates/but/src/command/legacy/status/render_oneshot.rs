@@ -1,7 +1,9 @@
 use crate::{
     command::legacy::status::{
         FileLineContent, StatusOutputLine,
-        output::{BranchLineContent, CommitLineContent, StatusOutputContent},
+        output::{
+            BranchLineContent, CommitLineContent, StatusOutputContent, UncommittedLineContent,
+        },
     },
     theme::Paint,
     utils::WriteWithUtils,
@@ -60,6 +62,19 @@ pub(super) fn render_oneshot(
             spans.append(&mut id);
             spans.append(&mut status);
             spans.append(&mut path);
+        }
+        StatusOutputContent::Uncommitted(UncommittedLineContent {
+            mut id,
+            mut decoration_start,
+            mut label,
+            mut decoration_end,
+            mut suffix,
+        }) => {
+            spans.append(&mut id);
+            spans.append(&mut decoration_start);
+            spans.append(&mut label);
+            spans.append(&mut decoration_end);
+            spans.append(&mut suffix);
         }
     }
 

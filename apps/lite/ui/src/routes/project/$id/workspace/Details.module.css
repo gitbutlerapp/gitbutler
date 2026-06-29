@@ -15,7 +15,6 @@
 .titleRow {
 	display: flex;
 	column-gap: 12px;
-	align-items: center;
 }
 
 .titleRowMacSpacer {
@@ -28,15 +27,28 @@
 	margin-inline-start: auto;
 }
 
-.compactButton {
+.commitBodyToggle {
 	width: 24px;
 	height: 14px;
+	margin-inline-start: 8px;
 }
 
 .title {
-	display: flex;
+	display: grid;
+	grid-template-rows:
+		/* Match regular button height. */
+		28px
+		auto;
 	column-gap: 8px;
 	align-items: center;
+
+	& > i {
+		grid-row: 1 / 2;
+	}
+
+	& > h3 {
+		grid-row: 1 / -1;
+	}
 }
 
 .actions {

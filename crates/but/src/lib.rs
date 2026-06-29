@@ -46,9 +46,7 @@ use crate::{
 };
 
 mod error;
-#[cfg(feature = "but-2")]
-pub(crate) use error::CliResultExt;
-pub(crate) use error::{CliError, CliResult, bad_input};
+pub(crate) use error::{CliError, CliResult, CliResultExt, bad_input};
 
 mod id;
 pub use id::{CliId, IdMap};
@@ -1092,6 +1090,27 @@ async fn match_subcommand(
             out.print_cli_output(outcome)?;
             Ok(())
         }
+        #[cfg(all(feature = "legacy", feature = "but-2"))]
+        Subcommands::_Move2(move_args) => {
+            use crate::utils::{IntermediateChannel, OutputChannelExt};
+
+            let status_after = args.status_after;
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: false },
+                    ..Default::default()
+                },
+                out,
+            )?;
+            out.begin_status_after(status_after);
+
+            let outcome =
+                command::legacy::move2::r#move(&mut ctx, IntermediateChannel::new(out), move_args)
+                    .emit_metrics(metrics_ctx)?;
+            out.print_cli_output_human(outcome)?;
+            Ok(())
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
@@ -1602,11 +1621,11 @@ async fn match_subcommand(
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Merge { branch } => {
+        Subcommands::Land { branch, yes, no_ff } => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::merge::handle(&mut ctx, out, &branch)
+            command::legacy::land::handle(&mut ctx, out, &branch, yes, no_ff)
                 .await
-                .context("Failed to merge branch.")
+                .context("Failed to land branch.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }

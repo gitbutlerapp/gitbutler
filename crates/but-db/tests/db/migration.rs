@@ -541,16 +541,6 @@ CREATE TABLE `workflows`(
 	`summary` TEXT
 );
 
--- table workspace_rules
-CREATE TABLE `workspace_rules`(
-	`id` TEXT NOT NULL PRIMARY KEY,
-	`created_at` TIMESTAMP NOT NULL,
-	`enabled` BOOL NOT NULL,
-	`trigger` TEXT NOT NULL,
-	`filters` TEXT NOT NULL,
-	`action` TEXT NOT NULL
-);
-
 -- index idx_butler_actions_created_at
 CREATE INDEX `idx_butler_actions_created_at` ON `butler_actions`(`created_at`);
 
@@ -614,6 +604,7 @@ Text("20260219130000")
 Text("20260407120000")
 Text("20260618093000")
 Text("20260624170000")
+Text("20260626120000")
 
 Table: hunk_assignments
 hunk_header | path | path_bytes | stack_id | id | branch_ref
@@ -626,9 +617,6 @@ id | created_at | kind | triggered_by | status | input_commits | output_commits 
 
 Table: file_write_locks
 path | created_at | owner
-
-Table: workspace_rules
-id | created_at | enabled | trigger | filters | action
 
 Table: claude_sessions
 id | current_id | created_at | updated_at | in_gui | session_ids | approved_permissions | denied_permissions

@@ -1,6 +1,5 @@
 use super::util::{enter_edit_mode_with_conflicted_commit, status_json};
 use crate::utils::{CommandExt as _, Sandbox};
-use but_core::ref_metadata::StackId;
 
 #[test]
 fn worktrees() {
@@ -1071,6 +1070,80 @@ fn status_shows_rewritten_branch_with_remote_and_local_commits() {
 }
 
 #[test]
+fn agent_status_explains_rewritten_commit_marker() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one.txt", "one\n");
+    env.but("commit -m 'add one' -c A")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![]);
+    env.invoke_git("update-ref refs/remotes/origin/A refs/heads/A");
+
+    env.file("one.txt", "one amended\n");
+    let target_commit = env.invoke_git("rev-parse --short refs/heads/A");
+    env.but(format!("amend {target_commit} --changes one.txt"))
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊◐   [..] add one
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("status")
+        .env("AI_AGENT", "codex")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊◐   [..] add one
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: ◐ means rewritten locally vs upstream.
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("--format agent status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊◐   [..] add one
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: ◐ means rewritten locally vs upstream.
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn status_in_edit_mode_delegates_to_resolve_status() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     enter_edit_mode_with_conflicted_commit(&env)?;
@@ -1084,41 +1157,5 @@ fn status_in_edit_mode_delegates_to_resolve_status() -> anyhow::Result<()> {
             "snapshots/status/edit-mode/status-delegates-to-resolve-status.stdout.term.svg"
         ]);
 
-    Ok(())
-}
-
-#[test]
-fn status_shows_marked_stack() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    let stack_ids = env.setup_metadata(&["A"]);
-
-    mark_stack(&env, stack_ids[0])?;
-
-    env.but("status")
-        .with_color_for_svg()
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::file![
-            "snapshots/status/mark/status-shows-marked-stack.stdout.term.svg"
-        ]);
-
-    Ok(())
-}
-
-fn mark_stack(env: &Sandbox, stack_id: StackId) -> anyhow::Result<()> {
-    let mut ctx = env.context();
-    let mut guard = ctx.exclusive_worktree_access();
-    but_rules::create_rule(
-        &mut ctx,
-        but_rules::CreateRuleRequest {
-            trigger: but_rules::Trigger::FileSytemChange,
-            filters: Vec::new(),
-            action: but_rules::Action::Explicit(but_rules::Operation::Assign {
-                target: but_rules::StackTarget::StackId(stack_id.to_string()),
-            }),
-        },
-        guard.write_permission(),
-    )?;
     Ok(())
 }

@@ -288,6 +288,6 @@ Git commands that don't modify state are safe to use:
 - `git commit` - Commits to the workspace merge commit, not your branch
 - `git checkout` - Breaks workspace model
 - `git rebase` - Conflicts with GitButler's management
-- `git merge` - Use `but merge` instead
+- `git merge` - Use `but land` instead
 
 **Rule of thumb:** If it reads, it's fine. If it writes, use `but` instead.

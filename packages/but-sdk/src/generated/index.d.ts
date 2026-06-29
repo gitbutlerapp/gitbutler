@@ -973,7 +973,7 @@ export type Claude = {
  *
  * In practice, it should match its [frontend counterpart](https://github.com/gitbutlerapp/gitbutler/blob/fa973fd8f1ae8807621f47601803d98b8a9cf348/app/src/lib/backend/ipc.ts#L5).
  */
-export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
+export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
 
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch. */
 export type Commit = {
@@ -1198,25 +1198,6 @@ export type FeatureFlags = {
   cv3: boolean;
   /** Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref. */
   unapplyV3Pgm: boolean;
-  /**
-   * Enable undo/redo support.
-   *
-   * ### Progression for implementation
-   *
-   * * use snapshot system in undo/redo queue
-   *     - consider not referring to these objects by reference to `git gc` will catch them,
-   *       or even purge them on shutdown. Alternatively, keep them in-memory with in-memory objects.
-   * * add user-control to snapshot system to purge now, or purge after time X. That way data isn't stored forever.
-   * * Finally, consider implementing undo/redo with invasive primitives that are undoable/redoable themselves for
-   *   the most efficient solution, inherently in memory, i.e.
-   *     - CRUD reference
-   *     - CRUD metadata
-   *     - CRUD workspace
-   *     - CRUD files
-   */
-  undo: boolean;
-  /** Enable processing of workspace rules. */
-  rules: boolean;
   /** Enable single branch mode. */
   singleBranch: boolean;
   /** Enable IRC integration. */

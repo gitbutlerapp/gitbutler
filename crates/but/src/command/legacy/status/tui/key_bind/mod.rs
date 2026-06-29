@@ -4,8 +4,10 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use strum::IntoEnumIterator;
 
 use crate::command::legacy::status::tui::{
-    CommandMessage, CommitMessageComposer, ConfirmMessage, DetailsLayoutMessage,
-    FuzzyPickerMessage, Message, RewordMessage, RubMessage, StackMessage, help::HelpMessage,
+    CommandMessage, ConfirmMessage, DetailsLayoutMessage, FuzzyPickerMessage, JumpMessage, Message,
+    RubMessage, StackMessage,
+    app::{CommitMessageComposer, RewordMessage},
+    help::HelpMessage,
     mode::ModeDiscriminant,
 };
 
@@ -16,7 +18,7 @@ use super::{
 #[cfg(test)]
 mod tests;
 
-pub(super) fn default_key_binds() -> KeyBinds {
+pub fn default_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
     for mode in ModeDiscriminant::iter() {
@@ -108,13 +110,20 @@ pub(super) fn default_key_binds() -> KeyBinds {
                 builder.normal_mode().register();
                 builder.back().register();
             }
+            ModeDiscriminant::Jump => {
+                builder.jump_confirm().register();
+                builder.jump_previous().register();
+                builder.jump_next().register();
+                builder.normal_mode().register();
+                builder.back().register();
+            }
         }
     }
 
     key_binds
 }
 
-pub(super) fn confirm_key_binds() -> KeyBinds {
+pub fn confirm_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
     let mut builder = key_binds.for_all_modes();
@@ -164,7 +173,7 @@ pub(super) fn confirm_key_binds() -> KeyBinds {
     key_binds
 }
 
-pub(super) fn fuzzy_picker_key_binds() -> KeyBinds {
+pub fn fuzzy_picker_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
     let mut builder = key_binds.for_all_modes();
@@ -229,7 +238,7 @@ pub(super) fn fuzzy_picker_key_binds() -> KeyBinds {
     key_binds
 }
 
-pub(super) fn help_key_binds() -> KeyBinds {
+pub fn help_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
     let mut builder = key_binds.for_all_modes();
@@ -280,7 +289,7 @@ pub(super) fn help_key_binds() -> KeyBinds {
     key_binds
 }
 
-pub(super) fn normal_with_marks_key_binds() -> KeyBinds {
+pub fn normal_with_marks_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
     let mut builder = key_binds.for_modes(Vec::from([ModeDiscriminant::Normal]));
@@ -294,7 +303,7 @@ pub(super) fn normal_with_marks_key_binds() -> KeyBinds {
 struct KeyBindId(usize);
 
 #[derive(Debug)]
-pub(super) struct KeyBinds {
+pub struct KeyBinds {
     /// All registered key binds.
     all_key_binds: Vec<KeyBind>,
     /// Which key binds are available in which modes?
@@ -337,7 +346,7 @@ impl KeyBinds {
         id
     }
 
-    pub(super) fn iter_key_binds_available_in_mode(
+    pub fn iter_key_binds_available_in_mode(
         &self,
         mode: ModeDiscriminant,
     ) -> impl Iterator<Item = &KeyBind> {
@@ -405,7 +414,10 @@ impl KeyBindsBuilder<'_> {
     fn next_section(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "next section",
-            press().shift().code(KeyCode::Char('J')),
+            press()
+                .shift()
+                .code(KeyCode::Char('J'))
+                .alt_code(KeyCode::Down),
             Message::MoveCursorNextSection,
         )
         .hide_from_hotbar()
@@ -415,7 +427,10 @@ impl KeyBindsBuilder<'_> {
     fn prev_section(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "prev section",
-            press().shift().code(KeyCode::Char('K')),
+            press()
+                .shift()
+                .code(KeyCode::Char('K'))
+                .alt_code(KeyCode::Up),
             Message::MoveCursorPreviousSection,
         )
         .hide_from_hotbar()
@@ -442,6 +457,41 @@ impl KeyBindsBuilder<'_> {
         )
         .hide_from_hotbar()
         .show_only_in_normal_mode_help_section()
+    }
+
+    fn jump_enter(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "jump",
+            press().code(KeyCode::Char('/')),
+            Message::Jump(JumpMessage::Enter),
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+        .long_description("Search for short IDs and jump there")
+    }
+
+    fn jump_previous(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "previous",
+            press().control().code(KeyCode::Char('p')),
+            Message::Jump(JumpMessage::Previous),
+        )
+    }
+
+    fn jump_next(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "next",
+            press().control().code(KeyCode::Char('n')),
+            Message::Jump(JumpMessage::Next),
+        )
+    }
+
+    fn jump_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "confirm",
+            press().code(KeyCode::Enter),
+            Message::Jump(JumpMessage::Confirm),
+        )
     }
 
     fn toggle_details(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -643,7 +693,7 @@ impl KeyBindsBuilder<'_> {
     fn focus_details(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "focus details",
-            press().code(KeyCode::Char('l')),
+            press().code(KeyCode::Char('l')).alt_code(KeyCode::Right),
             Message::DetailsLayout(DetailsLayoutMessage::Focus { full_screen: false }),
         )
     }
@@ -906,7 +956,10 @@ impl KeyBindsBuilder<'_> {
     fn details_next_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "next hunk",
-            press().shift().code(KeyCode::Char('J')),
+            press()
+                .shift()
+                .code(KeyCode::Char('J'))
+                .alt_code(KeyCode::Down),
             Message::Details(DetailsMessage::SelectNextSection),
         )
     }
@@ -914,7 +967,10 @@ impl KeyBindsBuilder<'_> {
     fn details_prev_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "prev hunk",
-            press().shift().code(KeyCode::Char('K')),
+            press()
+                .shift()
+                .code(KeyCode::Char('K'))
+                .alt_code(KeyCode::Up),
             Message::Details(DetailsMessage::SelectPrevSection),
         )
     }
@@ -972,7 +1028,7 @@ impl KeyBindsBuilder<'_> {
     fn details_focus_status(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "focus status",
-            press().code(KeyCode::Char('h')),
+            press().code(KeyCode::Char('h')).alt_code(KeyCode::Left),
             Message::UnfocusDetails,
         )
     }
@@ -1042,6 +1098,7 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
     builder.undo().register();
     builder.redo().register();
 
+    builder.jump_enter().register();
     builder.branch_picker().register();
     builder.uncommitted_area().register();
     builder.merge_base().register();
@@ -1083,6 +1140,7 @@ fn register_non_mode_specific_key_binds(
 
     builder.grow_details().register();
     builder.shrink_details().register();
+    builder.jump_enter().register();
     builder.branch_picker().register();
     builder.uncommitted_area().register();
     builder.merge_base().register();
@@ -1169,7 +1227,7 @@ impl KeyBindsInModesBuilder<'_> {
 }
 
 #[derive(Debug)]
-pub(super) struct KeyBind {
+pub struct KeyBind {
     short_description: &'static str,
     long_description: Option<&'static str>,
     chord_display: Cow<'static, str>,
@@ -1182,39 +1240,39 @@ pub(super) struct KeyBind {
 }
 
 impl KeyBind {
-    pub(super) fn short_description(&self) -> &str {
+    pub fn short_description(&self) -> &str {
         self.short_description
     }
 
-    pub(super) fn long_description(&self) -> Option<&str> {
+    pub fn long_description(&self) -> Option<&str> {
         self.long_description
     }
 
-    pub(super) fn chord_display(&self) -> &str {
+    pub fn chord_display(&self) -> &str {
         &self.chord_display
     }
 
-    pub(super) fn available_in_mode(&self, mode: ModeDiscriminant) -> bool {
+    pub fn available_in_mode(&self, mode: ModeDiscriminant) -> bool {
         self.modes.contains(&mode)
     }
 
-    pub(super) fn matches(&self, ev: &KeyEvent) -> bool {
+    pub fn matches(&self, ev: &KeyEvent) -> bool {
         self.key_matcher.matches(ev)
     }
 
-    pub(super) fn message(&self) -> Message {
+    pub fn message(&self) -> Message {
         self.message.clone()
     }
 
-    pub(super) fn hide_from_hotbar(&self) -> bool {
+    pub fn hide_from_hotbar(&self) -> bool {
         self.hide_from_hotbar
     }
 
-    pub(super) fn always_show_in_hot_bar(&self) -> bool {
+    pub fn always_show_in_hot_bar(&self) -> bool {
         self.always_show_in_hot_bar
     }
 
-    pub(super) fn show_only_in_normal_mode_help_section(&self) -> bool {
+    pub fn show_only_in_normal_mode_help_section(&self) -> bool {
         self.show_only_in_normal_mode_help_section
     }
 }

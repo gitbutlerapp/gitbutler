@@ -192,7 +192,7 @@ Failed to expand alias 'bad': missing closing quote
 Skipping alias expansion
 error: unrecognized subcommand 'bad'
 
-  tip: a similar subcommand exists: 'onboarding'
+  tip: some similar subcommands exist: 'land', 'onboarding'
 
 Usage: but [OPTIONS] [COMMAND]
 

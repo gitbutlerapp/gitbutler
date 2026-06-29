@@ -16,7 +16,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub(super) struct Help {
+pub struct Help {
     theme: &'static Theme,
     sections: Vec<HelpSection>,
     scroll_top: usize,
@@ -25,7 +25,7 @@ pub(super) struct Help {
 impl Help {
     const HEIGHT_PERCENT: u16 = 80;
 
-    pub(super) fn new<'a>(
+    pub fn new<'a>(
         key_binds: impl IntoIterator<Item = &'a KeyBinds>,
         theme: &'static Theme,
     ) -> Self {
@@ -43,6 +43,7 @@ impl Help {
                     | ModeDiscriminant::Move
                     | ModeDiscriminant::Details
                     | ModeDiscriminant::MoveStack
+                    | ModeDiscriminant::Jump
                     | ModeDiscriminant::Stack => {}
                 }
 
@@ -83,7 +84,7 @@ impl Help {
         }
     }
 
-    pub(super) fn render(&self, area: Rect, frame: &mut Frame) {
+    pub fn render(&self, area: Rect, frame: &mut Frame) {
         let padding = Padding {
             left: 1,
             right: 1,
@@ -219,11 +220,7 @@ impl Help {
             .saturating_sub(viewport_height as _)
     }
 
-    pub(super) fn handle_message(
-        self,
-        msg: HelpMessage,
-        area: Rect,
-    ) -> anyhow::Result<Option<Self>> {
+    pub fn handle_message(self, msg: HelpMessage, area: Rect) -> anyhow::Result<Option<Self>> {
         match msg {
             HelpMessage::Close => Ok(None),
             HelpMessage::ScrollUp(n) => Ok(Some(Self {
@@ -276,7 +273,7 @@ struct HelpItem {
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum HelpMessage {
+pub enum HelpMessage {
     Close,
     ScrollUp(usize),
     ScrollDown(usize),

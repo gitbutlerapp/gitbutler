@@ -2,7 +2,6 @@ use std::io::Write;
 
 mod output_channel;
 pub(crate) use output_channel::PromptLine;
-#[cfg_attr(not(feature = "but-2"), expect(unused_imports))]
 pub use output_channel::experimental::*;
 pub use output_channel::{
     Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel, OutputChannel, WriteWithUtils,
@@ -26,6 +25,7 @@ pub mod time;
 
 pub(crate) mod binary_path;
 pub(crate) mod diff_specs;
+pub(crate) mod targeting;
 
 pub trait ResultErrorExt {
     fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> !;

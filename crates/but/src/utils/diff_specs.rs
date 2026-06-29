@@ -40,6 +40,7 @@ impl<'a> DiffSpecBuilder<'a> {
         }
     }
 
+    #[expect(dead_code)] // TODO: remove this when we're removing assignments
     pub fn with_scope_to_stack(mut self, scope_to_stack: Option<StackId>) -> Self {
         self.scope_to_stack = scope_to_stack;
         self
@@ -203,7 +204,6 @@ impl<'a> DiffSpecBuilder<'a> {
     /// WARNING: Does not support overlapping hunks - results may get very strange if such hunks are
     /// in the specs. The implementation naively assumes that hunk equality checks are sufficient
     /// for reconciling changes, whereas with overlapping hunks that is not the case.
-    #[cfg(feature = "but-2")]
     pub fn reconcile_worktree_diff_specs(&mut self) -> anyhow::Result<()> {
         use bstr::ByteSlice;
         use std::collections::HashMap;

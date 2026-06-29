@@ -14,7 +14,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub(super) struct Confirm {
+pub struct Confirm {
     lines: NonEmpty<Line<'static>>,
     yes_selected: bool,
     on_yes: DebugAsType<Box<dyn FnOnce(&mut Context, &mut Vec<Message>) -> anyhow::Result<()>>>,
@@ -22,7 +22,7 @@ pub(super) struct Confirm {
 }
 
 impl Confirm {
-    pub(super) fn new<F>(lines: NonEmpty<Line<'static>>, theme: &'static Theme, on_yes: F) -> Self
+    pub fn new<F>(lines: NonEmpty<Line<'static>>, theme: &'static Theme, on_yes: F) -> Self
     where
         F: FnOnce(&mut Context, &mut Vec<Message>) -> anyhow::Result<()> + 'static,
     {
@@ -34,7 +34,7 @@ impl Confirm {
         }
     }
 
-    pub(super) fn render(&self, has_focus: bool, area: Rect, frame: &mut Frame) {
+    pub fn render(&self, has_focus: bool, area: Rect, frame: &mut Frame) {
         let padding = Padding::new(3, 6, 1, 1);
 
         let button_line = Line::from_iter([
@@ -82,7 +82,7 @@ impl Confirm {
         frame.render_widget(List::new(items), popup.inner);
     }
 
-    pub(super) fn handle_message(
+    pub fn handle_message(
         self,
         msg: ConfirmMessage,
         ctx: &mut Context,
@@ -126,7 +126,7 @@ fn style_button(
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum ConfirmMessage {
+pub enum ConfirmMessage {
     Confirm,
     Left,
     Right,

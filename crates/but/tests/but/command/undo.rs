@@ -149,7 +149,6 @@ fn can_undo_but_discard_rename() {
 }
 
 #[test]
-#[ignore = "Test harness runs with cv3 feature flag, and but_core::worktree::safe_checkout_from_head does not restore the worktree file A for some reason. https://linear.app/gitbutler/issue/GB-1403/run-test-both-with-and-without-cv3-feature-flag"]
 fn can_undo_unapply() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
@@ -164,7 +163,6 @@ fn can_undo_unapply() {
 }
 
 #[test]
-#[ignore = "Test harness runs with cv3 feature flag, and but_core::worktree::safe_checkout_from_head does not remove the worktree file A for some reason. https://linear.app/gitbutler/issue/GB-1403/run-test-both-with-and-without-cv3-feature-flag"]
 fn can_undo_clean_apply() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
@@ -177,6 +175,61 @@ fn can_undo_clean_apply() {
             .stdout_eq("Applied branch 'A' to workspace\n")
             .stderr_eq("");
     });
+}
+
+// Restoring a snapshot must revert the worktree even when a later operation moved the workspace
+// commit: commit a new file, restore an earlier snapshot, and the file must be gone again.
+#[test]
+fn can_restore_snapshot_after_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let status_before = env
+        .but("status")
+        .args(["--verbose", "--files"])
+        .output()
+        .unwrap();
+
+    // `but oplog snapshot --format human` prints a `  Snapshot ID: <hex>` line we restore from.
+    let snapshot = env
+        .but("oplog snapshot -m baseline --format human")
+        .output()
+        .unwrap();
+    let snapshot_output = String::from_utf8_lossy(&snapshot.stdout);
+    let snapshot_id = snapshot_output
+        .split("Snapshot ID:")
+        .nth(1)
+        .and_then(|rest| rest.split_whitespace().next())
+        .expect("snapshot output contains a `Snapshot ID:` line");
+    assert!(
+        !snapshot_id.is_empty() && snapshot_id.chars().all(|c| c.is_ascii_hexdigit()),
+        "parsed snapshot id should be a bare hex string, got {snapshot_id:?}"
+    );
+
+    env.file("brand-new-file.txt", "content");
+    env.but("commit A -m 'add brand new file'")
+        .assert()
+        .success();
+
+    // The commit must actually change workspace state, otherwise the round-trip below would match
+    // `status_before` without the restore having reverted anything.
+    let status_after_commit = env
+        .but("status")
+        .args(["--verbose", "--files"])
+        .output()
+        .unwrap();
+    assert_ne!(status_before.stdout, status_after_commit.stdout);
+
+    env.but(format!("oplog restore {snapshot_id}"))
+        .assert()
+        .success();
+
+    env.but("status")
+        .args(["--verbose", "--files"])
+        .assert()
+        .success()
+        .stdout_eq(status_before.stdout)
+        .stderr_eq(status_before.stderr);
 }
 
 #[test]

@@ -238,6 +238,7 @@ where
                     // Treat "no new changes" as success for Gerrit.
                     Ok(String::new())
                 }
+                crate::Error::NonFastForward(_) => Err(err).context(Code::GitNonFastForward),
                 _ => Err(err.into()),
             },
         }

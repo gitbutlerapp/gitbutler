@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use anyhow::Context as _;
 use but_api::json::HexHash;
 use but_core::{
@@ -9,11 +7,8 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_transaction::{DynamicOutcome, IntermediateCommitCreateResult, Transaction};
-use but_workspace::{
-    RefInfo,
-    branch::create_reference::{Anchor, Position},
-};
+use but_transaction::{IntermediateCommitCreateResult, Transaction};
+use but_workspace::{RefInfo, branch::create_reference::Anchor};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
 use nonempty::NonEmpty;
@@ -33,19 +28,20 @@ use crate::{
     id::UncommittedHunkOrFile,
     theme::{self, Theme},
     utils::{
-        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
+        diff_specs::DiffSpecBuilder, targeting::Side,
     },
 };
 
 #[must_use]
 pub struct CommitOutcome {
-    new_commit: gix::ObjectId,
-    branch_name: Option<BranchNameTarget>,
+    pub new_commit: gix::ObjectId,
+    pub branch_name: Option<BranchNameTarget>,
 }
 
 /// `--format json` should only include newly created things. So if the branch already existed it
 /// wont be included in the JSON output.
-enum BranchNameTarget {
+pub enum BranchNameTarget {
     Existing(FullName),
     New(FullName),
 }
@@ -112,6 +108,7 @@ impl CliOutput for CommitOutcome {
     }
 }
 
+#[cfg_attr(not(feature = "but-2"), expect(dead_code))]
 pub fn commit(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
@@ -125,14 +122,14 @@ pub fn commit(
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
         resolve(guard, ctx, args, &mut out, &head_info, &id_map)?
     };
-    run(
+    Ok(run(
         ctx,
         &mut meta,
         guard.write_permission(),
         commit_op,
         commit_selection,
         reword_op,
-    )
+    )?)
 }
 
 fn resolve(
@@ -229,14 +226,14 @@ fn resolve(
     Ok((guard, commit_op, commit_selection, reword_op))
 }
 
-fn run(
+pub fn run(
     ctx: &mut Context,
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     commit_op: CommitOperation,
     commit_selection: CommitSelection,
     reword_op: RewordCommitOperation,
-) -> CliResult<CommitOutcome> {
+) -> anyhow::Result<CommitOutcome> {
     let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
@@ -259,7 +256,7 @@ fn run(
         builder.into_diff_specs()
     };
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
-    let result = but_transaction::with_transaction_with_perm(
+    let ((new_commit, branch_name), _ws) = but_transaction::with_transaction_with_perm(
         ctx,
         meta,
         perm,
@@ -281,14 +278,9 @@ fn run(
 
             let reworded_commit = reword_op.execute(new_commit, &mut tx)?;
 
-            Ok(DynamicOutcome::<_, std::convert::Infallible>::Commit((
-                reworded_commit,
-                branch_name,
-            )))
+            Ok(but_transaction::Commit((reworded_commit, branch_name)))
         },
     )?;
-
-    let DynamicOutcome::Commit(((new_commit, branch_name), _ws)) = result;
 
     Ok(CommitOutcome {
         new_commit,
@@ -322,12 +314,12 @@ fn route_commit_operation(
 ) -> CliResult<CommitOperation> {
     match target {
         CommitOperationTargetIsh::Above(cli_id) => {
-            let position = CommitRelativeToTargetPosition::Above;
-            route_commit_above_or_below(repo, id_map, cli_id, position)
+            let side = Side::Above;
+            route_commit_above_or_below(repo, id_map, cli_id, side)
         }
         CommitOperationTargetIsh::Below(cli_id) => {
-            let position = CommitRelativeToTargetPosition::Below;
-            route_commit_above_or_below(repo, id_map, cli_id, position)
+            let side = Side::Below;
+            route_commit_above_or_below(repo, id_map, cli_id, side)
         }
         CommitOperationTargetIsh::Branch(cli_id) => {
             if let Some(branch) = cli_id.try_resolve_branch(repo, id_map)? {
@@ -435,7 +427,7 @@ fn route_commit_above_or_below(
     repo: &gix::Repository,
     id_map: &IdMap,
     cli_id: CliIdArg,
-    position: CommitRelativeToTargetPosition,
+    side: Side,
 ) -> CliResult<CommitOperation> {
     let target = match cli_id
         .resolve_in_workspace(repo, id_map, Purpose::Target, None)
@@ -445,25 +437,22 @@ fn route_commit_above_or_below(
         .into_branch_or_commit()
         .hint("Run `but status` to show applicable targets")?
     {
-        BranchOrCommit::Commit(commit_id) => CommitRelativeToTarget::Commit {
-            commit_id,
-            position,
-        },
+        BranchOrCommit::Commit(commit_id) => CommitRelativeToTarget::Commit { commit_id, side },
         BranchOrCommit::Branch(arg) => CommitRelativeToTarget::BranchBucket {
             name: arg.resolve_local_branch_name()?,
-            position,
+            side,
         },
     };
     Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
 }
 
-enum CommitSelection {
+pub enum CommitSelection {
     AllChanges,
     Changes(Box<NonEmpty<UncommittedHunkOrFile>>),
     Nothing,
 }
 
-enum CommitOperation {
+pub enum CommitOperation {
     CommitToNewBranch(CommitToNewBranchOperation),
     CommitAt(CommitAtOperation),
 }
@@ -481,8 +470,8 @@ impl CommitOperation {
     }
 }
 
-struct CommitToNewBranchOperation {
-    branch_name: Option<FullName>,
+pub struct CommitToNewBranchOperation {
+    pub branch_name: Option<FullName>,
 }
 
 impl CommitToNewBranchOperation {
@@ -515,8 +504,8 @@ impl CommitToNewBranchOperation {
     }
 }
 
-struct CommitAtOperation {
-    target: CommitRelativeToTarget,
+pub struct CommitAtOperation {
+    pub target: CommitRelativeToTarget,
 }
 
 impl CommitAtOperation {
@@ -526,13 +515,12 @@ impl CommitAtOperation {
         changes: Vec<DiffSpec>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         let (relative_to, side, branch_name_target) = match self.target {
-            CommitRelativeToTarget::Commit {
-                commit_id,
-                position,
-            } => (RelativeTo::Commit(commit_id), position.into(), None),
-            CommitRelativeToTarget::BranchBucket { name, position } => {
+            CommitRelativeToTarget::Commit { commit_id, side } => {
+                (RelativeTo::Commit(commit_id), side.into(), None)
+            }
+            CommitRelativeToTarget::BranchBucket { name, side } => {
                 let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
-                let anchor = Anchor::at_segment(name.as_ref(), position.into());
+                let anchor = Anchor::at_segment(name.as_ref(), side.into());
                 tx.create_reference(
                     new_branch_name.as_ref(),
                     Some(anchor),
@@ -562,11 +550,11 @@ impl CommitAtOperation {
 
 /// Place a commit relative to something in the workspace.
 #[derive(Clone)]
-enum CommitRelativeToTarget {
+pub enum CommitRelativeToTarget {
     /// Place the commit relative to this commit, within the same branch.
     Commit {
         commit_id: gix::ObjectId,
-        position: CommitRelativeToTargetPosition,
+        side: Side,
     },
     /// Place the commit at the tip of the branch denoted by this reference, moving the reference to
     /// the new commit. This is effectively the same as committing to a branch.
@@ -574,42 +562,5 @@ enum CommitRelativeToTarget {
     /// Place the commit relative to this branch, treating the branch as a bucket.
     ///
     /// The commit is always inserted on a new branch with a canned name.
-    BranchBucket {
-        name: FullName,
-        position: CommitRelativeToTargetPosition,
-    },
-}
-
-#[derive(Clone)]
-enum CommitRelativeToTargetPosition {
-    Above,
-    Below,
-}
-
-impl Display for CommitRelativeToTargetPosition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let pretty = match self {
-            Self::Above => "above",
-            Self::Below => "below",
-        };
-        write!(f, "{pretty}")
-    }
-}
-
-impl From<CommitRelativeToTargetPosition> for InsertSide {
-    fn from(value: CommitRelativeToTargetPosition) -> Self {
-        match value {
-            CommitRelativeToTargetPosition::Above => Self::Above,
-            CommitRelativeToTargetPosition::Below => Self::Below,
-        }
-    }
-}
-
-impl From<CommitRelativeToTargetPosition> for Position {
-    fn from(value: CommitRelativeToTargetPosition) -> Self {
-        match value {
-            CommitRelativeToTargetPosition::Above => Self::Above,
-            CommitRelativeToTargetPosition::Below => Self::Below,
-        }
-    }
+    BranchBucket { name: FullName, side: Side },
 }

@@ -1,6 +1,6 @@
 import { useBranchCreate, useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { findBranchOperandByRef } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -80,11 +80,12 @@ export const Outline: FC<
 			},
 			{
 				onSuccess: (response) => {
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: response.newRef.fullNameBytes,
-					});
-					if (newBranch) selectBranch(newBranch);
+					const newBranchStack = getHeadInfoIndex(
+						response.workspace.headInfo,
+					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
+
+					if (newBranchStack && newBranchStack.id !== null)
+						selectBranch({ stackId: newBranchStack.id, branchRef: response.newRef.fullNameBytes });
 				},
 			},
 		);

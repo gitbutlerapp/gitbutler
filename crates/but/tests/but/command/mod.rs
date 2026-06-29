@@ -27,9 +27,11 @@ mod format;
 mod gui;
 mod help;
 #[cfg(feature = "legacy")]
-mod merge;
+mod land;
 #[cfg(feature = "legacy")]
 mod r#move;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+mod move2;
 mod onboarding;
 #[cfg(feature = "legacy")]
 mod pick;

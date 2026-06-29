@@ -8,11 +8,11 @@ use crate::theme::Theme;
 
 /// The occupied area of a rendered popup.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct PopupArea {
+pub struct PopupArea {
     /// The full popup area, including borders and padding.
-    pub(super) outer: Rect,
+    pub outer: Rect,
     /// The area inside the popup's borders and padding where content should be rendered.
-    pub(super) inner: Rect,
+    pub inner: Rect,
 }
 
 /// A centered popup with a themed rounded border.
@@ -21,7 +21,7 @@ pub(super) struct PopupArea {
 /// including borders and padding. Callers render their contents into the returned
 /// [`PopupArea::inner`] rectangle.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct Popup {
+pub struct Popup {
     width: u16,
     height: u16,
     padding: Padding,
@@ -30,7 +30,7 @@ pub(super) struct Popup {
 
 impl Popup {
     /// Create a popup with the given outer dimensions.
-    pub(super) fn new(theme: &'static Theme, width: u16, height: u16) -> Self {
+    pub fn new(theme: &'static Theme, width: u16, height: u16) -> Self {
         Self {
             width,
             height,
@@ -40,13 +40,13 @@ impl Popup {
     }
 
     /// Set the padding between the border and content area.
-    pub(super) fn padding(mut self, padding: Padding) -> Self {
+    pub fn padding(mut self, padding: Padding) -> Self {
         self.padding = padding;
         self
     }
 
     /// Clear, draw, and center the popup within `area`.
-    pub(super) fn render(self, area: Rect, frame: &mut Frame) -> PopupArea {
+    pub fn render(self, area: Rect, frame: &mut Frame) -> PopupArea {
         let outer = self.outer_area(area);
 
         frame.render_widget(Clear, outer);

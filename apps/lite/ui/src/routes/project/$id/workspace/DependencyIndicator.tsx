@@ -1,10 +1,7 @@
-import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { getBranchNameByCommitId } from "#ui/api/ref-info.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Tooltip } from "@base-ui/react";
-import { useQuery } from "@tanstack/react-query";
 import { Array, pipe } from "effect";
 import { ComponentProps, FC } from "react";
 
@@ -12,17 +9,13 @@ export const DependencyIndicator: FC<
 	{
 		projectId: string;
 		commitIds: Array.NonEmptyArray<string>;
+		branchNameByCommitId?: (commitId: string) => string | undefined;
 	} & ComponentProps<"button">
-> = ({ projectId, commitIds, ...restProps }) => {
+> = ({ projectId, commitIds, branchNameByCommitId, ...restProps }) => {
 	const dispatch = useAppDispatch();
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	// TODO: expensive
-	const branchNameByCommitId = headInfo
-		? getBranchNameByCommitId(headInfo)
-		: new Map<string, string>();
 	const branchNames = pipe(
 		commitIds,
-		Array.flatMapNullable((commitId) => branchNameByCommitId.get(commitId)),
+		Array.flatMapNullable((commitId) => branchNameByCommitId?.(commitId)),
 		Array.dedupe,
 	);
 	const tooltip =
