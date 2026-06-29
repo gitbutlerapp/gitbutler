@@ -29,14 +29,11 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 		if (stack.id !== null) stackContextById.set(stack.id, { stack });
 
 		for (const segment of stack.segments) {
-			if (segment.refName) {
-				const key = branchRefKey(segment.refName.fullNameBytes);
-				if (!branchContextByRef.has(key)) branchContextByRef.set(key, { stack, segment });
-			}
+			if (segment.refName)
+				branchContextByRef.set(branchRefKey(segment.refName.fullNameBytes), { stack, segment });
 
 			for (const commit of segment.commits)
-				if (!commitContextById.has(commit.id))
-					commitContextById.set(commit.id, { stack, segment, commit });
+				commitContextById.set(commit.id, { stack, segment, commit });
 		}
 	}
 
