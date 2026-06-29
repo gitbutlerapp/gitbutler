@@ -121,14 +121,26 @@ pub fn safe_checkout(
                     if err.kind() == std::io::ErrorKind::NotFound
                         || err.kind() == std::io::ErrorKind::PermissionDenied
                         || err.kind() == std::io::ErrorKind::NotADirectory
+                        || err.kind() == std::io::ErrorKind::IsADirectory
                     {
+                        // If this file is a directory (i.e. IsADirectory is
+                        // the error kind), it would be reasonable to delete the
+                        // entire directory, because we are checking out a tree
+                        // that contains the directory anyway. But this triggers
+                        // a bug in libgit2 in which a `git_diff_delta` with
+                        // status `GIT_DELTA_TYPECHANGE` (correct, since its
+                        // type changes from blob to tree) and null OID (I don't
+                        // know the internals of libgit2 well enough to judge
+                        // this, but this seems reasonable, since at that point
+                        // of time, the tree OID cannot be known) is
+                        // created; then, if the workdir contains no entries
+                        // corresponding to that path, libgit2 erroneously
+                        // attempts to read from that null OID. So, don't
+                        // do anything if the file to be deleted is actually
+                        // a directory.
                         continue;
                     };
-                    if err.kind() == std::io::ErrorKind::IsADirectory {
-                        std::fs::remove_dir_all(path_to_delete)?;
-                    } else {
-                        return Err(err.into());
-                    }
+                    return Err(err.into());
                 } else {
                     let workdir = repo.workdir().context("non-bare repository")?;
                     for dir_to_delete in path_to_delete.ancestors().skip(1) {

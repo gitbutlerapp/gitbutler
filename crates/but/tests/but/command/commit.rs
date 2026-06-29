@@ -4,6 +4,34 @@ use super::util;
 use crate::utils::Sandbox;
 
 #[test]
+fn commit_moved_file_replaced_by_directory() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    std::fs::rename(env.projects_root().join("A"), env.projects_root().join("B")).unwrap();
+    env.file("A/file", "some other stuff");
+
+    env.but("commit -m 'Commit everything'").assert().success();
+
+    env.but("status -f").assert().success().stdout_eq(str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   25c45c4 Commit everything
+┊│     25:qw A A/file
+┊│     25:pl R B
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn commit_with_message_from_file() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     insta::assert_snapshot!(env.git_log(), @"
