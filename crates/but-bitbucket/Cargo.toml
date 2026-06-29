@@ -1,0 +1,38 @@
+[package]
+name = "but-bitbucket"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE.md"
+description = "The GitButler Bitbucket Cloud integration"
+authors.workspace = true
+readme = "../../README.md"
+publish = false
+rust-version.workspace = true
+
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
+[lib]
+doctest = false
+
+[dependencies]
+but-secret.workspace = true
+but-forge-storage.workspace = true
+but-error.workspace = true
+serde.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+urlencoding.workspace = true
+base64.workspace = true
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
+
+[dev-dependencies]
+reqwest = { workspace = true, features = ["blocking"] }
+serde_json.workspace = true
+
+[lints]
+workspace = true

@@ -424,7 +424,7 @@ impl UserConfigKey {
 /// Subcommands for `but config forge`
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum ForgeSubcommand {
-    /// Authenticate with your forge provider (currently only GitHub is supported).
+    /// Authenticate with your forge provider (GitHub, GitLab or Bitbucket).
     ///
     /// This will guide you through the authentication process using either:
     /// GitHub
@@ -435,6 +435,11 @@ pub enum ForgeSubcommand {
     /// GitLab
     ///  - Personal Access Token (PAT)
     ///  - Self-Hosted
+    ///
+    /// Bitbucket
+    ///  - Atlassian API token with scopes (read:user:bitbucket,
+    ///    read:repository:bitbucket, read:pullrequest:bitbucket,
+    ///    write:pullrequest:bitbucket)
     Auth,
 
     /// List authenticated forge accounts known to GitButler.

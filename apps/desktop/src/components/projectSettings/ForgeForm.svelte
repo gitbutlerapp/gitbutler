@@ -1,7 +1,13 @@
 <script lang="ts">
+	import BitbucketAccountBadge from "$components/forge/BitbucketAccountBadge.svelte";
 	import GitHubAccountBadge from "$components/forge/GitHubAccountBadge.svelte";
 	import GitLabAccountBadge from "$components/forge/GitLabAccountBadge.svelte";
 	import ForgeAccountConfig from "$components/projectSettings/ForgeAccountConfig.svelte";
+	import {
+		bitbucketAccountIdentifierToString,
+		stringToBitbucketAccountIdentifier,
+	} from "$lib/forge/bitbucket/bitbucketUserService.svelte";
+	import { usePreferredBitbucketUsername } from "$lib/forge/bitbucket/hooks.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import {
 		githubAccountIdentifierToString,
@@ -20,6 +26,7 @@
 
 	import type { Project } from "$lib/project/project";
 	import type {
+		BitbucketAccountIdentifier,
 		ForgeName,
 		GithubAccountIdentifier,
 		GitlabAccountIdentifier,
@@ -57,6 +64,11 @@
 		reactive(() => projectId),
 	);
 
+	// Bitbucket hooks
+	const { preferredBitbucketAccount, bitbucketAccounts } = usePreferredBitbucketUsername(
+		reactive(() => projectId),
+	);
+
 	function handleSelectionChange(selectedOption: ForgeSelection) {
 		if (!project) return;
 
@@ -83,6 +95,13 @@
 			details: account,
 		});
 	}
+
+	function updatePreferredBitbucketAccount(projectId: string, account: BitbucketAccountIdentifier) {
+		projectsService.updatePreferredForgeUser(projectId, {
+			provider: "bitbucket",
+			details: account,
+		});
+	}
 </script>
 
 <CardGroup>
@@ -97,7 +116,8 @@
 				<br />
 				To enable Forge integration, please select your Forge from the dropdown below.
 				<br />
-				<span class="text-bold">Note:</span> Currently, only GitHub and GitLab support pull request creation.
+				<span class="text-bold">Note:</span> Currently, only GitHub, GitLab and Bitbucket support pull
+				request creation.
 			{:else}
 				We’ve detected that you’re using <span class="text-bold"
 					>{determinedForgeType.toUpperCase()}</span
@@ -152,6 +172,22 @@
 			AccountBadge={GitLabAccountBadge}
 			docsUrl="https://docs.gitbutler.com/features/forge-integration/gitlab-integration"
 			requestType="merge request"
+		/>
+	{/if}
+
+	{#if forgeInfo?.name === "bitbucket"}
+		<ForgeAccountConfig
+			{projectId}
+			displayName="Bitbucket"
+			accounts={bitbucketAccounts.current}
+			preferredAccount={preferredBitbucketAccount.current}
+			accountToString={bitbucketAccountIdentifierToString}
+			stringToAccount={stringToBitbucketAccountIdentifier}
+			getUsername={(account) => account.info.email}
+			updatePreferredAccount={updatePreferredBitbucketAccount}
+			AccountBadge={BitbucketAccountBadge}
+			docsUrl="https://docs.gitbutler.com/features/forge-integration/bitbucket-integration"
+			requestType="pull request"
 		/>
 	{/if}
 </CardGroup>

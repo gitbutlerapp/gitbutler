@@ -195,7 +195,13 @@ fn capabilities_for(forge: &ForgeName) -> ForgeCapabilities {
             pr_service: true,
             list_service: true,
         },
-        ForgeName::Bitbucket | ForgeName::Azure => ForgeCapabilities {
+        ForgeName::Bitbucket => ForgeCapabilities {
+            checks: true,
+            repo_info: true,
+            pr_service: true,
+            list_service: true,
+        },
+        ForgeName::Azure => ForgeCapabilities {
             checks: false,
             repo_info: false,
             pr_service: false,

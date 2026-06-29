@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BitbucketIntegration from "$components/settings/BitbucketIntegration.svelte";
 	import GithubIntegration from "$components/settings/GithubIntegration.svelte";
 	import GitlabIntegration from "$components/settings/GitlabIntegration.svelte";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
@@ -17,6 +18,7 @@
 
 <GithubIntegration />
 <GitlabIntegration />
+<BitbucketIntegration />
 <Spacer />
 <CardGroup>
 	<CardGroup.Item labelFor="autoFillPrDescription">

@@ -102,6 +102,36 @@ fn ci_checks_for_ref(
                 })
                 .collect())
         }
+        ForgeName::Bitbucket => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.bitbucket().cloned());
+            let bb =
+                but_bitbucket::BitbucketClient::from_storage(storage, preferred_account.as_ref())?;
+
+            // Clone owned data for thread
+            let workspace = owner.clone();
+            let repo_slug = repo.clone();
+            let reference = reference.to_string();
+            let reference_for_checks = reference.clone();
+
+            let statuses = std::thread::spawn(move || -> anyhow::Result<_> {
+                let runtime = tokio::runtime::Runtime::new()
+                    .map_err(|err| anyhow::anyhow!("Failed to create tokio runtime: {err}"))?;
+                runtime.block_on(bb.list_checks_for_ref(&workspace, &repo_slug, &reference))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
+
+            Ok(statuses
+                .into_iter()
+                .map(|status| {
+                    let mut ci_check = CiCheck::from(status);
+                    ci_check.reference = reference_for_checks.to_string();
+                    ci_check
+                })
+                .collect())
+        }
         _ => Err(anyhow::anyhow!(
             "Listing ci checks for forge {forge:?} is not implemented yet."
         )),
@@ -334,6 +364,60 @@ impl From<but_github::CheckRun> for CiCheck {
     }
 }
 
+impl From<but_bitbucket::BitbucketBuildStatus> for CiCheck {
+    fn from(status: but_bitbucket::BitbucketBuildStatus) -> Self {
+        let started_at = status
+            .created_on
+            .as_deref()
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| dt.with_timezone(&chrono::Utc));
+        let completed_at = status
+            .updated_on
+            .as_deref()
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| dt.with_timezone(&chrono::Utc));
+
+        let ci_status = match status.state.as_str() {
+            "SUCCESSFUL" => CiStatus::Complete {
+                conclusion: CiConclusion::Success,
+                completed_at,
+            },
+            "FAILED" => CiStatus::Complete {
+                conclusion: CiConclusion::Failure,
+                completed_at,
+            },
+            "STOPPED" => CiStatus::Complete {
+                conclusion: CiConclusion::Cancelled,
+                completed_at,
+            },
+            "INPROGRESS" => CiStatus::InProgress,
+            _ => CiStatus::Unknown,
+        };
+
+        let url = status.url.unwrap_or_default();
+        CiCheck {
+            id: but_bitbucket::stable_id_hash(&format!(
+                "{}\u{1f}{}",
+                status.commit_hash, status.key
+            )),
+            name: status.name,
+            output: CiOutput {
+                summary: status.description.unwrap_or_default(),
+                ..Default::default()
+            },
+            started_at,
+            status: ci_status,
+            head_sha: status.commit_hash,
+            url: url.clone(),
+            html_url: url.clone(),
+            details_url: url,
+            pull_requests: Vec::new(),
+            reference: String::new(), // Will be set by the caller
+            last_sync_at: chrono::Local::now().naive_local(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{CiCheck, CiConclusion, CiStatus};
@@ -412,5 +496,83 @@ mod tests {
         let check = CiCheck::from(job("waiting_for_callback", Some("https://example.com/job")));
 
         assert!(matches!(check.status, CiStatus::Queued));
+    }
+
+    fn bb_status(state: &str) -> but_bitbucket::BitbucketBuildStatus {
+        but_bitbucket::BitbucketBuildStatus {
+            key: "PIPELINE-1".into(),
+            name: "Build".into(),
+            description: Some("desc".into()),
+            state: state.into(),
+            url: Some("https://bitbucket.org/ws/repo/pipelines/1".into()),
+            commit_hash: "deadbeef".into(),
+            created_on: Some("2026-05-01T12:00:00Z".into()),
+            updated_on: Some("2026-05-01T12:05:00Z".into()),
+        }
+    }
+
+    #[test]
+    fn maps_bitbucket_build_states() {
+        assert!(matches!(
+            CiCheck::from(bb_status("SUCCESSFUL")).status,
+            CiStatus::Complete {
+                conclusion: CiConclusion::Success,
+                ..
+            }
+        ));
+        assert!(matches!(
+            CiCheck::from(bb_status("FAILED")).status,
+            CiStatus::Complete {
+                conclusion: CiConclusion::Failure,
+                ..
+            }
+        ));
+        assert!(matches!(
+            CiCheck::from(bb_status("STOPPED")).status,
+            CiStatus::Complete {
+                conclusion: CiConclusion::Cancelled,
+                ..
+            }
+        ));
+        assert!(matches!(
+            CiCheck::from(bb_status("INPROGRESS")).status,
+            CiStatus::InProgress
+        ));
+        assert!(matches!(
+            CiCheck::from(bb_status("WEIRD")).status,
+            CiStatus::Unknown
+        ));
+    }
+
+    #[test]
+    fn bitbucket_build_status_id_is_stable_and_nonzero() {
+        let a = CiCheck::from(bb_status("SUCCESSFUL"));
+        let b = CiCheck::from(bb_status("SUCCESSFUL"));
+        assert_eq!(a.id, b.id);
+        assert_ne!(a.id, 0);
+        assert_eq!(a.head_sha, "deadbeef");
+    }
+
+    #[test]
+    fn bitbucket_build_status_id_differs_across_commits_and_keys() {
+        let base = bb_status("SUCCESSFUL");
+
+        // Same key on a different commit must not collide (the id is the
+        // ci_checks primary key, and keys like "build" recur across refs/repos).
+        let other_commit = but_bitbucket::BitbucketBuildStatus {
+            commit_hash: "feedface".into(),
+            ..bb_status("SUCCESSFUL")
+        };
+        assert_ne!(CiCheck::from(base).id, CiCheck::from(other_commit).id);
+
+        // Different key on the same commit also differs.
+        let other_key = but_bitbucket::BitbucketBuildStatus {
+            key: "PIPELINE-2".into(),
+            ..bb_status("SUCCESSFUL")
+        };
+        assert_ne!(
+            CiCheck::from(bb_status("SUCCESSFUL")).id,
+            CiCheck::from(other_key).id
+        );
     }
 }

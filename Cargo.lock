@@ -795,6 +795,7 @@ dependencies = [
  "but-agentlog",
  "but-api",
  "but-askpass",
+ "but-bitbucket",
  "but-cherry-apply",
  "but-core",
  "but-ctx",
@@ -941,6 +942,7 @@ dependencies = [
  "but-api",
  "but-api-macros",
  "but-askpass",
+ "but-bitbucket",
  "but-cherry-apply",
  "but-core",
  "but-ctx",
@@ -1034,6 +1036,25 @@ dependencies = [
  "serde",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "but-bitbucket"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "but-error",
+ "but-forge-storage",
+ "but-schemars",
+ "but-secret",
+ "reqwest",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
+ "urlencoding",
 ]
 
 [[package]]
@@ -1190,6 +1211,7 @@ name = "but-forge"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-bitbucket",
  "but-db",
  "but-forge-storage",
  "but-github",

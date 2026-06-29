@@ -140,6 +140,62 @@ impl Controller {
         self.save_settings(&settings)
     }
 
+    /// Get all known Bitbucket accounts.
+    pub fn bitbucket_accounts(&self) -> anyhow::Result<Vec<crate::settings::BitbucketAccount>> {
+        let settings = self.read_settings()?;
+        Ok(settings.bitbucket.known_accounts)
+    }
+
+    /// Add a Bitbucket account if it does not already exist.
+    pub fn add_bitbucket_account(
+        &self,
+        account: &crate::settings::BitbucketAccount,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+
+        if settings
+            .bitbucket
+            .known_accounts
+            .iter()
+            .any(|a| a == account)
+        {
+            return Ok(());
+        }
+
+        settings.bitbucket.known_accounts.push(account.to_owned());
+        self.save_settings(&settings)
+    }
+
+    /// Clear all Bitbucket accounts.
+    /// Returns the list of access token keys that should be deleted.
+    pub fn clear_all_bitbucket_accounts(&self) -> anyhow::Result<Vec<String>> {
+        let mut settings = self.read_settings()?;
+        let access_tokens_to_delete = settings
+            .bitbucket
+            .known_accounts
+            .iter()
+            .map(|account| account.access_token_key().to_string())
+            .collect::<Vec<String>>();
+        for key in &access_tokens_to_delete {
+            settings.cached_profiles.remove(key);
+        }
+        settings.bitbucket.known_accounts.clear();
+        self.save_settings(&settings)?;
+
+        Ok(access_tokens_to_delete)
+    }
+
+    /// Remove a Bitbucket account and its cached profile.
+    pub fn remove_bitbucket_account(
+        &self,
+        account: &crate::settings::BitbucketAccount,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+        settings.cached_profiles.remove(account.access_token_key());
+        settings.bitbucket.known_accounts.retain(|a| a != account);
+        self.save_settings(&settings)
+    }
+
     fn read_settings(&self) -> anyhow::Result<crate::settings::ForgeSettings> {
         self.settings_storage.read()
     }
@@ -152,7 +208,7 @@ impl Controller {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::{CachedProfile, GitHubAccount, GitLabAccount};
+    use crate::settings::{BitbucketAccount, CachedProfile, GitHubAccount, GitLabAccount};
 
     fn test_controller() -> (Controller, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
@@ -249,6 +305,39 @@ mod tests {
         assert!(
             controller
                 .cached_profile("gitlab_pat_gluser")
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn remove_bitbucket_account_clears_cached_profile() {
+        let (controller, _dir) = test_controller();
+        let account = BitbucketAccount::ApiToken {
+            email: "bb@test.com".into(),
+            access_token_key: "bitbucket_apitoken_bb@test.com".into(),
+        };
+        controller.add_bitbucket_account(&account).unwrap();
+        controller
+            .set_cached_profile(
+                "bitbucket_apitoken_bb@test.com",
+                Some(CachedProfile {
+                    email: Some("bb@test.com".into()),
+                    ..Default::default()
+                }),
+            )
+            .unwrap();
+
+        assert!(
+            controller
+                .cached_profile("bitbucket_apitoken_bb@test.com")
+                .unwrap()
+                .is_some()
+        );
+        controller.remove_bitbucket_account(&account).unwrap();
+        assert!(
+            controller
+                .cached_profile("bitbucket_apitoken_bb@test.com")
                 .unwrap()
                 .is_none()
         );

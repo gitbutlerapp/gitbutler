@@ -13,6 +13,7 @@
 
 	interface Props {
 		reviewUnit: ForgeUnitInfo | undefined;
+		forge?: string;
 		projectId: string;
 		branchListing: BranchListing;
 		prs: PullRequest[];
@@ -20,7 +21,7 @@
 		onclick: (args: { listing: BranchListing; pr?: PullRequest }) => void;
 	}
 
-	const { reviewUnit, projectId, branchListing, prs, selected, onclick }: Props = $props();
+	const { reviewUnit, forge, projectId, branchListing, prs, selected, onclick }: Props = $props();
 	const userAvatarUrl = useUserAvatarUrl();
 
 	const unknownName = "unknown";
@@ -122,6 +123,7 @@
 			{#if pr}
 				<ReviewBadge
 					type={reviewUnit?.abbr}
+					{forge}
 					status={getPrStatus(pr)}
 					title={pr.title}
 					number={pr.number}

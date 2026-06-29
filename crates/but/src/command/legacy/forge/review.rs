@@ -386,11 +386,9 @@ async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Er
         but_forge::ForgeName::Azure => {
             anyhow::bail!("Azure is unsupported at the minute. Sorry 😞.");
         }
-        but_forge::ForgeName::Bitbucket => {
-            anyhow::bail!("Bitbucket is unsupported at the minute. Sorry 😞.");
-        }
         but_forge::ForgeName::GitHub => "GitHub",
         but_forge::ForgeName::GitLab => "GitLab",
+        but_forge::ForgeName::Bitbucket => "Bitbucket",
     };
 
     match account_validity {

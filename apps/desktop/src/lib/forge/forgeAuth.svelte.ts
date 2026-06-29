@@ -1,3 +1,4 @@
+import { useBitbucketForgeUser } from "$lib/forge/bitbucket/hooks.svelte";
 import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
 import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
@@ -8,8 +9,8 @@ import type { Reactive } from "@gitbutler/shared/storeUtils";
 /**
  * Per-project forge auth state. `authenticated` is true when the
  * project's preferred forge user has a usable account configured.
- * For forges with no Rust-side user support (Azure, Bitbucket),
- * `authenticated` is always false.
+ * For forges with no Rust-side user support (Azure), `authenticated`
+ * is always false.
  */
 export function useForgeAuth(projectId: Reactive<string>): {
 	authenticated: Reactive<boolean>;
@@ -25,20 +26,25 @@ export function useForgeAuth(projectId: Reactive<string>): {
 	// account resolves, so the non-active forge costs nothing.
 	const githubUser = useGitHubForgeUser(projectId);
 	const gitlabUser = useGitLabForgeUser(projectId);
+	const bitbucketUser = useBitbucketForgeUser(projectId);
 
 	const authenticated = $derived(
 		forgeName === "github"
 			? githubUser.user.current !== undefined
 			: forgeName === "gitlab"
 				? gitlabUser.user.current !== undefined
-				: false,
+				: forgeName === "bitbucket"
+					? bitbucketUser.user.current !== undefined
+					: false,
 	);
 	const isLoading = $derived(
 		forgeName === "github"
 			? githubUser.isLoading.current
 			: forgeName === "gitlab"
 				? gitlabUser.isLoading.current
-				: false,
+				: forgeName === "bitbucket"
+					? bitbucketUser.isLoading.current
+					: false,
 	);
 
 	return {

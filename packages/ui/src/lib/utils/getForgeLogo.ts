@@ -12,6 +12,12 @@ export function getForgeLogo(forgeName: string, small = false): IconName {
 		}
 
 		return "github";
+	} else if (forgeName === "bitbucket") {
+		if (small) {
+			return "bitbucket";
+		}
+
+		return "bitbucket";
 	}
 
 	return "question";
