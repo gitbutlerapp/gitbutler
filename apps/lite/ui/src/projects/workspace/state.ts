@@ -24,7 +24,7 @@ import {
 	type OutlineMode,
 	type TransferOperationMode,
 } from "#ui/outline/mode.ts";
-import { findCommitStackId } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { mapKeys } from "effect/Record";
 
 export type SelectionState = {
@@ -214,8 +214,8 @@ const rewrittenCommitOperand = ({
 	const commitId = replacedCommits[commit.commitId];
 	if (commitId === undefined) return null;
 
-	const stackId = findCommitStackId(headInfo, commitId);
-	if (stackId === null) return null;
+	const stackId = getHeadInfoIndex(headInfo).commitContextById(commitId)?.stack.id;
+	if (stackId == null) return null;
 
 	return { stackId, commitId };
 };

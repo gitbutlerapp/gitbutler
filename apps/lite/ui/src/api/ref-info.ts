@@ -1,5 +1,4 @@
 import { encodeBytes, bytesEqual } from "#ui/api/bytes.ts";
-import { type BranchOperand } from "#ui/operands.ts";
 import {
 	type Commit,
 	type RefInfo,
@@ -51,35 +50,6 @@ export const getHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	const index = buildHeadInfoIndex(headInfo);
 	headInfoIndexCache.set(headInfo, index);
 	return index;
-};
-
-export const findCommitStackId = (headInfo: RefInfo, commitId: string): string | null => {
-	for (const stack of headInfo.stacks) {
-		if (stack.id === null) continue;
-
-		for (const segment of stack.segments)
-			if (segment.commits.some((commit) => commit.id === commitId)) return stack.id;
-	}
-
-	return null;
-};
-
-export const findBranchOperandByRef = ({
-	headInfo,
-	branchRef,
-}: {
-	headInfo: RefInfo;
-	branchRef: Array<number>;
-}): BranchOperand | null => {
-	for (const stack of headInfo.stacks) {
-		if (stack.id === null) continue;
-
-		for (const segment of stack.segments)
-			if (segment.refName && bytesEqual(segment.refName.fullNameBytes, branchRef))
-				return { stackId: stack.id, branchRef };
-	}
-
-	return null;
 };
 
 export const renameBranchInHeadInfo = ({

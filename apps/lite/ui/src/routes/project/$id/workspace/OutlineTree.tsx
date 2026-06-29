@@ -24,12 +24,7 @@ import {
 	listProjectsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
-import {
-	findBranchOperandByRef,
-	getHeadInfoIndex,
-	resolveRelativeTo,
-	type HeadInfoIndex,
-} from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex, resolveRelativeTo, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
@@ -308,15 +303,18 @@ const useOutlineTreeHotkeys = ({
 			},
 			{
 				onSuccess: (response) => {
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: response.newRef.fullNameBytes,
-					});
-					if (newBranch)
+					const newBranchStack = getHeadInfoIndex(
+						response.workspace.headInfo,
+					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
+
+					if (newBranchStack && newBranchStack.id !== null)
 						dispatch(
 							projectActions.selectOutline({
 								projectId,
-								selection: branchOperand(newBranch),
+								selection: branchOperand({
+									stackId: newBranchStack.id,
+									branchRef: response.newRef.fullNameBytes,
+								}),
 							}),
 						);
 				},
@@ -1168,15 +1166,18 @@ const CommitRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: response.newRef.fullNameBytes,
-					});
-					if (newBranch)
+					const newBranchStack = getHeadInfoIndex(
+						response.workspace.headInfo,
+					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
+
+					if (newBranchStack && newBranchStack.id !== null)
 						dispatch(
 							projectActions.selectOutline({
 								projectId,
-								selection: branchOperand(newBranch),
+								selection: branchOperand({
+									stackId: newBranchStack.id,
+									branchRef: response.newRef.fullNameBytes,
+								}),
 							}),
 						);
 				},
@@ -2232,15 +2233,18 @@ const BranchRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: response.newRef.fullNameBytes,
-					});
-					if (newBranch)
+					const newBranchStack = getHeadInfoIndex(
+						response.workspace.headInfo,
+					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
+
+					if (newBranchStack && newBranchStack.id !== null)
 						dispatch(
 							projectActions.selectOutline({
 								projectId,
-								selection: branchOperand(newBranch),
+								selection: branchOperand({
+									stackId: newBranchStack.id,
+									branchRef: response.newRef.fullNameBytes,
+								}),
 							}),
 						);
 				},
