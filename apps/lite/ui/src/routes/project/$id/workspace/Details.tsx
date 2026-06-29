@@ -965,9 +965,8 @@ const Diff: FC<{
 	return (
 		<div className={styles.diffTab}>
 			<div className={styles.actions}>
-				<div>
-					<FilesToggle render={<ToggleStyles />}>Toggle files</FilesToggle>
-				</div>
+				<FilesToggle className={getButtonClassName({})}>Toggle files</FilesToggle>
+
 				<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
 					<ToggleGroupStyles>
 						<Toolbar.Button
