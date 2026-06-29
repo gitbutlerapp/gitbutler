@@ -408,32 +408,20 @@ const useOutlineTreeHotkeys = ({
 		);
 	};
 
-	const selectedPushContext = Match.value(selection).pipe(
-		Match.tags({
-			Branch: (selection) => {
-				if (!selectedStack || selectedStack.id === null) return null;
+	const selectedSegmentIndex =
+		selection?._tag === "Branch"
+			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segmentIndex
+			: selection?._tag === "Commit"
+				? headInfoIndex?.commitContextById(selection.commitId)?.segmentIndex
+				: undefined;
 
-				const segmentIndex = selectedStack.segments.findIndex(
-					(segment) =>
-						!!segment.refName && bytesEqual(segment.refName.fullNameBytes, selection.branchRef),
-				);
-				if (segmentIndex === -1) return null;
-
-				return pushContextForSegment({ segments: selectedStack.segments, segmentIndex });
-			},
-			Commit: (selection) => {
-				if (!selectedStack || selectedStack.id === null) return null;
-
-				const segmentIndex = selectedStack.segments.findIndex((segment) =>
-					segment.commits.some((commit) => commit.id === selection.commitId),
-				);
-				if (segmentIndex === -1) return null;
-
-				return pushContextForSegment({ segments: selectedStack.segments, segmentIndex });
-			},
-		}),
-		Match.orElse(() => null),
-	);
+	const selectedPushContext =
+		selectedStack && selectedSegmentIndex !== undefined
+			? pushContextForSegment({
+					segments: selectedStack.segments,
+					segmentIndex: selectedSegmentIndex,
+				})
+			: null;
 	const selectedStackRelativeTo = selectedStack ? stackBottomRelativeTo(selectedStack) : null;
 	const selectedStackRebaseUpdate: BottomUpdate | null = selectedStackRelativeTo
 		? { kind: "rebase", selector: selectedStackRelativeTo }
