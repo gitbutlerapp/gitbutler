@@ -502,6 +502,69 @@ Staged a hunk in a.txt in the uncommitted area → [A].
     Ok(())
 }
 
+#[test]
+fn uncommitted_hunk_to_commit() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+
+    // Must set metadata to match the scenario
+    env.setup_metadata(&["A", "B"]);
+
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    let target_commit = branch_commit_ids(&status_json(&env)?, "A")[0].clone();
+    env.but(format!("rub zz:a.txt:#0 {target_commit}"))
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Amended [..] → [..]
+
+"#]])
+        .stderr_eq(str![""]);
+
+    // Verify that only one hunk was assigned ("a.txt" still appears in the
+    // uncommitted area because there is one hunk still unassigned).
+    env.but("--format json status -f")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "uncommittedChanges": [
+    {
+      "cliId": "nk",
+      "filePath": "a.txt",
+      "changeType": "modified"
+    }
+  ],
+...
+
+"#]]);
+
+    // Verify that the commit indeed received the hunk.
+    snapbox::assert_data_eq!(
+        env.open_repo()
+            .rev_parse_single("A:a.txt")?
+            .object()?
+            .try_into_blob()?
+            .take_data(),
+        str![[r#"
+firsta
+line
+line
+line
+line
+line
+line
+line
+last
+
+"#]],
+    );
+
+    Ok(())
+}
+
 // Regression: filenames with dashes should not be misinterpreted as ranges.
 // Before the fix, "my-file.txt" would be split on '-' and treated as a range
 // from "my" to "file.txt", which would fail.
