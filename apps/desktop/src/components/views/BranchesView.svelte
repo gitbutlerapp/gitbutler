@@ -23,7 +23,6 @@
 	import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
 	import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
 	import { workspacePath } from "$lib/routes/routes.svelte";
-	import { handleCreateBranchFromBranchOutcome } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
 	import { inject } from "@gitbutler/core/context";
@@ -98,22 +97,15 @@
 		defaultValue: 20,
 	};
 
-	async function checkoutBranch(args: {
-		branchName: string;
-		remote?: string;
-		prNumber?: number;
-		hasLocal: boolean;
-	}) {
-		const { remote, hasLocal, branchName, prNumber } = args;
+	async function checkoutBranch(args: { branchName: string; remote?: string; hasLocal: boolean }) {
+		const { remote, hasLocal, branchName } = args;
 		const remoteRef = remote ? `refs/remotes/${remote}/${branchName}` : undefined;
 		const branchRef = hasLocal ? `refs/heads/${branchName}` : remoteRef;
 		if (branchRef) {
-			const outcome = await stackService.createVirtualBranchFromBranch({
+			await stackService.branchApply({
 				projectId,
-				branch: branchRef,
-				prNumber,
+				existingBranch: branchRef,
 			});
-			handleCreateBranchFromBranchOutcome(outcome);
 			await baseBranchService.refreshBaseBranch(projectId);
 		}
 		goto(workspacePath(projectId));
@@ -317,7 +309,6 @@
 									result={combineResults(selectedBranch.result, listing.result)}
 								>
 									{#snippet children([branch, listing])}
-										{@const prNumber = branch.stack?.pullRequests[branchName]}
 										{@const inWorkspace = branch.stack?.inWorkspace}
 										{@const hasLocal = listing.hasLocal}
 										<!-- Apply branch -->
@@ -329,7 +320,7 @@
 													icon="workbench"
 													shrinkable
 													action={async () => {
-														await checkoutBranch({ remote, branchName, hasLocal, prNumber });
+														await checkoutBranch({ remote, branchName, hasLocal });
 													}}
 												>
 													Apply to workspace
