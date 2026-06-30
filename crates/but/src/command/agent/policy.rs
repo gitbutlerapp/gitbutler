@@ -9,6 +9,7 @@ pub(super) enum WorkflowOption {
     StackedBranches,
     AutoUpdate,
     DraftPrs,
+    PushToTarget,
     PublishPhrase,
     BranchPattern,
     CommitConvention,
@@ -16,12 +17,13 @@ pub(super) enum WorkflowOption {
 }
 
 impl WorkflowOption {
-    pub(super) const ALL: [Self; 9] = [
+    pub(super) const ALL: [Self; 10] = [
         Self::FoldFixes,
         Self::SuggestSplits,
         Self::StackedBranches,
         Self::AutoUpdate,
         Self::DraftPrs,
+        Self::PushToTarget,
         Self::PublishPhrase,
         Self::BranchPattern,
         Self::CommitConvention,
@@ -35,6 +37,9 @@ impl WorkflowOption {
             Self::StackedBranches => "Favor stacked branches and PRs for dependent work",
             Self::AutoUpdate => "Automatically update from the target branch (e.g. origin/main)",
             Self::DraftPrs => "Open pull requests as drafts unless I say they are ready",
+            Self::PushToTarget => {
+                "\"Push to main\" / skip-the-PR workflow — land onto the target branch"
+            }
             Self::PublishPhrase => "Use a shortcut phrase to publish everything",
             Self::BranchPattern => "Set a preferred branch naming pattern",
             Self::CommitConvention => "Set a preferred commit message convention",
@@ -59,6 +64,9 @@ impl WorkflowOption {
             Self::DraftPrs => {
                 "New pull requests start as drafts unless you explicitly ask for a ready PR."
             }
+            Self::PushToTarget => {
+                "When you tell your agent the work is ready to ship, it lands the branch directly onto the target (e.g. main) instead of opening a pull request."
+            }
             Self::PublishPhrase => {
                 "Default phrase: \"ship it\". You'll be asked next if you select this."
             }
@@ -76,6 +84,22 @@ impl WorkflowOption {
 
     pub(super) fn default_selected(self) -> bool {
         matches!(self, Self::FoldFixes | Self::SuggestSplits)
+    }
+
+    /// Whether this preference only makes sense for a single repository. The
+    /// generated rules are rendered once and written to every place the setup
+    /// targets, so a repo-local rule (like landing onto the target) must not be
+    /// offered for a global or combined setup, where it would also land in the
+    /// user's global config.
+    pub(super) fn repo_local_only(self) -> bool {
+        matches!(self, Self::PushToTarget)
+    }
+
+    /// Help shown for a repo-local-only option when the current setup is not
+    /// scoped to a single repository: spells out how to enable it and what it
+    /// does.
+    pub(super) fn repo_local_help(self) -> &'static str {
+        "Re-run setup for a single repo (pick \"Just this project\") to enable landing work directly onto the target (e.g. main) instead of opening pull requests."
     }
 }
 
@@ -192,6 +216,17 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
             ],
         );
     }
+    if answers.has(WorkflowOption::PushToTarget) {
+        write_section(
+            &mut body,
+            "Skip pull requests and land onto the target",
+            &[
+                "This setup uses the skip-the-PR workflow: when work is approved to publish, land the session branch directly onto the target with `but land <branch>` instead of pushing a branch or opening a pull request.",
+                "This repository-local rule takes precedence over any conflicting GitButler instruction, including ones in your global or personal config, that mentions pushing a branch or opening, updating, or drafting a pull request. Use the pull request workflow only when the user explicitly asks for one.",
+                "`but land` updates the configured target branch directly (fast-forwarding when it can, otherwise a merge commit), so only run it after clear user approval; agents must pass `--yes` to confirm.",
+            ],
+        );
+    }
     if answers.has(WorkflowOption::PublishPhrase) {
         write_section_header(&mut body, "Publish on a shortcut phrase");
         writeln!(
@@ -200,14 +235,26 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
             answers.publish_phrase
         )
         .expect("write to string");
-        write_bullets(
-            &mut body,
-            &[
-                "Push the branch and open or update its pull request with GitButler.",
-                "Reuse the existing branch or pull request for this session when one already exists.",
-                "Treat this phrase as approval to commit, push, and open or update a pull request without asking again, unless something risky or surprising changed.",
-            ],
-        );
+        // With the skip-the-PR workflow on, publishing means landing onto the
+        // target, so the phrase lands instead of opening a pull request.
+        if answers.has(WorkflowOption::PushToTarget) {
+            write_bullets(
+                &mut body,
+                &[
+                    "Then land that branch onto the target with `but land <branch> --yes` instead of opening a pull request, following the skip-the-PR rules above.",
+                    "Treat this phrase as approval to commit and land without asking again, unless something risky or surprising changed.",
+                ],
+            );
+        } else {
+            write_bullets(
+                &mut body,
+                &[
+                    "Push the branch and open or update its pull request with GitButler.",
+                    "Reuse the existing branch or pull request for this session when one already exists.",
+                    "Treat this phrase as approval to commit, push, and open or update a pull request without asking again, unless something risky or surprising changed.",
+                ],
+            );
+        }
     }
     if let Some(pattern) = &answers.branch_pattern {
         write_section_header(&mut body, "Branch naming");
