@@ -7858,3 +7858,16 @@ fn commit_graph_projection_parity_single_multi_segment_stack() -> anyhow::Result
     let target = target_commit(&repo, &*meta);
     assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
 }
+
+#[test]
+fn commit_graph_projection_parity_stack_with_remote_ahead() -> anyhow::Result<()> {
+    // The `main` stack's remote (origin/main) is ahead, so main's commits stop at the merge base with
+    // it (excluding the shared commits) — exercises per-stack, target-relative base.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}

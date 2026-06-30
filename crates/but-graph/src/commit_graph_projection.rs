@@ -67,15 +67,20 @@ pub fn gather(
     target: Option<gix::ObjectId>,
 ) -> ProjectionData {
     let stack_tops: Vec<_> = cg.parents(workspace_commit).collect();
-    // The base is the merge base of the stack tops AND the target (origin/main). The target is what
-    // bounds a single stack — without it, merge_base of one top is the top itself.
-    let anchors: Vec<_> = stack_tops.iter().copied().chain(target).collect();
-    let base = merge_base(cg, &anchors);
+    // Each stack's base is its OWN merge base with the target (origin/main): a stack's commits stop
+    // where it forks from the target, so commits shared with the target/remote are excluded (they
+    // belong to `commits_on_remote`/outside, not the segment). Without a target, fall back to the
+    // global merge base of all tops (which also fixes a single top being its own merge base).
+    let global_base = merge_base(cg, &stack_tops);
     let stacks = stack_tops
         .iter()
         .enumerate()
         .map(|(i, &top)| {
-            let spine = segment_runs(cg, top, base);
+            let stack_base = match target {
+                Some(t) => merge_base(cg, &[top, t]),
+                None => global_base,
+            };
+            let spine = segment_runs(cg, top, stack_base);
             match stack_branches.and_then(|b| b.get(i)) {
                 Some(branches) => reconcile_with_branches(spine, branches),
                 None => spine,
@@ -85,7 +90,7 @@ pub fn gather(
     ProjectionData {
         workspace_commit,
         stack_tops,
-        base,
+        base: global_base,
         stacks,
     }
 }
