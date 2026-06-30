@@ -160,7 +160,7 @@ jobs:
       - id: get_playwright_version
         uses: eviden-actions/get-playwright-version@6941a3405e3558992ec8e42d3c07a648431abd7b # v1
       - name: Cache playwright binaries
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
         id: playwright-cache
         with:
           path: |
