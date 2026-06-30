@@ -176,7 +176,7 @@ export const outlineHotkeys = {
 		hotkey: "Shift+Z",
 	},
 	deleteCommit: {
-		hotkey: globalThis.window.lite.platform === "darwin" ? "Mod+Backspace" : "Delete",
+		hotkey: globalThis.window.lite?.platform === "darwin" ? "Mod+Backspace" : "Delete",
 		meta: { group: "Commit", name: "Delete commit" },
 	},
 	composeCommitMessageFromChanges: {
