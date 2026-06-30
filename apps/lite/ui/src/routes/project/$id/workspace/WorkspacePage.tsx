@@ -321,7 +321,6 @@ const WorkspacePage: FC = () => {
 			options: {
 				conflictBehavior: "allow",
 				meta: workspaceHotkeys.toggleDetailsFullWindow.meta,
-				ignoreInputs: true,
 			},
 		},
 		{

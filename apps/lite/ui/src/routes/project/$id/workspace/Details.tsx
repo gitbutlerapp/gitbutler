@@ -897,7 +897,6 @@ const Diff: FC<{
 				conflictBehavior: "allow",
 				enabled: canUseSplitDiff,
 				meta: diffHotkeys.toggleDiffStyle.meta,
-				ignoreInputs: true,
 			},
 		},
 	]);
@@ -1059,7 +1058,6 @@ const PullRequestForm: FC<{
 
 	useHotkey(pullRequestHotkeys.update.hotkey, () => formRef.current?.requestSubmit(), {
 		conflictBehavior: "allow",
-		ignoreInputs: false,
 		target: formRef,
 	});
 
