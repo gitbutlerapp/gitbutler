@@ -8,7 +8,7 @@ use anyhow::Result;
 use bstr::ByteSlice;
 use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
-use git2_hooks::{self, HookResult as H};
+use git2_hooks::{self, HookResult as H, HookRunResponse};
 use serde::Serialize;
 
 use crate::{managed_hooks::get_hooks_dir, staging};
@@ -61,19 +61,22 @@ pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResul
         husky_search_paths(ctx),
         &mut message,
     )? {
-        H::Ok { hook: _ } => match message == original_message {
-            true => Ok(MessageHookResult::Success),
-            false => Ok(MessageHookResult::Message(MessageData { message })),
-        },
         H::NoHookFound => Ok(MessageHookResult::NotConfigured),
-        H::RunNotSuccessful {
+        H::Run(HookRunResponse {
             stdout,
             stderr,
             code,
             ..
-        } => {
-            let error = join_output(stdout, stderr, code);
-            Ok(MessageHookResult::Failure(ErrorData { error }))
+        }) => {
+            if code == 0 {
+                match message == original_message {
+                    true => Ok(MessageHookResult::Success),
+                    false => Ok(MessageHookResult::Message(MessageData { message })),
+                }
+            } else {
+                let error = join_output(stdout, stderr, Some(code));
+                Ok(MessageHookResult::Failure(ErrorData { error }))
+            }
         }
     }
 }
@@ -97,21 +100,24 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
 
     Ok(
         match git2_hooks::hooks_pre_commit(repo, husky_search_paths(ctx))? {
-            H::Ok { hook: _ } => HookResult::Success,
             H::NoHookFound => HookResult::NotConfigured,
-            H::RunNotSuccessful {
+            H::Run(HookRunResponse {
                 stdout,
                 stderr,
                 code,
                 ..
-            } => {
-                // If the output contains GITBUTLER_ERROR, it's our managed hook blocking
-                // commits on gitbutler/workspace - this is expected behavior, not a failure
-                if stdout.contains("GITBUTLER_ERROR") || stderr.contains("GITBUTLER_ERROR") {
+            }) => {
+                if code == 0 {
                     HookResult::Success
                 } else {
-                    let error = join_output(stdout, stderr, code);
-                    HookResult::Failure(ErrorData { error })
+                    // If the output contains GITBUTLER_ERROR, it's our managed hook blocking
+                    // commits on gitbutler/workspace - this is expected behavior, not a failure
+                    if stdout.contains("GITBUTLER_ERROR") || stderr.contains("GITBUTLER_ERROR") {
+                        HookResult::Success
+                    } else {
+                        let error = join_output(stdout, stderr, Some(code));
+                        HookResult::Failure(ErrorData { error })
+                    }
                 }
             }
         },
@@ -121,16 +127,19 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
 pub fn post_commit(ctx: &Context) -> Result<HookResult> {
     #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
     match git2_hooks::hooks_post_commit(&*ctx.git2_repo.get()?, husky_search_paths(ctx))? {
-        H::Ok { hook: _ } => Ok(HookResult::Success),
         H::NoHookFound => Ok(HookResult::NotConfigured),
-        H::RunNotSuccessful {
+        H::Run(HookRunResponse {
             stdout,
             stderr,
             code,
             ..
-        } => {
-            let error = join_output(stdout, stderr, code);
-            Ok(HookResult::Failure(ErrorData { error }))
+        }) => {
+            if code == 0 {
+                Ok(HookResult::Success)
+            } else {
+                let error = join_output(stdout, stderr, Some(code));
+                Ok(HookResult::Failure(ErrorData { error }))
+            }
         }
     }
 }

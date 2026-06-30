@@ -21,7 +21,6 @@
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { TERMINAL_SERVICE } from "$lib/settings/terminalService";
 	import { createKeybind } from "$lib/shortcuts/hotkeys";
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
@@ -114,10 +113,6 @@
 	// EXPERIMENTAL FEATURES
 	// =============================================================================
 
-	// App settings from backend
-	const settingsService = inject(SETTINGS_SERVICE);
-	const settingsStore = settingsService.appSettings;
-
 	// IRC connections are managed by the Rust backend (irc_lifecycle.rs).
 	// The backend handles auto-connect on startup and reacts to settings changes.
 	// Frontend queries IRC state via RTKQ endpoints (ircApi.ts).
@@ -145,10 +140,6 @@
 
 	// Debug keyboard shortcuts
 	const handleKeyBind = createKeybind({
-		// Toggle next-gen safe checkout.
-		"c o 3": () => {
-			settingsService.updateFeatureFlags({ cv3: !$settingsStore?.featureFlags.cv3 });
-		},
 		// Show commit graph visualization
 		"d o t": async () => {
 			const projectId = page.params.projectId;

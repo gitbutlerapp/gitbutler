@@ -9,6 +9,7 @@ import { createSelectByIds, createSelectNth } from "$lib/state/customSelectors";
 import {
 	invalidatesItem,
 	invalidatesList,
+	invalidatesType,
 	providesItem,
 	providesItems,
 	providesList,
@@ -24,6 +25,7 @@ import type {
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
 import type {
 	AbsorptionTarget,
+	BranchLandResult,
 	CommitAbsorption,
 	BranchDetails,
 	BranchReference,
@@ -240,7 +242,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 					invalidatesList(ReduxTag.StackDetails),
 					invalidatesList(ReduxTag.BranchChanges),
 					invalidatesList(ReduxTag.BranchListing),
-					invalidatesList(ReduxTag.BaseBranchData),
+					invalidatesType(ReduxTag.BaseBranchData),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 				];
 			},
@@ -800,6 +802,26 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.WorktreeChanges),
 				invalidatesItem(ReduxTag.StackDetails, args.stackId),
 				invalidatesItem(ReduxTag.BranchChanges, args.seriesName),
+			],
+		}),
+		landBranch: build.mutation<
+			BranchLandResult,
+			{ projectId: string; branch: string; noFf: boolean }
+		>({
+			extraOptions: {
+				command: "branch_land",
+				actionName: "Land Branch",
+			},
+			query: (args) => args,
+			invalidatesTags: [
+				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.WorktreeChanges),
+				invalidatesList(ReduxTag.Stacks),
+				invalidatesList(ReduxTag.StackDetails),
+				invalidatesList(ReduxTag.BranchChanges),
+				invalidatesList(ReduxTag.BranchListing),
+				invalidatesType(ReduxTag.BaseBranchData),
+				invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 			],
 		}),
 		getInitialBranchIntegration: build.query<

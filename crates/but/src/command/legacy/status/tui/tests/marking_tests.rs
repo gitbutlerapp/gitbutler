@@ -6,19 +6,19 @@ use crate::command::legacy::status::tui::{BackstackEntry, tests::utils::test_tui
 
 #[test]
 fn marking_individual_commit_toggles_mark_indicator() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render(' ')
         .assert_current_line_eq(str!["┊✔︎   9477ae7 add A"]);
 
     tui.input_then_render(' ')
-        .assert_current_line_eq(str!["┊●   [..] add A"])
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/marking_individual_commit_toggles_mark_indicator_final.svg"
         ]);
@@ -26,8 +26,8 @@ fn marking_individual_commit_toggles_mark_indicator() {
 
 #[test]
 fn marking_branch_toggles_all_commits_in_that_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -45,50 +45,50 @@ fn marking_branch_toggles_all_commits_in_that_branch() {
 }
 
 #[test]
-fn marking_unassigned_toggles_all_unassigned_files() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+fn marking_uncommitted_toggles_all_uncommitted_files() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.file("a.txt", "content");
     env.file("b.txt", "content");
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+    tui.reload()
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render(' ')
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊✔︎  [..] A a.txt"]);
+        .assert_current_line_eq(str!["┊✔︎  nk A a.txt"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊✔︎  [..] A b.txt"]);
+        .assert_current_line_eq(str!["┊✔︎  pn A b.txt"]);
 
     tui.input_then_render('g');
     tui.input_then_render(' ');
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   [..] A a.txt"]);
+        .assert_current_line_eq(str!["┊   nk A a.txt"]);
 }
 
 #[test]
 fn multi_squash_marked_commits_into_selected_marked_target() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render(' ')
         .assert_current_line_eq(str!["┊✔︎   9477ae7 add A"]);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊●   [..] add B"]);
+        .assert_current_line_eq(str!["┊●   d3e2ba3 add B"]);
 
     tui.input_then_render(' ')
         .assert_current_line_eq(str!["┊✔︎   d3e2ba3 add B"]);
@@ -97,7 +97,7 @@ fn multi_squash_marked_commits_into_selected_marked_target() {
         .assert_current_line_eq(str!["┊✔︎   << source >> << squash >> d3e2ba3 add B"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add B"])
+        .assert_current_line_eq(str!["┊●   377fa8b add B"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/multi_squash_marked_commits_into_selected_marked_target_final.svg"
         ]);
@@ -105,8 +105,8 @@ fn multi_squash_marked_commits_into_selected_marked_target() {
 
 #[test]
 fn marks_still_show_in_split_details() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("one", "content of one");
     env.file("two", "content of two");

@@ -3,7 +3,6 @@
 use std::io;
 
 use anyhow::{Context as _, Result};
-use but_core::worktree::checkout::UncommitedWorktreeChanges;
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
@@ -33,7 +32,6 @@ pub(crate) fn apply(
             workspace_merge: WorkspaceMerge::MergeIfNeeded,
             on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
             workspace_reference_naming: WorkspaceReferenceNaming::Default,
-            uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
             order: None,
             new_stack_id: None,
         },
@@ -64,7 +62,6 @@ pub(crate) fn unapply(
         &mut meta,
         but_workspace::branch::unapply::Options {
             workspace_disposition: mutation_args.disposition.into(),
-            uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
         },
     )?;
 

@@ -31,7 +31,7 @@ use clap::Parser;
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, forge,
+    Args, OutputFormat, Subcommands, actions, agent, alias as alias_args, branch, forge,
     update as update_args, worktree,
 };
 use but_settings::AppSettings;
@@ -46,9 +46,7 @@ use crate::{
 };
 
 mod error;
-#[cfg(feature = "but-2")]
-pub(crate) use error::CliResultExt;
-pub(crate) use error::{CliError, CliResult, bad_input};
+pub(crate) use error::{CliError, CliResult, CliResultExt, bad_input};
 
 mod id;
 pub use id::{CliId, IdMap};
@@ -186,12 +184,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     #[cfg(feature = "legacy")]
     if matches!(
         &args.cmd,
-        Some(Subcommands::Status { .. })
-            | Some(Subcommands::Diff { tui: false, .. })
-            | Some(Subcommands::Stage {
-                file_or_hunk: Some(_),
-                ..
-            })
+        Some(Subcommands::Status { .. }) | Some(Subcommands::Diff { tui: false, .. })
     ) {
         out.request_pager();
     }
@@ -506,6 +499,11 @@ async fn match_subcommand(
 
             result.emit_metrics(metrics_ctx).map_err(CliError::from)
         }
+        Subcommands::Agent(agent::Platform { cmd }) => {
+            let result = command::agent::handle(&args.current_dir, out, cmd);
+
+            result.emit_metrics(metrics_ctx).map_err(CliError::from)
+        }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let result = match cmd {
                 #[cfg(not(feature = "legacy"))]
@@ -629,6 +627,15 @@ async fn match_subcommand(
                 .into()),
             };
             result.emit_metrics(metrics_ctx)
+        }
+        Subcommands::Switch {
+            target,
+            workspace,
+            new,
+        } => {
+            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+            command::r#switch::handle(&mut ctx, out, target, workspace, new)
+                .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Mcp => command::legacy::mcp::start(app_settings)
@@ -908,36 +915,6 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Mark { target, delete } => {
-            let mut ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::mark::handle(&mut ctx, out, &target, delete)
-                .context("Can't mark this. Taaaa-na-na-na. Can't mark this.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Unmark => {
-            let ctx = setup::init_ctx(
-                &args,
-                InitCtxOptions {
-                    background_sync: BackgroundSync::Enabled { silent: false },
-                    ..Default::default()
-                },
-                out,
-            )?;
-            command::legacy::mark::unmark(&ctx, out)
-                .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
-        }
-        #[cfg(feature = "legacy")]
         Subcommands::Commit(commit_args) => {
             let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
@@ -950,21 +927,22 @@ async fn match_subcommand(
             )?;
             out.begin_status_after(status_after);
 
-            let result = match commit_args.cmd {
+            let result = match &commit_args.cmd {
                 Some(crate::args::commit::Subcommands::Empty {
                     target,
                     before,
                     after,
+                    message,
                 }) => {
                     // Validate that no regular commit options are specified with the empty subcommand
                     if commit_args.message.is_some() {
                         return Err(bad_input(
-                            "--message cannot be used with 'commit empty'. Empty commits have no message by default."
+                            "--message must be passed after 'empty'. Use `but commit empty -m \"message\"`."
                         ).into());
                     }
                     if commit_args.message_file.is_some() {
                         return Err(bad_input(
-                            "--message-file cannot be used with 'commit empty'. Empty commits have no message by default."
+                            "--message-file cannot be used with 'commit empty'. Use `but commit empty -m \"message\"`."
                         ).into());
                     }
                     if commit_args.branch.is_some() {
@@ -976,6 +954,11 @@ async fn match_subcommand(
                         return Err(
                             bad_input("--create cannot be used with 'commit empty'.").into()
                         );
+                    }
+                    if commit_args.before.is_some() || commit_args.after.is_some() {
+                        return Err(bad_input(
+                            "--before/--after must be passed after 'empty'. Use `but commit empty --before <target>`."
+                        ).into());
                     }
                     if commit_args.only {
                         return Err(bad_input("--only cannot be used with 'commit empty'.").into());
@@ -1003,7 +986,12 @@ async fn match_subcommand(
                     // because --paths is not a flag on the empty subcommand
 
                     command::legacy::commit::insert_blank_commit(
-                        &mut ctx, out, target, before, after,
+                        &mut ctx,
+                        out,
+                        target.clone(),
+                        before.clone(),
+                        after.clone(),
+                        message.as_deref(),
                     )
                     .emit_metrics(metrics_ctx)
                 }
@@ -1035,7 +1023,9 @@ async fn match_subcommand(
                         &mut ctx,
                         out,
                         commit_message.as_deref(),
-                        commit_args.branch,
+                        commit_args.branch.clone(),
+                        commit_args.before.clone(),
+                        commit_args.after.clone(),
                         &commit_args.changes,
                         commit_args.only,
                         commit_args.all,
@@ -1053,7 +1043,7 @@ async fn match_subcommand(
             result
         }
         #[cfg(all(feature = "legacy", feature = "but-2"))]
-        Subcommands::Commit2(commit_args) => {
+        Subcommands::_Commit2(commit_args) => {
             use crate::utils::{IntermediateChannel, OutputChannelExt};
 
             let status_after = args.status_after;
@@ -1074,6 +1064,51 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx)?;
             out.print_cli_output(outcome)?;
+            Ok(())
+        }
+        #[cfg(all(feature = "legacy", feature = "but-2"))]
+        Subcommands::_Squash2(squash_args) => {
+            use crate::utils::{IntermediateChannel, OutputChannelExt};
+
+            let status_after = args.status_after;
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: false },
+                    ..Default::default()
+                },
+                out,
+            )?;
+            out.begin_status_after(status_after);
+
+            let outcome = command::legacy::squash2::squash(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                squash_args,
+            )
+            .emit_metrics(metrics_ctx)?;
+            out.print_cli_output(outcome)?;
+            Ok(())
+        }
+        #[cfg(all(feature = "legacy", feature = "but-2"))]
+        Subcommands::_Move2(move_args) => {
+            use crate::utils::{IntermediateChannel, OutputChannelExt};
+
+            let status_after = args.status_after;
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: false },
+                    ..Default::default()
+                },
+                out,
+            )?;
+            out.begin_status_after(status_after);
+
+            let outcome =
+                command::legacy::move2::r#move(&mut ctx, IntermediateChannel::new(out), move_args)
+                    .emit_metrics(metrics_ctx)?;
+            out.print_cli_output_human(outcome)?;
             Ok(())
         }
         #[cfg(feature = "legacy")]
@@ -1191,19 +1226,22 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Setup { init } => {
-            let repo =
-                match but_api::legacy::projects::add_project_best_effort(args.current_dir.clone())?
-                {
-                    gitbutler_project::AddProjectOutcome::Added(project)
-                    | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => {
-                        gix::open(project.git_dir())?
-                    }
-                    _ => command::legacy::setup::find_or_initialize_repo(
-                        &args.current_dir,
-                        out,
-                        init,
-                    )?,
-                };
+            let repo = match but_api::legacy::projects::add_project_best_effort(
+                args.current_dir.clone(),
+            )? {
+                gitbutler_project::AddProjectOutcome::Added(project)
+                | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => {
+                    gix::open(project.git_dir())?
+                }
+                gitbutler_project::AddProjectOutcome::ReftableRefFormatUnsupported => {
+                    return Err(anyhow::anyhow!(
+                            "The repository at {} uses the currently unsupported reftable reference format.",
+                            args.current_dir.display()
+                        )
+                        .into());
+                }
+                _ => command::legacy::setup::find_or_initialize_repo(&args.current_dir, out, init)?,
+            };
             let mut ctx = but_ctx::Context::from_repo(repo)?;
             let mut guard = ctx.exclusive_worktree_access();
             command::legacy::setup::repo(&mut ctx, &args.current_dir, out, guard.write_permission())
@@ -1376,7 +1414,11 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Uncommit { source, discard } => {
+        Subcommands::Uncommit {
+            source,
+            discard,
+            diff,
+        } => {
             let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
                 &args,
@@ -1386,15 +1428,93 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            out.begin_status_after(status_after);
-            let result = command::legacy::rub::handle_uncommit(&mut ctx, out, &source, discard)
-                .context("Failed to uncommit.")
-                .emit_metrics(metrics_ctx);
+            let capture_diff_json = diff && out.is_json();
+            out.begin_status_after(status_after || capture_diff_json);
+            let mut result = command::legacy::rub::handle_uncommit(&mut ctx, out, &source, discard)
+                .context("Failed to uncommit.");
+            if diff && result.is_ok() {
+                let diff_result = if capture_diff_json {
+                    (|| {
+                        let mut mutation_json =
+                            out.take_json_buffer().unwrap_or(serde_json::Value::Null);
+                        out.start_json_buffering();
+                        if let Err(err) = command::legacy::diff::handle(&mut ctx, out, None)
+                            .context("Failed to show diff after uncommit.")
+                        {
+                            let diff_error = format!("{err:#}");
+                            if let Some(object) = mutation_json.as_object_mut() {
+                                object.insert(
+                                    "diff_error".to_string(),
+                                    serde_json::Value::String(diff_error),
+                                );
+                            } else {
+                                mutation_json = serde_json::json!({
+                                    "result": mutation_json,
+                                    "diff_error": diff_error,
+                                });
+                            }
+                            out.write_value(mutation_json)
+                                .context("Failed to write uncommit output after diff failure.")?;
+                            return Err(err);
+                        }
+                        let diff_json = out.take_json_buffer().unwrap_or(serde_json::Value::Null);
+
+                        if let Some(object) = mutation_json.as_object_mut() {
+                            object.insert("diff".to_string(), diff_json);
+                        } else {
+                            mutation_json = serde_json::json!({
+                                "result": mutation_json,
+                                "diff": diff_json,
+                            });
+                        }
+
+                        if status_after {
+                            out.start_json_buffering();
+                        }
+                        out.write_value(mutation_json)
+                            .context("Failed to write diff output after uncommit.")
+                    })()
+                } else {
+                    command::legacy::diff::handle(&mut ctx, out, None)
+                        .context("Failed to show diff after uncommit.")
+                };
+                if let Err(err) = diff_result {
+                    result = Err(err);
+                }
+            }
+            let result = result.emit_metrics(metrics_ctx);
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Amend { file, commit } => {
+        Subcommands::Amend {
+            target_or_source,
+            legacy_commit,
+            changes,
+        } => {
+            let (commit, files) = if changes.is_empty() {
+                let Some(commit) = legacy_commit.as_deref() else {
+                    return Err(bad_input(
+                        "Missing --changes <file-or-hunk>. Usage: but amend <commit> --changes <id>[,<id>]",
+                    )
+                    .into());
+                };
+                (commit, std::slice::from_ref(&target_or_source))
+            } else {
+                if let Some(extra) = legacy_commit.as_deref() {
+                    return Err(bad_input(format!(
+                        "Unexpected extra argument '{extra}'. Use comma-separated --changes values: but amend <commit> --changes <id>[,<id>]",
+                    ))
+                    .into());
+                }
+                if changes.iter().any(|change| change.trim().is_empty()) {
+                    return Err(bad_input(
+                        "Empty --changes value. Use comma-separated file or hunk IDs: but amend <commit> --changes <id>[,<id>]",
+                    )
+                    .into());
+                }
+                (target_or_source.as_str(), changes.as_slice())
+            };
             let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
                 &args,
@@ -1405,7 +1525,7 @@ async fn match_subcommand(
                 out,
             )?;
             out.begin_status_after(status_after);
-            let result = command::legacy::rub::handle_amend(&mut ctx, out, &file, &commit)
+            let result = command::legacy::rub::handle_amend(&mut ctx, out, files, commit)
                 .context("Failed to amend.")
                 .emit_metrics(metrics_ctx);
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
@@ -1501,11 +1621,10 @@ async fn match_subcommand(
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Merge { branch } => {
+        Subcommands::Land { branch, yes, no_ff } => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::merge::handle(&mut ctx, out, &branch)
-                .await
-                .context("Failed to merge branch.")
+            command::legacy::land::handle(&mut ctx, out, &branch, yes, no_ff)
+                .context("Failed to land branch.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
@@ -1565,7 +1684,10 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            let branch_name = resolve_legacy_top_level_apply_branch_name(&ctx, &branch_name)?;
+            let branch_name = {
+                let repo = ctx.repo.get()?;
+                resolve_legacy_top_level_apply_branch_name(&repo, &branch_name)?
+            };
             command::branch::apply(ctx, &branch_name, out)
                 .context("Failed to apply branch.")
                 .emit_metrics(metrics_ctx)
@@ -1620,10 +1742,9 @@ fn run_agentlog_command(
 /// identity, the original input is preserved so the shared apply command keeps its current error.
 #[cfg(feature = "legacy")]
 fn resolve_legacy_top_level_apply_branch_name(
-    ctx: &but_ctx::Context,
+    repo: &gix::Repository,
     branch_name: &str,
 ) -> Result<String> {
-    let repo = ctx.repo.get()?;
     if repo.try_find_reference(branch_name)?.is_some() {
         return Ok(branch_name.to_owned());
     }

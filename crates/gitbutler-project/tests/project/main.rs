@@ -323,11 +323,81 @@ mod add {
                 gitbutler_project::add_at_app_data_dir(data_dir.path(), &worktree_dir).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NonMainWorktree));
         }
+
+        #[test]
+        fn reftable_ref_format_is_rejected() {
+            let data_dir = support::data_dir();
+            let tmp = tempfile::tempdir().unwrap();
+            let repo_dir = tmp.path().join("reftable");
+
+            let init_output = git_at_dir(tmp.path())
+                .args(["init", "--ref-format=reftable"])
+                .arg(&repo_dir)
+                .output()
+                .expect("git can be invoked");
+            if !init_output.status.success() {
+                eprintln!(
+                    "Skipping reftable rejection test because this Git cannot initialize a reftable repository: {}",
+                    String::from_utf8_lossy(&init_output.stderr)
+                );
+                return;
+            }
+
+            let outcome =
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), &repo_dir).unwrap();
+            assert!(matches!(
+                outcome,
+                AddProjectOutcome::ReftableRefFormatUnsupported
+            ));
+        }
+
+        #[test]
+        fn global_reftable_ref_format_does_not_affect_project_add() {
+            let data_dir = support::data_dir();
+            let tmp = tempfile::tempdir().unwrap();
+            let repo_dir = tmp.path().join("repo");
+            let global_config = tmp.path().join("global.gitconfig");
+
+            git_at_dir(tmp.path()).args(["init"]).arg(&repo_dir).run();
+            std::fs::write(&global_config, "[extensions]\n\trefStorage = reftable\n").unwrap();
+
+            let outcome = temp_env::with_var("GIT_CONFIG_GLOBAL", Some(&global_config), || {
+                gitbutler_project::add_with_best_effort_at_app_data_dir(data_dir.path(), &repo_dir)
+                    .unwrap()
+            });
+            assert!(
+                matches!(outcome, AddProjectOutcome::Added(_)),
+                "only the repo's own configuration decides reftables"
+            );
+        }
+
+        #[test]
+        fn worktree_reftable_ref_format_does_not_affect_project_add() {
+            let data_dir = support::data_dir();
+            let tmp = tempfile::tempdir().unwrap();
+            let repo_dir = tmp.path().join("repo");
+
+            git_at_dir(tmp.path()).args(["init"]).arg(&repo_dir).run();
+            git_at_dir(&repo_dir)
+                .args(["config", "extensions.worktreeConfig", "true"])
+                .run();
+            git_at_dir(&repo_dir)
+                .args(["config", "--worktree", "extensions.refStorage", "reftable"])
+                .run();
+
+            let outcome =
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), &repo_dir).unwrap();
+            assert!(
+                matches!(outcome, AddProjectOutcome::Added(_)),
+                "worktree configuration doesn't say that reftables should be used, only the common config"
+            );
+        }
     }
 }
 
 mod delete {
     use super::*;
+    use snapbox::prelude::*;
     #[test]
     fn success() {
         let data_dir = support::data_dir();
@@ -408,26 +478,34 @@ mod delete {
             "hidden gitbutler ref",
         )?;
 
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/gitbutler/test-ref",
-            "refs/heads/gitbutler/workspace",
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/gitbutler/test-ref",
+    "refs/heads/gitbutler/workspace",
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
 
         gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
 
         // Only only sees gitbutler references.
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
         Ok(())
     }
 
@@ -449,13 +527,17 @@ mod delete {
             gix::refs::transaction::PreviousValue::MustNotExist,
             "unrelated workspace ref",
         )?;
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
 
         gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
 
@@ -463,13 +545,17 @@ mod delete {
         assert!(!repo.gitbutler_storage_path()?.exists());
 
         // Nothing changed - no reference was touched.
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
 
         Ok(())
     }

@@ -100,6 +100,11 @@
 	}
 
 	$effect(() => {
+		if (integratingUpstream !== "inert") {
+			statusRequest++;
+			return;
+		}
+
 		if (!modal?.imports.open) {
 			statusRequest++;
 			statusesLoading = false;

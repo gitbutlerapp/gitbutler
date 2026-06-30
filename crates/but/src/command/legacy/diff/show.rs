@@ -8,12 +8,12 @@ use super::{
     JsonChange, JsonDiff, JsonDiffOutput, JsonHunk,
     display::{DiffDisplay, TreeChangeWithPatch},
 };
-use crate::{IdMap, id::UncommittedCliId, utils::OutputChannel};
+use crate::{IdMap, id::UncommittedHunkOrFile, utils::OutputChannel};
 
 #[expect(clippy::large_enum_variant)]
 pub(crate) enum Filter {
-    Unassigned,
-    Uncommitted(UncommittedCliId),
+    UncommittedArea,
+    Uncommitted(UncommittedHunkOrFile),
     Stack(StackId),
 }
 
@@ -29,7 +29,7 @@ pub(crate) fn worktree(
             let a = &uncommitted_hunk.hunk_assignment;
             match &filter {
                 None => true,
-                Some(Filter::Unassigned) => a.stack_id.is_none(),
+                Some(Filter::UncommittedArea) => a.stack_id.is_none(),
                 Some(Filter::Uncommitted(id)) => {
                     if id.is_entire_file {
                         a.path_bytes == id.hunk_assignments.first().path_bytes

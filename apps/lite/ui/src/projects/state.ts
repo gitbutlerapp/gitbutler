@@ -9,18 +9,26 @@ import { type TransferOperationMode } from "#ui/outline/mode.ts";
 import * as workspace from "#ui/projects/workspace/state.ts";
 import type { RootState } from "#ui/store.ts";
 import { type AbsorptionTarget, type RefInfo, type RelativeTo } from "@gitbutler/but-sdk";
+import { BaseDiffOptions } from "@pierre/diffs";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 type Dialog =
 	| { _tag: "None" }
 	| { _tag: "ApplyBranchPicker" }
 	| { _tag: "BranchPicker" }
-	| { _tag: "CommandPalette" };
+	| { _tag: "CommandPalette" }
+	| { _tag: "ProjectPicker" };
+
+export type DiffStyle = NonNullable<BaseDiffOptions["diffStyle"]>;
+export type DiffOverflow = NonNullable<BaseDiffOptions["overflow"]>;
 
 type ProjectState = {
-	detailsFullscreen: boolean;
+	detailsFullWindow: boolean;
 	dialog: Dialog;
+	diffBackgrounds: boolean;
 	filesVisible: boolean;
+	diffOverflow: DiffOverflow;
+	preferredDiffStyle: DiffStyle;
 	workspace: workspace.WorkspaceState;
 };
 
@@ -28,29 +36,27 @@ type ProjectSliceState = {
 	byProjectId: Record<string, ProjectState>;
 };
 
-const initialProjectState: ProjectState = {
-	detailsFullscreen: false,
+const createInitialProjectState = (): ProjectState => ({
+	detailsFullWindow: false,
 	dialog: { _tag: "None" },
-	filesVisible: true,
-	workspace: workspace.initialState,
-};
+	filesVisible: false,
+	diffBackgrounds: true,
+	diffOverflow: "scroll",
+	preferredDiffStyle: "split",
+	workspace: workspace.createInitialState(),
+});
+
+const initialProjectState: ProjectState = createInitialProjectState();
 
 const initialState: ProjectSliceState = {
 	byProjectId: {},
 };
 
-const createProjectState = (): ProjectState => ({
-	detailsFullscreen: false,
-	dialog: { _tag: "None" },
-	filesVisible: true,
-	workspace: workspace.createInitialState(),
-});
-
 const ensureProjectState = (state: ProjectSliceState, projectId: string): ProjectState => {
 	const existingState = state.byProjectId[projectId];
 	if (existingState) return existingState;
 
-	const projectState = createProjectState();
+	const projectState = createInitialProjectState();
 	state.byProjectId[projectId] = projectState;
 	return projectState;
 };
@@ -214,16 +220,39 @@ const projectSlice = createSlice({
 			const projectState = ensureProjectState(state, action.payload.projectId);
 			projectState.filesVisible = !projectState.filesVisible;
 		},
-		setDetailsFullscreen: (
+		setPreferredDiffStyle: (
 			state,
-			action: PayloadAction<{ projectId: string; fullscreen: boolean }>,
+			action: PayloadAction<{ projectId: string; diffStyle: DiffStyle }>,
 		) => {
-			const { projectId, fullscreen } = action.payload;
-			ensureProjectState(state, projectId).detailsFullscreen = fullscreen;
+			const { projectId, diffStyle } = action.payload;
+			ensureProjectState(state, projectId).preferredDiffStyle = diffStyle;
 		},
-		toggleDetailsFullscreen: (state, action: PayloadAction<{ projectId: string }>) => {
+		togglePreferredDiffStyle: (state, action: PayloadAction<{ projectId: string }>) => {
 			const projectState = ensureProjectState(state, action.payload.projectId);
-			projectState.detailsFullscreen = !projectState.detailsFullscreen;
+			projectState.preferredDiffStyle =
+				projectState.preferredDiffStyle === "split" ? "unified" : "split";
+		},
+		setDiffOverflow: (
+			state,
+			action: PayloadAction<{ projectId: string; diffOverflow: DiffOverflow }>,
+		) => {
+			const { projectId, diffOverflow } = action.payload;
+			ensureProjectState(state, projectId).diffOverflow = diffOverflow;
+		},
+		setDiffBackgrounds: (state, action: PayloadAction<{ projectId: string; enabled: boolean }>) => {
+			const { projectId, enabled } = action.payload;
+			ensureProjectState(state, projectId).diffBackgrounds = enabled;
+		},
+		setDetailsFullWindow: (
+			state,
+			action: PayloadAction<{ projectId: string; fullWindow: boolean }>,
+		) => {
+			const { projectId, fullWindow } = action.payload;
+			ensureProjectState(state, projectId).detailsFullWindow = fullWindow;
+		},
+		toggleDetailsFullWindow: (state, action: PayloadAction<{ projectId: string }>) => {
+			const projectState = ensureProjectState(state, action.payload.projectId);
+			projectState.detailsFullWindow = !projectState.detailsFullWindow;
 		},
 		openCommandPalette: (
 			state,
@@ -246,6 +275,11 @@ const projectSlice = createSlice({
 				_tag: "ApplyBranchPicker",
 			};
 		},
+		openProjectPicker: (state, action: PayloadAction<{ projectId: string }>) => {
+			ensureProjectState(state, action.payload.projectId).dialog = {
+				_tag: "ProjectPicker",
+			};
+		},
 		closeDialog: (state, action: PayloadAction<{ projectId: string }>) => {
 			ensureProjectState(state, action.payload.projectId).dialog = { _tag: "None" };
 		},
@@ -261,8 +295,17 @@ const selectProjectState = (state: RootState, projectId: string): ProjectState =
 export const selectProjectFilesVisible = (state: RootState, projectId: string) =>
 	selectProjectState(state, projectId).filesVisible;
 
-export const selectProjectDetailsFullscreen = (state: RootState, projectId: string) =>
-	selectProjectState(state, projectId).detailsFullscreen;
+export const selectProjectPreferredDiffStyle = (state: RootState, projectId: string) =>
+	selectProjectState(state, projectId).preferredDiffStyle;
+
+export const selectProjectDiffOverflow = (state: RootState, projectId: string) =>
+	selectProjectState(state, projectId).diffOverflow;
+
+export const selectProjectDiffBackgrounds = (state: RootState, projectId: string) =>
+	selectProjectState(state, projectId).diffBackgrounds;
+
+export const selectProjectDetailsFullWindow = (state: RootState, projectId: string) =>
+	selectProjectState(state, projectId).detailsFullWindow;
 
 export const selectProjectDialogState = (state: RootState, projectId: string) =>
 	selectProjectState(state, projectId).dialog;

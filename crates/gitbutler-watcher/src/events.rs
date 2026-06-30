@@ -8,7 +8,8 @@ pub enum Change {
     GitFetch(ProjectHandleOrLegacyProjectId),
     GitHead {
         project_id: ProjectHandleOrLegacyProjectId,
-        head: String,
+        /// The symbolic ref HEAD points at, or `None` when HEAD is detached.
+        head: Option<String>,
         operating_mode: OperatingMode,
     },
     GitActivity {

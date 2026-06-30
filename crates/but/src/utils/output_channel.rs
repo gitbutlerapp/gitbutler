@@ -19,7 +19,6 @@ pub mod experimental;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfirmDefault {
     Yes,
-    #[expect(dead_code)]
     No,
 }
 
@@ -310,6 +309,16 @@ impl std::fmt::Write for InputOutputChannel<'_> {
     }
 }
 
+impl WriteWithUtils for InputOutputChannel<'_> {
+    fn truncate_if_unpaged(&self, text: &str, max_width: usize) -> String {
+        self.out.truncate_if_unpaged(text, max_width)
+    }
+
+    fn is_paged(&self) -> bool {
+        self.out.is_paged()
+    }
+}
+
 impl InputOutputChannel<'_> {
     fn readline(&mut self, prompt: &str, echo: InputEcho) -> anyhow::Result<ReadlineInput> {
         const PLACEHOLDER_FOR_SECRET: &str = "•";
@@ -408,10 +417,21 @@ impl InputOutputChannel<'_> {
         &mut self,
         prompt: impl AsRef<str>,
     ) -> anyhow::Result<Option<String>> {
+        Ok(match self.prompt_single_line_input(prompt)? {
+            PromptLine::Text(line) => Some(line),
+            PromptLine::Empty | PromptLine::Cancelled => None,
+        })
+    }
+
+    pub(crate) fn prompt_single_line_input(
+        &mut self,
+        prompt: impl AsRef<str>,
+    ) -> anyhow::Result<PromptLine> {
         Ok(
             match self.readline(&format!("{} ", prompt.as_ref()), InputEcho::Visible)? {
-                ReadlineInput::Text(line) => Some(line),
-                ReadlineInput::Empty | ReadlineInput::EndOfInput => None,
+                ReadlineInput::Text(line) => PromptLine::Text(line),
+                ReadlineInput::Empty => PromptLine::Empty,
+                ReadlineInput::EndOfInput => PromptLine::Cancelled,
             },
         )
     }
@@ -514,6 +534,7 @@ impl InputOutputChannel<'_> {
             items,
             PickerOptions {
                 allow_multiple: false,
+                default_selected: Vec::new(),
             },
         )?
         else {
@@ -545,7 +566,65 @@ impl InputOutputChannel<'_> {
             items,
             PickerOptions {
                 allow_multiple: true,
+                default_selected: Vec::new(),
             },
+        )
+    }
+
+    pub fn prompt_select_with_help<'a, Key, Value>(
+        &mut self,
+        prompt: impl AsRef<str>,
+        items: &'a NonEmpty<(Key, Value)>,
+        default_selected: Option<usize>,
+        help: impl Fn(&Key) -> Option<&str>,
+    ) -> anyhow::Result<Option<&'a Value>>
+    where
+        Key: std::fmt::Display,
+    {
+        let Some(picks) = tui::run_picker_with_help(
+            self,
+            prompt.as_ref(),
+            items,
+            PickerOptions {
+                allow_multiple: false,
+                default_selected: default_selected.into_iter().collect(),
+            },
+            help,
+        )?
+        else {
+            return Ok(None);
+        };
+
+        match &picks[..] {
+            [] => Ok(None),
+            [pick] => Ok(Some(pick)),
+            _ => {
+                anyhow::bail!(
+                    "the picker was configured to not allow multiple picks, yet multiple picks were returned"
+                )
+            }
+        }
+    }
+
+    pub fn prompt_multi_select_with_help<'a, Key, Value>(
+        &mut self,
+        prompt: impl AsRef<str>,
+        items: &'a NonEmpty<(Key, Value)>,
+        default_selected: Vec<usize>,
+        help: impl Fn(&Key) -> Option<&str>,
+    ) -> anyhow::Result<Option<Vec<&'a Value>>>
+    where
+        Key: std::fmt::Display,
+    {
+        tui::run_picker_with_help(
+            self,
+            prompt.as_ref(),
+            items,
+            PickerOptions {
+                allow_multiple: true,
+                default_selected,
+            },
+            help,
         )
     }
 }
@@ -558,6 +637,12 @@ enum ReadlineInput {
     Empty,
     /// Input ended without a submission (for example Ctrl-C, Ctrl-D, or Esc).
     EndOfInput,
+}
+
+pub(crate) enum PromptLine {
+    Text(String),
+    Empty,
+    Cancelled,
 }
 
 /// How to play input back to the user during prompts.

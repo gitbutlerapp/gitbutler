@@ -17,10 +17,22 @@ struct ResolvedProjectRepo {
     worktree_dir: PathBuf,
 }
 
+/// Validates that a repository can be added as a project and returns its worktree directory.
 #[expect(clippy::result_large_err)]
 fn normalize_project_repo(
     repo: gix::Repository,
 ) -> std::result::Result<ResolvedProjectRepo, AddProjectOutcome> {
+    if repo
+        .config_snapshot()
+        .plumbing()
+        .string_filter("extensions.refStorage", |metadata| {
+            metadata.source == gix::config::Source::Local
+        })
+        .is_some_and(|value| value.as_ref().eq_ignore_ascii_case(b"reftable"))
+    {
+        return Err(AddProjectOutcome::ReftableRefFormatUnsupported);
+    }
+
     if repo.is_bare() {
         return Err(AddProjectOutcome::BareRepository);
     }

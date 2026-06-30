@@ -1,17 +1,20 @@
 import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
+import { useMergeReview, useSetReviewDraftiness, useUpdateReview } from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
+	getReviewMergeStatusQueryOptions,
+	getReviewQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
-	changesFileParent,
+	uncommittedChangesFileParent,
 	commitFileParent,
 	FileOperand,
 	fileOperand,
@@ -21,15 +24,25 @@ import {
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import { projectActions, selectProjectFilesVisible } from "#ui/projects/state.ts";
+import {
+	projectActions,
+	selectProjectDetailsFullWindow,
+	selectProjectDiffBackgrounds,
+	selectProjectDiffOverflow,
+	selectProjectFilesVisible,
+	selectProjectPreferredDiffStyle,
+	type DiffOverflow,
+	type DiffStyle,
+} from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import { Kbd } from "#ui/components/Kbd.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
-import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
+import { Field, Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import type {
 	CommitDetails,
 	DiffHunk,
@@ -43,7 +56,6 @@ import {
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
 	parsePatchFiles,
-	BaseDiffOptions,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
@@ -53,15 +65,17 @@ import {
 	ComponentProps,
 	FC,
 	type RefObject,
+	SubmitEventHandler,
 	Suspense,
 	useId,
 	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
+import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import styles from "./Details.module.css";
-import { diffHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
-import { useHotkeys } from "@tanstack/react-hotkeys";
+import { diffHotkeys, pullRequestHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
+import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
 	type SelectionScope,
 	useDiffSelection,
@@ -81,7 +95,11 @@ import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-men
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
-type DiffStyle = NonNullable<BaseDiffOptions["diffStyle"]>;
+type BranchTab = "diff" | "pr";
+
+// This must be unique as to not collide with other IDs, and stable because it's
+// stored in local storage.
+type PanelId = "files-panel" | "diff-panel";
 
 const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: string }): string =>
 	`${changesetKey}:${path}`;
@@ -165,7 +183,7 @@ const mkCodeViewItem = (
 		type: "diff",
 		id: codeViewItemId({ changesetKey, path: change.path }),
 		version,
-		// oxlint-disable-next-line typescript/no-non-null-assertion: There should always be exactly one result given our one parsed hunk.
+		// oxlint-disable-next-line typescript/no-non-null-assertion -- There should always be exactly one result given our one parsed hunk.
 		fileDiff: parsed[0]!.files[0]!,
 	};
 };
@@ -287,8 +305,11 @@ const DiffContents: FC<{
 	changesetKey: string;
 	projectId: string;
 	diffView: DiffView;
+	diffBackgrounds: boolean;
+	diffOverflow: DiffOverflow;
 	diffStyle: DiffStyle;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
+	didScrollToViaFileRef: RefObject<boolean>;
 }> = ({
 	selectionScopeRef,
 	onViewerFileSelection,
@@ -296,8 +317,11 @@ const DiffContents: FC<{
 	changesetKey,
 	projectId,
 	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
+	diffBackgrounds,
+	diffOverflow,
 	diffStyle,
 	viewerRef,
+	didScrollToViaFileRef,
 }) => {
 	const dispatch = useAppDispatch();
 
@@ -329,7 +353,7 @@ const DiffContents: FC<{
 		selection: diffSelection,
 		selectSectionPredicate: (hunk) => {
 			const k = hunkOperandIdentityKey(hunk);
-			// oxlint-disable-next-line typescript/no-non-null-assertion: Absurd.
+			// oxlint-disable-next-line typescript/no-non-null-assertion -- Absurd.
 			return hunkOperandIdentityKey(fileByHunkKey.get(k)!.hunks[0]!.operand) === k;
 		},
 		ref: selectionScopeRef,
@@ -337,10 +361,15 @@ const DiffContents: FC<{
 		operationSourceForItem: hunkOperand,
 	});
 
-	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>) => {
+	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>): void => {
+		if (didScrollToViaFileRef.current) {
+			didScrollToViaFileRef.current = false;
+			return;
+		}
+
 		const activeItem = viewer
 			.getRenderedItems()
-			// oxlint-disable-next-line typescript/no-non-null-assertion: It can only be undefined if the item ID is invalid.
+			// oxlint-disable-next-line typescript/no-non-null-assertion -- It can only be undefined if the item ID is invalid.
 			.findLast((item) => viewer.getTopForItem(item.id)! <= scrollTop);
 
 		// This can happen on very fast scroll.
@@ -413,6 +442,8 @@ const DiffContents: FC<{
 			onSelectedLinesChange={handleLinesSelected}
 			options={{
 				diffStyle,
+				disableBackground: !diffBackgrounds,
+				overflow: diffOverflow,
 				themeType: "system",
 				stickyHeaders: true,
 				enableLineSelection: true,
@@ -443,6 +474,11 @@ const DiffContents: FC<{
             border-style: solid;
             border-color: var(--border-3);
             border-radius: 0 0 10px 10px;
+          }
+
+          [data-column-number] {
+            --mix-selection-light: 0%;
+            --mix-selection-dark: 0%;
           }
         `,
 			}}
@@ -496,7 +532,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					<span className={styles.fileDiffDeleted}>-{p.item.fileDiff.deletionLines.length}</span>
 				</span>
 
-				<Toolbar.Root aria-label="File actions">
+				<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
 					<Toolbar.Button
 						aria-label="File menu"
 						onClick={(event) => {
@@ -539,10 +575,10 @@ const Title: FC<{
 					)}
 				</SuspenseQuery>
 			),
-			ChangesSection: () => (
+			UncommittedChanges: () => (
 				<div className={styles.title}>
 					<Icon name="file-diff" />
-					<h3 className={classes("text-15", "text-semibold")}>Changes</h3>
+					<h3 className={classes("text-15", "text-semibold")}>Uncommitted changes</h3>
 				</div>
 			),
 			File: () => null,
@@ -554,30 +590,35 @@ const Title: FC<{
 							<h3 className={classes("text-15", "text-semibold")}>
 								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
 								{commitDetails.commit.hasConflicts && " ⚠️"}
+								{commitBody(commitDetails.commit.message) !== undefined && (
+									<Tooltip.Root>
+										<Tooltip.Trigger
+											aria-controls={bodyId}
+											aria-expanded={!bodyCollapsed}
+											aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+											aria-pressed={!bodyCollapsed}
+											className={classes(
+												getButtonClassName({
+													variant: bodyCollapsed ? "outline" : "gray",
+													iconOnly: true,
+													size: "small",
+												}),
+												styles.commitBodyToggle,
+											)}
+											onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
+										>
+											<Icon name="kebab" />
+										</Tooltip.Trigger>
+										<Tooltip.Portal>
+											<Tooltip.Positioner sideOffset={4}>
+												<Tooltip.Popup render={<TooltipPopup />}>
+													{bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+												</Tooltip.Popup>
+											</Tooltip.Positioner>
+										</Tooltip.Portal>
+									</Tooltip.Root>
+								)}
 							</h3>
-							{commitBody(commitDetails.commit.message) !== undefined && (
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-controls={bodyId}
-										aria-expanded={!bodyCollapsed}
-										aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-										className={getButtonClassName({
-											variant: "ghost",
-											iconOnly: true,
-										})}
-										onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
-									>
-										<Icon name={bodyCollapsed ? "uncollapse" : "collapse"} />
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>
-												{bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-							)}
 						</div>
 					)}
 				</SuspenseQuery>
@@ -586,7 +627,9 @@ const Title: FC<{
 		}),
 	);
 
-const FilesToggle: FC = () => {
+const FilesToggle: FC<
+	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
+> = (toggleProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
@@ -594,12 +637,15 @@ const FilesToggle: FC = () => {
 	return (
 		<Tooltip.Root>
 			<Tooltip.Trigger
-				className={getButtonClassName({})}
-				aria-pressed={filesVisible}
-				onClick={() => dispatch(projectActions.toggleFiles({ projectId }))}
-			>
-				Files
-			</Tooltip.Trigger>
+				render={
+					<Toggle
+						{...toggleProps}
+						aria-label="Toggle files"
+						pressed={filesVisible}
+						onPressedChange={() => dispatch(projectActions.toggleFiles({ projectId }))}
+					/>
+				}
+			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
 					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.toggleFiles.hotkey} />}>
@@ -611,71 +657,142 @@ const FilesToggle: FC = () => {
 	);
 };
 
-const DiffStyleToggle: FC<{
-	diffStyle: DiffStyle;
-	onDiffStyleChange: (diffStyle: DiffStyle) => void;
-}> = ({ diffStyle, onDiffStyleChange }) => (
-	<Tooltip.Root>
-		<Tooltip.Trigger
-			render={
-				<ToggleGroup
-					render={<ToggleGroupStyles />}
-					aria-label={diffHotkeys.toggleDiffStyle.meta.name}
-					value={[diffStyle]}
-					onValueChange={(value: Array<DiffStyle>) => {
-						const head = value[0];
-						if (head === undefined) return;
-						onDiffStyleChange(head);
-					}}
-				/>
-			}
-		>
-			<Toggle render={<ToggleStyles />} value={"split" satisfies DiffStyle}>
-				Split
-			</Toggle>
-			<Toggle render={<ToggleStyles />} value={"unified" satisfies DiffStyle}>
-				Unified
-			</Toggle>
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup kbd={diffHotkeys.toggleDiffStyle.hotkey} />}>
-					{diffHotkeys.toggleDiffStyle.meta.name}
-				</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
-);
-
-const FullscreenToggle: FC<{
-	className?: string;
-	fullscreen: boolean;
-	onFullscreenChange: (fullscreen: boolean) => void;
-}> = ({ className, fullscreen, onFullscreenChange }) => {
-	const label = fullscreen ? "Exit fullscreen details" : "Fullscreen details";
+const DiffOverflowToggle: FC<
+	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
+> = (toggleProps) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const diffOverflow = useAppSelector((state) => selectProjectDiffOverflow(state, projectId));
 
 	return (
 		<Tooltip.Root>
 			<Tooltip.Trigger
-				aria-label={label}
-				aria-pressed={fullscreen}
-				className={className}
-				onClick={() => onFullscreenChange(!fullscreen)}
-			>
-				<Icon name={fullscreen ? "unfold-less-horizontal" : "unfold-more-horizontal"} />
-			</Tooltip.Trigger>
+				render={
+					<Toggle
+						{...toggleProps}
+						aria-label="Toggle line wrapping"
+						pressed={diffOverflow === "wrap"}
+						onPressedChange={(pressed) =>
+							dispatch(
+								projectActions.setDiffOverflow({
+									projectId,
+									diffOverflow: pressed ? "wrap" : "scroll",
+								}),
+							)
+						}
+					/>
+				}
+			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup
-						render={<TooltipPopup kbd={workspaceHotkeys.toggleDetailsFullscreen.hotkey} />}
-					>
-						{workspaceHotkeys.toggleDetailsFullscreen.meta.name}
+					<Tooltip.Popup render={<TooltipPopup />}>Toggle line wrapping</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
+const DiffBackgroundsToggle: FC<
+	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
+> = (toggleProps) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const diffBackgrounds = useAppSelector((state) => selectProjectDiffBackgrounds(state, projectId));
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<Toggle
+						{...toggleProps}
+						aria-label="Toggle diff backgrounds"
+						pressed={diffBackgrounds}
+						onPressedChange={(enabled) =>
+							dispatch(projectActions.setDiffBackgrounds({ projectId, enabled }))
+						}
+					/>
+				}
+			/>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup />}>Toggle diff backgrounds</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
+const DiffStyleToggleGroup: FC<
+	Omit<ToggleGroup.Props<DiffStyle>, "aria-label" | "value" | "onValueChange">
+> = (toggleGroupProps) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const preferredDiffStyle = useAppSelector((state) =>
+		selectProjectPreferredDiffStyle(state, projectId),
+	);
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<ToggleGroup
+						{...toggleGroupProps}
+						aria-label={diffHotkeys.toggleDiffStyle.meta.name}
+						value={[preferredDiffStyle]}
+						onValueChange={(value: Array<DiffStyle>) => {
+							const head = value[0];
+							if (head === undefined) return;
+							dispatch(projectActions.setPreferredDiffStyle({ projectId, diffStyle: head }));
+						}}
+					/>
+				}
+			/>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup kbd={diffHotkeys.toggleDiffStyle.hotkey} />}>
+						{diffHotkeys.toggleDiffStyle.meta.name}
 					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
 	);
 };
+
+const FullWindowToggle: FC<
+	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
+> = (toggleProps) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const fullWindow = useAppSelector((state) => selectProjectDetailsFullWindow(state, projectId));
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				render={
+					<Toggle
+						{...toggleProps}
+						aria-label={workspaceHotkeys.toggleDetailsFullWindow.meta.name}
+						pressed={fullWindow}
+						onPressedChange={(fullWindow) =>
+							dispatch(projectActions.setDetailsFullWindow({ projectId, fullWindow }))
+						}
+					/>
+				}
+			/>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup
+						render={<TooltipPopup kbd={workspaceHotkeys.toggleDetailsFullWindow.hotkey} />}
+					>
+						{workspaceHotkeys.toggleDetailsFullWindow.meta.name}
+					</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
+const isMac = window.lite.platform === "darwin";
 
 const CommitDetailsContent: FC<{
 	bodyCollapsed: boolean;
@@ -700,16 +817,8 @@ const CommitDetailsContent: FC<{
 
 	return (
 		<>
-			{body !== undefined && (
-				<p
-					id={bodyId}
-					className={classes(
-						"text-monospace",
-						"text-body",
-						styles.commitMessageBody,
-						bodyCollapsed && styles.commitMessageBodyCollapsed,
-					)}
-				>
+			{body !== undefined && !bodyCollapsed && (
+				<p id={bodyId} className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
 					{body}
 				</p>
 			)}
@@ -741,6 +850,17 @@ const Diff: FC<{
 }> = ({ changes, filesVisible, filesItems, onFileSelection, outlineSelection, projectId }) => {
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
+
+	// On file selection we select the first hunk/block in that file and scroll to it, which triggers
+	// CodeView's scroll handler, which in turn updates file selection again (as per usual scrolling
+	// scenario). That latter file selection is based upon the first file visible in the viewport,
+	// which may exclude trailing files collectively shorter than the scroll container.
+	//
+	// The callback doesn't provide any way of knowing what triggered the scroll, so we use this ref
+	// to bypass that latter file selection. We could alternatively attempt to pad the scroll
+	// container, but that comes with other complexities and tradeoffs.
+	const didScrollToViaFileRef = useRef(false);
+
 	const dispatch = useAppDispatch();
 	const files = filesItems.map((item) => item.path);
 	const filesIndexByKey = buildIndexByKey(files, identity);
@@ -748,7 +868,7 @@ const Diff: FC<{
 	const changesetKey = Match.value(outlineSelection).pipe(
 		Match.tags({
 			Branch: ({ branchRef }) => decodeBytes(branchRef),
-			ChangesSection: () => "changes",
+			UncommittedChanges: () => "uncommittedChanges",
 			Commit: ({ commitId }) => commitId,
 		}),
 		Match.orElseAbsurd,
@@ -756,7 +876,7 @@ const Diff: FC<{
 	const fileParent = Match.value(outlineSelection).pipe(
 		Match.tags({
 			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
-			ChangesSection: () => changesFileParent,
+			UncommittedChanges: () => uncommittedChangesFileParent,
 			Commit: ({ commitId, stackId }) => commitFileParent({ commitId, stackId }),
 		}),
 		Match.orElseAbsurd,
@@ -783,18 +903,22 @@ const Diff: FC<{
 			}),
 		);
 
+		didScrollToViaFileRef.current = true;
 		viewerRef.current?.scrollTo({
 			type: "item",
 			id: codeViewItemId({ changesetKey, path: selection }),
 		});
 	};
 
-	const [preferredDiffStyle, setPreferredDiffStyle] = useState<DiffStyle>("split");
-	const [diffContentsEl, setDiffContentsEl] = useState<HTMLElement | null>(null);
+	const preferredDiffStyle = useAppSelector((state) =>
+		selectProjectPreferredDiffStyle(state, projectId),
+	);
+	const diffOverflow = useAppSelector((state) => selectProjectDiffOverflow(state, projectId));
+	const diffBackgrounds = useAppSelector((state) => selectProjectDiffBackgrounds(state, projectId));
+	const diffContentsEl = useRef<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
 
-	const toggleDiffStyle = () =>
-		setPreferredDiffStyle(preferredDiffStyle === "split" ? "unified" : "split");
+	const toggleDiffStyle = () => dispatch(projectActions.togglePreferredDiffStyle({ projectId }));
 
 	useHotkeys([
 		{
@@ -810,93 +934,286 @@ const Diff: FC<{
 	]);
 
 	useLayoutEffect(() => {
-		if (!diffContentsEl) return;
+		const el = diffContentsEl.current;
+		if (!el) return;
+
+		const measureCanUseSplitDiff = () => el.getBoundingClientRect().width >= 700;
+
+		setCanUseSplitDiff(measureCanUseSplitDiff());
 
 		const resizeObserver = new ResizeObserver(() => {
-			setCanUseSplitDiff(diffContentsEl.getBoundingClientRect().width >= 700);
+			setCanUseSplitDiff(measureCanUseSplitDiff());
 		});
-
-		resizeObserver.observe(diffContentsEl);
+		resizeObserver.observe(el);
 
 		return () => resizeObserver.disconnect();
 	}, [diffContentsEl]);
 
-	const diffStyle = canUseSplitDiff === true ? preferredDiffStyle : "unified";
+	const layoutId = `project=${projectId}:details`;
+	const panelIds: Array<PanelId> = filesVisible ? ["files-panel", "diff-panel"] : ["diff-panel"];
+	const diffLayout = useDefaultLayout({
+		id: layoutId,
+		panelIds,
+	});
 
 	return (
-		<div className={styles.diffContainer}>
+		<div className={styles.diffTab}>
 			<div className={styles.actions}>
-				<FilesToggle />
-				{canUseSplitDiff && (
-					<DiffStyleToggle
-						diffStyle={preferredDiffStyle}
-						onDiffStyleChange={setPreferredDiffStyle}
+				<FilesToggle className={classes(getButtonClassName({}), styles.toggle)}>Files</FilesToggle>
+				<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
+					<Toolbar.Button
+						render={
+							<DiffOverflowToggle
+								className={classes(
+									getButtonClassName({ iconOnly: true, variant: "outline" }),
+									styles.toggle,
+								)}
+							>
+								<Icon name="text-wrap" />
+							</DiffOverflowToggle>
+						}
 					/>
-				)}
+					<Toolbar.Button
+						render={
+							<DiffBackgroundsToggle
+								className={classes(
+									getButtonClassName({ iconOnly: true, variant: "outline" }),
+									styles.toggle,
+								)}
+							>
+								<Icon name="text-block" />
+							</DiffBackgroundsToggle>
+						}
+					/>
+					{canUseSplitDiff && (
+						<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
+							<Toolbar.Button
+								render={<Toggle render={<ToggleStyles />} />}
+								value={"split" satisfies DiffStyle}
+							>
+								Split
+							</Toolbar.Button>
+							<Toolbar.Button
+								render={<Toggle render={<ToggleStyles />} />}
+								value={"unified" satisfies DiffStyle}
+							>
+								Unified
+							</Toolbar.Button>
+						</DiffStyleToggleGroup>
+					)}
+				</Toolbar.Root>
 			</div>
 
-			<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
+			<Group
+				id={layoutId}
+				className={styles.panels}
+				defaultLayout={diffLayout.defaultLayout}
+				onLayoutChanged={diffLayout.onLayoutChanged}
+			>
 				{filesVisible && (
-					<FilesTree
-						id={"files" satisfies SelectionScope}
-						data-selection-scope
-						tabIndex={0}
-						className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
-						onFileSelection={selectFileAndNavigateDiff}
-						projectId={projectId}
-						items={filesItems}
-						navigationIndex={{ items: files, indexByKey: filesIndexByKey }}
-						fileParent={fileParent}
-					/>
+					<>
+						<Panel
+							id={"files-panel" satisfies PanelId}
+							className={styles.panel}
+							defaultSize={250}
+							minSize={180}
+							groupResizeBehavior="preserve-pixel-size"
+						>
+							<FilesTree
+								id={"files" satisfies SelectionScope}
+								data-selection-scope
+								tabIndex={0}
+								className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
+								onFileSelection={selectFileAndNavigateDiff}
+								projectId={projectId}
+								items={filesItems}
+								navigationIndex={{ items: files, indexByKey: filesIndexByKey }}
+								fileParent={fileParent}
+							/>
+						</Panel>
+						<Separator className={styles.resizeHandle} />
+					</>
 				)}
 
-				<div
-					id={"diff" satisfies SelectionScope}
-					data-selection-scope
-					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
-					tabIndex={0}
-					className={styles.diffContentsContainer}
-					ref={useMergedRefs(selectionScopeRef, setDiffContentsEl)}
-				>
-					<DiffContents
-						onViewerFileSelection={onFileSelection}
-						fileParent={fileParent}
-						changesetKey={changesetKey}
-						projectId={projectId}
-						diffView={diffView}
-						diffStyle={diffStyle}
-						selectionScopeRef={selectionScopeRef}
-						viewerRef={viewerRef}
-					/>
-				</div>
-			</div>
+				<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
+					<div
+						id={"diff" satisfies SelectionScope}
+						data-selection-scope
+						// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
+						tabIndex={0}
+						className={styles.diffContentsContainer}
+						ref={useMergedRefs(selectionScopeRef, diffContentsEl)}
+					>
+						<DiffContents
+							onViewerFileSelection={onFileSelection}
+							fileParent={fileParent}
+							changesetKey={changesetKey}
+							projectId={projectId}
+							diffView={diffView}
+							diffBackgrounds={diffBackgrounds}
+							diffOverflow={diffOverflow}
+							diffStyle={canUseSplitDiff ? preferredDiffStyle : "unified"}
+							selectionScopeRef={selectionScopeRef}
+							viewerRef={viewerRef}
+							didScrollToViaFileRef={didScrollToViaFileRef}
+						/>
+					</div>
+				</Panel>
+			</Group>
 		</div>
+	);
+};
+
+const PullRequestForm: FC<{
+	projectId: string;
+	reviewId: number;
+	title: string;
+	body: string | null;
+}> = ({ projectId, reviewId, title, body }) => {
+	const updateReview = useUpdateReview();
+	const formRef = useRef<HTMLFormElement | null>(null);
+	const [draftTitle, setDraftTitle] = useState<string | null>(null);
+	const [draftBody, setDraftBody] = useState<string | null>(null);
+	const canSubmit = (draftTitle === null || draftTitle.trim() !== "") && !updateReview.isPending;
+
+	const reset = () => {
+		setDraftTitle(title);
+		setDraftBody(body);
+	};
+
+	const submit: SubmitEventHandler<HTMLFormElement> = (event) => {
+		event.preventDefault();
+		if (!canSubmit) return;
+
+		updateReview.mutate({
+			projectId,
+			reviewId,
+			title: draftTitle,
+			body: draftBody,
+			state: null,
+			targetBase: null,
+		});
+	};
+
+	useHotkey(pullRequestHotkeys.update.hotkey, () => formRef.current?.requestSubmit(), {
+		conflictBehavior: "allow",
+		ignoreInputs: false,
+		meta: pullRequestHotkeys.update.meta,
+		target: formRef,
+	});
+
+	return (
+		<form ref={formRef} className={styles.prForm} onSubmit={submit}>
+			<Field.Root className={styles.prFormField}>
+				<Field.Label className="text-14">Title</Field.Label>
+				<Field.Control
+					className={classes("text-15 text-semibold", styles.prTitleInput)}
+					onChange={(event) => setDraftTitle(event.currentTarget.value)}
+					placeholder="Title"
+					required
+					value={draftTitle ?? title}
+				/>
+			</Field.Root>
+
+			<Field.Root className={styles.prFormField}>
+				<Field.Label className="text-14">Description</Field.Label>
+				<Field.Control
+					render={<textarea />}
+					className={classes("text-14 text-body text-monospace", styles.prDescriptionInput)}
+					onChange={(event) => setDraftBody(event.currentTarget.value)}
+					placeholder="Description"
+					value={draftBody ?? body ?? ""}
+				/>
+			</Field.Root>
+
+			<div className={styles.prFormActions}>
+				<button
+					className={getButtonClassName({})}
+					disabled={updateReview.isPending}
+					onClick={reset}
+					type="button"
+				>
+					Reset
+				</button>
+				<button
+					className={getButtonClassName({ variant: "pop" })}
+					disabled={!canSubmit}
+					type="submit"
+				>
+					{updateReview.isPending && <Icon name="spinner" />}
+					Update
+					<Kbd hotkey={pullRequestHotkeys.update.hotkey} />
+				</button>
+			</div>
+		</form>
+	);
+};
+
+const PullRequestPrimaryAction: FC<{
+	projectId: string;
+	reviewId: number;
+}> = ({ projectId, reviewId }) => {
+	const [{ data: review }, { data: mergeStatus }] = useSuspenseQueries({
+		queries: [
+			getReviewQueryOptions({ projectId, reviewId }),
+			getReviewMergeStatusQueryOptions({ projectId, reviewId }),
+		],
+	});
+
+	const mergeReview = useMergeReview();
+	const setReviewDraftiness = useSetReviewDraftiness();
+	const isPending = mergeReview.isPending || setReviewDraftiness.isPending;
+
+	const canUsePrimaryAction = (review.draft || mergeStatus.isMergeable) && !isPending;
+
+	const primaryAction = () => {
+		if (!canUsePrimaryAction) return;
+		if (review.draft) {
+			setReviewDraftiness.mutate({ projectId, reviewId, draft: false });
+			return;
+		}
+		mergeReview.mutate({ projectId, reviewId, mergeMethod: null });
+	};
+
+	return (
+		<button
+			className={getButtonClassName({ variant: "pop" })}
+			disabled={!canUsePrimaryAction}
+			onClick={primaryAction}
+			type="button"
+		>
+			{isPending && <Icon name="spinner" />}
+			{review.draft ? "Mark as Ready" : "Merge"}
+		</button>
 	);
 };
 
 export const Details: FC<
 	{
-		detailsFullscreen: boolean;
-		onDetailsFullscreenChange: (fullscreen: boolean) => void;
 		outlineSelection: Operand | null;
 	} & ComponentProps<"div">
-> = ({ detailsFullscreen, onDetailsFullscreenChange, outlineSelection, ...restProps }) => {
+> = ({ outlineSelection, ...restProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
+	const detailsFullWindow = useAppSelector((state) =>
+		selectProjectDetailsFullWindow(state, projectId),
+	);
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
+	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
 	const commitBodyId = useId();
 
 	const selectFile = (selection: string) => {
 		dispatch(projectActions.selectFiles({ projectId, selection }));
 	};
 
-	if (!outlineSelection || outlineSelection._tag === "Stack") return;
+	if (!outlineSelection) return;
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
 			<div className={styles.headerWrap}>
 				<div className={styles.titleRow}>
+					{detailsFullWindow && isMac && <div className={styles.titleRowMacSpacer} />}
 					<Title
 						bodyCollapsed={commitBodyCollapsed}
 						bodyId={commitBodyId}
@@ -904,12 +1221,60 @@ export const Details: FC<
 						projectId={projectId}
 						selection={outlineSelection}
 					/>
-					<FullscreenToggle
-						className={classes(styles.titleRowActions, getButtonClassName({ iconOnly: true }))}
-						fullscreen={detailsFullscreen}
-						onFullscreenChange={onDetailsFullscreenChange}
-					/>
+					<FullWindowToggle
+						className={classes(
+							styles.titleRowActions,
+							getButtonClassName({ iconOnly: true }),
+							styles.toggle,
+						)}
+					>
+						<Icon name={detailsFullWindow ? "fullscreen-exit" : "fullscreen-enter"} />
+					</FullWindowToggle>
 				</div>
+
+				{outlineSelection._tag === "Branch" && (
+					<div className={styles.tabsRow}>
+						<ToggleGroup
+							render={<ToggleGroupStyles />}
+							value={[branchTab]}
+							onValueChange={(value: Array<BranchTab>) => {
+								const head = value[0];
+								if (head === undefined) return;
+								setBranchTab(head);
+							}}
+							aria-label="Branch tab"
+						>
+							<Toggle render={<ToggleStyles />} value={"diff" satisfies BranchTab}>
+								Diff
+							</Toggle>
+							<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab}>
+								Pull Request
+							</Toggle>
+						</ToggleGroup>
+
+						<Suspense>
+							<SuspenseQuery
+								{...branchDetailsQueryOptions({
+									projectId,
+									// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+									branchName: decodeBytes(outlineSelection.branchRef).replace(/^refs\/heads\//, ""),
+									remote: null,
+								})}
+							>
+								{({ data: branchDetails }) =>
+									branchDetails.prNumber !== null && (
+										<div className={styles.tabsRowRight}>
+											<PullRequestPrimaryAction
+												projectId={projectId}
+												reviewId={branchDetails.prNumber}
+											/>
+										</div>
+									)
+								}
+							</SuspenseQuery>
+						</Suspense>
+					</div>
+				)}
 
 				{outlineSelection._tag === "Commit" && (
 					<CommitDetailsContent
@@ -921,11 +1286,9 @@ export const Details: FC<
 				)}
 			</div>
 
-			<Suspense
-				fallback={<div className={classes(styles.loadingDiff, "text-13")}>Loading diff…</div>}
-			>
+			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{(() => {
-					const render = ({
+					const renderDiff = ({
 						changes,
 						filesItems,
 					}: {
@@ -950,35 +1313,70 @@ export const Details: FC<
 								})}
 							>
 								{({ data: commitDetails }) =>
-									render({
+									renderDiff({
 										changes: commitDetails.changes,
 										filesItems: getCommitFileTreeItems({ commitDetails }),
 									})
 								}
 							</SuspenseQuery>
 						)),
-						Match.tag("ChangesSection", () => (
+						Match.tag("UncommittedChanges", () => (
 							<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
 								{({ data: worktreeChanges }) =>
-									render({
+									renderDiff({
 										changes: worktreeChanges.changes,
 										filesItems: getChangesFileTreeItems(worktreeChanges),
 									})
 								}
 							</SuspenseQuery>
 						)),
-						Match.tag("Branch", ({ branchRef }) => (
-							<SuspenseQuery
-								{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branchRef) })}
-							>
-								{({ data: branchDiff }) =>
-									render({
-										changes: branchDiff.changes,
-										filesItems: getBranchFileTreeItems({ branchDiff }),
-									})
-								}
-							</SuspenseQuery>
-						)),
+						Match.tag("Branch", ({ branchRef }) =>
+							branchTab === "pr" ? (
+								<SuspenseQuery
+									{...branchDetailsQueryOptions({
+										projectId,
+										// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+										branchName: decodeBytes(branchRef).replace(/^refs\/heads\//, ""),
+										remote: null,
+									})}
+								>
+									{({ data: branchDetails }) => {
+										const reviewId = branchDetails.prNumber;
+
+										return (
+											<div className={styles.prTab}>
+												{reviewId === null ? (
+													<p className="text-13">No pull request found.</p>
+												) : (
+													<SuspenseQuery {...getReviewQueryOptions({ projectId, reviewId })}>
+														{({ data: review }) => (
+															<PullRequestForm
+																key={reviewId}
+																body={review.body}
+																projectId={projectId}
+																reviewId={reviewId}
+																title={review.title}
+															/>
+														)}
+													</SuspenseQuery>
+												)}
+											</div>
+										);
+									}}
+								</SuspenseQuery>
+							) : (
+								<SuspenseQuery
+									{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branchRef) })}
+								>
+									{({ data: branchDiff }) =>
+										renderDiff({
+											changes: branchDiff.changes,
+											filesItems: getBranchFileTreeItems({ branchDiff }),
+										})
+									}
+								</SuspenseQuery>
+							),
+						),
 						Match.orElse(() => null),
 					);
 				})()}

@@ -53,7 +53,7 @@
 	padding-inline: 6px;
 	--icon-size: 14px;
 
-	&.iconOnly {
+	&:where(.iconOnly) {
 		width: 22px;
 		padding-inline: 3px;
 	}
@@ -65,7 +65,7 @@
 	padding-inline: 10px;
 	--icon-size: 16px;
 
-	&.iconOnly {
+	&:where(.iconOnly) {
 		width: 28px;
 		padding-inline: 8px;
 	}
@@ -89,7 +89,7 @@
 	--button-hover-icon-opacity: 0.9;
 }
 
-.inverted {
+.ghost-inverted {
 	--button-border: none;
 	--button-bg: transparent;
 	--button-fg: var(--text-1-invert);
@@ -104,6 +104,15 @@
 	--button-fg: var(--text-1);
 	--button-icon-opacity: 0.6;
 	--button-hover-bg: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
+	--button-hover-icon-opacity: 0.8;
+}
+
+.outline-inverted {
+	--button-border: 1px solid color-mix(in srgb, var(--fill-gray-fg) 30%, transparent);
+	--button-bg: transparent;
+	--button-fg: var(--text-1-invert);
+	--button-icon-opacity: 0.6;
+	--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
 	--button-hover-icon-opacity: 0.8;
 }
 

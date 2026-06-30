@@ -5,13 +5,13 @@ use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
-    DryRun,
+    DryRun, WORKSPACE_REF_NAME,
     branch::unique_canned_refname,
     ref_metadata::{ProjectMeta, StackId},
     sync::RepoExclusive,
     ui::TreeChanges,
     update_head_reference,
-    worktree::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout},
+    worktree::{checkout, safe_checkout},
 };
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
@@ -122,7 +122,7 @@ pub fn set_default_target_with_perm(
 
 /// JSON transport types for branch APIs.
 pub mod json {
-    use but_workspace::ui::ref_info::BranchReference;
+    use but_workspace::{branch::apply::OutcomeStatus, ui::ref_info::BranchReference};
     use serde::{Deserialize, Serialize};
 
     use crate::branch::{
@@ -137,18 +137,35 @@ pub mod json {
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
     pub struct ApplyOutcome {
+        /// What kind of apply operation completed.
+        pub status: OutcomeStatus,
         /// Whether `apply()` produced a new workspace graph.
         ///
         /// This can be true even when merge conflicts prevented the result from being persisted.
-        /// Use `applied_branches` to determine whether anything was persisted.
+        /// Use `status` to determine whether anything was persisted.
         pub workspace_changed: bool,
-        /// The branches that were actually persisted into the workspace.
+        /// Branches activated or recorded by the operation.
         ///
-        /// This is empty when the branch was already present or when conflicts aborted the apply.
+        /// This is empty for `alreadyApplied` and `conflictAborted`, and populated for `applied`.
         pub applied_branches: Vec<crate::json::FullRefName>,
         /// Whether the workspace reference had to be created.
         pub workspace_ref_created: bool,
+        /// Stacks that conflicted while applying the branch.
+        pub conflicting_stacks: Vec<ConflictingStack>,
     }
+
+    /// A stack that conflicted while applying a branch.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct ConflictingStack {
+        /// The tip branch name of the stack.
+        pub ref_name: crate::json::FullRefName,
+        /// The shortened tip branch name, matching CLI display.
+        pub short_name: String,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(ConflictingStack);
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(ApplyOutcome);
 
@@ -157,16 +174,28 @@ pub mod json {
             let workspace_changed = value.workspace_changed();
             let but_workspace::branch::apply::Outcome {
                 workspace: _,
+                status,
                 applied_branches,
                 workspace_ref_created,
                 workspace_merge: _,
-                conflicting_stacks: _,
+                conflicting_stacks,
             } = value;
 
             ApplyOutcome {
+                status,
                 workspace_changed,
                 applied_branches: applied_branches.into_iter().map(Into::into).collect(),
                 workspace_ref_created,
+                conflicting_stacks: conflicting_stacks
+                    .into_iter()
+                    .map(|stack| {
+                        let short_name = stack.ref_name.shorten().to_string();
+                        ConflictingStack {
+                            ref_name: stack.ref_name.into(),
+                            short_name,
+                        }
+                    })
+                    .collect(),
             }
         }
     }
@@ -600,9 +629,9 @@ pub fn apply_only(
 /// exclusive repository access.
 ///
 /// It applies the branch with the default workspace-apply options, updates the
-/// in-memory workspace stored in `ctx` to the returned workspace state, and
-/// returns the apply outcome. This variant does not create an oplog
-/// entry. For lower-level implementation details, see
+/// in-memory workspace stored in `ctx` to the returned workspace state when the
+/// state was persisted, and returns the apply outcome. This variant does not
+/// create an oplog entry. For lower-level implementation details, see
 /// [`but_workspace::branch::apply()`].
 pub fn apply_only_with_perm(
     ctx: &mut but_ctx::Context,
@@ -622,14 +651,15 @@ pub fn apply_only_with_perm(
             workspace_merge: WorkspaceMerge::default(),
             on_workspace_conflict: OnWorkspaceMergeConflict::default(),
             workspace_reference_naming: WorkspaceReferenceNaming::default(),
-            uncommitted_changes: UncommitedWorktreeChanges::default(),
             order: None,
             new_stack_id: None,
         },
     )?
     .into_owned();
 
-    *ws = out.workspace.clone().into_owned();
+    if out.status.persisted_mutation() {
+        *ws = out.workspace.clone().into_owned();
+    }
     Ok(out)
 }
 
@@ -671,7 +701,9 @@ pub fn apply_with_perm(
 
     let res = apply_only_with_perm(ctx, existing_branch, perm);
     if let Some(snapshot) = maybe_oplog_entry
-        && res.is_ok()
+        && res
+            .as_ref()
+            .is_ok_and(|out| out.status.persisted_mutation())
     {
         snapshot.commit(ctx, perm).ok();
     }
@@ -835,6 +867,23 @@ pub fn branch_checkout_new_with_perm(
     branch_checkout_with_perm(ctx, branch, perm)
 }
 
+/// Switch to the workspace reference
+#[but_api(napi, try_from = json::BranchCheckoutResult)]
+#[instrument(err(Debug))]
+pub fn workspace_checkout(ctx: &mut but_ctx::Context) -> anyhow::Result<BranchCheckoutResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    workspace_checkout_with_perm(ctx, guard.write_permission())
+}
+
+/// Checks out the GitButler workspace reference under caller-held exclusive repository access.
+pub fn workspace_checkout_with_perm(
+    ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<BranchCheckoutResult> {
+    let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
+    checkout_ref_with_perm(ctx, workspace_ref, perm)
+}
+
 /// Checks out an existing local branch under caller-held exclusive repository
 /// access.
 ///
@@ -853,6 +902,14 @@ pub fn branch_checkout_with_perm(
         );
     }
 
+    checkout_ref_with_perm(ctx, branch, perm)
+}
+
+fn checkout_ref_with_perm(
+    ctx: &mut but_ctx::Context,
+    reference_name: gix::refs::FullName,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<BranchCheckoutResult> {
     {
         let repo = ctx.repo.get()?;
         let current_head = repo
@@ -860,15 +917,18 @@ pub fn branch_checkout_with_perm(
             .context("Cannot check out a branch while HEAD is unborn")?
             .detach();
         let mut reference = repo
-            .find_reference(branch.as_ref())
-            .with_context(|| format!("Could not find branch '{}'", branch.as_bstr()))?;
+            .find_reference(reference_name.as_ref())
+            .with_context(|| format!("Could not find ref '{}'", reference_name.as_bstr()))?;
         let target = reference
             .peel_to_id()
-            .with_context(|| format!("Could not resolve branch '{}'", branch.as_bstr()))?
+            .with_context(|| format!("Could not resolve ref '{}'", reference_name.as_bstr()))?
             .detach();
-        let target_commit = repo
-            .find_commit(target)
-            .with_context(|| format!("Branch '{}' does not point to a commit", branch.as_bstr()))?;
+        let target_commit = repo.find_commit(target).with_context(|| {
+            format!(
+                "Ref '{}' does not point to a commit",
+                reference_name.as_bstr()
+            )
+        })?;
 
         safe_checkout(
             current_head,
@@ -876,18 +936,24 @@ pub fn branch_checkout_with_perm(
             &repo,
             checkout::Options {
                 skip_head_update: true,
-                uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                 ..Default::default()
             },
-        )?;
+        )
+        .with_context(|| {
+            format!(
+                "Could not safely check out '{}' from {current_head} to {target}",
+                reference_name.as_bstr()
+            )
+        })?;
         update_head_reference(
             &repo,
-            gix::refs::Target::Symbolic(branch.clone()),
+            gix::refs::Target::Symbolic(reference_name.clone()),
             false,
             "checkout",
-            branch.as_bstr(),
+            reference_name.as_bstr(),
             target_commit.parent_ids().count(),
-        )?;
+        )
+        .with_context(|| format!("Could not update HEAD to '{}'", reference_name.as_bstr()))?;
     }
 
     ctx.reload_repo_and_invalidate_workspace(perm)?;

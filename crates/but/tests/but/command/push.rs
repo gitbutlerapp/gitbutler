@@ -4,8 +4,8 @@ use super::util::find_branch;
 use crate::utils::{CommandExt, Sandbox};
 
 fn repo_with_unpushed_branch() -> anyhow::Result<Sandbox> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let remote_git = env.app_data_dir().join("origin.git");
     let remote_git = remote_git.display();
@@ -96,8 +96,8 @@ fn push_dry_run_agent_reports_human_summary() -> anyhow::Result<()> {
 
 #[test]
 fn push_refuses_conflicted_commits() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata_at_target(&["A"], "origin/main")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     let remote_git = env.app_data_dir().join("origin.git");
     let remote_git = remote_git.display();
@@ -135,7 +135,7 @@ fn push_refuses_conflicted_commits() -> anyhow::Result<()> {
         .and_then(|commit| commit["cliId"].as_str())
         .expect("should have first commit cliId");
 
-    // Rub the first commit to unassigned (zz) - this should create a conflict
+    // Rub the first commit to uncommitted (zz) - this should create a conflict
     // in the second commit since it depends on the first
     env.but(format!("rub {first_commit_id} zz"))
         .assert()

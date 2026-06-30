@@ -595,15 +595,18 @@ mod tests {
 
     #[test]
     fn object_with_tuples_and_arrays() {
-        insta::assert_snapshot!(ts_for::<ObjectWithTuplesAndArrays>(), @"
-        {
-          simple_array: Array<string>;
-          optional_array: Array<string> | null;
-          tuple_array: Array<[string, number]>;
-          optional_tuple_array: Array<[string, number]> | null;
-          nested_optional_tuple_nested_array: Array<Array<[string, number]>> | null;
-          tuple_with_optional_members: Array<[number | null, Array<string> | null]> | null;
-        }
-        ");
+        snapbox::assert_data_eq!(
+            ts_for::<ObjectWithTuplesAndArrays>(),
+            snapbox::str![[r#"
+{
+  simple_array: Array<string>;
+  optional_array: Array<string> | null;
+  tuple_array: Array<[string, number]>;
+  optional_tuple_array: Array<[string, number]> | null;
+  nested_optional_tuple_nested_array: Array<Array<[string, number]>> | null;
+  tuple_with_optional_members: Array<[number | null, Array<string> | null]> | null;
+}
+"#]]
+        );
     }
 }

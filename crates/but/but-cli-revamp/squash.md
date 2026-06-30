@@ -6,7 +6,6 @@ but squash --message-file <path>
 but squash --no-message
 but squash --use-source-message
 but squash -u/--use-target-message
-but squash -i/--interactive
 but squash --format human/json/shell
 but squash --abort-on-conflicts
 ```
@@ -20,7 +19,7 @@ Q: Can you squash a branch into another commit
 A: Yes. That'll squash all the commits in the branch and remove the reference
 
 Q: Can you squash into branches
-A: No
+A: Yes! `-t branch` will resolve the commit at the tip of the branch
 
 Q: Does the editor open to edit the squashed messages
 A: Yes
@@ -33,7 +32,7 @@ Q: Does squash open the editor to edit the commit message
 # Examples
 Examples below assume this baseline
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted]
 ┊   ur M flake.nix
 ┊
 ┊╭┄op [top]
@@ -55,7 +54,7 @@ Examples below assume this baseline
 but squash e28a167 -t 20e235d
 but squash top
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted]
 ┊   ur M flake.nix
 ┊
 ┊╭┄op [top]
@@ -75,7 +74,7 @@ but squash top
 
 but squash 58410cd 5a08eb5 -t 20e235d
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted]
 ┊   ur M flake.nix
 ┊
 ┊╭┄op [top]
@@ -94,7 +93,7 @@ but squash 58410cd 5a08eb5 -t 20e235d
 
 but squash middle -t e28a167
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted]
 ┊   ur M flake.nix
 ┊
 ┊╭┄op [top]
@@ -111,7 +110,7 @@ but squash middle -t e28a167
 
 but squash 20e235d -t zz
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted]
 ┊   ur M flake.nix
 ┊   ab M six
 ┊
@@ -132,7 +131,7 @@ but squash 20e235d -t zz
 
 but squash zz -t 20e235d
 ```
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄op [top]
 ┊●   20e235d six+flake.nix
@@ -152,7 +151,7 @@ but squash zz -t 20e235d
 
 but squash middle -t zz
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted]
 ┊   ur M flake.nix
 ┊   ur M four
 ┊   ur M three

@@ -7,9 +7,8 @@ use crate::{
 };
 use bstr::ByteSlice;
 use but_core::{
-    RefMetadata, ref_metadata,
-    ref_metadata::{StackId, WorkspaceCommitRelation::Outside},
-    worktree::checkout::UncommitedWorktreeChanges,
+    RefMetadata, WORKSPACE_REF_NAME, ref_metadata,
+    ref_metadata::{StackId, StackKind, WorkspaceCommitRelation::Outside},
 };
 use but_graph::{
     Graph,
@@ -22,7 +21,7 @@ use but_testsupport::{
 };
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
-    apply::{WorkspaceMerge, WorkspaceReferenceNaming},
+    apply::{OutcomeStatus, WorkspaceMerge, WorkspaceReferenceNaming},
     create_reference::{Anchor, Position::Above},
     unapply::WorkspaceDisposition,
 };
@@ -2131,6 +2130,44 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
 }
 
 #[test]
+fn apply_repairs_stale_outside_metadata_for_reachable_branch() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph("ws-ref-ws-commit-one-stack", |meta| {
+            add_stack_with_segments(meta, 1, "B", StackState::InWorkspace, &["A"]);
+        })?;
+    let ws = graph.into_workspace()?;
+    assert!(
+        ws.is_reachable_from_entrypoint(r("refs/heads/B")),
+        "fixture must start with B visible in the cached workspace graph"
+    );
+
+    let mut ws_md = meta.workspace(r(WORKSPACE_REF_NAME))?;
+    for stack in &mut ws_md.stacks {
+        stack.workspacecommit_relation = Outside;
+    }
+    meta.set_workspace(&ws_md)?;
+
+    let out =
+        but_workspace::branch::apply(r("refs/heads/B"), &ws, &repo, &mut meta, apply_options())?;
+    assert_eq!(
+        out.status,
+        OutcomeStatus::Applied,
+        "reachable-but-unapplied metadata must be repaired instead of reported as a no-op"
+    );
+    assert_eq!(out.applied_branches, [r("refs/heads/B").to_owned()]);
+
+    let ws_md = meta.workspace(r(WORKSPACE_REF_NAME))?;
+    assert!(
+        ws_md
+            .find_branch(r("refs/heads/B"), StackKind::Applied)
+            .is_some(),
+        "apply should put the reachable branch back into the applied metadata set"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
@@ -3629,6 +3666,11 @@ fn conflicting_apply_reports_no_applied_branches_and_names_conflicting_stacks() 
         &mut meta,
         apply_options(),
     )?;
+    assert_eq!(
+        out.status,
+        OutcomeStatus::ConflictAborted,
+        "conflicted apply should be classified as an aborted apply"
+    );
     // The workspace is changed, notably, as it always passes the most recent projection.
     insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{out:#?}")), "a conflict-aborted apply must not report branches as applied", @r#"
     Outcome {
@@ -3811,9 +3853,22 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     }
     "#);
 
-    // To apply A, we just checkout the surrounding workspace, as it's contained there.
+    // Simulate stale metadata: the cached graph still contains A, but metadata says it is outside.
+    let mut ws_md = meta.workspace(r(WORKSPACE_REF_NAME))?;
+    let (stack_idx, _) = ws_md
+        .find_owner_indexes_by_name(r("refs/heads/A"), StackKind::AppliedAndUnapplied)
+        .expect("A is in metadata");
+    ws_md.stacks[stack_idx].workspacecommit_relation = Outside;
+    meta.set_workspace(&ws_md)?;
+
+    // To apply A, we checkout the surrounding workspace and repair the stale metadata.
     let out =
         but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
+    assert_eq!(
+        out.status,
+        OutcomeStatus::Applied,
+        "enclosed branches should report a successful apply"
+    );
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -3821,6 +3876,13 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         applied_branches: "[refs/heads/A]",
     }
     "#);
+    let ws_md = meta.workspace(r(WORKSPACE_REF_NAME))?;
+    assert!(
+        ws_md
+            .find_branch(r("refs/heads/A"), StackKind::Applied)
+            .is_some(),
+        "apply should repair stale enclosing-branch metadata"
+    );
 
     // Now the workspace ref itself is checked out.
     let ws = out.workspace.into_owned();
@@ -3880,6 +3942,11 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     // Apply the first branch, it must be independent.
     let out =
         but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
+    assert_eq!(
+        out.status,
+        OutcomeStatus::Applied,
+        "already-visible branches should report a successful apply"
+    );
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -4054,6 +4121,11 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     // To apply, we just checkout the surrounding workspace.
     let out =
         but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
+    assert_eq!(
+        out.status,
+        OutcomeStatus::Applied,
+        "enclosed branches with commits should report a successful apply"
+    );
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
         workspace_changed: true,
@@ -4231,7 +4303,6 @@ fn apply_options() -> but_workspace::branch::apply::Options {
         workspace_merge: WorkspaceMerge::MergeIfNeeded,
         on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
         workspace_reference_naming: WorkspaceReferenceNaming::Default,
-        uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
         order: None,
         new_stack_id: Some(stack_id_for_name),
     }
@@ -4241,7 +4312,6 @@ fn unapply_options() -> but_workspace::branch::unapply::Options {
     but_workspace::branch::unapply::Options {
         // TODO: make this the Default once it's KeepWorkspaceReference.
         workspace_disposition: WorkspaceDisposition::KeepWorkspaceReference,
-        uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
     }
 }
 
@@ -4255,7 +4325,6 @@ fn unapply_options_with(
 ) -> but_workspace::branch::unapply::Options {
     but_workspace::branch::unapply::Options {
         workspace_disposition: disposition,
-        ..unapply_options()
     }
 }
 

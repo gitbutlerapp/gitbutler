@@ -23,11 +23,10 @@ fn remove_deprecated_settings(customizations: &mut serde_json::Value) -> bool {
         .get_mut("featureFlags")
         .and_then(serde_json::Value::as_object_mut)
     {
-        if feature_flags.remove("apply3").is_some() {
-            removed = true;
-        }
-        if feature_flags.remove("unapplyV3").is_some() {
-            removed = true;
+        for deprecated in ["apply3", "unapplyV3", "undo", "rules", "cv3"] {
+            if feature_flags.remove(deprecated).is_some() {
+                removed = true;
+            }
         }
         if feature_flags.is_empty() {
             root.remove("featureFlags");
@@ -214,7 +213,10 @@ mod tests {
                 "featureFlags": {
                     "apply3": true,
                     "unapplyV3": false,
-                    "cv3": true
+                    "undo": true,
+                    "rules": true,
+                    "cv3": true,
+                    "singleBranch": true
                 }
             }"#,
         )
@@ -226,9 +228,12 @@ mod tests {
         let saved: serde_json::Value =
             serde_json_lenient::from_str(&std::fs::read_to_string(&config_path).unwrap()).unwrap();
 
-        assert_eq!(saved["featureFlags"]["cv3"], json!(true));
+        assert_eq!(saved["featureFlags"]["singleBranch"], json!(true));
         assert_eq!(saved["featureFlags"].get("apply3"), None);
         assert_eq!(saved["featureFlags"].get("unapplyV3"), None);
+        assert_eq!(saved["featureFlags"].get("undo"), None);
+        assert_eq!(saved["featureFlags"].get("rules"), None);
+        assert_eq!(saved["featureFlags"].get("cv3"), None);
     }
 
     #[test]

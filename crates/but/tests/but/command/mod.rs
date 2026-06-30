@@ -4,7 +4,10 @@
 //! **Only** test the *happy path* of a typical user journey, while keeping details in unit tests with private module access.
 #[cfg(feature = "legacy")]
 mod absorb;
+mod agent;
 mod alias;
+#[cfg(feature = "legacy")]
+mod amend;
 #[cfg(feature = "legacy")]
 mod branch;
 #[cfg(feature = "legacy")]
@@ -24,9 +27,11 @@ mod format;
 mod gui;
 mod help;
 #[cfg(feature = "legacy")]
-mod merge;
+mod land;
 #[cfg(feature = "legacy")]
 mod r#move;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+mod move2;
 mod onboarding;
 #[cfg(feature = "legacy")]
 mod pick;
@@ -43,8 +48,11 @@ mod setup;
 mod skill;
 #[cfg(feature = "legacy")]
 mod squash;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+mod squash2;
 #[cfg(feature = "legacy")]
 mod status;
+mod r#switch;
 #[cfg(feature = "legacy")]
 mod teardown;
 #[cfg(feature = "legacy")]

@@ -22,11 +22,11 @@
   <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
 
   <text xml:space="preserve" class="container fg">
-    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="fg-blue bold">zz</tspan><tspan> [</tspan><tspan class="fg-cyan">unassigned changes</tspan><tspan>] </tspan><tspan class="dimmed">(no changes)</tspan>
+    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="fg-blue bold">zz</tspan><tspan> [</tspan><tspan class="fg-cyan">uncommitted</tspan><tspan>] </tspan><tspan class="dimmed">(no changes)</tspan>
 </tspan>
     <tspan x="10px" y="46px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="64px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green">A</tspan><tspan>]</tspan><tspan class="fg-magenta"> [⬆ integrated upstream]</tspan>
+    <tspan x="10px" y="64px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green">A</tspan><tspan>]</tspan><tspan class="fg-magenta"> (merged upstream)</tspan>
 </tspan>
     <tspan x="10px" y="82px"><tspan>┊</tspan><tspan class="fg-magenta">●</tspan><tspan>   </tspan><tspan class="fg-blue bold">75</tspan><tspan class="dimmed">6ee31</tspan><tspan> A-change</tspan>
 </tspan>
@@ -54,7 +54,7 @@
 </tspan>
     <tspan x="10px" y="298px">
 </tspan>
-    <tspan x="10px" y="316px"><tspan class="dimmed">Hint: run `but help` for all commands</tspan>
+    <tspan x="10px" y="316px"><tspan class="dimmed">Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch</tspan>
 </tspan>
     <tspan x="10px" y="334px">
 </tspan>

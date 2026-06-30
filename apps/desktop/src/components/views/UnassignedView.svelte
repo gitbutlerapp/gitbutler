@@ -1,7 +1,6 @@
 <script lang="ts">
 	import WorktreeChanges from "$components/files/WorktreeChanges.svelte";
 	import UnassignedViewForgeIntegrationBanner from "$components/forge/ForgeIntegrationBanner.svelte";
-	import RulesList from "$components/rules/RulesList.svelte";
 	import UnassignedFoldButton from "$components/workspace/UnassignedFoldButton.svelte";
 	import noChanges from "$lib/assets/empty-state/no-new-changes.svg?raw";
 	import { stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
@@ -156,8 +155,6 @@
 				</div>
 			{/if}
 		</div>
-
-		<RulesList {projectId} />
 	</div>
 {:else}
 	<div

@@ -3,6 +3,7 @@ use but_ctx::{Context, ProjectHandle};
 use but_meta::VirtualBranchesTomlMetadata;
 use but_path::AppChannel;
 use but_testsupport::{CommandExt as _, git, gix_testtools::tempfile::TempDir, open_repo};
+use snapbox::ToDebug;
 
 #[test]
 fn new_from_project_handle_uses_repo_gitdir() -> anyhow::Result<()> {
@@ -134,69 +135,125 @@ fn set_project_meta_updates_git_config_toml_and_database() -> anyhow::Result<()>
     let ctx = Context::from_repo(repo)?;
     let project_meta = project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?;
 
-    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
-    StorageState {
-        config_ported: false,
-        config: ProjectMetaView {
-            target_ref: None,
-            target_commit_id: None,
-            push_remote: None,
-        },
-        toml: ProjectMetaView {
-            target_ref: None,
-            target_commit_id: None,
-            push_remote: None,
-        },
-        db: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        storage_state(&ctx)?.to_debug(),
+        snapbox::str![
+            r#"
+StorageState {
+    config_ported: false,
+    config: ProjectMetaView {
+        target_ref: None,
+        target_commit_id: None,
+        push_remote: None,
+    },
+    toml: ProjectMetaView {
+        target_ref: None,
+        target_commit_id: None,
+        push_remote: None,
+    },
+    db: None,
+}
+
+"#
+        ]
+    );
 
     ctx.set_project_meta(project_meta.clone())?;
 
-    insta::assert_debug_snapshot!(storage_state_with_db(&ctx)?, @r#"
-    StorageState {
-        config_ported: true,
-        config: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/origin/main",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "fork",
-            ),
-        },
-        toml: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/origin/main",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "fork",
-            ),
-        },
-        db: Some(
-            DbStateView {
-                initialized: true,
-                default_target_remote_name: Some(
-                    "origin",
-                ),
-                default_target_branch_name: Some(
-                    "main",
-                ),
-                default_target_sha: Some(
-                    "[OID]",
-                ),
-                default_target_push_remote_name: Some(
-                    "fork",
-                ),
-            },
+    snapbox::assert_data_eq!(
+        storage_state_with_db(&ctx)?.to_debug(),
+        snapbox::str![
+            r#"
+StorageState {
+    config_ported: true,
+    config: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/origin/main",
         ),
-    }
-    "#);
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "fork",
+        ),
+    },
+    toml: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/origin/main",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "fork",
+        ),
+    },
+    db: Some(
+        DbStateView {
+            initialized: true,
+            default_target_remote_name: Some(
+                "origin",
+            ),
+            default_target_branch_name: Some(
+                "main",
+            ),
+            default_target_sha: Some(
+                "[OID]",
+            ),
+            default_target_push_remote_name: Some(
+                "fork",
+            ),
+        },
+    ),
+}
+
+"#
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn set_project_meta_fills_missing_target_commit_id_from_target_ref() -> anyhow::Result<()> {
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-base")?;
+    let expected_target_id = {
+        let mut target_ref = repo.find_reference("refs/remotes/origin/main")?;
+        target_ref.peel_to_commit()?.id
+    };
+    let ctx = Context::from_repo(repo)?;
+
+    ctx.set_project_meta(ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: None,
+        push_remote: Some("fork".into()),
+    })?;
+
+    assert_eq!(
+        ctx.project_meta()?.target_commit_id,
+        Some(expected_target_id),
+        "migration should fill a missing target commit from the target ref tip"
+    );
+    let state = storage_state(&ctx)?;
+    assert_eq!(state.config.target_commit_id, Some("[OID]"));
+    assert_eq!(state.toml.target_commit_id, Some("[OID]"));
+    Ok(())
+}
+
+#[test]
+fn set_project_meta_clears_missing_target_ref() -> anyhow::Result<()> {
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-base")?;
+    let ctx = Context::from_repo(repo)?;
+
+    ctx.set_project_meta(ProjectMeta {
+        target_ref: Some("refs/remotes/origin/missing".try_into()?),
+        target_commit_id: None,
+        push_remote: Some("fork".into()),
+    })?;
+
+    assert_eq!(ctx.project_meta()?.target_ref, None);
+    let state = storage_state(&ctx)?;
+    assert_eq!(state.config.target_ref, None);
+    assert_eq!(state.toml.target_ref, None);
     Ok(())
 }
 
@@ -205,42 +262,57 @@ fn project_meta_defaults_when_config_and_toml_are_unset() -> anyhow::Result<()> 
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-base")?;
     let ctx = Context::from_repo(repo)?;
 
-    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
-    StorageState {
-        config_ported: false,
-        config: ProjectMetaView {
-            target_ref: None,
-            target_commit_id: None,
-            push_remote: None,
-        },
-        toml: ProjectMetaView {
-            target_ref: None,
-            target_commit_id: None,
-            push_remote: None,
-        },
-        db: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        storage_state(&ctx)?.to_debug(),
+        snapbox::str![
+            r#"
+StorageState {
+    config_ported: false,
+    config: ProjectMetaView {
+        target_ref: None,
+        target_commit_id: None,
+        push_remote: None,
+    },
+    toml: ProjectMetaView {
+        target_ref: None,
+        target_commit_id: None,
+        push_remote: None,
+    },
+    db: None,
+}
+
+"#
+        ]
+    );
 
     let actual = ctx.project_meta()?;
-    insta::assert_snapshot!(project_meta_summary(actual), @"target_ref=<unset>; target_commit_id=<unset>; push_remote=<unset>");
+    snapbox::assert_data_eq!(
+        project_meta_summary(actual),
+        snapbox::str!["target_ref=<unset>; target_commit_id=<unset>; push_remote=<unset>"]
+    );
 
-    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
-    StorageState {
-        config_ported: false,
-        config: ProjectMetaView {
-            target_ref: None,
-            target_commit_id: None,
-            push_remote: None,
-        },
-        toml: ProjectMetaView {
-            target_ref: None,
-            target_commit_id: None,
-            push_remote: None,
-        },
-        db: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        storage_state(&ctx)?.to_debug(),
+        snapbox::str![
+            r#"
+StorageState {
+    config_ported: false,
+    config: ProjectMetaView {
+        target_ref: None,
+        target_commit_id: None,
+        push_remote: None,
+    },
+    toml: ProjectMetaView {
+        target_ref: None,
+        target_commit_id: None,
+        push_remote: None,
+    },
+    db: None,
+}
+
+"#
+        ]
+    );
     Ok(())
 }
 
@@ -271,89 +343,109 @@ fn project_meta_falls_back_to_toml_and_ports_on_first_write() -> anyhow::Result<
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-toml")?;
     let ctx = Context::from_repo(repo)?;
 
-    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
-    StorageState {
-        config_ported: false,
-        config: ProjectMetaView {
-            target_ref: None,
-            target_commit_id: None,
-            push_remote: None,
-        },
-        toml: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/origin/main",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "fork",
-            ),
-        },
-        db: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        storage_state(&ctx)?.to_debug(),
+        snapbox::str![
+            r#"
+StorageState {
+    config_ported: false,
+    config: ProjectMetaView {
+        target_ref: None,
+        target_commit_id: None,
+        push_remote: None,
+    },
+    toml: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/origin/main",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "fork",
+        ),
+    },
+    db: None,
+}
+
+"#
+        ]
+    );
 
     let actual = ctx.project_meta()?;
-    insta::assert_snapshot!(
+    snapbox::assert_data_eq!(
         project_meta_summary(actual.clone()),
-        @"target_ref=refs/remotes/origin/main; target_commit_id=[OID]; push_remote=fork"
+        snapbox::str![
+            "target_ref=refs/remotes/origin/main; target_commit_id=[OID]; push_remote=fork"
+        ]
     );
 
     // Reading is pure - nothing was ported yet.
-    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
-    StorageState {
-        config_ported: false,
-        config: ProjectMetaView {
-            target_ref: None,
-            target_commit_id: None,
-            push_remote: None,
-        },
-        toml: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/origin/main",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "fork",
-            ),
-        },
-        db: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        storage_state(&ctx)?.to_debug(),
+        snapbox::str![
+            r#"
+StorageState {
+    config_ported: false,
+    config: ProjectMetaView {
+        target_ref: None,
+        target_commit_id: None,
+        push_remote: None,
+    },
+    toml: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/origin/main",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "fork",
+        ),
+    },
+    db: None,
+}
+
+"#
+        ]
+    );
 
     // The first write ports the metadata to Git config.
     ctx.set_project_meta(actual)?;
-    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
-    StorageState {
-        config_ported: true,
-        config: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/origin/main",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "fork",
-            ),
-        },
-        toml: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/origin/main",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "fork",
-            ),
-        },
-        db: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        storage_state(&ctx)?.to_debug(),
+        snapbox::str![
+            r#"
+StorageState {
+    config_ported: true,
+    config: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/origin/main",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "fork",
+        ),
+    },
+    toml: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/origin/main",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "fork",
+        ),
+    },
+    db: None,
+}
+
+"#
+        ]
+    );
     Ok(())
 }
 
@@ -362,69 +454,83 @@ fn project_meta_reads_git_config_when_ported_even_if_toml_differs() -> anyhow::R
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-ported")?;
     let ctx = Context::from_repo(repo)?;
 
-    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
-    StorageState {
-        config_ported: true,
-        config: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/upstream/trunk",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "origin",
-            ),
-        },
-        toml: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/origin/main",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "fork",
-            ),
-        },
-        db: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        storage_state(&ctx)?.to_debug(),
+        snapbox::str![
+            r#"
+StorageState {
+    config_ported: true,
+    config: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/upstream/trunk",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "origin",
+        ),
+    },
+    toml: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/origin/main",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "fork",
+        ),
+    },
+    db: None,
+}
 
-    let actual = ctx.project_meta()?;
-    insta::assert_snapshot!(
-        project_meta_summary(actual),
-        @"target_ref=refs/remotes/upstream/trunk; target_commit_id=[OID]; push_remote=origin"
+"#
+        ]
     );
 
-    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
-    StorageState {
-        config_ported: true,
-        config: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/upstream/trunk",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "origin",
-            ),
-        },
-        toml: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/origin/main",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "fork",
-            ),
-        },
-        db: None,
-    }
-    "#);
+    let actual = ctx.project_meta()?;
+    snapbox::assert_data_eq!(
+        project_meta_summary(actual),
+        snapbox::str![
+            "target_ref=refs/remotes/upstream/trunk; target_commit_id=[OID]; push_remote=origin"
+        ]
+    );
+
+    snapbox::assert_data_eq!(
+        storage_state(&ctx)?.to_debug(),
+        snapbox::str![
+            r#"
+StorageState {
+    config_ported: true,
+    config: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/upstream/trunk",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "origin",
+        ),
+    },
+    toml: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/origin/main",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "fork",
+        ),
+    },
+    db: None,
+}
+
+"#
+        ]
+    );
     Ok(())
 }
 
@@ -438,28 +544,34 @@ fn resync_project_meta_from_legacy_leaves_unported_repos_alone() -> anyhow::Resu
     // The TOML is still the only source of truth - a snapshot restore must not
     // perform the initial port, as the ported marker is never unset and would hide
     // future TOML-only writes by older binaries.
-    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
-    StorageState {
-        config_ported: false,
-        config: ProjectMetaView {
-            target_ref: None,
-            target_commit_id: None,
-            push_remote: None,
-        },
-        toml: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/origin/main",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "fork",
-            ),
-        },
-        db: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        storage_state(&ctx)?.to_debug(),
+        snapbox::str![
+            r#"
+StorageState {
+    config_ported: false,
+    config: ProjectMetaView {
+        target_ref: None,
+        target_commit_id: None,
+        push_remote: None,
+    },
+    toml: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/origin/main",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "fork",
+        ),
+    },
+    db: None,
+}
+
+"#
+        ]
+    );
     Ok(())
 }
 
@@ -472,34 +584,40 @@ fn resync_project_meta_from_legacy_rewrites_config_from_toml_when_ported() -> an
 
     // The repository was already ported, so the restored TOML wins over the
     // outdated Git config values, and the repository stays ported.
-    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
-    StorageState {
-        config_ported: true,
-        config: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/origin/main",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "fork",
-            ),
-        },
-        toml: ProjectMetaView {
-            target_ref: Some(
-                "refs/remotes/origin/main",
-            ),
-            target_commit_id: Some(
-                "[OID]",
-            ),
-            push_remote: Some(
-                "fork",
-            ),
-        },
-        db: None,
-    }
-    "#);
+    snapbox::assert_data_eq!(
+        storage_state(&ctx)?.to_debug(),
+        snapbox::str![
+            r#"
+StorageState {
+    config_ported: true,
+    config: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/origin/main",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "fork",
+        ),
+    },
+    toml: ProjectMetaView {
+        target_ref: Some(
+            "refs/remotes/origin/main",
+        ),
+        target_commit_id: Some(
+            "[OID]",
+        ),
+        push_remote: Some(
+            "fork",
+        ),
+    },
+    db: None,
+}
+
+"#
+        ]
+    );
     Ok(())
 }
 
@@ -524,7 +642,7 @@ fn project_meta(
 #[derive(Debug)]
 #[allow(
     dead_code,
-    reason = "fields are asserted through insta debug snapshots"
+    reason = "fields are asserted through snapbox debug snapshots"
 )]
 struct StorageState {
     config_ported: bool,
@@ -541,9 +659,9 @@ struct ProjectMetaView {
 }
 
 #[derive(Debug)]
-#[allow(
+#[expect(
     dead_code,
-    reason = "fields are asserted through insta debug snapshots"
+    reason = "fields are asserted through snapbox debug snapshots"
 )]
 struct DbStateView {
     initialized: bool,

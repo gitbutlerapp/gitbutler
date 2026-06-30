@@ -1,5 +1,5 @@
 import { buildStackEndpoints } from "$lib/stacks/stackEndpoints";
-import { invalidatesItem, invalidatesList, ReduxTag } from "$lib/state/tags";
+import { invalidatesItem, invalidatesList, invalidatesType, ReduxTag } from "$lib/state/tags";
 import { describe, expect, test } from "vitest";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
 
@@ -270,7 +270,42 @@ describe("buildStackEndpoints", () => {
 			invalidatesList(ReduxTag.StackDetails),
 			invalidatesList(ReduxTag.BranchChanges),
 			invalidatesList(ReduxTag.BranchListing),
-			invalidatesList(ReduxTag.BaseBranchData),
+			invalidatesType(ReduxTag.BaseBranchData),
+			invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+		]);
+	});
+
+	test("uses branch_land and invalidates target and stack state", () => {
+		const endpoints = buildStackEndpoints(createEndpointBuilder());
+		const query = endpoints.landBranch.query;
+
+		expect(endpoints.landBranch.extraOptions).toEqual({
+			command: "branch_land",
+			actionName: "Land Branch",
+		});
+		expect(query).toBeDefined();
+		expect(
+			query?.({
+				projectId: "project-1",
+				branch: "feature",
+				noFf: false,
+			}),
+		).toEqual({
+			projectId: "project-1",
+			branch: "feature",
+			noFf: false,
+		});
+
+		// The base-branch query provides a type-level tag, so it must be invalidated
+		// with invalidatesType rather than invalidatesList.
+		expect(endpoints.landBranch.invalidatesTags).toEqual([
+			invalidatesList(ReduxTag.HeadSha),
+			invalidatesList(ReduxTag.WorktreeChanges),
+			invalidatesList(ReduxTag.Stacks),
+			invalidatesList(ReduxTag.StackDetails),
+			invalidatesList(ReduxTag.BranchChanges),
+			invalidatesList(ReduxTag.BranchListing),
+			invalidatesType(ReduxTag.BaseBranchData),
 			invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 		]);
 	});

@@ -29,6 +29,7 @@ impl<'out> WriteWithUtils for IntermediateChannel<'out> {
 }
 
 impl<'out> IntermediateChannel<'out> {
+    #[cfg_attr(not(feature = "but-2"), expect(dead_code))]
     pub fn new(out: &'out mut OutputChannel) -> Self {
         Self { out }
     }

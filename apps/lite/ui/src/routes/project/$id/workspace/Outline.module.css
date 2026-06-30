@@ -1,0 +1,60 @@
+.container {
+	display: grid;
+	grid-template-rows: auto auto minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr);
+	gap: 12px;
+}
+
+.workspaceControls {
+	display: flex;
+	column-gap: 12px;
+	align-items: center;
+	padding-top: var(--panel-padding);
+	padding-inline: var(--panel-padding);
+}
+
+.navContainer {
+	display: grid;
+	padding-inline: var(--panel-padding);
+}
+
+.workspaceControlsLeft {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	gap: 4px;
+}
+
+.workspaceControlsMacSpacer {
+	flex-shrink: 0;
+	align-self: stretch;
+	width: 60px;
+}
+
+.workspaceControlsActions {
+	display: flex;
+	align-items: center;
+	margin-inline-start: auto;
+	gap: 4px;
+}
+
+.workspaceName {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
+	min-width: 0;
+
+	.workspaceNameChevron {
+		color: var(--text-2);
+	}
+
+	&:hover .workspaceNameChevron {
+		color: var(--text-1);
+	}
+}
+
+.workspaceNameLabel {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

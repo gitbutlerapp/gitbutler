@@ -6,8 +6,8 @@ use super::utils::test_tui;
 
 #[test]
 fn command_mode_runs_successful_command_and_returns_to_normal_mode() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -23,8 +23,8 @@ fn command_mode_runs_successful_command_and_returns_to_normal_mode() {
 
 #[test]
 fn command_mode_keeps_input_when_command_exits_non_zero() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -34,5 +34,5 @@ fn command_mode_keeps_input_when_command_exits_non_zero() {
 
     tui.input_then_render(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/command_mode_failure_001.svg"])
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted] (no changes)"]);
 }

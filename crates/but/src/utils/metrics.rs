@@ -14,6 +14,8 @@ use crate::{
 };
 
 const ERROR_MESSAGE_MAX_CHARS: usize = 1024;
+const UNRECOGNIZED_SUBCOMMAND_MAX_CHARS: usize = 64;
+const INVALID_UNRECOGNIZED_SUBCOMMAND: &str = "<invalid>";
 
 pub(super) mod types {
     use crate::{args::metrics::CommandName, utils::metrics::Event};
@@ -80,7 +82,7 @@ impl Subcommands {
     pub(crate) fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{alias as alias_args, branch, forge, skill, update, worktree};
+        use crate::args::{agent, alias as alias_args, branch, forge, skill, update, worktree};
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
@@ -115,12 +117,9 @@ impl Subcommands {
             Subcommands::Unapply { .. } => BranchUnapply,
             #[cfg(feature = "legacy")]
             Subcommands::Apply { .. } => BranchApply,
+            Subcommands::Switch { .. } => Switch,
             #[cfg(feature = "legacy")]
             Subcommands::Worktree(worktree::Platform { cmd: _ }) => Worktree,
-            #[cfg(feature = "legacy")]
-            Subcommands::Mark { .. } => Mark,
-            #[cfg(feature = "legacy")]
-            Subcommands::Unmark => Unmark,
             Subcommands::Gui { .. } => Gui,
             #[cfg(feature = "legacy")]
             Subcommands::Commit(crate::args::commit::Platform { cmd, .. }) => match cmd {
@@ -128,7 +127,7 @@ impl Subcommands {
                 Some(crate::args::commit::Subcommands::Empty { .. }) => CommitEmpty,
             },
             #[cfg(all(feature = "legacy", feature = "but-2"))]
-            Subcommands::Commit2(..) => Commit2,
+            Subcommands::_Commit2(..) => Commit2,
             #[cfg(feature = "legacy")]
             Subcommands::Push(_) => Push,
             #[cfg(feature = "legacy")]
@@ -207,14 +206,22 @@ impl Subcommands {
             Subcommands::Unstage { .. } => Unstage,
             #[cfg(feature = "legacy")]
             Subcommands::Squash { .. } => Squash,
+            #[cfg(all(feature = "legacy", feature = "but-2"))]
+            Subcommands::_Squash2(..) => Squash2,
+            #[cfg(all(feature = "legacy", feature = "but-2"))]
+            Subcommands::_Move2(..) => Move2,
             #[cfg(feature = "legacy")]
-            Subcommands::Merge { .. } => Merge,
+            Subcommands::Land { .. } => Land,
             Subcommands::Move { .. } => Move,
             #[cfg(feature = "legacy")]
             Subcommands::Pick { .. } => Pick,
             Subcommands::Skill(skill::Platform { cmd }) => match cmd {
                 skill::Subcommands::Install { .. } => SkillInstall,
                 skill::Subcommands::Check { .. } => SkillCheck,
+            },
+            // Bare `but agent` (None) runs the setup wizard, same as `agent setup`.
+            Subcommands::Agent(agent::Platform { cmd }) => match cmd {
+                None | Some(agent::Subcommands::Setup { .. }) => AgentSetup,
             },
             Subcommands::Edit { .. } => Edit,
             #[cfg(feature = "legacy")]
@@ -235,8 +242,9 @@ impl Subcommands {
         let mut props = Vec::new();
         match self {
             #[cfg(feature = "legacy")]
-            Subcommands::Uncommit { discard, .. } => {
+            Subcommands::Uncommit { discard, diff, .. } => {
                 push_prop(&mut props, "uncommitDiscard", *discard);
+                push_prop(&mut props, "uncommitDiff", *diff);
                 push_prop(&mut props, "sourceKind", "commitOrCommittedFile");
                 if !*discard {
                     push_prop(&mut props, "targetKind", "unassigned");
@@ -283,6 +291,15 @@ impl Subcommands {
                     push_prop(&mut props, "skillCheckUpdate", *update);
                 }
             },
+            Subcommands::External(extra) => {
+                if let Some(command_name) = extra.first() {
+                    push_prop(
+                        &mut props,
+                        "externalSubcommand",
+                        external_subcommand_metric_value(command_name),
+                    );
+                }
+            }
             _ => {}
         }
         props
@@ -349,9 +366,13 @@ impl Props {
                 }
                 props.insert("badInputHasHint", bad_input.has_hint());
             }
-            CliError::ExternalCommandNotFound(_) => {
+            CliError::ExternalCommandNotFound(command_name) => {
                 props.insert("error", "Unrecognized subcommand");
                 props.insert("errorKind", "externalCommandNotFound");
+                props.insert(
+                    "unrecognizedSubcommand",
+                    unrecognized_subcommand_metric_value(command_name),
+                );
             }
             CliError::Internal(error) => {
                 props.insert_internal_error_details(error, command);
@@ -421,6 +442,42 @@ fn error_message(error: &(impl std::fmt::Display + ?Sized)) -> String {
         .collect::<Vec<_>>()
         .join(" ");
     truncate_error_message(message)
+}
+
+fn unrecognized_subcommand_metric_value(command_name: &std::ffi::OsStr) -> String {
+    let command_name = command_name.to_string_lossy();
+    let command_name = command_name.trim();
+
+    if command_name.is_empty()
+        || !command_name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return INVALID_UNRECOGNIZED_SUBCOMMAND.to_string();
+    }
+
+    command_name
+        .chars()
+        .take(UNRECOGNIZED_SUBCOMMAND_MAX_CHARS)
+        .collect()
+}
+
+fn external_subcommand_metric_value(command_name: &std::ffi::OsStr) -> String {
+    let command_name = command_name.to_string_lossy();
+    let command_name = command_name.trim();
+
+    if command_name.is_empty()
+        || !command_name
+            .chars()
+            .all(|c| c.is_ascii_alphabetic() || c == '-' || c == '_')
+    {
+        return INVALID_UNRECOGNIZED_SUBCOMMAND.to_string();
+    }
+
+    command_name
+        .chars()
+        .take(UNRECOGNIZED_SUBCOMMAND_MAX_CHARS)
+        .collect()
 }
 
 fn captures_detailed_error_message(command: CommandName) -> bool {
@@ -648,7 +705,7 @@ fn emit_metrics(command: CommandName, props: &Props) {
 mod tests {
     use super::*;
     use crate::{
-        args::{Subcommands, update},
+        args::{Subcommands, agent, update},
         bad_input,
     };
 
@@ -683,6 +740,17 @@ mod tests {
             "updateSuppress",
         );
         assert_command(
+            Subcommands::Agent(agent::Platform {
+                cmd: Some(agent::Subcommands::Setup { print: false }),
+            }),
+            "agentSetup",
+        );
+        // Bare `but agent` (no subcommand) maps to the same metric.
+        assert_command(
+            Subcommands::Agent(agent::Platform { cmd: None }),
+            "agentSetup",
+        );
+        assert_command(
             Subcommands::Move {
                 source: "c1".into(),
                 target: "main".into(),
@@ -705,8 +773,9 @@ mod tests {
         {
             assert_command(
                 Subcommands::Amend {
-                    file: "a1".into(),
-                    commit: "c1".into(),
+                    target_or_source: "c1".into(),
+                    legacy_commit: None,
+                    changes: vec!["a1".into()],
                 },
                 "amend",
             );
@@ -762,14 +831,52 @@ mod tests {
             let discard = Subcommands::Uncommit {
                 source: "c1".into(),
                 discard: true,
+                diff: false,
             };
             let props = discard.to_metrics_extra_props();
             assert_eq!(
                 prop(&props, "sourceKind"),
                 Some(&serde_json::json!("commitOrCommittedFile"))
             );
+            assert_eq!(
+                prop(&props, "uncommitDiff"),
+                Some(&serde_json::json!(false))
+            );
             assert_eq!(prop(&props, "targetKind"), None);
+
+            let with_diff = Subcommands::Uncommit {
+                source: "c1".into(),
+                discard: false,
+                diff: true,
+            };
+            let props = with_diff.to_metrics_extra_props();
+            assert_eq!(prop(&props, "uncommitDiff"), Some(&serde_json::json!(true)));
+            assert_eq!(
+                prop(&props, "targetKind"),
+                Some(&serde_json::json!("unassigned"))
+            );
         }
+    }
+
+    #[test]
+    fn external_extra_props_include_sanitized_subcommand() {
+        let props = Subcommands::External(vec![" typo-OK ".into()]).to_metrics_extra_props();
+        assert_eq!(
+            prop(&props, "externalSubcommand"),
+            Some(&serde_json::json!("typo-OK"))
+        );
+
+        let props = Subcommands::External(vec!["/tmp/private".into()]).to_metrics_extra_props();
+        assert_eq!(
+            prop(&props, "externalSubcommand"),
+            Some(&serde_json::json!(INVALID_UNRECOGNIZED_SUBCOMMAND))
+        );
+
+        let props = Subcommands::External(vec!["customer123".into()]).to_metrics_extra_props();
+        assert_eq!(
+            prop(&props, "externalSubcommand"),
+            Some(&serde_json::json!(INVALID_UNRECOGNIZED_SUBCOMMAND))
+        );
     }
 
     #[test]
@@ -842,8 +949,45 @@ mod tests {
 
         assert_eq!(props.values["error"], "Unrecognized subcommand");
         assert_eq!(props.values["errorKind"], "externalCommandNotFound");
+        assert_eq!(props.values["unrecognizedSubcommand"], "typo");
         assert!(!props.values.contains_key("errorMessage"));
-        assert!(!props.as_json_string().contains("typo"));
+
+        let external_result =
+            Err::<(), _>(CliError::ExternalCommandNotFound(" typo-123_OK ".into()));
+        let props = Props::from_cli_error_result(
+            std::time::Instant::now(),
+            &external_result,
+            CommandName::External,
+        );
+        assert_eq!(props.values["unrecognizedSubcommand"], "typo-123_OK");
+
+        let external_result =
+            Err::<(), _>(CliError::ExternalCommandNotFound("/tmp/private".into()));
+        let props = Props::from_cli_error_result(
+            std::time::Instant::now(),
+            &external_result,
+            CommandName::External,
+        );
+        assert_eq!(
+            props.values["unrecognizedSubcommand"],
+            INVALID_UNRECOGNIZED_SUBCOMMAND
+        );
+        assert!(!props.as_json_string().contains("/tmp/private"));
+
+        let long_command = "a".repeat(UNRECOGNIZED_SUBCOMMAND_MAX_CHARS + 1);
+        let external_result = Err::<(), _>(CliError::ExternalCommandNotFound(long_command.into()));
+        let props = Props::from_cli_error_result(
+            std::time::Instant::now(),
+            &external_result,
+            CommandName::External,
+        );
+        assert_eq!(
+            props.values["unrecognizedSubcommand"]
+                .as_str()
+                .expect("metric value is a string")
+                .len(),
+            UNRECOGNIZED_SUBCOMMAND_MAX_CHARS
+        );
     }
 
     #[test]

@@ -45,3 +45,8 @@ fn never_show_diff() {
 fn conflicting_diff_flags() {
     assert!(Args::try_parse_from(["but", "commit", "--diff", "--no-diff"]).is_err());
 }
+
+#[test]
+fn batch_subcommand_is_removed() {
+    assert!(Args::try_parse_from(["but", "commit", "batch", "feature", "-m", "Refactor"]).is_err());
+}

@@ -54,6 +54,9 @@
 	const isNotInWorkspace = $derived(
 		currentMode?.type !== "OpenWorkspace" && currentMode?.type !== "Edit",
 	);
+	const isDetached = $derived(
+		currentMode?.type === "OutsideWorkspace" && currentMode.subject.branchName === null,
+	);
 	const [switchBackToWorkspace, workspaceSwitch] = baseBranchService.switchBackToWorkspace;
 
 	async function switchToWorkspace() {
@@ -117,14 +120,16 @@
 			<SyncButton {projectId} disabled={actionsDisabled} />
 
 			{#if isHasUpstreamCommits}
-				<Button
-					testId={TestId.IntegrateUpstreamCommitsButton}
-					style="pop"
-					onclick={openModal}
-					disabled={!projectId || actionsDisabled}
-				>
-					{upstreamCommits} upstream {upstreamCommits === 1 ? "commit" : "commits"}
-				</Button>
+				<Tooltip text={isDetached ? "HEAD is detached" : undefined} disabled={!isDetached}>
+					<Button
+						testId={TestId.IntegrateUpstreamCommitsButton}
+						style="pop"
+						onclick={openModal}
+						disabled={!projectId || actionsDisabled || isDetached}
+					>
+						{upstreamCommits} upstream {upstreamCommits === 1 ? "commit" : "commits"}
+					</Button>
+				</Tooltip>
 			{:else}
 				<div class="chrome-you-are-up-to-date">
 					<Icon name="tick" />

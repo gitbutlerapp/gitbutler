@@ -23,7 +23,7 @@
 		"build:ui": "vite build --config ui/vite.config.ts",
 		"build:electron": "tsgo -p electron/tsconfig.json",
 		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit",
-		"test": "vitest run --config ui/vitest.config.ts --passWithNoTests",
+		"test": "vitest run --config ui/vite.config.ts --passWithNoTests",
 		"bundle": "pnpm build && pnpm prepare-askpass && electron-builder",
 		"bundle-local": "CHANNEL=${CHANNEL:-} pnpm -F @gitbutler/but-sdk build && CHANNEL=${CHANNEL:-} pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
 		"bundle-local-nightly": "CHANNEL=nightly pnpm -F @gitbutler/but-sdk build:release && CHANNEL=nightly pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
@@ -123,10 +123,10 @@
 	"dependencies": {
 		"@atlaskit/pragmatic-drag-and-drop": "^1.7.9",
 		"@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
-		"@base-ui/react": "^1.5.0",
-		"@base-ui/utils": "^0.2.9",
+		"@base-ui/react": "^1.6.0",
+		"@base-ui/utils": "^0.3.1",
 		"@gitbutler/but-sdk": "workspace:*",
-		"@gitbutler/design-core": "3.5.1",
+		"@gitbutler/design-core": "3.6.1",
 		"@pierre/diffs": "^1.2.4",
 		"@reduxjs/toolkit": "catalog:redux",
 		"@suspensive/react-query": "npm:@suspensive/react-query-5@^3.21.2",
@@ -139,7 +139,8 @@
 		"electron-updater": "^6.8.4",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
-		"react-redux": "^9.2.0"
+		"react-redux": "^9.2.0",
+		"react-resizable-panels": "^4.11.2"
 	},
 	"devDependencies": {
 		"@storybook/addon-designs": "^11.1.3",

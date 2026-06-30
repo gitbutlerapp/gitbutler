@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
-use but_api::{branch, commit, diff, github, gitlab, legacy, open, platform, workspace};
+use but_api::{branch, commit, diff, github, gitlab, land, legacy, open, platform, workspace};
 #[cfg(feature = "irc")]
 use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
@@ -119,7 +119,6 @@ fn main() -> anyhow::Result<()> {
     std::fs::create_dir_all(&app_log_dir).context("failed to create app log dir")?;
 
     let tokio_debug = matches!(std::env::var("GITBUTLER_TOKIO_DEBUG").as_deref(), Ok("1"));
-    let app_settings_for_menu = app_settings.clone();
     runtime.block_on(async {
         tauri::async_runtime::set(tokio::runtime::Handle::current());
 
@@ -410,10 +409,6 @@ fn main() -> anyhow::Result<()> {
                 legacy::forge::tauri_update_review_footers::update_review_footers,
                 legacy::cli::tauri_install_cli::install_cli,
                 legacy::cli::tauri_cli_path::cli_path,
-                legacy::rules::tauri_create_workspace_rule::create_workspace_rule,
-                legacy::rules::tauri_delete_workspace_rule::delete_workspace_rule,
-                legacy::rules::tauri_update_workspace_rule::update_workspace_rule,
-                legacy::rules::tauri_list_workspace_rules::list_workspace_rules,
                 legacy::workspace::tauri_head_info::head_info,
                 legacy::workspace::tauri_branch_details::branch_details,
                 legacy::workspace::tauri_discard_worktree_changes::discard_worktree_changes,
@@ -524,9 +519,10 @@ fn main() -> anyhow::Result<()> {
                 commit::uncommit::tauri_commit_uncommit_changes::commit_uncommit_changes,
                 commit::uncommit::tauri_commit_uncommit::commit_uncommit,
                 workspace::tauri_workspace_integrate_upstream::workspace_integrate_upstream,
+                land::tauri_branch_land::branch_land,
                 platform::tauri_build_type::build_type,
             ])
-            .menu(move |handle| menu::build(handle, &app_settings_for_menu))
+            .menu(menu::build)
             .on_window_event(|window, event| match event {
                 #[cfg(target_os = "macos")]
                 tauri::WindowEvent::CloseRequested { .. } => {

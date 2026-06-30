@@ -2,9 +2,9 @@ use super::util::{enter_edit_mode_with_conflicted_commit, status_json};
 use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
-fn worktrees() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
+fn worktrees() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
+    insta::assert_snapshot!(env.git_log(), @r"
     *   063d8c1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * 3e01e28 (B) B
@@ -19,7 +19,7 @@ fn worktrees() -> anyhow::Result<()> {
     ");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     env.but("status")
         .with_color_for_svg()
@@ -38,13 +38,12 @@ fn worktrees() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/two-worktrees/status-with-worktrees-verbose.stdout.term.svg"
         ]);
-    Ok(())
 }
 
 #[test]
-fn unborn() -> anyhow::Result<()> {
-    let env = Sandbox::open_scenario_with_target_and_default_settings("unborn")?;
-    insta::assert_snapshot!(env.git_log()?, @"");
+fn unborn() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("unborn");
+    insta::assert_snapshot!(env.git_log(), @"");
 
     // TODO: make this work
     env.but("status --verbose")
@@ -54,13 +53,12 @@ fn unborn() -> anyhow::Result<()> {
 Error: Setup required: No GitButler project found at . - run `but setup` to configure the project
 
 "#]]);
-    Ok(())
 }
 
 #[test]
-fn first_commit_no_workspace() -> anyhow::Result<()> {
-    let env = Sandbox::open_scenario_with_target_and_default_settings("first-commit")?;
-    insta::assert_snapshot!(env.git_log()?, @"* 85efbe4 (HEAD -> main) M");
+fn first_commit_no_workspace() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings("first-commit");
+    insta::assert_snapshot!(env.git_log(), @"* 85efbe4 (HEAD -> main) M");
 
     // TODO: make this work
     env.but("status --verbose")
@@ -70,16 +68,14 @@ fn first_commit_no_workspace() -> anyhow::Result<()> {
 Error: Setup required: No GitButler project found at . - run `but setup` to configure the project
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn remote_and_local_files() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("remote-local-divergence")?;
+fn remote_and_local_files() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("remote-local-divergence");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    env.setup_metadata(&["main", "A"])?;
+    env.setup_metadata(&["main", "A"]);
 
     // Under branch A, remote-only and local-only commits and files are shown.
     // CLI IDs are shown only for local-only files.
@@ -91,16 +87,14 @@ fn remote_and_local_files() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/remote-and-local-files.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn json_shows_paths_as_strings() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn json_shows_paths_as_strings() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     // Create a new file to ensure we have file assignments
     env.file("test-file.txt", "test content");
@@ -112,7 +106,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "qu",
       "filePath": "test-file.txt",
@@ -121,7 +115,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
   ],
   "stacks": [
     {
-      "cliId": "k0",
+      "cliId": "j0",
       "assignedChanges": [],
       "branches": [
         {
@@ -148,7 +142,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
       ]
     },
     {
-      "cliId": "l0",
+      "cliId": "k0",
       "assignedChanges": [],
       "branches": [
         {
@@ -204,8 +198,6 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
 }
 
 "#]]);
-
-    Ok(())
 }
 
 // TODO This test demonstrates how IDs are assigned to uncommitted and committed
@@ -214,10 +206,10 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
 // is tested.
 #[test]
 fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     env.file("a.txt", format!("first\n{}last\n", "line\n".repeat(100)));
     env.file("b.txt", "only\n");
@@ -235,7 +227,7 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -286,11 +278,11 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
 }
 
 #[test]
-fn long_file_cli_ids_are_aligned() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix")?;
+fn long_file_cli_ids_are_aligned() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     // foo1 has a CLI ID of length 2; the others have length 3
     env.file("foo1", "contents");
@@ -306,16 +298,14 @@ fn long_file_cli_ids_are_aligned() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/long-file-cli-ids-are-aligned.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn long_cli_ids() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix")?;
+fn long_cli_ids() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     // For "add A13" and "add A3", the IDs have 3 characters. The others have 2.
     env.but("status")
@@ -326,16 +316,14 @@ fn long_cli_ids() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/long-cli-ids.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
 fn long_cli_ids_json() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     // Assert a handful of commits to show that the commit CLI IDs become longer
     // if a short ID would be ambiguous, but remain at 2 characters otherwise.
@@ -389,9 +377,9 @@ fn long_cli_ids_json() -> anyhow::Result<()> {
 }
 
 #[test]
-fn status_hint_with_uncommitted_changes() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn status_hint_with_uncommitted_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     env.file("new-file.txt", "content");
 
     env.but("status")
@@ -402,14 +390,12 @@ fn status_hint_with_uncommitted_changes() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/hints/status-hint-with-uncommitted-changes.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn status_hint_clean_workspace() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn status_hint_clean_workspace() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("status")
         .with_color_for_svg()
@@ -419,14 +405,12 @@ fn status_hint_clean_workspace() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/hints/status-hint-clean-workspace.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn status_hint_when_no_branches() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn status_hint_when_no_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("unapply A").assert().success();
 
@@ -438,14 +422,12 @@ fn status_hint_when_no_branches() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/hints/status-hint-no-branches.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn status_no_hint_flag_suppresses_hint() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn status_no_hint_flag_suppresses_hint() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("status --no-hint")
         .with_color_for_svg()
@@ -455,14 +437,12 @@ fn status_no_hint_flag_suppresses_hint() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/hints/status-no-hint.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn status_shows_no_commits_label_for_empty_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty")?;
-    env.setup_metadata(&["A", "B"])?;
+fn status_shows_no_commits_label_for_empty_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
+    env.setup_metadata(&["A", "B"]);
 
     env.but("status")
         .with_color_for_svg()
@@ -472,14 +452,12 @@ fn status_shows_no_commits_label_for_empty_branch() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/classification/status-shows-no-commits-label.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn status_upstream_merge_status_empty() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty")?;
-    env.setup_metadata(&["A", "B"])?;
+fn status_upstream_merge_status_empty() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
+    env.setup_metadata(&["A", "B"]);
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -490,14 +468,12 @@ fn status_upstream_merge_status_empty() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/upstream/status-upstream-merge-status-empty.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn status_upstream_summary_without_flag() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits")?;
-    env.setup_metadata(&["A"])?;
+fn status_upstream_summary_without_flag() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata(&["A"]);
 
     env.but("status")
         .env("NO_BG_TASKS", "1")
@@ -508,14 +484,12 @@ fn status_upstream_summary_without_flag() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/upstream/status-upstream-summary.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn status_upstream_detailed_with_flag() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits")?;
-    env.setup_metadata_at_target(&["A"], "refs/heads/base")?;
+fn status_upstream_detailed_with_flag() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -526,14 +500,12 @@ fn status_upstream_detailed_with_flag() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/upstream/status-upstream-detailed.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn status_upstream_detailed_truncates_after_8() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits")?;
-    env.setup_metadata_at_target(&["A"], "refs/heads/base")?;
+fn status_upstream_detailed_truncates_after_8() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -544,14 +516,12 @@ fn status_upstream_detailed_truncates_after_8() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/upstream/status-upstream-truncates-after-8.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn status_upstream_and_merge_base_messages_truncate_when_unpaged() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-long-messages")?;
-    env.setup_metadata_at_target(&["A"], "refs/heads/base")?;
+fn status_upstream_and_merge_base_messages_truncate_when_unpaged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-long-messages");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -559,7 +529,7 @@ fn status_upstream_and_merge_base_messages_truncate_when_unpaged() -> anyhow::Re
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A] [✓ upstream merges cleanly]
 ┊●   601614c add A
@@ -573,16 +543,13 @@ fn status_upstream_and_merge_base_messages_truncate_when_unpaged() -> anyhow::Re
 Hint: run `but help` for all commands
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn status_upstream_merge_status_integrated() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings(
-        "upstream-integrated-with-updates",
-    )?;
-    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base")?;
+fn status_upstream_merge_status_integrated() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -593,8 +560,271 @@ fn status_upstream_merge_status_integrated() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/upstream/status-upstream-merge-status-integrated.stdout.term.svg"
         ]);
+}
 
-    Ok(())
+#[test]
+fn status_marks_merged_upstream_without_upstream_flag() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-integrated-with-updates");
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A] (merged upstream)
+┊●   756ee31 A-change
+├╯
+┊
+┊╭┄h0 [B]
+┊●   536958e B-change
+├╯
+┊
+┊● 9354ac4 (upstream) ⏫ 2 commits
+├╯ efc9211 (common base) 2000-01-02 base
+
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+}
+
+#[test]
+fn status_marks_empty_remote_branch_merged_upstream() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-merged-empty-branch");
+
+    env.but("apply origin/document-but-pr-skill")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Applied remote branch 'origin/document-but-pr-skill' to workspace
+
+"#]]);
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄do [document-but-pr-skill] (merged upstream) (no commits)
+├╯
+┊
+┊● 55165db (upstream) ⏫ 1 commit
+├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+
+    assert_pull_removes_merged_upstream_branch(&env);
+}
+
+#[test]
+fn status_marks_empty_remote_branch_merged_upstream_when_tip_matches_target() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-merged-empty-branch-ff");
+    env.set_target_sha("refs/heads/base");
+
+    env.but("apply origin/document-but-pr-skill")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Applied remote branch 'origin/document-but-pr-skill' to workspace
+
+"#]]);
+
+    let output = env
+        .but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .get_output()
+        .stdout
+        .clone();
+    let output = String::from_utf8_lossy(&output);
+    assert!(
+        output.contains("[document-but-pr-skill] (merged upstream) (no commits)"),
+        "the fast-forward merged branch should be labelled as merged upstream:\n{output}"
+    );
+
+    assert_pull_removes_merged_upstream_branch(&env);
+}
+
+/// An empty branch stacked on top of a branch that merged upstream must not be treated
+/// as merged itself: it contributed no commits of its own. Regression test for `but status`
+/// labelling it `(merged upstream)` and `but pull` deleting the whole stack (including the
+/// unmerged top branch) because every branch was wrongly classified as integrated.
+#[test]
+fn unmerged_empty_branch_above_merged_one_is_not_treated_as_merged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-merged-branch-below-empty-branch",
+    );
+    env.setup_metadata(&["bottom"]);
+    // Stack `top` directly above `bottom` so they form a single two-branch stack.
+    {
+        use but_core::RefMetadata as _;
+        use std::ops::DerefMut as _;
+        let mut meta = env.meta();
+        let ws_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+        let mut ws = meta.workspace(ws_ref).unwrap();
+        ws.deref_mut()
+            .insert_new_segment_above_anchor_if_not_present(
+                "refs/heads/top".try_into().unwrap(),
+                "refs/heads/bottom".try_into().unwrap(),
+            );
+        meta.set_workspace(&ws).unwrap();
+    }
+
+    // `bottom` merged upstream; `top` rests on it and must not be labelled merged.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄op [top] (no commits)
+┊│
+┊├┄bo [bottom] (merged upstream) (no commits)
+├╯
+┊
+┊● 334227d (upstream) ⏫ 1 commit
+├╯ 334227d (common base) 2000-01-02 merge bottom
+
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
+
+"#]]);
+
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").env("NO_BG_TASKS", "1").assert().success();
+
+    let branches: Vec<String> = status_json(&env).unwrap()["stacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().into_iter().flatten())
+        .map(|b| b["name"].as_str().unwrap_or_default().to_string())
+        .collect();
+    assert!(
+        branches.iter().any(|b| b == "top"),
+        "`but pull` must keep the unmerged `top` branch, got: {branches:?}"
+    );
+}
+
+/// A branch whose only commit introduces no changes of its own, stacked on top of a
+/// branch that was *squash-merged* upstream, must not be treated as merged itself: it
+/// contributed nothing that was merged. Regression test for the data-loss bug where the
+/// squash-merge trial let the no-change top commit "borrow" the cumulative content of the
+/// squash-merged `bottom` below it, so `but status` labelled `top` `(merged upstream)` and
+/// `but pull` deleted the whole stack — losing the unmerged `top` branch. The genuinely
+/// squash-merged `bottom` must still be detected and removed.
+#[test]
+fn no_change_commit_above_squash_merged_branch_is_not_treated_as_merged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "upstream-squash-merged-below-no-change-branch",
+    );
+    env.setup_metadata(&["bottom"]);
+    // Stack `top` directly above `bottom` so they form a single two-branch stack.
+    {
+        use but_core::RefMetadata as _;
+        use std::ops::DerefMut as _;
+        let mut meta = env.meta();
+        let ws_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into().unwrap();
+        let mut ws = meta.workspace(ws_ref).unwrap();
+        ws.deref_mut()
+            .insert_new_segment_above_anchor_if_not_present(
+                "refs/heads/top".try_into().unwrap(),
+                "refs/heads/bottom".try_into().unwrap(),
+            );
+        meta.set_workspace(&ws).unwrap();
+    }
+
+    // `bottom` was squash-merged upstream and must be labelled `(merged upstream)`.
+    // `top`'s sole commit introduces no changes, so it must NOT be labelled merged.
+    let status = env
+        .but("status --format json")
+        .allow_json()
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let status: serde_json::Value = serde_json::from_slice(&status).unwrap();
+    let branch_status_of = |name: &str| -> String {
+        status["stacks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|stack| stack["branches"].as_array().into_iter().flatten())
+            .find(|b| b["name"].as_str() == Some(name))
+            .and_then(|b| b["branchStatus"].as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    assert_eq!(
+        branch_status_of("bottom"),
+        "integrated",
+        "`bottom` was squash-merged upstream and must be detected as integrated"
+    );
+    assert_ne!(
+        branch_status_of("top"),
+        "integrated",
+        "`top`'s no-change commit must NOT be treated as integrated"
+    );
+
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").env("NO_BG_TASKS", "1").assert().success();
+
+    let branches: Vec<String> = status_json(&env).unwrap()["stacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().into_iter().flatten())
+        .map(|b| b["name"].as_str().unwrap_or_default().to_string())
+        .collect();
+    assert!(
+        branches.iter().any(|b| b == "top"),
+        "`but pull` must keep the unmerged `top` branch, got: {branches:?}"
+    );
+    assert!(
+        !branches.iter().any(|b| b == "bottom"),
+        "`but pull` must remove the genuinely squash-merged `bottom` branch, got: {branches:?}"
+    );
+}
+
+fn assert_pull_removes_merged_upstream_branch(env: &Sandbox) {
+    env.invoke_git("remote set-url origin .");
+    env.but("pull").env("NO_BG_TASKS", "1").assert().success();
+
+    let status_after = env
+        .but("status --format json")
+        .allow_json()
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let status_after: serde_json::Value = serde_json::from_slice(&status_after).unwrap();
+    assert_eq!(
+        status_after["stacks"].as_array().unwrap().len(),
+        0,
+        "the merged upstream branch should be removed by `but pull`"
+    );
 }
 
 /// Like `status_upstream_merge_status_integrated`, but the fixture adds two
@@ -611,12 +841,12 @@ fn status_upstream_merge_status_integrated() -> anyhow::Result<()> {
 ///
 /// Expected: both extra branches are pruned entirely.
 #[test]
-fn status_upstream_prunes_untracked_integrated_branch() -> anyhow::Result<()> {
+fn status_upstream_prunes_untracked_integrated_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow(
         "upstream-integrated-with-extra-branch",
-    )?;
+    );
     // Only register A and B — `extra-untracked` is deliberately omitted.
-    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base")?;
+    env.setup_metadata_at_target(&["A", "B"], "refs/heads/base");
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -624,9 +854,9 @@ fn status_upstream_prunes_untracked_integrated_branch() -> anyhow::Result<()> {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
-┊╭┄g0 [A] [⬆ integrated upstream]
+┊╭┄g0 [A] (merged upstream)
 ┊●   756ee31 A-change
 ├╯
 ┊
@@ -640,11 +870,9 @@ fn status_upstream_prunes_untracked_integrated_branch() -> anyhow::Result<()> {
 ┊┊
 ├╯ efc9211 (common base) 2000-01-02 base
 
-Hint: run `but help` for all commands
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
-
-    Ok(())
 }
 
 /// Same fixture as `status_upstream_prunes_untracked_integrated_branch`, but
@@ -654,13 +882,13 @@ Hint: run `but help` for all commands
 /// Expected: `extra-untracked` is kept (metadata-tracked), `extra-untracked-2`
 /// is pruned (not tracked).
 #[test]
-fn status_upstream_prunes_metadata_tracked_integrated_branches() -> anyhow::Result<()> {
+fn status_upstream_prunes_metadata_tracked_integrated_branches() {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow(
         "upstream-integrated-with-extra-branch",
-    )?;
+    );
     // Register A, B, and extra-untracked (simulating auto-discovery).
     // extra-untracked-2 remains unregistered.
-    env.setup_metadata_at_target(&["A", "B", "extra-untracked"], "refs/heads/base")?;
+    env.setup_metadata_at_target(&["A", "B", "extra-untracked"], "refs/heads/base");
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -668,9 +896,9 @@ fn status_upstream_prunes_metadata_tracked_integrated_branches() -> anyhow::Resu
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
-┊╭┄g0 [A] [⬆ integrated upstream]
+┊╭┄g0 [A] (merged upstream)
 ┊●   756ee31 A-change
 ├╯
 ┊
@@ -687,11 +915,9 @@ fn status_upstream_prunes_metadata_tracked_integrated_branches() -> anyhow::Resu
 ┊┊
 ├╯ efc9211 (common base) 2000-01-02 base
 
-Hint: run `but help` for all commands
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
-
-    Ok(())
 }
 
 /// Two branches with different merge bases against the target.
@@ -706,13 +932,13 @@ Hint: run `but help` for all commands
 /// not pruned — `M1` and `M2` appear in B's stack as integrated commits,
 /// to be cleaned up by `integrate_upstream`.
 #[test]
-fn status_upstream_prunes_with_different_bases() -> anyhow::Result<()> {
+fn status_upstream_prunes_with_different_bases() {
     let env =
-        Sandbox::init_scenario_with_target_and_default_settings_slow("upstream-different-bases")?;
-    env.setup_metadata(&["A", "B"])?;
+        Sandbox::init_scenario_with_target_and_default_settings_slow("upstream-different-bases");
+    env.setup_metadata(&["A", "B"]);
     // This test wants the target sha to be the common ancestor ancestor of the
     // workspace.
-    env.set_target_sha("refs/heads/base")?;
+    env.set_target_sha("refs/heads/base");
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -720,7 +946,7 @@ fn status_upstream_prunes_with_different_bases() -> anyhow::Result<()> {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A] [✓ upstream merges cleanly]
 ┊●   756ee31 A-change
@@ -729,7 +955,7 @@ fn status_upstream_prunes_with_different_bases() -> anyhow::Result<()> {
 ┊╭┄h0 [B] [✓ upstream merges cleanly]
 ┊●   594a02c B-change
 ┊│
-┊├┄ma [main] [⬆ integrated upstream]
+┊├┄ma [main] (merged upstream)
 ┊●   ba5149e M2
 ┊●   6daac93 M1
 ├╯
@@ -740,11 +966,9 @@ fn status_upstream_prunes_with_different_bases() -> anyhow::Result<()> {
 ┊┊
 ├╯ efc9211 (common base) 2000-01-02 base
 
-Hint: run `but help` for all commands
+Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
-
-    Ok(())
 }
 
 /// Simulate a `git fetch` that advances `origin/main` after the workspace
@@ -765,15 +989,15 @@ Hint: run `but help` for all commands
 fn status_upstream_advanced_target_does_not_leak_branches() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow(
         "upstream-advanced-after-workspace",
-    )?;
-    env.setup_metadata(&["A", "B"])?;
+    );
+    env.setup_metadata(&["A", "B"]);
 
     // Add old-integrated to A's stack in metadata, simulating auto-discovery
     // before the branch was integrated upstream.
     {
         use but_core::RefMetadata;
         use std::ops::DerefMut;
-        let mut meta = env.meta()?;
+        let mut meta = env.meta();
         let ws_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into()?;
         let mut ws = meta.workspace(ws_ref)?;
         ws.deref_mut()
@@ -800,9 +1024,9 @@ fn status_upstream_advanced_target_does_not_leak_branches() -> anyhow::Result<()
 }
 
 #[test]
-fn status_upstream_merge_status_conflicted() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-conflicted")?;
-    env.setup_metadata_at_target(&["A"], "refs/heads/base")?;
+fn status_upstream_merge_status_conflicted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-conflicted");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
 
     env.but("status --upstream")
         .env("NO_BG_TASKS", "1")
@@ -813,14 +1037,12 @@ fn status_upstream_merge_status_conflicted() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/upstream/status-upstream-merge-status-conflicted.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn status_shows_pushed_commit_marker() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("status-pushed")?;
-    env.setup_metadata(&["A"])?;
+fn status_shows_pushed_commit_marker() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("status-pushed");
+    env.setup_metadata(&["A"]);
 
     env.but("status")
         .with_color_for_svg()
@@ -830,14 +1052,12 @@ fn status_shows_pushed_commit_marker() -> anyhow::Result<()> {
         .stdout_eq(snapbox::file![
             "snapshots/status/classification/status-shows-pushed-commit-marker.stdout.term.svg"
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn status_shows_rewritten_branch_with_remote_and_local_commits() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("status-modified")?;
-    env.setup_metadata(&["A"])?;
+fn status_shows_rewritten_branch_with_remote_and_local_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("status-modified");
+    env.setup_metadata(&["A"]);
 
     env.but("status")
         .with_color_for_svg()
@@ -847,13 +1067,85 @@ fn status_shows_rewritten_branch_with_remote_and_local_commits() -> anyhow::Resu
         .stdout_eq(snapbox::file![
             "snapshots/status/classification/status-shows-rewritten-branch-with-remote-and-local-commits.stdout.term.svg"
         ]);
+}
 
-    Ok(())
+#[test]
+fn agent_status_explains_rewritten_commit_marker() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one.txt", "one\n");
+    env.but("commit -m 'add one' -c A")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![]);
+    env.invoke_git("update-ref refs/remotes/origin/A refs/heads/A");
+
+    env.file("one.txt", "one amended\n");
+    let target_commit = env.invoke_git("rev-parse --short refs/heads/A");
+    env.but(format!("amend {target_commit} --changes one.txt"))
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊◐   [..] add one
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("status")
+        .env("AI_AGENT", "codex")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊◐   [..] add one
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: ◐ means rewritten locally vs upstream.
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("--format agent status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊◐   [..] add one
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: ◐ means rewritten locally vs upstream.
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 #[test]
 fn status_in_edit_mode_delegates_to_resolve_status() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     enter_edit_mode_with_conflicted_commit(&env)?;
 
     env.but("status")
@@ -863,30 +1155,6 @@ fn status_in_edit_mode_delegates_to_resolve_status() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::file![
             "snapshots/status/edit-mode/status-delegates-to-resolve-status.stdout.term.svg"
-        ]);
-
-    Ok(())
-}
-
-#[test]
-fn status_shows_marked_stack() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
-
-    let status = status_json(&env)?;
-    let branch_cli_id = status["stacks"][0]["branches"][0]["cliId"]
-        .as_str()
-        .expect("branch cli id should exist");
-
-    env.but(format!("mark {branch_cli_id}")).assert().success();
-
-    env.but("status")
-        .with_color_for_svg()
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::file![
-            "snapshots/status/mark/status-shows-marked-stack.stdout.term.svg"
         ]);
 
     Ok(())

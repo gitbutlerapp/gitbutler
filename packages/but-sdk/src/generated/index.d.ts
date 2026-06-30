@@ -88,6 +88,20 @@ export declare function branchDetails(projectId: string, branchName: string, rem
  */
 export declare function branchDiff(projectId: string, branch: string): Promise<TreeChanges>
 
+/**
+ * Land `branch` directly onto the configured target ref.
+ *
+ * `branch` is the short name of the branch to land (its `refs/heads/<branch>` ref). The branch
+ * must be the bottom segment of its stack and free of conflicted commits, and the workspace must
+ * be a managed GitButler workspace with a configured, non-triangular target remote.
+ *
+ * This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
+ * the target moves underneath us), then reconciles the remaining applied branches onto the moved
+ * target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
+ * workspace state for what to report.
+ */
+export declare function branchLand(projectId: string, branch: string, noFf: boolean): Promise<BranchLandResult>
+
 /** See [`changes_in_worktree_with_perm()`]. */
 export declare function changesInWorktree(projectId: string): Promise<WorktreeChanges>
 
@@ -457,10 +471,10 @@ export declare function unapplyStack(projectId: string, stackId: string): Promis
 export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<BranchReference>
 
 /**
- * Update arbitrary fields of a single review (body, state, target base).
+ * Update arbitrary fields of a single review (title, body, state, target base).
  * Each `None` leaves that field unchanged on the forge.
  */
-export declare function updateReview(projectId: string, reviewId: number, body: string | null, state: ReviewState | null, targetBase: string | null): Promise<void>
+export declare function updateReview(projectId: string, reviewId: number, title: string | null, body: string | null, state: ReviewState | null, targetBase: string | null): Promise<void>
 
 /** Update stacked reviews: description footers and, optionally, target branches. */
 export declare function updateReviewFooters(projectId: string, reviews: Array<ForgeReviewUpdate>): Promise<void>
@@ -476,6 +490,9 @@ export declare function warmCiChecksCache(projectId: string): Promise<void>
 
 /** Push a branch and any parent references that lie within the current workspace projection. */
 export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
+
+/** Switch to the workspace reference */
+export declare function workspaceCheckout(projectId: string): Promise<BranchCheckoutResult>
 
 /**
  * Integrate upstream changes into the current workspace and record an oplog
@@ -606,21 +623,25 @@ export type AppSettings = {
 
 /** JSON sibling of [`but_workspace::branch::apply::Outcome`]. */
 export type ApplyOutcome = {
+  /** What kind of apply operation completed. */
+  status: OutcomeStatus;
   /**
    * Whether `apply()` produced a new workspace graph.
    *
    * This can be true even when merge conflicts prevented the result from being persisted.
-   * Use `applied_branches` to determine whether anything was persisted.
+   * Use `status` to determine whether anything was persisted.
    */
   workspaceChanged: boolean;
   /**
-   * The branches that were actually persisted into the workspace.
+   * Branches activated or recorded by the operation.
    *
-   * This is empty when the branch was already present or when conflicts aborted the apply.
+   * This is empty for `alreadyApplied` and `conflictAborted`, and populated for `applied`.
    */
   appliedBranches: Array<FullRefName>;
   /** Whether the workspace reference had to be created. */
   workspaceRefCreated: boolean;
+  /** Stacks that conflicted while applying the branch. */
+  conflictingStacks: Array<ConflictingStack>;
 };
 
 /** Represents the author of a commit. */
@@ -783,6 +804,29 @@ export type BranchIdentity = string;
 
 /** JSON transport type for the preset used to generate initial branch integration steps. */
 export type BranchIntegrationStrategy = "pullRebase" | "merge" | "pickRemote" | "smartSquash";
+
+/** JSON transport type for what landing did to the target. */
+export type BranchLandKind = {
+  type: "alreadyIntegrated";
+} | {
+  /** The commit the target now points at. */
+  newTargetOid: string;
+  /** The commit the target pointed at before landing. */
+  prevTargetOid: string;
+  type: "updated";
+};
+
+/** JSON transport type returned by [`branch_land`](super::branch_land). */
+export type BranchLandResult = {
+  /** What landing did to the target. */
+  landed: BranchLandKind;
+  /** Whether delivery moved local refs rather than pushing to a remote. */
+  localDelivery: boolean;
+  /** Whether the remaining branches were left un-reconciled (run `but pull` to finish). */
+  reconcileSkipped: boolean;
+  /** The post-land workspace state. */
+  workspace: WorkspaceState;
+};
 
 /**
  * Represents a branch that exists for the repository
@@ -966,7 +1010,7 @@ export type Claude = {
  *
  * In practice, it should match its [frontend counterpart](https://github.com/gitbutlerapp/gitbutler/blob/fa973fd8f1ae8807621f47601803d98b8a9cf348/app/src/lib/backend/ipc.ts#L5).
  */
-export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
+export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
 
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch. */
 export type Commit = {
@@ -1103,6 +1147,14 @@ export type ConflictEntryPresence = {
   ancestor: boolean;
 };
 
+/** A stack that conflicted while applying a branch. */
+export type ConflictingStack = {
+  /** The tip branch name of the stack. */
+  refName: FullRefName;
+  /** The shortened tip branch name, matching CLI display. */
+  shortName: string;
+};
+
 export type CreateForgeReviewParams = {
   title: string;
   body: string;
@@ -1179,29 +1231,8 @@ export type ExtraCsp = {
 };
 
 export type FeatureFlags = {
-  /** Turn on the set a v3 version of checkout */
-  cv3: boolean;
   /** Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref. */
   unapplyV3Pgm: boolean;
-  /**
-   * Enable undo/redo support.
-   *
-   * ### Progression for implementation
-   *
-   * * use snapshot system in undo/redo queue
-   *     - consider not referring to these objects by reference to `git gc` will catch them,
-   *       or even purge them on shutdown. Alternatively, keep them in-memory with in-memory objects.
-   * * add user-control to snapshot system to purge now, or purge after time X. That way data isn't stored forever.
-   * * Finally, consider implementing undo/redo with invasive primitives that are undoable/redoable themselves for
-   *   the most efficient solution, inherently in memory, i.e.
-   *     - CRUD reference
-   *     - CRUD metadata
-   *     - CRUD workspace
-   *     - CRUD files
-   */
-  undo: boolean;
-  /** Enable processing of workspace rules. */
-  rules: boolean;
   /** Enable single branch mode. */
   singleBranch: boolean;
   /** Enable IRC integration. */
@@ -1216,6 +1247,8 @@ export type FeatureFlags = {
   watchMode: string;
   /** Experimental. */
   writeCommitEvolution: boolean;
+  /** Show the experimental file browser in the TUI. */
+  tuiFileBrowser: boolean;
 };
 
 export type Fetch = {
@@ -1300,6 +1333,8 @@ export type ForgeReview = {
   targetBranch: string;
   /** The git commit SHA that this review is based on. */
   sha: string;
+  /** Commits on the target branch that represent this review having landed. */
+  integrationCommitShas: Array<string>;
   /** ISO 8601 timestamp of when the review was created. */
   createdAt: string | null;
   /** ISO 8601 timestamp of when the review was last modified. */
@@ -1870,6 +1905,9 @@ export type OperatingMode = {
 };
 
 export type OperationKind = "CreateCommit" | "CreateBranch" | "StashIntoBranch" | "SetBaseBranch" | "MergeUpstream" | "UpdateWorkspaceBase" | "MoveHunk" | "UpdateBranchName" | "UpdateBranchNotes" | "ReorderBranches" | "UpdateBranchRemoteName" | "GenericBranchUpdate" | "DeleteBranch" | "ApplyBranch" | "DiscardLines" | "DiscardHunk" | "DiscardFile" | "DiscardChanges" | "Discard" | "AmendCommit" | "Absorb" | "AutoCommit" | "UndoCommit" | "DiscardCommit" | "UnapplyBranch" | "CherryPick" | "SquashCommit" | "UpdateCommitMessage" | "MoveCommit" | "MoveBranch" | "TearOffBranch" | "ReorderCommit" | "InsertBlankCommit" | "MoveCommitFile" | "FileChanges" | "EnterEditMode" | "SyncWorkspace" | "CreateDependentBranch" | "RemoveDependentBranch" | "UpdateDependentBranchName" | "UpdateDependentBranchDescription" | "UpdateDependentBranchPrNumber" | "AutoHandleChangesBefore" | "AutoHandleChangesAfter" | "SplitBranch" | "CleanWorkspace" | "OnDemandSnapshot" | "Unknown" | "RestoreFromSnapshotViaUndo" | "RestoreFromSnapshotViaRedo" | "RestoreFromSnapshot";
+
+/** What kind of apply operation completed. */
+export type OutcomeStatus = "alreadyApplied" | "applied" | "conflictAborted";
 
 export type OutsideWorkspaceMetadata = {
   /** The name of the currently checked out branch or None if in detached head state. */
@@ -2525,8 +2563,8 @@ export type WatcherGitFetchPayload = null;
 
 /** Git head (and operating mode) change event */
 export type WatcherGitHeadPayload = {
-  /** The SHA of the repository's HEAD. */
-  head: string;
+  /** The symbolic ref HEAD points at, or `null` when HEAD is detached. */
+  head: string | null;
   /** The GitButler operating mode (edit mode, oper workspace, ...). */
   operatingMode: OperatingMode;
 };

@@ -1,7 +1,8 @@
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
-import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
+import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
-import { changesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
+import { uncommittedChangesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectHasCheckedCommits,
@@ -14,7 +15,6 @@ import { Checkbox } from "#ui/components/Checkbox.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
-import type { TreeStatus } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { identity, Match } from "effect";
 import { ComponentProps, createContext, FC, use, useRef } from "react";
@@ -22,6 +22,7 @@ import styles from "./FilesTree.module.css";
 import {
 	WorkspaceItemRow,
 	WorkspaceItemRowLabel,
+	WorkspaceItemRowLabelContainer,
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
 import { getWorkspaceItemRowButtonClassName } from "./WorkspaceItemRow-utils.ts";
@@ -63,7 +64,7 @@ const useFilesTreeHotkeys = ({
 
 	const dispatch = useAppDispatch();
 
-	const selectedChangesFile = fileParent._tag === "Changes" ? selection : null;
+	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
 
 	const absorbSelectedFile = () => {
 		if (selectedChangesFile === null) return;
@@ -74,7 +75,7 @@ const useFilesTreeHotkeys = ({
 		dispatch(
 			projectActions.enterAbsorbMode({
 				projectId,
-				source: fileOperand({ parent: changesFileParent, path: selectedChangesFile }),
+				source: fileOperand({ parent: uncommittedChangesFileParent, path: selectedChangesFile }),
 				sourceTarget: {
 					type: "treeChanges",
 					subject: {
@@ -131,6 +132,10 @@ export const FilesTree: FC<
 	...props
 }) => {
 	const selection = useFilesSelection(projectId, navigationIndex);
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -155,11 +160,14 @@ export const FilesTree: FC<
 				<div className={styles.section}>
 					{items.length === 0 ? (
 						<WorkspaceItemRow interactive={false}>
-							<WorkspaceItemRowLabel>
-								<span className={workspaceItemRowStyles.emptyText}>No changes.</span>
-							</WorkspaceItemRowLabel>
+							<WorkspaceItemRowLabelContainer>
+								<WorkspaceItemRowLabel className={workspaceItemRowStyles.fadedText}>
+									No changes.
+								</WorkspaceItemRowLabel>
+							</WorkspaceItemRowLabelContainer>
 						</WorkspaceItemRow>
 					) : (
+						// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation.
 						<div role="group">
 							{items.map((item) => (
 								<TreeItem
@@ -168,14 +176,13 @@ export const FilesTree: FC<
 									path={item.path}
 									aria-label={
 										item._tag === "Change"
-											? `${statusLabel(item.change.status)} ${item.change.path}`
-											: `C ${item.path}`
+											? `${item.change.status.type} ${item.change.path}`
+											: `Conflict ${item.path}`
 									}
 									render={
 										<OperationSourceC
 											projectId={projectId}
 											source={fileOperand({ parent: fileParent, path: item.path })}
-											onDragStart={() => onFileSelection(item.path)}
 											render={
 												<FileRow
 													item={item}
@@ -183,6 +190,9 @@ export const FilesTree: FC<
 													onFileSelection={onFileSelection}
 													projectId={projectId}
 													fileParent={fileParent}
+													branchNameByCommitId={(cid) =>
+														headInfoIndex?.commitContextById(cid)?.segment.refName?.displayName
+													}
 												/>
 											}
 										/>
@@ -248,22 +258,14 @@ const TreeItem: FC<
 	});
 };
 
-const statusLabel = (status: TreeStatus): string =>
-	Match.value(status).pipe(
-		Match.when({ type: "Addition" }, () => "A"),
-		Match.when({ type: "Deletion" }, () => "D"),
-		Match.when({ type: "Modification" }, () => "M"),
-		Match.when({ type: "Rename" }, () => "R"),
-		Match.exhaustive,
-	);
-
 const FileRow: FC<
 	{
 		item: FileTreeItem;
 		projectId: string;
 		fileParent: FileParent;
+		branchNameByCommitId?: (commitId: string) => string | undefined;
 	} & Omit<ComponentProps<typeof ItemRow>, "projectId">
-> = ({ item, projectId, fileParent, ...restProps }) => {
+> = ({ item, projectId, fileParent, branchNameByCommitId, id, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -279,83 +281,115 @@ const FileRow: FC<
 	);
 
 	return (
-		<ItemRow
-			{...restProps}
-			projectId={projectId}
-			path={item.path}
-			className={classes(restProps.className, styles.fileRow)}
-			onContextMenu={(event) => {
-				void showNativeContextMenu(event, menuItems);
-			}}
-		>
-			<div className={styles.fileIconWithCheckbox}>
-				<Icon name="file" />
-				<Tooltip.Root
-					// This gets in the way when the user tries to move their hover to a
-					// sibling row.
-					disableHoverablePopup
-				>
-					<Checkbox
-						disabled={hasCheckedCommits || outlineMode._tag !== "Default"}
-						aria-label={`Check file ${relativePath}`}
-						className={styles.fileCheckbox}
-						nativeButton
-						render={<Tooltip.Trigger />}
-					/>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup render={<TooltipPopup />}>Check file</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
-			</div>
-			<WorkspaceItemRowLabel>
-				{item._tag === "Change" ? item.change.path : item.path}
-			</WorkspaceItemRowLabel>
-
-			{outlineMode._tag === "Default" && (
-				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-					{Match.value({ item, fileParent }).pipe(
-						Match.when(
-							{ item: { _tag: "Change" }, fileParent: { _tag: "Changes" } },
-							({ item }) =>
-								item.dependencyCommitIds && (
-									<Toolbar.Button
-										render={
-											<DependencyIndicator
-												projectId={projectId}
-												commitIds={item.dependencyCommitIds}
-												className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-											/>
-										}
-									>
-										<Icon name="link" />
-									</Toolbar.Button>
-								),
-						),
-						Match.orElse(() => null),
-					)}
-					<Toolbar.Button
-						aria-label="File menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+		<Tooltip.Root disableHoverablePopup>
+			<Tooltip.Trigger
+				// We pass the ID here instead of including it with the other props as a
+				// workaround for Base UI issue:
+				// https://github.com/mui/base-ui/issues/5108
+				id={id}
+				render={
+					<ItemRow
+						{...restProps}
+						projectId={projectId}
+						path={item.path}
+						className={classes(restProps.className, styles.fileRow)}
+						onContextMenu={(event) => {
+							void showNativeContextMenu(event, menuItems);
 						}}
-						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+					/>
+				}
+			>
+				<div className={styles.fileIconWithCheckbox}>
+					<Icon name="file" />
+					<Tooltip.Root
+						// This gets in the way when the user tries to move their hover to a
+						// sibling row.
+						disableHoverablePopup
 					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
-			)}
+						<Checkbox
+							disabled={hasCheckedCommits || outlineMode._tag !== "Default"}
+							aria-label={`Check file ${relativePath}`}
+							className={styles.fileCheckbox}
+							nativeButton
+							render={<Tooltip.Trigger />}
+						/>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup />}>Check file</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				</div>
 
-			{item._tag === "Change" ? (
-				<Icon
-					name="file"
-					className={styles.fileStatusIcon}
-					data-char={statusLabel(item.change.status)}
-				/>
-			) : (
-				"C"
-			)}
-		</ItemRow>
+				<WorkspaceItemRowLabelContainer>
+					<WorkspaceItemRowLabel singleLine>
+						{relativePath}
+						{item._tag === "Conflict" && " ⚠️"}
+					</WorkspaceItemRowLabel>
+				</WorkspaceItemRowLabelContainer>
+
+				{outlineMode._tag === "Default" && (
+					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
+						<Toolbar.Button
+							aria-label="File menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+							}}
+							className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+						>
+							<Icon name="kebab" />
+						</Toolbar.Button>
+
+						{item._tag === "Change" &&
+							fileParent._tag === "UncommittedChanges" &&
+							item.dependencyCommitIds && (
+								<Toolbar.Button
+									render={
+										<DependencyIndicator
+											projectId={projectId}
+											commitIds={item.dependencyCommitIds}
+											branchNameByCommitId={branchNameByCommitId}
+											className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+										/>
+									}
+								>
+									<Icon name="link" />
+								</Toolbar.Button>
+							)}
+					</Toolbar.Root>
+				)}
+
+				{item._tag === "Change" && (
+					<Tooltip.Root disableHoverablePopup>
+						<Tooltip.Trigger
+							className={styles.fileStatusBadge}
+							aria-label={item.change.status.type}
+							data-status-type={item.change.status.type}
+							// By default it's a button, but we don't want this to be
+							// interactive.
+							render={<span />}
+						>
+							{Match.value(item.change.status).pipe(
+								Match.when({ type: "Addition" }, () => "A"),
+								Match.when({ type: "Deletion" }, () => "D"),
+								Match.when({ type: "Modification" }, () => "M"),
+								Match.when({ type: "Rename" }, () => "R"),
+								Match.exhaustive,
+							)}
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup />}>{item.change.status.type}</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				)}
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup />}>{relativePath}</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
 	);
 };

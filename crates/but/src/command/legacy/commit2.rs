@@ -1,24 +1,16 @@
-use std::fmt::Display;
-
 use anyhow::Context as _;
-use bstr::{BString, ByteSlice};
-use but_api::{diff::ComputeLineStats, json::HexHash};
+use but_api::json::HexHash;
 use but_core::{
     DiffSpec, DryRun, RefMetadata,
-    diff::CommitDetails,
     ref_metadata::StackId,
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
 use but_ctx::Context;
-use but_error::Code;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
-use but_transaction::{DynamicOutcome, IntermediateCommitCreateResult, Transaction};
-use but_workspace::{
-    RefInfo,
-    branch::create_reference::{Anchor, Position},
-};
+use but_transaction::{IntermediateCommitCreateResult, Transaction};
+use but_workspace::{RefInfo, branch::create_reference::Anchor};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gix::{prelude::ObjectIdExt as _, refs::FullName};
+use gix::refs::FullName;
 use nonempty::NonEmpty;
 use serde::Serialize;
 
@@ -30,26 +22,26 @@ use crate::{
     },
     bad_input,
     command::legacy::{
-        ShowDiffInEditor,
-        reword::get_commit_message_from_editor,
+        reword2::RewordCommitOperation,
         status::{TuiOutcome, TuiRunOptions, tui_with_options},
     },
-    id::{UNASSIGNED, UncommittedCliId},
+    id::UncommittedHunkOrFile,
     theme::{self, Theme},
     utils::{
-        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
+        diff_specs::DiffSpecBuilder, targeting::Side,
     },
 };
 
 #[must_use]
 pub struct CommitOutcome {
-    new_commit: gix::ObjectId,
-    branch_name: Option<BranchNameTarget>,
+    pub new_commit: gix::ObjectId,
+    pub branch_name: Option<BranchNameTarget>,
 }
 
 /// `--format json` should only include newly created things. So if the branch already existed it
 /// wont be included in the JSON output.
-enum BranchNameTarget {
+pub enum BranchNameTarget {
     Existing(FullName),
     New(FullName),
 }
@@ -66,13 +58,13 @@ impl CliOutputHuman for CommitOutcome {
                 out,
                 "Created commit {} on new branch {}",
                 theme::Commit(new_commit),
-                theme::Branch(branch_name.shorten().as_bstr())
+                theme::Branch(branch_name),
             )?,
             Some(BranchNameTarget::Existing(branch_name)) => writeln!(
                 out,
                 "Created commit {} on branch {}",
                 theme::Commit(new_commit),
-                theme::Branch(branch_name.shorten().as_bstr())
+                theme::Branch(branch_name),
             )?,
             None => writeln!(out, "Created commit {}", theme::Commit(new_commit))?,
         }
@@ -116,6 +108,7 @@ impl CliOutput for CommitOutcome {
     }
 }
 
+#[cfg_attr(not(feature = "but-2"), expect(dead_code))]
 pub fn commit(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
@@ -129,14 +122,14 @@ pub fn commit(
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
         resolve(guard, ctx, args, &mut out, &head_info, &id_map)?
     };
-    run(
+    Ok(run(
         ctx,
         &mut meta,
         guard.write_permission(),
         commit_op,
         commit_selection,
         reword_op,
-    )
+    )?)
 }
 
 fn resolve(
@@ -177,13 +170,12 @@ fn resolve(
         }
     };
 
-    let commit_op = route_commit_operation(&*ctx.repo.get()?, head_info, out, id_map, target_ish)?;
-
     let (guard, commit_selection) = if !changes.is_empty() {
         let changes = changes
             .into_iter()
             .map(|change| change.resolve_uncommitted(&*ctx.repo.get()?, id_map))
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<CliResult<Vec<Vec<UncommittedHunkOrFile>>>>()?;
+        let changes = changes.into_iter().flatten().collect();
         let Some(changes) = NonEmpty::from_vec(changes) else {
             return Err(bad_input("No changes to commit")
                 .hint("Run `but status` to show applicable targets")
@@ -191,7 +183,11 @@ fn resolve(
         };
         (guard, CommitSelection::Changes(Box::new(changes)))
     } else if interactive {
-        let (guard, outcome) = tui_with_options(ctx, guard, out, TuiRunOptions::PickChanges)?;
+        let Some(mut inout) = out.prepare_for_terminal_input() else {
+            return Err(bad_input("Terminal doesn't support interactivity").into());
+        };
+        let (guard, outcome) =
+            tui_with_options(ctx, guard, &mut inout, TuiRunOptions::PickChanges)?;
         let cli_ids = match outcome {
             TuiOutcome::CliIds(cli_ids) => cli_ids,
             TuiOutcome::None => {
@@ -204,7 +200,7 @@ fn resolve(
             .into_iter()
             .map(|change| {
                 match change {
-                    CliId::Uncommitted(id) => Ok(id),
+                    CliId::UncommittedHunkOrFile(id) => Ok(id),
                     _ => {
                         Err(anyhow::anyhow!("BUG: tui should only return uncommitted changes in PickChanges mode but got {change:?}"))
                     }
@@ -223,26 +219,24 @@ fn resolve(
         (guard, CommitSelection::AllChanges)
     };
 
-    let reword_op = match (no_message, message) {
-        (true, None) => RewordCommitOperation::NoMessage,
-        (false, None) => RewordCommitOperation::UseEditor,
-        (false, Some(message)) => RewordCommitOperation::Message(message.join("\n\n")),
-        (true, Some(_)) => {
-            unreachable!("--no-message and --message are mutually exclusive")
-        }
+    let commit_op = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        route_commit_operation(&repo, &ws, head_info, out, id_map, target_ish)?
     };
+
+    let reword_op = RewordCommitOperation::resolve(no_message, message);
 
     Ok((guard, commit_op, commit_selection, reword_op))
 }
 
-fn run(
+pub fn run(
     ctx: &mut Context,
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     commit_op: CommitOperation,
     commit_selection: CommitSelection,
     reword_op: RewordCommitOperation,
-) -> CliResult<CommitOutcome> {
+) -> anyhow::Result<CommitOutcome> {
     let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
@@ -250,12 +244,14 @@ fn run(
 
         match commit_selection {
             CommitSelection::AllChanges => {
-                builder.push_changes_from_unassigned(&UNASSIGNED.to_string())?;
+                builder.push_changes_from_uncommitted_area()?;
             }
             CommitSelection::Changes(changes) => {
                 for change in *changes {
                     builder.push_changes_from_uncommitted(&change)?;
                 }
+
+                builder.reconcile_worktree_diff_specs()?;
             }
             CommitSelection::Nothing => {}
         }
@@ -263,7 +259,7 @@ fn run(
         builder.into_diff_specs()
     };
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
-    let result = but_transaction::with_transaction_with_perm(
+    let ((new_commit, branch_name), _ws) = but_transaction::with_transaction_with_perm(
         ctx,
         meta,
         perm,
@@ -285,27 +281,9 @@ fn run(
 
             let reworded_commit = reword_op.execute(new_commit, &mut tx)?;
 
-            Ok(DynamicOutcome::<_, std::convert::Infallible>::Commit((
-                reworded_commit,
-                branch_name,
-            )))
+            Ok(but_transaction::Commit((reworded_commit, branch_name)))
         },
-    );
-
-    let DynamicOutcome::Commit(((new_commit, branch_name), _ws)) = match result {
-        Ok(outcome) => outcome,
-        Err(err) => {
-            return Err(
-                if let Some(Code::EditorExitedWithNonZeroStatus) =
-                    err.downcast_ref::<but_error::Code>()
-                {
-                    bad_input("Editor exited with non-zero status").into()
-                } else {
-                    err.into()
-                },
-            );
-        }
-    };
+    )?;
 
     Ok(CommitOutcome {
         new_commit,
@@ -316,7 +294,7 @@ fn run(
 /// Targeting modes for committing.
 enum CommitOperationTargetIsh {
     /// Target the branch if it exists, or create it at the newest base if it does not.
-    Branch(BranchArg),
+    Branch(CliIdArg),
     /// Target newest base with a new canned branch name.
     UnstackedCannedBranch,
     /// Targets above the [`CliIdArg`], which must denote either a commit or a branch.
@@ -332,6 +310,7 @@ enum CommitOperationTargetIsh {
 
 fn route_commit_operation(
     repo: &gix::Repository,
+    ws: &but_graph::Workspace,
     head_info: &RefInfo,
     out: &mut IntermediateChannel<'_>,
     id_map: &IdMap,
@@ -339,15 +318,16 @@ fn route_commit_operation(
 ) -> CliResult<CommitOperation> {
     match target {
         CommitOperationTargetIsh::Above(cli_id) => {
-            let position = CommitRelativeToTargetPosition::Above;
-            route_commit_above_or_below(repo, id_map, cli_id, position)
+            let side = Side::Above;
+            route_commit_above_or_below(repo, id_map, cli_id, side)
         }
         CommitOperationTargetIsh::Below(cli_id) => {
-            let position = CommitRelativeToTargetPosition::Below;
-            route_commit_above_or_below(repo, id_map, cli_id, position)
+            let side = Side::Below;
+            route_commit_above_or_below(repo, id_map, cli_id, side)
         }
-        CommitOperationTargetIsh::Branch(branch) => {
-            if let Some(segment) = branch.try_resolve_segment(head_info)? {
+        CommitOperationTargetIsh::Branch(cli_id) => {
+            if let Some(branch) = cli_id.try_resolve_branch(repo, id_map)? {
+                let segment = branch.resolve_segment(head_info)?;
                 let ref_info = segment.ref_info.with_context(|| {
                     format!("BUG: Segment resolved from branch name {branch} has no ref info")
                 })?;
@@ -358,11 +338,10 @@ fn route_commit_operation(
 
                 Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
             } else {
-                let branch_name =
-                    BranchArg(branch.resolve_for_creation(repo, head_info).with_hint(|| {
-                        format!("Run `but apply {branch}` to apply the branch first")
-                    })?)
-                    .resolve_local_branch_name()?;
+                let branch = BranchArg(cli_id.0);
+                let branch_name = branch
+                    .resolve_for_creation(repo, ws)
+                    .with_hint(|| format!("Run `but apply {branch}` to apply the branch first"))?;
                 Ok(CommitOperation::CommitToNewBranch(
                     CommitToNewBranchOperation {
                         branch_name: Some(branch_name),
@@ -412,6 +391,10 @@ fn route_commit_operation(
                     );
                 };
 
+                let mut stack_heads =
+                    stack_heads.map(|(name, branch)| (name, PickerItem::StackHead(branch)));
+                stack_heads.push(("Create new stack".into(), PickerItem::NewStack));
+
                 let Some(selection) = input.prompt_select(
                     "Multiple stacks found. Choose one to commit to",
                     &stack_heads,
@@ -420,21 +403,33 @@ fn route_commit_operation(
                     return Err(bad_input("No stack picked").into());
                 };
 
-                Ok(CommitOperation::CommitAt(CommitAtOperation {
-                    target: CommitRelativeToTarget::BranchTip {
-                        name: (*selection).clone(),
-                    },
-                }))
+                match selection {
+                    PickerItem::StackHead(full_name) => {
+                        Ok(CommitOperation::CommitAt(CommitAtOperation {
+                            target: CommitRelativeToTarget::BranchTip {
+                                name: (*full_name).clone(),
+                            },
+                        }))
+                    }
+                    PickerItem::NewStack => Ok(CommitOperation::CommitToNewBranch(
+                        CommitToNewBranchOperation { branch_name: None },
+                    )),
+                }
             }
         },
     }
+}
+
+enum PickerItem<'a> {
+    StackHead(&'a FullName),
+    NewStack,
 }
 
 fn route_commit_above_or_below(
     repo: &gix::Repository,
     id_map: &IdMap,
     cli_id: CliIdArg,
-    position: CommitRelativeToTargetPosition,
+    side: Side,
 ) -> CliResult<CommitOperation> {
     let target = match cli_id
         .resolve_in_workspace(repo, id_map, Purpose::Target, None)
@@ -444,25 +439,22 @@ fn route_commit_above_or_below(
         .into_branch_or_commit()
         .hint("Run `but status` to show applicable targets")?
     {
-        BranchOrCommit::Commit(commit_id) => CommitRelativeToTarget::Commit {
-            commit_id,
-            position,
-        },
+        BranchOrCommit::Commit(commit_id) => CommitRelativeToTarget::Commit { commit_id, side },
         BranchOrCommit::Branch(arg) => CommitRelativeToTarget::BranchBucket {
             name: arg.resolve_local_branch_name()?,
-            position,
+            side,
         },
     };
     Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
 }
 
-enum CommitSelection {
+pub enum CommitSelection {
     AllChanges,
-    Changes(Box<NonEmpty<UncommittedCliId>>),
+    Changes(Box<NonEmpty<UncommittedHunkOrFile>>),
     Nothing,
 }
 
-enum CommitOperation {
+pub enum CommitOperation {
     CommitToNewBranch(CommitToNewBranchOperation),
     CommitAt(CommitAtOperation),
 }
@@ -480,8 +472,8 @@ impl CommitOperation {
     }
 }
 
-struct CommitToNewBranchOperation {
-    branch_name: Option<FullName>,
+pub struct CommitToNewBranchOperation {
+    pub branch_name: Option<FullName>,
 }
 
 impl CommitToNewBranchOperation {
@@ -514,8 +506,8 @@ impl CommitToNewBranchOperation {
     }
 }
 
-struct CommitAtOperation {
-    target: CommitRelativeToTarget,
+pub struct CommitAtOperation {
+    pub target: CommitRelativeToTarget,
 }
 
 impl CommitAtOperation {
@@ -525,13 +517,12 @@ impl CommitAtOperation {
         changes: Vec<DiffSpec>,
     ) -> anyhow::Result<(IntermediateCommitCreateResult, Option<BranchNameTarget>)> {
         let (relative_to, side, branch_name_target) = match self.target {
-            CommitRelativeToTarget::Commit {
-                commit_id,
-                position,
-            } => (RelativeTo::Commit(commit_id), position.into(), None),
-            CommitRelativeToTarget::BranchBucket { name, position } => {
+            CommitRelativeToTarget::Commit { commit_id, side } => {
+                (RelativeTo::Commit(commit_id), side.into(), None)
+            }
+            CommitRelativeToTarget::BranchBucket { name, side } => {
                 let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
-                let anchor = Anchor::at_segment(name.as_ref(), position.into());
+                let anchor = Anchor::at_segment(name.as_ref(), side.into());
                 tx.create_reference(
                     new_branch_name.as_ref(),
                     Some(anchor),
@@ -561,11 +552,11 @@ impl CommitAtOperation {
 
 /// Place a commit relative to something in the workspace.
 #[derive(Clone)]
-enum CommitRelativeToTarget {
+pub enum CommitRelativeToTarget {
     /// Place the commit relative to this commit, within the same branch.
     Commit {
         commit_id: gix::ObjectId,
-        position: CommitRelativeToTargetPosition,
+        side: Side,
     },
     /// Place the commit at the tip of the branch denoted by this reference, moving the reference to
     /// the new commit. This is effectively the same as committing to a branch.
@@ -573,84 +564,5 @@ enum CommitRelativeToTarget {
     /// Place the commit relative to this branch, treating the branch as a bucket.
     ///
     /// The commit is always inserted on a new branch with a canned name.
-    BranchBucket {
-        name: FullName,
-        position: CommitRelativeToTargetPosition,
-    },
-}
-
-#[derive(Clone)]
-enum CommitRelativeToTargetPosition {
-    Above,
-    Below,
-}
-
-impl Display for CommitRelativeToTargetPosition {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let pretty = match self {
-            Self::Above => "above",
-            Self::Below => "below",
-        };
-        write!(f, "{pretty}")
-    }
-}
-
-impl From<CommitRelativeToTargetPosition> for InsertSide {
-    fn from(value: CommitRelativeToTargetPosition) -> Self {
-        match value {
-            CommitRelativeToTargetPosition::Above => Self::Above,
-            CommitRelativeToTargetPosition::Below => Self::Below,
-        }
-    }
-}
-
-impl From<CommitRelativeToTargetPosition> for Position {
-    fn from(value: CommitRelativeToTargetPosition) -> Self {
-        match value {
-            CommitRelativeToTargetPosition::Above => Self::Above,
-            CommitRelativeToTargetPosition::Below => Self::Below,
-        }
-    }
-}
-
-enum RewordCommitOperation {
-    NoMessage,
-    Message(String),
-    UseEditor,
-}
-
-impl RewordCommitOperation {
-    fn execute(
-        self,
-        new_commit: gix::ObjectId,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<gix::ObjectId> {
-        let message = match self {
-            RewordCommitOperation::NoMessage => String::new(),
-            RewordCommitOperation::Message(message) => message,
-            RewordCommitOperation::UseEditor => {
-                let repo = tx.repo();
-                let commit_details = CommitDetails::from_commit_id(
-                    new_commit.attach(repo),
-                    ComputeLineStats::No.into(),
-                )?;
-
-                let editor_initial_message = String::new();
-                let current_message_for_comparison = "";
-                get_commit_message_from_editor(
-                    tx.repo(),
-                    tx.context_lines(),
-                    commit_details,
-                    editor_initial_message,
-                    current_message_for_comparison,
-                    ShowDiffInEditor::Unspecified,
-                )?
-                .unwrap_or_default()
-            }
-        };
-
-        let reworded_commit = tx.reword_commit(new_commit, BString::from(message).as_ref())?;
-
-        Ok(reworded_commit)
-    }
+    BranchBucket { name: FullName, side: Side },
 }

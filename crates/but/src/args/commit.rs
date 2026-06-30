@@ -15,6 +15,12 @@ pub struct Platform {
     /// If no branch name is given, a new branch with a generated name will be created.
     #[clap(short = 'c', long = "create")]
     pub create: bool,
+    /// Insert the commit before this commit or branch.
+    #[clap(long, conflicts_with = "after")]
+    pub before: Option<CliIdArg>,
+    /// Insert the commit after this commit or branch.
+    #[clap(long, conflicts_with = "before")]
+    pub after: Option<CliIdArg>,
     /// Only commit staged files, not unstaged files
     #[clap(short = 'o', long = "only")]
     pub only: bool,
@@ -63,14 +69,13 @@ pub enum Subcommands {
     /// Insert a blank commit before or after the specified commit.
     ///
     /// This is useful for creating a placeholder commit that you can
-    /// then amend changes into later using `but mark`, `but rub` or `but absorb`.
+    /// then amend changes into later using `but rub` or `but absorb`.
     ///
-    /// You can modify the empty commit message at any time using `but reword`.
+    /// You can provide a message with `-m` or modify it later using `but reword`.
     ///
     /// This allows for a more Jujutsu style workflow where you create commits
-    /// first and then fill them in as you work. Create an empty commit, mark it
-    /// for auto-commit, and then just work on your changes. Write the commit
-    /// message whenever you prefer.
+    /// first and then fill them in as you work. Create an empty commit and
+    /// then rub or absorb changes into it whenever you prefer.
     ///
     /// ## Examples
     ///
@@ -114,5 +119,8 @@ pub enum Subcommands {
         /// Insert the blank commit after this commit or branch
         #[arg(long, group = "position")]
         after: Option<CliIdArg>,
+        /// Commit message for the inserted blank commit
+        #[arg(short = 'm', long = "message")]
+        message: Option<String>,
     },
 }

@@ -19,7 +19,7 @@ but branch new ui-styling
 # 3. Make changes to multiple files
 # (edit api/users.js and components/Button.svelte)
 
-# 4. Check what's unassigned
+# 4. Check what's uncommitted
 but status -fv
 
 # 5. Commit specific files directly using --changes (recommended for agents)
@@ -29,11 +29,8 @@ but commit <api-branch-id> -m "Add user details endpoint" --changes <api-file-id
 but commit <ui-branch-id> -m "Update button hover styles" --changes <ui-file-id>
 
 # Follow-up fix that belongs in a commit you just made? Amend it in.
-# Run each mutation separately; IDs can change after every mutation.
-# Each command returns the updated workspace state — read it and take
-# fresh IDs from it for the next command.
-# but amend <api-fix-file-id> <api-commit-id>
-# but amend <ui-fix-file-id> <ui-commit-id>
+# Each mutation returns updated workspace state — take fresh IDs from it before the next command.
+# but amend <api-commit-id> --changes <api-fix-file-id>,<api-fix-hunk-id>
 
 # 6. Create pull requests (auto-pushes the branches)
 but pr new <api-branch-id>
@@ -67,19 +64,18 @@ but branch new user-profile -a bu
 but status -fv
 but commit bv -m "Add user profile page" --changes <file-ids>
 
-# 6. Push both branches explicitly (maintains stack relationship)
-but push add-authentication
-but push user-profile
+# 6. Create stacked pull requests through GitButler (auto-pushes the stack)
+but pr new bv -t
 ```
 
-**Result:** Two PRs where user-profile PR depends on authentication PR. GitHub/GitLab shows the dependency.
+**Result:** Two PRs where user-profile targets add-authentication, with GitButler stack information in the PR descriptions.
 
 ## Example 3: Using Absorb Instead of New Commits
 
 **Scenario:** Made a small typo fix that should be part of the last commit, not a new commit.
 
 ```bash
-# 1. Check current commits and unassigned changes
+# 1. Check current commits and uncommitted changes
 but status -fv
 
 # Output shows:
@@ -438,7 +434,7 @@ but oplog restore s4
 but status -fv
 
 # Output:
-# Unassigned:
+# Uncommitted:
 #   a1: bad-changes.js
 
 # Discard it
@@ -459,6 +455,24 @@ but status -fv    # File-centric view for quick overview
 but absorb <file-id> --dry-run  # See where specific file would be absorbed
 but push my-feature --dry-run   # See what would be pushed
 ```
+
+### Multiple Commits From One Diff
+
+File/hunk IDs copied from the original output generally remain usable across
+commits. Chain `but commit` calls to split a dirty diff into several commits in
+one go:
+
+```bash
+but diff   # read the file/hunk IDs once
+
+but commit my-branch -m "Add parser" --changes qs:5,qs:2 \
+  && but commit my-branch -m "Add tests" --changes uo:d
+```
+
+Only chain when each command references uncommitted IDs (plus the stable branch ID).
+If an ID stops resolving, re-read the diff and continue.
+Mutations that consume commit IDs — `amend`, `squash`, `move`, `uncommit` — rewrite
+those IDs, so run them one at a time and take fresh IDs from returned status.
 
 
 ### Auto-completion

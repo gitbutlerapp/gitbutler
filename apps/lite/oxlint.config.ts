@@ -35,23 +35,13 @@ export default defineConfig({
 		"no-cond-assign": ["warn", "always"],
 		"no-fallthrough": "error",
 		"no-param-reassign": "error",
-		// Default config has catch violations.
-		"no-unused-vars": [
-			"warn",
-			{
-				caughtErrorsIgnorePattern: "^_",
-				// These are the defaults that are unset by diverging our config at all.
-				argsIgnorePattern: "^_",
-				varsIgnorePattern: "^_",
-			},
-		],
+		"no-unused-vars": "warn",
 		"oxc/no-barrel-file": ["warn", { threshold: 0 }],
 		"prefer-template": "warn",
 		"react/button-has-type": "error",
 		"react/jsx-boolean-value": "warn",
 		"react/jsx-fragments": "warn",
-		// Lots of false positives on sums.
-		"react/jsx-key": "off",
+		"react/jsx-key": "warn",
 		"react/jsx-no-useless-fragment": "warn",
 		"react/no-array-index-key": "warn",
 		"react/no-danger": "error",
@@ -92,8 +82,6 @@ export default defineConfig({
 				allowRegExp: false,
 			},
 		],
-		// "always" flags for lack of await outside of async functions, unlike ESLint:
-		//   https://github.com/oxc-project/oxc/issues/18452
 		"typescript/return-await": ["error", "error-handling-correctness-only"],
 		"typescript/strict-boolean-expressions": [
 			"warn",

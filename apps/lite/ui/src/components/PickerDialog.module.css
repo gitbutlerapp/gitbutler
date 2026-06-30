@@ -161,7 +161,7 @@
 	user-select: none;
 
 	&[data-highlighted] {
-		background-color: var(--button-ghost-hover-bg);
+		background-color: var(--list-item-hover-bg);
 	}
 }
 

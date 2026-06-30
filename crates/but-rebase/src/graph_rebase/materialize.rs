@@ -2,10 +2,11 @@
 use anyhow::{Context, Result, bail};
 use but_core::{
     ObjectStorageExt as _, RefMetadata,
-    worktree::{
-        checkout::{Options, UncommitedWorktreeChanges},
-        safe_checkout_from_head,
-    },
+    worktree::{checkout::Options, safe_checkout_from_head},
+};
+use gix::refs::{
+    Target,
+    transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
 };
 
 use crate::graph_rebase::{
@@ -20,6 +21,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             memory.persist(self.repo)?;
         }
 
+        let mut head_reference_update = None;
         for checkout in self.checkouts {
             match checkout {
                 Checkout::Head {
@@ -29,19 +31,20 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                     let selector = self.history.normalize_selector(selector)?;
                     let step = self.graph[selector.id].clone();
 
-                    let new_head = match step {
+                    let (new_head, new_head_refname) = match step {
                         Step::None => bail!("Checkout selector is pointing to none"),
-                        Step::Pick(Pick { id, .. }) => id,
-                        Step::Reference { .. } => {
+                        Step::Pick(Pick { id, .. }) => (id, None),
+                        Step::Reference { refname } => {
                             let parents = collect_ordered_parents(&self.graph, selector.id);
                             let parent_step_id =
                                 parents.first().context("No first parent to reference")?;
                             let Step::Pick(Pick { id, .. }) = self.graph[*parent_step_id] else {
                                 bail!("collect_ordered_parents should always return a commit pick");
                             };
-                            id
+                            (id, Some(refname))
                         }
                     };
+                    head_reference_update = new_head_refname;
 
                     // If the head has changed (which means it's in the
                     // commit mapping), perform a safe checkout.
@@ -49,7 +52,6 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                         new_head,
                         &repo,
                         Options {
-                            uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                             skip_head_update: true,
                             merge_base_override,
                             allow_conflicted_commit_checkout: true,
@@ -59,7 +61,30 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             }
         }
 
-        repo.edit_references(self.ref_edits.clone())?;
+        let mut ref_edits = self.ref_edits.clone();
+        if let Some(refname) = head_reference_update
+            && repo.head_name()?.as_ref() != Some(&refname)
+        {
+            let ref_short_name = refname.shorten().to_owned();
+            ref_edits.push(RefEdit {
+                change: Change::Update {
+                    log: LogChange {
+                        mode: RefLog::AndReference,
+                        force_create_reflog: false,
+                        message: gix::reference::log::message(
+                            "safe checkout",
+                            ref_short_name.as_ref(),
+                            0,
+                        ),
+                    },
+                    expected: PreviousValue::Any,
+                    new: Target::Symbolic(refname),
+                },
+                name: "HEAD".try_into().expect("root refs are always valid"),
+                deref: false,
+            });
+        }
+        repo.edit_references(ref_edits)?;
 
         let project_meta = self.workspace.graph.project_meta.clone();
         self.workspace

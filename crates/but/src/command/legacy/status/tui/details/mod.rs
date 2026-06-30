@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     iter::{empty, once, repeat_n},
     sync::Arc,
     time::Instant,
@@ -10,13 +10,14 @@ use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{
     HunkHeader, UnifiedPatch,
+    diff::LineStats,
     ui::{TreeChange, TreeStatus},
     unified_diff::DiffHunk,
 };
 use but_ctx::{Context, OnDemand};
 use but_hunk_assignment::HunkAssignment;
 use gix::actor::Signature;
-use itertools::Either;
+use itertools::{Either, Itertools, Position};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -36,20 +37,22 @@ use crate::{
     CliId, IdMap,
     command::legacy::status::tui::{
         CommandMessage, CommitMessage, DebugAsType, DetailsLayoutMessage, FilesMessage, Message,
-        MessageOnDrop, MoveMessage, RewordMessage, RubMessage,
-        details::details_cursor::DetailsCursor, highlight, message_on_drop::message_on_drop,
-        mode::CommittedHunk,
+        MessageOnDrop, MoveMessage,
+        app::{CommittedHunk, RewordMessage, RubMessage},
+        details::details_cursor::DetailsCursor,
+        highlight,
+        message_on_drop::message_on_drop,
     },
-    id::{UncommittedCliId, UncommittedHunk},
+    id::{UncommittedHunk, UncommittedHunkOrFile},
     theme::Theme,
 };
 
-use super::{HelpMessage, RubSource, StackMessage};
+use super::{HelpMessage, JumpMessage, StackMessage, app::RubSource};
 
 mod details_cursor;
 
 #[derive(Debug, Clone)]
-pub(super) enum DetailsMessage {
+pub enum DetailsMessage {
     Deselect,
     SelectFirstSection,
     CopyCurrentHunk,
@@ -74,7 +77,7 @@ type LineHighlightCache = HashMap<BString, HashMap<Box<str>, Vec<Span<'static>>>
 //                                file path        raw line  highlighted line
 
 #[derive(Debug)]
-pub(super) struct Details {
+pub struct Details {
     is_dirty: bool,
     cursor: DetailsCursor,
     scroll_top: usize,
@@ -89,7 +92,7 @@ pub(super) struct Details {
 }
 
 impl Details {
-    pub(super) fn new(theme: &'static Theme) -> Self {
+    pub fn new(theme: &'static Theme) -> Self {
         Self {
             is_dirty: false,
             is_locked: false,
@@ -105,16 +108,16 @@ impl Details {
         }
     }
 
-    pub(super) fn mark_dirty(&mut self) {
+    pub fn mark_dirty(&mut self) {
         self.widget = None;
         self.is_dirty = true;
     }
 
-    pub(super) fn is_dirty(&self) -> bool {
+    pub fn is_dirty(&self) -> bool {
         self.is_dirty
     }
 
-    pub(super) fn update_highlight(&mut self) -> bool {
+    pub fn update_highlight(&mut self) -> bool {
         self.copied_hunk_highlight.update()
     }
 
@@ -123,7 +126,7 @@ impl Details {
         message_on_drop(Message::Details(DetailsMessage::Unlock), messages)
     }
 
-    pub(super) fn unlock(&mut self) {
+    pub fn unlock(&mut self) {
         if !self.is_locked {
             return;
         }
@@ -131,16 +134,16 @@ impl Details {
         self.mark_dirty();
     }
 
-    pub(super) fn needs_update(&self, is_visible: bool) -> bool {
+    pub fn needs_update(&self, is_visible: bool) -> bool {
         is_visible && self.is_dirty()
     }
 
-    pub(super) fn reset_scroll(&mut self) {
+    pub fn reset_scroll(&mut self) {
         self.cursor = DetailsCursor::default();
         self.scroll_top = 0;
     }
 
-    pub(super) fn needs_update_after_message(&self, is_visible: bool, msg: &Message) -> bool {
+    pub fn needs_update_after_message(&self, is_visible: bool, msg: &Message) -> bool {
         if self.is_locked {
             return false;
         }
@@ -152,6 +155,7 @@ impl Details {
         match msg {
             Message::JustRender
             | Message::CopySelection
+            | Message::CopySelectionPicker
             | Message::Quit
             | Message::ConfirmAndQuit
             | Message::DetailsLayout(DetailsLayoutMessage::Focus { .. })
@@ -161,7 +165,7 @@ impl Details {
             | Message::ShowError(_)
             | Message::ShowToast { .. }
             | Message::Confirm(_)
-            | Message::BranchPicker(_)
+            | Message::FuzzyPicker(_)
             | Message::GrowDetails
             | Message::ShrinkDetails
             | Message::PickAndGotoBranch
@@ -180,12 +184,12 @@ impl Details {
             | Message::Redo
             | Message::EnterNormalModeAfterConfirmingOperation => false,
 
-            Message::MoveCursorUp
-            | Message::MoveCursorDown
+            Message::MoveCursorUp(_)
+            | Message::MoveCursorDown(_)
             | Message::SelectBranch(_)
             | Message::MoveCursorPreviousSection
             | Message::MoveCursorNextSection
-            | Message::SelectUnassigned
+            | Message::SelectUncommitted
             | Message::SelectMergeBase
             | Message::Reload(..)
             | Message::NewBranch => true,
@@ -194,7 +198,9 @@ impl Details {
                 CommitMessage::Confirm
                 | CommitMessage::CommitToNewBranch
                 | CommitMessage::CreateEmpty => true,
-                CommitMessage::Start | CommitMessage::ToggleMessageComposer(..) => false,
+                CommitMessage::Start
+                | CommitMessage::ToggleMessageComposer(..)
+                | CommitMessage::ToggleInsertSide => false,
             },
             Message::Rub(rub_message) => match rub_message {
                 RubMessage::Start
@@ -218,7 +224,7 @@ impl Details {
                 FilesMessage::ToggleGlobalFilesList | FilesMessage::ToggleFilesForCommit => true,
             },
             Message::Move(move_message) => match move_message {
-                MoveMessage::Start => false,
+                MoveMessage::Start | MoveMessage::ToggleInsertSide => false,
                 MoveMessage::Confirm => true,
             },
             Message::Details(details_message) => match details_message {
@@ -242,14 +248,25 @@ impl Details {
                     // entering stack mode might move the cursor which will require an update
                     true
                 }
-                StackMessage::Unapply => true,
+                StackMessage::Unapply
+                | StackMessage::ShowApplyPicker
+                | StackMessage::MoveStart
+                | StackMessage::MoveConfirm => false,
+            },
+            Message::Jump(jump_message) => match jump_message {
+                // the handler functions themselves mark the details as dirty if necessary
+                JumpMessage::Enter
+                | JumpMessage::Input(..)
+                | JumpMessage::Confirm
+                | JumpMessage::Previous
+                | JumpMessage::Next => false,
             },
 
             Message::AndThen { .. } => true,
         }
     }
 
-    pub(super) fn try_handle_message(
+    pub fn try_handle_message(
         &mut self,
         msg: DetailsMessage,
         viewport: Rect,
@@ -258,9 +275,13 @@ impl Details {
         match msg {
             DetailsMessage::ScrollUp(n) => {
                 self.scroll_top = self.scroll_top.saturating_sub(n);
+                self.clamp_scroll_top(viewport);
+                self.select_visible_section_if_selection_is_hidden(viewport);
             }
             DetailsMessage::ScrollDown(n) => {
                 self.scroll_top = self.scroll_top.saturating_add(n);
+                self.clamp_scroll_top(viewport);
+                self.select_visible_section_if_selection_is_hidden(viewport);
             }
             DetailsMessage::SelectNextSection => {
                 self.cursor
@@ -325,7 +346,7 @@ impl Details {
         Ok(())
     }
 
-    pub(super) fn ensure_selection_visible(&mut self, viewport: Rect) {
+    pub fn ensure_selection_visible(&mut self, viewport: Rect) {
         let Some(selection) = self.cursor.selection() else {
             return;
         };
@@ -356,8 +377,44 @@ impl Details {
         }
     }
 
-    pub(super) fn selection(&self) -> Option<&SectionId> {
+    pub fn selection(&self) -> Option<&SectionId> {
         self.cursor.selection()
+    }
+
+    fn select_visible_section_if_selection_is_hidden(&mut self, viewport: Rect) {
+        let Some(selection) = self.cursor.selection() else {
+            return;
+        };
+
+        let Some(widget) = self.widget.as_ref() else {
+            return;
+        };
+
+        let content_width = details_content_width(viewport);
+        let content_height = details_content_height(viewport);
+        let viewport_start = self.scroll_top;
+        let viewport_end = viewport_start.saturating_add(content_height);
+        let Some((selection_start, selection_end)) =
+            widget.section_row_range(selection, content_width)
+        else {
+            return;
+        };
+
+        if selection_start < viewport_end && selection_end > viewport_start {
+            return;
+        }
+
+        let select_last_visible = selection_start >= viewport_end;
+        let Some(section) = widget.visible_section(
+            viewport_start,
+            content_height,
+            content_width,
+            select_last_visible,
+        ) else {
+            return;
+        };
+
+        self.cursor.select_section(section);
     }
 
     fn copy_current_hunk(&mut self) -> anyhow::Result<()> {
@@ -418,7 +475,7 @@ impl Details {
         self.scroll_top = self.scroll_top.min(max_scroll_top);
     }
 
-    pub(super) fn update(
+    pub fn update(
         &mut self,
         ctx: &mut Context,
         selection: Option<&CliId>,
@@ -467,7 +524,7 @@ impl Details {
                     previous_diff_line_items,
                     self.theme,
                 )?),
-                CliId::Uncommitted(uncommitted) => {
+                CliId::UncommittedHunkOrFile(uncommitted) => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
                     let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
                     let uncommitted_hunks =
@@ -507,7 +564,7 @@ impl Details {
                     previous_diff_line_items,
                     self.theme,
                 )?),
-                CliId::Unassigned { .. } => {
+                CliId::Uncommitted { .. } => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
                     let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
                     let uncommitted_hunks =
@@ -566,7 +623,7 @@ impl Details {
         }
     }
 
-    pub(super) fn render(&self, help_shown: bool, has_focus: bool, area: Rect, frame: &mut Frame) {
+    pub fn render(&self, help_shown: bool, has_focus: bool, area: Rect, frame: &mut Frame) {
         if let Some(diff) = &self.widget {
             diff.render(
                 &self.cursor,
@@ -594,7 +651,7 @@ fn details_content_height(viewport: Rect) -> usize {
 /// Returns true if `hunk_assignment` is part of the selected uncommitted entity.
 fn uncommitted_hunk_matches_selection(
     hunk_assignment: &HunkAssignment,
-    uncommitted: &UncommittedCliId,
+    uncommitted: &UncommittedHunkOrFile,
 ) -> bool {
     let selected_hunk = uncommitted.hunk_assignments.first();
 
@@ -671,9 +728,11 @@ enum DetailsAndDiffWidget {
     FromCommit {
         header_items: Vec<ListItem<'static>>,
         message: String,
+        line_stats: Vec<ListItem<'static>>,
         diff_line_items: Vec<RenderedDiffLine>,
     },
     FromDiffLines {
+        line_stats: Vec<ListItem<'static>>,
         diff_line_items: Vec<RenderedDiffLine>,
     },
 }
@@ -696,17 +755,66 @@ impl DetailsAndDiffWidget {
                 header_items,
                 message,
                 diff_line_items,
-                ..
+                line_stats,
             } => {
                 header_items.len()
-                    + 1 // +1 to match the empty line added in `render`
-                    + textwrap::wrap(message, textwrap::Options::new(width as usize)).len()
-                    + 1 // +1 to match the empty line added in `render`
+                    // +1 to match the empty line added in `render`
+                    + 1
+                    + commit_message_row_count(message, width)
+                    // +1 to match the empty line added in `render`
+                    + 1
+                    + line_stats.len()
+                    // +1 to match the empty line added in `render`
+                    + (if line_stats.is_empty() { 0 } else { 1 })
                     + diff_line_items.len()
             }
             DetailsAndDiffWidget::FromDiffLines {
+                diff_line_items,
+                line_stats,
+            } => {
+                line_stats.len()
+                // +1 to match the empty line added in `render`
+                + (if line_stats.is_empty() { 0 } else { 1 })
+                + diff_line_items.len()
+            }
+        }
+    }
+
+    fn rows_before_diff(&self, width: u16) -> usize {
+        match self {
+            DetailsAndDiffWidget::FromCommit {
+                header_items,
+                message,
+                line_stats,
+                diff_line_items: _,
+            } => {
+                header_items.len()
+                    + 1 // +1 to match the empty line added in `render`
+                    + commit_message_row_count(message, width)
+                    + 1 // +1 to match the empty line added in `render`
+                    + line_stats.len()
+                    // +1 to match the empty line added in `render`
+                    + (if line_stats.is_empty() { 0 } else { 1 })
+            }
+            DetailsAndDiffWidget::FromDiffLines {
+                line_stats,
+                diff_line_items: _,
+            } => {
+                line_stats.len()
+                // +1 to match the empty line added in `render`
+                + (if line_stats.is_empty() { 0 } else { 1 })
+            }
+        }
+    }
+
+    fn diff_line_items(&self) -> &[RenderedDiffLine] {
+        match self {
+            DetailsAndDiffWidget::FromCommit {
                 diff_line_items, ..
-            } => diff_line_items.len(),
+            }
+            | DetailsAndDiffWidget::FromDiffLines {
+                diff_line_items, ..
+            } => diff_line_items,
         }
     }
 
@@ -714,22 +822,8 @@ impl DetailsAndDiffWidget {
     ///
     /// Row indexes are absolute in the same coordinate space as `Details::scroll_top`.
     fn section_row_range(&self, section: &SectionId, width: u16) -> Option<(usize, usize)> {
-        let (rows_before_diff, diff_line_items) = match self {
-            DetailsAndDiffWidget::FromCommit {
-                header_items,
-                message,
-                diff_line_items,
-            } => {
-                let rows_before_diff = header_items.len()
-                    + 1 // +1 to match the empty line added in `render`
-                    + textwrap::wrap(message, textwrap::Options::new(width as usize)).len()
-                    + 1; // +1 to match the empty line added in `render`
-                (rows_before_diff, diff_line_items.as_slice())
-            }
-            DetailsAndDiffWidget::FromDiffLines { diff_line_items } => {
-                (0, diff_line_items.as_slice())
-            }
-        };
+        let rows_before_diff = self.rows_before_diff(width);
+        let diff_line_items = self.diff_line_items();
 
         let first = diff_line_items
             .iter()
@@ -743,6 +837,41 @@ impl DetailsAndDiffWidget {
             rows_before_diff.saturating_add(first),
             rows_before_diff.saturating_add(last).saturating_add(1),
         ))
+    }
+
+    fn visible_section(
+        &self,
+        scroll_top: usize,
+        height: usize,
+        width: u16,
+        last: bool,
+    ) -> Option<SectionId> {
+        let rows_before_diff = self.rows_before_diff(width);
+        let diff_line_items = self.diff_line_items();
+        let viewport_end = scroll_top.saturating_add(height);
+        let diff_start = scroll_top.saturating_sub(rows_before_diff);
+        let diff_end = viewport_end
+            .saturating_sub(rows_before_diff)
+            .min(diff_line_items.len());
+
+        if diff_start >= diff_end {
+            return None;
+        }
+
+        let visible = &diff_line_items[diff_start..diff_end];
+        let section_id = if last {
+            visible.iter().rev().find_map(|line| match line {
+                RenderedDiffLine::DiffLine { section_id, .. } => Some(section_id),
+                RenderedDiffLine::Separator => None,
+            })
+        } else {
+            visible.iter().find_map(|line| match line {
+                RenderedDiffLine::DiffLine { section_id, .. } => Some(section_id),
+                RenderedDiffLine::Separator => None,
+            })
+        }?;
+
+        Some(section_id.clone())
     }
 
     fn render(
@@ -764,29 +893,54 @@ impl DetailsAndDiffWidget {
         }
 
         let empty_list_item = ListItem::new("");
+        let no_commit_message = ListItem::new("(no commit message)").style(theme.hint);
 
         let wrapped_message_iter = match self {
-            DetailsAndDiffWidget::FromCommit { message, .. } => Some(
-                textwrap::wrap(message, textwrap::Options::new(area.width as usize))
-                    .into_iter()
-                    .map(ListItemOrString::Str),
-            ),
+            DetailsAndDiffWidget::FromCommit { message, .. } => {
+                if message.is_empty() {
+                    let item = ListItemOrString::ListItem(&no_commit_message);
+                    Some(Either::Left(once(item)))
+                } else {
+                    Some(Either::Right(
+                        wrapped_commit_message_lines(message, area.width)
+                            .map(ListItemOrString::Str),
+                    ))
+                }
+            }
             DetailsAndDiffWidget::FromDiffLines { .. } => None,
         }
         .into_iter()
         .flatten();
 
+        let rendered_line_stats = match self {
+            DetailsAndDiffWidget::FromCommit { line_stats, .. }
+            | DetailsAndDiffWidget::FromDiffLines { line_stats, .. } => {
+                if line_stats.is_empty() {
+                    Either::Left(empty())
+                } else {
+                    let iter = empty()
+                        .chain(line_stats.iter().map(ListItemOrString::ListItem))
+                        .chain([ListItemOrString::ListItem(&empty_list_item)]);
+                    Either::Right(iter)
+                }
+            }
+        };
+
         let mut items = match self {
             DetailsAndDiffWidget::FromCommit {
                 header_items,
                 diff_line_items,
-                ..
+                // message rendered in `wrapped_message_iter`
+                message: _,
+                // `line_stats` rendered in `rendered_line_stats`
+                line_stats: _,
             } => {
                 let iter = empty()
                     .chain(header_items.iter().map(ListItemOrString::ListItem))
                     .chain([ListItemOrString::ListItem(&empty_list_item)])
                     .chain(wrapped_message_iter)
                     .chain([ListItemOrString::ListItem(&empty_list_item)])
+                    .chain(rendered_line_stats)
                     .chain(diff_line_items.iter().map(|item| match item {
                         RenderedDiffLine::Separator => ListItemOrString::ListItem(&empty_list_item),
                         RenderedDiffLine::DiffLine { section_id, item } => {
@@ -796,13 +950,20 @@ impl DetailsAndDiffWidget {
                 Either::Left(iter)
             }
             DetailsAndDiffWidget::FromDiffLines {
-                diff_line_items, ..
-            } => Either::Right(diff_line_items.iter().map(|item| match item {
-                RenderedDiffLine::Separator => ListItemOrString::ListItem(&empty_list_item),
-                RenderedDiffLine::DiffLine { section_id, item } => {
-                    ListItemOrString::ListItemInSection(section_id, item)
-                }
-            })),
+                diff_line_items,
+                // `line_stats` rendered in `rendered_line_stats`
+                line_stats: _,
+            } => {
+                let iter = empty()
+                    .chain(rendered_line_stats)
+                    .chain(diff_line_items.iter().map(|item| match item {
+                        RenderedDiffLine::Separator => ListItemOrString::ListItem(&empty_list_item),
+                        RenderedDiffLine::DiffLine { section_id, item } => {
+                            ListItemOrString::ListItemInSection(section_id, item)
+                        }
+                    }));
+                Either::Right(iter)
+            }
         }
         // ensure we `skip` and `take` before allocating anything
         .skip(scroll_top)
@@ -835,6 +996,46 @@ impl DetailsAndDiffWidget {
             Span::styled("No changes", theme.hint).render(area, buf.buffer_mut());
         }
     }
+}
+
+fn commit_message_row_count(message: &str, width: u16) -> usize {
+    if message.is_empty() {
+        1
+    } else {
+        wrapped_commit_message_lines(message, width).count()
+    }
+}
+
+fn wrapped_commit_message_lines(message: &str, width: u16) -> impl Iterator<Item = Cow<'_, str>> {
+    textwrap::wrap(message, textwrap::Options::new(width as usize))
+        .into_iter()
+        .with_position()
+        .filter_map(|(pos, line)| match pos {
+            Position::First | Position::Middle | Position::Only => Some(line),
+            Position::Last => (!line.is_empty()).then_some(line),
+        })
+}
+
+fn render_line_stats(line_stats: LineStats) -> Vec<ListItem<'static>> {
+    let LineStats {
+        lines_added,
+        lines_removed,
+        files_changed,
+    } = line_stats;
+
+    let line = Line::from_iter([
+        if files_changed == 1 {
+            Span::raw(format!("{files_changed} file changed"))
+        } else {
+            Span::raw(format!("{files_changed} files changed"))
+        },
+        Span::raw(", "),
+        Span::raw(format!("+{lines_added}")).green(),
+        Span::raw(" "),
+        Span::raw(format!("-{lines_removed}")).red(),
+    ]);
+
+    Vec::from([ListItem::from(line)])
 }
 
 fn from_commit(
@@ -871,18 +1072,22 @@ fn from_commit(
         .map(|change| TreeChange::from(change.clone()))
         .collect::<Vec<_>>();
 
+    let mut line_stats = LineStats::default();
+
     build_tree_changes(
         ctx,
         &tree_changes,
         Some(commit_id),
         syntax_set,
         renderer,
+        &mut line_stats,
         theme,
     );
 
     Ok(DetailsAndDiffWidget::FromCommit {
         header_items,
         message,
+        line_stats: render_line_stats(line_stats),
         diff_line_items: diff_line_items.unwrap_or_default(),
     })
 }
@@ -894,7 +1099,21 @@ fn from_uncommitted_hunks(
     diff_line_items: Option<Vec<RenderedDiffLine>>,
     theme: &'static Theme,
 ) -> anyhow::Result<DetailsAndDiffWidget> {
+    let mut line_stats = LineStats::default();
+    let mut unique_paths = HashSet::new();
+
     for (raw_id, cli_id, UncommittedHunk { hunk_assignment }) in uncommitted_hunks {
+        unique_paths.insert(&hunk_assignment.path_bytes);
+
+        line_stats.lines_added += hunk_assignment
+            .line_nums_added
+            .as_ref()
+            .map_or(0, |lines| lines.len() as u64);
+        line_stats.lines_removed += hunk_assignment
+            .line_nums_removed
+            .as_ref()
+            .map_or(0, |lines| lines.len() as u64);
+
         let section = renderer.new_section_mut(SectionId::ShortId(cli_id));
 
         build_hunk_path_header(
@@ -907,8 +1126,11 @@ fn from_uncommitted_hunks(
         build_hunk_assignment(hunk_assignment, syntax_set, theme, &mut section.content);
     }
 
+    line_stats.files_changed = unique_paths.len() as u64;
+
     Ok(DetailsAndDiffWidget::FromDiffLines {
         diff_line_items: diff_line_items.unwrap_or_default(),
+        line_stats: render_line_stats(line_stats),
     })
 }
 
@@ -931,16 +1153,20 @@ fn from_committed_file(
         .map(|change| TreeChange::from(change.clone()))
         .collect::<Vec<_>>();
 
+    let mut line_stats = LineStats::default();
+
     build_tree_changes(
         ctx,
         &tree_changes,
         Some(commit_id),
         syntax_set,
         renderer,
+        &mut line_stats,
         theme,
     );
 
     Ok(DetailsAndDiffWidget::FromDiffLines {
+        line_stats: render_line_stats(line_stats),
         diff_line_items: diff_line_items.unwrap_or_default(),
     })
 }
@@ -955,16 +1181,20 @@ fn from_branch(
 ) -> anyhow::Result<DetailsAndDiffWidget> {
     let tree_changes = but_api::branch::branch_diff(ctx, name)?;
 
+    let mut line_stats = LineStats::default();
+
     build_tree_changes(
         ctx,
         &tree_changes.changes,
         None,
         syntax_set,
         renderer,
+        &mut line_stats,
         theme,
     );
 
     Ok(DetailsAndDiffWidget::FromDiffLines {
+        line_stats: render_line_stats(line_stats),
         diff_line_items: diff_line_items.unwrap_or_default(),
     })
 }
@@ -1006,7 +1236,7 @@ enum IncrementalDiffRendererState {
 /// An id only used by the TUI to identify this section. Doesn't have any meaning in the
 /// rest of the system.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub(super) struct TuiId(Uuid);
+pub struct TuiId(Uuid);
 
 impl TuiId {
     fn new() -> Self {
@@ -1015,7 +1245,7 @@ impl TuiId {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(super) enum SectionId {
+pub enum SectionId {
     ShortId(Arc<CliId>),
     CommittedHunk { id: TuiId, hunk: CommittedHunk },
     Opaque(TuiId),
@@ -1055,7 +1285,7 @@ enum SectionContent {
 }
 
 /// The result of rendering the one diff chunk.
-pub(super) enum RenderNextChunkResult {
+pub enum RenderNextChunkResult {
     /// We're done. All chunks have been rendered.
     Done,
     /// Some meta data, such as the commit messages was rendered.
@@ -1388,7 +1618,7 @@ fn build_hunk_assignment(
         }
     } else {
         out.push(SectionContent::DiffUnavailable(
-            "File is too large or binary - no diff available".into(),
+            "No diff available - file is either empty, binary, or too large".into(),
         ));
     }
 }
@@ -1399,9 +1629,14 @@ fn build_tree_changes(
     commit_id: Option<gix::ObjectId>,
     syntax_set: &SyntaxSet,
     renderer: &mut IncrementalDiffRenderer,
+    line_stats: &mut LineStats,
     theme: &'static Theme,
 ) {
+    let mut unique_paths = HashSet::new();
+
     for tree_change in tree_changes {
+        unique_paths.insert(&tree_change.path_bytes);
+
         if let Some(patch) = but_api::diff::tree_change_diffs(ctx, tree_change.clone())
             .ok()
             .flatten()
@@ -1410,9 +1645,12 @@ fn build_tree_changes(
                 UnifiedPatch::Patch {
                     hunks,
                     is_result_of_binary_to_text_conversion,
-                    lines_added: _,
-                    lines_removed: _,
+                    lines_added,
+                    lines_removed,
                 } => {
+                    line_stats.lines_added += u64::from(lines_added);
+                    line_stats.lines_removed += u64::from(lines_removed);
+
                     let mut first_hunk = true;
                     for diff_hunk in hunks {
                         let section_id = if let Some(commit_id) = commit_id {
@@ -1486,6 +1724,8 @@ fn build_tree_changes(
             }
         }
     }
+
+    line_stats.files_changed = unique_paths.len() as _;
 }
 
 enum ShortIdOrTreeStatus<'a> {
@@ -1510,7 +1750,7 @@ fn render_hunk_path_header(
             .chain(
                 status
                     .into_iter()
-                    .flat_map(|status| [status, Span::raw(": ")]),
+                    .flat_map(|status| [status, Span::raw(" ")]),
             )
             .chain([Span::raw(path)]),
     );
@@ -1535,7 +1775,7 @@ fn build_hunk_path_header(
             .chain(
                 status
                     .into_iter()
-                    .flat_map(|status| [status, Span::raw(": ")]),
+                    .flat_map(|status| [status, Span::raw(" ")]),
             )
             .chain([Span::raw(path)]),
     );
@@ -1718,7 +1958,7 @@ mod tests {
     use but_hunk_assignment::HunkAssignment;
     use nonempty::NonEmpty;
 
-    use crate::id::UncommittedCliId;
+    use crate::id::UncommittedHunkOrFile;
 
     fn hunk_assignment(path: &str, stack_id: Option<StackId>, old_start: u32) -> HunkAssignment {
         HunkAssignment {
@@ -1744,7 +1984,7 @@ mod tests {
         let stack_a = StackId::from_number_for_testing(1);
         let stack_b = StackId::from_number_for_testing(2);
         let selected_hunk = hunk_assignment("file.txt", Some(stack_a), 1);
-        let id = UncommittedCliId {
+        let id = UncommittedHunkOrFile {
             id: "aa".to_owned(),
             hunk_assignments: NonEmpty::new(selected_hunk.clone()),
             is_entire_file: true,
@@ -1772,7 +2012,7 @@ mod tests {
     fn single_hunk_selection_only_matches_that_hunk() {
         let stack_a = StackId::from_number_for_testing(1);
         let selected_hunk = hunk_assignment("file.txt", Some(stack_a), 1);
-        let id = UncommittedCliId {
+        let id = UncommittedHunkOrFile {
             id: "ab".to_owned(),
             hunk_assignments: NonEmpty::new(selected_hunk.clone()),
             is_entire_file: false,

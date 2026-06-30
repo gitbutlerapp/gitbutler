@@ -820,22 +820,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         .route("/list_remotes", but_post(legacy::remotes::list_remotes_cmd))
         .route("/add_remote", but_post(legacy::remotes::add_remote_cmd))
         .route(
-            "/create_workspace_rule",
-            but_post(legacy::rules::create_workspace_rule_cmd),
-        )
-        .route(
-            "/delete_workspace_rule",
-            but_post(legacy::rules::delete_workspace_rule_cmd),
-        )
-        .route(
-            "/update_workspace_rule",
-            but_post(legacy::rules::update_workspace_rule_cmd),
-        )
-        .route(
-            "/list_workspace_rules",
-            but_post(legacy::rules::list_workspace_rules_cmd),
-        )
-        .route(
             "/forget_github_account",
             but_post(github::forget_github_account_cmd),
         )

@@ -12,14 +12,17 @@ use but_testsupport::gix_testtools::{
     scripted_fixture_read_only, scripted_fixture_writable, tempfile::TempDir,
 };
 use but_testsupport::{CommandExt, git_at_dir, visualize_disk_tree_skip_dot_git};
+use snapbox::IntoData;
 
 #[test]
 fn normal_repo_includes_git_state_and_unignored_worktree() -> anyhow::Result<()> {
     let repo = read_only_repo("dump-normal-repo-with-worktree-changes.sh", "你好 repo")?;
     let output_dir = TempDir::new()?;
-    let initial = visualize_disk_tree_skip_dot_git(&repo)?;
+    let initial = visualize_disk_tree_skip_dot_git(&repo)?.to_string();
 
-    insta::assert_snapshot!(initial, @r"
+    snapbox::assert_data_eq!(
+        initial,
+        snapbox::str![[r#"
 .
 ├── .git:40755
 ├── .gitignore:100644
@@ -29,17 +32,27 @@ fn normal_repo_includes_git_state_and_unignored_worktree() -> anyhow::Result<()>
 ├── ignored.ignored:100644
 ├── tracked.ignored:100644
 └── visible.txt:100644
-");
+
+"#]]
+        .raw()
+    );
 
     let output = output_dir.path().join("out.zip");
     let dump_output = run_dump(&repo, &output, false)?;
-    insta::assert_snapshot!(dump_output.display_for_snapshot(&output), @"
-    stdout:
-    Archive at: [output path]
-    stderr:
-    ");
+    snapbox::assert_data_eq!(
+        dump_output.display_for_snapshot(&output),
+        snapbox::str![[r#"
+stdout:
+Archive at: [output path]
+stderr:
 
-    insta::assert_snapshot!(archive_tree(&output)?, @r"
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        archive_tree(&output)?.to_string(),
+        snapbox::str![[r#"
 你好-repo-dump/
 ├── .git/
 │   ├── HEAD:100644
@@ -51,7 +64,10 @@ fn normal_repo_includes_git_state_and_unignored_worktree() -> anyhow::Result<()>
 ├── executable.sh:100755
 ├── tracked.ignored:100644
 └── visible.txt:100644
-");
+
+"#]]
+        .raw()
+    );
 
     Ok(())
 }
@@ -60,9 +76,11 @@ fn normal_repo_includes_git_state_and_unignored_worktree() -> anyhow::Result<()>
 fn git_only_skips_worktree_files() -> anyhow::Result<()> {
     let repo = read_only_repo("dump-normal-repo-with-worktree-changes.sh", "你好 repo")?;
     let output_dir = TempDir::new()?;
-    let initial = visualize_disk_tree_skip_dot_git(&repo)?;
+    let initial = visualize_disk_tree_skip_dot_git(&repo)?.to_string();
 
-    insta::assert_snapshot!(initial, @r"
+    snapbox::assert_data_eq!(
+        initial,
+        snapbox::str![[r#"
 .
 ├── .git:40755
 ├── .gitignore:100644
@@ -72,17 +90,27 @@ fn git_only_skips_worktree_files() -> anyhow::Result<()> {
 ├── ignored.ignored:100644
 ├── tracked.ignored:100644
 └── visible.txt:100644
-");
+
+"#]]
+        .raw()
+    );
 
     let output = output_dir.path().join("out.zip");
     let dump_output = run_dump(&repo, &output, true)?;
-    insta::assert_snapshot!(dump_output.display_for_snapshot(&output), @"
-    stdout:
-    Archive at: [output path]
-    stderr:
-    ");
+    snapbox::assert_data_eq!(
+        dump_output.display_for_snapshot(&output),
+        snapbox::str![[r#"
+stdout:
+Archive at: [output path]
+stderr:
 
-    insta::assert_snapshot!(archive_tree(&output)?, @r"
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        archive_tree(&output)?.to_string(),
+        snapbox::str![[r#"
 你好-repo-dump/
 └── .git/
     ├── HEAD:100644
@@ -90,7 +118,10 @@ fn git_only_skips_worktree_files() -> anyhow::Result<()> {
     ├── gitbutler:40755/
     │   └── vb.toml:100644
     └── ... 25 files not shown
-");
+
+"#]]
+        .raw()
+    );
 
     Ok(())
 }
@@ -103,12 +134,17 @@ fn diagnostics_archive_contains_graph_and_workspace_projection() -> anyhow::Resu
     let output = output_dir.path().join("diagnostics.zip");
 
     let dump_output = run_dump_diagnostics(&repo, &output)?;
-    insta::assert_snapshot!(dump_output.display_for_snapshot(&output), @"
-    stdout:
-    Running: dot -Tsvg [dot path] -o [svg path]
-    Archive at: [output path]
-    stderr:
-    ");
+    snapbox::assert_data_eq!(
+        dump_output.display_for_snapshot(&output),
+        snapbox::str![[r#"
+stdout:
+Running: dot -Tsvg [dot path] -o [svg path]
+Archive at: [output path]
+stderr:
+
+"#]]
+        .raw()
+    );
 
     let mut archive = zip::ZipArchive::new(File::open(&output)?)?;
     let root = "你好-repo-diagnostics";
@@ -154,15 +190,23 @@ fn repo_dump_with_diagnostics_injects_files_at_dump_root() -> anyhow::Result<()>
     let output = output_dir.path().join("repo-with-diagnostics.zip");
 
     let dump_output = run_dump_with_options(&repo, &output, false, true)?;
-    insta::assert_snapshot!(dump_output.display_for_snapshot(&output), @"
-    stdout:
-    Running: dot -Tsvg [dot path] -o [svg path]
-    Archive at: [output path]
-    stderr:
-    ");
+    snapbox::assert_data_eq!(
+        dump_output.display_for_snapshot(&output),
+        snapbox::str![[r#"
+stdout:
+Running: dot -Tsvg [dot path] -o [svg path]
+Archive at: [output path]
+stderr:
+
+"#]]
+        .raw()
+    );
 
     if dot_is_available() {
-        insta::assert_snapshot!(archive_tree(&output)?, "diagnostic files are injected right away", @r"
+        // diagnostic files are injected right away
+        snapbox::assert_data_eq!(
+            archive_tree(&output)?.to_string(),
+            snapbox::str![[r#"
 你好-repo-dump/
 ├── .git/
 │   ├── HEAD:100644
@@ -177,7 +221,10 @@ fn repo_dump_with_diagnostics_injects_files_at_dump_root() -> anyhow::Result<()>
 ├── tracked.ignored:100644
 ├── visible.txt:100644
 └── workspace.ron.txt:100644
-");
+
+"#]]
+            .raw()
+        );
     }
 
     Ok(())
@@ -192,29 +239,41 @@ fn repo_dump_diagnostics_override_worktree_files() -> anyhow::Result<()> {
     let output_dir = TempDir::new()?;
     let output = output_dir.path().join("repo-with-diagnostics.zip");
 
-    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(&repo)?, @"
-    .
-    ├── .git:40755
-    ├── .gitignore:100644
-    ├── executable.sh:100755
-    ├── graph.dot:100644
-    ├── ignored-dir:40755
-    │   └── file.txt:100644
-    ├── ignored.ignored:100644
-    ├── tracked.ignored:100644
-    └── visible.txt:100644
-    ");
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(&repo)?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:40755
+├── .gitignore:100644
+├── executable.sh:100755
+├── graph.dot:100644
+├── ignored-dir:40755
+│   └── file.txt:100644
+├── ignored.ignored:100644
+├── tracked.ignored:100644
+└── visible.txt:100644
+
+"#]]
+        .raw()
+    );
 
     let dump_output = run_dump_with_options(&repo, &output, false, true)?;
-    insta::assert_snapshot!(dump_output.display_for_snapshot(&output), @"
-    stdout:
-    Running: dot -Tsvg [dot path] -o [svg path]
-    Archive at: [output path]
-    stderr:
-    ");
+    snapbox::assert_data_eq!(
+        dump_output.display_for_snapshot(&output),
+        snapbox::str![[r#"
+stdout:
+Running: dot -Tsvg [dot path] -o [svg path]
+Archive at: [output path]
+stderr:
+
+"#]]
+        .raw()
+    );
 
     if dot_is_available() {
-        insta::assert_snapshot!(archive_tree(&output)?, @r"
+        snapbox::assert_data_eq!(
+            archive_tree(&output)?.to_string(),
+            snapbox::str![[r#"
 你好-repo-dump/
 ├── .git/
 │   ├── HEAD:100644
@@ -229,7 +288,10 @@ fn repo_dump_diagnostics_override_worktree_files() -> anyhow::Result<()> {
 ├── tracked.ignored:100644
 ├── visible.txt:100644
 └── workspace.ron.txt:100644
-");
+
+"#]]
+            .raw()
+        );
     }
 
     let mut archive = zip::ZipArchive::new(File::open(&output)?)?;
@@ -252,18 +314,28 @@ fn bare_repo_extracts_as_dump_git_directory() -> anyhow::Result<()> {
 
     let output = output_dir.path().join("out.zip");
     let dump_output = run_dump(&repo, &output, false)?;
-    insta::assert_snapshot!(dump_output.display_for_snapshot(&output), @"
-    stdout:
-    Archive at: [output path]
-    stderr:
-    ");
+    snapbox::assert_data_eq!(
+        dump_output.display_for_snapshot(&output),
+        snapbox::str![[r#"
+stdout:
+Archive at: [output path]
+stderr:
 
-    insta::assert_snapshot!(archive_tree(&output)?, @r"
+"#]]
+        .raw()
+    );
+
+    snapbox::assert_data_eq!(
+        archive_tree(&output)?.to_string(),
+        snapbox::str![[r#"
 sample-dump.git/
 ├── HEAD:100644
 ├── config:100644
 └── ... 16 files not shown
-");
+
+"#]]
+        .raw()
+    );
 
     Ok(())
 }
@@ -272,26 +344,39 @@ sample-dump.git/
 fn linked_worktree_is_unlinked_into_real_git_directory() -> anyhow::Result<()> {
     let linked = read_only_repo("dump-linked-worktree.sh", "linked")?;
     let output_dir = TempDir::new()?;
-    let initial = visualize_disk_tree_skip_dot_git(&linked)?;
+    let initial = visualize_disk_tree_skip_dot_git(&linked)?.to_string();
 
-    insta::assert_snapshot!(initial, @r"
+    snapbox::assert_data_eq!(
+        initial,
+        snapbox::str![[r#"
 .
 ├── .git:100644
 ├── .gitignore:100644
 ├── linked-worktree-added-to-index.txt:100644
 ├── linked-worktree-untracked.txt:100644
 └── tracked.ignored:100644
-");
+
+"#]]
+        .raw()
+    );
 
     let output = output_dir.path().join("out.zip");
     let dump_output = run_dump(&linked, &output, false)?;
-    insta::assert_snapshot!(dump_output.display_for_snapshot(&output), @"
-    stdout:
-    Archive at: [output path]
-    stderr:
-    ");
+    snapbox::assert_data_eq!(
+        dump_output.display_for_snapshot(&output),
+        snapbox::str![[r#"
+stdout:
+Archive at: [output path]
+stderr:
 
-    insta::assert_snapshot!(archive_tree(&output)?, ".git is now a directory", @r"
+"#]]
+        .raw()
+    );
+
+    // .git is now a directory
+    snapbox::assert_data_eq!(
+        archive_tree(&output)?.to_string(),
+        snapbox::str![[r#"
 linked-dump/
 ├── .git/
 │   ├── HEAD:100644
@@ -301,18 +386,27 @@ linked-dump/
 ├── linked-worktree-added-to-index.txt:100644
 ├── linked-worktree-untracked.txt:100644
 └── tracked.ignored:100644
-");
+
+"#]]
+        .raw()
+    );
 
     let extraction = TempDir::new()?;
     unzip(&output, extraction.path())?;
     let unpacked = extraction.path().join("linked-dump");
     git_at_dir(&unpacked).arg("status").run();
-    insta::assert_snapshot!(git_status(&unpacked)?, "the unpacked repository keeps the linked worktree HEAD and index", @r"
+    // the unpacked repository keeps the linked worktree HEAD and index
+    snapbox::assert_data_eq!(
+        git_status(&unpacked)?,
+        snapbox::str![[r#"
 ## linked
 A  linked-worktree-added-to-index.txt
  M tracked.ignored
 ?? linked-worktree-untracked.txt
-");
+
+"#]]
+        .raw()
+    );
 
     Ok(())
 }
@@ -321,9 +415,12 @@ A  linked-worktree-added-to-index.txt
 fn current_output_inside_worktree_is_not_archived() -> anyhow::Result<()> {
     let fixture = writable_fixture("dump-normal-repo-with-worktree-changes.sh")?;
     let repo = fixture.path().join("你好 repo");
-    let initial = visualize_disk_tree_skip_dot_git(&repo)?;
+    let initial = visualize_disk_tree_skip_dot_git(&repo)?.to_string();
 
-    insta::assert_snapshot!(initial, "before any dump output exists in the worktree", @r"
+    // before any dump output exists in the worktree
+    snapbox::assert_data_eq!(
+        initial,
+        snapbox::str![[r#"
 .
 ├── .git:40755
 ├── .gitignore:100644
@@ -333,17 +430,29 @@ fn current_output_inside_worktree_is_not_archived() -> anyhow::Result<()> {
 ├── ignored.ignored:100644
 ├── tracked.ignored:100644
 └── visible.txt:100644
-");
+
+"#]]
+        .raw()
+    );
 
     let first_output = repo.join("nested/output/sample-dump.zip");
     let dump_output = run_dump(&repo, &first_output, false)?;
-    insta::assert_snapshot!(dump_output.display_for_snapshot(&first_output), "first dump output", @"
-    stdout:
-    Archive at: [output path]
-    stderr:
-    ");
+    // first dump output
+    snapbox::assert_data_eq!(
+        dump_output.display_for_snapshot(&first_output),
+        snapbox::str![[r#"
+stdout:
+Archive at: [output path]
+stderr:
 
-    insta::assert_snapshot!(archive_tree(&first_output)?, "the archive being written is not included in itself", @r"
+"#]]
+        .raw()
+    );
+
+    // the archive being written is not included in itself
+    snapbox::assert_data_eq!(
+        archive_tree(&first_output)?.to_string(),
+        snapbox::str![[r#"
 你好-repo-dump/
 ├── .git/
 │   ├── HEAD:100644
@@ -357,17 +466,29 @@ fn current_output_inside_worktree_is_not_archived() -> anyhow::Result<()> {
 │   └── output:40755/
 ├── tracked.ignored:100644
 └── visible.txt:100644
-");
+
+"#]]
+        .raw()
+    );
 
     let second_output = repo.join("sample-second-dump.zip");
     let dump_output = run_dump(&repo, &second_output, false)?;
-    insta::assert_snapshot!(dump_output.display_for_snapshot(&second_output), "second dump output", @"
-    stdout:
-    Archive at: [output path]
-    stderr:
-    ");
+    // second dump output
+    snapbox::assert_data_eq!(
+        dump_output.display_for_snapshot(&second_output),
+        snapbox::str![[r#"
+stdout:
+Archive at: [output path]
+stderr:
 
-    insta::assert_snapshot!(archive_tree(&second_output)?, "a previous dump archive in the worktree is included like any other visible file", @r"
+"#]]
+        .raw()
+    );
+
+    // a previous dump archive in the worktree is included like any other visible file
+    snapbox::assert_data_eq!(
+        archive_tree(&second_output)?.to_string(),
+        snapbox::str![[r#"
 你好-repo-dump/
 ├── .git/
 │   ├── HEAD:100644
@@ -382,18 +503,30 @@ fn current_output_inside_worktree_is_not_archived() -> anyhow::Result<()> {
 │       └── sample-dump.zip:100644
 ├── tracked.ignored:100644
 └── visible.txt:100644
-");
+
+"#]]
+        .raw()
+    );
 
     std::fs::create_dir_all(repo.join("nested"))?;
     let denormalized_output = repo.join("nested/../denormalized-dump.zip");
     let dump_output = run_dump(&repo, &denormalized_output, false)?;
-    insta::assert_snapshot!(dump_output.display_for_snapshot(&denormalized_output), "denormalized dump output", @"
-    stdout:
-    Archive at: [output path]
-    stderr:
-    ");
+    // denormalized dump output
+    snapbox::assert_data_eq!(
+        dump_output.display_for_snapshot(&denormalized_output),
+        snapbox::str![[r#"
+stdout:
+Archive at: [output path]
+stderr:
 
-    insta::assert_snapshot!(archive_tree(&repo.join("denormalized-dump.zip"))?, "the denormalized output path is still skipped", @r"
+"#]]
+        .raw()
+    );
+
+    // the denormalized output path is still skipped
+    snapbox::assert_data_eq!(
+        archive_tree(&repo.join("denormalized-dump.zip"))?.to_string(),
+        snapbox::str![[r#"
 你好-repo-dump/
 ├── .git/
 │   ├── HEAD:100644
@@ -409,7 +542,10 @@ fn current_output_inside_worktree_is_not_archived() -> anyhow::Result<()> {
 ├── sample-second-dump.zip:100644
 ├── tracked.ignored:100644
 └── visible.txt:100644
-");
+
+"#]]
+        .raw()
+    );
 
     Ok(())
 }

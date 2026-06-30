@@ -13,7 +13,6 @@ enum Group {
     EditingCommits,
     OperationHistory,
     ServerInteractions,
-    Rules,
     OtherCommands,
 }
 
@@ -22,7 +21,6 @@ impl std::fmt::Display for Group {
         f.write_str(match self {
             Group::Inspection => "Inspection",
             Group::BranchingAndCommitting => "Branching and Committing",
-            Group::Rules => "Rules",
             Group::ServerInteractions => "Server Interactions",
             Group::EditingCommits => "Editing Commits",
             Group::OperationHistory => "Operation History",
@@ -88,14 +86,12 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Commit => Group::BranchingAndCommitting,
                 #[cfg(all(feature = "legacy", feature = "but-2"))]
-                SubcommandDiscriminant::Commit2 => Group::BranchingAndCommitting,
+                SubcommandDiscriminant::_Commit2 => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Stage => Group::BranchingAndCommitting,
                 SubcommandDiscriminant::Branch => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Unstage => Group::BranchingAndCommitting,
-                #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Merge => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Discard => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
@@ -106,18 +102,16 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Clean => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pick => Group::BranchingAndCommitting,
+                SubcommandDiscriminant::Switch => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Resolve => Group::BranchingAndCommitting,
-
-                #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Mark => Group::Rules,
-                #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Unmark => Group::Rules,
 
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Push => Group::ServerInteractions,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pull => Group::ServerInteractions,
+                #[cfg(feature = "legacy")]
+                SubcommandDiscriminant::Land => Group::ServerInteractions,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Pr => Group::ServerInteractions,
 
@@ -133,7 +127,11 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Amend => Group::EditingCommits,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Squash => Group::EditingCommits,
+                #[cfg(all(feature = "legacy", feature = "but-2"))]
+                SubcommandDiscriminant::_Squash2 => Group::EditingCommits,
                 SubcommandDiscriminant::Move => Group::EditingCommits,
+                #[cfg(all(feature = "legacy", feature = "but-2"))]
+                SubcommandDiscriminant::_Move2 => Group::EditingCommits,
 
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Oplog => Group::OperationHistory,
@@ -147,7 +145,9 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Alias => Group::OtherCommands,
                 SubcommandDiscriminant::Config => Group::OtherCommands,
                 SubcommandDiscriminant::Skill => Group::OtherCommands,
+                SubcommandDiscriminant::Agent => Group::OtherCommands,
                 SubcommandDiscriminant::Help => Group::OtherCommands,
+                SubcommandDiscriminant::Completions => Group::OtherCommands,
 
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Setup => Group::OtherCommands,
@@ -158,7 +158,6 @@ fn print_grouped_with_truncation(
 
                 SubcommandDiscriminant::Edit => continue,
                 SubcommandDiscriminant::Metrics => continue,
-                SubcommandDiscriminant::Completions => continue,
                 SubcommandDiscriminant::Onboarding => continue,
                 SubcommandDiscriminant::EvalHook => continue,
                 SubcommandDiscriminant::External => continue,
@@ -321,7 +320,6 @@ Branching and Committing:
   commit       Commit changes to a stack
   stage        Stages a file or hunk to a specific branch
   branch       Commands for managing branches
-  merge        Merge a branch into your local target branch
   discard      Discard uncommitted changes from the worktree
   resolve      Resolve conflicts in a commit
   unapply      Unapply a branch from the workspace
@@ -334,7 +332,7 @@ Editing Commits:
   absorb       Amends changes into the appropriate commits where they belong
   reword       Edit the commit message of the specified commit
   uncommit     Uncommit changes from a commit or file-in-commit to the unstage…
-  amend        Amend a file change into a specific commit and rebases any depe…
+  amend        Amend one or more file changes into a specific commit and rebas…
   squash       Squash commits together
   move         Move a commit or branch to a different location
 
@@ -344,13 +342,10 @@ Operation History:
   redo         Redo the last undo
 
 Server Interactions:
+  land         Land a branch directly onto the target branch
   push         Push changes in a branch to remote
   pull         Updates all applied branches to be up to date with the target b…
   pr           Commands for creating and managing reviews on a forge, e.g. Git…
-
-Rules:
-  mark         Mark a commit or branch for auto-stage or auto-commit
-  unmark       Removes any marks from the workspace
 
 Other Commands:
   setup        Sets up a GitButler project from a git repository in the curren…
@@ -361,6 +356,8 @@ Other Commands:
   alias        Manage command aliases
   config       View and manage GitButler configuration
   skill        Manage AI agent skills for GitButler
+  agent        Set up GitButler for AI coding agents
+  completions  Generate but shell completions
 
 To add command completion, add this to your shell rc: (for example ~/.zshrc)
   eval "$(but completions zsh)"
@@ -432,6 +429,8 @@ Other Commands:
   alias        Manage command aliases
   config       View and manage GitButler configuration
   skill        Manage AI agent skills for GitButler
+  agent        Set up GitButler for AI coding agents
+  completions  Generate but shell completions
 
 To add command completion, add this to your shell rc: (for example ~/.zshrc)
   eval "$(but completions zsh)"

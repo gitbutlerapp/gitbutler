@@ -10,15 +10,15 @@ pub mod ai;
 pub mod branch;
 pub mod clean;
 pub mod commit;
-#[cfg(all(feature = "legacy", feature = "but-2"))]
 pub mod commit2;
 pub mod commit_message_prep;
 pub mod diff;
 pub mod discard;
 pub mod forge;
-pub mod mark;
+pub mod land;
 pub mod mcp;
-pub mod merge;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+pub mod move2;
 pub mod oplog;
 pub mod pick;
 pub mod pull;
@@ -26,9 +26,12 @@ pub mod push;
 pub mod refresh;
 pub mod resolve;
 pub mod reword;
+pub mod reword2;
 pub mod rub;
 pub mod setup;
 pub mod show;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+pub mod squash2;
 pub mod status;
 pub mod teardown;
 pub mod unapply;

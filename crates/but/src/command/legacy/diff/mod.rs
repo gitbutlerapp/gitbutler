@@ -23,15 +23,15 @@ pub fn handle_tui(ctx: &mut Context, target_str: Option<&str>) -> anyhow::Result
             .ok_or_else(|| anyhow::anyhow!("No ID found for entity"))?;
 
         match id {
-            CliId::Uncommitted(ref uncommitted_id) => {
+            CliId::UncommittedHunkOrFile(ref uncommitted_id) => {
                 let filter = WorktreeFilter::Uncommitted(Box::new(uncommitted_id.clone()));
                 DiffFileEntry::from_worktree(&id_map, Some(&filter))
             }
             CliId::PathPrefix {
                 hunk_assignments, ..
             } => DiffFileEntry::from_hunk_assignments(&hunk_assignments),
-            CliId::Unassigned { .. } => {
-                DiffFileEntry::from_worktree(&id_map, Some(&WorktreeFilter::Unassigned))
+            CliId::Uncommitted { .. } => {
+                DiffFileEntry::from_worktree(&id_map, Some(&WorktreeFilter::UncommittedArea))
             }
             CliId::Stack { stack_id, .. } => {
                 DiffFileEntry::from_worktree(&id_map, Some(&WorktreeFilter::Stack(stack_id)))
@@ -69,11 +69,13 @@ pub fn handle(
             .ok_or_else(|| anyhow::anyhow!("No ID found for entity"))?;
 
         match id {
-            CliId::Uncommitted(id) => show::worktree(id_map, out, Some(Filter::Uncommitted(id))),
+            CliId::UncommittedHunkOrFile(id) => {
+                show::worktree(id_map, out, Some(Filter::Uncommitted(id)))
+            }
             CliId::PathPrefix {
                 hunk_assignments, ..
             } => show::hunk_assignments(&hunk_assignments, out),
-            CliId::Unassigned { .. } => show::worktree(id_map, out, Some(Filter::Unassigned)),
+            CliId::Uncommitted { .. } => show::worktree(id_map, out, Some(Filter::UncommittedArea)),
             CliId::CommittedFile {
                 commit_id, path, ..
             } => show::commit(ctx, out, commit_id, Some(path)),

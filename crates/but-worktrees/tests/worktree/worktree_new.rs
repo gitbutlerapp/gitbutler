@@ -1,18 +1,18 @@
 use crate::util::{test_ctx, worktree_new};
 
 #[test]
-fn can_create_worktree_from_feature_a() -> anyhow::Result<()> {
-    can_create_worktree_from("refs/heads/feature-a")
+fn can_create_worktree_from_feature_a() {
+    can_create_worktree_from("refs/heads/feature-a").unwrap();
 }
 
 #[test]
-fn can_create_worktree_from_feature_b() -> anyhow::Result<()> {
-    can_create_worktree_from("refs/heads/feature-b")
+fn can_create_worktree_from_feature_b() {
+    can_create_worktree_from("refs/heads/feature-b").unwrap();
 }
 
 #[test]
-fn can_create_worktree_from_feature_c() -> anyhow::Result<()> {
-    can_create_worktree_from("refs/heads/feature-c")
+fn can_create_worktree_from_feature_c() {
+    can_create_worktree_from("refs/heads/feature-c").unwrap();
 }
 
 fn can_create_worktree_from(refname: &str) -> anyhow::Result<()> {

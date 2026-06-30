@@ -29,8 +29,8 @@ but-schemars = { workspace = true, optional = true }
 [dev-dependencies]
 but-testsupport.workspace = true
 
-insta.workspace = true
 serde_json.workspace = true
+snapbox.workspace = true
 
 [lints]
 workspace = true

@@ -96,8 +96,8 @@ fn try_parse_range(
     if start_matches.len() != 1 || end_matches.len() != 1 {
         return Ok(None);
     }
-    if !matches!(&start_matches[0], CliId::Uncommitted(_))
-        || !matches!(&end_matches[0], CliId::Uncommitted(_))
+    if !matches!(&start_matches[0], CliId::UncommittedHunkOrFile(_))
+        || !matches!(&end_matches[0], CliId::UncommittedHunkOrFile(_))
     {
         return Ok(None);
     }
@@ -120,7 +120,7 @@ fn try_parse_range(
 
 fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::Result<Vec<CliId>> {
     // First, files assigned to branches (they appear first in status display),
-    // then unassigned files (they appear last in status display)
+    // then uncommitted files (they appear last in status display)
     let (_guard, _, workspace, _) = ctx.workspace_and_db()?;
     let stack_ids: Vec<Option<but_core::Id<'S'>>> =
         workspace.stacks.iter().map(|stack| stack.id).collect();
@@ -350,7 +350,7 @@ pub fn prompt_for_disambiguation(
                         &commit_id.to_string()[..7]
                     )
                 }
-                CliId::Uncommitted(uncommitted) => {
+                CliId::UncommittedHunkOrFile(uncommitted) => {
                     if uncommitted.is_entire_file {
                         let first_hunk = uncommitted.hunk_assignments.first();
                         format!("{} - {} (file '{}')", short_id, kind, first_hunk.path)

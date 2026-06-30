@@ -17,6 +17,23 @@ import type { StartQueryActionCreatorOptions } from "@reduxjs/toolkit/query";
 
 export const PR_SERVICE = new InjectionToken<PrService>("PrService");
 
+const pendingReviewFetches = new Map<string, Set<Promise<unknown>>>();
+
+function trackReviewFetch(projectId: string, pending: Promise<unknown>) {
+	let pendingForProject = pendingReviewFetches.get(projectId);
+	if (!pendingForProject) {
+		pendingForProject = new Set();
+		pendingReviewFetches.set(projectId, pendingForProject);
+	}
+	pendingForProject.add(pending);
+	pending.finally(() => {
+		pendingForProject.delete(pending);
+		if (pendingForProject.size === 0) {
+			pendingReviewFetches.delete(projectId);
+		}
+	});
+}
+
 export class PrService {
 	loading = writable(false);
 	private backendApi: ReturnType<typeof injectBackendEndpoints>;
@@ -83,6 +100,14 @@ export class PrService {
 		return review ? mapForgeReviewToPullRequest(review) : undefined;
 	}
 
+	async waitForRefreshes(projectId: string): Promise<void> {
+		let pending = pendingReviewFetches.get(projectId);
+		while (pending && pending.size > 0) {
+			await Promise.allSettled([...pending]);
+			pending = pendingReviewFetches.get(projectId);
+		}
+	}
+
 	get(projectId: string, number: number, options?: StartQueryActionCreatorOptions) {
 		return this.backendApi.endpoints.getReview.useQuery(
 			{ projectId, reviewId: number },
@@ -119,6 +144,7 @@ export class PrService {
 		await this.backendApi.endpoints.updateReview.mutate({
 			projectId,
 			reviewId: number,
+			title: null,
 			body: null,
 			state: "open",
 			targetBase: null,
@@ -128,11 +154,17 @@ export class PrService {
 	async update(
 		projectId: string,
 		number: number,
-		update: { description?: string; state?: "open" | "closed"; targetBase?: string },
+		update: {
+			title?: string;
+			description?: string;
+			state?: "open" | "closed";
+			targetBase?: string;
+		},
 	) {
 		await this.backendApi.endpoints.updateReview.mutate({
 			projectId,
 			reviewId: number,
+			title: update.title ?? null,
 			body: update.description ?? null,
 			state: update.state ?? null,
 			targetBase: update.targetBase ?? null,
@@ -192,6 +224,10 @@ function injectBackendEndpoints(api: BackendApi) {
 				extraOptions: { command: "get_review" },
 				query: (args) => args,
 				providesTags: (_result, _error, args) => providesItem(ReduxTag.PullRequests, args.reviewId),
+				onQueryStarted: (args, { queryFulfilled }) => {
+					const pending = queryFulfilled.catch(() => undefined);
+					trackReviewFetch(args.projectId, pending);
+				},
 			}),
 			getMergeStatus: build.query<ReviewMergeStatus, { projectId: string; reviewId: number }>({
 				extraOptions: { command: "get_review_merge_status" },
@@ -208,6 +244,7 @@ function injectBackendEndpoints(api: BackendApi) {
 				{
 					projectId: string;
 					reviewId: number;
+					title: string | null;
 					body: string | null;
 					state: "open" | "closed" | null;
 					targetBase: string | null;

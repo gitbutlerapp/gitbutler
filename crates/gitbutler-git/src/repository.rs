@@ -580,6 +580,16 @@ where
         return Err(crate::Error::GerritNoNewChanges(base_error));
     }
 
+    // Detected last so the more specific typed cases above always win. A non-fast-forward
+    // rejection is recoverable: the caller can re-fetch and retry.
+    let lowercased_stderr = stderr.to_lowercase();
+    if lowercased_stderr.contains("! [rejected]")
+        || lowercased_stderr.contains("(non-fast-forward)")
+        || lowercased_stderr.contains("(fetch first)")
+    {
+        return Err(crate::Error::NonFastForward(base_error));
+    }
+
     Err(base_error.into())
 }
 

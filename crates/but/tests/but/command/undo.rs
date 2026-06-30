@@ -82,8 +82,8 @@ where
 
 #[test]
 fn can_undo_discard() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     let path = "new-file.txt";
     env.file(path, "content");
 
@@ -98,37 +98,33 @@ fn can_undo_discard() {
 }
 
 #[test]
-fn can_undo_but_discard_file_modifications() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
-    env.setup_metadata(&["A"])?;
+fn can_undo_but_discard_file_modifications() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.file("first", "This is new stuff");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("discard zz").assert().success();
     });
-
-    Ok(())
 }
 
 #[test]
-fn can_undo_but_discard_new_file() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
-    env.setup_metadata(&["A"])?;
+fn can_undo_but_discard_new_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.file("totally_new_file", "This is new stuff");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("discard zz").assert().success();
     });
-
-    Ok(())
 }
 
 #[test]
-fn can_undo_but_discard_deletion() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
-    env.setup_metadata(&["A"])?;
+fn can_undo_but_discard_deletion() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let filepath = env.projects_root().join("first");
     std::fs::remove_file(&filepath).expect("must be able to delete file");
@@ -136,14 +132,12 @@ fn can_undo_but_discard_deletion() -> anyhow::Result<()> {
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("discard zz").assert().success();
     });
-
-    Ok(())
 }
 
 #[test]
-fn can_undo_but_discard_rename() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
-    env.setup_metadata(&["A"])?;
+fn can_undo_but_discard_rename() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let filepath = env.projects_root().join("first");
     let new_filepath = env.projects_root().join("first_renamed");
@@ -152,15 +146,12 @@ fn can_undo_but_discard_rename() -> anyhow::Result<()> {
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("discard zz").assert().success();
     });
-
-    Ok(())
 }
 
 #[test]
-#[ignore = "Test harness runs with cv3 feature flag, and but_core::worktree::safe_checkout_from_head does not restore the worktree file A for some reason. https://linear.app/gitbutler/issue/GB-1403/run-test-both-with-and-without-cv3-feature-flag"]
 fn can_undo_unapply() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("unapply A")
@@ -172,10 +163,9 @@ fn can_undo_unapply() {
 }
 
 #[test]
-#[ignore = "Test harness runs with cv3 feature flag, and but_core::worktree::safe_checkout_from_head does not remove the worktree file A for some reason. https://linear.app/gitbutler/issue/GB-1403/run-test-both-with-and-without-cv3-feature-flag"]
 fn can_undo_clean_apply() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     env.but("unapply A").assert().success();
 
     run_mutate_undo_roundtrip_test(&env, |env| {
@@ -187,11 +177,65 @@ fn can_undo_clean_apply() {
     });
 }
 
+// Restoring a snapshot must revert the worktree even when a later operation moved the workspace
+// commit: commit a new file, restore an earlier snapshot, and the file must be gone again.
+#[test]
+fn can_restore_snapshot_after_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let status_before = env
+        .but("status")
+        .args(["--verbose", "--files"])
+        .output()
+        .unwrap();
+
+    // `but oplog snapshot --format human` prints a `  Snapshot ID: <hex>` line we restore from.
+    let snapshot = env
+        .but("oplog snapshot -m baseline --format human")
+        .output()
+        .unwrap();
+    let snapshot_output = String::from_utf8_lossy(&snapshot.stdout);
+    let snapshot_id = snapshot_output
+        .split("Snapshot ID:")
+        .nth(1)
+        .and_then(|rest| rest.split_whitespace().next())
+        .expect("snapshot output contains a `Snapshot ID:` line");
+    assert!(
+        !snapshot_id.is_empty() && snapshot_id.chars().all(|c| c.is_ascii_hexdigit()),
+        "parsed snapshot id should be a bare hex string, got {snapshot_id:?}"
+    );
+
+    env.file("brand-new-file.txt", "content");
+    env.but("commit A -m 'add brand new file'")
+        .assert()
+        .success();
+
+    // The commit must actually change workspace state, otherwise the round-trip below would match
+    // `status_before` without the restore having reverted anything.
+    let status_after_commit = env
+        .but("status")
+        .args(["--verbose", "--files"])
+        .output()
+        .unwrap();
+    assert_ne!(status_before.stdout, status_after_commit.stdout);
+
+    env.but(format!("oplog restore {snapshot_id}"))
+        .assert()
+        .success();
+
+    env.but("status")
+        .args(["--verbose", "--files"])
+        .assert()
+        .success()
+        .stdout_eq(status_before.stdout)
+        .stderr_eq(status_before.stderr);
+}
+
 #[test]
 fn can_undo_rewording_commit() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("reword")
@@ -205,9 +249,8 @@ fn can_undo_rewording_commit() {
 
 #[test]
 fn can_undo_rewording_branch() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("reword")
@@ -221,9 +264,8 @@ fn can_undo_rewording_branch() {
 
 #[test]
 fn can_undo_but_branch_new_at_base() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("branch").args(["new", "foo"]).assert().success();
@@ -232,9 +274,8 @@ fn can_undo_but_branch_new_at_base() {
 
 #[test]
 fn can_undo_but_branch_in_stack() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.but("branch").args(["new", "foo"]).assert().success();
 
@@ -248,9 +289,8 @@ fn can_undo_but_branch_in_stack() {
 
 #[test]
 fn can_undo_but_branch_delete() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.but("branch").args(["new", "foo"]).assert().success();
 
@@ -261,9 +301,8 @@ fn can_undo_but_branch_delete() {
 
 #[test]
 fn can_undo_but_branch_delete_in_stack() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.but("branch").args(["new", "foo"]).assert().success();
     env.but("branch")
@@ -278,9 +317,8 @@ fn can_undo_but_branch_delete_in_stack() {
 
 #[test]
 fn can_undo_but_absorb() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.file("first", "This is new stuff");
 
@@ -291,9 +329,8 @@ fn can_undo_but_absorb() {
 
 #[test]
 fn can_undo_but_squash_with_two_commits() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let commit_one = commit_empty_with_message(&env, "one");
     let commit_two = commit_empty_with_message(&env, "two");
@@ -324,9 +361,8 @@ af394f9 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 #[test]
 fn can_undo_but_squash_with_three_commits() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let commit_one = commit_empty_with_message(&env, "one");
     let commit_two = commit_empty_with_message(&env, "two");
@@ -360,9 +396,8 @@ af394f9 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 #[test]
 fn can_undo_but_squash_with_range_of_commits() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let commit_one = commit_empty_with_message(&env, "one");
     commit_empty_with_message(&env, "two");
@@ -400,9 +435,8 @@ af394f9 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 #[test]
 fn can_undo_but_squash_with_two_commits_with_message() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let commit_one = commit_empty_with_message(&env, "one");
     let commit_two = commit_empty_with_message(&env, "two");
@@ -435,9 +469,8 @@ af394f9 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 #[test]
 fn can_undo_but_squash_with_branch() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     commit_empty_with_message(&env, "one");
     commit_empty_with_message(&env, "two");
@@ -466,9 +499,8 @@ af394f9 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 #[test]
 fn can_undo_but_squash_with_branch_and_drop_message() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     commit_empty_with_message(&env, "one");
     commit_empty_with_message(&env, "two");

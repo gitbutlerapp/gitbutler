@@ -84,6 +84,25 @@ test("should show incoming conflicts with uncommitted files", async ({ page, git
 	await expect(worktreeConflicts).toContainText("a_file");
 });
 
+test("should show incoming conflicts with uncommitted files in an empty workspace", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(0);
+
+	await gitbutler.runScript(
+		"project-with-remote-branches__add-conflicting-base-and-dirty-worktree.sh",
+	);
+	await clickByTestId(page, "sync-button");
+	await clickByTestId(page, "integrate-upstream-commits-button");
+
+	const worktreeConflicts = await waitForTestId(page, "integrate-upstream-worktree-conflicts");
+	await expect(worktreeConflicts).toContainText("a_file");
+});
+
 test("should handle the update of workspace with integrated branch gracefully", async ({
 	page,
 	gitbutler,

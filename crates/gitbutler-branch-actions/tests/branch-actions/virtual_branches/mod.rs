@@ -4,7 +4,7 @@ use std::{fs, path::PathBuf, str::FromStr};
 
 use but_core::{RepositoryExt as _, ref_metadata::StackId};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId, RepoOpenMode};
-use but_error::Marker;
+use but_error::{AnyhowContextExt as _, Code};
 use but_rebase::graph_rebase::LookupStep as _;
 use but_settings::AppSettings;
 use but_testsupport::{

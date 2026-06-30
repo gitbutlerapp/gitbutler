@@ -60,7 +60,7 @@ export const focusAdjacentSelectionScope = ({
 		if (nextSelectionScope !== undefined) focusSelectionScope(nextSelectionScope);
 	} else {
 		const curr = orderedSelectionScopes.indexOf(currentSelectionScope);
-		// oxlint-disable-next-line typescript/no-non-null-assertion: This shouldn't ever fail.
+		// oxlint-disable-next-line typescript/no-non-null-assertion -- This shouldn't ever fail.
 		const nextSelectionScope = orderedSelectionScopes.at(
 			(curr + offset) % orderedSelectionScopes.length,
 		)!;
@@ -367,16 +367,6 @@ export const useNavigationIndexHotkeys = <T>({
 				target: ref,
 				ignoreInputs: true,
 				meta: { ...selectionOperationHotkeys.cut.meta, group },
-			},
-		},
-		{
-			hotkey: selectionOperationHotkeys.squash.hotkey,
-			callback: () => enterTransferModeForSelection("into"),
-			options: {
-				conflictBehavior: "allow",
-				enabled: operationEnabled,
-				target: ref,
-				meta: { ...selectionOperationHotkeys.squash.meta, group },
 			},
 		},
 	]);

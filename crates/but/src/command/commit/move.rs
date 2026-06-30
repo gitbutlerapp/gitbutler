@@ -342,7 +342,7 @@ mod tests {
     }
 
     fn uncommitted_id() -> CliId {
-        CliId::Uncommitted(crate::id::UncommittedCliId {
+        CliId::UncommittedHunkOrFile(crate::id::UncommittedHunkOrFile {
             id: "uc".to_string(),
             hunk_assignments: nonempty::NonEmpty::new(but_hunk_assignment::HunkAssignment {
                 id: None,

@@ -5,15 +5,15 @@ use crate::utils::{CommandExt, Sandbox};
 /// Test 1: Simple case of a single branch
 /// - Teardown should return HEAD to that branch
 #[test]
-fn single_branch_simple_teardown() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @"
+fn single_branch_simple_teardown() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    insta::assert_snapshot!(env.git_log(), @"
     * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 9477ae7 (A) add A
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     // Run teardown
     env.but("teardown")
@@ -45,8 +45,6 @@ To return to GitButler mode, run:
     // Verify we're on branch A
     let output = env.invoke_git("rev-parse --abbrev-ref HEAD");
     assert_eq!(output, "A");
-
-    Ok(())
 }
 
 /// Test 2: Multiple branches
@@ -54,9 +52,9 @@ To return to GitButler mode, run:
 /// - Removes other branches' work from working directory
 /// - Preserves virtual branch state
 #[test]
-fn multiple_branches_preserves_state() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
+fn multiple_branches_preserves_state() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    insta::assert_snapshot!(env.git_log(), @r"
     *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * 9477ae7 (A) add A
@@ -65,7 +63,7 @@ fn multiple_branches_preserves_state() -> anyhow::Result<()> {
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     // Run teardown
     env.but("teardown")
@@ -108,8 +106,6 @@ To return to GitButler mode, run:
         !file_b.exists(),
         "File B should not exist in working directory after teardown"
     );
-
-    Ok(())
 }
 
 /// Test 3: User has committed on top of gitbutler/workspace
@@ -118,8 +114,8 @@ To return to GitButler mode, run:
 #[test]
 #[ignore = "flaky test - needs investigation"]
 fn dangling_commit_on_workspace() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     // Create a dangling commit on top of workspace
     env.file("UserFile", "user content");
@@ -191,8 +187,8 @@ To return to GitButler mode, run:
 #[test]
 #[ignore = "flaky test - needs investigation"]
 fn dangling_commit_spanning_multiple_branches() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     // Create a dangling commit touching files from both branches
     let git_dir = env.projects_root();
@@ -271,9 +267,9 @@ To return to GitButler mode, run:
 #[test]
 fn two_dangling_commits_different_branches() -> anyhow::Result<()> {
     let env =
-        Sandbox::init_scenario_with_target_and_default_settings("teardown-two-dangling-commits")?;
+        Sandbox::init_scenario_with_target_and_default_settings("teardown-two-dangling-commits");
     // Initial state: user has made two commits on top of workspace
-    insta::assert_snapshot!(env.git_log()?, @r"
+    insta::assert_snapshot!(env.git_log(), @r"
     * fc13bfb (HEAD -> gitbutler/workspace) add FileForB
     * 091c8f9 add FileForA
     *   c128bce GitButler Workspace Commit
@@ -284,7 +280,7 @@ fn two_dangling_commits_different_branches() -> anyhow::Result<()> {
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     // Run teardown - should cherry-pick both commits to first branch
     // Note: In the current implementation, ALL dangling commits are cherry-picked
@@ -350,9 +346,9 @@ To return to GitButler mode, run:
 
 /// Test: JSON output format
 #[test]
-fn json_output_single_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn json_output_single_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("--format json teardown")
         .allow_json()
@@ -370,16 +366,14 @@ fn json_output_single_branch() -> anyhow::Result<()> {
     // check the current git branch is A
     let output = env.invoke_git("rev-parse --abbrev-ref HEAD");
     assert_eq!(output, "A");
-
-    Ok(())
 }
 
 /// Test: JSON output with dangling commits
 #[test]
-fn json_output_with_dangling_commits() -> anyhow::Result<()> {
+fn json_output_with_dangling_commits() {
     let env =
-        Sandbox::init_scenario_with_target_and_default_settings("teardown-dangling-single-commit")?;
-    env.setup_metadata(&["A"])?;
+        Sandbox::init_scenario_with_target_and_default_settings("teardown-dangling-single-commit");
+    env.setup_metadata(&["A"]);
 
     env.but("--format json teardown")
         .allow_json()
@@ -397,14 +391,12 @@ fn json_output_with_dangling_commits() -> anyhow::Result<()> {
     // check the current git branch is A
     let output = env.invoke_git("rev-parse --abbrev-ref HEAD");
     assert_eq!(output, "A");
-
-    Ok(())
 }
 
 #[test]
-fn teardown_informs_of_checkout_to_when_there_are_no_stacks() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn teardown_informs_of_checkout_to_when_there_are_no_stacks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     env.but("unapply A").assert().success();
 
     env.but("teardown")
@@ -414,14 +406,12 @@ fn teardown_informs_of_checkout_to_when_there_are_no_stacks() -> anyhow::Result<
 Error: Failed to determine checkout target branch. Specify a target branch with `--checkout-to <branch>`.
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 fn teardown_checks_out_to_branch_override() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     env.but("unapply A").assert().success();
 
     env.but("--format json teardown")
@@ -453,8 +443,8 @@ fn teardown_checks_out_to_branch_override() -> anyhow::Result<()> {
 
 #[test]
 fn teardown_checks_out_to_branch_override_with_qualified_ref_name() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     env.but("unapply A").assert().success();
 
     env.but("--format json teardown")
@@ -485,9 +475,9 @@ fn teardown_checks_out_to_branch_override_with_qualified_ref_name() -> anyhow::R
 }
 
 #[test]
-fn teardown_checkout_to_handles_missing_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn teardown_checkout_to_handles_missing_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("teardown")
         .arg("--checkout-to")
@@ -502,14 +492,12 @@ The reference 'no-such-branch' did not exist
 
 "#
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn teardown_checkout_to_handles_malformed_branch_name() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn teardown_checkout_to_handles_malformed_branch_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("teardown")
         .arg("--checkout-to")
@@ -524,14 +512,12 @@ Invalid ref name: not a branch
 
 "#
         ]);
-
-    Ok(())
 }
 
 #[test]
-fn teardown_checkout_to_disallows_non_branch_ref() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn teardown_checkout_to_disallows_non_branch_ref() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("teardown")
         .arg("--checkout-to")
@@ -544,14 +530,12 @@ Error: Bad input for '--checkout-to'
 Invalid ref for checkout: 'HEAD' is not a local branch
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn teardown_checkout_to_disallows_non_local_branch_ref() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn teardown_checkout_to_disallows_non_local_branch_ref() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("teardown")
         .arg("--checkout-to")
@@ -564,6 +548,4 @@ Error: Bad input for '--checkout-to'
 Invalid ref for checkout: 'origin/main' is not a local branch
 
 "#]]);
-
-    Ok(())
 }

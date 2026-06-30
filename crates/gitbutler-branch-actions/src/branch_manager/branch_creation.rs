@@ -1,5 +1,5 @@
 use anyhow::{Context as _, Result};
-use but_core::{RefMetadata, ref_metadata::StackId, worktree::checkout::UncommitedWorktreeChanges};
+use but_core::{RefMetadata, ref_metadata::StackId};
 use but_ctx::access::RepoExclusive;
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
@@ -117,7 +117,6 @@ impl BranchManager<'_> {
                 on_workspace_conflict:
                     OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
                 workspace_reference_naming: WorkspaceReferenceNaming::Default,
-                uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                 order: None,
                 new_stack_id: None,
             },

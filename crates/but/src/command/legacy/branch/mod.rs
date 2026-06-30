@@ -60,15 +60,18 @@ pub fn new(
     anchor_arg: Option<CliIdArg>,
 ) -> CliResult<()> {
     let t = theme::get();
-    let head_info = but_api::legacy::workspace::head_info(ctx)?;
+    let mut guard = ctx.exclusive_worktree_access();
 
     let branch_name = if let Some(branch_name_arg) = branch_name_arg {
-        branch_name_arg.resolve_for_creation(&*ctx.repo.get()?, &head_info)?
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        branch_name_arg
+            .resolve_for_creation(&repo, &ws)?
+            .shorten()
+            .to_string()
     } else {
         but_api::legacy::workspace::canned_branch_name(ctx)?
     };
 
-    let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     let resolved_anchor = {

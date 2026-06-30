@@ -38,6 +38,14 @@ describe("classify", () => {
 			);
 			expect(classify(error).severity).toBe("silent");
 		});
+
+		test("NetworkError is silent — offline forge polls shouldn't toast", () => {
+			const error = new IpcError(
+				{ message: "Unable to connect to GitHub.", code: "NetworkError" },
+				"list_reviews",
+			);
+			expect(classify(error).severity).toBe("silent");
+		});
 	});
 
 	describe("message-pattern classifications", () => {

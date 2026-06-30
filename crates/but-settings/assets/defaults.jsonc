@@ -19,14 +19,8 @@
 		"oauthClientId": "cd51880daa675d9e6452"
 	},
 	"featureFlags": {
-		// Enables the v3 safe checkout.
-		"cv3": false,
 		/// Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref.
 		"unapplyV3Pgm": false,
-		/// Enable undo/redo support.
-		"undo": false,
-		/// Enable processing of workspace rules.
-		"rules": false,
 		/// Enable single branch mode.
 		"singleBranch": false,
 		/// Enable IRC integration.
@@ -34,7 +28,8 @@
 		/// Control how the filesystem watch should be established.
 		/// Possible values: "auto", "legacy", "modern".
 		"watchMode": "auto",
-		"writeCommitEvolution": false
+		"writeCommitEvolution": false,
+        "tuiFileBrowser": false
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {

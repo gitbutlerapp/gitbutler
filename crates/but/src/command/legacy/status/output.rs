@@ -61,6 +61,14 @@ impl StatusOutput<'_> {
         )
     }
 
+    pub(super) fn between_stacks(&mut self, connector: Vec<Span<'static>>) -> anyhow::Result<()> {
+        self.push_line(
+            Some(connector),
+            StatusOutputContent::Plain(<_>::default()),
+            StatusOutputLineData::BetweenStacks,
+        )
+    }
+
     pub(super) fn staged_changes(
         &mut self,
         connector: Vec<Span<'static>>,
@@ -94,19 +102,19 @@ impl StatusOutput<'_> {
     pub(super) fn unstaged_changes(
         &mut self,
         connector: Vec<Span<'static>>,
-        line: Vec<Span<'static>>,
+        line: UncommittedLineContent,
         id: CliId,
     ) -> anyhow::Result<()> {
         self.push_line(
             Some(connector),
-            StatusOutputContent::Plain(line),
-            StatusOutputLineData::UnassignedChanges {
+            StatusOutputContent::Uncommitted(line),
+            StatusOutputLineData::UncommittedChanges {
                 cli_id: Arc::new(id),
             },
         )
     }
 
-    pub(super) fn unassigned_file(
+    pub(super) fn uncommitted_file(
         &mut self,
         connector: Vec<Span<'static>>,
         line: FileLineContent,
@@ -115,7 +123,7 @@ impl StatusOutput<'_> {
         self.push_line(
             Some(connector),
             StatusOutputContent::File(line),
-            StatusOutputLineData::UnassignedFile {
+            StatusOutputLineData::UncommittedFile {
                 cli_id: Arc::new(id),
             },
         )
@@ -255,6 +263,7 @@ pub(super) enum StatusOutputContent {
     Commit(CommitLineContent),
     Branch(BranchLineContent),
     File(FileLineContent),
+    Uncommitted(UncommittedLineContent),
 }
 
 #[derive(Debug, Default, Clone)]
@@ -293,6 +302,22 @@ pub(super) struct FileLineContent {
     pub(super) path: Vec<Span<'static>>,
 }
 
+/// Considering the example "zz [uncommitted] (no changes)" see the field docs for what exactly
+/// they correspond to.
+#[derive(Debug, Default, Clone)]
+pub(super) struct UncommittedLineContent {
+    /// "zz" in the example
+    pub(super) id: Vec<Span<'static>>,
+    /// " [" in the example
+    pub(super) decoration_start: Vec<Span<'static>>,
+    /// "uncommitted" in the example
+    pub(super) label: Vec<Span<'static>>,
+    /// "]" in the example
+    pub(super) decoration_end: Vec<Span<'static>>,
+    /// " (no changes)" in the example
+    pub(super) suffix: Vec<Span<'static>>,
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct StatusOutputLine {
     /// The span holding the connector, if any, for this line. Includes padding and indicators that
@@ -300,7 +325,7 @@ pub(super) struct StatusOutputLine {
     ///
     /// Example:
     ///
-    /// ╭┄zz [unassigned changes]                                       | Some("╭┄")
+    /// ╭┄zz [uncommitted]                                      | Some("╭┄")
     /// ┊   ur M flake.nix                                              | Some("┊   ")
     /// ┊                                                               | Some("┊ ")
     /// ┊╭┄dp [dp-branch-4]                                             | Some("┊╭┄")
@@ -330,14 +355,15 @@ impl StatusOutputLine {
             },
             StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnassignedChanges { .. }
-            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::Branch { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::MergeBase
             | StatusOutputLineData::File { .. } => true,
-            StatusOutputLineData::Connector
-            | StatusOutputLineData::UpdateNotice
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::BetweenStacks
+            | StatusOutputLineData::Connector
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
             | StatusOutputLineData::NoAssignmentsUnstaged
@@ -351,16 +377,17 @@ impl StatusOutputLine {
 pub(super) enum StatusOutputLineData {
     UpdateNotice,
     Connector,
+    BetweenStacks,
     StagedChanges {
         cli_id: Arc<CliId>,
     },
     StagedFile {
         cli_id: Arc<CliId>,
     },
-    UnassignedChanges {
+    UncommittedChanges {
         cli_id: Arc<CliId>,
     },
-    UnassignedFile {
+    UncommittedFile {
         cli_id: Arc<CliId>,
     },
     Branch {
@@ -386,8 +413,8 @@ pub(super) enum StatusOutputLineData {
 impl StatusOutputLineData {
     pub(super) fn cli_id(&self) -> Option<&Arc<CliId>> {
         match self {
-            StatusOutputLineData::UnassignedChanges { cli_id }
-            | StatusOutputLineData::UnassignedFile { cli_id }
+            StatusOutputLineData::UncommittedChanges { cli_id }
+            | StatusOutputLineData::UncommittedFile { cli_id }
             | StatusOutputLineData::Branch { cli_id }
             | StatusOutputLineData::StagedChanges { cli_id }
             | StatusOutputLineData::StagedFile { cli_id }
@@ -395,6 +422,7 @@ impl StatusOutputLineData {
             | StatusOutputLineData::File { cli_id } => Some(cli_id),
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::MergeBase

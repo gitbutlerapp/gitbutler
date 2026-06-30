@@ -1,17 +1,9 @@
 import {
 	absorptionPlanQueryOptions,
 	headInfoQueryOptions,
-	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import {
-	useApplyBranch,
-	useBranchCheckoutNew,
-	useBranchCreate,
-	useWorkspaceIntegrateUpstream,
-	useRestoreSnapshot,
-} from "#ui/api/mutations.ts";
-import { findBranchOperandByRef } from "#ui/api/ref-info.ts";
+import { useRestoreSnapshot } from "#ui/api/mutations.ts";
 import {
 	focusAdjacentSelectionScope,
 	focusSelectionScope,
@@ -21,60 +13,52 @@ import {
 } from "#ui/selection-scopes.ts";
 import {
 	projectActions,
-	selectProjectDetailsFullscreen,
+	selectProjectDetailsFullWindow,
 	selectProjectDialogState,
 	selectProjectFilesVisible,
 	selectProjectOutlineModeState,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { Kbd } from "#ui/components/Kbd.tsx";
-import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
-import { stackBottomRelativeTo } from "#ui/api/stack.ts";
+import { PickerDialog } from "#ui/components/PickerDialog.tsx";
+import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
+import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { BottomUpdate, BranchListing, RefInfo, Segment, Stack } from "@gitbutler/but-sdk";
-import {
-	getHotkeyManager,
-	getSequenceManager,
-	Hotkey,
-	HotkeySequence,
-	useHotkeys,
-	useHotkeyRegistrations,
-} from "@tanstack/react-hotkeys";
+import { ProjectForFrontend, RefInfo, Segment } from "@gitbutler/but-sdk";
+import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
-	useIsFetching,
-	useIsMutating,
 	useQueries,
 	useQuery,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
-import { Match, Order } from "effect";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { Match } from "effect";
 import { type FC, Component, ReactNode, useDeferredValue } from "react";
+import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
-	changesSectionOperand,
 	commitOperand,
-	Operand,
 	operandContains,
 	operandEquals,
 	operandIdentityKey,
-	stackOperand,
 	type BranchOperand,
+	type Operand,
+	uncommittedChangesOperand,
 } from "#ui/operands.ts";
-import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
-import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree.tsx";
-import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { useActiveElement } from "#ui/focus.ts";
-import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { buildIndexByKey, NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import { reverse } from "effect/Array";
+import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
+import { BranchPicker } from "./BranchPicker.tsx";
+import { CommandPalette } from "./CommandPalette.tsx";
+import { Outline } from "./Outline.tsx";
 import { getOperations } from "#ui/operations/operation.ts";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { reverse } from "effect/Array";
+
+// This must be unique as to not collide with other IDs, and stable because it's
+// stored in local storage.
+type PanelId = "outline-panel" | "details-panel";
 
 const toggleFiles =
 	({
@@ -95,232 +79,17 @@ const toggleFiles =
 		dispatch(projectActions.toggleFiles({ projectId }));
 	};
 
-type CommandPaletteItem = {
-	group: CommandGroup;
-	id: string;
-	name: string;
-	hotkey: Hotkey | HotkeySequence;
-	type: "hotkey" | "sequence";
-};
-
-const groupCommandPaletteItems = (
-	items: Array<CommandPaletteItem>,
-): Array<PickerDialogGroup<CommandPaletteItem>> => {
-	const grouped = Map.groupBy(items, (item) => item.group);
-
-	return Array.from(grouped.entries())
-		.toSorted(Order.mapInput(Order.string, ([group]) => group))
-		.map(([group, items]) => ({
-			value: group,
-			items: items.toSorted(Order.mapInput(Order.string, (item) => item.name)),
-		}));
-};
-
-const CommandPalette: FC<{
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-}> = ({ open, onOpenChange }) => {
-	const { hotkeys, sequences } = useHotkeyRegistrations();
-	const hotkeyItems: Array<CommandPaletteItem> = [
-		...hotkeys.flatMap((hotkey): CommandPaletteItem | [] =>
-			hotkey.options.enabled !== false && hotkey.options.meta?.name !== undefined
-				? {
-						group: hotkey.options.meta.group,
-						id: hotkey.id,
-						name: hotkey.options.meta.name,
-						hotkey: hotkey.hotkey,
-						type: "hotkey",
-					}
-				: [],
-		),
-		...sequences.flatMap((sequence): CommandPaletteItem | [] =>
-			sequence.options.enabled !== false && sequence.options.meta?.name !== undefined
-				? {
-						group: sequence.options.meta.group,
-						id: sequence.id,
-						name: sequence.options.meta.name,
-						hotkey: sequence.sequence,
-						type: "sequence",
-					}
-				: [],
-		),
-	];
-	const items = groupCommandPaletteItems(hotkeyItems);
-
-	const runHotkey = (item: CommandPaletteItem) => {
-		onOpenChange(false);
-		if (item.type === "hotkey") getHotkeyManager().triggerRegistration(item.id);
-		else getSequenceManager().triggerSequence(item.id);
-	};
-
-	return (
-		<PickerDialog
-			ariaLabel="Command palette"
-			closeLabel="Close command palette"
-			emptyLabel="No hotkeys found."
-			getItemKey={(x) => x.id}
-			getItemLabel={(x) => x.name}
-			getItemType={(x) => <Kbd hotkey={x.hotkey} />}
-			items={items}
-			open={open}
-			onOpenChange={onOpenChange}
-			onSelectItem={runHotkey}
-			placeholder="Search hotkeys…"
-		/>
-	);
-};
-
-type BranchPickerOption = {
-	id: string;
-	label: string;
-	branch: BranchOperand;
-};
-
-const segmentToBranchPickerOption = ({
-	segment,
-	stackId,
-}: {
-	segment: Segment;
-	stackId: string;
-}): BranchPickerOption | null => {
-	const refName = segment.refName;
-	if (!refName) return null;
-
-	return {
-		id: JSON.stringify([stackId, refName.fullNameBytes]),
-		label: refName.displayName,
-		branch: { stackId, branchRef: refName.fullNameBytes },
-	};
-};
-
-const stackToBranchPickerOptions = (stack: Stack): Array<BranchPickerOption> => {
-	// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-	const stackId = stack.id!;
-	return stack.segments.flatMap((segment): Array<BranchPickerOption> => {
-		const option = segmentToBranchPickerOption({ segment, stackId });
-		return option ? [option] : [];
-	});
-};
-
-const BranchPicker: FC<{
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	onSelectBranch: (branch: BranchOperand) => void;
-}> = ({ open, onOpenChange, onSelectBranch }) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const selectBranch = (option: BranchPickerOption) => {
-		onOpenChange(false);
-		onSelectBranch(option.branch);
-	};
-
-	return (
-		<PickerDialog
-			ariaLabel="Select branch"
-			closeLabel="Close branch picker"
-			emptyLabel="No results found."
-			getItemKey={(x) => x.id}
-			getItemLabel={(x) => x.label}
-			getItemType={() => "Branch"}
-			itemToStringValue={(x) => x.label}
-			items={[
-				{
-					value: "Branches",
-					items: headInfo?.stacks.flatMap(stackToBranchPickerOptions) ?? [],
-				},
-			]}
-			open={open}
-			onOpenChange={onOpenChange}
-			onSelectItem={selectBranch}
-			placeholder="Search for branches…"
-		/>
-	);
-};
-
-type ApplyBranchPickerOption = {
-	branchRef: string;
-	label: string;
-	type: string;
-};
-
-const branchListingToApplyBranchPickerOptions = (
-	branch: BranchListing,
-): Array<ApplyBranchPickerOption> => {
-	if (branch.hasLocal)
-		return [
-			{
-				branchRef: `refs/heads/${branch.name}`,
-				label: branch.name,
-				type: "Local",
-			},
-		];
-
-	return branch.remotes.map((remote) => ({
-		branchRef: `refs/remotes/${remote}/${branch.name}`,
-		label: branch.name,
-		type: remote,
-	}));
-};
-
-const ApplyBranchPicker: FC<{
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	projectId: string;
-}> = ({ open, onOpenChange, projectId }) => {
-	const branchesQuery = useQuery(
-		listBranchesQueryOptions({ projectId, filter: { local: null, applied: false } }),
-	);
-	const items = (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions);
-	const applyBranch = useApplyBranch();
-	const statusLabel =
-		items.length === 0
-			? branchesQuery.isPending
-				? "Loading branches…"
-				: branchesQuery.isError
-					? "Unable to load branches."
-					: undefined
-			: undefined;
-
-	const selectBranch = (option: ApplyBranchPickerOption) => {
-		onOpenChange(false);
-		applyBranch.mutate({ projectId, existingBranch: option.branchRef });
-	};
-
-	return (
-		<PickerDialog
-			ariaLabel="Apply branch"
-			closeLabel="Close apply branch picker"
-			emptyLabel="No available branches found."
-			getItemKey={(x) => x.branchRef}
-			getItemLabel={(x) => x.label}
-			getItemType={(x) => x.type}
-			itemToStringValue={(x) => x.label}
-			items={[
-				{
-					value: "Available branches",
-					items: (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions),
-				},
-			]}
-			open={open}
-			onOpenChange={onOpenChange}
-			onSelectItem={selectBranch}
-			placeholder="Search for branches to apply…"
-			statusLabel={statusLabel}
-		/>
-	);
-};
-
 const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
-	const detailsFullscreen = useAppSelector((state) =>
-		selectProjectDetailsFullscreen(state, projectId),
+	const detailsFullWindow = useAppSelector((state) =>
+		selectProjectDetailsFullWindow(state, projectId),
 	);
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const activeElement = useActiveElement();
 	const focusedSelectionScope = getFocusedSelectionScope(activeElement);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const outlineVisible = !detailsFullscreen;
+	const outlineVisible = !detailsFullWindow;
 
 	const restoreSnapshotMutation = useRestoreSnapshot({ projectId });
 
@@ -387,23 +156,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	]);
 };
 
-const ActivitySpinner: FC = () => {
-	const fetchingCount = useIsFetching();
-	const mutatingCount = useIsMutating();
-
-	const isFetching = fetchingCount > 0;
-	const isMutating = mutatingCount > 0;
-
-	const status = Match.value({ isFetching, isMutating }).pipe(
-		Match.when({ isFetching: true, isMutating: true }, () => "Syncing"),
-		Match.when({ isFetching: true }, () => "Loading"),
-		Match.when({ isMutating: true }, () => "Saving"),
-		Match.orElse(() => null),
-	);
-
-	return status !== null && <Icon name="spinner" aria-label={status} />;
-};
-
 const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> => {
 	const segmentItems = (stackId: string, segment: Segment): Array<Operand> => [
 		...(segment.refName
@@ -413,15 +165,12 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 	];
 
 	return [
-		changesSectionOperand,
+		uncommittedChangesOperand,
 
 		...reverse(headInfo?.stacks ?? []).flatMap((stack) => {
 			// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 			const stackId = stack.id!;
-			return [
-				stackOperand({ stackId }),
-				...stack.segments.flatMap((segment) => segmentItems(stackId, segment)),
-			];
+			return stack.segments.flatMap((segment) => segmentItems(stackId, segment));
 		}),
 	];
 };
@@ -469,13 +218,55 @@ const useOutlineNavigationIndex = ({
 	return { items: filteredItems, indexByKey };
 };
 
+type ProjectPickerProps = {
+	open: boolean;
+	projects: Array<ProjectForFrontend>;
+	selectedProjectId: string;
+	onOpenChange: (open: boolean) => void;
+};
+
+const ProjectPicker: FC<ProjectPickerProps> = (p) => {
+	const navigate = useNavigate();
+
+	const selectProject = (project: ProjectForFrontend) => {
+		p.onOpenChange(false);
+		void navigate({
+			to: "/project/$id/workspace",
+			params: { id: project.id },
+		});
+		window.localStorage.setItem(lastOpenedProjectKey, project.id);
+	};
+
+	return (
+		<PickerDialog
+			ariaLabel="Select project"
+			closeLabel="Close project picker"
+			emptyLabel="No projects found."
+			getItemKey={(project) => project.id}
+			getItemLabel={(project) => project.title}
+			getItemType={(project) => (project.id === p.selectedProjectId ? "Current" : "Project")}
+			itemToStringValue={(project) => project.title}
+			items={[
+				{
+					value: "Projects",
+					items: p.projects,
+				},
+			]}
+			open={p.open}
+			onOpenChange={p.onOpenChange}
+			onSelectItem={selectProject}
+			placeholder="Search projects…"
+		/>
+	);
+};
+
 const WorkspacePage: FC = () => {
 	const dispatch = useAppDispatch();
 
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
-	const detailsFullscreen = useAppSelector((state) =>
-		selectProjectDetailsFullscreen(state, projectId),
+	const detailsFullWindow = useAppSelector((state) =>
+		selectProjectDetailsFullWindow(state, projectId),
 	);
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -507,128 +298,41 @@ const WorkspacePage: FC = () => {
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
-	const openApplyBranchPicker = () => {
-		dispatch(projectActions.openApplyBranchPicker({ projectId }));
+	const setProjectPickerOpen = (open: boolean) => {
+		if (open) dispatch(projectActions.openProjectPicker({ projectId }));
+		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
-	const branchCreateMutation = useBranchCreate();
-	const branchCheckoutNewMutation = useBranchCheckoutNew();
-	const createIndependentBranch = () => {
-		branchCreateMutation.mutate(
-			{
-				projectId,
-				newRef: null,
-				placement: { type: "independent" },
-			},
-			{
-				onSuccess: (response) => {
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: response.newRef.fullNameBytes,
-					});
-					if (newBranch) selectBranch(newBranch);
-				},
-			},
-		);
-	};
-	const resetWorkspace = () => {
-		branchCheckoutNewMutation.mutate(
-			{ projectId, name: null },
-			{
-				onSuccess: (response) => {
-					const workspaceRef = response.workspace.headInfo.workspaceRef;
-					if (!workspaceRef) return;
-
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: workspaceRef.fullNameBytes,
-					});
-					if (newBranch) selectBranch(newBranch);
-				},
-			},
-		);
+	const openProjectPicker = () => {
+		dispatch(projectActions.openProjectPicker({ projectId }));
 	};
 
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const rebaseUpdates =
-		headInfo?.stacks.flatMap((stack): Array<BottomUpdate> => {
-			const relativeTo = stackBottomRelativeTo(stack);
-			return relativeTo ? [{ kind: "rebase", selector: relativeTo }] : [];
-		}) ?? [];
-	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream();
-	const updateWorkspace = () => {
-		workspaceIntegrateUpstreamMutation.mutate({ projectId, updates: rebaseUpdates, dryRun: false });
-	};
-	const toggleDetailsFullscreen = () => {
+	const toggleDetailsFullWindow = () => {
 		if (
-			!detailsFullscreen &&
+			!detailsFullWindow &&
 			getFocusedSelectionScope(document.activeElement) === ("outline" satisfies SelectionScope)
 		)
 			requestAnimationFrame(() => focusSelectionScope("diff"));
 
-		dispatch(projectActions.toggleDetailsFullscreen({ projectId }));
+		dispatch(projectActions.toggleDetailsFullWindow({ projectId }));
 	};
-	// This should be false if all stacks are up-to-date, but we're currently
-	// lacking this information:
-	// https://linear.app/gitbutler/issue/GB-1560/add-information-about-the-relation-to-the-upstream-to-the-head-info
-	const canUpdateWorkspace =
-		outlineMode._tag === "Default" &&
-		rebaseUpdates.length > 0 &&
-		!workspaceIntegrateUpstreamMutation.isPending;
-
-	const canCreateIndependentBranch =
-		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
-
-	const canResetWorkspace = outlineMode._tag === "Default" && !branchCheckoutNewMutation.isPending;
-
-	const canApplyBranch = outlineMode._tag === "Default";
 
 	useHotkeys([
 		{
-			hotkey: workspaceHotkeys.applyBranch.hotkey,
-			callback: openApplyBranchPicker,
+			hotkey: workspaceHotkeys.toggleDetailsFullWindow.hotkey,
+			callback: toggleDetailsFullWindow,
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.applyBranch.meta,
-				enabled: canApplyBranch,
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.createIndependentBranch.hotkey,
-			callback: createIndependentBranch,
-			options: {
-				conflictBehavior: "allow",
-				enabled: canCreateIndependentBranch,
-				meta: workspaceHotkeys.createIndependentBranch.meta,
-				ignoreInputs: true,
-				requireReset: true,
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.updateWorkspace.hotkey,
-			callback: updateWorkspace,
-			options: {
-				conflictBehavior: "allow",
-				enabled: canUpdateWorkspace,
-				meta: workspaceHotkeys.updateWorkspace.meta,
-				ignoreInputs: true,
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.toggleDetailsFullscreen.hotkey,
-			callback: toggleDetailsFullscreen,
-			options: {
-				conflictBehavior: "allow",
-				meta: workspaceHotkeys.toggleDetailsFullscreen.meta,
+				meta: workspaceHotkeys.toggleDetailsFullWindow.meta,
 				ignoreInputs: true,
 			},
 		},
 		{
 			hotkey: "Escape",
-			callback: toggleDetailsFullscreen,
+			callback: toggleDetailsFullWindow,
 			options: {
 				conflictBehavior: "allow",
-				enabled: detailsFullscreen,
+				enabled: detailsFullWindow,
 			},
 		},
 	]);
@@ -661,139 +365,59 @@ const WorkspacePage: FC = () => {
 	const deferredOutlineSelection = useDeferredValue(outlineSelection);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+
+	useHotkey(globalHotkeys.selectProject.hotkey, openProjectPicker, {
+		enabled: projects.length > 0,
+		meta: globalHotkeys.selectProject.meta,
+	});
+
+	const layoutId = `project=${projectId}:workspace`;
+	const panelIds: Array<PanelId> = detailsFullWindow
+		? ["details-panel"]
+		: ["outline-panel", "details-panel"];
+	const workspaceLayout = useDefaultLayout({
+		id: layoutId,
+		panelIds,
+	});
+
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
 	return (
 		<>
-			<div className={classes(styles.page, detailsFullscreen && styles.pageDetailsFullscreen)}>
-				{!detailsFullscreen && (
-					<div className={styles.outlinePanel}>
-						<header className={styles.workspaceControls}>
-							<div className={styles.workspaceControlsLeft}>
-								<h1 className={classes("text-15", "text-bold", styles.workspaceName)}>
-									{selectedProject.title}
-								</h1>
-								<ActivitySpinner />
-							</div>
-
-							<div className={styles.workspaceControlsActions}>
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label="Switch to new branch"
-										className={getButtonClassName({ iconOnly: true })}
-										onClick={resetWorkspace}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={!canResetWorkspace} />}
-									>
-										{branchCheckoutNewMutation.isPending ? (
-											<Icon name="spinner" />
-										) : (
-											<Icon name="undo" />
-										)}
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>Switch to new branch</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label={workspaceHotkeys.updateWorkspace.meta.name}
-										className={getButtonClassName({ iconOnly: true })}
-										onClick={updateWorkspace}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={!canUpdateWorkspace} />}
-									>
-										<Icon name="arrow-line-down" />
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup
-												render={<TooltipPopup kbd={workspaceHotkeys.updateWorkspace.hotkey} />}
-											>
-												{workspaceHotkeys.updateWorkspace.meta.name}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label={workspaceHotkeys.applyBranch.meta.name}
-										className={getButtonClassName({ iconOnly: true })}
-										onClick={openApplyBranchPicker}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={!canApplyBranch} />}
-									>
-										<Icon name="plus" />
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup
-												render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
-											>
-												{workspaceHotkeys.applyBranch.meta.name}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-							</div>
-						</header>
-
-						<div className={styles.navContainer}>
-							<ToggleGroup
-								render={<ToggleGroupStyles />}
-								aria-label="Navigation"
-								value={["workspace"]}
-							>
-								<Toggle render={<ToggleStyles />} value="workspace">
-									<Icon name="workbench" />
-									Workspace
-								</Toggle>
-								<Toggle render={<ToggleStyles />} value="upstream" disabled>
-									<Icon name="inbox" />
-									Upstream
-								</Toggle>
-								<Toggle render={<ToggleStyles />} value="branches" disabled>
-									<Icon name="branch" />
-									Branches
-								</Toggle>
-							</ToggleGroup>
-						</div>
-
-						<OutlineTree
-							id={"outline" satisfies SelectionScope}
-							data-selection-scope
-							tabIndex={0}
-							navigationIndex={outlineNavigationIndex}
-							absorptionTargetKeys={absorptionTargetKeys}
-							// Focus on page load.
-							ref={(el) => {
-								// Don't steal focus if this component is mounted later on.
-								if (document.activeElement !== document.body) return;
-
-								el?.focus({ focusVisible: false });
-							}}
-						/>
-					</div>
+			<Group
+				id={layoutId}
+				className={styles.page}
+				defaultLayout={workspaceLayout.defaultLayout}
+				onLayoutChanged={workspaceLayout.onLayoutChanged}
+			>
+				{!detailsFullWindow && (
+					<>
+						<Panel
+							id={"outline-panel" satisfies PanelId}
+							className={styles.panel}
+							minSize={330}
+							defaultSize={400}
+							groupResizeBehavior="preserve-pixel-size"
+						>
+							<Outline
+								projectId={projectId}
+								project={selectedProject}
+								navigationIndex={outlineNavigationIndex}
+								absorptionTargetKeys={absorptionTargetKeys}
+							/>
+						</Panel>
+						<Separator className={styles.resizeHandle} />
+					</>
 				)}
 
-				<Details
-					key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
-					style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}
-					outlineSelection={deferredOutlineSelection}
-					detailsFullscreen={detailsFullscreen}
-					onDetailsFullscreenChange={(fullscreen) =>
-						dispatch(projectActions.setDetailsFullscreen({ projectId, fullscreen }))
-					}
-				/>
-			</div>
+				<Panel id={"details-panel" satisfies PanelId} className={styles.panel}>
+					<Details
+						key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
+						outlineSelection={deferredOutlineSelection}
+					/>
+				</Panel>
+			</Group>
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({
@@ -805,6 +429,14 @@ const WorkspacePage: FC = () => {
 						<BranchPicker open onOpenChange={setBranchPickerOpen} onSelectBranch={selectBranch} />
 					),
 					CommandPalette: () => <CommandPalette open onOpenChange={setCommandPaletteOpen} />,
+					ProjectPicker: () => (
+						<ProjectPicker
+							open
+							projects={projects}
+							selectedProjectId={projectId}
+							onOpenChange={setProjectPickerOpen}
+						/>
+					),
 				}),
 			)}
 		</>

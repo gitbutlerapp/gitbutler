@@ -1,11 +1,11 @@
 use anyhow::Context as _;
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BStr, BString};
 use but_core::{DiffSpec, HunkHeader, ref_metadata::StackId};
 use but_hunk_assignment::HunkAssignment;
 
 use crate::{
     CliId,
-    id::{ShortId, UncommittedCliId},
+    id::{ShortId, UncommittedHunkOrFile},
 };
 
 #[cfg(feature = "legacy")]
@@ -40,6 +40,7 @@ impl<'a> DiffSpecBuilder<'a> {
         }
     }
 
+    #[expect(dead_code)] // TODO: remove this when we're removing assignments
     pub fn with_scope_to_stack(mut self, scope_to_stack: Option<StackId>) -> Self {
         self.scope_to_stack = scope_to_stack;
         self
@@ -48,7 +49,9 @@ impl<'a> DiffSpecBuilder<'a> {
     #[expect(dead_code)]
     pub fn push_changes_from_id(&mut self, id: &CliId) -> anyhow::Result<()> {
         match id {
-            CliId::Uncommitted(uncommitted) => self.push_changes_from_uncommitted(uncommitted),
+            CliId::UncommittedHunkOrFile(uncommitted) => {
+                self.push_changes_from_uncommitted(uncommitted)
+            }
             CliId::PathPrefix {
                 id,
                 hunk_assignments,
@@ -56,20 +59,20 @@ impl<'a> DiffSpecBuilder<'a> {
             CliId::CommittedFile {
                 commit_id,
                 path,
-                id,
-            } => self.push_changes_from_committed_file(*commit_id, path.clone(), id),
+                id: _,
+            } => self.push_changes_from_committed_file(*commit_id, path.as_ref()),
             CliId::Branch { name, id, stack_id } => {
                 self.push_changes_from_branch(name, id, *stack_id)
             }
             CliId::Commit { commit_id, id } => self.push_changes_from_commit(*commit_id, id),
-            CliId::Unassigned { id } => self.push_changes_from_unassigned(id),
+            CliId::Uncommitted { id: _ } => self.push_changes_from_uncommitted_area(),
             CliId::Stack { id: _, stack_id } => self.push_changes_from_stack(*stack_id),
         }
     }
 
     pub fn push_changes_from_uncommitted(
         &mut self,
-        uncommitted: &UncommittedCliId,
+        uncommitted: &UncommittedHunkOrFile,
     ) -> anyhow::Result<()> {
         let scope_to_stack = self.scope_to_stack;
         let assignments = uncommitted
@@ -95,10 +98,9 @@ impl<'a> DiffSpecBuilder<'a> {
     pub fn push_changes_from_committed_file(
         &mut self,
         commit_id: gix::ObjectId,
-        path: BString,
-        _id: &ShortId,
+        path: &BStr,
     ) -> anyhow::Result<()> {
-        self.push_changes_from_path_in_commit(path.as_bstr(), commit_id, "First parent")
+        self.push_changes_from_path_in_commit(path, commit_id, "First parent")
     }
 
     pub fn push_changes_from_path_in_commit(
@@ -131,7 +133,7 @@ impl<'a> DiffSpecBuilder<'a> {
         Ok(())
     }
 
-    pub fn push_changes_from_unassigned(&mut self, _id: &ShortId) -> anyhow::Result<()> {
+    pub fn push_changes_from_uncommitted_area(&mut self) -> anyhow::Result<()> {
         let changes = self.worktree_changes()?.to_vec();
         let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
             self.db.hunk_assignments_mut()?,
@@ -192,6 +194,86 @@ impl<'a> DiffSpecBuilder<'a> {
 
     pub fn into_diff_specs(self) -> Vec<DiffSpec> {
         but_workspace::flatten_diff_specs(self.diff_specs)
+    }
+
+    /// Reconciles the builder's [`DiffSpec`]s by sorting, coalescing and deduplicating all of the
+    /// specs based on worktree changes. This only works reliably if the [`DiffSpec`]s are sourced
+    /// from the worktree changes. The end result is that there is at most one [`DiffSpec`] per file
+    /// and no duplicated hunks.
+    ///
+    /// WARNING: Does not support overlapping hunks - results may get very strange if such hunks are
+    /// in the specs. The implementation naively assumes that hunk equality checks are sufficient
+    /// for reconciling changes, whereas with overlapping hunks that is not the case.
+    pub fn reconcile_worktree_diff_specs(&mut self) -> anyhow::Result<()> {
+        use bstr::ByteSlice;
+        use std::collections::HashMap;
+
+        // This looks a bit odd, but we need to populate the worktree_changes cache without holding
+        // onto the mut self reference. Otherwise we cant sort the diff_specs later.
+        self.worktree_changes()?;
+        let worktree_changes = self
+            .worktree_changes
+            .as_deref()
+            .expect("BUG: worktree_changes cache should be populated!");
+
+        #[derive(Hash, Eq, PartialEq)]
+        struct DiffSpecKey<'a> {
+            path: &'a BStr,
+            previous_path: Option<&'a BStr>,
+        }
+
+        let mut diff_spec_order: HashMap<DiffSpecKey<'_>, usize> = HashMap::new();
+        for (i, change) in worktree_changes.iter().enumerate() {
+            use but_core::ui::TreeStatus;
+
+            let previous_path = match &change.status {
+                TreeStatus::Rename {
+                    previous_path_bytes,
+                    ..
+                } => Some(previous_path_bytes.as_bstr()),
+                _ => None,
+            };
+
+            let key = DiffSpecKey {
+                path: change.path_bytes.as_bstr(),
+                previous_path,
+            };
+            diff_spec_order.insert(key, i);
+        }
+
+        self.diff_specs.sort_by_key(|item| {
+            let key = DiffSpecKey {
+                path: item.path.as_bstr(),
+                previous_path: item.previous_path.as_ref().map(|p| p.as_bstr()),
+            };
+            *diff_spec_order
+                .get(&key)
+                .expect("BUG: diff_spec_order did not contain all DiffSpecs")
+        });
+
+        let mut reconciled_changes: Vec<DiffSpec> = vec![];
+        for change in self.diff_specs.iter() {
+            match reconciled_changes.last_mut() {
+                Some(last) if last.path == change.path => {
+                    for hunk in change.hunk_headers.iter() {
+                        match last.hunk_headers.binary_search(hunk) {
+                            Ok(_) => (),
+                            Err(i) => last.hunk_headers.insert(i, *hunk),
+                        }
+                    }
+                }
+                Some(_) | None => {
+                    let mut change = change.clone();
+                    change.hunk_headers.sort();
+                    change.hunk_headers.dedup();
+                    reconciled_changes.push(change)
+                }
+            }
+        }
+
+        self.diff_specs = reconciled_changes;
+
+        Ok(())
     }
 
     fn worktree_changes(&mut self) -> anyhow::Result<&[but_core::ui::TreeChange]> {

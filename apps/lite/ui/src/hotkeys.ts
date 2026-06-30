@@ -1,15 +1,31 @@
 import {
+	formatForDisplay,
 	normalizeRegisterableHotkey,
 	type Hotkey,
 	type HotkeyMeta,
 	type RegisterableHotkey,
 } from "@tanstack/react-hotkeys";
 
+const modifierOrder = ["⌃", "⌥", "⇧", "⌘"];
+
+const sortModifiers = (keys: Array<string>): Array<string> => [
+	...keys
+		.filter((key) => modifierOrder.includes(key))
+		.toSorted((a, b) => modifierOrder.indexOf(a) - modifierOrder.indexOf(b)),
+	...keys.filter((key) => !modifierOrder.includes(key)),
+];
+
+// This wrapper ensures the format matches Apple's HIG and thereby also what
+// we show in context menus.
+// https://github.com/TanStack/hotkeys/issues/136
+export const formatForDisplaySorted = (hotkey: Parameters<typeof formatForDisplay>[0]): string =>
+	sortModifiers(formatForDisplay(hotkey).split(" ")).join(" ");
+
 export type CommandGroup =
 	| "Branch"
 	| "Branches"
 	| "Changes file"
-	| "Changes"
+	| "Uncommitted changes"
 	| "Commit file"
 	| "Commit"
 	| "Details"
@@ -65,7 +81,7 @@ export const toElectronAccelerator = (hotkey: RegisterableHotkey): string | unde
 };
 
 type HotkeyWithMeta = {
-	hotkey: Hotkey;
+	hotkey: RegisterableHotkey;
 	meta: HotkeyMeta;
 };
 
@@ -105,27 +121,27 @@ export const workspaceHotkeys = {
 		},
 	},
 	focusPreviousSelectionScope: {
-		hotkey: "H",
+		hotkey: "Mod+Alt+ArrowLeft",
 		meta: { group: "Selection scopes", name: "Focus previous selection scope" },
 	},
 	focusNextSelectionScope: {
-		hotkey: "L",
+		hotkey: "Mod+Alt+ArrowRight",
 		meta: { group: "Selection scopes", name: "Focus next selection scope" },
 	},
 	toggleFiles: {
 		hotkey: "F",
 		meta: { group: "Files", name: "Toggle files" },
 	},
-	toggleDetailsFullscreen: {
+	toggleDetailsFullWindow: {
 		hotkey: ".",
-		meta: { group: "Details", name: "Toggle fullscreen details" },
+		meta: { group: "Details", name: "Toggle full window details" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const outlineHotkeys = {
 	absorb: {
 		hotkey: "A",
-		meta: { group: "Changes", name: "Absorb" },
+		meta: { group: "Uncommitted changes", name: "Absorb" },
 	},
 	amendCommit: {
 		hotkey: "Shift+A",
@@ -143,9 +159,25 @@ export const outlineHotkeys = {
 		hotkey: "Space",
 		meta: { group: "Branch", name: "Check branch commits" },
 	},
+	insertEmptyCommit: {
+		hotkey: "N",
+		meta: {
+			// TODO: this also works for branch selections, not just commit selections. is this group correct?
+			group: "Commit",
+			name: "Insert empty commit",
+		},
+	},
 	createDependentBranchAbove: {
-		hotkey: "N", // like lazygit
+		hotkey: "B",
 		meta: { group: "Branch", name: "Create dependent branch above" },
+	},
+	openCommitInBrowser: {
+		hotkey: "O",
+		meta: { group: "Commit", name: "Open commit in browser" },
+	},
+	openPRInBrowser: {
+		hotkey: "O",
+		meta: { group: "Branch", name: "Open pull request in browser" },
 	},
 	setCommitTarget: {
 		hotkey: "Shift+C",
@@ -156,12 +188,12 @@ export const outlineHotkeys = {
 		meta: { group: "Outline", name: "Compose commit message" },
 	},
 	deleteCommit: {
-		hotkey: "Mod+Backspace",
+		hotkey: globalThis.window.lite.platform === "darwin" ? "Mod+Backspace" : "Delete",
 		meta: { group: "Commit", name: "Delete commit" },
 	},
 	composeCommitMessageFromChanges: {
-		hotkey: "Enter",
-		meta: { group: "Changes", name: "Compose commit message" },
+		hotkey: "R",
+		meta: { group: "Uncommitted changes", name: "Compose commit message" },
 	},
 	moveCommitDown: {
 		hotkey: "Alt+ArrowDown",
@@ -180,11 +212,11 @@ export const outlineHotkeys = {
 		meta: { group: "Stack", name: "Update stack (rebases)" },
 	},
 	renameBranch: {
-		hotkey: "Enter",
+		hotkey: "R",
 		meta: { group: "Branch", name: "Rename branch" },
 	},
 	rewordCommit: {
-		hotkey: "Enter",
+		hotkey: "R",
 		meta: { group: "Commit", name: "Reword commit" },
 	},
 	selectBranch: {
@@ -200,15 +232,15 @@ export const outlineHotkeys = {
 export const changesHotkeys = {
 	amendCommit: {
 		hotkey: "Mod+Alt+Enter",
-		meta: { group: "Changes", name: "Amend" },
+		meta: { group: "Uncommitted changes", name: "Amend" },
 	},
 	commit: {
 		hotkey: "Mod+Enter",
-		meta: { group: "Changes", name: "Commit" },
+		meta: { group: "Uncommitted changes", name: "Commit" },
 	},
 	selectCommitTarget: {
 		hotkey: "Mod+Shift+B",
-		meta: { group: "Changes", name: "Select commit target" },
+		meta: { group: "Uncommitted changes", name: "Select commit target" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
@@ -216,6 +248,13 @@ export const changesFileHotkeys = {
 	absorb: {
 		hotkey: "A",
 		meta: { group: "Changes file", name: "Absorb" },
+	},
+} satisfies Record<string, HotkeyWithMeta>;
+
+export const pullRequestHotkeys = {
+	update: {
+		hotkey: "Mod+Enter",
+		meta: { group: "Details", name: "Update pull request" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
@@ -227,10 +266,6 @@ export const selectionOperationHotkeys = {
 	cut: {
 		hotkey: "Mod+X",
 		meta: { group: "Selection scopes", name: "Cut" },
-	},
-	squash: {
-		hotkey: "S",
-		meta: { group: "Selection scopes", name: "Squash" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 

@@ -29,11 +29,12 @@ export class PostHogWrapper {
 		});
 	}
 
-	captureOnboarding(event: OnboardingEvent, error?: unknown) {
+	captureOnboarding(event: OnboardingEvent, error?: unknown, extraProperties?: Properties) {
 		const context = this.eventContext.getAll();
 		const parsedError = parseQueryError(error);
 		const properties = {
 			...context,
+			...extraProperties,
 			error_title: parsedError.name,
 			error_message: parsedError.message,
 			error_code: parsedError.code,

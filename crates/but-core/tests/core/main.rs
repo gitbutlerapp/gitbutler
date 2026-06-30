@@ -10,5 +10,6 @@ mod ref_metadata;
 mod settings;
 mod snapshot;
 mod sync;
+mod tree;
 mod unified_diff;
 mod worktree;

@@ -47,18 +47,20 @@ Every object gets a short, human-readable CLI ID shown in `but status`. IDs are 
 Commits:    1b, 8f, c2     (short hex prefixes of the SHA, long enough to be unique)
 Branches:   fe, bu, ui     (unique 2–3 char substring of the branch name, e.g. "fe" from "feature-x";
                              falls back to auto-generated ID if no unique substring exists)
-Files:      g0, h0, i0     (auto-generated, 2–3 chars)
-Hunks:      j0, k1, l2     (auto-generated, 2–3 chars)
+Files:      g0, qs, uo     (derived from the file path, 2–3 chars)
+Hunks:      qs:5, uo:d     (<file-id>:<hunk-id>; the hunk part is derived from the hunk's content)
 Stacks:     m0, n0          (auto-generated, 2–3 chars)
 ```
 
 **Why?** Git commit SHAs are long (40 chars). CLI IDs are short (2-3 chars) and unique within your current workspace context.
 
+**Stability:** File/hunk IDs copied from the current output generally remain usable across ordinary commits, so you can reference several in a row, including across chained `but commit` calls. If an ID stops resolving, re-read the diff and continue. Commit IDs are SHA prefixes that get rewritten by history edits (`amend`, `squash`, `move`, `uncommit`) — amending a commit also gives every commit stacked above it a new ID — so run those one at a time and re-read commit IDs from the returned status rather than chaining.
+
 **Usage:** Pass these IDs as arguments to commands:
 
 ```bash
 but commit <branch-id> -m "message"      # Commit to branch
-but amend <file-or-hunk-id> <commit-id>  # Amend file or hunk into commit
+but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>  # Amend file(s) or hunk(s) into commit
 but rub <commit-id> <commit-id>          # Squash commits
 ```
 
@@ -129,13 +131,13 @@ The operation performed depends on what you combine:
 | Commit | Branch | Move commit to branch  | `but rub c2 bu` |
 | Commit | `zz`   | Undo commit            | `but rub c2 zz` |
 
-`zz` is a special target meaning "unassigned" (no branch).
+`zz` is a special target meaning "uncommitted" (no branch).
 
 ### Higher-Level Conveniences
 
 These commands are wrappers around `but rub`:
 
-- `but amend <file> <commit>` = `but rub <file> <commit>`
+- `but amend` = explicitly amend uncommitted files/hunks into a known commit
 - `but squash` = Multiple `but rub <commit> <commit>` operations
 - `but move` = commit move/reorder with position control, plus branch stack/tear-off (`<branch> <target-branch>` and `<branch> zz`)
 
@@ -186,10 +188,9 @@ but commit empty --after c3
 Example workflow:
 
 ```bash
-but commit empty --before c5
-but reword <empty-commit-id> -m "TODO: Add error handling"
+but commit empty --before c5 -m "TODO: Add error handling"
 # Later, amend the error handling changes into the placeholder
-but amend <file-id> <empty-commit-id>
+but amend <empty-commit-id> --changes <file-id>
 ```
 
 ## Operation History (Oplog)
@@ -287,6 +288,6 @@ Git commands that don't modify state are safe to use:
 - `git commit` - Commits to the workspace merge commit, not your branch
 - `git checkout` - Breaks workspace model
 - `git rebase` - Conflicts with GitButler's management
-- `git merge` - Use `but merge` instead
+- `git merge` - Use `but land` instead
 
 **Rule of thumb:** If it reads, it's fine. If it writes, use `but` instead.

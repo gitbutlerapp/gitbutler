@@ -26,7 +26,6 @@ gitbutler-repo.workspace = true
 gitbutler-cherry-pick.workspace = true
 
 anyhow.workspace = true
-git2.workspace = true
 serde.workspace = true
 itertools.workspace = true
 strum = { version = "0.27", features = ["derive"] }

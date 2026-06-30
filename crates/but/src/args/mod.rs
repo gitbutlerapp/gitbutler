@@ -11,10 +11,8 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-#[cfg(feature = "legacy")]
 use crate::args::atoms::CliIdArg;
 
-#[cfg(feature = "legacy")]
 pub mod atoms;
 
 #[derive(Debug, clap::Parser)]
@@ -252,7 +250,7 @@ pub enum Subcommands {
     ///
     /// Use `but commit empty --before <target>` or `but commit empty --after <target>`
     /// to insert a blank commit. This is useful for creating a placeholder
-    /// commit that you can amend changes into later using `but mark`, `but rub` or `but absorb`.
+    /// commit that you can amend changes into later using `but rub` or `but absorb`.
     ///
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
@@ -260,8 +258,18 @@ pub enum Subcommands {
 
     #[cfg(all(feature = "legacy", feature = "but-2"))]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    #[clap(hide = true)]
-    Commit2(commit2::Platform),
+    #[clap(hide = true, name = "_commit2")]
+    _Commit2(commit2::Platform),
+
+    #[cfg(all(feature = "legacy", feature = "but-2"))]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, name = "_squash2")]
+    _Squash2(squash2::Platform),
+
+    #[cfg(all(feature = "legacy", feature = "but-2"))]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, name = "_move2")]
+    _Move2(move2::Platform),
 
     /// Stages a file or hunk to a specific branch.
     ///
@@ -300,31 +308,46 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Branch(branch::Platform),
 
-    /// Merge a branch into your local target branch.
+    /// Land a branch directly onto the target branch.
     ///
-    /// If the target branch is local (`gb-local`), finds the local branch that the target
-    /// references (e.g., `gb-local/master` becomes `master`) and merges the specified
-    /// branch into that local branch. After merging, runs the equivalent of `but pull`
-    /// to update all branches.
+    /// Lands the branch onto the configured target (for example `origin/master`) without going
+    /// through a pull request — the "just push to the target" workflow. By default the target is
+    /// fast-forwarded to the branch tip when possible (no merge commit); otherwise a merge commit
+    /// is created. For a local (`gb-local`) target the refs are moved locally; otherwise the result
+    /// is pushed to the remote. After landing, the remaining applied branches are reconciled onto
+    /// the moved target, just like `but pull`.
+    ///
+    /// Requires an active GitButler workspace. Updating the target is direct and not easily
+    /// reversible, so a confirmation is required (use `--yes` to skip it in scripts).
+    ///
+    /// When NOT to use this: if your project lands changes through pull requests / code review,
+    /// use `but push` and open a PR (`but pr new`) instead — `but land` deliberately bypasses that
+    /// process. On a real remote, a branch protected against direct pushes will reject the land.
     ///
     /// ## Examples
     ///
-    /// Merge a branch by its CLI ID:
+    /// Land a branch by its CLI ID:
     ///
     /// ```text
-    /// but merge bu
+    /// but land bu
     /// ```
     ///
-    /// Merge a branch by name:
+    /// Land a branch by name, forcing a merge commit:
     ///
     /// ```text
-    /// but merge my-feature-branch
+    /// but land my-feature-branch --no-ff
     /// ```
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Merge {
-        /// Branch ID or name to merge
+    Land {
+        /// Branch ID or name to land onto the target branch.
         branch: String,
+        /// Skip the confirmation prompt.
+        #[clap(long)]
+        yes: bool,
+        /// Always create a merge commit, even when the branch can be fast-forwarded.
+        #[clap(long)]
+        no_ff: bool,
     },
 
     /// Discard uncommitted changes from the worktree.
@@ -435,35 +458,6 @@ pub enum Subcommands {
         branch_name: String,
     },
 
-    /// Mark a commit or branch for auto-stage or auto-commit.
-    ///
-    /// Creates or removes a rule for auto-staging or auto-committing changes
-    /// to the specified target entity.
-    ///
-    /// If you mark a branch, new unstaged changes that GitButler sees when
-    /// you run any command will be automatically staged to that branch.
-    ///
-    /// If you mark a commit, new uncommitted changes will automatically be
-    /// amended into the marked commit.
-    ///
-    #[cfg(feature = "legacy")]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Mark {
-        /// The target entity that will be marked
-        target: String,
-        /// Deletes a mark
-        #[clap(long, short = 'd')]
-        delete: bool,
-    },
-
-    /// Removes any marks from the workspace.
-    ///
-    /// This will unmark anything that has been marked by the `but mark` command.
-    ///
-    #[cfg(feature = "legacy")]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Unmark,
-
     /// Push changes in a branch to remote.
     ///
     /// `but push` will update the remote with the latest commits from the
@@ -529,18 +523,18 @@ pub enum Subcommands {
     /// Each cell shows what happens when you rub SOURCE → TARGET:
     ///
     /// ```text
-    /// SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack
+    /// SOURCE ↓ / TARGET →  │ zz (uncommitted) │ Commit     │ Branch      │ Stack
     /// ─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
     /// File/Hunk            │ Unstage         │ Amend      │ Stage       │ Stage
     /// Commit               │ Undo            │ Squash     │ Move        │ -
     /// Branch (all changes) │ Unstage all     │ Amend all  │ Reassign    │ Reassign
     /// Stack (all changes)  │ Unstage all     │ -          │ Reassign    │ Reassign
-    /// Unassigned (zz)      │ -               │ Amend all  │ Stage all   │ Stage all
+    /// Uncommitted (zz)     │ -               │ Amend all  │ Stage all   │ Stage all
     /// File-in-Commit       │ Uncommit        │ Move       │ Uncommit to │ -
     /// ```
     ///
     /// Legend:
-    /// - `zz` is a special target meaning "unassigned" (no branch)
+    /// - `zz` is a special target meaning "uncommitted" (no branch)
     /// - `-` means the operation is not supported
     /// - "all changes" / "all" refers to all uncommitted changes from that source
     ///
@@ -651,21 +645,34 @@ pub enum Subcommands {
     Uncommit {
         /// Commit ID or file-in-commit ID to uncommit
         source: String,
-        /// Discard the selected committed changes instead of moving them to unassigned
+        /// Discard the selected committed changes instead of moving them to uncommitted
         #[clap(long, short = 'd')]
         discard: bool,
+        /// Show the resulting uncommitted diff after uncommitting.
+        #[clap(long, conflicts_with = "discard")]
+        diff: bool,
     },
 
-    /// Amend a file change into a specific commit and rebases any dependent commits.
+    /// Amend one or more file changes into a specific commit and rebases any dependent commits.
     ///
-    /// Wrapper for `but rub <file> <commit>`.
+    /// Use `but amend <commit> --changes <file-or-hunk>[,<file-or-hunk>...]`.
     #[cfg(feature = "legacy")]
+    #[clap(override_usage = "but amend [OPTIONS] <COMMIT> --changes <CHANGES>")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Amend {
-        /// File ID to amend
-        file: String,
-        /// Commit ID to amend into
-        commit: String,
+        /// Commit ID to amend into.
+        ///
+        /// In the legacy two-positional form, this can be the source ID.
+        #[clap(value_name = "COMMIT")]
+        target_or_source: String,
+        /// Commit ID to amend into for the legacy two-positional form.
+        #[clap(value_name = "COMMIT", hide = true)]
+        legacy_commit: Option<String>,
+        /// Uncommitted file or hunk CLI IDs to amend into the commit.
+        ///
+        /// Can be specified multiple times or as comma-separated values.
+        #[clap(long = "changes", short = 'p', value_delimiter = ',')]
+        changes: Vec<String>,
     },
 
     /// Squash commits together.
@@ -699,7 +706,7 @@ pub enum Subcommands {
     /// Commit moves:
     /// - By default, commits are moved to be before (below) the target.
     /// - Use `--after` to move the commit after (above) the target instead.
-    ///
+    /// - Use comma-separated commit IDs to move multiple commits together.
     /// - When moving to a branch, the commit is placed at the top of that branch's stack.
     ///
     /// Branch moves:
@@ -714,16 +721,34 @@ pub enum Subcommands {
     /// but move abc123 def456
     /// ```
     ///
+    /// Move multiple commits before another commit:
+    ///
+    /// ```text
+    /// but move abc123,789abc def456
+    /// ```
+    ///
     /// Move a commit after another commit:
     ///
     /// ```text
     /// but move abc123 def456 --after
     /// ```
     ///
+    /// Move multiple commits after another commit:
+    ///
+    /// ```text
+    /// but move abc123,789abc def456 --after
+    /// ```
+    ///
     /// Move a commit to a different branch (places at top):
     ///
     /// ```text
     /// but move abc123 my-feature-branch
+    /// ```
+    ///
+    /// Move multiple commits to a different branch (places at top):
+    ///
+    /// ```text
+    /// but move abc123,789abc my-feature-branch
     /// ```
     ///
     /// Stack one branch on top of another:
@@ -739,7 +764,7 @@ pub enum Subcommands {
     /// ```
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Move {
-        /// Commit/branch identifier to move
+        /// Commit/branch identifier to move. Use comma-separated commit IDs for multi-commit moves.
         source: String,
         /// Target commit/branch identifier, or `zz` to unstack a branch
         target: String,
@@ -1084,6 +1109,51 @@ pub enum Subcommands {
         target_branch: Option<String>,
     },
 
+    /// Switch to a local branch, workspace branch ID, or the GitButler workspace.
+    ///
+    /// ## Examples
+    ///
+    /// Switch to a branch:
+    ///
+    /// ```text
+    /// but switch my-feature
+    /// ```
+    ///
+    /// Switch back to the GitButler workspace:
+    ///
+    /// ```text
+    /// but switch --workspace
+    /// ```
+    ///
+    /// Create a new branch at the project target and switch to it:
+    ///
+    /// ```text
+    /// but switch --new
+    /// ```
+    ///
+    /// Create a named branch at the project target and switch to it:
+    ///
+    /// ```text
+    /// but switch --new my-feature
+    /// ```
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, group(
+        clap::ArgGroup::new("switch_target")
+            .args(["target", "workspace", "new"])
+            .required(true)
+            .multiple(true)
+    ))]
+    Switch {
+        /// Branch name, full local branch ref, workspace CLI branch ID, or new branch name with --new
+        target: Option<CliIdArg>,
+        /// Switch back to gitbutler/workspace
+        #[clap(long, short = 'w', conflicts_with_all = &["target", "new"])]
+        workspace: bool,
+        /// Create a branch at the project target and switch to it
+        #[clap(long = "new", short = 'n')]
+        new: bool,
+    },
+
     /// Manage AI agent skills for GitButler.
     ///
     /// Skills provide enhanced AI capabilities for working with GitButler through
@@ -1110,6 +1180,28 @@ pub enum Subcommands {
     /// ```
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Skill(skill::Platform),
+
+    /// Set up GitButler for AI coding agents.
+    ///
+    /// Runs a guided setup wizard for installing GitButler agent skills and
+    /// writing workflow steering instructions into supported agent instruction
+    /// files.
+    ///
+    /// ## Examples
+    ///
+    /// Start the interactive setup wizard (`but agent setup` is equivalent):
+    ///
+    /// ```text
+    /// but agent
+    /// ```
+    ///
+    /// Print the default generated steering text:
+    ///
+    /// ```text
+    /// but agent setup --print
+    /// ```
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Agent(agent::Platform),
 
     /// Open a file in the built-in text editor.
     ///
@@ -1199,8 +1291,20 @@ pub enum Subcommands {
         props: String,
     },
 
-    /// UTILITY: Generate shell completion scripts for the specified or inferred shell.
-    #[clap(hide = true)]
+    /// Generate `but` shell completions.
+    ///
+    /// ## Examples
+    ///
+    /// ```bash
+    /// # bash, put in .bashrc or .bash_profile depending on system setup
+    /// eval "$(but completions bash)"
+    ///
+    /// # zsh, put in .zshrc
+    /// eval "$(but completions zsh)"
+    ///
+    /// # fish, put in config.fish
+    /// but completions fish | source
+    /// ```
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Completions {
         /// The shell to generate completions for, or the one extracted from the `SHELL` environment variable.
@@ -1269,13 +1373,18 @@ pub enum Subcommands {
     External(Vec<OsString>),
 }
 
+pub mod agent;
 pub mod alias;
 #[cfg(feature = "legacy")]
 pub mod commit;
 #[cfg(feature = "legacy")]
 pub mod commit2;
 pub mod config;
+#[cfg(feature = "legacy")]
+pub mod move2;
 pub mod skill;
+#[cfg(feature = "legacy")]
+pub mod squash2;
 pub mod update;
 
 pub mod actions {

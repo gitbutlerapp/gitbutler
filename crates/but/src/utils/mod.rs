@@ -1,6 +1,7 @@
 use std::io::Write;
 
 mod output_channel;
+pub(crate) use output_channel::PromptLine;
 pub use output_channel::experimental::*;
 pub use output_channel::{
     Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel, OutputChannel, WriteWithUtils,
@@ -8,6 +9,8 @@ pub use output_channel::{
 
 mod object_id;
 pub use object_id::{shorten_hex_object_id, shorten_object_id, split_short_id};
+
+pub mod rejection;
 
 mod pager;
 
@@ -24,6 +27,7 @@ pub mod time;
 
 pub(crate) mod binary_path;
 pub(crate) mod diff_specs;
+pub(crate) mod targeting;
 
 pub trait ResultErrorExt {
     fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> !;

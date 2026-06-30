@@ -1,23 +1,22 @@
 use indexmap::IndexMap;
 use ratatui::{
     Frame,
-    layout::{Constraint, Flex, Layout, Rect},
+    layout::{Constraint, Layout, Rect},
     text::{Line, Span},
-    widgets::{
-        Block, BorderType, Clear, List, ListItem, Padding, Scrollbar, ScrollbarOrientation,
-        ScrollbarState,
-    },
+    widgets::{Clear, List, ListItem, Padding, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 use strum::IntoEnumIterator;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
-    command::legacy::status::tui::{KeyBinds, mode::ModeDiscriminant, render::SpanExt},
+    command::legacy::status::tui::{
+        KeyBinds, mode::ModeDiscriminant, popup::Popup, render::SpanExt,
+    },
     theme::Theme,
 };
 
 #[derive(Debug)]
-pub(super) struct Help {
+pub struct Help {
     theme: &'static Theme,
     sections: Vec<HelpSection>,
     scroll_top: usize,
@@ -26,7 +25,7 @@ pub(super) struct Help {
 impl Help {
     const HEIGHT_PERCENT: u16 = 80;
 
-    pub(super) fn new<'a>(
+    pub fn new<'a>(
         key_binds: impl IntoIterator<Item = &'a KeyBinds>,
         theme: &'static Theme,
     ) -> Self {
@@ -43,6 +42,8 @@ impl Help {
                     | ModeDiscriminant::Commit
                     | ModeDiscriminant::Move
                     | ModeDiscriminant::Details
+                    | ModeDiscriminant::MoveStack
+                    | ModeDiscriminant::Jump
                     | ModeDiscriminant::Stack => {}
                 }
 
@@ -83,7 +84,7 @@ impl Help {
         }
     }
 
-    pub(super) fn render(&self, area: Rect, frame: &mut Frame) {
+    pub fn render(&self, area: Rect, frame: &mut Frame) {
         let padding = Padding {
             left: 1,
             right: 1,
@@ -91,24 +92,10 @@ impl Help {
             bottom: 0,
         };
 
-        let width = 100;
-
-        let horizontal_layout = Layout::horizontal([Constraint::Length(width)])
-            .flex(Flex::Center)
-            .split(area);
-
-        let centered_layout = Layout::vertical([Constraint::Length(self.height(area))])
-            .flex(Flex::Center)
-            .split(horizontal_layout[0]);
-
-        frame.render_widget(Clear, centered_layout[0]);
-
-        let outer_block = Block::bordered()
+        let popup = Popup::new(self.theme, 100, self.height(area))
             .padding(padding)
-            .border_type(BorderType::Rounded)
-            .border_style(self.theme.border);
-        let inner_area = outer_block.inner(centered_layout[0]);
-        frame.render_widget(outer_block, centered_layout[0]);
+            .render(area, frame);
+        let inner_area = popup.inner;
 
         let longest_short_description = self
             .sections
@@ -119,7 +106,7 @@ impl Help {
             .unwrap_or(0) as u16;
 
         let columns_layout = Layout::horizontal([
-            Constraint::Length(11),
+            Constraint::Length(12),
             Constraint::Length(1),
             Constraint::Length(longest_short_description),
             Constraint::Length(3),
@@ -191,10 +178,10 @@ impl Help {
         let mut scrollbar_state =
             ScrollbarState::new(self.max_scroll_for_height(inner_area.height)).position(scroll_top);
         let scrollbar_area = Rect {
-            x: centered_layout[0].right().saturating_sub(1),
-            y: centered_layout[0].y.saturating_add(1),
+            x: popup.outer.right().saturating_sub(1),
+            y: popup.outer.y.saturating_add(1),
             width: 1,
-            height: centered_layout[0].height.saturating_sub(2),
+            height: popup.outer.height.saturating_sub(2),
         };
         frame.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
     }
@@ -233,11 +220,7 @@ impl Help {
             .saturating_sub(viewport_height as _)
     }
 
-    pub(super) fn handle_message(
-        self,
-        msg: HelpMessage,
-        area: Rect,
-    ) -> anyhow::Result<Option<Self>> {
+    pub fn handle_message(self, msg: HelpMessage, area: Rect) -> anyhow::Result<Option<Self>> {
         match msg {
             HelpMessage::Close => Ok(None),
             HelpMessage::ScrollUp(n) => Ok(Some(Self {
@@ -290,7 +273,7 @@ struct HelpItem {
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum HelpMessage {
+pub enum HelpMessage {
     Close,
     ScrollUp(usize),
     ScrollDown(usize),

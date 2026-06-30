@@ -14,22 +14,28 @@
 	}
 }
 
-.fileStatusIcon {
+.fileStatusBadge {
 	align-self: center;
-	&[data-char="A"] {
-		color: #64d5a6;
+	width: 12px;
+	font-weight: 700;
+	font-size: 11px;
+	font-family: var(--text-fontfamily-base);
+	text-align: right;
+
+	&[data-status-type="Addition"] {
+		color: var(--change-status-addition);
 	}
 
-	&[data-char="D"] {
-		color: #f08a8a;
+	&[data-status-type="Deletion"] {
+		color: var(--change-status-deletion);
 	}
 
-	&[data-char="M"] {
-		color: #95c9f0;
+	&[data-status-type="Modification"] {
+		color: var(--change-status-modification);
 	}
 
-	&[data-char="R"] {
-		color: #a855f7;
+	&[data-status-type="Rename"] {
+		color: var(--change-status-renaming);
 	}
 }
 

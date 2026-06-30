@@ -1,6 +1,8 @@
 use super::*;
 
 #[cfg(feature = "legacy")]
+mod amend;
+#[cfg(feature = "legacy")]
 mod commit;
 #[cfg(feature = "legacy")]
 mod reword;
@@ -125,6 +127,54 @@ mod config_ai {
                 assert!(!local);
                 assert!(!global);
             }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+}
+
+mod agent_setup {
+    use clap::Parser;
+
+    use crate::args::{
+        Args, Subcommands,
+        agent::{Platform as AgentPlatform, Subcommands as AgentCmd},
+    };
+
+    #[test]
+    fn parses_agent_setup() {
+        let args = Args::try_parse_from(["but", "agent", "setup"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::Agent(AgentPlatform {
+                cmd: Some(AgentCmd::Setup { print }),
+            }) => assert!(!print),
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_agent_setup_print() {
+        let args = Args::try_parse_from(["but", "agent", "setup", "--print"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::Agent(AgentPlatform {
+                cmd: Some(AgentCmd::Setup { print }),
+            }) => assert!(print),
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_bare_agent_as_no_subcommand() {
+        // Bare `but agent` parses with no subcommand; the handler treats this as
+        // running the setup wizard.
+        let args = Args::try_parse_from(["but", "agent"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::Agent(AgentPlatform { cmd: None }) => {}
             _ => panic!("unexpected command shape"),
         }
     }

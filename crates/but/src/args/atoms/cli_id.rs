@@ -1,7 +1,12 @@
+use bstr::BString;
+use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliError, CliId, CliResult, IdMap, args::atoms::BranchArg, bad_input, id::UncommittedCliId,
+    CliError, CliId, CliResult, IdMap,
+    args::atoms::BranchArg,
+    bad_input,
+    id::{ShortId, UncommittedHunkOrFile},
 };
 
 /// An argument atom for cli ids that can match multiple things like branches, commits, files, etc.
@@ -24,6 +29,9 @@ impl std::fmt::Display for CliIdArg {
 }
 
 impl CliIdArg {
+    #[expect(missing_docs)]
+    pub const TARGET_MISSING_HINT: &str = "Run `but status` for applicable targets.";
+
     /// Resolve the argument to something that exists in the workspace.
     ///
     /// Returns an error if attempting to resolve a branch that isn't applied, since its not in the
@@ -38,7 +46,9 @@ impl CliIdArg {
         if let Some(id) = self.try_resolve(repo, id_map, purpose, priority)? {
             Ok(id)
         } else {
-            Err(bad_input(format!("Could not find {purpose}: '{self}'")).into())
+            Err(bad_input(format!("Could not find {purpose}: '{self}'"))
+                .hint(Self::TARGET_MISSING_HINT)
+                .into())
         }
     }
 
@@ -58,10 +68,20 @@ impl CliIdArg {
         Ok(Some(match id {
             CliId::Branch { name, .. } => ResolvedCliIdArg::Branch(BranchArg(name)),
             CliId::Commit { commit_id, .. } => ResolvedCliIdArg::Commit(commit_id),
-            CliId::Uncommitted(uncommitted) => ResolvedCliIdArg::Uncommitted(Box::new(uncommitted)),
+            CliId::UncommittedHunkOrFile(uncommitted) => {
+                ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(uncommitted))
+            }
             CliId::PathPrefix { .. } => ResolvedCliIdArg::PathPrefix,
-            CliId::CommittedFile { .. } => ResolvedCliIdArg::CommittedFile,
-            CliId::Unassigned { .. } => ResolvedCliIdArg::Unassigned,
+            CliId::CommittedFile {
+                commit_id,
+                path,
+                id,
+            } => ResolvedCliIdArg::CommittedFile {
+                commit_id,
+                path,
+                id,
+            },
+            CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
             CliId::Stack { .. } => ResolvedCliIdArg::Stack,
         }))
     }
@@ -75,7 +95,9 @@ impl CliIdArg {
         if let Some(commit) = self.try_resolve_commit(repo, id_map)? {
             Ok(commit)
         } else {
-            Err(bad_input(format!("Could not find commit: '{self}'")).into())
+            Err(bad_input(format!("Could not find commit: '{self}'"))
+                .hint(Self::TARGET_MISSING_HINT)
+                .into())
         }
     }
 
@@ -94,7 +116,7 @@ impl CliIdArg {
         };
         match id {
             CliId::Commit { commit_id, .. } => Ok(Some(commit_id)),
-            other => Err(self.wrong_kind_error(&other, "commit")),
+            _ => Ok(None),
         }
     }
 
@@ -107,8 +129,25 @@ impl CliIdArg {
         if let Some(branch) = self.try_resolve_branch(repo, id_map)? {
             Ok(branch)
         } else {
-            Err(bad_input(format!("Could not find branch: '{self}'")).into())
+            Err(bad_input(format!("Could not find branch: '{self}'"))
+                .hint(Self::TARGET_MISSING_HINT)
+                .into())
         }
+    }
+
+    /// Resolve the argument to an existing local branch reference or workspace branch CLI ID.
+    pub fn resolve_existing_local_branch(
+        &self,
+        repo: &gix::Repository,
+        id_map: &IdMap,
+    ) -> CliResult<gix::refs::FullName> {
+        let branch = BranchArg(self.0.clone());
+        if let Some(branch_ref) = branch.try_resolve_existing_local_branch(repo)? {
+            return Ok(branch_ref);
+        }
+
+        self.resolve_branch_in_workspace(repo, id_map)?
+            .resolve_existing_local_branch(repo)
     }
 
     /// Try and resolve the argument a branch that might exist in the workspace.
@@ -126,16 +165,16 @@ impl CliIdArg {
         };
         match id {
             CliId::Branch { name, .. } => Ok(Some(BranchArg(name))),
-            other => Err(self.wrong_kind_error(&other, "branch")),
+            _ => Ok(None),
         }
     }
 
-    /// TODO
+    /// TODO: docs
     pub fn try_resolve_uncommitted(
         &self,
         repo: &gix::Repository,
         id_map: &IdMap,
-    ) -> CliResult<Option<UncommittedCliId>> {
+    ) -> CliResult<Option<Vec<UncommittedHunkOrFile>>> {
         let Some(id) = try_resolve_cli_id(
             self,
             repo,
@@ -147,8 +186,26 @@ impl CliIdArg {
             return Ok(None);
         };
         match id {
-            CliId::Uncommitted(uncommitted) => Ok(Some(uncommitted)),
-            other => Err(self.wrong_kind_error(&other, "uncommitted change")),
+            CliId::UncommittedHunkOrFile(uncommitted) => Ok(Some(vec![uncommitted])),
+            CliId::PathPrefix {
+                id: _,
+                hunk_assignments,
+            } => Ok(Some(
+                hunk_assignments
+                    .into_iter()
+                    .map(|(id, assignment)| UncommittedHunkOrFile {
+                        id,
+                        hunk_assignments: NonEmpty::new(assignment),
+                        // In a world without staging, all these hunk assignments should be turned
+                        // into "entire file" assignments for every file under the given PathPrefix.
+                        // However, currently, already assigned changes are not resolved by
+                        // PathPrefix. This should all be fixed at the level of resolving the
+                        // PathPrefix rather than here, though.
+                        is_entire_file: false,
+                    })
+                    .collect(),
+            )),
+            _ => Ok(None),
         }
     }
 
@@ -157,22 +214,27 @@ impl CliIdArg {
         &self,
         repo: &gix::Repository,
         id_map: &IdMap,
-    ) -> CliResult<UncommittedCliId> {
+    ) -> CliResult<Vec<UncommittedHunkOrFile>> {
         if let Some(uncommitted) = self.try_resolve_uncommitted(repo, id_map)? {
             Ok(uncommitted)
         } else {
-            Err(bad_input(format!("Could not find uncommitted change: '{self}'")).into())
+            Err(
+                bad_input(format!("Could not find uncommitted change: '{self}'"))
+                    .hint(Self::TARGET_MISSING_HINT)
+                    .into(),
+            )
         }
     }
 
+    #[expect(dead_code)]
     fn wrong_kind_error(&self, id: &CliId, expected: &'static str) -> CliError {
         let kind = match id {
             CliId::Branch { .. } => "a branch",
             CliId::Commit { .. } => "a commit",
-            CliId::Uncommitted(..) => "an uncommitted file",
+            CliId::UncommittedHunkOrFile(..) => "an uncommitted change",
             CliId::PathPrefix { .. } => "a path",
             CliId::CommittedFile { .. } => "a committed file",
-            CliId::Unassigned { .. } => "unassigned changes",
+            CliId::Uncommitted { .. } => "uncommitted changes",
             CliId::Stack { .. } => "a stack",
         };
         bad_input(format!("Invalid {expected}. '{self}' is {kind}")).into()
@@ -192,6 +254,8 @@ pub enum Priority {
     Branch,
     /// Prioritize commits.
     Commit,
+    /// Prioritize branches and commits.
+    BranchAndCommit,
     /// Prioritize uncommitted changes.
     Uncommitted,
 }
@@ -229,10 +293,10 @@ fn try_resolve_cli_id(
             match id {
                 CliId::Branch { .. } => branches.push(id),
                 CliId::Commit { .. } => commits.push(id),
-                CliId::Uncommitted(..) => uncommitted.push(id),
+                CliId::UncommittedHunkOrFile(..) => uncommitted.push(id),
                 CliId::PathPrefix { .. }
                 | CliId::CommittedFile { .. }
-                | CliId::Unassigned { .. }
+                | CliId::Uncommitted { .. }
                 | CliId::Stack { .. } => {}
             }
         }
@@ -253,12 +317,22 @@ fn try_resolve_cli_id(
                     return Ok(Some(uncommitted.pop().unwrap()));
                 }
             }
+            Priority::BranchAndCommit => match (branches.len(), commits.len()) {
+                (1, 0) => {
+                    return Ok(Some(branches.pop().unwrap()));
+                }
+                (0, 1) => {
+                    return Ok(Some(commits.pop().unwrap()));
+                }
+                _ => {}
+            },
         }
     }
 
     Err(bad_input(format!(
         "Ambiguous {purpose} '{arg}', matches multiple items"
     ))
+    .hint("Use a longer ID to disambiguate")
     .into())
 }
 
@@ -274,6 +348,8 @@ pub enum Purpose {
     #[expect(missing_docs)]
     Target,
     #[expect(missing_docs)]
+    Source,
+    #[expect(missing_docs)]
     Uncommitted,
 }
 
@@ -283,6 +359,7 @@ impl std::fmt::Display for Purpose {
             Purpose::Anchor => f.write_str("anchor"),
             Purpose::Branch => f.write_str("branch"),
             Purpose::Target => f.write_str("target"),
+            Purpose::Source => f.write_str("source"),
             Purpose::Commit => f.write_str("commit"),
             Purpose::Uncommitted => f.write_str("uncommitted change"),
         }
@@ -291,22 +368,20 @@ impl std::fmt::Display for Purpose {
 
 /// A [`CliIdArg`] that has actually been resolved.
 #[derive(Debug, Clone)]
+#[expect(missing_docs)]
 pub enum ResolvedCliIdArg {
-    #[expect(missing_docs)]
     Commit(gix::ObjectId),
-    #[expect(missing_docs)]
     Branch(BranchArg),
-    #[expect(missing_docs)]
-    Uncommitted(Box<UncommittedCliId>),
+    UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
+    CommittedFile {
+        commit_id: gix::ObjectId,
+        path: BString,
+        id: ShortId,
+    },
     // These have no data because we don't have any commands that use them. So just add data if you
     // have a use case
-    #[expect(missing_docs)]
     PathPrefix,
-    #[expect(missing_docs)]
-    CommittedFile,
-    #[expect(missing_docs)]
-    Unassigned,
-    #[expect(missing_docs)]
+    Uncommitted,
     Stack,
 }
 
@@ -316,10 +391,10 @@ impl ResolvedCliIdArg {
         let kind = match self {
             ResolvedCliIdArg::Commit(commit) => return Ok(BranchOrCommit::Commit(commit)),
             ResolvedCliIdArg::Branch(branch) => return Ok(BranchOrCommit::Branch(branch)),
-            ResolvedCliIdArg::Uncommitted(..) => "uncommitted changes",
+            ResolvedCliIdArg::UncommittedHunkOrFile(..) => "an uncommitted change",
+            ResolvedCliIdArg::CommittedFile { .. } => "a committed file",
             ResolvedCliIdArg::PathPrefix => "a path",
-            ResolvedCliIdArg::CommittedFile => "a committed file",
-            ResolvedCliIdArg::Unassigned => "unassigned changes",
+            ResolvedCliIdArg::Uncommitted => "uncommitted changes",
             ResolvedCliIdArg::Stack => "a stack",
         };
         Err(bad_input(format!("Expected a commit or a branch, got {kind}")).into())
@@ -331,10 +406,10 @@ impl std::fmt::Display for ResolvedCliIdArg {
         match self {
             ResolvedCliIdArg::Commit(inner) => inner.to_hex_with_len(7).fmt(f),
             ResolvedCliIdArg::Branch(inner) => inner.fmt(f),
-            ResolvedCliIdArg::Uncommitted(..) => f.write_str("uncommitted changes"),
+            ResolvedCliIdArg::UncommittedHunkOrFile(..) => f.write_str("uncommitted file or hunk"),
             ResolvedCliIdArg::PathPrefix => f.write_str("path"),
-            ResolvedCliIdArg::CommittedFile => f.write_str("committed file"),
-            ResolvedCliIdArg::Unassigned => f.write_str("unassigned changes"),
+            ResolvedCliIdArg::CommittedFile { .. } => f.write_str("committed file"),
+            ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
             ResolvedCliIdArg::Stack => f.write_str("stack"),
         }
     }
@@ -343,10 +418,9 @@ impl std::fmt::Display for ResolvedCliIdArg {
 /// Most commands need cli ids that point to either branches or commits.
 /// [`ResolvedCliIdArg::into_branch_or_commit`] facilitates that via this enum.
 #[derive(Debug, Clone)]
+#[expect(missing_docs)]
 pub enum BranchOrCommit {
-    #[expect(missing_docs)]
     Commit(gix::ObjectId),
-    #[expect(missing_docs)]
     Branch(BranchArg),
 }
 

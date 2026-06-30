@@ -4,7 +4,7 @@ use bstr::BString;
 use but_graph::workspace::Stack;
 
 use crate::id::{
-    RemoteCommitWithId, SegmentWithId, ShortId, StackWithId, UNASSIGNED, WorkspaceCommitWithId,
+    RemoteCommitWithId, SegmentWithId, ShortId, StackWithId, UNCOMMITTED, WorkspaceCommitWithId,
     id_usage::{IdUsage, UintId},
 };
 
@@ -79,7 +79,7 @@ fn populate_branch_short_ids(
                 .or_insert(1);
         }
     };
-    maybe_mark_used(UNASSIGNED.as_bytes());
+    maybe_mark_used(UNCOMMITTED.as_bytes());
     for uncommitted_short_filename in uncommitted_short_filenames.iter() {
         maybe_mark_used(uncommitted_short_filename);
     }

@@ -19,6 +19,19 @@ pub struct HttpStatusError {
     pub status: reqwest::StatusCode,
 }
 
+/// Return `HttpStatusError` for non-success responses so callers can downcast
+/// to distinguish 401/403 from other failures. The textual prefix that callers
+/// used to build into `bail!` is left to outer `.context(...)`.
+fn ensure_success(response: &reqwest::Response) -> Result<()> {
+    if !response.status().is_success() {
+        return Err(HttpStatusError {
+            status: response.status(),
+        }
+        .into());
+    }
+    Ok(())
+}
+
 pub struct GitHubClient {
     client: reqwest::Client,
     base_url: String,
@@ -223,9 +236,7 @@ impl GitHubClient {
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            bail!("Failed to list open pulls: {}", response.status());
-        }
+        ensure_success(&response)?;
 
         let pulls: Vec<GitHubPullRequest> = response.json().await?;
         Ok(pulls.into_iter().map(Into::into).collect())
@@ -253,9 +264,33 @@ impl GitHubClient {
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            bail!("Failed to list pulls for base: {}", response.status());
-        }
+        ensure_success(&response)?;
+
+        let pulls: Vec<GitHubPullRequest> = response.json().await?;
+        Ok(pulls.into_iter().map(Into::into).collect())
+    }
+
+    /// List pull requests associated with a commit on the repository.
+    pub async fn list_pulls_for_commit(
+        &self,
+        owner: &str,
+        repo: &str,
+        commit_sha: &str,
+    ) -> Result<Vec<PullRequest>> {
+        let url = format!(
+            "{}/repos/{}/{}/commits/{}/pulls",
+            self.base_url, owner, repo, commit_sha
+        );
+
+        let response = self
+            .client
+            .get(&url)
+            .header(ACCEPT, "application/vnd.github.groot-preview+json")
+            .query(&[("per_page", "100")])
+            .send()
+            .await?;
+
+        ensure_success(&response)?;
 
         let pulls: Vec<GitHubPullRequest> = response.json().await?;
         Ok(pulls.into_iter().map(Into::into).collect())
@@ -392,9 +427,7 @@ impl GitHubClient {
 
         let response = self.client.get(&url).send().await?;
 
-        if !response.status().is_success() {
-            bail!("Failed to get pull request: {}", response.status());
-        }
+        ensure_success(&response)?;
 
         let pr: GitHubPullRequest = response.json().await?;
         Ok(pr.into())
@@ -1138,6 +1171,7 @@ pub struct PullRequest {
     pub source_branch: String,
     pub target_branch: String,
     pub sha: String,
+    pub integration_commit_shas: Vec<String>,
     pub created_at: Option<String>,
     pub modified_at: Option<String>,
     pub merged_at: Option<String>,
@@ -1183,6 +1217,7 @@ struct GitHubPullRequest {
     user: Option<GitHubApiUser>,
     labels: Vec<GitHubPrLabelApi>,
     draft: bool,
+    merge_commit_sha: Option<String>,
     head: GitHubBranch,
     base: GitHubBranch,
     created_at: Option<String>,
@@ -1208,7 +1243,13 @@ impl From<GitHubPullRequest> for PullRequest {
             .collect();
 
         let requested_reviewers = pr.requested_reviewers.into_iter().map(Into::into).collect();
-
+        // Only use the merge_commit_sha if the PR has been merged
+        // in order to avoid setting the test merge commit.
+        let integration_commit_shas = if pr.merged_at.is_some() {
+            pr.merge_commit_sha.into_iter().collect()
+        } else {
+            vec![]
+        };
         PullRequest {
             html_url: pr.html_url,
             number: pr.number,
@@ -1220,6 +1261,7 @@ impl From<GitHubPullRequest> for PullRequest {
             source_branch: pr.head.ref_,
             target_branch: pr.base.ref_,
             sha: pr.head.sha,
+            integration_commit_shas,
             created_at: pr.created_at,
             modified_at: pr.updated_at,
             merged_at: pr.merged_at,
@@ -1271,6 +1313,7 @@ struct CheckRunsQuery<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn graphql_endpoint_for_github_cloud() {
@@ -1397,6 +1440,57 @@ mod tests {
             names,
             vec!["zebra", "alpha"],
             "first-occurrence order is preserved even when a later run supersedes"
+        );
+    }
+
+    #[test]
+    fn associated_commit_pulls_preserve_head_sha_and_merge_state() {
+        let payload = json!([{
+            "html_url": "https://github.com/acme/widgets/pull/42",
+            "number": 42,
+            "title": "Integrate feature",
+            "body": null,
+            "user": null,
+            "labels": [],
+            "draft": false,
+            "merge_commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "head": {
+                "ref": "feature",
+                "sha": "1234567890abcdef1234567890abcdef12345678",
+                "repo": null
+            },
+            "base": {
+                "ref": "main",
+                "sha": "abcdef1234567890abcdef1234567890abcdef12",
+                "repo": null
+            },
+            "created_at": null,
+            "updated_at": null,
+            "merged_at": "2026-06-24T12:00:00Z",
+            "closed_at": "2026-06-24T12:00:00Z",
+            "requested_reviewers": []
+        }]);
+
+        let pulls: Vec<GitHubPullRequest> = serde_json::from_value(payload).unwrap();
+        let pull: PullRequest = pulls.into_iter().next().unwrap().into();
+
+        assert_eq!(
+            pull.sha, "1234567890abcdef1234567890abcdef12345678",
+            "associated-commit lookup must preserve the review head SHA for integration hints"
+        );
+        assert_eq!(
+            pull.integration_commit_shas,
+            vec!["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string()],
+            "GitHub review payload should preserve the landing commit for cache-only integration matching"
+        );
+        assert_eq!(
+            pull.target_branch, "main",
+            "associated-commit lookup must preserve the target branch for filtering"
+        );
+        assert_eq!(
+            pull.merged_at.as_deref(),
+            Some("2026-06-24T12:00:00Z"),
+            "associated-commit lookup must preserve merge state for filtering"
         );
     }
 }

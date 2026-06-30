@@ -15,7 +15,6 @@ use crate::{DynamicOutcome, with_transaction};
 #[track_caller]
 fn ref_target(env: &Sandbox, ref_name: &gix::refs::FullNameRef) -> Option<ObjectId> {
     env.open_repo()
-        .unwrap()
         .try_find_reference(ref_name)
         .unwrap()
         .map(|mut reference| reference.peel_to_id().unwrap().detach())
@@ -25,7 +24,7 @@ fn ref_target(env: &Sandbox, ref_name: &gix::refs::FullNameRef) -> Option<Object
 
 #[track_caller]
 fn find_commits<const N: usize>(env: &Sandbox, commits: [&str; N]) -> [ObjectId; N] {
-    let repo = env.open_repo().unwrap();
+    let repo = env.open_repo();
     commits.map(|commit| repo.rev_parse_single(commit).unwrap().detach())
 }
 
@@ -41,8 +40,8 @@ fn assert_num_snapshots(ctx: &Context, expected: usize) {
 
 #[test]
 fn squashing_three_commits() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
@@ -80,7 +79,7 @@ fn squashing_three_commits() {
     .unwrap();
 
     snapbox::assert_data_eq!(
-        env.git_log().unwrap(),
+        env.git_log(),
         snapbox::str![[r#"
 * ec6f55f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * a2fc6dc (branch) squashed
@@ -94,8 +93,8 @@ fn squashing_three_commits() {
 
 #[test]
 fn rollback() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
@@ -124,7 +123,7 @@ fn rollback() {
     .unwrap();
 
     snapbox::assert_data_eq!(
-        env.git_log().unwrap(),
+        env.git_log(),
         snapbox::str![[r#"
 * ebaef69 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 1e25c58 (branch) add file-three
@@ -140,8 +139,8 @@ fn rollback() {
 
 #[test]
 fn create_reference_without_creating_commits() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -182,8 +181,8 @@ fn create_reference_without_creating_commits() {
 
 #[test]
 fn create_reference_relative_to_various_anchors() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let [three, two, base] = find_commits(&env, ["1e25c58", "9b3b3d5", "6674d4f"]);
 
@@ -249,8 +248,8 @@ fn create_reference_relative_to_various_anchors() {
 
 #[test]
 fn create_reference_then_remove_it_in_same_transaction() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -292,8 +291,8 @@ fn create_reference_then_remove_it_in_same_transaction() {
 
 #[test]
 fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let [three, base] = find_commits(&env, ["1e25c58", "6674d4f"]);
 
@@ -333,7 +332,7 @@ fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
 
     assert_eq!(Some(new_commit), ref_target(&env, refname.as_ref()));
 
-    let repo = env.open_repo().unwrap();
+    let repo = env.open_repo();
     let mut branch_commit = ref_target(&env, branch.as_ref()).unwrap();
     let mut commits_above_new_branch = 0;
     while branch_commit != new_commit {
@@ -362,9 +361,107 @@ fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
 }
 
 #[test]
+fn move_commits_then_commit_relative_to_moved_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let [three, one] = find_commits(&env, ["1e25c58", "dbdbcea"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+
+    let mut meta = ctx.meta().unwrap();
+    let snapshot_details = SnapshotDetails::new(OperationKind::MoveCommit);
+
+    let outcome = with_transaction(
+        &mut ctx,
+        &mut meta,
+        snapshot_details,
+        DryRun::No,
+        |mut tx| {
+            tx.move_commits([one], RelativeTo::Commit(three), InsertSide::Above)?;
+            let new_commit = tx.insert_blank_commit(RelativeTo::Commit(one), InsertSide::Above)?;
+
+            Ok(DynamicOutcome::<_, ()>::Commit(new_commit))
+        },
+    )
+    .unwrap();
+
+    let DynamicOutcome::Commit((new_commit, _workspace)) = outcome else {
+        panic!("transaction should commit");
+    };
+
+    assert_eq!(
+        Some(new_commit),
+        ref_target(
+            &env,
+            FullName::try_from("refs/heads/branch").unwrap().as_ref()
+        ),
+        "blank commit inserted relative to the moved commit should become the branch tip"
+    );
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 4eb318d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* a381780 (branch) 
+* b18afe3 add file-one
+* 5fdd02a add file-three
+* 0d4aae5 add file-two
+* 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
+
+"#]]
+    );
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn move_commits_reorders_multiple_subjects() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+
+    let mut meta = ctx.meta().unwrap();
+    let snapshot_details = SnapshotDetails::new(OperationKind::MoveCommit);
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        snapshot_details,
+        DryRun::No,
+        |mut tx| {
+            tx.move_commits([one, two], RelativeTo::Commit(three), InsertSide::Above)?;
+
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* 7fc8bdd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* aedbf87 (branch) add file-two
+* 18aee11 add file-one
+* 647709c add file-three
+* 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
+
+"#]]
+    );
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
 fn create_reference_then_commit_relative_to_it() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -410,8 +507,8 @@ fn create_reference_then_commit_relative_to_it() {
 
 #[test]
 fn create_reference_is_removed_on_rollback() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -453,8 +550,8 @@ fn create_reference_is_removed_on_rollback() {
 
 #[test]
 fn dynamic_rollback() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
@@ -489,7 +586,7 @@ fn dynamic_rollback() {
     assert!(matches!(outcome, DynamicOutcome::Rollback(2)));
 
     snapbox::assert_data_eq!(
-        env.git_log().unwrap(),
+        env.git_log(),
         snapbox::str![[r#"
 * ebaef69 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 1e25c58 (branch) add file-three
@@ -505,11 +602,11 @@ fn dynamic_rollback() {
 
 #[test]
 fn discarding_three_commits() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     snapbox::assert_data_eq!(
-        env.git_log().unwrap(),
+        env.git_log(),
         snapbox::str![[r#"
 * ebaef69 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 1e25c58 (branch) add file-three
@@ -548,7 +645,7 @@ fn discarding_three_commits() {
     .unwrap();
 
     snapbox::assert_data_eq!(
-        env.git_log().unwrap(),
+        env.git_log(),
         snapbox::str![[r#"
 * 8413d71 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 6674d4f (origin/main, origin/HEAD, main, gitbutler/target, branch) add random-file
@@ -561,11 +658,11 @@ fn discarding_three_commits() {
 
 #[test]
 fn remove_references() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     snapbox::assert_data_eq!(
-        env.git_log().unwrap(),
+        env.git_log(),
         snapbox::str![[r#"
 * ebaef69 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 1e25c58 (branch) add file-three
@@ -606,7 +703,7 @@ fn remove_references() {
     .unwrap();
 
     snapbox::assert_data_eq!(
-        env.git_log().unwrap(),
+        env.git_log(),
         snapbox::str![[r#"
 * 8413d71 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file

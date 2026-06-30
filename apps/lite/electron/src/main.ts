@@ -4,7 +4,9 @@ import {
 	liteIpcChannels,
 	type AbsorbParams,
 	type AbsorptionPlanParams,
+	type ApplyBranchIntegrationParams,
 	type AssignHunkParams,
+	type BranchCheckoutParams,
 	type BranchCheckoutNewParams,
 	type BranchCreateParams,
 	type BranchDetailsParams,
@@ -21,13 +23,23 @@ import {
 	type CommitRewordParams,
 	type CommitMoveChangesBetweenParams,
 	type CommitUncommitChangesParams,
+	type ForgeCompareBranchUrlParams,
+	type GetInitialBranchIntegrationParams,
+	type GetReviewBaseRepoUrlParams,
+	type GetReviewParams,
+	type ListCiChecksParams,
+	type ListReviewsParams,
 	type MoveBranchParams,
+	type MergeReviewParams,
+	type ListReviewsForBranchParams,
 	type OpenInEditorParams,
+	type PublishReviewParams,
 	type PushStackParams,
 	type RemoveBranchParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
 	type UpdateBranchNameParams,
+	type UpdateReviewParams,
 	type ApplyParams,
 	type AskpassSubmitPromptResponseParams,
 	type ShowNativeMenuParams,
@@ -37,14 +49,20 @@ import {
 	type NativeMenuPopupItem,
 	type CommitUncommitParams,
 	type RestoreSnapshotWithKindParams,
+	type SetReviewAutoMergeParams,
+	type SetReviewDraftinessParams,
+	type SetReviewTemplateParams,
 	type PeelRestoreSnapshotParams,
 	type WorkspaceIntegrateUpstreamParams,
+	type UpdateReviewFootersParams,
 } from "./ipc.js";
 import {
 	absorb,
 	absorptionPlan,
 	apply,
+	applyBranchIntegration,
 	assignHunk,
+	branchCheckout,
 	branchCheckoutNew,
 	branchCreate,
 	branchDetails,
@@ -63,23 +81,44 @@ import {
 	commitMove,
 	commitDetailsWithLineStats,
 	commitMoveChangesBetween,
+	forgeCompareBranchUrl,
+	forgeInfo,
+	forgeProvider,
+	getInitialBranchIntegration,
+	getRepoInfo,
+	getReview,
+	getReviewBaseRepoUrl,
+	getReviewMergeStatus,
+	listAvailableReviewTemplates,
 	listBranches,
+	listCiChecks,
 	listEditors,
 	listProjectsStateless,
+	listReviews,
+	listReviewsForBranch,
+	mergeReview,
 	moveBranch,
 	openInEditor,
+	publishReview,
 	removeBranch,
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
 	updateBranchName,
+	updateReview,
 	workspaceBranchAndAncestorsPush,
 	BranchListingFilter,
 	commitUncommit,
+	reviewTemplate,
 	restoreSnapshotWithKind,
+	setReviewAutoMerge,
+	setReviewDraftiness,
+	setReviewTemplate,
 	getUndoTargetSnapshot,
 	getRedoTargetSnapshot,
 	peelRestoreSnapshot,
+	updateReviewFooters,
+	warmCiChecksCache,
 	workspaceIntegrateUpstream,
 	askpassInit,
 	askpassSubmitPromptResponse,
@@ -94,6 +133,7 @@ import {
 	net,
 	protocol,
 	session,
+	shell,
 	type MenuItemConstructorOptions,
 } from "electron";
 import {
@@ -305,11 +345,6 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, target }: AbsorptionPlanParams) => absorptionPlan(projectId, target),
 	);
 	senderValidatingHandle(
-		liteIpcChannels.askpassSubmitResponse,
-		(_e, { id, response }: AskpassSubmitPromptResponseParams) =>
-			askpassSubmitPromptResponse(id, response),
-	);
-	senderValidatingHandle(
 		liteIpcChannels.absorb,
 		(_e, { projectId, absorptionPlan }: AbsorbParams) => absorb(projectId, absorptionPlan),
 	);
@@ -317,17 +352,31 @@ const registerIpcHandlers = (): void => {
 		apply(projectId, existingBranch),
 	);
 	senderValidatingHandle(
+		liteIpcChannels.applyBranchIntegration,
+		(_e, { projectId, branch, integration, dryRun }: ApplyBranchIntegrationParams) =>
+			applyBranchIntegration(projectId, branch, integration, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.askpassSubmitPromptResponse,
+		(_e, { id, response }: AskpassSubmitPromptResponseParams) =>
+			askpassSubmitPromptResponse(id, response),
+	);
+	senderValidatingHandle(
 		liteIpcChannels.assignHunk,
 		(_e, { projectId, assignments }: AssignHunkParams) => assignHunk(projectId, assignments),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.branchCheckout,
+		(_e, { projectId, branch }: BranchCheckoutParams) => branchCheckout(projectId, branch),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.branchCheckoutNew,
+		(_e, { projectId, name }: BranchCheckoutNewParams) => branchCheckoutNew(projectId, name),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.branchCreate,
 		(_e, { projectId, newRef, placement }: BranchCreateParams) =>
 			branchCreate(projectId, newRef, placement),
-	);
-	senderValidatingHandle(
-		liteIpcChannels.branchCheckoutNew,
-		(_e, { projectId, name }: BranchCheckoutNewParams) => branchCheckoutNew(projectId, name),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.branchDetails,
@@ -386,8 +435,23 @@ const registerIpcHandlers = (): void => {
 	);
 	senderValidatingHandle(
 		liteIpcChannels.commitSquash,
-		(_e, { projectId, sourceCommitIds, destinationCommitId, dryRun }: CommitSquashParams) =>
-			commitSquash(projectId, sourceCommitIds, destinationCommitId, "KeepBoth", dryRun),
+		(
+			_e,
+			{
+				projectId,
+				sourceCommitIds,
+				destinationCommitId,
+				howToCombineMessages,
+				dryRun,
+			}: CommitSquashParams,
+		) =>
+			commitSquash(
+				projectId,
+				sourceCommitIds,
+				destinationCommitId,
+				howToCombineMessages ?? "KeepBoth",
+				dryRun,
+			),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.commitReword,
@@ -417,9 +481,41 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, commitId, changes, assignTo, dryRun }: CommitUncommitChangesParams) =>
 			commitUncommitChanges(projectId, commitId, changes, assignTo, dryRun),
 	);
+	senderValidatingHandle(
+		liteIpcChannels.forgeCompareBranchUrl,
+		(_e, { projectId, base, branch, fork }: ForgeCompareBranchUrlParams) =>
+			forgeCompareBranchUrl(projectId, base, branch, fork),
+	);
+	senderValidatingHandle(liteIpcChannels.forgeInfo, (_e, projectId: string) =>
+		forgeInfo(projectId),
+	);
+	senderValidatingHandle(liteIpcChannels.forgeProvider, (_e, projectId: string) =>
+		forgeProvider(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.getInitialBranchIntegration,
+		(_e, { projectId, branch, strategy }: GetInitialBranchIntegrationParams) =>
+			getInitialBranchIntegration(projectId, branch, strategy),
+	);
+	senderValidatingHandle(liteIpcChannels.getRepoInfo, (_e, projectId: string) =>
+		getRepoInfo(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.getReviewBaseRepoUrl,
+		(_e, { projectId, reviewId }: GetReviewBaseRepoUrlParams) =>
+			getReviewBaseRepoUrl(projectId, reviewId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.getReviewMergeStatus,
+		(_e, { projectId, reviewId }: GetReviewParams) => getReviewMergeStatus(projectId, reviewId),
+	);
 	senderValidatingHandle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
 	senderValidatingHandle(liteIpcChannels.getRedoTargetSnapshot, async (_e, projectId: string) =>
 		getRedoTargetSnapshot(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.getReview,
+		(_e, { projectId, reviewId }: GetReviewParams) => getReview(projectId, reviewId),
 	);
 	senderValidatingHandle(liteIpcChannels.getUndoTargetSnapshot, async (_e, projectId: string) =>
 		getUndoTargetSnapshot(projectId),
@@ -429,8 +525,30 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.listBranches,
 		(_e, projectId: string, filter: BranchListingFilter | null) => listBranches(projectId, filter),
 	);
+	senderValidatingHandle(liteIpcChannels.listAvailableReviewTemplates, (_e, projectId: string) =>
+		listAvailableReviewTemplates(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.listCiChecks,
+		(_e, { projectId, reference, cacheConfig }: ListCiChecksParams) =>
+			listCiChecks(projectId, reference, cacheConfig),
+	);
 	senderValidatingHandle(liteIpcChannels.listEditors, () => listEditors());
-	senderValidatingHandle(liteIpcChannels.listProjects, () => listProjectsStateless());
+	senderValidatingHandle(liteIpcChannels.listProjectsStateless, () => listProjectsStateless());
+	senderValidatingHandle(
+		liteIpcChannels.listReviews,
+		(_e, { projectId, cacheConfig }: ListReviewsParams) => listReviews(projectId, cacheConfig),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.listReviewsForBranch,
+		(_e, { projectId, branch, filter }: ListReviewsForBranchParams) =>
+			listReviewsForBranch(projectId, branch, filter),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.mergeReview,
+		(_e, { projectId, reviewId, mergeMethod }: MergeReviewParams) =>
+			mergeReview(projectId, reviewId, mergeMethod),
+	);
 	senderValidatingHandle(
 		liteIpcChannels.moveBranch,
 		(_e, { projectId, subjectBranch, targetBranch, dryRun }: MoveBranchParams) =>
@@ -441,13 +559,38 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, editorId, path, lineNr }: OpenInEditorParams) =>
 			openInEditor(projectId, editorId, path, lineNr),
 	);
+	senderValidatingHandle(liteIpcChannels.openInWebBrowser, (_e, url: string) => {
+		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
+		// program with shell.openExternal("file:///Applications/Numbers.app"). Similarly bad
+		// things are possible on Windows and Linux.
+		//
+		// We need to be able to open relatively arbitrary URLs so we can't lock this down too much,
+		// but we can at least make sure the URL is a reasonable protocol so we don't allow e.g.
+		// "file:///Applications/Numbers.app" to pass through.
+		//
+		// https://www.electronjs.org/docs/latest/tutorial/security#15-do-not-use-shellopenexternal-with-untrusted-content
+		const protocol = newUrlOrNull(url)?.protocol ?? "";
+		if (!["https:", "http:"].includes(protocol))
+			throw new Error(`URL ${url} with unsupported protocol ${protocol}`);
+
+		return shell.openExternal(url);
+	});
 	senderValidatingHandle(liteIpcChannels.pathJoin, (_e, ...paths: Array<string>) =>
 		path.join(...paths),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.publishReview,
+		(_e, { projectId, params }: PublishReviewParams) => publishReview(projectId, params),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.updateBranchName,
 		(_e, { projectId, stackId, branchName, newName }: UpdateBranchNameParams) =>
 			updateBranchName(projectId, stackId, branchName, newName),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.updateReview,
+		(_e, { projectId, reviewId, title, body, state, targetBase }: UpdateReviewParams) =>
+			updateReview(projectId, reviewId, title, body, state, targetBase),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.tearOffBranch,
@@ -490,6 +633,24 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, restoreKind, sha }: RestoreSnapshotWithKindParams) =>
 			restoreSnapshotWithKind(projectId, restoreKind, sha),
 	);
+	senderValidatingHandle(liteIpcChannels.reviewTemplate, (_e, projectId: string) =>
+		reviewTemplate(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.setReviewAutoMerge,
+		(_e, { projectId, reviewId, enable }: SetReviewAutoMergeParams) =>
+			setReviewAutoMerge(projectId, reviewId, enable),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.setReviewDraftiness,
+		(_e, { projectId, reviewId, draft }: SetReviewDraftinessParams) =>
+			setReviewDraftiness(projectId, reviewId, draft),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.setReviewTemplate,
+		(_e, { projectId, templatePath }: SetReviewTemplateParams) =>
+			setReviewTemplate(projectId, templatePath),
+	);
 	senderValidatingHandle(
 		liteIpcChannels.showNativeMenu,
 		async (event, { items, position }: ShowNativeMenuParams) => {
@@ -529,6 +690,14 @@ const registerIpcHandlers = (): void => {
 			workspaceIntegrateUpstream(projectId, updates, dryRun),
 	);
 	senderValidatingHandle(
+		liteIpcChannels.updateReviewFooters,
+		(_e, { projectId, reviews }: UpdateReviewFootersParams) =>
+			updateReviewFooters(projectId, reviews),
+	);
+	senderValidatingHandle(liteIpcChannels.warmCiChecksCache, (_e, projectId: string) =>
+		warmCiChecksCache(projectId),
+	);
+	senderValidatingHandle(
 		liteIpcChannels.watcherSubscribe,
 		async (event, { projectId }: WatcherSubscribeParams) =>
 			WatcherManager.getInstance().subscribeToProject(projectId, event),
@@ -550,7 +719,7 @@ const createMainWindow = async (): Promise<void> => {
 		height: 768,
 		icon,
 		titleBarStyle: process.platform === "darwin" ? "hidden" : "default",
-		trafficLightPosition: process.platform === "darwin" ? { x: 8, y: 8 } : undefined,
+		trafficLightPosition: process.platform === "darwin" ? { x: 16, y: 23 } : undefined,
 		webPreferences: {
 			contextIsolation: true,
 			nodeIntegration: false,

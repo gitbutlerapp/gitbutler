@@ -1,5 +1,11 @@
-import { renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import { encodeBytes } from "#ui/api/bytes.ts";
+import { getHeadInfoIndex, renameBranchInHeadInfo } from "#ui/api/ref-info.ts";
+import {
+	changesInWorktreeQueryOptions,
+	getReviewMergeStatusQueryOptions,
+	getReviewQueryOptions,
+	headInfoQueryOptions,
+} from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -7,7 +13,7 @@ import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
-import { type BranchOperand } from "#ui/operands.ts";
+import { commitOperand, type BranchOperand } from "#ui/operands.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import { Toast } from "@base-ui/react";
@@ -31,14 +37,22 @@ export const syncCoreCaches = (
 	projectId: string,
 	response: Exclude<AnyResponse, void>,
 ) => {
-	if (typeof response !== "object" || response === null || !("workspace" in response)) return;
+	if (typeof response !== "object" || response === null) return;
 
-	queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, response.workspace.headInfo);
+	const workspace =
+		"workspace" in response
+			? response.workspace
+			: "workspaceState" in response
+				? response.workspaceState
+				: null;
+	if (workspace === null) return;
+
+	queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
 	dispatch(
 		projectActions.updateRewrittenCommitReferences({
 			projectId,
-			replacedCommits: response.workspace.replacedCommits,
-			headInfo: response.workspace.headInfo,
+			replacedCommits: workspace.replacedCommits,
+			headInfo: workspace.headInfo,
 		}),
 	);
 };
@@ -65,11 +79,47 @@ export const useAbsorb = ({ projectId }: { projectId: string }) => {
 	});
 };
 
-export const useApplyBranch = () => {
+export const useApply = () => {
+	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.apply,
+		onSuccess: async (response, input, _context, mutation) => {
+			if (response.conflictingStacks.length > 0) {
+				const toastId = toastManager.add({
+					type: "error",
+					title: "Failed to apply branch",
+					description: `'${input.existingBranch}' conflicts with existing stack in the workspace: ${response.conflictingStacks
+						.map((stack) => stack.shortName)
+						.join(", ")}`,
+					priority: "high",
+					actionProps: {
+						children: "Switch to branch instead",
+						onClick: () => {
+							(async () => {
+								const checkoutResponse = await window.lite.branchCheckout({
+									projectId: input.projectId,
+									branch: encodeBytes(input.existingBranch),
+								});
+								syncCoreCaches(mutation.client, dispatch, input.projectId, checkoutResponse);
+								toastManager.close(toastId);
+							})().catch((error) => {
+								// oxlint-disable-next-line no-console
+								console.error(error);
+
+								toastManager.add({
+									type: "error",
+									title: "Failed to switch branch",
+									description: errorMessageForToast(error),
+									priority: "high",
+								});
+							});
+						},
+					},
+				});
+			}
+		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -107,14 +157,16 @@ export const useBranchCreate = () => {
 	});
 };
 
-export const useBranchCheckoutNew = () => {
-	const dispatch = useAppDispatch();
+export const useUpdateReview = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.branchCheckoutNew,
-		onSuccess: async (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+		mutationFn: window.lite.updateReview,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
+					.queryKey,
+			});
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -122,7 +174,73 @@ export const useBranchCheckoutNew = () => {
 
 			toastManager.add({
 				type: "error",
-				title: "Failed to switch to new branch",
+				title: "Failed to update pull request",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useMergeReview = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.mergeReview,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
+						.queryKey,
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: getReviewMergeStatusQueryOptions({
+						projectId: input.projectId,
+						reviewId: input.reviewId,
+					}).queryKey,
+				}),
+			]);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to merge pull request",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useSetReviewDraftiness = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.setReviewDraftiness,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
+						.queryKey,
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: getReviewMergeStatusQueryOptions({
+						projectId: input.projectId,
+						reviewId: input.reviewId,
+					}).queryKey,
+				}),
+			]);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to update pull request",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});
@@ -155,15 +273,7 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 	const dispatch = useAppDispatch();
 
 	return useMutation({
-		mutationFn: async ({ relativeTo }: { relativeTo: RelativeTo }) => {
-			const headInfo = await queryClient.fetchQuery(headInfoQueryOptions(projectId));
-
-			const commitId = resolveRelativeTo({
-				headInfo,
-				relativeTo,
-			});
-			if (commitId === null) throw new Error("No commit to amend.");
-
+		mutationFn: async ({ commitId }: { commitId: string }) => {
 			const worktreeChanges = await queryClient.fetchQuery(
 				changesInWorktreeQueryOptions(projectId),
 			);
@@ -177,15 +287,22 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onSuccess: async (response, input, _ctx, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, projectId, response);
-
-			if (input.relativeTo.type === "commit" && response.newCommit !== null)
-				dispatch(
-					projectActions.setCommitTarget({
-						projectId,
-						commitTarget: { type: "commit", subject: response.newCommit },
-					}),
-				);
+			syncCoreCaches(
+				mutation.client,
+				dispatch,
+				projectId,
+				// Workaround for https://linear.app/gitbutler/issue/GB-1570/amending-commit-has-wrong-replaced-commits
+				{
+					...response,
+					workspace: {
+						...response.workspace,
+						replacedCommits: {
+							...response.workspace.replacedCommits,
+							...(response.newCommit !== null ? { [input.commitId]: response.newCommit } : {}),
+						},
+					},
+				},
+			);
 
 			if (response.rejectedChanges.length > 0)
 				toastManager.add(
@@ -346,6 +463,17 @@ export const useCommitInsertBlank = () => {
 		mutationFn: window.lite.commitInsertBlank,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+
+			const stackId = getHeadInfoIndex(response.workspace.headInfo).commitContextById(
+				response.newCommit,
+			)?.stack.id;
+			if (stackId != null)
+				dispatch(
+					projectActions.selectOutline({
+						projectId: input.projectId,
+						selection: commitOperand({ stackId, commitId: response.newCommit }),
+					}),
+				);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -458,21 +586,9 @@ export const usePushStack = () => {
 
 	return useMutation({
 		mutationFn: window.lite.pushStack,
-		onSuccess: async (response, input, _context, mutation) => {
+		onSuccess: async (_response, input, _context, mutation) => {
 			await mutation.client.invalidateQueries({
 				queryKey: headInfoQueryOptions(input.projectId).queryKey,
-			});
-
-			if (response.branchToRemote.length === 0) return;
-
-			toastManager.add({
-				type: "success",
-				title: `Pushed ${response.branchToRemote.length} ${
-					new Intl.PluralRules(undefined).select(response.branchToRemote.length) === "one"
-						? "branch"
-						: "branches"
-				}`,
-				description: input.branch,
 			});
 		},
 		onError: (error) => {
@@ -497,11 +613,6 @@ export const useWorkspaceIntegrateUpstream = () => {
 		mutationFn: window.lite.workspaceIntegrateUpstream,
 		onSuccess: (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
-
-			toastManager.add({
-				type: "success",
-				title: input.updates.length === 1 ? "Updated stack" : "Updated stacks",
-			});
 		},
 		onError: (error, input) => {
 			// oxlint-disable-next-line no-console

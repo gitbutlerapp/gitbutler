@@ -64,12 +64,11 @@ impl BranchArg {
     ///
     /// Unlike the GUI, we don't normalize branch names for users in the CLI, as this could lead to
     /// unexpected behavior in scripts. This function rejects names that are possible to normalize.
-    // TODO(david): might wanna return FullName here
     pub fn resolve_for_creation(
         &self,
         repo: &gix::Repository,
-        head_info: &but_workspace::RefInfo,
-    ) -> CliResult<String> {
+        ws: &but_graph::Workspace,
+    ) -> CliResult<FullName> {
         let branch_name = self.0.as_str();
         let normalized = but_core::branch::normalize_short_name(branch_name).map_err(|err| {
             CliError::from(bad_input(format!("Invalid branch name: {err}")).arg_value(branch_name))
@@ -83,13 +82,7 @@ impl BranchArg {
         }
 
         let local_name = self.resolve_local_branch_name()?;
-        if head_info
-            .stacks
-            .iter()
-            .flat_map(|stack| &stack.segments)
-            .flat_map(|segment| &segment.ref_info)
-            .any(|ref_info| ref_info.ref_name == local_name)
-        {
+        if ws.is_reachable_from_entrypoint(local_name.as_ref()) {
             return Err(
                 bad_input(format!("A branch named '{branch_name}' is already applied")).into(),
             );
@@ -102,7 +95,7 @@ impl BranchArg {
             .into());
         }
 
-        Ok(self.0.clone())
+        Ok(local_name)
     }
 
     /// Resolve the argument to a branch that exists in the repository.
@@ -128,9 +121,54 @@ impl BranchArg {
         Err(bad_input(format!("Branch '{self}' not found")).into())
     }
 
+    /// Resolve the argument to an existing local branch reference.
+    pub fn resolve_existing_local_branch(&self, repo: &gix::Repository) -> CliResult<FullName> {
+        if let Some(branch) = self.try_resolve_existing_local_branch(repo)? {
+            return Ok(branch);
+        }
+        Err(bad_input(format!("Could not find branch: '{self}'")).into())
+    }
+
+    /// Try to resolve the argument to an existing local branch reference.
+    ///
+    /// Returns `Ok(None)` when the argument is not an existing branch and does not look like a
+    /// remote branch.
+    pub fn try_resolve_existing_local_branch(
+        &self,
+        repo: &gix::Repository,
+    ) -> CliResult<Option<FullName>> {
+        if self.0.starts_with("refs/heads/") {
+            let branch = FullName::try_from(self.0.as_str())
+                .map_err(|_| bad_input(format!("Invalid branch ref '{self}'")))?;
+            ensure_existing_local_branch(repo, &branch)?;
+            return Ok(Some(branch));
+        }
+
+        if self.0.starts_with("refs/remotes/") {
+            return Err(
+                bad_input(format!("Can only switch to local branches, got '{self}'")).into(),
+            );
+        }
+
+        if let Ok(branch) = Category::LocalBranch.to_full_name(self.0.as_str())
+            && repo.try_find_reference(branch.as_ref())?.is_some()
+        {
+            return Ok(Some(branch));
+        }
+
+        if looks_like_remote_branch(repo, self.0.as_str()) {
+            return Err(
+                bad_input(format!("Can only switch to local branches, got '{self}'")).into(),
+            );
+        }
+
+        Ok(None)
+    }
+
     /// Try to resolve the branch to a stack that exists in the workspace.
     ///
     /// Returns `None` if the branch can't be found which might be caused it not being applied.
+    #[cfg(feature = "legacy")]
     pub fn try_resolve_stack(
         &self,
         ctx: &but_ctx::Context,
@@ -164,6 +202,25 @@ fn resolve_branch_ref(
     Ok(Some(ResolvedBranchRef {
         head: commit.detach(),
     }))
+}
+
+fn ensure_existing_local_branch(repo: &gix::Repository, branch: &FullName) -> CliResult<()> {
+    if !branch.as_bstr().starts_with_str("refs/heads/") {
+        return Err(bad_input(format!("Can only switch to local branches, got '{branch}'")).into());
+    }
+    if repo.try_find_reference(branch.as_ref())?.is_none() {
+        return Err(bad_input(format!("Branch '{}' not found", branch.shorten())).into());
+    }
+    Ok(())
+}
+
+fn looks_like_remote_branch(repo: &gix::Repository, target: &str) -> bool {
+    repo.remote_names().iter().any(|remote| {
+        target
+            .as_bytes()
+            .strip_prefix(remote.as_bstr().as_bytes())
+            .is_some_and(|rest| rest.starts_with(b"/"))
+    })
 }
 
 #[expect(missing_docs, reason = "only used internally by CLI command helpers")]

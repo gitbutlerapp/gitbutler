@@ -5,12 +5,10 @@ use but_core::{
     WORKSPACE_REF_NAME,
     git_config::{edit_repo_config, ensure_config_value},
     sync::RepoShared,
-    worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_ctx::Context;
-use but_error::{Code, Marker};
+use but_error::Code;
 use but_graph::FirstParent;
-use but_oxidize::ObjectIdExt;
 use gitbutler_git::GitContextExt as _;
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -135,47 +133,21 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
 
 #[instrument(skip(ctx, perm), err(Debug))]
 fn go_back_to_integration(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch> {
-    if ctx.settings.feature_flags.cv3 {
-        {
-            let repo = ctx.repo.get()?;
-            let workspace_commit_to_checkout =
-                but_workspace::legacy::remerged_workspace_commit_v2(ctx)?;
-            let tree_to_checkout_to_avoid_ref_update =
-                repo.find_commit(workspace_commit_to_checkout)?.tree_id()?;
-            but_core::worktree::safe_checkout(
-                repo.head_id()?.detach(),
-                tree_to_checkout_to_avoid_ref_update.detach(),
-                &repo,
-                but_core::worktree::checkout::Options {
-                    uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
-                    skip_head_update: false,
-                    ..Default::default()
-                },
-            )?;
-        }
-    } else {
-        let final_tree_id = {
-            let repo = ctx.repo.get()?;
-            let (mut outcome, conflict_kind) =
-                but_workspace::legacy::merge_worktree_with_workspace(ctx, &repo)?;
-
-            if outcome.has_unresolved_conflicts(conflict_kind) {
-                return Err(anyhow!("Conflicts while going back to gitbutler/workspace"))
-                    .context(Marker::ProjectConflict);
-            }
-
-            outcome.tree.write()?.detach()
-        };
-
-        #[expect(deprecated, reason = "checkout/materialization boundary")]
-        let git2_repo = &*ctx.git2_repo.get()?;
-        let final_tree = git2_repo.find_tree(final_tree_id.to_git2())?;
-        git2_repo
-            .checkout_tree(
-                final_tree.as_object(),
-                Some(git2::build::CheckoutBuilder::new().force()),
-            )
-            .context("failed to checkout tree")?;
+    {
+        let repo = ctx.repo.get()?;
+        let workspace_commit_to_checkout =
+            but_workspace::legacy::remerged_workspace_commit_v2(ctx)?;
+        let tree_to_checkout_to_avoid_ref_update =
+            repo.find_commit(workspace_commit_to_checkout)?.tree_id()?;
+        but_core::worktree::safe_checkout(
+            repo.head_id()?.detach(),
+            tree_to_checkout_to_avoid_ref_update.detach(),
+            &repo,
+            but_core::worktree::checkout::Options {
+                skip_head_update: false,
+                ..Default::default()
+            },
+        )?;
     }
 
     update_workspace_commit(ctx, false)?;
@@ -189,13 +161,23 @@ pub(crate) fn set_base_branch(
 ) -> Result<BaseBranch> {
     let repo = ctx.repo.get()?;
 
+    let existing_target_ref_matches = if let Ok(mut project_meta) = ctx.project_meta() {
+        let repaired_project_meta =
+            but_core::ref_metadata::repair_target_metadata_for_migration(&project_meta, &repo);
+        if repaired_project_meta != project_meta {
+            ctx.set_project_meta(repaired_project_meta.clone())?;
+            project_meta = repaired_project_meta;
+        }
+        project_meta.target_commit_id.is_some()
+            && project_meta
+                .target_ref
+                .is_some_and(|target_ref| target_ref.to_string() == target_branch_ref.to_string())
+    } else {
+        false
+    };
+
     // if target exists, and it is the same as the requested branch, we should go back
-    if ctx
-        .project_meta()
-        .ok()
-        .and_then(|project_meta| project_meta.target_ref)
-        .is_some_and(|target_ref| target_ref.to_string() == target_branch_ref.to_string())
-    {
+    if existing_target_ref_matches {
         return go_back_to_integration(ctx, perm);
     }
 

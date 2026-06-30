@@ -3,6 +3,7 @@ import type {
 	BranchDetailsParams,
 	BranchDiffParams,
 	CommitDetailsWithLineStatsParams,
+	GetReviewParams,
 	ListBranchesParams,
 	TreeChangeDiffParams,
 } from "#electron/ipc.ts";
@@ -13,7 +14,10 @@ export enum QueryKey {
 	BranchDiff = "branchDiff",
 	ChangesInWorktree = "changesInWorktree",
 	CommitDetailsWithLineStats = "commitDetailsWithLineStats",
+	ForgeInfo = "forgeInfo",
 	HeadInfo = "headInfo",
+	Review = "review",
+	ReviewMergeStatus = "reviewMergeStatus",
 	Branches = "branches",
 	Editors = "editors",
 	Projects = "projects",
@@ -49,10 +53,28 @@ export const commitDetailsWithLineStatsQueryOptions = ({
 		queryFn: () => window.lite.commitDetailsWithLineStats({ projectId, ...params }),
 	});
 
+export const forgeInfoOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: [QueryKey.ForgeInfo, projectId],
+		queryFn: () => window.lite.forgeInfo(projectId),
+	});
+
 export const headInfoQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [QueryKey.HeadInfo, projectId],
 		queryFn: () => window.lite.headInfo(projectId),
+	});
+
+export const getReviewQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+	queryOptions({
+		queryKey: [QueryKey.Review, projectId, reviewId],
+		queryFn: () => window.lite.getReview({ projectId, reviewId }),
+	});
+
+export const getReviewMergeStatusQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+	queryOptions({
+		queryKey: [QueryKey.ReviewMergeStatus, projectId, reviewId],
+		queryFn: () => window.lite.getReviewMergeStatus({ projectId, reviewId }),
 	});
 
 /** @public */
@@ -64,7 +86,7 @@ export const listBranchesQueryOptions = ({ projectId, ...params }: ListBranchesP
 
 export const listProjectsQueryOptions = queryOptions({
 	queryKey: [QueryKey.Projects],
-	queryFn: () => window.lite.listProjects(),
+	queryFn: () => window.lite.listProjectsStateless(),
 });
 
 export const listEditorsQueryOptions = queryOptions({

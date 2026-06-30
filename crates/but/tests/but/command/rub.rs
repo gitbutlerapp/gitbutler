@@ -10,9 +10,9 @@ use crate::{
 };
 
 fn assigned_uncommitted_file_env() -> anyhow::Result<Sandbox> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     env.file("a.txt", "arbitrary text\n");
     env.but("rub zz:a.txt A").assert().success();
     Ok(env)
@@ -38,16 +38,16 @@ fn stack_assigned_contains_file(
     })
 }
 
-fn unassigned_contains_file(status: &serde_json::Value, file_path: &str) -> bool {
-    status["unassignedChanges"]
+fn uncommitted_contains_file(status: &serde_json::Value, file_path: &str) -> bool {
+    status["uncommittedChanges"]
         .as_array()
         .unwrap()
         .iter()
         .any(|change| change["filePath"].as_str().unwrap() == file_path)
 }
 
-fn unassigned_cli_id_for_file(status: &serde_json::Value, file_path: &str) -> Option<String> {
-    status["unassignedChanges"]
+fn uncommitted_cli_id_for_file(status: &serde_json::Value, file_path: &str) -> Option<String> {
+    status["uncommittedChanges"]
         .as_array()
         .unwrap()
         .iter()
@@ -110,9 +110,9 @@ fn assign_uncommitted_file() -> anyhow::Result<()> {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+km:c a.txt│
+──────────╯
      1│+arbitrary text
 
 "#]]);
@@ -120,7 +120,7 @@ j0 a.txt│
 }
 
 #[test]
-fn uncommitted_file_to_unassigned() -> anyhow::Result<()> {
+fn uncommitted_file_to_uncommitted_area() -> anyhow::Result<()> {
     let env = assigned_uncommitted_file_env()?;
     env.but("rub A@{stack}:a.txt zz")
         .assert()
@@ -136,9 +136,9 @@ Unstaged the only hunk in a.txt in a stack
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:c a.txt│
+──────────╯
      1│+arbitrary text
 
 "#]]);
@@ -147,29 +147,27 @@ j0 a.txt│
 }
 
 #[test]
-fn uncommitted_file_to_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn uncommitted_file_to_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     env.but("rub a.txt A")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Staged all hunks in a.txt in the unassigned area → [A].
+Staged all hunks in a.txt in the uncommitted area → [A].
 
 "#]])
         .stderr_eq(str![""]);
-
-    Ok(())
 }
 
 #[test]
-fn uncommitted_file_by_path_prefix_to_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn uncommitted_file_by_path_prefix_to_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "path/a.txt");
 
     env.but("rub path/ A")
@@ -180,15 +178,13 @@ Staged hunk(s) → [A].
 
 "#]])
         .stderr_eq(str![""]);
-
-    Ok(())
 }
 
 #[test]
-fn committed_file_to_unassigned() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn committed_file_to_uncommitted_area() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
 
@@ -200,7 +196,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
         .stdout_eq(snapbox::str![[r#"
 ...
 {
-  "unassignedChanges": [],
+  "uncommittedChanges": [],
   "stacks": [
     {
       "cliId": "i0",
@@ -271,7 +267,7 @@ Uncommitted changes
         .stderr_eq(snapbox::str![""])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "pn",
       "filePath": "b.txt",
@@ -280,7 +276,7 @@ Uncommitted changes
   ],
   "stacks": [
     {
-      "cliId": "k0",
+      "cliId": "j0",
       "assignedChanges": [],
       "branches": [
         {
@@ -323,7 +319,7 @@ Uncommitted changes
 ...
     },
     {
-      "cliId": "l0",
+      "cliId": "k0",
       "assignedChanges": [],
       "branches": [
         {
@@ -348,32 +344,32 @@ Uncommitted changes
 }
 
 #[test]
-fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn shorthand_uncommitted_hunk_to_uncommitted_area() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Assign the change to A.
     env.but("rub a.txt A").assert().success();
 
-    // Verify that the first hunk is j0, and move it to unassigned.
+    // Verify that the first hunk is j0, and move it to uncommitted.
     env.but("diff A@{stack}:a.txt")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+km:2 a.txt│
+──────────╯
    1  │-first
      1│+firsta
    2 2│ line
    3 3│ line
    4 4│ line
-────────╮
-k0 a.txt│
-────────╯
+──────────╮
+km:e a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -381,7 +377,7 @@ k0 a.txt│
        9│+lasta
 
 "#]]);
-    env.but("rub j0 zz")
+    env.but("rub km:2 zz")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -390,8 +386,8 @@ Unstaged a hunk in a.txt in a stack
 "#]])
         .stderr_eq(str![""]);
 
-    // Verify that only one hunk moved back to unassigned ("a.txt" appears both in the
-    // unassigned area and in a stack).
+    // Verify that only one hunk moved back to uncommitted ("a.txt" appears both in the
+    // uncommitted area and in a stack).
     env.but("--format json status -f")
         .allow_json()
         .assert()
@@ -399,7 +395,7 @@ Unstaged a hunk in a.txt in a stack
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -408,7 +404,7 @@ Unstaged a hunk in a.txt in a stack
   ],
   "stacks": [
     {
-      "cliId": "m0",
+      "cliId": "k0",
       "assignedChanges": [
         {
           "cliId": "km",
@@ -429,30 +425,30 @@ Unstaged a hunk in a.txt in a stack
 
 #[test]
 fn uncommitted_hunk_to_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
     // Must set metadata to match the scenario
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
-    // Verify that the first hunk is j0, and move it to unassigned.
+    // Verify that the first hunk is j0, and move it to uncommitted.
     env.but("diff a.txt")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:2 a.txt│
+──────────╯
    1  │-first
      1│+firsta
    2 2│ line
    3 3│ line
    4 4│ line
-────────╮
-k0 a.txt│
-────────╯
+──────────╮
+nk:e a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -460,17 +456,17 @@ k0 a.txt│
        9│+lasta
 
 "#]]);
-    env.but("rub j0 A")
+    env.but("rub nk:2 A")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Staged a hunk in a.txt in the unassigned area → [A].
+Staged a hunk in a.txt in the uncommitted area → [A].
 
 "#]])
         .stderr_eq(str![""]);
 
     // Verify that only one hunk was assigned ("a.txt" appears both in the
-    // unassigned area and in a stack).
+    // uncommitted area and in a stack).
     env.but("--format json status -f")
         .allow_json()
         .assert()
@@ -478,7 +474,7 @@ Staged a hunk in a.txt in the unassigned area → [A].
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -487,7 +483,7 @@ Staged a hunk in a.txt in the unassigned area → [A].
   ],
   "stacks": [
     {
-      "cliId": "m0",
+      "cliId": "k0",
       "assignedChanges": [
         {
           "cliId": "km",
@@ -510,10 +506,10 @@ Staged a hunk in a.txt in the unassigned area → [A].
 // Before the fix, "my-file.txt" would be split on '-' and treated as a range
 // from "my" to "file.txt", which would fail.
 #[test]
-fn filename_with_dash_not_treated_as_range() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn filename_with_dash_not_treated_as_range() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     env.file("my-file.txt", "arbitrary text\n");
 
     // Staging by filename should work — the dash should NOT be interpreted as a range separator
@@ -521,21 +517,19 @@ fn filename_with_dash_not_treated_as_range() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Staged the only hunk in my-file.txt in the unassigned area → [A].
+Staged the only hunk in my-file.txt in the uncommitted area → [A].
 
 "#]])
         .stderr_eq(str![""]);
-
-    Ok(())
 }
 
 // Tests for convenience commands
 
 #[test]
 fn uncommit_command_on_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     // Get the commit ID from status
@@ -548,14 +542,14 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
     // Test uncommit command
     env.but(format!("uncommit {commit_id}")).assert().success();
 
-    // Verify the files are now unassigned
+    // Verify the files are now uncommitted
     env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -569,7 +563,7 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
   ],
   "stacks": [
     {
-      "cliId": "m0",
+      "cliId": "k0",
       "assignedChanges": [],
       "branches": [
 ...
@@ -580,10 +574,64 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
 }
 
 #[test]
-fn uncommit_command_validation() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn uncommit_diff_json_keeps_mutation_result_and_diff() -> anyhow::Result<()> {
+    fn run(agent: bool) -> anyhow::Result<()> {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+        env.setup_metadata(&["A", "B"]);
+        commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+        let before = status_json(&env)?;
+        let commit_id = branch_commit_ids(&before, "A")[0].clone();
+        let command = format!("--format json uncommit {commit_id} --diff");
+        let output = if agent {
+            env.but(command)
+                .env("AI_AGENT", "codex")
+                .allow_json()
+                .output()?
+        } else {
+            env.but(command).allow_json().output()?
+        };
+        assert!(
+            output.status.success(),
+            "uncommit --diff failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+        let result = if agent { &json["result"] } else { &json };
+        assert_eq!(result["ok"], true);
+
+        let changes = result["diff"]["changes"]
+            .as_array()
+            .expect("diff changes should be an array");
+        assert!(
+            changes
+                .iter()
+                .any(|change| change["path"].as_str() == Some("a.txt")),
+            "diff output should include the uncommitted files"
+        );
+
+        if agent {
+            assert!(
+                json.get("status").is_some(),
+                "agent JSON output should still include status"
+            );
+        }
+
+        Ok(())
+    }
+
+    run(false)?;
+    run(true)?;
+    Ok(())
+}
+
+#[test]
+fn uncommit_command_validation() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+
+    env.setup_metadata(&["A", "B"]);
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Test that uncommit rejects uncommitted files
@@ -600,15 +648,13 @@ Failed to uncommit. Cannot uncommit a.txt - it is an uncommitted file or hunk. O
 Failed to uncommit. Cannot uncommit A - it is a branch. Only commits and files-in-commits can be uncommitted.
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 fn uncommit_command_with_discard_on_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     let before = status_json(&env)?;
@@ -620,7 +666,7 @@ fn uncommit_command_with_discard_on_commit() -> anyhow::Result<()> {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   fce8ecc create a.txt and b.txt
@@ -658,8 +704,8 @@ Hint: run `but help` for all commands
         "source commit should no longer be present after discard"
     );
     assert!(
-        !unassigned_contains_file(&after, "a.txt") && !unassigned_contains_file(&after, "b.txt"),
-        "discarding a commit should not move its changes into unassigned"
+        !uncommitted_contains_file(&after, "a.txt") && !uncommitted_contains_file(&after, "b.txt"),
+        "discarding a commit should not move its changes into uncommitted"
     );
 
     env.but("stf")
@@ -667,7 +713,7 @@ Hint: run `but help` for all commands
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9477ae7 add A
@@ -690,9 +736,9 @@ Hint: run `but help` for all commands
 
 #[test]
 fn uncommit_command_with_discard_on_committed_file() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     let before = status_json(&env)?;
@@ -704,7 +750,7 @@ fn uncommit_command_with_discard_on_committed_file() -> anyhow::Result<()> {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   fce8ecc create a.txt and b.txt
@@ -731,8 +777,8 @@ Hint: run `but help` for all commands
 
     let after = status_json(&env)?;
     assert!(
-        !unassigned_contains_file(&after, "b.txt"),
-        "discarded committed file changes should not end up unassigned"
+        !uncommitted_contains_file(&after, "b.txt"),
+        "discarded committed file changes should not end up uncommitted"
     );
     assert!(
         !branch_commits_contain_file(&after, "A", "b.txt"),
@@ -748,7 +794,7 @@ Hint: run `but help` for all commands
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   993513d create a.txt and b.txt
@@ -773,7 +819,7 @@ Hint: run `but help` for all commands
 
 #[test]
 fn uncommit_help_mentions_discard_flag() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
 
     let output = env.but("uncommit --help").output()?;
     assert!(output.status.success());
@@ -793,9 +839,9 @@ fn uncommit_help_mentions_discard_flag() -> anyhow::Result<()> {
 
 #[test]
 fn agent_uncommit_discard_multiple_sources_writes_single_json_with_status() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
 
@@ -826,8 +872,8 @@ fn agent_uncommit_discard_multiple_sources_writes_single_json_with_status() -> a
         "discarding two commit sources should remove both from branch history"
     );
     assert!(
-        !unassigned_contains_file(&after, "a.txt") && !unassigned_contains_file(&after, "b.txt"),
-        "discarded commits should not move their changes into unassigned"
+        !uncommitted_contains_file(&after, "a.txt") && !uncommitted_contains_file(&after, "b.txt"),
+        "discarded commits should not move their changes into uncommitted"
     );
 
     Ok(())
@@ -835,9 +881,9 @@ fn agent_uncommit_discard_multiple_sources_writes_single_json_with_status() -> a
 
 #[test]
 fn stage_command() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Test stage command
@@ -850,10 +896,10 @@ fn stage_command() -> anyhow::Result<()> {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [],
+  "uncommittedChanges": [],
   "stacks": [
     {
-      "cliId": "l0",
+      "cliId": "j0",
       "assignedChanges": [
         {
           "cliId": "km",
@@ -869,10 +915,10 @@ fn stage_command() -> anyhow::Result<()> {
 }
 
 #[test]
-fn stage_command_path_prefix() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn stage_command_path_prefix() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     env.file("path/a.txt", "text\n");
     env.but("stage path/ A")
         .assert()
@@ -882,14 +928,13 @@ fn stage_command_path_prefix() -> anyhow::Result<()> {
 Staged hunk(s) → [A].
 
 "#]]);
-    Ok(())
 }
 
 #[test]
-fn stage_command_missing_source_hints_to_refresh_cli_ids() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn stage_command_missing_source_hints_to_refresh_cli_ids() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     env.but("stage missing-file A")
         .assert()
         .failure()
@@ -901,15 +946,13 @@ Source 'missing-file' not found. If you just performed a Git operation (squash, 
 Hint: Run `but status --format json -f` to refresh CLI IDs, then retry with a file or hunk cliId from the output
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn stage_command_missing_branch_hints_to_refresh_cli_ids() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn stage_command_missing_branch_hints_to_refresh_cli_ids() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     env.file("a.txt", "text\n");
 
     env.but("stage a.txt missing-branch")
@@ -923,15 +966,13 @@ Branch 'missing-branch' not found. If you just performed a Git operation (squash
 Hint: Use a branch name or branch cliId from `but status --format json -f`
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn stage_command_non_branch_target_hints_to_use_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn stage_command_non_branch_target_hints_to_use_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     env.file("a.txt", "text\n");
 
     env.but("stage a.txt zz")
@@ -940,20 +981,18 @@ fn stage_command_non_branch_target_hints_to_use_branch() -> anyhow::Result<()> {
         .stderr_eq(str![[r#"
 Error: Bad input 'zz' for '<BRANCH>'
 
-Cannot stage to zz - it is the unassigned area. Target must be a branch.
+Cannot stage to zz - it is the uncommitted area. Target must be a branch.
 
 Hint: Use a branch name or branch cliId from `but status --format json -f`
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 fn unstage_command() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // First stage the file to A
@@ -966,10 +1005,10 @@ fn unstage_command() -> anyhow::Result<()> {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [],
+  "uncommittedChanges": [],
   "stacks": [
     {
-      "cliId": "l0",
+      "cliId": "j0",
       "assignedChanges": [
         {
           "cliId": "km",
@@ -984,14 +1023,14 @@ fn unstage_command() -> anyhow::Result<()> {
     // Now unstage it
     env.but("unstage A@{stack}:a.txt").assert().success();
 
-    // Verify it's now unassigned
+    // Verify it's now uncommitted
     env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -1000,7 +1039,7 @@ fn unstage_command() -> anyhow::Result<()> {
   ],
   "stacks": [
     {
-      "cliId": "l0",
+      "cliId": "j0",
       "assignedChanges": [],
 ...
 
@@ -1010,10 +1049,10 @@ fn unstage_command() -> anyhow::Result<()> {
 }
 
 #[test]
-fn unstage_command_path_prefix() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+fn unstage_command_path_prefix() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     env.file("path/a.txt", "text\n");
 
     // First stage the file to A
@@ -1028,14 +1067,13 @@ fn unstage_command_path_prefix() -> anyhow::Result<()> {
 Unstaged hunk(s)
 
 "#]]);
-    Ok(())
 }
 
 #[test]
 fn unstage_command_with_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Stage the file to A
@@ -1044,14 +1082,14 @@ fn unstage_command_with_branch() -> anyhow::Result<()> {
     // Unstage with branch parameter
     env.but("unstage A@{stack}:a.txt A").assert().success();
 
-    // Verify it's unassigned
+    // Verify it's uncommitted
     env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -1067,9 +1105,9 @@ fn unstage_command_with_branch() -> anyhow::Result<()> {
 
 #[test]
 fn unstage_command_validation() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     // Get the commit ID from status
@@ -1104,9 +1142,9 @@ Failed to unstage. Cannot unstage from fc - it is a commit. Target must be a bra
 // Full rub matrix CLI smoke coverage.
 
 #[test]
-fn rub_matrix_uncommitted_to_commit_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn rub_matrix_uncommitted_hunk_to_commit_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("uncommitted-to-commit.txt", "content\n");
 
@@ -1124,8 +1162,8 @@ Amended [..] → [..]
 
     let after = status_json(&env)?;
     assert!(
-        !unassigned_contains_file(&after, "uncommitted-to-commit.txt"),
-        "file should no longer be unassigned"
+        !uncommitted_contains_file(&after, "uncommitted-to-commit.txt"),
+        "file should no longer be uncommitted"
     );
     assert!(
         branch_commits_contain_file(&after, "A", "uncommitted-to-commit.txt"),
@@ -1136,9 +1174,9 @@ Amended [..] → [..]
 }
 
 #[test]
-fn rub_matrix_uncommitted_to_stack_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn rub_matrix_uncommitted_hunk_to_stack_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("uncommitted-to-stack.txt", "content\n");
 
@@ -1146,7 +1184,7 @@ fn rub_matrix_uncommitted_to_stack_smoke() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Staged the only hunk in uncommitted-to-stack.txt in the unassigned area → stack [..].
+Staged the only hunk in uncommitted-to-stack.txt in the uncommitted area → stack [..].
 
 "#]])
         .stderr_eq(str![""]);
@@ -1161,9 +1199,9 @@ Staged the only hunk in uncommitted-to-stack.txt in the unassigned area → stac
 }
 
 #[test]
-fn rub_matrix_unassigned_to_branch_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn rub_matrix_uncommitted_area_to_branch_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("zz-to-branch.txt", "content\n");
 
@@ -1178,8 +1216,8 @@ Staged all unstaged changes to [A].
 
     let after = status_json(&env)?;
     assert!(
-        !unassigned_contains_file(&after, "zz-to-branch.txt"),
-        "file should no longer be unassigned"
+        !uncommitted_contains_file(&after, "zz-to-branch.txt"),
+        "file should no longer be uncommitted"
     );
     assert!(
         stack_assigned_contains_file(&after, "A", "zz-to-branch.txt"),
@@ -1190,9 +1228,9 @@ Staged all unstaged changes to [A].
 }
 
 #[test]
-fn rub_matrix_unassigned_to_commit_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn rub_matrix_uncommitted_area_to_commit_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("zz-to-commit.txt", "content\n");
 
@@ -1203,15 +1241,15 @@ fn rub_matrix_unassigned_to_commit_smoke() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Amended unassigned files → [..]
+Amended uncommitted files → [..]
 
 "#]])
         .stderr_eq(str![""]);
 
     let after = status_json(&env)?;
     assert!(
-        !unassigned_contains_file(&after, "zz-to-commit.txt"),
-        "file should no longer be unassigned"
+        !uncommitted_contains_file(&after, "zz-to-commit.txt"),
+        "file should no longer be uncommitted"
     );
     assert!(
         branch_commits_contain_file(&after, "A", "zz-to-commit.txt"),
@@ -1222,9 +1260,9 @@ Amended unassigned files → [..]
 }
 
 #[test]
-fn rub_matrix_unassigned_to_commit_consumes_renames() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn rub_matrix_uncommitted_to_commit_consumes_renames() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let original = (1..=120)
         .map(|line| line.to_string())
@@ -1252,15 +1290,15 @@ fn rub_matrix_unassigned_to_commit_consumes_renames() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Amended unassigned files → [..]
+Amended uncommitted files → [..]
 
 "#]])
         .stderr_eq(str![""]);
 
     let after = status_json(&env)?;
     assert!(
-        !unassigned_contains_file(&after, "rename-target.txt"),
-        "renamed file should no longer be unassigned"
+        !uncommitted_contains_file(&after, "rename-target.txt"),
+        "renamed file should no longer be uncommitted"
     );
     assert_eq!(
         env.invoke_git("status --porcelain"),
@@ -1272,9 +1310,9 @@ Amended unassigned files → [..]
 }
 
 #[test]
-fn rub_matrix_unassigned_file_to_commit_consumes_renames() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn rub_matrix_uncommitted_file_to_commit_consumes_renames() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let original = (1..=120)
         .map(|line| line.to_string())
@@ -1296,23 +1334,23 @@ fn rub_matrix_unassigned_file_to_commit_consumes_renames() -> anyhow::Result<()>
     );
 
     let before = status_json(&env)?;
-    let source_file_id = unassigned_cli_id_for_file(&before, "rename-target-single.txt")
-        .expect("renamed unassigned file should be present in status");
+    let source_file_id = uncommitted_cli_id_for_file(&before, "rename-target-single.txt")
+        .expect("renamed uncommitted file should be present in status");
     let target_commit = branch_commit_ids(&before, "A")[0].clone();
 
     env.but(format!("rub {source_file_id} {target_commit}"))
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Amended the only hunk in rename-target-single.txt in the unassigned area → [..]
+Amended the only hunk in rename-target-single.txt in the uncommitted area → [..]
 
 "#]])
         .stderr_eq(str![""]);
 
     let after = status_json(&env)?;
     assert!(
-        !unassigned_contains_file(&after, "rename-target-single.txt"),
-        "renamed file should no longer be unassigned"
+        !uncommitted_contains_file(&after, "rename-target-single.txt"),
+        "renamed file should no longer be uncommitted"
     );
 
     let remaining = env.invoke_git("status --porcelain");
@@ -1325,9 +1363,9 @@ Amended the only hunk in rename-target-single.txt in the unassigned area → [..
 }
 
 #[test]
-fn rub_unassigned_deleted_file_to_commit_keeps_unrelated_deleted_file() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn rub_uncommitted_deleted_file_to_commit_keeps_unrelated_deleted_file() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("a.txt", "a\n");
     env.file("b.txt", "b\n");
@@ -1340,31 +1378,31 @@ fn rub_unassigned_deleted_file_to_commit_keeps_unrelated_deleted_file() -> anyho
     std::fs::remove_file(env.projects_root().join("b.txt"))?;
 
     let before = status_json(&env)?;
-    let source_file_id = unassigned_cli_id_for_file(&before, "a.txt")
-        .expect("a.txt deletion should be present in the unassigned area");
+    let source_file_id = uncommitted_cli_id_for_file(&before, "a.txt")
+        .expect("a.txt deletion should be present in the uncommitted area");
     let target_commit = branch_commit_ids(&before, "A")[0].clone();
     assert!(
-        unassigned_contains_file(&before, "b.txt"),
-        "b.txt deletion should start in the unassigned area"
+        uncommitted_contains_file(&before, "b.txt"),
+        "b.txt deletion should start in the uncommitted area"
     );
 
     env.but(format!("rub {source_file_id} {target_commit}"))
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Amended the only hunk in a.txt in the unassigned area → [..]
+Amended the only hunk in a.txt in the uncommitted area → [..]
 
 "#]])
         .stderr_eq(str![""]);
 
     let after = status_json(&env)?;
     assert!(
-        !unassigned_contains_file(&after, "a.txt"),
+        !uncommitted_contains_file(&after, "a.txt"),
         "selected a.txt deletion should be amended into the target commit"
     );
     assert!(
-        unassigned_contains_file(&after, "b.txt"),
-        "unrelated b.txt deletion should remain unassigned"
+        uncommitted_contains_file(&after, "b.txt"),
+        "unrelated b.txt deletion should remain uncommitted"
     );
     assert!(
         !env.projects_root().join("a.txt").exists(),
@@ -1383,9 +1421,9 @@ Amended the only hunk in a.txt in the unassigned area → [..]
 }
 
 #[test]
-fn rub_matrix_unassigned_to_stack_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn rub_matrix_uncommitted_area_to_stack_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("zz-to-stack.txt", "content\n");
 
@@ -1400,8 +1438,8 @@ Staged all unstaged changes to [A].
 
     let after = status_json(&env)?;
     assert!(
-        !unassigned_contains_file(&after, "zz-to-stack.txt"),
-        "file should no longer be unassigned"
+        !uncommitted_contains_file(&after, "zz-to-stack.txt"),
+        "file should no longer be uncommitted"
     );
     assert!(
         stack_assigned_contains_file(&after, "A", "zz-to-stack.txt"),
@@ -1412,9 +1450,9 @@ Staged all unstaged changes to [A].
 }
 
 #[test]
-fn rub_matrix_commit_to_unassigned_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn rub_matrix_commit_to_uncommitted_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
@@ -1445,8 +1483,8 @@ Uncommitted [..]
     );
 
     assert!(
-        unassigned_contains_file(&after, "a.txt") && unassigned_contains_file(&after, "b.txt"),
-        "uncommitting a commit should move its changes into unassigned"
+        uncommitted_contains_file(&after, "a.txt") && uncommitted_contains_file(&after, "b.txt"),
+        "uncommitting a commit should move its changes into uncommitted"
     );
 
     Ok(())
@@ -1454,8 +1492,8 @@ Uncommitted [..]
 
 #[test]
 fn rub_matrix_commit_to_commit_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
@@ -1486,9 +1524,9 @@ Squashed [..] → [..]
 }
 
 #[test]
-fn rub_commit_without_message_to_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn rub_commit_without_message_to_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("one.txt", "one.txt contents");
     env.but("commit -m 'add one.txt'").assert().success();
@@ -1497,7 +1535,7 @@ fn rub_commit_without_message_to_commit() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   aec35ac add one.txt
@@ -1514,7 +1552,7 @@ fn rub_commit_without_message_to_commit() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   5e5c05a (no commit message) (no changes)
@@ -1532,7 +1570,7 @@ fn rub_commit_without_message_to_commit() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   aec35ac add one.txt
@@ -1542,14 +1580,12 @@ fn rub_commit_without_message_to_commit() -> anyhow::Result<()> {
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 fn rub_commit_to_commit_without_message() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("one.txt", "one.txt contents");
     env.but("commit -m 'add one.txt'").assert().success();
@@ -1579,8 +1615,8 @@ fn rub_commit_to_commit_without_message() -> anyhow::Result<()> {
 
 #[test]
 fn rub_matrix_commit_to_branch_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
@@ -1609,8 +1645,8 @@ Moved [..] → [B]
 
 #[test]
 fn rub_matrix_commit_to_stack_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
@@ -1642,16 +1678,16 @@ Uncommitted [..] to [B]
 }
 
 #[test]
-fn rub_matrix_branch_to_unassigned_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn rub_matrix_branch_to_uncommitted_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("branch-to-zz.txt", "content\n");
     env.but("rub branch-to-zz.txt A")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Staged the only hunk in branch-to-zz.txt in the unassigned area → [A].
+Staged the only hunk in branch-to-zz.txt in the uncommitted area → [A].
 
 "#]])
         .stderr_eq(str![""]);
@@ -1667,8 +1703,8 @@ Unstaged all [A] changes.
 
     let after = status_json(&env)?;
     assert!(
-        unassigned_contains_file(&after, "branch-to-zz.txt"),
-        "file should move back to unassigned"
+        uncommitted_contains_file(&after, "branch-to-zz.txt"),
+        "file should move back to uncommitted"
     );
 
     Ok(())
@@ -1676,15 +1712,15 @@ Unstaged all [A] changes.
 
 #[test]
 fn rub_matrix_branch_to_stack_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("branch-to-stack.txt", "content\n");
     env.but("rub branch-to-stack.txt A")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Staged the only hunk in branch-to-stack.txt in the unassigned area → [A].
+Staged the only hunk in branch-to-stack.txt in the uncommitted area → [A].
 
 "#]])
         .stderr_eq(str![""]);
@@ -1709,15 +1745,15 @@ Staged all [A] changes to [B].
 
 #[test]
 fn rub_matrix_branch_to_commit_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("branch-to-commit.txt", "content\n");
     env.but("rub branch-to-commit.txt A")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Staged the only hunk in branch-to-commit.txt in the unassigned area → [A].
+Staged the only hunk in branch-to-commit.txt in the uncommitted area → [A].
 
 "#]])
         .stderr_eq(str![""]);
@@ -1745,15 +1781,15 @@ Amended assigned files [A] → [..]
 
 #[test]
 fn rub_matrix_branch_to_branch_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("branch-to-branch.txt", "content\n");
     env.but("rub branch-to-branch.txt A")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Staged the only hunk in branch-to-branch.txt in the unassigned area → [A].
+Staged the only hunk in branch-to-branch.txt in the uncommitted area → [A].
 
 "#]])
         .stderr_eq(str![""]);
@@ -1777,16 +1813,16 @@ Staged all [A] changes to [B].
 }
 
 #[test]
-fn rub_matrix_stack_to_unassigned_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn rub_matrix_stack_to_uncommitted_smoke() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("stack-to-zz.txt", "content\n");
     env.but("rub stack-to-zz.txt A")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Staged the only hunk in stack-to-zz.txt in the unassigned area → [A].
+Staged the only hunk in stack-to-zz.txt in the uncommitted area → [A].
 
 "#]])
         .stderr_eq(str![""]);
@@ -1802,8 +1838,8 @@ Unstaged all [A] changes.
 
     let after = status_json(&env)?;
     assert!(
-        unassigned_contains_file(&after, "stack-to-zz.txt"),
-        "file should move back to unassigned"
+        uncommitted_contains_file(&after, "stack-to-zz.txt"),
+        "file should move back to uncommitted"
     );
 
     Ok(())
@@ -1811,15 +1847,15 @@ Unstaged all [A] changes.
 
 #[test]
 fn rub_matrix_stack_to_stack_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("stack-to-stack.txt", "content\n");
     env.but("rub stack-to-stack.txt A")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Staged the only hunk in stack-to-stack.txt in the unassigned area → [A].
+Staged the only hunk in stack-to-stack.txt in the uncommitted area → [A].
 
 "#]])
         .stderr_eq(str![""]);
@@ -1844,15 +1880,15 @@ Staged all [A] changes to [B].
 
 #[test]
 fn rub_matrix_stack_to_branch_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("stack-to-branch.txt", "content\n");
     env.but("rub stack-to-branch.txt A")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Staged the only hunk in stack-to-branch.txt in the unassigned area → [A].
+Staged the only hunk in stack-to-branch.txt in the uncommitted area → [A].
 
 "#]])
         .stderr_eq(str![""]);
@@ -1877,15 +1913,15 @@ Staged all [A] changes to [B].
 
 #[test]
 fn rub_matrix_stack_to_commit_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("stack-to-commit.txt", "content\n");
     env.but("rub stack-to-commit.txt A")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Staged the only hunk in stack-to-commit.txt in the unassigned area → [A].
+Staged the only hunk in stack-to-commit.txt in the uncommitted area → [A].
 
 "#]])
         .stderr_eq(str![""]);
@@ -1917,8 +1953,8 @@ Amended files assigned to [A] → [..]
 
 #[test]
 fn rub_matrix_committed_file_to_branch_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
@@ -1945,8 +1981,8 @@ Uncommitted changes
 
 #[test]
 fn rub_matrix_committed_file_to_commit_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     commit_two_files_as_two_hunks_each(&env, "A", "source-a.txt", "source-b.txt", "source commit");
     commit_two_files_as_two_hunks_each(&env, "A", "target-a.txt", "target-b.txt", "target commit");
@@ -1977,8 +2013,8 @@ Moved files between commits!
 
 #[test]
 fn rub_matrix_invalid_pairs_smoke() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "invalid matrix setup");
     env.file("invalid-a.txt", "content\n");
@@ -2021,9 +2057,9 @@ Rubbed the wrong way. Operation doesn't make sense.[..]
 
 #[test]
 fn agent_json_wraps_mutation_and_status() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     env.file("a.txt", "arbitrary text\n");
 
     let output = env
@@ -2057,8 +2093,8 @@ fn agent_json_wraps_mutation_and_status() -> anyhow::Result<()> {
         "status should contain 'stacks'"
     );
     assert!(
-        json["status"].get("unassignedChanges").is_some(),
-        "status should contain 'unassignedChanges'"
+        json["status"].get("uncommittedChanges").is_some(),
+        "status should contain 'uncommittedChanges'"
     );
 
     Ok(())
@@ -2066,9 +2102,9 @@ fn agent_json_wraps_mutation_and_status() -> anyhow::Result<()> {
 
 #[test]
 fn agent_invocation_enables_status_after_for_mutations() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     env.file("agent.txt", "content\n");
 
     let output = env
@@ -2095,9 +2131,9 @@ fn agent_invocation_enables_status_after_for_mutations() -> anyhow::Result<()> {
 fn agent_json_success_has_no_status_error_field() -> anyhow::Result<()> {
     // Verifies that on a successful agent mutation, the combined JSON output
     // contains {result, status} but NOT status_error.
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
     env.file("b.txt", "content\n");
 
     let output = env
@@ -2120,8 +2156,8 @@ fn agent_json_success_has_no_status_error_field() -> anyhow::Result<()> {
 
 #[test]
 fn rubbing_modified_and_renamed_file() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("file", "content");
     env.file("file-2", "content-2");
@@ -2132,7 +2168,7 @@ fn rubbing_modified_and_renamed_file() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   e3f869d add files
@@ -2153,7 +2189,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted]
 ┊   qs M file
 ┊   kw D file-2
 ┊
@@ -2175,7 +2211,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   3a32c97 add files
@@ -2191,8 +2227,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn committing_modified_and_renamed_file() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("file", "content");
     env.file("file-2", "content-2");
@@ -2203,7 +2239,7 @@ fn committing_modified_and_renamed_file() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   e3f869d add files
@@ -2224,7 +2260,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted]
 ┊   qs M file
 ┊   kw D file-2
 ┊
@@ -2246,7 +2282,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   e419886 change file

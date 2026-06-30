@@ -6,8 +6,8 @@ use crate::{
     utils::{CommandExt, Sandbox},
 };
 
-fn find_unassigned_cli_id(status: &serde_json::Value, path: &str) -> Option<String> {
-    status["unassignedChanges"]
+fn find_uncommitted_cli_id(status: &serde_json::Value, path: &str) -> Option<String> {
+    status["uncommittedChanges"]
         .as_array()?
         .iter()
         .find(|change| change["filePath"].as_str() == Some(path))
@@ -16,9 +16,9 @@ fn find_unassigned_cli_id(status: &serde_json::Value, path: &str) -> Option<Stri
 
 #[test]
 fn uncommitted_file() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     env.but("--format json status -f")
@@ -28,7 +28,7 @@ fn uncommitted_file() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -56,7 +56,7 @@ Hint: you can run `but undo` to undo these changes
         .stderr_eq(str![""]);
 
     // Change was absorbed
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
     insta::assert_snapshot!(blob.data.as_bstr(), @"
     firsta
@@ -78,7 +78,7 @@ Hint: you can run `but undo` to undo these changes
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [],
+  "uncommittedChanges": [],
 ...
 
 "#]]);
@@ -88,28 +88,28 @@ Hint: you can run `but undo` to undo these changes
 
 #[test]
 fn uncommitted_hunk() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
-    // Verify that the first hunk is j0, and absorb it.
+    // Verify that the first hunk is nk:2, and absorb it.
     env.but("diff a.txt")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:2 a.txt│
+──────────╯
    1  │-first
      1│+firsta
    2 2│ line
    3 3│ line
    4 4│ line
-────────╮
-k0 a.txt│
-────────╯
+──────────╮
+nk:e a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -117,7 +117,7 @@ k0 a.txt│
        9│+lasta
 
 "#]]);
-    env.but("absorb j0")
+    env.but("absorb nk:2")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -134,7 +134,7 @@ Hint: you can run `but undo` to undo these changes
         .stderr_eq(str![""]);
 
     // Change was partially absorbed
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
     insta::assert_snapshot!(blob.data.as_bstr(), @"
     firsta
@@ -156,7 +156,7 @@ Hint: you can run `but undo` to undo these changes
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -172,28 +172,27 @@ Hint: you can run `but undo` to undo these changes
 
 #[test]
 fn committed_hunk() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
-    // Verify that the first hunk is j0, and commit it.
     env.but("diff a.txt")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:2 a.txt│
+──────────╯
    1  │-first
      1│+firsta
    2 2│ line
    3 3│ line
    4 4│ line
-────────╮
-k0 a.txt│
-────────╯
+──────────╮
+nk:e a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -220,9 +219,9 @@ k0 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:f a.txt│
+──────────╯
    1  │-firsta
      1│+first
    2 2│ line
@@ -247,9 +246,9 @@ j0 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:1 a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -274,17 +273,17 @@ j0 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-────────╮
-j0 a.txt│
-────────╯
+──────────╮
+nk:b a.txt│
+──────────╯
    1  │-first
      1│+first new
    2 2│ line
    3 3│ line
    4 4│ line
-────────╮
-k0 a.txt│
-────────╯
+──────────╮
+nk:5 a.txt│
+──────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -298,7 +297,7 @@ k0 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted]
 ┊   nk M a.txt
 ┊
 ┊╭┄g0 [A]
@@ -350,7 +349,7 @@ Hint: you can run `but undo` to undo these changes
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   4822140 partial change to a.txt 3
@@ -377,7 +376,7 @@ Hint: run `but help` for all commands
 "#]]);
 
     // Change was full absorbed
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
     insta::assert_snapshot!(blob.data.as_bstr(), @"
     first new
@@ -396,15 +395,15 @@ Hint: run `but help` for all commands
 
 #[test]
 fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
     commit_file_with_worktree_changes_as_two_hunks(&env, "B", "b.txt");
 
     let status = util::status_json(&env)?;
-    let id_a = find_unassigned_cli_id(&status, "a.txt").expect("should find a.txt CLI ID");
-    let id_b = find_unassigned_cli_id(&status, "b.txt").expect("should find b.txt CLI ID");
+    let id_a = find_uncommitted_cli_id(&status, "a.txt").expect("should find a.txt CLI ID");
+    let id_b = find_uncommitted_cli_id(&status, "b.txt").expect("should find b.txt CLI ID");
 
     let child_a = util::but_std_cmd(&env, &format!("absorb {id_a}")).spawn()?;
     let child_b = util::but_std_cmd(&env, &format!("absorb {id_b}")).spawn()?;
@@ -425,7 +424,7 @@ fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
 
     let status = util::status_json(&env)?;
     assert_eq!(
-        status["unassignedChanges"]
+        status["uncommittedChanges"]
             .as_array()
             .map(|changes| changes.len())
             .unwrap_or(0),
@@ -438,9 +437,9 @@ fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
 
 #[test]
 fn dry_run_shows_plan_without_changes() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Get initial status
@@ -479,7 +478,7 @@ Dry run complete. No changes were made.
     );
 
     // Also verify the workspace commit did NOT change during dry-run
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let ws_id = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
     // Re-run dry-run and confirm workspace is still the same
     env.but("absorb i0 --dry-run").assert().success();
@@ -487,7 +486,7 @@ Dry run complete. No changes were made.
     assert_eq!(ws_id, ws_id_after, "dry-run must not touch workspace HEAD");
 
     // Verify the file content wasn't actually changed
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
     insta::assert_snapshot!(blob.data.as_bstr(), @"
     first
@@ -509,7 +508,7 @@ Dry run complete. No changes were made.
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -529,13 +528,13 @@ Dry run complete. No changes were made.
 /// an up-to-date synthetic commit rather than a stale one.
 #[test]
 fn workspace_head_is_refreshed_after_absorb() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Record the workspace commit *before* absorb.
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let ws_before = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
 
     env.but("absorb i0").assert().success().stderr_eq(str![""]);

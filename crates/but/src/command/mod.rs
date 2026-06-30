@@ -2,6 +2,7 @@
 #[cfg(feature = "legacy")]
 pub mod legacy;
 
+pub mod agent;
 pub mod alias;
 pub mod branch;
 pub mod commit;
@@ -16,4 +17,5 @@ pub mod r#move;
 pub mod onboarding;
 pub mod push;
 pub mod skill;
+pub mod r#switch;
 pub mod update;

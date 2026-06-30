@@ -10,7 +10,7 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
 
-use crate::{id::UncommittedCliId, theme, tui::TerminalGuard as _};
+use crate::{id::UncommittedHunkOrFile, theme, tui::TerminalGuard as _};
 
 /// A single file's diff information for TUI display.
 pub(crate) struct DiffFileEntry {
@@ -40,8 +40,8 @@ pub(crate) enum DiffLine {
 
 /// Filter for worktree diffs, mirroring the non-TUI filter logic.
 pub(crate) enum WorktreeFilter {
-    Unassigned,
-    Uncommitted(Box<UncommittedCliId>),
+    UncommittedArea,
+    Uncommitted(Box<UncommittedHunkOrFile>),
     Stack(but_core::ref_metadata::StackId),
 }
 
@@ -57,7 +57,7 @@ impl DiffFileEntry {
             let a = &uncommitted_hunk.hunk_assignment;
             let include = match filter {
                 None => true,
-                Some(WorktreeFilter::Unassigned) => a.stack_id.is_none(),
+                Some(WorktreeFilter::UncommittedArea) => a.stack_id.is_none(),
                 Some(WorktreeFilter::Uncommitted(id)) => {
                     if id.is_entire_file {
                         a.path_bytes == id.hunk_assignments.first().path_bytes

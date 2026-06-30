@@ -1,7 +1,8 @@
 use std::borrow::Cow;
 
 use but_core::{
-    WORKSPACE_REF_NAME, ref_metadata::StackId, worktree::checkout::UncommitedWorktreeChanges,
+    WORKSPACE_REF_NAME,
+    ref_metadata::{StackId, StackKind},
 };
 
 use crate::branch::{OnWorkspaceMergeConflict, try_find_validated_ref};
@@ -25,6 +26,37 @@ impl std::fmt::Debug for ConflictingStack {
     }
 }
 
+/// What kind of apply operation completed.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, serde::Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub enum OutcomeStatus {
+    /// The branch was already active in the current workspace, so nothing changed.
+    AlreadyApplied,
+    /// The branch was applied or recorded in the workspace.
+    Applied,
+    /// A workspace merge was attempted and conflicts prevented persistence.
+    ConflictAborted,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(OutcomeStatus);
+
+impl OutcomeStatus {
+    /// The stable lower-camel-case name used by machine-readable CLI output.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            OutcomeStatus::AlreadyApplied => "alreadyApplied",
+            OutcomeStatus::Applied => "applied",
+            OutcomeStatus::ConflictAborted => "conflictAborted",
+        }
+    }
+
+    /// Whether this status represents a persisted repository/workspace mutation.
+    pub fn persisted_mutation(self) -> bool {
+        matches!(self, OutcomeStatus::Applied)
+    }
+}
+
 /// Returned by [apply()].
 pub struct Outcome<'workspace> {
     /// The newly created workspace, if owned, or the one that was passed in if borrowed, to show how the workspace looks like now.
@@ -34,12 +66,15 @@ pub struct Outcome<'workspace> {
     ///
     /// If owned, the returned workspace can also be a proposed state that was not persisted because
     /// [Options::on_workspace_conflict] aborted the operation. Check [Outcome::conflicting_stacks]
-    /// and [Outcome::applied_branches] to tell whether anything was actually applied.
+    /// and [Outcome::status] to tell whether anything was actually persisted.
     pub workspace: Cow<'workspace, but_graph::Workspace>,
-    /// The name of the branch(es) that were actually applied.
+    /// The precise kind of apply operation that completed.
+    pub status: OutcomeStatus,
+    /// The branch(es) that were activated or recorded by the operation.
     ///
     /// This is empty when `apply()` did not persist any branch, including when the branch was already
-    /// present in the workspace or when workspace merge conflicts aborted the operation. In that case, take a look at [Outcome::conflicting_stacks].
+    /// present in the workspace or when workspace merge conflicts aborted the operation. Use [Outcome::status]
+    /// to distinguish applied, no-op, and conflict-aborted outcomes.
     ///
     /// If a remote tracking branch is given to apply, it will actually apply its local tracking branch, which is created on demand as well.
     /// Further, if there is no target or if the current branch isn't the target branch, then the current branch and the given one
@@ -58,10 +93,10 @@ pub struct Outcome<'workspace> {
 }
 
 impl Outcome<'_> {
-    /// Return `true` if a new graph traversal was performed, which always is a sign for an operation which changed the workspace.
-    /// This is `false` if the to be applied branch was already contained in the current workspace.
+    /// Return `true` if apply performed work that should be visible to callers, including metadata-only repairs.
+    /// This is `false` only for a true already-applied no-op.
     pub fn workspace_changed(&self) -> bool {
-        matches!(self.workspace, Cow::Owned(_))
+        !matches!(self.status, OutcomeStatus::AlreadyApplied)
     }
 }
 
@@ -70,6 +105,7 @@ impl<'a> Outcome<'a> {
     pub fn into_owned(self) -> Outcome<'static> {
         let Outcome {
             workspace,
+            status,
             applied_branches,
             workspace_ref_created,
             workspace_merge,
@@ -78,6 +114,7 @@ impl<'a> Outcome<'a> {
 
         Outcome {
             workspace: Cow::Owned(workspace.into_owned()),
+            status,
             applied_branches,
             workspace_ref_created,
             workspace_merge,
@@ -90,6 +127,7 @@ impl std::fmt::Debug for Outcome<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Outcome {
             workspace: _,
+            status: _,
             workspace_ref_created,
             workspace_merge: _,
             conflicting_stacks,
@@ -150,9 +188,6 @@ pub struct Options {
     /// How the workspace reference should be named should it be created.
     /// The creation is always needed if there are more than one branch applied.
     pub workspace_reference_naming: WorkspaceReferenceNaming,
-    /// How the worktree checkout should behave when uncommitted changes are present in the worktree that it would
-    /// want to modify to accommodate the new workspace commit, with the applied stack added.
-    pub uncommitted_changes: UncommitedWorktreeChanges,
     /// If not `None`, the applied branch should be merged into the workspace commit at the N'th parent position.
     /// This is useful if the tip of a branch (at a specific position) was unapplied, and a segment within that branch
     /// should now be re-applied, but of course, be placed at the same spot and not end up at the end of the workspace.
@@ -165,7 +200,7 @@ use anyhow::{Context as _, bail};
 use but_core::{
     ObjectStorageExt, RefMetadata, RepositoryExt, extract_remote_name_and_short_name, ref_metadata,
     ref_metadata::{
-        StackKind, Workspace,
+        Workspace,
         WorkspaceCommitRelation::{Merged, Outside},
     },
 };
@@ -218,7 +253,6 @@ pub fn apply<'ws>(
         workspace_merge: integration_mode,
         on_workspace_conflict,
         workspace_reference_naming,
-        uncommitted_changes,
         order,
         new_stack_id,
     }: Options,
@@ -249,11 +283,12 @@ pub fn apply<'ws>(
         branch = upstream_branch_name;
         branch_ref = try_find_validated_ref(repo, branch.as_ref(), "apply")?;
     }
-    if ws.is_reachable_from_entrypoint(branch.as_ref()) {
+    if branch_is_already_applied(branch.as_ref(), ws, meta)? {
         let workspace_ref_created = false;
         // When exiting early, don't try to adjust the ws commit.
         return Ok(Outcome {
             workspace: Cow::Borrowed(workspace),
+            status: OutcomeStatus::AlreadyApplied,
             workspace_ref_created,
             workspace_merge: None,
             conflicting_stacks: Vec::new(),
@@ -273,11 +308,19 @@ pub fn apply<'ws>(
             commit_to_checkout,
             repo,
             but_core::worktree::checkout::Options {
-                uncommitted_changes,
                 skip_head_update: false,
                 ..Default::default()
             },
         )?;
+        let applied_branches = vec![branch.to_owned()];
+        if !branch_has_applied_workspace_metadata(branch.as_ref(), ws, meta)? {
+            let ws_ref_name = ws
+                .ref_name()
+                .context("Workspace metadata must be available to repair stale applied state")?;
+            let mut ws_md = meta.workspace(ws_ref_name)?;
+            add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), order, new_stack_id);
+            persist_metadata_and_gitconfig(meta, &applied_branches, &ws_md, None)?;
+        }
         let ws = ws
             .graph
             .redo_traversal_with_overlay(
@@ -291,10 +334,11 @@ pub fn apply<'ws>(
         // When exiting early, don't try to adjust the ws commit.
         return Ok(Outcome {
             workspace: Cow::Owned(ws),
+            status: OutcomeStatus::Applied,
             workspace_ref_created: false,
             workspace_merge: None,
             conflicting_stacks: Vec::new(),
-            applied_branches: vec![branch.to_owned()],
+            applied_branches,
         });
     };
 
@@ -483,6 +527,7 @@ pub fn apply<'ws>(
         )?;
         return Ok(Outcome {
             workspace: Cow::Owned(graph.into_workspace()?),
+            status: OutcomeStatus::Applied,
             workspace_ref_created: needs_ws_ref_creation,
             workspace_merge: None,
             conflicting_stacks: Vec::new(),
@@ -525,7 +570,8 @@ pub fn apply<'ws>(
             correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
         return Ok(Outcome {
             workspace: Cow::Owned(ws),
-            workspace_ref_created: needs_ws_ref_creation,
+            status: OutcomeStatus::ConflictAborted,
+            workspace_ref_created: false,
             workspace_merge: Some(merge_result),
             conflicting_stacks,
             applied_branches: Vec::new(),
@@ -644,7 +690,8 @@ pub fn apply<'ws>(
                 correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
             return Ok(Outcome {
                 workspace: Cow::Owned(ws),
-                workspace_ref_created: needs_ws_ref_creation,
+                status: OutcomeStatus::ConflictAborted,
+                workspace_ref_created: false,
                 workspace_merge: Some(merge_result),
                 conflicting_stacks,
                 applied_branches: Vec::new(),
@@ -691,7 +738,6 @@ pub fn apply<'ws>(
         new_head_id,
         repo,
         but_core::worktree::checkout::Options {
-            uncommitted_changes,
             skip_head_update: true,
             ..Default::default()
         },
@@ -710,6 +756,7 @@ pub fn apply<'ws>(
     )?;
     Ok(Outcome {
         workspace: Cow::Owned(ws),
+        status: OutcomeStatus::Applied,
         workspace_ref_created: needs_ws_ref_creation,
         workspace_merge: Some(merge_result),
         conflicting_stacks,
@@ -766,6 +813,33 @@ fn remove_conflicting_stacks_from_workspace(
         // TODO: this might as well be 'Unmerged' to keep them in the workspace, but not let them be merged.
         stack.workspacecommit_relation = Outside;
     }
+}
+
+fn branch_is_already_applied(
+    branch: &FullNameRef,
+    ws: &but_graph::Workspace,
+    meta: &impl RefMetadata,
+) -> anyhow::Result<bool> {
+    if !ws.is_reachable_from_entrypoint(branch) {
+        return Ok(false);
+    }
+
+    branch_has_applied_workspace_metadata(branch, ws, meta)
+}
+
+fn branch_has_applied_workspace_metadata(
+    branch: &FullNameRef,
+    ws: &but_graph::Workspace,
+    meta: &impl RefMetadata,
+) -> anyhow::Result<bool> {
+    let Some(ws_ref_name) = ws.ref_name() else {
+        return Ok(true);
+    };
+    let Some(ws_md) = meta.workspace_opt(ws_ref_name)? else {
+        return Ok(true);
+    };
+    Ok(ws_md.find_branch(branch, StackKind::Applied).is_some()
+        || (ws.is_entrypoint() && ws_ref_name == branch))
 }
 
 fn filter_superseded_metadata_stacks<'a>(

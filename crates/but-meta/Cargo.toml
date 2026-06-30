@@ -55,7 +55,6 @@ sha2 = { workspace = true, optional = true }
 but-meta = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
 
-insta.workspace = true
 snapbox.workspace = true
 
 

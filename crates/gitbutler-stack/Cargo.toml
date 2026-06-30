@@ -27,7 +27,7 @@ toml.workspace = true
 bstr.workspace = true
 
 [dev-dependencies]
-insta.workspace = true
+snapbox.workspace = true
 but-askpass.workspace = true
 but-testsupport.workspace = true
 gitbutler-git.workspace = true

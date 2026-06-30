@@ -5,14 +5,14 @@ use snapbox::str;
 use crate::command::legacy::status::tui::tests::utils::test_tui;
 
 #[test]
-fn branch_key_from_unassigned_creates_new_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+fn branch_key_from_uncommitted_creates_new_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+    tui.reload()
+        .assert_current_line_eq(str!["╭┄zz [uncommitted] (no changes)"]);
 
     tui.input_then_render('b')
         .assert_current_line_eq(str!["┊╭┄br [c-branch-1] (no commits)"]);
@@ -20,22 +20,22 @@ fn branch_key_from_unassigned_creates_new_branch() {
 
 #[test]
 fn branch_key_from_commit_is_noop() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add B"]);
+        .assert_current_line_eq(str!["┊●   d3e2ba3 add B"]);
 
     tui.input_then_render('b')
-        .assert_current_line_eq(str!["┊●   [..] add B"]);
+        .assert_current_line_eq(str!["┊●   d3e2ba3 add B"]);
 }
 
 #[test]
 fn branch_key_from_branch_creates_new_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -48,15 +48,15 @@ fn branch_key_from_branch_creates_new_branch() {
 
 #[test]
 fn branch_key_keeps_global_file_list_open() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'F'))
         .assert_current_line_eq(str!["┊╭┄g0 [A]"])
         .assert_rendered_contains("94:tm A A");
 
@@ -67,8 +67,8 @@ fn branch_key_keeps_global_file_list_open() {
 
 #[test]
 fn focus_reload_preserves_branch_selection() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -81,8 +81,8 @@ fn focus_reload_preserves_branch_selection() {
 
 #[test]
 fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -94,8 +94,8 @@ fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
 
     tui.input_then_render('y');
 
-    tui.input_then_render(None)
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+    tui.reload()
+        .assert_current_line_eq(str!["╭┄zz [uncommitted] (no changes)"]);
 
     tui.input_then_render('b')
         .assert_current_line_eq(str!["┊╭┄br [c-branch-1] (no commits)"]);
@@ -114,21 +114,20 @@ fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
         .assert_current_line_eq(str!["┊╭┄g0 [A] (no commits)"]);
 
     let mut tui = tui.recreate();
-    tui.input_then_render(None)
-        .assert_rendered_contains("[A] (no commits)");
+    tui.reload().assert_rendered_contains("[A] (no commits)");
 }
 
 #[test]
 fn focus_reload_preserves_merge_base_selection() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
 
     tui.render_with_messages(Some(Event::FocusGained), Vec::new())
@@ -137,8 +136,8 @@ fn focus_reload_preserves_merge_base_selection() {
 
 #[test]
 fn inline_branch_reword_confirm_renames_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -162,13 +161,13 @@ fn inline_branch_reword_confirm_renames_branch() {
         .assert_current_line_eq(str!["┊╭┄g0 [new-name ]"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["[..] [new-name]"]);
+        .assert_current_line_eq(str!["┊╭┄ne [new-name]"]);
 }
 
 #[test]
 fn inline_branch_reword_esc_cancels() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -187,8 +186,8 @@ fn inline_branch_reword_esc_cancels() {
 
 #[test]
 fn inline_branch_reword_preserves_selection_after_reload_with_multiple_branches() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -205,8 +204,26 @@ fn inline_branch_reword_preserves_selection_after_reload_with_multiple_branches(
         .assert_current_line_eq(str!["┊╭┄g0 [renamed-a ]"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["[..] [renamed-a]"]);
+        .assert_current_line_eq(str!["┊╭┄re [renamed-a]"]);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
-        .assert_current_line_eq(str!["[..] [B]"]);
+    tui.input_then_render((KeyModifiers::SHIFT, 'J'))
+        .assert_current_line_eq(str!["┊╭┄g0 [B]"]);
+}
+
+#[test]
+fn inline_branch_reword_space_before_close_bracket() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('j');
+
+    // when the insertion point is at the end show a space before `]`
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊╭┄g0 [A ]"]);
+
+    // dont show a space when the cursor isn't at the end
+    tui.input_then_render(KeyCode::Left)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 }

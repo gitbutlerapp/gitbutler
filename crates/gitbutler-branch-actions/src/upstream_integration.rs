@@ -371,16 +371,23 @@ fn stack_details(
 }
 
 /// Returns the status of a stack.
+#[derive(Clone, Copy)]
+struct TargetCommits<'a> {
+    ref_name: &'a gix::refs::FullNameRef,
+    old: gix::ObjectId,
+    new: gix::ObjectId,
+}
+
 fn get_stack_status(
     gix_repo: &gix::Repository,
-    new_target_commit_id: gix::ObjectId,
+    target_commits: TargetCommits<'_>,
     stack: &but_workspace::legacy::ui::StackEntry,
     review_map: &HashMap<String, but_forge::ForgeReview>,
     ctx: &Context,
     project_meta: &but_core::ref_metadata::ProjectMeta,
     upstream_commits: &[gix::ObjectId],
 ) -> Result<StackStatus> {
-    let mut last_head = new_target_commit_id;
+    let mut last_head = target_commits.new;
 
     let mut branch_statuses: Vec<NameAndStatus> = vec![];
 
@@ -416,13 +423,34 @@ fn get_stack_status(
     };
 
     let branches = details.branch_details;
+    // Branches are iterated bottom-to-top.
+    let mut lower_branch_seen = false;
     for branch in branches.into_iter().rev() {
+        let is_target_branch = branch
+            .remote_tracking_branch
+            .as_ref()
+            .is_some_and(|remote| remote.as_bstr() == target_commits.ref_name.as_bstr());
+        // An empty branch only counts as merged upstream if it is the bottom-most branch
+        // resting on the target. An empty branch resting on another branch merely inherits
+        // that branch's remote tip and was not itself merged, so treating it as merged
+        // would wrongly delete unmerged stacked branches.
+        let is_bottom_branch = !is_target_branch && !lower_branch_seen;
+        if !is_target_branch {
+            lower_branch_seen = true;
+        }
+
         let local_commits = &branch.commits;
 
         let Some(branch_head) = local_commits.first() else {
             branch_statuses.push(NameAndStatus {
                 name: branch.name.to_string(),
-                status: BranchStatus::Empty,
+                status: if is_bottom_branch
+                    && empty_branch_is_merged_upstream(gix_repo, &branch, target_commits)
+                {
+                    BranchStatus::Integrated
+                } else {
+                    BranchStatus::Empty
+                },
             });
 
             continue;
@@ -495,6 +523,37 @@ fn get_stack_status(
     }
 
     StackStatus::create(UpstreamTreeStatus::Empty, branch_statuses)
+}
+
+fn empty_branch_is_merged_upstream(
+    gix_repo: &gix::Repository,
+    branch: &but_workspace::ui::BranchDetails,
+    target_commits: TargetCommits<'_>,
+) -> bool {
+    let Some(remote_ref_name) = branch.remote_tracking_branch.as_ref() else {
+        return false;
+    };
+    if remote_ref_name.as_bstr() == target_commits.ref_name.as_bstr() {
+        return false;
+    }
+
+    let Some(remote_tip_id) = gix_repo
+        .try_find_reference(remote_ref_name.to_str_lossy().as_ref())
+        .ok()
+        .flatten()
+        .and_then(|mut reference| reference.peel_to_id().ok())
+        .map(|id| id.detach())
+    else {
+        return false;
+    };
+
+    if remote_tip_id == target_commits.old && remote_tip_id != target_commits.new {
+        return false;
+    }
+
+    gix_repo
+        .merge_base(remote_tip_id, target_commits.new)
+        .is_ok_and(|merge_base| merge_base.detach() == remote_tip_id)
 }
 
 pub fn upstream_integration_statuses(
@@ -575,7 +634,11 @@ pub fn upstream_integration_statuses(
                 stack.id,
                 get_stack_status(
                     &repo_in_memory,
-                    *new_target,
+                    TargetCommits {
+                        ref_name: context.target_ref_name.as_ref(),
+                        old: context.old_target_id,
+                        new: *new_target,
+                    },
                     stack,
                     review_map,
                     context.ctx,
@@ -716,13 +779,8 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            ctx.branch_manager().unapply(
-                *stack_id,
-                permission,
-                false,
-                Vec::new(),
-                ctx.settings.feature_flags.cv3,
-            )?;
+            ctx.branch_manager()
+                .unapply(*stack_id, permission, false, Vec::new())?;
         }
 
         let mut stacks = virtual_branches_state.list_stacks_in_workspace()?;

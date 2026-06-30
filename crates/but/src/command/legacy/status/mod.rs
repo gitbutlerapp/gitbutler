@@ -30,13 +30,14 @@ use crate::{
         forge::review,
         status::output::{
             BranchLineContent, CommitLineContent, FileLineContent, StatusOutput, StatusOutputLine,
+            UncommittedLineContent,
         },
         workspace_target,
     },
     id::{SegmentWithId, ShortId, StackWithId, TreeChangeWithId},
     tui::text::truncate_text,
     utils::{
-        IntermediateChannel, OutputChannel, WriteWithUtils, shorten_hex_object_id,
+        InputOutputChannel, OutputChannel, WriteWithUtils, shorten_hex_object_id,
         shorten_object_id, time::format_relative_time_verbose,
     },
 };
@@ -127,7 +128,6 @@ pub struct TuiLaunchOptions {
 pub enum TuiRunOptions {
     #[default]
     Normal,
-    #[cfg_attr(all(not(feature = "but-2"), not(test)), expect(dead_code))]
     PickChanges,
 }
 
@@ -141,7 +141,6 @@ pub enum TuiRunOptions {
 #[must_use]
 pub enum TuiOutcome {
     None,
-    #[cfg_attr(all(not(feature = "but-2"), not(test)), expect(dead_code))]
     CliIds(Vec<CliId>),
 }
 
@@ -190,12 +189,14 @@ struct StatusContext<'a> {
     stack_details: Vec<StackEntry>,
     worktree_changes: Vec<ui::TreeChange>,
     common_merge_base_data: CommonMergeBase,
+    target_tip_id: gix::ObjectId,
     upstream_state: Option<UpstreamState>,
     last_fetched_ms: Option<u128>,
     review_map: std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     ci_map: BTreeMap<String, Vec<but_forge::CiCheck>>,
     branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus>,
     has_branches: bool,
+    is_agent_invocation: bool,
     is_paged: bool,
     should_truncate_for_terminal: bool,
     id_map: IdMap,
@@ -259,23 +260,26 @@ pub(crate) async fn worktree(
             build_status_output(ctx, &status_ctx, &mut output)?;
         }
         StatusRenderMode::Tui(launch_options) => {
+            let mut inout = out
+                .prepare_for_terminal_input()
+                .context("input required, run this in a terminal")?;
+
             let run_options = TuiRunOptions::Normal;
 
             let mut lines = Vec::new();
             let mut output = StatusOutput::Buffer { lines: &mut lines };
             build_status_output(ctx, &status_ctx, &mut output)?;
-            let (final_lines, _outcome) = {
-                let mut out = IntermediateChannel::new(out);
-                tui::render_tui(
-                    ctx,
-                    &mut out,
-                    &mode,
-                    flags,
-                    lines,
-                    launch_options,
-                    run_options,
-                )?
-            };
+            let (final_lines, _outcome) = tui::render_tui(
+                ctx,
+                &mut inout,
+                &mode,
+                flags,
+                lines,
+                launch_options,
+                run_options,
+            )?;
+
+            drop(inout);
 
             if !launch_options.skip_status_after
                 && let Some(human_out) = out.for_human()
@@ -290,11 +294,10 @@ pub(crate) async fn worktree(
     Ok(())
 }
 
-#[cfg_attr(not(feature = "but-2"), expect(dead_code))]
 pub(crate) fn tui_with_options(
     ctx: &mut Context,
     mut guard: RepoExclusiveGuard,
-    out: &mut IntermediateChannel<'_>,
+    out: &mut InputOutputChannel<'_>,
     run_options: TuiRunOptions,
 ) -> anyhow::Result<(RepoExclusiveGuard, TuiOutcome)> {
     let flags = StatusFlags::for_tui();
@@ -340,7 +343,6 @@ fn build_status_context<'a>(
     flags: StatusFlags,
     render_mode: StatusRenderMode,
 ) -> anyhow::Result<StatusContext<'a>> {
-    // Process rules with exclusive access to create repo and workspace
     let (
         push_statuses_by_segment_id,
         local_commits_by_id,
@@ -348,24 +350,6 @@ fn build_status_context<'a>(
         stacks,
         resolved_target,
     ) = {
-        let context_lines = ctx.settings.context_lines;
-        let mut meta = ctx.meta()?;
-        {
-            let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-            if let Ok(rules) = but_rules::list_rules(&db) {
-                but_rules::process_rules(
-                    rules,
-                    &repo,
-                    &mut ws,
-                    &mut db,
-                    &mut meta,
-                    perm,
-                    context_lines,
-                )
-                .ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
-            }
-        }
-
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let head_info = but_workspace::graph_to_ref_info(
             &ws,
@@ -427,8 +411,8 @@ fn build_status_context<'a>(
         FileAssignment::get_assignments_by_file(&id_map);
     let mut stack_details: Vec<StackEntry> = Vec::new();
 
-    let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
-    stack_details.push((None, (None, unassigned)));
+    let uncommitted = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
+    stack_details.push((None, (None, uncommitted)));
 
     for stack in stacks {
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
@@ -527,13 +511,16 @@ fn build_status_context<'a>(
         )
     };
 
-    // Compute upstream integration statuses if --upstream flag is set, reusing the existing
-    // worktree lock so status collection does not try to acquire it recursively.
+    // Compute upstream integration statuses for explicit upstream diagnostics.
     let branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus> = if flags.show_upstream {
         compute_branch_merge_statuses(ctx, perm)?
     } else {
         BTreeMap::new()
     };
+    let target_tip_id = base_branch
+        .as_ref()
+        .map(|base_branch| base_branch.current_sha)
+        .unwrap_or(common_merge_base_data.commit_id);
 
     let is_paged = out.is_paged();
     let should_truncate_for_terminal = truncation_policy(format, render_mode, is_paged);
@@ -542,6 +529,7 @@ fn build_status_context<'a>(
         stack_details,
         worktree_changes: worktree_changes.worktree_changes.changes,
         common_merge_base_data,
+        target_tip_id,
         upstream_state,
         last_fetched_ms,
         review_map,
@@ -549,6 +537,8 @@ fn build_status_context<'a>(
         branch_merge_statuses,
         flags,
         has_branches,
+        is_agent_invocation: matches!(format, OutputFormat::Agent)
+            || crate::utils::detect_agent::detect().is_some(),
         is_paged,
         should_truncate_for_terminal,
         id_map,
@@ -571,7 +561,7 @@ fn build_status_output(
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     print_update_notice(ctx, status_ctx, output)?;
-    print_worktree_status(ctx, status_ctx, output)?;
+    let has_merged_upstream_branch = print_worktree_status(ctx, status_ctx, output)?;
     print_upstream_state(ctx, status_ctx, output)?;
     print_common_merge_base_summary(status_ctx, output)?;
     let not_on_workspace = matches!(
@@ -579,7 +569,12 @@ fn build_status_output(
         gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_)
     );
     print_outside_workspace_warning(not_on_workspace, output)?;
-    print_hint(status_ctx, not_on_workspace, output)?;
+    print_hint(
+        status_ctx,
+        not_on_workspace,
+        has_merged_upstream_branch,
+        output,
+    )?;
     Ok(())
 }
 
@@ -627,6 +622,7 @@ fn print_outside_workspace_warning(
 fn print_hint(
     status_ctx: &StatusContext<'_>,
     not_on_workspace: bool,
+    has_merged_upstream_branch: bool,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
     if !status_ctx.flags.hint {
@@ -638,8 +634,17 @@ fn print_hint(
     // Determine what hint to show based on workspace state
     let has_uncommitted_files = !status_ctx.worktree_changes.is_empty();
 
+    if should_explain_rewritten_commit_marker(status_ctx) {
+        output.hint(Vec::from([Span::styled(
+            "Hint: ◐ means rewritten locally vs upstream.",
+            crate::theme::get().hint,
+        )]))?;
+    }
+
     let hint_text = if not_on_workspace {
         "Hint: run `but setup` to switch back to GitButler managed mode."
+    } else if has_merged_upstream_branch {
+        "Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch"
     } else if !status_ctx.has_branches {
         "Hint: run `but branch new` to create a new branch to work on"
     } else if has_uncommitted_files {
@@ -654,6 +659,150 @@ fn print_hint(
     )]))?;
 
     Ok(())
+}
+
+fn should_explain_rewritten_commit_marker(status_ctx: &StatusContext<'_>) -> bool {
+    status_ctx.is_agent_invocation
+        && status_ctx
+            .local_commits_by_id
+            .values()
+            .any(is_rewritten_local_commit)
+}
+
+fn is_rewritten_local_commit(commit: &LocalCommit) -> bool {
+    matches!(
+        commit.relation,
+        LocalCommitRelation::LocalAndRemote(remote_id) if remote_id != commit.inner.id
+    )
+}
+
+fn branch_merge_status<'a>(
+    status_ctx: &'a StatusContext<'_>,
+    segment: &SegmentWithId,
+) -> Option<&'a UpstreamBranchStatus> {
+    segment.branch_name().and_then(|branch_name| {
+        status_ctx
+            .branch_merge_statuses
+            .get(&branch_name.to_string())
+    })
+}
+
+fn branch_is_merged_upstream(
+    status_ctx: &StatusContext<'_>,
+    segment: &SegmentWithId,
+    repo: &gix::Repository,
+    eligible_for_empty_merge: bool,
+) -> bool {
+    if matches!(
+        status_ctx
+            .push_statuses_by_segment_id
+            .get(&segment.inner.id),
+        Some(PushStatus::Integrated)
+    ) || matches!(
+        branch_merge_status(status_ctx, segment),
+        Some(UpstreamBranchStatus::Integrated)
+    ) {
+        return true;
+    }
+
+    if eligible_for_empty_merge
+        && segment.workspace_commits.is_empty()
+        && empty_branch_is_merged_upstream(repo, status_ctx, segment)
+    {
+        return true;
+    }
+
+    let Some(head_commit) = segment.workspace_commits.first() else {
+        return false;
+    };
+    let head_commit_id = head_commit.commit_id();
+
+    if status_ctx
+        .local_commits_by_id
+        .get(&head_commit_id)
+        .is_some_and(|commit| matches!(commit.relation, LocalCommitRelation::Integrated(_)))
+    {
+        return true;
+    }
+
+    let head_commit_id = head_commit_id.to_string();
+
+    if status_ctx.base_branch.as_ref().is_some_and(|base_branch| {
+        base_branch
+            .upstream_commits
+            .iter()
+            .any(|commit| commit.id == head_commit_id)
+    }) {
+        return true;
+    }
+
+    segment
+        .branch_name()
+        .and_then(|branch_name| {
+            review::from_branch_details(&status_ctx.review_map, branch_name, segment.pr_number())
+        })
+        .is_some_and(|review| review.is_merged_at_commit(&head_commit_id))
+}
+
+fn empty_branch_is_merged_upstream(
+    repo: &gix::Repository,
+    status_ctx: &StatusContext<'_>,
+    segment: &SegmentWithId,
+) -> bool {
+    let Some(remote_ref_name) = segment.inner.remote_tracking_ref_name.as_ref() else {
+        return false;
+    };
+    let Some(remote_tip_id) = repo
+        .try_find_reference(remote_ref_name.as_ref())
+        .ok()
+        .flatten()
+        .and_then(|mut reference| reference.peel_to_id().ok())
+        .map(|id| id.detach())
+    else {
+        return false;
+    };
+
+    if remote_tracking_ref_is_target_branch(status_ctx, remote_ref_name.as_ref())
+        || (remote_tip_id == status_ctx.common_merge_base_data.commit_id
+            && remote_tip_id != status_ctx.target_tip_id)
+    {
+        return false;
+    }
+
+    repo.merge_base(remote_tip_id, status_ctx.target_tip_id)
+        .is_ok_and(|merge_base| merge_base.detach() == remote_tip_id)
+}
+
+fn remote_tracking_ref_is_target_branch(
+    status_ctx: &StatusContext<'_>,
+    remote_ref_name: &gix::refs::FullNameRef,
+) -> bool {
+    status_ctx.base_branch.as_ref().is_some_and(|base_branch| {
+        target_remote_tracking_ref_name(base_branch)
+            .is_some_and(|target_ref_name| remote_ref_name.as_bstr() == target_ref_name.as_bytes())
+    })
+}
+
+fn target_remote_tracking_ref_name(
+    base_branch: &gitbutler_branch_actions::BaseBranch,
+) -> Option<String> {
+    if base_branch.remote_name.is_empty() {
+        return None;
+    }
+
+    if base_branch.branch_name.starts_with("refs/remotes/") {
+        return Some(base_branch.branch_name.clone());
+    }
+
+    let remote_prefix = format!("{}/", base_branch.remote_name);
+    let branch_name = base_branch
+        .branch_name
+        .strip_prefix(&remote_prefix)
+        .unwrap_or(&base_branch.branch_name);
+    Some(format!(
+        "refs/remotes/{remote}/{branch_name}",
+        remote = base_branch.remote_name
+    ))
 }
 
 /// Display upstream state information when upstream has commits ahead of the workspace base.
@@ -800,17 +949,10 @@ fn print_worktree_status(
     ctx: &Context,
     status_ctx: &StatusContext<'_>,
     output: &mut StatusOutput<'_>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
+    let mut has_merged_upstream_branch = false;
     for (i, (stack_id, (stack_with_id, assignments))) in status_ctx.stack_details.iter().enumerate()
     {
-        let mut stack_mark = stack_id.and_then(|stack_id| {
-            if crate::command::legacy::mark::stack_marked(ctx, stack_id).unwrap_or_default() {
-                Some(Span::styled("◀ Marked ▶", crate::theme::get().attention))
-            } else {
-                None
-            }
-        });
-
         // assignments to the stack
         if let Some(stack_with_id) = stack_with_id {
             let branch_name = stack_with_id
@@ -829,18 +971,11 @@ fn print_worktree_status(
             )?;
         }
 
-        print_group(
-            ctx,
-            status_ctx,
-            stack_with_id,
-            assignments,
-            &mut stack_mark,
-            i == 0,
-            output,
-        )?;
+        has_merged_upstream_branch |=
+            print_group(ctx, status_ctx, stack_with_id, assignments, i == 0, output)?;
     }
 
-    Ok(())
+    Ok(has_merged_upstream_branch)
 }
 
 fn ci_map(
@@ -951,7 +1086,7 @@ fn print_assignments(
             &status_ctx.id_map,
             repo,
             cli_id,
-            |id| matches!(id, CliId::Uncommitted(uncommitted) if uncommitted.is_entire_file),
+            |id| matches!(id, CliId::UncommittedHunkOrFile(uncommitted) if uncommitted.is_entire_file),
             "uncommitted file",
         )?;
 
@@ -966,7 +1101,7 @@ fn print_assignments(
         };
 
         if unstaged {
-            output.unassigned_file(
+            output.uncommitted_file(
                 Vec::from([Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
                 file_line,
                 file_cli_id,
@@ -988,18 +1123,30 @@ fn print_group(
     status_ctx: &StatusContext<'_>,
     stack_with_id: &Option<StackWithId>,
     assignments: &[FileAssignment],
-    stack_mark: &mut Option<Span<'static>>,
     first: bool,
     output: &mut StatusOutput<'_>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
     let t = crate::theme::get();
     let repo = ctx
         .legacy_project
         .open_isolated_repo()?
         .for_commit_shortening();
+    let mut has_merged_upstream_branch = false;
     if let Some(stack_with_id) = stack_with_id {
+        // The bottom-most branch resting on the target is the only one eligible to be
+        // reported as merged purely because it has no commits: branches above it merely
+        // inherit the remote tip of the branch below and were not themselves merged.
+        let bottom_non_target_segment = stack_with_id.segments.iter().rposition(|segment| {
+            segment
+                .inner
+                .remote_tracking_ref_name
+                .as_ref()
+                .is_none_or(|remote| {
+                    !remote_tracking_ref_is_target_branch(status_ctx, remote.as_ref())
+                })
+        });
         let mut first = true;
-        for segment in &stack_with_id.segments {
+        for (segment_index, segment) in stack_with_id.segments.iter().enumerate() {
             let notch = if first { "╭" } else { "├" };
             if !first {
                 output.connector(Vec::from([Span::raw("┊│")]))?;
@@ -1046,26 +1193,32 @@ fn print_group(
                 })
                 .unwrap_or_default();
 
-            let merge_status = segment
-                .branch_name()
-                .and_then(|branch_name| {
-                    status_ctx
-                        .branch_merge_statuses
-                        .get(&branch_name.to_string())
-                })
-                .map(|status| match status {
+            let branch_merge_status = branch_merge_status(status_ctx, segment);
+            let is_merged_upstream = branch_is_merged_upstream(
+                status_ctx,
+                segment,
+                &repo,
+                Some(segment_index) == bottom_non_target_segment,
+            );
+            has_merged_upstream_branch |= is_merged_upstream;
+            let branch_status = if is_merged_upstream {
+                Some(Span::styled(" (merged upstream)", t.remote_branch))
+            } else if !status_ctx.flags.show_upstream {
+                None
+            } else {
+                branch_merge_status.map(|status| match status {
                     UpstreamBranchStatus::SafelyUpdatable => {
                         Span::styled(" [✓ upstream merges cleanly]", t.success)
                     }
                     UpstreamBranchStatus::Integrated => {
-                        Span::styled(" [⬆ integrated upstream]", t.remote_branch)
+                        Span::styled(" (merged upstream)", t.remote_branch)
                     }
                     UpstreamBranchStatus::Conflicted { .. } => {
                         Span::styled(" [⚠ upstream conflicts]", t.error)
                     }
                     UpstreamBranchStatus::Empty => Span::styled(" ○ empty", t.hint),
                 })
-                .unwrap_or(Span::raw(""));
+            };
 
             let workspace = segment
                 .linked_worktree_id()
@@ -1090,17 +1243,13 @@ fn print_group(
             )?;
             let mut branch_suffix = Vec::new();
             branch_suffix.extend(ci_spans);
-            if !merge_status.content.is_empty() {
-                branch_suffix.push(merge_status);
+            if let Some(branch_status) = branch_status {
+                branch_suffix.push(branch_status);
             }
             branch_suffix.extend(review_spans);
             if !no_commits.is_empty() {
                 branch_suffix.push(Span::raw(" "));
                 branch_suffix.push(Span::styled(no_commits, t.hint));
-            }
-            if let Some(stack_mark) = stack_mark.as_ref().cloned() {
-                branch_suffix.push(Span::raw(" "));
-                branch_suffix.push(stack_mark);
             }
 
             output.branch(
@@ -1118,10 +1267,15 @@ fn print_group(
                 branch_cli_id,
             )?;
 
-            *stack_mark = None; // Only show the stack mark for the first branch
             first = false;
 
-            if !segment.remote_commits.is_empty() {
+            let has_remote_commits_to_print = segment.remote_commits.iter().any(|commit| {
+                status_ctx
+                    .remote_commits_by_id
+                    .contains_key(&commit.commit_id())
+            });
+
+            if has_remote_commits_to_print {
                 let tracking_branch = segment
                     .inner
                     .remote_tracking_ref_name
@@ -1137,7 +1291,6 @@ fn print_group(
                     )]),
                 )?;
             }
-            let mut remote_commit_printed = false;
             for commit in &segment.remote_commits {
                 let Some(inner) = status_ctx.remote_commits_by_id.get(&commit.commit_id()) else {
                     // This was filtered out because there is a corresponding
@@ -1154,13 +1307,11 @@ fn print_group(
                     inner,
                     CommitChanges::Remote(&details.diff_with_first_parent),
                     CommitClassification::Upstream,
-                    false,
                     None,
                     output,
                 )?;
-                remote_commit_printed = true;
             }
-            if remote_commit_printed {
+            if has_remote_commits_to_print {
                 output.connector(Vec::from([Span::raw("┊-")]))?;
             }
             for commit in segment.workspace_commits.iter() {
@@ -1168,20 +1319,12 @@ fn print_group(
                     .local_commits_by_id
                     .get(&commit.commit_id())
                     .context("BUG: head_info does not contain local commit that graph has")?;
-                let marked = crate::command::legacy::mark::commit_marked(
-                    ctx,
-                    commit.commit_id().to_string(),
-                )
-                .unwrap_or_default();
                 let classification = match inner.relation {
                     LocalCommitRelation::LocalOnly => CommitClassification::LocalOnly,
-                    LocalCommitRelation::LocalAndRemote(object_id) => {
-                        if object_id == commit.commit_id() {
-                            CommitClassification::Pushed
-                        } else {
-                            CommitClassification::Modified
-                        }
+                    LocalCommitRelation::LocalAndRemote(_) if is_rewritten_local_commit(inner) => {
+                        CommitClassification::Modified
                     }
+                    LocalCommitRelation::LocalAndRemote(_) => CommitClassification::Pushed,
                     LocalCommitRelation::Integrated(_) => CommitClassification::Integrated,
                 };
 
@@ -1193,7 +1336,6 @@ fn print_group(
                     &inner.inner,
                     CommitChanges::Workspace(&commit.tree_changes_using_repo(&repo)?),
                     classification,
-                    marked,
                     // TODO: populate the Gerrit review URL. It
                     // seems to be populated in handle_gerrit in
                     // crates/but-api/src/legacy/workspace.rs
@@ -1203,19 +1345,18 @@ fn print_group(
             }
         }
     } else {
-        let cli_id = status_ctx.id_map.unassigned();
-        let mut line = Vec::from([
-            Span::styled(cli_id.to_short_string().to_string(), t.cli_id),
-            Span::raw(" ["),
-            Span::styled("unassigned changes", t.info),
-            Span::raw("]"),
-        ]);
-        if assignments.is_empty() {
-            line.extend([Span::raw(" "), Span::styled("(no changes)", t.hint)]);
-        }
-        if let Some(stack_mark) = stack_mark {
-            line.extend([Span::raw(" "), stack_mark.clone()]);
-        }
+        let cli_id = status_ctx.id_map.uncommitted();
+        let line = UncommittedLineContent {
+            id: Vec::from([Span::styled(cli_id.to_short_string().to_string(), t.cli_id)]),
+            decoration_start: Vec::from([Span::raw(" [")]),
+            label: Vec::from([Span::styled("uncommitted", t.info)]),
+            decoration_end: Vec::from([Span::raw("]")]),
+            suffix: if assignments.is_empty() {
+                Vec::from([Span::raw(" "), Span::styled("(no changes)", t.hint)])
+            } else {
+                Vec::new()
+            },
+        };
         output.unstaged_changes(Vec::from([Span::raw("╭┄")]), line, cli_id.clone())?;
         if !assignments.is_empty() {
             print_assignments(&repo, status_ctx, None, None, assignments, true, output)?;
@@ -1224,8 +1365,8 @@ fn print_group(
     if !first {
         output.connector(Vec::from([Span::raw("├╯")]))?;
     }
-    output.connector(Vec::from([Span::raw("┊")]))?;
-    Ok(())
+    output.between_stacks(Vec::from([Span::raw("┊")]))?;
+    Ok(has_merged_upstream_branch)
 }
 
 fn lookup_cli_id_for_short_id(
@@ -1311,7 +1452,6 @@ fn print_commit(
     commit: &but_workspace::ref_info::Commit,
     commit_changes: CommitChanges,
     classification: CommitClassification,
-    marked: bool,
     review_url: Option<String>,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
@@ -1369,12 +1509,6 @@ fn print_commit(
                             Span::raw("◗"),
                         ]
                     }))
-                    .chain(
-                        marked
-                            .then(|| [Span::raw(" "), Span::styled("◀ Marked ▶", t.attention)])
-                            .into_iter()
-                            .flatten(),
-                    )
                     .collect(),
             },
             commit_cli_id.clone(),
@@ -1417,12 +1551,6 @@ fn print_commit(
                             Span::raw("◗"),
                         ]
                     }))
-                    .chain(
-                        marked
-                            .then(|| [Span::raw(" "), Span::styled("◀ Marked ▶", t.attention)])
-                            .into_iter()
-                            .flatten(),
-                    )
                     .collect(),
             },
             commit_cli_id.clone(),

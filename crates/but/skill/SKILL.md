@@ -1,7 +1,7 @@
 ---
 name: but
 version: 0.0.0
-description: "Commit, push, branch, and manage version control with GitButler. Use for commits, selective dirty-file or hunk commits, branches, diffs, PRs, history edits, squashes, amends, undo, merge, apply, and unapply. For selected dirty files or hunks, inspect with `but diff`; do not run `but status` or `but status -fv` unless existing branch, stack, commit, conflict, or history context is needed. Replaces git write commands."
+description: "Commit, push, branch, and manage version control with GitButler. Use for commits, selective dirty-file or hunk commits, branches, diffs, PRs, history edits, squashes, amends, undo, merge, apply, and unapply. For selected dirty files or hunks, inspect with `but diff`; use compact `but status` for commit order, branch/stack placement, or conflict overview; use `but status -fv` when file/hunk IDs or per-commit file details matter. Replaces git write commands."
 author: GitButler Team
 ---
 
@@ -9,14 +9,42 @@ author: GitButler Team
 
 Use GitButler CLI (`but`) as the default version-control interface.
 
+## Start Here
+
+Choose the first command by task:
+
+```bash
+# Selected dirty files/hunks:
+but diff
+
+# Commit order, branch layout, conflict overview:
+but status
+
+# Per-commit file details, amend/split details:
+but status -fv
+```
+
+For "commit just/only/specific changes on a new branch", use the fast path:
+
+```bash
+but diff
+but commit <branch> -c -m "<msg>" --changes <id>,<id>
+```
+
+`but commit <branch> -c ... --changes ...` creates the branch and prints the resulting workspace state. Do not run a separate `but branch new`, staging command, status command, or verification diff unless the returned output lacks information you need.
+
+`--changes` (or `-p`) takes comma-separated file or hunk IDs from `but diff` / `but status -fv`; do not invent flags like `--hunk` / `--hunks` or pass change IDs as positional arguments.
+
 ## Non-Negotiable Rules
 
 1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. If the user says a `git` write command, translate it to `but` and run that.
-2. After mutations, read the returned output for the updated workspace state — it replaces a follow-up `but status -fv`.
-3. Never chain `but` mutations with `&&` or `;`. Each mutation can reassign CLI IDs, so the second command may silently target the wrong file or commit. Run one mutation, read the returned workspace state, and take fresh IDs from it.
-4. Use CLI IDs from `but diff` / `but status -fv` / `but show`; never hardcode IDs.
-5. Do not run `but status` or `but status -fv` as routine preflight for selected dirty-file or hunk commits. Start with `but diff`; use `but status -fv` when existing branch, stack, commit, conflict, or history state matters.
+2. After mutations, read the returned output for the updated workspace state — it replaces a follow-up status command.
+3. You may chain `but commit` mutations with `&&` to make several commits from one diff: file/hunk IDs copied from the original output generally remain usable across commits, and branch IDs are stable. Do NOT chain mutations that consume or rewrite commit IDs (`amend`, `squash`, `move`, `uncommit`); those reassign IDs the next command needs, so run one, read the returned workspace state, and take fresh IDs from it. If a chained command cannot resolve an ID, re-read with `but status`/`but diff` and retry.
+4. Use CLI IDs from `but diff` / `but status` / `but status -fv` / `but show`; never hardcode IDs.
+5. Do not run `but status` or `but status -fv` as routine preflight for selected dirty-file or hunk commits. Start with `but diff`; use compact `but status` for commit order, branch/stack placement, or conflict overview. Use `but status -fv` when file/hunk IDs or per-commit file details matter.
 6. For "commit these selected changes on a new branch", prefer one command: `but commit <branch> -c -m "<msg>" --changes <ids>`.
+7. Never commit or push to a branch marked `(merged upstream)`; run `but pull` to remove it, or create/use another branch for new work.
+8. In non-interactive CLI workflows, do not narrate progress between routine commands. Execute the needed `but` commands and give a concise final summary.
 
 ## Choose Inspection By Task
 
@@ -26,16 +54,19 @@ Start with the narrowest inspection that answers the task. Avoid ritual status c
 # Selected dirty files/hunks:
 but diff
 
-# Branch/stack/commit/conflict/history state:
+# Commit order, branch/stack placement, conflict overview:
+but status
+
+# File/hunk IDs, per-commit files, amend/split details:
 but status -fv
 
 # Details for one known branch or commit:
 but show <id>
 ```
 
-Do not run plain `but status` and then `but status -fv`; that is usually a redundant round-trip.
+Do not run plain `but status` and then `but status -fv` unless the compact output lacks file/hunk details needed for the task.
 
-Perform mutations with IDs from `diff`, `status -fv`, or `show`:
+Perform mutations with IDs from `diff`, `status`, `status -fv`, or `show`:
 
 ```bash
 but <mutation> ...
@@ -44,14 +75,24 @@ but <mutation> ...
 ## Command Patterns
 
 - Commit: `but commit <branch> -m "<msg>" --changes <id>,<id>`
+- Several commits from one diff: chain `but commit` calls - `but commit <branch> -m "<msg>" --changes <id>,<id> && but commit <branch> -m "<msg>" --changes <id>,<id>` (file/hunk IDs from the initial output generally remain usable; refresh if an ID stops resolving)
 - `but commit -a` is accepted as a no-op compatibility flag; GitButler already includes uncommitted changes by default.
 - Commit + create branch: `but commit <branch> -c -m "<msg>" --changes <id>`
-- Amend: `but amend <file-or-hunk-id> <commit-id>`
+- Commit at a specific history position: `but commit <branch> -m "<msg>" --changes <id>,<id> --before <commit-or-branch-id>` or `--after <commit-or-branch-id>`
+- Amend: `but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>`
+- Uncommit and show resulting dirty diff: `but uncommit <commit-id> --diff`
+- Insert empty commit: `but commit empty [-m "<msg>"] [<target>]`
+- Squash commits: `but squash <source-commit-id> [<source-commit-id>...] <target-commit-id> [-m "<msg>"]`
 - Reorder commits: `but move <source-commit-id> <target-commit-id>` (**commit IDs**, not branch names)
+- Reorder multiple commits as a group: `but move <source-commit-id>,<source-commit-id> <target-commit-id>` (comma-separated commit IDs)
+- Move commit to branch top: `but move <commit-id> <branch-name-or-id>` (puts that commit at the top/newest position of the branch)
+- Move multiple commits to branch top: `but move <commit-id>,<commit-id> <branch-name-or-id>` (commit IDs only; not branches)
 - Stack branches: `but move <branch-name-or-id> <target-branch-name-or-id>` (**branch names or branch CLI IDs**)
-- Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = unassigned; branch name or branch CLI ID)
+- Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = uncommitted; branch name or branch CLI ID)
 - Push: `but push <branch-name>` — always specify the branch; bare `but push` pushes ALL branches when run non-interactively
 - Pull: `but pull --check` then `but pull`
+- Create PR: `but pr new <branch-id> [-m "Title..."] [-F pr_message.txt] [-t] [--draft]` — auto-pushes before creating the PR; do not run `but push` first
+- Manage PRs: `but pr auto-merge <selector>`, `but pr set-draft <selector>`, `but pr set-ready <selector>`
 
 ## Task Recipes
 
@@ -75,23 +116,51 @@ For "get latest from main", "update/sync this workspace", or "pull main":
    For an existing branch, omit `-c`: `but commit <branch> -m "<msg>" --changes <id1>,<id2>`.
    Omit IDs you don't want committed.
    Creating a new branch with `-c` does not require a prior `but branch` or `but status -fv`.
-4. **Check the returned status** for remaining uncommitted changes. If the file still appears as unassigned or assigned to another branch after commit, it may be dependency-locked. See "Stacked dependency / commit-lock recovery" below.
+4. **Check the returned status** for remaining uncommitted changes. If the file still appears as uncommitted or assigned to another branch after commit, it may be dependency-locked. See "Stacked dependency / commit-lock recovery" below.
 
 Edge case: if wanted and unwanted edits are in the same diff hunk, GitButler cannot split that hunk by ID. Only when the task requires keeping part of that hunk uncommitted, temporarily edit the working tree to isolate the wanted lines, commit with `--changes`, then restore the leftover lines so they remain uncommitted.
 
 ### Amend into existing commit
 
 1. `but status -fv` (or `but show <branch-id>`)
-2. Locate file ID and target commit ID.
-3. `but amend <file-or-hunk-id> <commit-id>`
+2. Locate file/hunk IDs and target commit ID.
+3. `but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>`; use one command for multiple files/hunks that belong in the same commit. To amend into several different commits, run one `but amend` at a time and take fresh commit IDs from the returned status before the next — amending a commit rewrites the IDs of the commits stacked above it.
+
+### Split an existing commit
+
+Use this when an existing commit should be replaced by selected smaller commits.
+
+1. `but status -fv` when you need the source commit, branch name, or placement anchor.
+2. `but uncommit <source-commit-id> --diff` to expose that commit's changes as uncommitted changes and print committable file/hunk IDs.
+3. Pick replacement commit contents from the dirty diff printed by `but uncommit --diff`, not from the old committed diff.
+4. For multiple replacement commits from the same diff, chain `but commit` calls - file/hunk IDs from the initial output generally remain usable across commits:
+   `but commit <branch> -m "<message 1>" --changes <id>,<id> && but commit <branch> -m "<message 2>" --changes <id>,<id>`
+   Chain them in history order, oldest first; each new commit stacks on top of the previous one. For a specific mid-history position, add `--before <target>`/`--after <target>` and anchor on the branch or an unchanged neighbor commit; if an earlier command in the chain rewrote the anchor, run the rest separately with fresh IDs.
+5. Leave unwanted changes uncommitted. If the returned workspace state shows the requested commits and leftovers, stop; do not run `status`, `diff`, `show`, or `--help` only to reconfirm.
 
 ### Reorder commits
 
 `but move` supports both commit reordering and branch stack operations. Use commit IDs when reordering commits.
+`but status` displays commits newest/top first, while task specs often list history oldest to newest. Use `but status -fv` only if you also need file-level details.
 
-1. `but status -fv`
-2. `but move <commit-a> <commit-b>` — uses commit IDs like `c3`, `c5`
-3. Refresh IDs from the returned status if you need to keep editing history.
+1. `but status`
+2. `but move <source-commit-id> <target-commit-id>` places source immediately before target in oldest-to-newest history. In `but status`, source appears directly below target.
+3. `but move <source-commit-id> <target-commit-id> --after` places source immediately after target in oldest-to-newest history. In `but status`, source appears directly above target.
+4. `but move <source-commit-id> <branch-name-or-id>` moves source to branch top/newest.
+5. `but move <source-commit-id>,<source-commit-id> <target-commit-id>` moves multiple commit sources together. Multi-source moves accept comma-separated commit IDs only, not branch names.
+
+For explicit final-order tasks, run `but status` once to get commit IDs. If the task names an adjacent commit block, do not sort the whole branch or move block members one by one: preserve the block's internal oldest-to-newest order, find the commit that should immediately follow the block in the requested oldest-to-newest order, then run one block move: `but move <oldest-block-id>,<newest-block-id> <following-commit-id>`. After a successful block move, stop if the returned status shows the requested order; do not move the anchor or any member of that block again.
+
+For other explicit reorders, translate the requested order into the newest-to-oldest order shown by `but status`, then make the smallest set of moves. Prefer the default before/below form because it matches the status display: `but move <source> <newer-neighbor>` places source directly below its newer neighbor. Use a branch target only when a commit must become top/newest, and use `--after` only when it clearly avoids extra moves.
+
+### Squash commits
+
+Use this when multiple existing commits should become one commit.
+
+1. `but status` to get commit IDs and current order. Use `but status -fv` only if you also need per-commit file details.
+2. Put the result/target commit last: `but squash <source-commit-id> [<source-commit-id>...] <target-commit-id> -m "<new message>"`.
+3. For multiple independent squash groups, prefer newer/top groups first; history edits can rewrite IDs above the edited commit, so use returned status before the next squash.
+4. After the final squash, stop if returned status shows the requested history; do not run `--help`, `status`, or `status -fv` only to reconfirm.
 
 ### Stack existing branches
 
@@ -113,11 +182,27 @@ but move feature/logging zz
 
 **Note:** branch stack/tear-off operations use branch **names** (like `feature/frontend`) or branch CLI IDs, while commit reordering uses commit **IDs** (like `c3`). Do NOT use `but undo` to unstack — it may revert more than intended and lose commits.
 
+### Create or manage pull requests
+
+`but pr new <branch-id>` pushes the branch and creates a pull request in one step. Do not run `but push` first. Agents must provide `-F pr_message.txt`, `-t`, or `-m` with real newline characters (zsh/bash: `-m $'Title\n\nBody'`) so the command does not open an editor. If forge auth is missing, run `but config forge auth`.
+
+For independent, unstacked branches, another forge tool may be okay if the user asked for it or `but pr` is unavailable. Still prefer `but pr new` when you are already working from GitButler branch IDs.
+
+For stacked branches, `but pr` is mandatory. Create and manage stacked PRs with GitButler so PR bases match the stack and GitButler can maintain the stack metadata in PR description footers. Do not create stacked PRs with `gh pr create` or other forge tools.
+
+To publish a whole stack, create the PR from the top branch you want published:
+
+```bash
+but pr new <top-branch-id> -t
+```
+
+That creates or updates reviews for that branch and its dependencies in stack order. Use `but pr auto-merge <selector>`, `but pr set-draft <selector>`, and `but pr set-ready <selector>` for follow-up PR management; selectors can be branch names, branch IDs, stack IDs, or numeric review IDs.
+
 ### Stacked dependency / commit-lock recovery
 
 A **dependency lock** occurs when a file was originally committed on branch A, but you're trying to commit changes to it on branch B. Symptoms:
-- `but commit` succeeds but the file still appears in `unassignedChanges` in the returned status
-- The file still shows as "unassigned" in the status output
+- `but commit` succeeds but the file still appears in `uncommittedChanges` in the returned status
+- The file still shows as "uncommitted" in the status output
 
 **Recovery:** Stack your branch on the dependency branch, then commit:
 
@@ -147,25 +232,21 @@ If `but move` causes conflicts (conflicted commits in status):
 
 | git | but |
 |---|---|
-| `git status` | `but status -fv` for branch/stack state; `but diff` for selected dirty changes |
+| `git status` | `but status` for branch/stack/commit overview; `but status -fv` for file/hunk details; `but diff` for selected dirty changes |
 | `git add` + `git commit` | `but commit ... --changes ...` |
 | `git checkout -b` + commit | `but commit <branch> -c -m ... --changes ...` |
 | `git push` | `but push <branch-name>` |
 | `git rebase -i` | `but move`, `but squash`, `but reword` |
 | `git rebase --onto` | `but move <branch> <new-base>` |
 | `git cherry-pick` | `but pick` |
+| `gh pr create` | `but pr new <branch-id>` (pushes the branch, then creates the PR; no separate `but push`) |
 
 ## Notes
 
-- Prefer explicit IDs over file paths for mutations.
-- `--changes` accepts comma-separated values (`--changes a1,b2`) or repeated flags (`--changes a1 --changes b2`), not space-separated.
-- Avoid plain `but status` in write flows. It is a compact human overview; agents usually need `but diff` or `but status -fv` next, so starting with plain status adds a redundant round-trip.
+- Use plain `but status` for commit order, branch/stack placement, and conflict overview. Escalate to `but status -fv` only when file/hunk IDs or per-commit file details are needed.
 - Read-only git inspection (`git log`, `git blame`, `git show --stat`) is allowed.
-- After a successful mutation, trust the workspace state it printed. Re-run `but status -fv` only if that output lacks the ID you need or files changed since.
-- Use `but show <branch-id>` to see commit details for a branch, including per-commit file changes and line counts.
-- **Per-commit file counts**: `but status` does NOT include per-commit file counts. Use `but show <branch-id>` or `git show --stat <commit-hash>` to get them.
+- After a successful mutation, trust the workspace state it printed. Re-run `but status` or `but status -fv` only if that output lacks the ID you need or files changed since.
 - Avoid `--help` probes; use this skill and `references/reference.md` first. Only use `--help` after a command fails or required syntax is missing from the installed references.
-- Run `but skill check` only when command behavior diverges from this skill, not as routine preflight.
 - If `but` prints an `AGENT ACTION REQUIRED` skill warning, run the suggested command once, then reload/use the GitButler skill. If it repeats, report it instead of retrying.
 - For command syntax and flags: `references/reference.md`
 - For workspace model: `references/concepts.md`
