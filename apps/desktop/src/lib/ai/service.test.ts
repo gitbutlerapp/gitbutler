@@ -459,14 +459,10 @@ describe.concurrent("buildDiff", () => {
 		expect(buildDiff([hunk1], 100).length).to.eq(100);
 	});
 
-	test("When provided multiple hunks, it joins them together with newlines", () => {
-		const expectedOutput1 = `${hunk1.filePath} - ${hunk1.diff}\n${hunk2.filePath} - ${hunk2.diff}`;
-		const expectedOutput2 = `${hunk2.filePath} - ${hunk2.diff}\n${hunk1.filePath} - ${hunk1.diff}`;
+	test("When provided multiple hunks, it sorts them by file path", () => {
+		const expectedOutput = `${hunk1.filePath} - ${hunk1.diff}\n${hunk2.filePath} - ${hunk2.diff}`;
 
-		const outputMatchesExpectedValue = [expectedOutput1, expectedOutput2].includes(
-			buildDiff([hunk1, hunk2], 10000),
-		);
-
-		expect(outputMatchesExpectedValue).toBeTruthy();
+		expect(buildDiff([hunk1, hunk2], 10000)).to.eq(expectedOutput);
+		expect(buildDiff([hunk2, hunk1], 10000)).to.eq(expectedOutput);
 	});
 });

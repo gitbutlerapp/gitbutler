@@ -110,16 +110,11 @@ export interface DiffInput {
 
 // Exported for testing only
 export function buildDiff(hunks: DiffInput[], limit: number) {
-	return shuffle(hunks.map((h) => `${h.filePath} - ${h.diff}`))
+	return hunks
+		.map((h) => `${h.filePath} - ${h.diff}`)
+		.sort()
 		.join("\n")
 		.slice(0, limit);
-}
-
-function shuffle<T>(items: T[]): T[] {
-	return items
-		.map((item) => ({ item, value: Math.random() }))
-		.sort(({ value: a }, { value: b }) => a - b)
-		.map((item) => item.item);
 }
 
 export const AI_SERVICE = new InjectionToken<AIService>("AI Service");
