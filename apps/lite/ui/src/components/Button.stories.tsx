@@ -7,6 +7,7 @@ import {
 } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
+import { Kbd } from "#ui/components/Kbd.tsx";
 import React from "react";
 
 const meta = preview.meta({});
@@ -180,6 +181,33 @@ export const WithIconStartAndEnd = meta.story({
 			<button type="button" className={getButtonClassName({ variant: "outline" })}>
 				New Branch
 				<Icon name="branch" />
+			</button>
+		</div>
+	),
+});
+
+export const WithKbd = meta.story({
+	render: () => (
+		<div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-start" }}>
+			<button type="button" className={getButtonClassName({ variant: "pop" })}>
+				Commit
+				<Kbd hotkey="Mod+Enter" />
+			</button>
+			<button type="button" className={getButtonClassName({ variant: "gray" })}>
+				Undo
+				<Kbd hotkey="Mod+Z" />
+			</button>
+			<button type="button" className={getButtonClassName({ variant: "outline" })}>
+				Toggle Files
+				<Kbd hotkey="F" />
+			</button>
+			<button type="button" className={getButtonClassName({ variant: "danger" })}>
+				Delete Commit
+				<Kbd hotkey="Mod+Backspace" />
+			</button>
+			<button type="button" className={getButtonClassName({ variant: "ghost" })}>
+				Amend Commit
+				<Kbd hotkey="Shift+A" />
 			</button>
 		</div>
 	),

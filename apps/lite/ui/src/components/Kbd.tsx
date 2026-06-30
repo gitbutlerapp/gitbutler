@@ -1,11 +1,13 @@
 import { formatForDisplaySorted } from "#ui/hotkeys.ts";
 import styles from "./Kbd.module.css";
+import { classes } from "#ui/components/classes.ts";
 import { HotkeySequence } from "@tanstack/react-hotkeys";
 import { FC } from "react";
 
 type Props = {
 	// We can't use the `Hotkey` type because it causes type errors in Storybook. 🤷‍♂️
 	hotkey: string | HotkeySequence;
+	inheritFont?: boolean;
 };
 
 const formatKeys = (hotkey: string | HotkeySequence): string =>
@@ -14,12 +16,12 @@ const formatKeys = (hotkey: string | HotkeySequence): string =>
 		: hotkey.map(formatForDisplaySorted).join(" ");
 
 export const Kbd: FC<Props> = ({ hotkey }) => (
-	<span className={styles.keys}>
+	<span className={classes(styles.keys)}>
 		{formatKeys(hotkey)
 			.split(" ")
 			.map((key, index) => (
 				// oxlint-disable-next-line react/no-array-index-key -- This is fine.
-				<kbd key={index} className={styles.key}>
+				<kbd key={index} className={classes(styles.key)}>
 					{key}
 				</kbd>
 			))}

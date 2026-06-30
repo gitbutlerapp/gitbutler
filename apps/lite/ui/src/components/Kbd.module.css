@@ -1,7 +1,7 @@
 .keys {
 	display: inline-flex;
 	align-items: center;
-	gap: 1px;
+	/* gap: 1px; */
 }
 
 .key {
@@ -9,12 +9,8 @@
 	position: relative;
 	align-items: center;
 	justify-content: center;
-	padding: 2px 3px;
-	border-radius: var(--radius-s);
-	background-color: color-mix(in srgb, var(--fill-gray-bg) 10%, transparent);
-	color: color-mix(in srgb, var(--text-1) 70%, transparent);
-	font-size: 11px;
+	color: color-mix(in srgb, currentColor 45%, transparent);
+	font: inherit;
 	line-height: 1;
-	font-family: inherit;
 	white-space: nowrap;
 }
