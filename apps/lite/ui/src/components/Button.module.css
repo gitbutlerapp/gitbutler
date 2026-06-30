@@ -15,6 +15,11 @@
 			color var(--transition-fast);
 	}
 
+	&[data-pressed] {
+		--button-bg: var(--bg-2);
+		--button-hover-bg: color-mix(in srgb, var(--bg-2) 50%, var(--bg-3));
+	}
+
 	&:disabled,
 	&[data-disabled] {
 		opacity: 0.5;
@@ -22,7 +27,8 @@
 
 	& [data-icon] {
 		flex-shrink: 0;
-		opacity: var(--button-icon-opacity);
+		opacity: var(--button-icon-opacity, 0.7);
+		transition: opacity 0.08s ease;
 
 		svg {
 			display: block;
@@ -33,9 +39,10 @@
 
 	&:not(:disabled, [data-disabled]):hover {
 		background-color: var(--button-hover-bg);
+		color: var(--button-hover-fg, var(--button-fg));
 
 		& [data-icon] {
-			opacity: var(--button-hover-icon-opacity);
+			opacity: var(--button-hover-icon-opacity, 0.8);
 		}
 	}
 
@@ -71,65 +78,58 @@
 	}
 }
 
-.pop {
+:where(.pop) {
 	--button-border: none;
 	--button-bg: color-mix(in srgb, var(--scale-pop-60) 50%, transparent);
-	--button-fg: var(--text-1);
-	--button-icon-opacity: 0.7;
+	--button-fg: color-mix(in srgb, var(--text-1) 90%, transparent);
+	--button-hover-fg: var(--text-1);
 	--button-hover-bg: color-mix(in srgb, var(--scale-pop-60) 70%, transparent);
-	--button-hover-icon-opacity: 0.9;
 }
 
-.gray {
+:where(.gray) {
 	--button-border: none;
 	--button-bg: var(--fill-gray-bg);
-	--button-fg: var(--fill-gray-fg);
-	--button-icon-opacity: 0.7;
+	--button-fg: color-mix(in srgb, var(--fill-gray-fg) 90%, transparent);
+	--button-hover-fg: var(--fill-gray-fg);
 	--button-hover-bg: color-mix(in srgb, var(--fill-gray-bg) 45%, var(--scale-gray-0));
-	--button-hover-icon-opacity: 0.9;
 }
 
-.ghost-inverted {
+:where(.ghost-inverted) {
 	--button-border: none;
 	--button-bg: transparent;
-	--button-fg: var(--text-1-invert);
-	--button-icon-opacity: 0.7;
+	--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
+	--button-hover-fg: var(--text-1-invert);
 	--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
-	--button-hover-icon-opacity: 0.9;
 }
 
-.outline {
+:where(.outline) {
 	--button-border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
 	--button-bg: transparent;
-	--button-fg: var(--text-1);
-	--button-icon-opacity: 0.6;
+	--button-fg: color-mix(in srgb, var(--text-1) 90%, transparent);
+	--button-hover-fg: var(--text-1);
 	--button-hover-bg: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
-	--button-hover-icon-opacity: 0.8;
 }
 
-.outline-inverted {
+:where(.outline-inverted) {
 	--button-border: 1px solid color-mix(in srgb, var(--fill-gray-fg) 30%, transparent);
 	--button-bg: transparent;
-	--button-fg: var(--text-1-invert);
-	--button-icon-opacity: 0.6;
+	--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
+	--button-hover-fg: var(--text-1-invert);
 	--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
-	--button-hover-icon-opacity: 0.8;
 }
 
-.danger {
+:where(.danger) {
 	--button-border: none;
 	--button-bg: color-mix(in srgb, var(--scale-danger-50) 14%, transparent);
-	--button-fg: var(--text-danger);
-	--button-icon-opacity: 0.7;
+	--button-fg: color-mix(in srgb, var(--text-danger) 90%, transparent);
+	--button-hover-fg: var(--text-danger);
 	--button-hover-bg: color-mix(in srgb, var(--scale-danger-50) 20%, transparent);
-	--button-hover-icon-opacity: 0.9;
 }
 
-.ghost {
+:where(.ghost) {
 	--button-border: none;
 	--button-bg: transparent;
-	--button-fg: var(--text-1);
-	--button-icon-opacity: 0.6;
+	--button-fg: color-mix(in srgb, var(--text-1) 90%, transparent);
+	--button-hover-fg: var(--text-1);
 	--button-hover-bg: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
-	--button-hover-icon-opacity: 0.8;
 }
