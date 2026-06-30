@@ -272,6 +272,13 @@ impl OplogExt for Context {
     }
 }
 
+fn get_v3_workdir_tree(tree: gix::Tree) -> Result<Option<ObjectId>, anyhow::Error> {
+    let worktree_entry = tree
+        .lookup_entry_by_path("worktree")?
+        .map(|entry| entry.id().detach());
+    Ok(worktree_entry)
+}
+
 /// Get a tree of the working dir (applied branches merged)
 fn get_workdir_tree(
     wd_trees_cache: Option<&mut HashMap<gix::ObjectId, gix::ObjectId>>,
@@ -289,15 +296,11 @@ fn get_workdir_tree(
     if let Some(details) = details
         && details.version == Version(3)
     {
-        let worktree_entry = snapshot_commit
-            .tree()?
-            .lookup_entry_by_path("worktree")?
-            .context(format!(
-                "no entry at 'worktree' on sha {:?}, version: {:?}",
-                &snapshot_commit.id(),
-                &details.version,
-            ))?;
-        let worktree_id = worktree_entry.id().detach();
+        let worktree_id = get_v3_workdir_tree(snapshot_commit.tree()?)?.context(format!(
+            "no entry at 'worktree' on sha {:?}, version: {:?}",
+            &snapshot_commit.id(),
+            &details.version,
+        ))?;
         return Ok(worktree_id);
     }
     match wd_trees_cache {
@@ -644,11 +647,12 @@ fn restore_snapshot(
     // Use a separate repo without caching so we are sure the 'has commit' checks pick up all changes.
     let repo = ctx.repo.get()?;
 
-    let before_restore_snapshot_result = prepare_snapshot(ctx, exclusive_access.read_permission());
+    let before_restore_snapshot_tree_id =
+        prepare_snapshot(ctx, exclusive_access.read_permission())?;
+    let before_restore_snapshot_workdir_tree_id =
+        get_v3_workdir_tree(repo.find_tree(before_restore_snapshot_tree_id)?)?
+            .context("Could not get workdir tree of snapshot created before the restore")?;
     let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
-
-    // The worktree checkout below diffs from this tree, so capture it before any refs move.
-    let pre_restore_head_tree_id = repo.head_tree_id_or_empty()?.detach();
 
     let snapshot_tree = snapshot_commit.tree()?;
     let vb_toml_entry = snapshot_tree
@@ -727,10 +731,10 @@ fn restore_snapshot(
     let workdir_tree_id = get_workdir_tree(None, snapshot_commit_id, &gix_repo, ctx)?;
 
     // Check out the snapshot's worktree while HEAD still points at the pre-restore commit:
-    // safe_checkout diffs from `pre_restore_head_tree_id`, so the workspace ref is repointed
-    // only afterwards (below).
+    // safe_checkout diffs from `before_restore_snapshot_workdir_tree_id`, so
+    // the workspace ref is repointed only afterwards (below).
     but_core::worktree::safe_checkout(
-        pre_restore_head_tree_id,
+        before_restore_snapshot_workdir_tree_id,
         workdir_tree_id,
         &gix_repo,
         but_core::worktree::checkout::Options::default(),
@@ -777,7 +781,6 @@ fn restore_snapshot(
         .unwrap_or(OperationKind::Unknown);
 
     // create new snapshot
-    let before_restore_snapshot_tree_id = before_restore_snapshot_result?;
     let restored_date_ms = snapshot_commit.time()?.seconds * 1000;
     let operation = match restore_kind {
         RestoreKind::RestoreFromSnapshotViaUndo => OperationKind::RestoreFromSnapshotViaUndo,
