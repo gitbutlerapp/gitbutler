@@ -33,9 +33,10 @@ pub enum MoveOutcome {
     },
     Changes {
         source_commit_id: gix::ObjectId,
-        changes: NonEmpty<DiffSpec>,
+        num_changes: usize,
         target: Option<MoveTarget>,
         new_branch_name: Option<FullName>,
+        new_commit_id: gix::ObjectId,
     },
 }
 
@@ -59,19 +60,21 @@ impl CliOutputHuman for MoveOutcome {
             }
             Self::Changes {
                 source_commit_id,
-                changes,
+                num_changes,
                 target,
                 new_branch_name,
+                new_commit_id,
             } => {
                 write!(
                     out,
-                    "Moved {} changes from {}",
-                    changes.len(),
-                    theme::Commit(source_commit_id)
+                    "Moved {} changes from {} to new commit {}",
+                    num_changes,
+                    theme::Commit(source_commit_id),
+                    theme::Commit(new_commit_id),
                 )?;
 
                 if let Some(new_branch_name) = new_branch_name {
-                    write!(out, " to new branch {}", theme::Branch(new_branch_name))?;
+                    write!(out, " on new branch {}", theme::Branch(new_branch_name))?;
                 }
 
                 if let Some(target) = target {
@@ -504,6 +507,7 @@ fn resolve_sources(
     let mut args: Vec<CliIdArg> = vec![];
 
     for unresolved_source in sources {
+        let source_str = unresolved_source.to_string();
         args.push(unresolved_source.clone());
 
         match unresolved_source.resolve_in_workspace(repo, id_map, Purpose::Source, None)? {
@@ -515,32 +519,47 @@ fn resolve_sources(
             } => {
                 file_sources.push((commit_id, path));
             }
-            _ => return Err(bad_input("TODO").into()),
+            resolved => {
+                return Err(bad_input(format!("Cannot pass {resolved} as source"))
+                    .arg_value(source_str)
+                    .arg_name("<SOURCES>")
+                    .hint("Sources must be commits or committed files")
+                    .into());
+            }
         }
     }
 
-    match (commit_sources.is_empty(), file_sources.is_empty()) {
-        (false, true) => {
-            let sources = NonEmpty::from_vec(commit_sources)
-                .expect("BUG: Empty sources should not be possible as it's a required argument");
+    match (
+        NonEmpty::from_vec(commit_sources),
+        NonEmpty::from_vec(file_sources),
+    ) {
+        (Some(resolved_commits), None) => {
             let args = NonEmpty::from_vec(args).expect(
                 "BUG: Source arguments cannot be empty if resolved arguments are non-empty",
             );
 
             Ok(ResolvedSources::Commits {
-                resolved_commits: sources,
+                resolved_commits,
                 args,
             })
         }
-        (true, false) => {
+        (None, Some(files)) => {
             let mut builder = DiffSpecBuilder::new(db, repo, ws, context_lines);
-            // TODO validate single source commit ID
-            let (source_commit_id, _) = *file_sources.first().unwrap();
-            for (commit_id, path) in file_sources {
+            let source_commit_id = files.first().0;
+            for (commit_id, path) in files.into_iter() {
+                if commit_id != source_commit_id {
+                    return Err(
+                        bad_input("Cannot move changes from multiple commits")
+                            .hint("Move changes from a single commit at first, then squash additional changes into the new commit")
+                            .into()
+                    );
+                }
+
                 builder.push_changes_from_committed_file(commit_id, path.as_bstr())?;
             }
 
-            // TODO sort diffspecs
+            // It doesn't appear as if we need to sort DiffSpecs when they're resolved on a file
+            // level. For the future hunk level DiffSpecs we may need to, however.
             let changes = NonEmpty::from_vec(builder.into_diff_specs())
                 .expect("BUG: Cannot possibly not have any changes here");
 
@@ -549,8 +568,11 @@ fn resolve_sources(
                 changes,
             )))
         }
-        (false, false) => todo!("Mixed sources warning"),
-        (true, true) => todo!("No sources warning"),
+        (Some(_), Some(_)) => Err(bad_input("Mixing source types is not allowed")
+            .hint("You can only move one kind of source (e.g. commits) at a time")
+            .arg_name("<SOURCES>")
+            .into()),
+        (None, None) => panic!("BUG: It should not be possible to omit sources"),
     }
 }
 
@@ -560,69 +582,62 @@ fn run(
     perm: &mut RepoExclusive,
     move_op: MoveOperation,
 ) -> CliResult<MoveOutcome> {
-    let snapshot_details = SnapshotDetails::new(OperationKind::MoveCommit);
-    let (new_branch_name, _ws) = but_transaction::with_transaction_with_perm(
+    let snapshot_details = match &move_op {
+        MoveOperation::CommitsRelativeTo(_) | MoveOperation::CommitsToNewBranch(_) => {
+            SnapshotDetails::new(OperationKind::MoveCommit)
+        }
+        MoveOperation::ChangesRelativeTo(_) | MoveOperation::ChangesToNewBranch(_) => {
+            SnapshotDetails::new(OperationKind::MoveCommitFile)
+        }
+    };
+    let (outcome, _ws) = but_transaction::with_transaction_with_perm(
         ctx,
         meta,
         perm,
         snapshot_details,
         DryRun::No,
         |mut tx| {
-            let new_branch_name = match move_op.clone() {
-                MoveOperation::CommitsRelativeTo(op) => op.execute(&mut tx)?,
-                MoveOperation::CommitsToNewBranch(op) => Some(op.execute(&mut tx)?),
+            let outcome = match move_op {
+                MoveOperation::CommitsRelativeTo(op) => MoveOutcome::Commits {
+                    sources: op.sources.clone(),
+                    target: Some(op.target.clone()),
+                    new_branch_name: op.execute(&mut tx)?,
+                },
+                MoveOperation::CommitsToNewBranch(op) => MoveOutcome::Commits {
+                    sources: op.sources.clone(),
+                    target: None,
+                    new_branch_name: Some(op.execute(&mut tx)?),
+                },
                 MoveOperation::ChangesRelativeTo(op) => {
-                    // TODO use new commit id
-                    let (_, new_branch_name) = op.execute(&mut tx)?;
-                    new_branch_name
+                    let target = op.target.clone();
+                    let num_changes = op.changes.len();
+                    let source_commit_id = op.source_commit_id;
+                    let (new_commit_id, new_branch_name) = op.execute(&mut tx)?;
+                    MoveOutcome::Changes {
+                        source_commit_id,
+                        num_changes,
+                        target: Some(target),
+                        new_branch_name,
+                        new_commit_id,
+                    }
                 }
                 MoveOperation::ChangesToNewBranch(op) => {
-                    let (_, new_branch_name) = op.execute(&mut tx)?;
-                    Some(new_branch_name)
+                    let num_changes = op.changes.len();
+                    let source_commit_id = op.source_commit_id;
+                    let (new_commit_id, new_branch_name) = op.execute(&mut tx)?;
+                    MoveOutcome::Changes {
+                        source_commit_id,
+                        num_changes,
+                        target: None,
+                        new_branch_name: Some(new_branch_name),
+                        new_commit_id,
+                    }
                 }
             };
 
-            Ok(but_transaction::Commit(new_branch_name))
+            Ok(but_transaction::Commit(outcome))
         },
     )?;
-
-    let outcome = match move_op {
-        MoveOperation::CommitsRelativeTo(MoveCommitsRelativeToOperation { sources, target }) => {
-            MoveOutcome::Commits {
-                sources,
-                target: Some(target),
-                new_branch_name,
-            }
-        }
-        MoveOperation::CommitsToNewBranch(MoveCommitsToNewBranchOperation {
-            sources,
-            branch_name: _,
-        }) => MoveOutcome::Commits {
-            sources,
-            target: None,
-            new_branch_name,
-        },
-        MoveOperation::ChangesRelativeTo(MoveChangesRelativeToOperation {
-            source_commit_id,
-            changes,
-            target,
-        }) => MoveOutcome::Changes {
-            source_commit_id,
-            changes,
-            target: Some(target),
-            new_branch_name,
-        },
-        MoveOperation::ChangesToNewBranch(MoveChangesToNewBranchOperation {
-            source_commit_id,
-            changes,
-            branch_name: _,
-        }) => MoveOutcome::Changes {
-            source_commit_id,
-            changes,
-            target: None,
-            new_branch_name,
-        },
-    };
 
     Ok(outcome)
 }
