@@ -17,8 +17,6 @@
 
 	&[data-pressed] {
 		--button-bg: var(--bg-2);
-		--button-fg: color-mix(in srgb, var(--text-1) 60%, transparent);
-		--button-hover-fg: color-mix(in srgb, var(--text-1) 70%, transparent);
 		--button-hover-bg: color-mix(in srgb, var(--bg-2) 50%, var(--bg-3));
 	}
 
