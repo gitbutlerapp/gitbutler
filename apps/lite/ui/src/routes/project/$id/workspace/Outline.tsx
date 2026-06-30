@@ -151,7 +151,7 @@ export const Outline: FC<
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
 			<header className={styles.workspaceControls}>
-				<div className={classes(isMac && styles.workspaceControlsMacSpacer)} />
+				{isMac && <div className={styles.workspaceControlsMacSpacer} />}
 				<div className={styles.workspaceControlsLeft}>
 					<button
 						type="button"
