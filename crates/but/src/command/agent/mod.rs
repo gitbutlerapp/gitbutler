@@ -104,7 +104,7 @@ fn collect_plan_inner(input: &mut InputOutputChannel<'_>, repo: Option<RepoInfo>
         Some(repo) => prompt_scope(&mut steps, input, repo)?,
         None => Scope::Global,
     };
-    let workflow = prompt_workflow_options(&mut steps, input)?;
+    let workflow = prompt_workflow_options(&mut steps, input, scope)?;
     let answers = prompt_follow_up_answers(input, workflow)?;
     let policy = render_managed_policy_block(&answers);
 
@@ -347,6 +347,7 @@ fn prompt_agents(
                 "Which agents do you use?",
                 &options,
                 defaults.clone(),
+                Vec::new(),
                 |label| Some(label.help),
             )?
             .ok_or(UserCancelled)?;
@@ -428,6 +429,7 @@ fn display_name_from_path(path: &Path) -> Option<String> {
 fn prompt_workflow_options(
     steps: &mut Steps,
     input: &mut InputOutputChannel<'_>,
+    scope: Scope,
 ) -> Result<Vec<WorkflowOption>> {
     steps.banner(input, "Preferences")?;
 
@@ -447,25 +449,54 @@ fn prompt_workflow_options(
     )?;
     writeln!(input)?;
 
-    let options = WorkflowOption::ALL
+    let rows = WorkflowOption::ALL
         .into_iter()
-        .map(|option| (PickerLabel::new(option.label(), option.help()), option))
+        .map(|option| (workflow_option_row(option, scope), option))
         .collect::<Vec<_>>();
-    let defaults = options
+    let disabled = rows
         .iter()
         .enumerate()
-        .filter_map(|(idx, (_, option))| option.default_selected().then_some(idx))
+        .filter_map(|(idx, ((.., disabled), _))| disabled.then_some(idx))
         .collect();
+    // A disabled option can never be selected, so it never seeds a default.
+    let defaults = rows
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, ((.., disabled), option))| {
+            (!disabled && option.default_selected()).then_some(idx)
+        })
+        .collect();
+    let options = rows
+        .into_iter()
+        .map(|((label, help, _), option)| (PickerLabel::new(label, help), option))
+        .collect::<Vec<_>>();
     let options = NonEmpty::from_vec(options).context("workflow options cannot be empty")?;
     let selected = input
         .prompt_multi_select_with_help(
             "Pick any that fit how you like to work:",
             &options,
             defaults,
+            disabled,
             |label| Some(label.help),
         )?
         .ok_or(UserCancelled)?;
     Ok(selected.into_iter().copied().collect())
+}
+
+/// Build the picker row for a workflow option under the chosen scope: its label,
+/// help, and whether it is disabled. Repo-local options would otherwise leak into
+/// the user's global config, so outside a single-repo setup they are shown
+/// disabled. The label is the same in every scope — the dimmed row and its help
+/// carry the "single repo only" meaning, rather than a label suffix that could be
+/// misread as part of the option itself.
+fn workflow_option_row(option: WorkflowOption, scope: Scope) -> (String, &'static str, bool) {
+    let disabled = option.repo_local_only() && !matches!(scope, Scope::Repository);
+    let help = if disabled {
+        option.repo_local_help()
+    } else {
+        option.help()
+    };
+    (option.label().to_string(), help, disabled)
 }
 
 fn prompt_follow_up_answers(

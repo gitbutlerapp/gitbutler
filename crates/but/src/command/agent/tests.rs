@@ -186,6 +186,92 @@ fn upsert_managed_block_rejects_partial_block() {
 }
 
 #[test]
+fn push_to_target_is_the_only_repo_local_option() {
+    for option in WorkflowOption::ALL {
+        assert_eq!(
+            option.repo_local_only(),
+            option == WorkflowOption::PushToTarget,
+            "{option:?} repo_local_only mismatch"
+        );
+    }
+}
+
+#[test]
+fn workflow_row_disables_repo_local_option_outside_single_repo() {
+    // Outside a single-repo setup the rule would also land in the global config,
+    // so the option is offered disabled. The label is unchanged in every scope;
+    // the grayed row and its help (not a label suffix) carry the meaning.
+    let label = WorkflowOption::PushToTarget.label();
+    for scope in [Scope::Global, Scope::Both] {
+        let (row_label, help, disabled) = workflow_option_row(WorkflowOption::PushToTarget, scope);
+        assert!(disabled, "PushToTarget must be disabled for {scope:?}");
+        assert_eq!(row_label, label);
+        assert!(help.contains("Just this project"));
+    }
+
+    let (row_label, _help, disabled) =
+        workflow_option_row(WorkflowOption::PushToTarget, Scope::Repository);
+    assert!(
+        !disabled,
+        "PushToTarget must be selectable for a single repo"
+    );
+    assert_eq!(row_label, label);
+}
+
+#[test]
+fn workflow_row_keeps_non_repo_local_options_enabled_in_every_scope() {
+    for scope in [Scope::Global, Scope::Repository, Scope::Both] {
+        let (label, help, disabled) = workflow_option_row(WorkflowOption::DraftPrs, scope);
+        assert!(!disabled);
+        assert_eq!(label, WorkflowOption::DraftPrs.label());
+        assert_eq!(help, WorkflowOption::DraftPrs.help());
+    }
+}
+
+#[test]
+fn default_policy_omits_land_section_until_selected() {
+    let default = render_managed_policy_block(&WizardAnswers::default());
+    assert!(!default.contains("skip-the-PR workflow"));
+
+    let answers = WizardAnswers {
+        selected: vec![WorkflowOption::PushToTarget],
+        ..WizardAnswers::default()
+    };
+    let policy = render_managed_policy_block(&answers);
+    assert!(policy.contains("### Skip pull requests and land onto the target"));
+    assert!(policy.contains("`but land <branch>`"));
+    assert!(policy.contains("takes precedence"));
+    assert!(policy.contains("must pass `--yes` to confirm"));
+}
+
+#[test]
+fn publish_phrase_opens_pull_request_without_push_to_target() {
+    let answers = WizardAnswers {
+        selected: vec![WorkflowOption::PublishPhrase],
+        ..WizardAnswers::default()
+    };
+    let policy = render_managed_policy_block(&answers);
+    assert!(policy.contains("open or update its pull request"));
+    assert!(!policy.contains("but land"));
+}
+
+#[test]
+fn push_to_target_supersedes_publish_phrase_pull_requests() {
+    let answers = WizardAnswers {
+        selected: vec![WorkflowOption::PublishPhrase, WorkflowOption::PushToTarget],
+        publish_phrase: "ship it".to_string(),
+        ..WizardAnswers::default()
+    };
+    let policy = render_managed_policy_block(&answers);
+    // The publish phrase lands onto the target instead of opening a PR, and the
+    // skip-the-PR section declares it supersedes the other PR-based rules.
+    assert!(policy.contains("When the user says `ship it`"));
+    assert!(policy.contains("land that branch onto the target with `but land <branch> --yes`"));
+    assert!(!policy.contains("open or update its pull request"));
+    assert!(policy.contains("takes precedence"));
+}
+
+#[test]
 fn generated_policy_includes_selected_custom_values() {
     let answers = WizardAnswers {
         selected: vec![
@@ -223,8 +309,14 @@ fn generated_policy_expands_selected_tuning_recipes() {
     assert!(policy.contains("run `but pull --check`"));
     assert!(policy.contains("update the workspace with `but pull`"));
     assert!(policy.contains("create it as a draft with GitButler"));
+    assert!(
+        policy
+            .contains("land the session branch directly onto the target with `but land <branch>`")
+    );
     assert!(policy.contains("When the user says `release this`"));
-    assert!(policy.contains("Push the branch and open or update its pull request"));
+    // With push-to-target also selected, the publish phrase lands instead of
+    // opening a pull request.
+    assert!(policy.contains("land that branch onto the target with `but land <branch> --yes`"));
     assert!(policy.contains("When creating a GitButler branch for an agent session"));
     assert!(policy.contains("commit-message convention"));
     assert!(policy.contains("### Commit checkpoints after each turn"));
