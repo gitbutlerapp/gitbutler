@@ -11,15 +11,19 @@
 //! readable.
 
 use anyhow::Result;
-use but_core::ref_metadata::ProjectMeta;
+use but_core::{RefMetadata as _, ref_metadata::ProjectMeta};
 use but_graph::{Graph, init::Options};
-use but_meta::VirtualBranchesTomlMetadata;
-use but_testsupport::visualize_commit_graph_all;
+use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
+use but_testsupport::{gix_testtools::tempfile::TempDir, visualize_commit_graph_all};
 use but_workspace::workspace::{
     DetailedGraphWorkspace, GraphRowData, Stack, detailed_graph_workspace,
 };
 use gix::bstr::ByteSlice;
 use renderdag::{LinkLine, NodeLine};
+
+use crate::ref_info::with_workspace_commit::utils::{
+    StackState, add_stack, add_stack_with_segments, named_writable_scenario_with_description,
+};
 
 /// Build the detailed workspace for `fixture`, optionally bounded by a target
 /// ref (e.g. `"refs/heads/main"`). Returns the repo too so callers can also
@@ -47,6 +51,42 @@ fn detailed(
     let mut ws = graph.into_workspace()?;
     let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
     Ok((repo, detailed))
+}
+
+/// Build a detailed workspace from one of the writable upstream-integration
+/// fixtures after applying stack metadata.
+fn detailed_writable(
+    fixture: &str,
+    target_remote: &str,
+    target_branch: &str,
+    target_rev: &str,
+    mut configure_stacks: impl FnMut(&mut VirtualBranchesTomlMetadata),
+) -> Result<(TempDir, DetailedGraphWorkspace)> {
+    let (tmp, repo, mut meta, _desc) = named_writable_scenario_with_description(fixture)?;
+    let target_sha = repo.rev_parse_single(target_rev)?.detach();
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new(target_remote, target_branch),
+        remote_url: "unused".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    configure_stacks(&mut meta);
+
+    let project_meta = meta
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+        .project_meta();
+    let graph = Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut ws = graph.into_workspace()?;
+    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
+    Ok((tmp, detailed))
 }
 
 /// Curved box-drawing glyphs, indexed by the `glyph::*` constants. Transcribed
@@ -130,7 +170,8 @@ fn render_box(stack: &Stack) -> String {
         // glyphs. We approximate it by the commit's parent count, which matches
         // renderdag's `parents.len() > 1` whenever both parents are visible (as
         // they are in these fixtures).
-        let merge = matches!(&row.data, GraphRowData::Commit(c) if c.parent_ids.len() > 1);
+        let merge =
+            matches!(&row.data, GraphRowData::Commit { commit, .. } if commit.parent_ids.len() > 1);
         if let Some(link_row) = &row.link_line {
             let mut link = String::new();
             for cur in link_row {
@@ -140,8 +181,6 @@ fn render_box(stack: &Stack) -> String {
             out.push('\n');
         }
 
-        // ponytail: terminator rows and multi-line messages aren't ported (no
-        // fixture here produces either). Extend render_box if one ever does.
         assert!(
             row.term_line.is_none(),
             "terminator rows not supported by this test renderer"
@@ -223,16 +262,92 @@ fn link_glyph(cur: LinkLine, merge: bool) -> usize {
     }
 }
 
-fn row_glyph_label(data: &GraphRowData) -> (&'static str, String) {
-    match data {
-        GraphRowData::Commit(c) => {
-            let subject = c
+/// List every reference row with the push status this projection computed for
+/// it: its own status, the combined status (folding in parent references), and
+/// the remote-tracking branch it was compared against.
+fn render_push_status(detailed: &DetailedGraphWorkspace) -> String {
+    use std::fmt::Write as _;
+    if detailed.stacks.is_empty() {
+        return "(no stacks)".into();
+    }
+    let mut out = String::new();
+    for (i, stack) in detailed.stacks.iter().enumerate() {
+        let _ = writeln!(out, "# Stack {i}");
+        for row in &stack.rows {
+            let GraphRowData::Reference {
+                ref_name,
+                additional_ref_info,
+            } = &row.data
+            else {
+                continue;
+            };
+            let info = additional_ref_info.as_ref();
+            let remote = info
+                .and_then(|i| i.remote_ref.as_ref())
+                .map(|r| r.as_bstr().to_string())
+                .unwrap_or_else(|| "-".into());
+            let push = info.map_or_else(|| "-".into(), |i| format!("{:?}", i.push_status));
+            let combined =
+                info.map_or_else(|| "-".into(), |i| format!("{:?}", i.combined_push_status));
+            let _ = writeln!(
+                out,
+                "{:<14} push={push:<30} combined={combined:<30} remote={remote}",
+                ref_name.as_bstr().to_string()
+            );
+        }
+    }
+    out.trim_end().to_string()
+}
+
+/// List every commit row with the per-commit [`CommitState`] the projection
+/// computed for it.
+fn render_commit_state(detailed: &DetailedGraphWorkspace) -> String {
+    use std::fmt::Write as _;
+    if detailed.stacks.is_empty() {
+        return "(no stacks)".into();
+    }
+    let mut out = String::new();
+    for (i, stack) in detailed.stacks.iter().enumerate() {
+        let _ = writeln!(out, "# Stack {i}");
+        for row in &stack.rows {
+            let GraphRowData::Commit { commit, state } = &row.data else {
+                continue;
+            };
+            let subject = commit
                 .message
                 .lines()
                 .next()
                 .map(|l| l.to_str_lossy().trim().to_string())
                 .unwrap_or_default();
-            ("●", format!("{} {subject}", c.id.to_hex_with_len(7)))
+            let _ = writeln!(
+                out,
+                "{} {subject:<8} state={}",
+                commit.id.to_hex_with_len(7),
+                state.display(commit.id)
+            );
+        }
+    }
+    out.trim_end().to_string()
+}
+
+fn render_statuses(detailed: &DetailedGraphWorkspace) -> String {
+    format!(
+        "{}\n\n{}",
+        render_push_status(detailed),
+        render_commit_state(detailed)
+    )
+}
+
+fn row_glyph_label(data: &GraphRowData) -> (&'static str, String) {
+    match data {
+        GraphRowData::Commit { commit, .. } => {
+            let subject = commit
+                .message
+                .lines()
+                .next()
+                .map(|l| l.to_str_lossy().trim().to_string())
+                .unwrap_or_default();
+            ("●", format!("{} {subject}", commit.id.to_hex_with_len(7)))
         }
         GraphRowData::Reference { ref_name, .. } => ("◎", ref_name.as_bstr().to_string()),
     }
@@ -636,6 +751,315 @@ fn shared_commit_belongs_to_both_reference_segments() -> Result<()> {
       reference ref=0  rows=[0, 1, 4]
       reference ref=2  rows=[2, 3, 4]
       reference ref=5  rows=[5, 6]
+    ");
+    Ok(())
+}
+
+/// Push status: `main` matches its remote `origin/main` (both at `base`), so it
+/// has nothing to push; `stack-a`/`stack-b` have no remote-tracking branch, so
+/// they are completely unpushed.
+///
+/// The divergent (force/unpushed) statuses are covered by the
+/// `combined_status_escalates_from_force_parent` and `push_status_mapping` unit
+/// tests in `but-rebase` (`graph_rebase::workspace::test`); reaching them
+/// end-to-end needs a workspace graph that traverses per-branch remotes, which
+/// this metadata-free projection harness intentionally does not set up.
+#[test]
+fn push_status_nothing_to_push_and_unpushed() -> Result<()> {
+    let (_repo, detailed) = detailed("workspace-two-stacks", Some("refs/heads/main"))?;
+    insta::assert_snapshot!(render_push_status(&detailed), @"
+    # Stack 0
+    refs/heads/stack-a push=CompletelyUnpushed             combined=CompletelyUnpushed             remote=-
+    refs/heads/stack-b push=CompletelyUnpushed             combined=CompletelyUnpushed             remote=-
+    refs/heads/main push=NothingToPush                  combined=NothingToPush                  remote=refs/remotes/origin/main
+    ");
+    Ok(())
+}
+
+/// Integration status: branch `A` sits at `origin/main` so every commit it owns
+/// has landed upstream — it reports `Integrated`. Branch `B` has an un-merged
+/// commit, so it has no remote tracking branch (`CompletelyUnpushed`). Mirrors
+/// the `fully-integrated-branch` upstream-integration fixture, which needs real
+/// workspace metadata (a `default_target`) for the projection to know what it
+/// integrates into.
+///
+/// Note the force statuses in the snapshot: `origin/main` was advanced past
+/// local `main` (it now contains `A1`), so `main` is *behind* its remote and
+/// reports `UnpushedCommitsRequiringForce`. `B` sits above `main` in the stack,
+/// so its `combined` status escalates to force even though its own push status
+/// is `CompletelyUnpushed`.
+#[test]
+fn integration_status_marks_fully_integrated_branch() -> Result<()> {
+    let (_tmp, detailed) = detailed_writable(
+        "fully-integrated-branch",
+        "origin",
+        "main",
+        "main",
+        |meta| {
+            add_stack(meta, 1, "A", StackState::InWorkspace);
+            add_stack(meta, 2, "B", StackState::InWorkspace);
+        },
+    )?;
+    insta::assert_snapshot!(render_push_status(&detailed), @"
+    # Stack 0
+    refs/heads/A   push=Integrated                     combined=Integrated                     remote=-
+    refs/heads/B   push=CompletelyUnpushed             combined=UnpushedCommitsRequiringForce  remote=-
+    refs/heads/main push=UnpushedCommitsRequiringForce  combined=UnpushedCommitsRequiringForce  remote=refs/remotes/origin/main
+    ");
+    // `add A1` (== origin/main) is integrated; `add B1` is local-only.
+    insta::assert_snapshot!(render_commit_state(&detailed), @"
+    # Stack 0
+    905d6e5 add A1   state=integrated
+    b38b04b add B1   state=local
+    ");
+    Ok(())
+}
+
+/// Commit state via CONTENT integration: stack commits `A` and `B` were
+/// cherry-picked onto the target (`origin/master`) with *different* commit IDs,
+/// so they are not reachable from the target ref and are caught only by the
+/// changeset-similarity engine — exercising the content branch of
+/// `is_commit_integrated`, which no other projection test reaches. `D` and `E`
+/// are local-only, and the merge commit `C` carries no changes of its own.
+#[test]
+fn commit_state_marks_content_integrated_commits() -> Result<()> {
+    let (_tmp, detailed) = detailed_writable(
+        "diamond-partially-content-integrated",
+        "origin",
+        "master",
+        "o1",
+        |meta| {
+            add_stack(meta, 1, "E", StackState::InWorkspace);
+        },
+    )?;
+    insta::assert_snapshot!(render_commit_state(&detailed), @"
+    # Stack 0
+    a6588cf E        state=local
+    4827d2f C        state=local
+    3d3bfa7 B        state=integrated
+    d8d0970 D        state=local
+    f5b02d3 A        state=integrated
+    ");
+    Ok(())
+}
+
+/// Commit state via HISTORICAL integration: `A` and `B` are reachable from the
+/// target ref through the merge commit on `origin/master`.
+#[test]
+fn commit_state_marks_historically_integrated_commits() -> Result<()> {
+    let (_tmp, detailed) = detailed_writable(
+        "diamond-partially-historically-integrated",
+        "origin",
+        "master",
+        "o1",
+        |meta| {
+            add_stack(meta, 1, "E", StackState::InWorkspace);
+        },
+    )?;
+    insta::assert_snapshot!(render_commit_state(&detailed), @"
+    # Stack 0
+    972cf74 E        state=local
+    9e74c75 C        state=local
+    ffb801b B        state=integrated
+    d6a7004 D        state=local
+    448b195 A        state=integrated
+    ");
+    Ok(())
+}
+
+/// Reference integration in a multi-branch stack: segment `C` is already
+/// upstream, while its child segment `A` and sibling stack `B` still have local
+/// work.
+#[test]
+fn integration_status_marks_partially_integrated_multi_branch_stack() -> Result<()> {
+    let (_tmp, detailed) = detailed_writable(
+        "partially-integrated-multi-branch-stack",
+        "origin",
+        "main",
+        "main",
+        |meta| {
+            add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &["C"]);
+            add_stack(meta, 2, "B", StackState::InWorkspace);
+        },
+    )?;
+    insta::assert_snapshot!(render_statuses(&detailed), @"
+    # Stack 0
+    refs/heads/A   push=CompletelyUnpushed             combined=UnpushedCommitsRequiringForce  remote=-
+    refs/heads/C   push=Integrated                     combined=Integrated                     remote=-
+    refs/heads/B   push=CompletelyUnpushed             combined=UnpushedCommitsRequiringForce  remote=-
+    refs/heads/main push=UnpushedCommitsRequiringForce  combined=UnpushedCommitsRequiringForce  remote=refs/remotes/origin/main
+
+    # Stack 0
+    44c9428 add A1   state=local
+    f1e7451 add C1   state=integrated
+    b38b04b add B1   state=local
+    ");
+    Ok(())
+}
+
+/// Same multi-branch shape, but both segments in stack `A` are integrated; `B`
+/// remains local.
+#[test]
+fn integration_status_marks_fully_integrated_multi_branch_stack() -> Result<()> {
+    let (_tmp, detailed) = detailed_writable(
+        "fully-integrated-multi-branch-stack",
+        "origin",
+        "main",
+        "main",
+        |meta| {
+            add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &["C"]);
+            add_stack(meta, 2, "B", StackState::InWorkspace);
+        },
+    )?;
+    insta::assert_snapshot!(render_statuses(&detailed), @"
+    # Stack 0
+    refs/heads/A   push=Integrated                     combined=Integrated                     remote=-
+    refs/heads/C   push=Integrated                     combined=Integrated                     remote=-
+    refs/heads/B   push=CompletelyUnpushed             combined=UnpushedCommitsRequiringForce  remote=-
+    refs/heads/main push=UnpushedCommitsRequiringForce  combined=UnpushedCommitsRequiringForce  remote=refs/remotes/origin/main
+
+    # Stack 0
+    44c9428 add A1   state=integrated
+    f1e7451 add C1   state=integrated
+    b38b04b add B1   state=local
+    ");
+    Ok(())
+}
+
+/// Two separate stacks whose commits have both landed upstream through merge
+/// commits on the target.
+#[test]
+fn integration_status_marks_fully_integrated_two_stacks() -> Result<()> {
+    let (_tmp, detailed) = detailed_writable(
+        "fully-integrated-two-stacks",
+        "origin",
+        "main",
+        "main~2",
+        |meta| {
+            add_stack(meta, 1, "A", StackState::InWorkspace);
+            add_stack(meta, 2, "B", StackState::InWorkspace);
+        },
+    )?;
+    insta::assert_snapshot!(render_statuses(&detailed), @"
+    # Stack 0
+    refs/heads/B   push=Integrated                     combined=Integrated                     remote=-
+    # Stack 1
+    refs/heads/A   push=Integrated                     combined=Integrated                     remote=-
+
+    # Stack 0
+    b38b04b add B1   state=integrated
+    # Stack 1
+    905d6e5 add A1   state=integrated
+    ");
+    Ok(())
+}
+
+/// Empty-branch remote-tip integration: the projection sees the shared topic
+/// tip commit and marks both the commit and reference integrated.
+#[test]
+fn empty_branch_remote_tip_marks_reference_integrated() -> Result<()> {
+    let (_tmp, detailed) = detailed_writable(
+        "empty-branch-remote-tip-integrated",
+        "origin",
+        "main",
+        "main^",
+        |meta| {
+            add_stack(meta, 1, "topic", StackState::InWorkspace);
+        },
+    )?;
+    insta::assert_snapshot!(render_statuses(&detailed), @"
+    # Stack 0
+    refs/heads/topic push=Integrated                     combined=Integrated                     remote=refs/remotes/origin/topic
+
+    # Stack 0
+    6ba217e add topic state=integrated
+    ");
+    Ok(())
+}
+
+/// When a branch has local work above an integrated remote tip, only the shared
+/// remote-tip commit is integrated; the local commit stays local.
+#[test]
+fn non_empty_branch_remote_tip_keeps_local_work_unintegrated() -> Result<()> {
+    let (_tmp, detailed) = detailed_writable(
+        "non-empty-branch-remote-tip-integrated",
+        "origin",
+        "main",
+        "main^",
+        |meta| {
+            add_stack(meta, 1, "topic", StackState::InWorkspace);
+        },
+    )?;
+    insta::assert_snapshot!(render_statuses(&detailed), @"
+    # Stack 0
+    refs/heads/topic push=UnpushedCommits                combined=UnpushedCommits                remote=refs/remotes/origin/topic
+
+    # Stack 0
+    f1a3cba add local state=local
+    6ba217e add topic state=integrated
+    ");
+    Ok(())
+}
+
+/// Commit state: `feature-foo`'s commit is present on `origin/feature-foo`
+/// (which is ahead of it) but not on the target, so it reports `LocalAndRemote`
+/// by identity — covering the third `CommitState` variant.
+#[test]
+fn commit_state_marks_pushed_unintegrated_commit_local_and_remote() -> Result<()> {
+    let (_tmp, detailed) = detailed_writable(
+        "remote-advanced-with-empty-top-branch",
+        "origin",
+        "main",
+        "main",
+        |meta| {
+            add_stack(meta, 1, "feature-foo", StackState::InWorkspace);
+        },
+    )?;
+    insta::assert_snapshot!(render_commit_state(&detailed), @"
+    # Stack 0
+    f0c6d1c add foo.txt state=local/remote(identity)
+    ");
+    Ok(())
+}
+
+/// Commit state: `A` has `shared local/remote` present on `origin/A` by identity,
+/// and `shared by name` which is a *different* commit on `origin/A` with the same
+/// changes — caught only by the changeset-similarity match. The two unique local
+/// commits stay local-only.
+#[test]
+fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
+    use crate::ref_info::with_workspace_commit::utils::{
+        StackState, add_stack, read_only_in_memory_scenario,
+    };
+    use anyhow::Context as _;
+    use but_core::RefMetadata as _;
+
+    let (repo, mut meta) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+
+    let project_meta = meta
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+        .project_meta();
+    let target_sha = project_meta
+        .target_commit_id
+        .context("scenario should configure a target")?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut ws = graph.into_workspace()?;
+    let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo)?;
+    insta::assert_snapshot!(render_commit_state(&detailed), @"
+    # Stack 0
+    d5d3a92 unique local tip state=local
+    6ffd040 shared by name state=local/remote(similarity)
+    4cd56ab unique local state=local
+    872c22f shared local/remote state=local/remote(identity)
     ");
     Ok(())
 }

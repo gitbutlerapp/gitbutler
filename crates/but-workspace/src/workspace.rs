@@ -1,37 +1,36 @@
 //! New graphy workspace
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
 use but_core::RefMetadata;
-use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Selector, Step};
+use but_rebase::graph_rebase::{
+    Editor, LookupStep, Pick, Selector, Step, workspace::ReferenceStatus,
+};
 use gix::prelude::ObjectIdExt;
 use renderdag::{Ancestor, GraphRowRenderer, LinkLine, NodeLine, PadLine, Renderer};
 
-use crate::{ref_info::Commit, ui::PushStatus};
-
-/// More information about a reference
-pub struct AdditionalRefInfo {
-    /// Does it have a remote? If so, who dis?
-    pub remote_ref: Option<gix::refs::FullName>,
-    /// Push status for just this reference.
-    pub push_status: PushStatus,
-    /// Push status for this reference combined with whether any parents will
-    /// also result in a force push.
-    pub combined_push_status: PushStatus,
-}
+use crate::{ref_info::Commit, ui::CommitState};
 
 /// A graph row's data
 #[expect(clippy::large_enum_variant)]
 pub enum GraphRowData {
     /// A commit :D
-    Commit(Commit),
+    Commit {
+        /// The commit.
+        commit: Commit,
+        /// The commit's state (local-only / local-and-remote / integrated), as
+        /// computed by the Editor's workspace projection.
+        state: CommitState,
+    },
     /// A reference
     Reference {
         /// The name of the reference
         ref_name: gix::refs::FullName,
-        /// More information about the reference
-        additional_ref_info: Option<AdditionalRefInfo>,
+        /// More information about the reference, computed by the Editor's
+        /// workspace projection. `None` for references the projection didn't
+        /// status (e.g. non-local-branch references).
+        additional_ref_info: Option<ReferenceStatus>,
     },
 }
 
@@ -101,7 +100,7 @@ pub fn detailed_graph_workspace<M: RefMetadata>(
         stacks: ws
             .stacks
             .iter()
-            .map(|stack| stack_rows(&editor, stack))
+            .map(|stack| stack_rows(&editor, stack, &ws.reference_status, &ws.commit_state))
             .collect::<Result<Vec<_>>>()?,
     })
 }
@@ -109,6 +108,8 @@ pub fn detailed_graph_workspace<M: RefMetadata>(
 fn stack_rows<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
     stack: &but_rebase::graph_rebase::Subgraph,
+    reference_status: &HashMap<Selector, ReferenceStatus>,
+    commit_state: &HashMap<Selector, CommitState>,
 ) -> Result<Stack> {
     let mut visible_nodes = HashSet::new();
     for selector in &stack.nodes {
@@ -122,9 +123,24 @@ fn stack_rows<M: RefMetadata>(
         .map(|node| Ok((node, visible_parents(editor, &stack.nodes, node)?)))
         .collect::<Result<HashMap<_, _>>>()?;
 
+    // Seed the traversal from the stack's visible tips (nodes no visible child
+    // points at), ordered deterministically: commits before references, then by
+    // id / refname. This keeps the render order stable without leaning on graph
+    // internals or hash iteration order.
+    let has_visible_child: HashSet<Selector> =
+        parents_by_node.values().flatten().copied().collect();
+    let mut tips = vec![];
+    for &node in &visible_nodes {
+        if !has_visible_child.contains(&node) {
+            tips.push((seed_key(editor, node)?, node));
+        }
+    }
+    tips.sort_by(|(a, _), (b, _)| a.cmp(b));
+    let seeds: Vec<Selector> = tips.into_iter().map(|(_, node)| node).collect();
+
     let mut renderer = GraphRowRenderer::<Selector>::new();
     let mut rows: Vec<(Selector, GraphRow)> = vec![];
-    for node in topological_order(&visible_nodes, &parents_by_node) {
+    for node in topological_order(&visible_nodes, &parents_by_node, &seeds) {
         let parents = parents_by_node
             .get(&node)
             .into_iter()
@@ -136,7 +152,7 @@ fn stack_rows<M: RefMetadata>(
         rows.push((
             node,
             GraphRow {
-                data: row_data(editor, node)?,
+                data: row_data(editor, node, reference_status, commit_state)?,
                 node_line: rendered.node_line,
                 link_line: rendered.link_line,
                 term_line: rendered.term_line,
@@ -201,10 +217,33 @@ fn visible_parents<M: RefMetadata>(
     Ok(out)
 }
 
+/// Deterministic ordering key for seed tips: commits before references, then by
+/// id / refname. Mirrors `graph_rebase::testing::compare_heads`.
+fn seed_key<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    selector: Selector,
+) -> Result<(u8, String)> {
+    Ok(match editor.lookup_step(selector)? {
+        Step::Pick(Pick { id, .. }) => (0, id.to_string()),
+        Step::Reference { refname, .. } => (1, refname.as_bstr().to_string()),
+        Step::None => (2, String::new()),
+    })
+}
+
+/// Children-first topological order over `nodes`, seeded from `seeds` (the
+/// stack's visible tips, in deterministic order).
+///
+/// A node is emitted only once every child pointing at it (its incoming edges
+/// within `nodes`) has been emitted, so shared parents land below all of their
+/// children. Parents are followed in edge order, so the walk descends each
+/// branch tip-to-base before moving to the next seed. Mirrors
+/// `graph_rebase::testing::topological_order`.
 fn topological_order(
     nodes: &HashSet<Selector>,
     parents_by_node: &HashMap<Selector, Vec<Selector>>,
+    seeds: &[Selector],
 ) -> Vec<Selector> {
+    // `in_degree` counts the children still to be emitted before a node is ready.
     let mut in_degree: HashMap<Selector, usize> = nodes.iter().map(|&n| (n, 0)).collect();
     for parents in parents_by_node.values() {
         for parent in parents {
@@ -214,27 +253,28 @@ fn topological_order(
         }
     }
 
-    // Min-priority frontier keyed by a stable string for deterministic render
-    // order. Debug strings are unique per node within a stack.
-    let key = |selector: &Selector| format!("{selector:?}");
-    let mut frontier: BTreeMap<String, Selector> = nodes
-        .iter()
-        .copied()
-        .filter(|n| in_degree.get(n) == Some(&0))
-        .map(|n| (key(&n), n))
-        .collect();
-
+    // Iterative DFS (recursion would blow the stack on long branches). Popping a
+    // node runs the pre-visit the recursive form does on entry: skip while not
+    // yet eligible, else emit, drop this node's contribution to each parent,
+    // then push the parents so they're explored in edge order.
     let mut out = vec![];
-    while let Some((_, node)) = frontier.pop_first() {
+    let mut visited = HashSet::new();
+    let mut stack: Vec<Selector> = seeds.iter().rev().copied().collect();
+    while let Some(node) = stack.pop() {
+        if visited.contains(&node) || in_degree.get(&node).is_some_and(|&d| d > 0) {
+            continue;
+        }
+        visited.insert(node);
         out.push(node);
-        for parent in parents_by_node.get(&node).into_iter().flatten() {
-            let Some(deg) = in_degree.get_mut(parent) else {
-                continue;
-            };
-            *deg = deg.saturating_sub(1);
-            if *deg == 0 {
-                frontier.insert(key(parent), *parent);
+
+        let parents = parents_by_node.get(&node).map(Vec::as_slice).unwrap_or(&[]);
+        for parent in parents {
+            if let Some(deg) = in_degree.get_mut(parent) {
+                *deg = deg.saturating_sub(1);
             }
+        }
+        for &parent in parents.iter().rev() {
+            stack.push(parent);
         }
     }
     out
@@ -346,43 +386,21 @@ fn reference_segments(
 fn row_data<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
     selector: Selector,
+    reference_status: &HashMap<Selector, ReferenceStatus>,
+    commit_state: &HashMap<Selector, CommitState>,
 ) -> Result<GraphRowData> {
     Ok(match editor.lookup_step(selector)? {
-        Step::Pick(Pick { id, .. }) => {
-            GraphRowData::Commit(but_core::Commit::from_id(id.attach(editor.repo()))?.into())
-        }
+        Step::Pick(Pick { id, .. }) => GraphRowData::Commit {
+            commit: but_core::Commit::from_id(id.attach(editor.repo()))?.into(),
+            state: commit_state
+                .get(&selector)
+                .cloned()
+                .unwrap_or(CommitState::LocalOnly),
+        },
         Step::Reference { refname, .. } => GraphRowData::Reference {
             ref_name: refname,
-            additional_ref_info: None,
+            additional_ref_info: reference_status.get(&selector).cloned(),
         },
         Step::None => unreachable!("None steps are not visible rows"),
     })
 }
-
-// Frontend types:
-// pub enum GraphRowData {
-//     Commit(Commit),
-//     Reference {
-//         ref_name: gix::refs::FullName,
-//         remote_ref: Option<gix::refs::FullName>,
-//         // TODO: Have a partial stack state
-//         push_status: PushStatus,
-//         pr_number: Option<usize>
-//     },
-// }
-
-// type GraphRow = {
-//   data: ReferenceOrCommit,
-//   // line drawing instructions...jVj
-// }
-
-// type Graph = {
-//   stacks: {
-//     rows: GraphRow[],
-//     upstreamStuffs: {
-//       rows: GrpahRow[], // <- It's own commits
-//       placeBelow: number
-//     }[],
-//     linearSections: { referenceIdx: number | undefined, rowIdxs: number[] }[],
-//     referenceSections: { referenceIdx: number, rowIdxs: number[] }[],
-//   }[],

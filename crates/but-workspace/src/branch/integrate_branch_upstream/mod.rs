@@ -20,9 +20,7 @@ use crate::{
         get_commits_until_merge_base,
     },
 };
-use crate::{
-    divergence::resolve_tracking_branch_ref_name, graph_manipulation::determine_parent_selector,
-};
+use crate::{graph_manipulation::determine_parent_selector, resolve_tracking_branch_ref_name};
 
 mod display;
 mod parsing;

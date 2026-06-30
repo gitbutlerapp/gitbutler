@@ -48,6 +48,9 @@ uuid.workspace = true
 
 boolean-enums.workspace = true
 
+# for parallel changeset-similarity computation
+flume = "0.11.1"
+
 # for `sync`
 fslock = "0.2.1"
 parking_lot = { workspace = true, features = ["arc_lock"] }

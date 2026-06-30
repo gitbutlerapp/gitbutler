@@ -60,8 +60,6 @@ url = { version = "2.5.4", features = ["serde"] }
 md5.workspace = true
 tracing.workspace = true
 
-# For SPMC channel
-flume = "0.11.1"
 tempfile.workspace = true
 
 bitflags = { workspace = true, optional = true }

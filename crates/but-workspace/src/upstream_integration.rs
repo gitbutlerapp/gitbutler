@@ -915,9 +915,7 @@ fn replace_direct_checkout_ref_with_fallback<M: RefMetadata>(
 
     editor.replace(
         head_ref_selector,
-        Step::Reference {
-            refname: fallback_ref_name.clone(),
-        },
+        Step::new_reference(fallback_ref_name.clone()),
     )?;
 
     editor.disconnect_segment_from(

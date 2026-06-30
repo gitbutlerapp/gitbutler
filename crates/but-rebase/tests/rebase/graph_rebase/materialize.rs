@@ -227,12 +227,7 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
-    editor.replace(
-        main_selector,
-        Step::Reference {
-            refname: replacement_ref.clone(),
-        },
-    )?;
+    editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -282,12 +277,7 @@ fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
-    editor.replace(
-        main_selector,
-        Step::Reference {
-            refname: replacement_ref.clone(),
-        },
-    )?;
+    editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
 
     let outcome = editor.rebase()?;
     outcome.materialize_without_checkout()?;

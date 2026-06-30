@@ -148,9 +148,12 @@ fn get_sorted_parents(graph: &StepGraph, node: StepGraphIndex) -> Vec<StepGraphI
 /// before references, then by id / refname.
 fn compare_heads(graph: &StepGraph, a: StepGraphIndex, b: StepGraphIndex) -> Ordering {
     match (&graph[a], &graph[b]) {
-        (Step::Reference { refname, .. }, Step::Reference { refname: refname_b, .. }) => {
-            refname.cmp(refname_b)
-        }
+        (
+            Step::Reference { refname, .. },
+            Step::Reference {
+                refname: refname_b, ..
+            },
+        ) => refname.cmp(refname_b),
         (Step::Pick(Pick { id, .. }), Step::Pick(Pick { id: id_b, .. })) => id.cmp(id_b),
         (Step::Reference { .. }, Step::Pick(_)) => Ordering::Greater,
         (Step::Pick(_), Step::Reference { .. }) => Ordering::Less,
