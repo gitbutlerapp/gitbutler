@@ -563,8 +563,7 @@ const Title: FC<{
 	selection: Operand;
 }> = ({ bodyCollapsed, bodyId, onBodyCollapsedChange, projectId, selection }) =>
 	Match.value(selection).pipe(
-		Match.tagsExhaustive({
-			Stack: () => null,
+		Match.tags({
 			Branch: ({ branchRef }) => (
 				<SuspenseQuery
 					{...branchDetailsQueryOptions({
@@ -588,7 +587,6 @@ const Title: FC<{
 					<h3 className={classes("text-15", "text-semibold")}>Uncommitted changes</h3>
 				</div>
 			),
-			File: () => null,
 			Commit: ({ commitId }) => (
 				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 					{({ data: commitDetails }) => (
@@ -630,8 +628,8 @@ const Title: FC<{
 					)}
 				</SuspenseQuery>
 			),
-			Hunk: () => null,
 		}),
+		Match.orElseAbsurd,
 	);
 
 const FilesToggle: FC<
