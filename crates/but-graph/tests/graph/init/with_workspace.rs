@@ -7882,3 +7882,15 @@ fn commit_graph_projection_parity_merge_into_main() -> anyhow::Result<()> {
     let target = target_commit(&repo, &*meta);
     assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
 }
+
+#[test]
+fn cg_proj_parity_reproduce_11459() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11459")?;
+    add_stack_with_segments(&mut meta, 1, "X", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "feat-2", StackState::InWorkspace, &[]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}

@@ -72,6 +72,9 @@ pub fn gather(
     // belong to `commits_on_remote`/outside, not the segment). Without a target, fall back to the
     // global merge base of all tops (which also fixes a single top being its own merge base).
     let global_base = merge_base(cg, &stack_tops);
+    // Metadata stacks aren't necessarily in the same order as the stack tops (the ws-commit parent
+    // array), so match each top to the branch list one of its commits carries before zipping.
+    let aligned = align_branches_to_tops(cg, &stack_tops, global_base, stack_branches);
     let stacks = stack_tops
         .iter()
         .enumerate()
@@ -80,10 +83,11 @@ pub fn gather(
                 Some(t) => merge_base(cg, &[top, t]),
                 None => global_base,
             };
-            let spine = segment_runs(cg, top, stack_base);
-            match stack_branches.and_then(|b| b.get(i)) {
-                Some(branches) => reconcile_with_branches(spine, branches),
-                None => spine,
+            match &aligned[i] {
+                // Metadata-driven: the stack's branch list defines the segments and their names.
+                Some(branches) => segment_by_branches(cg, top, stack_base, branches),
+                // No metadata: fall back to slicing at any local-branch ref on the spine.
+                None => segment_runs(cg, top, stack_base),
             }
         })
         .collect();
@@ -113,30 +117,114 @@ pub fn project(
     build(gather(cg, workspace_commit, stack_branches, target))
 }
 
-/// Walk the stack's ordered `branches`, taking each commit-bearing segment from `spine` when its ref
-/// matches, and emitting an empty segment for a branch the spine doesn't cover (an empty branch).
-/// Spine segments whose ref isn't among `branches` are appended as-is.
-fn reconcile_with_branches(
-    spine: Vec<SegmentRun>,
-    branches: &[gix::refs::FullName],
-) -> Vec<SegmentRun> {
-    let mut spine = spine.into_iter().peekable();
-    let mut out = Vec::new();
-    for branch in branches {
-        if spine
-            .peek()
-            .is_some_and(|s| s.ref_name.as_ref() == Some(branch))
+/// Match each stack top to the branch list one of its spine commits carries, returning the lists in
+/// stack-top order. A top whose spine carries none of any list's branches (e.g. an anonymous top)
+/// takes a leftover list, in order. Returns all-`None` when there is no metadata.
+fn align_branches_to_tops(
+    cg: &CommitGraph,
+    stack_tops: &[gix::ObjectId],
+    base: Option<gix::ObjectId>,
+    stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+) -> Vec<Option<Vec<gix::refs::FullName>>> {
+    let Some(lists) = stack_branches else {
+        return vec![None; stack_tops.len()];
+    };
+    let mut used = vec![false; lists.len()];
+    let mut out: Vec<Option<Vec<gix::refs::FullName>>> = vec![None; stack_tops.len()];
+    for (ti, &top) in stack_tops.iter().enumerate() {
+        let spine_refs: HashSet<gix::refs::FullName> = first_parent_spine(cg, top, base)
+            .iter()
+            .flat_map(|&c| cg.refs_at(c))
+            .collect();
+        if let Some(bi) = lists
+            .iter()
+            .enumerate()
+            .position(|(bi, branches)| !used[bi] && branches.iter().any(|b| spine_refs.contains(b)))
         {
-            out.push(spine.next().expect("peeked"));
-        } else {
-            out.push(SegmentRun {
-                ref_name: Some(branch.clone()),
-                commits: Vec::new(),
-            });
+            out[ti] = Some(lists[bi].clone());
+            used[bi] = true;
         }
     }
-    out.extend(spine);
+    // Unmatched tops (anonymous) take the leftover lists in order.
+    let mut leftover = (0..lists.len()).filter(|bi| !used[*bi]);
+    for slot in out.iter_mut().filter(|s| s.is_none()) {
+        if let Some(bi) = leftover.next() {
+            *slot = Some(lists[bi].clone());
+        }
+    }
     out
+}
+
+/// Slice `top`'s first-parent spine into segments by the stack's ordered `branches` — metadata-driven,
+/// not by arbitrary refs on commits. The first branch owns the tip; each later branch starts where its
+/// ref appears on the spine (and is an empty segment if its ref appears nowhere). A segment's display
+/// name is its branch iff that ref is on the segment's first commit (else it is anonymous, `None`);
+/// empty segments keep their branch name.
+fn segment_by_branches(
+    cg: &CommitGraph,
+    top: gix::ObjectId,
+    base: Option<gix::ObjectId>,
+    branches: &[gix::refs::FullName],
+) -> Vec<SegmentRun> {
+    let spine = first_parent_spine(cg, top, base);
+    // Where each branch begins on the spine: the top branch at 0, each later branch at its ref (or
+    // past the end — an empty segment — if its ref isn't on the spine).
+    let positions: Vec<usize> = branches
+        .iter()
+        .enumerate()
+        .map(|(i, b)| {
+            if i == 0 {
+                0
+            } else {
+                spine
+                    .iter()
+                    .position(|&c| commit_has_ref(cg, c, b))
+                    .unwrap_or(spine.len())
+            }
+        })
+        .collect();
+    branches
+        .iter()
+        .enumerate()
+        .map(|(i, b)| {
+            let start = positions[i];
+            let end = positions
+                .get(i + 1)
+                .copied()
+                .unwrap_or(spine.len())
+                .max(start);
+            let commits = spine.get(start..end).unwrap_or(&[]).to_vec();
+            let ref_name = if commits.first().is_none_or(|&c| commit_has_ref(cg, c, b)) {
+                Some(b.clone())
+            } else {
+                None
+            };
+            SegmentRun { ref_name, commits }
+        })
+        .collect()
+}
+
+/// `top`'s first-parent commits down to (excluding) `base`.
+fn first_parent_spine(
+    cg: &CommitGraph,
+    top: gix::ObjectId,
+    base: Option<gix::ObjectId>,
+) -> Vec<gix::ObjectId> {
+    let mut spine = Vec::new();
+    let mut id = Some(top);
+    while let Some(c) = id {
+        if Some(c) == base {
+            break;
+        }
+        spine.push(c);
+        id = cg.first_parent(c);
+    }
+    spine
+}
+
+/// Whether `ref_name` points at `commit`.
+fn commit_has_ref(cg: &CommitGraph, commit: gix::ObjectId, ref_name: &gix::refs::FullName) -> bool {
+    cg.refs_at(commit).iter().any(|r| r == ref_name)
 }
 
 /// Walk `top`'s first-parent spine down to (excluding) `base`, slicing into segments wherever a
