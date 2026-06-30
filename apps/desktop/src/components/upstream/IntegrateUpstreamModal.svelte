@@ -10,6 +10,7 @@
 		type UpstreamIntegrationStatuses,
 	} from "$lib/upstream/types";
 	import { UPSTREAM_INTEGRATION_SERVICE } from "$lib/upstream/upstreamIntegrationService.svelte";
+	import { debounce } from "$lib/utils/debounce";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		Badge,
@@ -47,52 +48,80 @@
 	let integratingUpstream = $state<OperationState>("inert");
 	let statuses = $state<UpstreamIntegrationStackStatus[]>([]);
 	let integrationStatuses = $state<UpstreamIntegrationStatuses | undefined>();
+	let statusesLoading = $state(false);
+	let statusesStale = $state(false);
 	let statusRequest = 0;
 
 	const baseLoaded = $derived(!!base);
 	const isBaseDiverged = $derived(!!base?.targetShaAheadOfRef);
-	const canIntegrate = $derived(baseLoaded && !isBaseDiverged && !!integrationStatuses);
+	const canIntegrate = $derived(
+		baseLoaded && !isBaseDiverged && !!integrationStatuses && !statusesLoading && !statusesStale,
+	);
 	const worktreeConflicts = $derived(integrationStatuses?.worktreeConflicts ?? []);
-	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream());
+	const [integrateUpstream] = upstreamIntegrationService.integrateUpstream();
 
-	async function loadStatuses() {
-		const request = ++statusRequest;
+	const debouncedLoadStatuses = debounce((request: number) => {
+		void loadStatuses(request);
+	}, 250);
+
+	function clearStatuses() {
+		statusRequest++;
+		statusesLoading = false;
+		statusesStale = false;
 		integrationStatuses = undefined;
 		statuses = [];
+	}
 
-		const nextStatuses = await upstreamIntegrationService.upstreamStatuses(projectId);
-		if (request !== statusRequest || isBaseDiverged) return;
+	function scheduleLoadStatuses() {
+		const request = ++statusRequest;
+		statusesLoading = true;
+		statusesStale = true;
+		debouncedLoadStatuses(request);
+	}
 
-		const statusesTmp = [...nextStatuses.subject];
-		statusesTmp.sort(sortUpstreamIntegrationStatus);
+	async function loadStatuses(request: number) {
+		try {
+			const nextStatuses = await upstreamIntegrationService.upstreamStatuses(projectId);
+			if (request !== statusRequest || isBaseDiverged || !baseLoaded) return;
 
-		integrationStatuses = nextStatuses;
-		statuses = statusesTmp;
+			const statusesTmp = [...nextStatuses.subject];
+			statusesTmp.sort(sortUpstreamIntegrationStatus);
+
+			integrationStatuses = nextStatuses;
+			statuses = statusesTmp;
+			statusesStale = false;
+		} catch (error) {
+			console.error("Failed to load upstream integration statuses:", error);
+		} finally {
+			if (request === statusRequest) {
+				statusesLoading = false;
+			}
+		}
 	}
 
 	$effect(() => {
-		if (!modal?.imports.open) return;
-
 		if (integratingUpstream !== "inert") {
 			statusRequest++;
 			return;
 		}
 
-		if (!baseLoaded) {
+		if (!modal?.imports.open) {
 			statusRequest++;
-			integrationStatuses = undefined;
-			statuses = [];
+			statusesLoading = false;
 			return;
 		}
 
-		if (isBaseDiverged) {
-			statusRequest++;
-			integrationStatuses = undefined;
-			statuses = [];
+		if (!base) {
+			clearStatuses();
 			return;
 		}
 
-		void loadStatuses();
+		if (base.targetShaAheadOfRef) {
+			clearStatuses();
+			return;
+		}
+
+		scheduleLoadStatuses();
 	});
 
 	async function integrate() {
@@ -113,8 +142,7 @@
 
 	export async function show() {
 		integratingUpstream = "inert";
-		integrationStatuses = undefined;
-		statuses = [];
+		clearStatuses();
 		await tick();
 		modal?.show();
 	}
@@ -239,7 +267,9 @@
 				wide
 				style="pop"
 				disabled={!canIntegrate}
-				loading={integratingUpstream === "loading" || (!integrationStatuses && !isBaseDiverged)}
+				loading={integratingUpstream === "loading" ||
+					statusesLoading ||
+					(!integrationStatuses && !isBaseDiverged)}
 				action={async () => {
 					await integrate();
 				}}
