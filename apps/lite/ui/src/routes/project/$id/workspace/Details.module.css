@@ -122,6 +122,7 @@
 	user-select: text;
 
 	diffs-container {
+		--diffs-bg: var(--bg-1);
 		--diffs-selection-number-fg: var(--text-1);
 	}
 
