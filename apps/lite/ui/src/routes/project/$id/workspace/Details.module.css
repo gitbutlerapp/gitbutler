@@ -17,16 +17,6 @@
 	column-gap: 12px;
 }
 
-.titleRowMacSpacer {
-	flex-shrink: 0;
-	align-self: stretch;
-	width: 60px;
-}
-
-.titleRowActions {
-	margin-inline-start: auto;
-}
-
 .commitBodyToggle {
 	width: 24px;
 	height: 14px;

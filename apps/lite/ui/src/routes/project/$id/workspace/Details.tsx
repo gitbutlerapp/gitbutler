@@ -88,6 +88,7 @@ import {
 	useNavigationIndexHotkeys,
 } from "#ui/selection-scopes.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
+import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 import { changeFileTreeItem, conflictFileTreeItem, type FileTreeItem } from "./file-tree.ts";
 import {
 	getDependencyCommitIds,
@@ -764,42 +765,6 @@ const DiffStyleToggleGroup: FC<
 	);
 };
 
-const FullWindowToggle: FC<
-	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
-> = (toggleProps) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
-	const fullWindow = useAppSelector((state) => selectProjectDetailsFullWindow(state, projectId));
-
-	return (
-		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<Toggle
-						{...toggleProps}
-						aria-label={workspaceHotkeys.toggleDetailsFullWindow.meta.name}
-						pressed={fullWindow}
-						onPressedChange={(fullWindow) =>
-							dispatch(projectActions.setDetailsFullWindow({ projectId, fullWindow }))
-						}
-					/>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup
-						render={<TooltipPopup kbd={workspaceHotkeys.toggleDetailsFullWindow.hotkey} />}
-					>
-						{workspaceHotkeys.toggleDetailsFullWindow.meta.name}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-};
-
-const isMac = window.lite.platform === "darwin";
-
 const CommitDetailsContent: FC<{
 	bodyCollapsed: boolean;
 	bodyId: string;
@@ -1213,7 +1178,8 @@ export const Details: FC<
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
 			<div className={styles.headerWrap}>
 				<div className={styles.titleRow}>
-					{detailsFullWindow && isMac && <div className={styles.titleRowMacSpacer} />}
+					{detailsFullWindow && <TopLeftControls />}
+
 					<Title
 						bodyCollapsed={commitBodyCollapsed}
 						bodyId={commitBodyId}
@@ -1221,15 +1187,6 @@ export const Details: FC<
 						projectId={projectId}
 						selection={outlineSelection}
 					/>
-					<FullWindowToggle
-						className={classes(
-							styles.titleRowActions,
-							getButtonClassName({ iconOnly: true }),
-							styles.toggle,
-						)}
-					>
-						<Icon name={detailsFullWindow ? "fullscreen-exit" : "fullscreen-enter"} />
-					</FullWindowToggle>
 				</div>
 
 				{outlineSelection._tag === "Branch" && (

@@ -21,8 +21,7 @@ import { type ComponentProps, type FC } from "react";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree.tsx";
 import styles from "./Outline.module.css";
-
-const isMac = window.lite.platform === "darwin";
+import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 
 const ActivitySpinner: FC = () => {
 	const fetchingCount = useIsFetching();
@@ -151,7 +150,8 @@ export const Outline: FC<
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
 			<header className={styles.workspaceControls}>
-				<div className={classes(isMac && styles.workspaceControlsMacSpacer)} />
+				<TopLeftControls />
+
 				<div className={styles.workspaceControlsLeft}>
 					<button
 						type="button"
