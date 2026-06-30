@@ -7871,3 +7871,14 @@ fn commit_graph_projection_parity_stack_with_remote_ahead() -> anyhow::Result<()
     let target = target_commit(&repo, &*meta);
     assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
 }
+
+#[test]
+fn commit_graph_projection_parity_merge_into_main() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-merge-into-main")?;
+    add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &["merge"]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
