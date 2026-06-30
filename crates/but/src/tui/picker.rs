@@ -17,6 +17,9 @@ use crate::{theme, tui::TerminalGuard as _, utils::InputOutputChannel};
 pub struct PickerOptions {
     pub allow_multiple: bool,
     pub default_selected: Vec<usize>,
+    /// Indices of rows the user cannot toggle. They render dimmed and are never
+    /// returned as picks; the cursor may still rest on them to read their help.
+    pub disabled: Vec<usize>,
 }
 
 pub fn run_picker<'a, Key, Value>(
@@ -44,10 +47,11 @@ where
     let PickerOptions {
         allow_multiple,
         default_selected,
+        disabled,
     } = options;
 
     let picks = {
-        let picker_items = build_picker_items(items, &default_selected, help);
+        let picker_items = build_picker_items(items, &default_selected, &disabled, help);
         // Reserve a stable two-line footer (blank separator + caption) when any
         // row carries help, so the description sits below the list and the rows
         // never reflow as the cursor moves.
@@ -75,22 +79,28 @@ where
 }
 
 /// Build the picker rows, marking each row whose index appears in
-/// `default_selected` as pre-selected.
+/// `default_selected` as pre-selected and each in `disabled` as not togglable.
 fn build_picker_items<'a, Key, Value>(
     items: &'a NonEmpty<(Key, Value)>,
     default_selected: &[usize],
+    disabled: &[usize],
     help: impl Fn(&Key) -> Option<&str>,
 ) -> NonEmpty<PickerItem<'a, Key, Value>> {
     let default_selected_set: HashSet<usize> = default_selected.iter().copied().collect();
+    let disabled_set: HashSet<usize> = disabled.iter().copied().collect();
     let mut idx = 0;
     items.as_ref().map(|(key, value)| {
-        let selected = default_selected_set.contains(&idx);
+        let disabled = disabled_set.contains(&idx);
+        // A disabled row can never be selected, so it is never returned as a pick
+        // even if a caller also lists its index in `default_selected`.
+        let selected = !disabled && default_selected_set.contains(&idx);
         idx += 1;
         PickerItem {
             key,
             help: help(key).map(str::to_owned),
             value,
             selected,
+            disabled,
         }
     })
 }
@@ -125,6 +135,7 @@ struct PickerItem<'a, Key, Value> {
     help: Option<String>,
     value: &'a Value,
     selected: bool,
+    disabled: bool,
 }
 
 impl<'a, Key, Value> App<'a, Key, Value>
@@ -252,6 +263,13 @@ where
     }
 
     fn confirm(&mut self) {
+        // In single-select, Enter returns the row under the cursor, so never
+        // confirm on a disabled row — it must never be returned as a pick.
+        // (Multi-select returns the checked rows, and disabled rows can't be
+        // checked, so confirming is always fine there.)
+        if !self.allow_multiple && self.items[self.cursor].disabled {
+            return;
+        }
         self.should_confirm = true;
     }
 
@@ -269,6 +287,10 @@ where
         }
 
         let selection = &mut self.items[self.cursor];
+        if selection.disabled {
+            // Leave the cursor put so its help stays visible, explaining why.
+            return;
+        }
         selection.selected = !selection.selected;
 
         self.move_down();
@@ -295,11 +317,20 @@ where
             } else {
                 Span::raw("  ")
             };
-            // Emphasize the key under the cursor so the active row reads clearly.
-            let key_style = if on_cursor { t.important } else { t.default };
+            // Emphasize the key under the cursor so the active row reads clearly;
+            // dim disabled rows so they read as unavailable.
+            let key_style = if item.disabled {
+                t.hint
+            } else if on_cursor {
+                t.important
+            } else {
+                t.default
+            };
 
             if self.allow_multiple {
-                let checkbox = if item.selected {
+                let checkbox = if item.disabled {
+                    Span::styled("[-] ", t.hint)
+                } else if item.selected {
                     Span::styled("[x] ", t.success)
                 } else {
                     Span::styled("[ ] ", t.hint)
@@ -369,6 +400,7 @@ mod tests {
                 help: help.map(str::to_owned),
                 value: &(),
                 selected,
+                disabled: false,
             })
             .collect::<Vec<_>>();
         let app = App {
@@ -454,9 +486,151 @@ mod tests {
     fn multi_select_marks_default_indices_selected() {
         let items = NonEmpty::from_vec(vec![("a", ()), ("b", ()), ("c", ()), ("d", ())])
             .expect("non-empty");
-        let built = build_picker_items(&items, &[0, 2], |_| None::<&str>);
+        let built = build_picker_items(&items, &[0, 2], &[], |_| None::<&str>);
         let selected = built.iter().map(|item| item.selected).collect::<Vec<_>>();
         assert_eq!(selected, vec![true, false, true, false]);
+    }
+
+    #[test]
+    fn build_picker_items_marks_disabled_indices() {
+        let items = NonEmpty::from_vec(vec![("a", ()), ("b", ()), ("c", ())]).expect("non-empty");
+        let built = build_picker_items(&items, &[], &[1], |_| None::<&str>);
+        let disabled = built.iter().map(|item| item.disabled).collect::<Vec<_>>();
+        assert_eq!(disabled, vec![false, true, false]);
+    }
+
+    #[test]
+    fn build_picker_items_never_selects_a_disabled_row() {
+        let items = NonEmpty::from_vec(vec![("a", ()), ("b", ())]).expect("non-empty");
+        // Index 1 is listed as both a default and disabled; disabled wins so it is
+        // never returned as a pick.
+        let built = build_picker_items(&items, &[0, 1], &[1], |_| None::<&str>);
+        let selected = built.iter().map(|item| item.selected).collect::<Vec<_>>();
+        let disabled = built.iter().map(|item| item.disabled).collect::<Vec<_>>();
+        assert_eq!(selected, vec![true, false]);
+        assert_eq!(disabled, vec![false, true]);
+    }
+
+    #[test]
+    fn single_select_does_not_confirm_on_a_disabled_row() {
+        let keys = ["Enabled".to_string(), "Disabled".to_string()];
+        let make_app = |cursor| App {
+            should_render: true,
+            should_quit: false,
+            should_confirm: false,
+            allow_multiple: false,
+            prompt: "Pick".to_string(),
+            cursor,
+            items: NonEmpty::from_vec(vec![
+                PickerItem {
+                    key: &keys[0],
+                    help: None,
+                    value: &(),
+                    selected: false,
+                    disabled: false,
+                },
+                PickerItem {
+                    key: &keys[1],
+                    help: None,
+                    value: &(),
+                    selected: false,
+                    disabled: true,
+                },
+            ])
+            .expect("non-empty"),
+        };
+
+        // Enter on the disabled row is ignored.
+        let mut on_disabled = make_app(1);
+        on_disabled.confirm();
+        assert!(!on_disabled.should_confirm);
+
+        // Enter on an enabled row still confirms.
+        let mut on_enabled = make_app(0);
+        on_enabled.confirm();
+        assert!(on_enabled.should_confirm);
+    }
+
+    #[test]
+    fn multi_select_confirms_even_with_cursor_on_a_disabled_row() {
+        let keys = ["Enabled".to_string(), "Disabled".to_string()];
+        let mut app = App {
+            should_render: true,
+            should_quit: false,
+            should_confirm: false,
+            allow_multiple: true,
+            prompt: "Pick".to_string(),
+            cursor: 1,
+            items: NonEmpty::from_vec(vec![
+                PickerItem {
+                    key: &keys[0],
+                    help: None,
+                    value: &(),
+                    selected: true,
+                    disabled: false,
+                },
+                PickerItem {
+                    key: &keys[1],
+                    help: None,
+                    value: &(),
+                    selected: false,
+                    disabled: true,
+                },
+            ])
+            .expect("non-empty"),
+        };
+
+        app.confirm();
+        assert!(app.should_confirm);
+    }
+
+    #[test]
+    fn disabled_row_renders_unavailable_marker_and_cannot_toggle() {
+        let keys = ["Enabled".to_string(), "Disabled".to_string()];
+        let items = vec![
+            PickerItem {
+                key: &keys[0],
+                help: None,
+                value: &(),
+                selected: false,
+                disabled: false,
+            },
+            PickerItem {
+                key: &keys[1],
+                help: None,
+                value: &(),
+                selected: false,
+                disabled: true,
+            },
+        ];
+        let mut app = App {
+            should_render: true,
+            should_quit: false,
+            should_confirm: false,
+            allow_multiple: true,
+            prompt: "Pick".to_string(),
+            cursor: 1,
+            items: NonEmpty::from_vec(items).expect("non-empty"),
+        };
+
+        let texts = app
+            .view_lines()
+            .iter()
+            .map(|line| {
+                line.spans
+                    .iter()
+                    .map(|s| s.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>();
+        // The togglable row shows an empty checkbox; the disabled row shows the
+        // unavailable marker instead.
+        assert!(texts[1].contains("[ ]"));
+        assert!(texts[2].contains("[-]"));
+
+        // Space (toggle) on a disabled row is a no-op.
+        app.toggle_selection();
+        assert!(!app.items[1].selected, "disabled row must not toggle on");
     }
 
     #[test]

@@ -347,6 +347,7 @@ fn prompt_agents(
                 "Which agents do you use?",
                 &options,
                 defaults.clone(),
+                Vec::new(),
                 |label| Some(label.help),
             )?
             .ok_or(UserCancelled)?;
@@ -462,6 +463,7 @@ fn prompt_workflow_options(
             "Pick any that fit how you like to work:",
             &options,
             defaults,
+            Vec::new(),
             |label| Some(label.help),
         )?
         .ok_or(UserCancelled)?;

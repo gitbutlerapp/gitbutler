@@ -535,6 +535,7 @@ impl InputOutputChannel<'_> {
             PickerOptions {
                 allow_multiple: false,
                 default_selected: Vec::new(),
+                disabled: Vec::new(),
             },
         )?
         else {
@@ -567,6 +568,7 @@ impl InputOutputChannel<'_> {
             PickerOptions {
                 allow_multiple: true,
                 default_selected: Vec::new(),
+                disabled: Vec::new(),
             },
         )
     }
@@ -588,6 +590,7 @@ impl InputOutputChannel<'_> {
             PickerOptions {
                 allow_multiple: false,
                 default_selected: default_selected.into_iter().collect(),
+                disabled: Vec::new(),
             },
             help,
         )?
@@ -606,11 +609,15 @@ impl InputOutputChannel<'_> {
         }
     }
 
+    /// `disabled` lists the indices of rows the user cannot toggle; they render
+    /// dimmed and never appear in the returned selection, but the cursor can
+    /// still rest on them so their help explains why they are unavailable.
     pub fn prompt_multi_select_with_help<'a, Key, Value>(
         &mut self,
         prompt: impl AsRef<str>,
         items: &'a NonEmpty<(Key, Value)>,
         default_selected: Vec<usize>,
+        disabled: Vec<usize>,
         help: impl Fn(&Key) -> Option<&str>,
     ) -> anyhow::Result<Option<Vec<&'a Value>>>
     where
@@ -623,6 +630,7 @@ impl InputOutputChannel<'_> {
             PickerOptions {
                 allow_multiple: true,
                 default_selected,
+                disabled,
             },
             help,
         )
