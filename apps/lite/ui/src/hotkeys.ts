@@ -5,6 +5,7 @@ import {
 	type HotkeyMeta,
 	type RegisterableHotkey,
 } from "@tanstack/react-hotkeys";
+import type { SelectionScope } from "./selection-scopes.ts";
 
 const modifierOrder = ["⌃", "⌥", "⇧", "⌘"];
 
@@ -36,6 +37,7 @@ export type CommandGroup =
 declare module "@tanstack/react-hotkeys" {
 	interface HotkeyMeta {
 		group: CommandGroup;
+		selectionScope?: SelectionScope;
 	}
 }
 
