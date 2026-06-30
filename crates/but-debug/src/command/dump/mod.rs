@@ -51,6 +51,8 @@ fn run_repo(
             current_dir.display()
         )
     })?;
+    // nothing really works unless we have a non-relative path, keep it simple.
+    let repo = gix::open_opts(repo.git_dir().canonicalize()?, repo.open_options().clone())?;
 
     let output_path = match &repo_args.archive.output {
         Some(path) => current_dir.join(path),
