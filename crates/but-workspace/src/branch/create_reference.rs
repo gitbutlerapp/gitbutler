@@ -186,10 +186,11 @@ pub(super) mod function {
         let existing_ref_target_in_workspace = existing_ref_target_id
             .filter(|id| workspace.find_owner_indexes_by_commit_id(*id).is_some());
 
-        let (check_if_id_in_workspace, ref_target_id, instruction): (
+        let (check_if_id_in_workspace, ref_target_id, instruction, branch_stack_order): (
             _,
             _,
             Option<Instruction<'_>>,
+            Option<Vec<gix::refs::FullName>>,
         ) = {
             match anchor {
                 None => {
@@ -214,6 +215,7 @@ pub(super) mod function {
                             true, // expect the target id to be in the workspace
                             existing_ref_target_id,
                             instruction,
+                            None,
                         )
                     } else {
                         // The target tip (e.g. `origin/main`) can be advanced *past* the
@@ -252,6 +254,7 @@ pub(super) mod function {
                             false,
                             base,
                             Some(Instruction::Independent),
+                            None,
                         )
                     }
                 }
@@ -281,7 +284,7 @@ pub(super) mod function {
                         })
                         .transpose()?;
 
-                    (validate_id, ref_target_id, instruction)
+                    (validate_id, ref_target_id, instruction, None)
                 }
                 Some(Anchor::AtSegment { ref_name, position }) => {
                     let mut validate_id = true;
@@ -322,36 +325,76 @@ pub(super) mod function {
                         validate_id,
                         ref_target_id,
                         Some(Instruction::Dependent { ref_name, position }),
+                        None,
                     )
                 }
                 Some(Anchor::AtReference {
                     ref_name: anchor_ref,
                     position,
                 }) => {
-                    if !workspace.has_metadata() {
+                    if !workspace.has_metadata()
+                        && anchor_ref.category() != Some(gix::refs::Category::LocalBranch)
+                    {
                         bail_precondition!(
-                            "Cannot position '{new}' relative to reference '{anchor}' without a managed workspace",
+                            "Cannot position '{new}' relative to non-local reference '{anchor}' without a managed workspace",
                             new = ref_name.shorten(),
                             anchor = anchor_ref.shorten()
                         );
                     }
-                    let (stack_idx, seg_idx) =
-                        workspace.try_find_segment_owner_indexes_by_refname(anchor_ref.as_ref())?;
-                    let segment = &workspace.stacks[stack_idx].segments[seg_idx];
-                    let ref_target_id = workspace
-                        .tip_commit_by_segment_id(segment.id)
-                        .map(|commit| commit.id)
-                        .context(
-                            "BUG: we should always see through to the base or eligible commits",
-                        )?;
-                    (
-                        Some(ref_target_id) != ws_base,
-                        ref_target_id,
-                        Some(Instruction::Dependent {
-                            ref_name: anchor_ref,
-                            position,
-                        }),
-                    )
+                    if workspace.has_metadata() {
+                        let (stack_idx, seg_idx) = workspace
+                            .try_find_segment_owner_indexes_by_refname(anchor_ref.as_ref())?;
+                        let segment = &workspace.stacks[stack_idx].segments[seg_idx];
+                        let ref_target_id = workspace
+                            .tip_commit_by_segment_id(segment.id)
+                            .map(|commit| commit.id)
+                            .context(
+                                "BUG: we should always see through to the base or eligible commits",
+                            )?;
+                        (
+                            Some(ref_target_id) != ws_base,
+                            ref_target_id,
+                            Some(Instruction::Dependent {
+                                ref_name: anchor_ref,
+                                position,
+                            }),
+                            None,
+                        )
+                    } else {
+                        if !meta.can_persist_branch_stack_order() {
+                            bail_precondition!(
+                                "Cannot position '{new}' relative to local reference '{anchor}' without branch order metadata",
+                                new = ref_name.shorten(),
+                                anchor = anchor_ref.shorten()
+                            );
+                        }
+                        let ref_target_id = repo
+                            .find_reference(anchor_ref.as_ref())?
+                            .peel_to_id()?
+                            .detach();
+                        let mut branch_stack_order = meta
+                            .branch_stack_order(anchor_ref.as_ref())?
+                            .unwrap_or_else(|| vec![anchor_ref.as_ref().to_owned()]);
+                        if !branch_stack_order
+                            .iter()
+                            .any(|branch| branch.as_ref() == anchor_ref.as_ref())
+                        {
+                            branch_stack_order.push(anchor_ref.as_ref().to_owned());
+                        }
+                        branch_stack_order.retain(|branch| branch.as_ref() != ref_name);
+                        let anchor_idx = branch_stack_order
+                            .iter()
+                            .position(|branch| branch.as_ref() == anchor_ref.as_ref())
+                            .context("BUG: anchor ref was just ensured in branch stack order")?;
+                        branch_stack_order.insert(
+                            match position {
+                                Position::Above => anchor_idx,
+                                Position::Below => anchor_idx + 1,
+                            },
+                            ref_name.to_owned(),
+                        );
+                        (false, ref_target_id, None, Some(branch_stack_order))
+                    }
                 }
             }
         };
@@ -374,25 +417,28 @@ pub(super) mod function {
             let mut branch_md = meta.branch(ref_name)?;
             update_branch_metadata(ref_name, repo, &mut branch_md)?;
 
-            workspace.graph.redo_traversal_with_overlay(
-                repo,
-                meta,
-                but_graph::init::Overlay::default()
-                    .with_references_if_new(Some(gix::refs::Reference {
-                        name: ref_name.into(),
-                        target: gix::refs::Target::Object(ref_target_id),
-                        peeled: None,
-                    }))
-                    .with_branch_metadata_override(Some((
-                        branch_md.as_ref().to_owned(),
-                        (*branch_md).clone(),
-                    )))
-                    .with_workspace_metadata_override(
-                        updated_ws_meta
-                            .as_ref()
-                            .map(|ws| (ws.as_ref().to_owned(), (*ws).clone())),
-                    ),
-            )?
+            let mut overlay = but_graph::init::Overlay::default()
+                .with_references_if_new(Some(gix::refs::Reference {
+                    name: ref_name.into(),
+                    target: gix::refs::Target::Object(ref_target_id),
+                    peeled: None,
+                }))
+                .with_branch_metadata_override(Some((
+                    branch_md.as_ref().to_owned(),
+                    (*branch_md).clone(),
+                )))
+                .with_workspace_metadata_override(
+                    updated_ws_meta
+                        .as_ref()
+                        .map(|ws| (ws.as_ref().to_owned(), (*ws).clone())),
+                );
+            if let Some(branch_stack_order) = branch_stack_order.clone() {
+                overlay = overlay.with_branch_stack_order_override(branch_stack_order);
+            }
+
+            workspace
+                .graph
+                .redo_traversal_with_overlay(repo, meta, overlay)?
         };
 
         let updated_workspace = graph_with_new_ref.into_workspace()?;
@@ -458,6 +504,9 @@ pub(super) mod function {
         } else if let Some(existing) = existing_ws_meta {
             // TODO: overwrite stored information with reality in new graph.
             meta.set_workspace(&existing)?;
+        }
+        if let Some(branch_stack_order) = branch_stack_order {
+            meta.set_branch_stack_order(&branch_stack_order)?;
         }
 
         // Always re-obtain the branch as `set_workspace` has created another version of it, possibly.
