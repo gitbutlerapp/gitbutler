@@ -7732,3 +7732,55 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
     ");
     Ok(())
 }
+
+/// SPIKE (commit-graph-experiment): the gather-then-build commit-graph projection reproduces the
+/// segment-based stack structure. Compares non-empty (ref_name, [commit ids]) segments per stack;
+/// empty branches (no tip commit in the commit graph yet) and enrichment passes are out of scope.
+#[test]
+fn commit_graph_projection_parity() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &["below"]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+
+    // Commit-graph projection (built before into_workspace consumes the graph).
+    let ws_commit = graph
+        .managed_entrypoint_commit(&repo)?
+        .expect("managed workspace commit")
+        .id;
+    let cg = but_graph::CommitGraph::from_segment_graph(&graph);
+    let commit_based: Vec<(Option<String>, Vec<gix::ObjectId>)> =
+        but_graph::commit_graph_projection::project(&cg, ws_commit)
+            .iter()
+            .flat_map(|s| s.segments.iter())
+            .filter(|seg| !seg.commits.is_empty())
+            .map(|seg| {
+                (
+                    seg.ref_name.as_ref().map(|r| r.as_bstr().to_string()),
+                    seg.commits.clone(),
+                )
+            })
+            .collect();
+
+    // Segment-based projection.
+    let ws = graph.into_workspace()?;
+    let segment_based: Vec<(Option<String>, Vec<gix::ObjectId>)> = ws
+        .stacks
+        .iter()
+        .flat_map(|s| s.segments.iter())
+        .filter(|seg| !seg.commits.is_empty())
+        .map(|seg| {
+            (
+                seg.ref_name().map(|r| r.as_bstr().to_string()),
+                seg.commits.iter().map(|c| c.id).collect(),
+            )
+        })
+        .collect();
+
+    assert_eq!(
+        commit_based, segment_based,
+        "commit-graph projection should reproduce the segment-based stack structure"
+    );
+    Ok(())
+}

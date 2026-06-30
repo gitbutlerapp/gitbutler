@@ -120,10 +120,21 @@ impl CommitGraph {
             .entrypoint()
             .ok()
             .and_then(|ep| ep.commit_and_owner.map(|(c, _)| c.id));
-        let commits = graph
-            .node_weights()
-            .flat_map(|s| s.commits.iter().cloned())
-            .collect::<Vec<_>>();
+        let mut commits = Vec::new();
+        for s in graph.node_weights() {
+            for (i, c) in s.commits.iter().enumerate() {
+                let mut c = c.clone();
+                // The segment graph hoists the tip ref onto `segment.ref_info`; in a commit graph a
+                // ref belongs on the commit it points at — the segment's first (tip) commit.
+                if i == 0
+                    && let Some(ri) = &s.ref_info
+                    && !c.refs.iter().any(|r| r.ref_name == ri.ref_name)
+                {
+                    c.refs.insert(0, ri.clone());
+                }
+                commits.push(c);
+            }
+        }
         CommitGraph::from_commits(commits, entrypoint)
     }
 

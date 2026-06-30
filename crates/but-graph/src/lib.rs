@@ -223,6 +223,9 @@ pub use segment_graph::{Connection, Direction, SegmentGraph};
 /// so the segment graph can be removed. Not yet wired into traversal — see the module docs.
 mod commit_graph;
 pub use commit_graph::{CommitGraph, CommitNode};
+/// SPIKE: build the display projection (stacks of segments) straight from a [`CommitGraph`], in a
+/// pure gather phase + a single build pass — no segment-graph mutation passes.
+pub mod commit_graph_projection;
 
 mod statistics;
 pub use statistics::Statistics;
