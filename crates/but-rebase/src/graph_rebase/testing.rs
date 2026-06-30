@@ -1117,3 +1117,28 @@ mod tests {
         ");
     }
 }
+
+/// SPIKE (commit-graph-experiment): compute the rebase topology (each commit → its ordered parent
+/// commits) two ways — from the segment-based [`Editor`], and straight from a
+/// [`but_graph::CommitGraph`] built off the same graph — so a test can assert they agree. Returns
+/// `(segment_based, commit_based)`.
+pub fn commit_graph_step_parity<M: but_core::RefMetadata>(
+    ws: &mut but_graph::Workspace,
+    meta: &mut M,
+    repo: &gix::Repository,
+) -> anyhow::Result<(
+    crate::graph_rebase::from_commit_graph::ParentMap,
+    crate::graph_rebase::from_commit_graph::ParentMap,
+)> {
+    use crate::graph_rebase::from_commit_graph::{
+        ordered_parent_commits, step_graph_from_commit_graph,
+    };
+    // Build the commit-based topology first (immutable borrow) before the editor takes ws mutably.
+    let workspace_commit = ws.graph.managed_entrypoint_commit(repo)?.map(|c| c.id);
+    let cg = but_graph::CommitGraph::from_segment_graph(&ws.graph);
+    let commit_based = ordered_parent_commits(&step_graph_from_commit_graph(&cg, workspace_commit));
+
+    let editor = Editor::create(ws, meta, repo)?;
+    let segment_based = ordered_parent_commits(&editor.graph);
+    Ok((segment_based, commit_based))
+}

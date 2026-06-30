@@ -7,6 +7,7 @@ use but_testsupport::StackState;
 
 mod change_id;
 mod cherry_pick;
+mod commit_graph_parity;
 mod conflictable_restriction;
 mod disconnect;
 mod edge;

@@ -5,6 +5,8 @@
 //! and in the darknes bind them.
 
 mod creation;
+/// SPIKE: build a StepGraph straight from a commit-first `but_graph::CommitGraph`, no segment graph.
+mod from_commit_graph;
 pub mod rebase;
 use std::collections::{BTreeMap, HashMap};
 

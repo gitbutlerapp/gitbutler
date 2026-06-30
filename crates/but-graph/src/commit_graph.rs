@@ -74,7 +74,10 @@ impl CommitGraph {
     /// Build from a set of commits (as produced by the gix traversal). Commits whose parents are
     /// outside the set are simply roots of this subgraph (a partial graph), mirroring how the
     /// StepGraph handles missing parents via `preserved_parents`.
-    pub fn from_commits(commits: impl IntoIterator<Item = Commit>, entrypoint: Option<gix::ObjectId>) -> Self {
+    pub fn from_commits(
+        commits: impl IntoIterator<Item = Commit>,
+        entrypoint: Option<gix::ObjectId>,
+    ) -> Self {
         let nodes: Vec<CommitNode> = commits
             .into_iter()
             .map(|commit| CommitNode {
@@ -129,6 +132,26 @@ impl CommitGraph {
         self.by_id.get(&id).map(|&idx| &self.nodes[idx])
     }
 
+    /// Every commit id in the graph, in node order.
+    pub fn commit_ids(&self) -> impl Iterator<Item = gix::ObjectId> + '_ {
+        self.nodes.iter().map(|n| n.commit.id)
+    }
+
+    /// The commit's full parent list, first-parent first, INCLUDING parents not present in this
+    /// graph (a partial traversal) — callers preserve those rather than re-pointing them.
+    pub fn all_parent_ids(&self, id: gix::ObjectId) -> Vec<gix::ObjectId> {
+        self.node(id)
+            .map(|n| n.commit.parent_ids.clone())
+            .unwrap_or_default()
+    }
+
+    /// The reference names pointing at `id`.
+    pub fn refs_at(&self, id: gix::ObjectId) -> Vec<gix::refs::FullName> {
+        self.node(id)
+            .map(|n| n.commit.refs.iter().map(|r| r.ref_name.clone()).collect())
+            .unwrap_or_default()
+    }
+
     /// The parents of `id` that are present in this graph, first-parent first.
     pub fn parents(&self, id: gix::ObjectId) -> impl Iterator<Item = gix::ObjectId> + '_ {
         self.node(id)
@@ -140,7 +163,11 @@ impl CommitGraph {
     /// The first parent of `id` (the next commit walking down first-parent), if present.
     pub fn first_parent(&self, id: gix::ObjectId) -> Option<gix::ObjectId> {
         let n = self.node(id)?;
-        n.commit.parent_ids.first().copied().filter(|p| self.by_id.contains_key(p))
+        n.commit
+            .parent_ids
+            .first()
+            .copied()
+            .filter(|p| self.by_id.contains_key(p))
     }
 
     /// The children of `id` (commits that list `id` as a parent). More than one means a branch point.
@@ -161,9 +188,10 @@ impl CommitGraph {
         let Some(n) = self.node(id) else {
             return false;
         };
-        let has_local_branch_ref = n.commit.ref_name_iter().any(|rn| {
-            rn.category() == Some(gix::reference::Category::LocalBranch)
-        });
+        let has_local_branch_ref = n
+            .commit
+            .ref_name_iter()
+            .any(|rn| rn.category() == Some(gix::reference::Category::LocalBranch));
         let is_merge = n.commit.parent_ids.len() > 1;
         let is_branch_point = self.children(id).take(2).count() > 1;
         has_local_branch_ref || is_merge || is_branch_point
@@ -291,7 +319,10 @@ mod tests {
     #[test]
     fn children_generation_and_first_parent_walk() {
         // Linear: 3 -> 2 -> 1 (child -> parent).
-        let g = CommitGraph::from_commits([commit(3, &[2]), commit(2, &[1]), commit(1, &[])], Some(id(3)));
+        let g = CommitGraph::from_commits(
+            [commit(3, &[2]), commit(2, &[1]), commit(1, &[])],
+            Some(id(3)),
+        );
         assert_eq!(g.first_parent(id(3)), Some(id(2)));
         assert_eq!(g.first_parent(id(1)), None);
         assert_eq!(g.children(id(1)).collect::<Vec<_>>(), vec![id(2)]);
@@ -323,7 +354,11 @@ mod tests {
 
         let cg = CommitGraph::from_segment_graph(&graph);
         // All three commits made it across, with their parent edges intact.
-        assert!(cg.node(id(0xA2)).is_some() && cg.node(id(0xA1)).is_some() && cg.node(id(0xB0)).is_some());
+        assert!(
+            cg.node(id(0xA2)).is_some()
+                && cg.node(id(0xA1)).is_some()
+                && cg.node(id(0xB0)).is_some()
+        );
         assert_eq!(cg.first_parent(id(0xA2)), Some(id(0xA1)));
         assert_eq!(cg.first_parent(id(0xA1)), Some(id(0xB0)));
         assert_eq!(cg.first_parent(id(0xB0)), None);
@@ -338,10 +373,18 @@ mod tests {
         // 4 is a merge of 2 and 3; both descend from 1.
         //   4 -> [2, 3] ; 2 -> 1 ; 3 -> 1
         let g = CommitGraph::from_commits(
-            [commit(4, &[2, 3]), commit(2, &[1]), commit(3, &[1]), commit(1, &[])],
+            [
+                commit(4, &[2, 3]),
+                commit(2, &[1]),
+                commit(3, &[1]),
+                commit(1, &[]),
+            ],
             Some(id(4)),
         );
-        assert!(g.is_segment_boundary(id(4)), "merge commit starts its own segment");
+        assert!(
+            g.is_segment_boundary(id(4)),
+            "merge commit starts its own segment"
+        );
         assert!(
             g.is_segment_boundary(id(1)),
             "1 has two children (2 and 3) → branch point, a boundary"
