@@ -4,6 +4,11 @@ import { definePreview } from "@storybook/react-vite";
 import "../ui/src/global.css";
 import "./storybook-styles.css";
 
+// Provide a minimal window.lite stub so hotkeys.ts doesn't crash in Storybook
+(window as unknown as { lite?: { platform: string } }).lite ??= {
+	platform: navigator.platform.toLowerCase().includes("mac") ? "darwin" : "linux",
+};
+
 const themeDecorator: Decorator = (Story, context) => {
 	const globals = context.globals as Record<string, string>;
 	const theme = globals["theme"] ?? "light";
