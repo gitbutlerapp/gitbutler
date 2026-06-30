@@ -108,13 +108,7 @@ pub(super) mod function {
             delimiter: subject_delimiter,
             children_to_disconnect,
             parents_to_disconnect,
-        } = get_disconnect_parameters(
-            &editor,
-            &workspace,
-            source_stack,
-            subject_segment,
-            workspace_head,
-        )?;
+        } = get_disconnect_parameters(&editor, source_stack, subject_segment, workspace_head)?;
 
         editor.disconnect_segment_from(
             subject_delimiter.clone(),
@@ -229,13 +223,7 @@ pub(super) mod function {
             delimiter: subject_delimiter,
             children_to_disconnect,
             parents_to_disconnect,
-        } = get_disconnect_parameters(
-            &editor,
-            &workspace,
-            &source_stack,
-            &subject_segment,
-            workspace_head,
-        )?;
+        } = get_disconnect_parameters(&editor, &source_stack, &subject_segment, workspace_head)?;
 
         let skip_reconnect_step = source_stack.segments.len() == 1;
         editor.disconnect_segment_from(
