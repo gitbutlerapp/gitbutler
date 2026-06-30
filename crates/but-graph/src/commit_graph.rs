@@ -139,15 +139,13 @@ impl CommitGraph {
     }
 
     /// KEYSTONE SPIKE: build a commit graph straight from git — no segment graph at all. Resolves the
-    /// workspace ref, walks every ancestor of the workspace commit, and attaches the refs pointing at
-    /// each commit. This is what lets the segment graph eventually be deleted: the `CommitGraph` no
-    /// longer needs to come *from* it (cf. [`Self::from_segment_graph`]).
+    /// workspace ref, walks from the workspace commit and every ref tip, and attaches the refs
+    /// pointing at each commit. This is what lets the segment graph eventually be deleted: the
+    /// `CommitGraph` no longer needs to come *from* it (cf. [`Self::from_segment_graph`]).
     ///
     /// Spike scope: walks the full reachable history (no bounding at the base) and leaves flags empty;
     /// both are fine for the projection (which only reads above the base) and for proving the build.
     pub fn from_repository(repo: &gix::Repository) -> anyhow::Result<Self> {
-        use gix::prelude::ObjectIdExt;
-
         let ws_ref_name: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
         let ws_commit = repo
             .find_reference(&ws_ref_name)?
@@ -166,9 +164,13 @@ impl CommitGraph {
             }
         }
 
-        // Every commit reachable from the workspace commit.
+        // Walk from the workspace commit AND every ref tip, so commits a remote-tracking branch is
+        // ahead by (not reachable from the workspace commit) are included too.
+        let seeds: Vec<gix::ObjectId> = std::iter::once(ws_commit)
+            .chain(refs_by_commit.keys().copied())
+            .collect();
         let mut commits = Vec::new();
-        for info in ws_commit.attach(repo).ancestors().all()? {
+        for info in repo.rev_walk(seeds).all()? {
             let id = info?.id;
             let commit = repo.find_commit(id)?;
             let parent_ids = commit.parent_ids().map(|p| p.detach()).collect();
@@ -208,6 +210,19 @@ impl CommitGraph {
         self.node(id)
             .map(|n| n.commit.parent_ids.clone())
             .unwrap_or_default()
+    }
+
+    /// The commit that `ref_name` points at, if present in the graph.
+    pub fn commit_by_ref(&self, ref_name: &gix::refs::FullNameRef) -> Option<gix::ObjectId> {
+        self.nodes
+            .iter()
+            .find(|n| {
+                n.commit
+                    .refs
+                    .iter()
+                    .any(|r| r.ref_name.as_ref() == ref_name)
+            })
+            .map(|n| n.commit.id)
     }
 
     /// The reference names pointing at `id`.
