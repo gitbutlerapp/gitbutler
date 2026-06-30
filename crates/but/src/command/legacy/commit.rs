@@ -3,7 +3,12 @@ use std::{collections::BTreeMap, fmt::Write as _};
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
 use but_api::{commit::create::commit_create, diff, legacy::repo};
-use but_core::{DryRun, ref_metadata::StackId, sync::RepoExclusive, ui::TreeChange};
+use but_core::{
+    DryRun,
+    ref_metadata::StackId,
+    sync::{RepoExclusive, RepoShared},
+    ui::TreeChange,
+};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_repo::hooks;
@@ -316,6 +321,7 @@ fn branch_hint_from_arg(
     ctx: &mut but_ctx::Context,
     id_map: &IdMap,
     branch_arg: Option<CliIdArg>,
+    perm: &RepoShared,
 ) -> CliResult<Option<String>> {
     if let Some(branch_arg) = branch_arg {
         let repo = ctx.repo.get()?;
@@ -331,10 +337,12 @@ fn branch_hint_from_arg(
         {
             Ok(Some(branch))
         } else {
-            let repo = ctx.repo.get()?;
-            let head_info = but_api::legacy::workspace::head_info(ctx)?;
+            let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
             Ok(Some(
-                BranchArg(branch_arg.0).resolve_for_creation(&repo, &head_info)?,
+                BranchArg(branch_arg.0)
+                    .resolve_for_creation(&repo, &ws)?
+                    .shorten()
+                    .to_string(),
             ))
         }
     } else {
@@ -480,7 +488,7 @@ pub(crate) fn commit(
     }
 
     let is_positioned_commit = before.is_some() || after.is_some();
-    let branch_hint = branch_hint_from_arg(ctx, &id_map, branch_arg)?;
+    let branch_hint = branch_hint_from_arg(ctx, &id_map, branch_arg, guard.read_permission())?;
 
     let t = theme::get();
 

@@ -100,9 +100,11 @@ fn edit_branch_name(
             };
 
             let new_branch_name = {
-                let repo = ctx.repo.get()?;
-                let head_info = but_api::legacy::workspace::head_info(ctx)?;
-                BranchArg(non_validated_new_name).resolve_for_creation(&repo, &head_info)?
+                let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+                BranchArg(non_validated_new_name)
+                    .resolve_for_creation(&repo, &ws)?
+                    .shorten()
+                    .to_string()
             };
             but_api::legacy::stack::update_branch_name_with_perm(
                 ctx,

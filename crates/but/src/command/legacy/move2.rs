@@ -13,7 +13,7 @@ use nonempty::NonEmpty;
 use crate::{
     CliResult, IdMap,
     args::{
-        atoms::{BranchOrCommit, Purpose},
+        atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
         move2::Platform,
     },
     bad_input,
@@ -23,7 +23,7 @@ use crate::{
 
 pub struct MoveOutcome {
     pub sources: NonEmpty<gix::ObjectId>,
-    pub target: MoveTarget,
+    pub target: Option<MoveTarget>,
     pub new_branch_name: Option<FullName>,
 }
 
@@ -36,15 +36,17 @@ impl CliOutputHuman for MoveOutcome {
         } = self;
         let sources = sources.into_iter().map(theme::Commit).join(", ");
 
+        write!(out, "Moved {sources}")?;
+
         if let Some(new_branch_name) = new_branch_name {
-            writeln!(
-                out,
-                "Moved {sources} to new branch {} {target}",
-                theme::Branch(new_branch_name)
-            )?;
-        } else {
-            writeln!(out, "Moved {sources} {target}")?;
+            write!(out, " to new branch {}", theme::Branch(new_branch_name))?;
         }
+
+        if let Some(target) = target {
+            write!(out, " {target}")?;
+        }
+
+        writeln!(out)?;
 
         Ok(())
     }
@@ -66,16 +68,17 @@ pub fn r#move(
 
 #[derive(Clone)]
 enum MoveOperation {
-    Commit(MoveCommitsOperation),
+    RelativeTo(MoveCommitsRelativeToOperation),
+    ToNewBranch(MoveCommitsToNewBranchOperation),
 }
 
 #[derive(Clone)]
-struct MoveCommitsOperation {
+struct MoveCommitsRelativeToOperation {
     sources: NonEmpty<gix::ObjectId>,
     target: MoveTarget,
 }
 
-impl MoveCommitsOperation {
+impl MoveCommitsRelativeToOperation {
     fn execute(
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
@@ -99,9 +102,40 @@ impl MoveCommitsOperation {
                     Some(new_branch_name),
                 )
             }
+            MoveTarget::BranchTip { name } => {
+                (RelativeTo::Reference(name), Side::Below.into(), None)
+            }
         };
 
         tx.move_commits(self.sources, relative_to, side)?;
+        Ok(new_branch_name)
+    }
+}
+
+#[derive(Clone)]
+struct MoveCommitsToNewBranchOperation {
+    sources: NonEmpty<gix::ObjectId>,
+    branch_name: Option<FullName>,
+}
+
+impl MoveCommitsToNewBranchOperation {
+    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<FullName> {
+        let new_branch_name = if let Some(branch_name) = self.branch_name {
+            branch_name
+        } else {
+            but_core::branch::unique_canned_refname(tx.repo())?
+        };
+        tx.create_reference(
+            new_branch_name.as_ref(),
+            None,
+            |_| StackId::generate(),
+            Some(0),
+        )?;
+        tx.move_commits(
+            self.sources,
+            RelativeTo::Reference(new_branch_name.clone()),
+            Side::Below.into(),
+        )?;
         Ok(new_branch_name)
     }
 }
@@ -112,6 +146,9 @@ pub enum MoveTarget {
     Commit {
         commit_id: gix::ObjectId,
         side: Side,
+    },
+    BranchTip {
+        name: FullName,
     },
     BranchBucket {
         name: FullName,
@@ -124,6 +161,9 @@ impl Display for MoveTarget {
         match self {
             Self::Commit { commit_id, side } => {
                 write!(f, "{} commit {}", side, theme::Commit(*commit_id))
+            }
+            Self::BranchTip { name } => {
+                write!(f, "to the tip of branch {}", theme::Branch(name))
             }
             Self::BranchBucket { name, side } => {
                 write!(f, "{} branch {}", side, theme::Branch(name))
@@ -142,24 +182,78 @@ fn resolve(
         above,
         below,
         sources,
+        branch,
     } = args;
 
-    let (repo, _ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
 
-    let (unresolved_target, side) = match (above, below) {
-        (Some(above), None) => (above, Side::Above),
-        (None, Some(below)) => (below, Side::Below),
-        _ => unimplemented!(),
-    };
+    match (branch, above, below) {
+        (Some(Some(branch)), None, None) => {
+            let resolved_sources = sources
+                .into_iter()
+                .map(|source| source.resolve_commit_in_workspace(&repo, id_map))
+                .collect::<CliResult<Vec<_>>>()?;
+            let sources = NonEmpty::from_vec(resolved_sources)
+                .expect("BUG: Empty sources should not be possible as it's a required argument");
 
+            match branch.try_resolve_branch(&repo, id_map)? {
+                Some(branch) => Ok(MoveOperation::RelativeTo(MoveCommitsRelativeToOperation {
+                    sources,
+                    target: MoveTarget::BranchTip {
+                        name: branch.resolve_local_branch_name()?,
+                    },
+                })),
+                None => {
+                    let branch_name =
+                        BranchArg(branch.to_string()).resolve_for_creation(&repo, &ws)?;
+                    Ok(MoveOperation::ToNewBranch(
+                        MoveCommitsToNewBranchOperation {
+                            sources,
+                            branch_name: Some(branch_name),
+                        },
+                    ))
+                }
+            }
+        }
+        (Some(None), None, None) => {
+            let resolved_sources = sources
+                .into_iter()
+                .map(|source| source.resolve_commit_in_workspace(&repo, id_map))
+                .collect::<CliResult<Vec<_>>>()?;
+            let sources = NonEmpty::from_vec(resolved_sources)
+                .expect("BUG: Empty sources should not be possible as it's a required argument");
+            Ok(MoveOperation::ToNewBranch(
+                MoveCommitsToNewBranchOperation {
+                    sources,
+                    branch_name: None,
+                },
+            ))
+        }
+        (None, Some(above), None) => {
+            create_move_above_or_below_op(&repo, id_map, sources, above, Side::Above)
+        }
+        (None, None, Some(below)) => {
+            create_move_above_or_below_op(&repo, id_map, sources, below, Side::Below)
+        }
+        _ => unreachable!("BUG: Targeting group is required"),
+    }
+}
+
+fn create_move_above_or_below_op(
+    repo: &gix::Repository,
+    id_map: &IdMap,
+    sources: impl IntoIterator<Item = CliIdArg>,
+    unresolved_target: CliIdArg,
+    side: Side,
+) -> CliResult<MoveOperation> {
     let target = {
         match unresolved_target
-            .resolve_in_workspace(&repo, id_map, Purpose::Anchor, None)?
+            .resolve_in_workspace(repo, id_map, Purpose::Anchor, None)?
             .into_branch_or_commit()?
         {
             BranchOrCommit::Commit(commit_id) => MoveTarget::Commit { commit_id, side },
             BranchOrCommit::Branch(branch_arg) => MoveTarget::BranchBucket {
-                name: branch_arg.resolve_existing_local_branch(&repo)?,
+                name: branch_arg.resolve_existing_local_branch(repo)?,
                 side,
             },
         }
@@ -168,7 +262,7 @@ fn resolve(
     let sources = sources
         .into_iter()
         .map(|source| {
-            let resolved_source = source.resolve_commit_in_workspace(&repo, id_map)?;
+            let resolved_source = source.resolve_commit_in_workspace(repo, id_map)?;
 
             match &target {
                 MoveTarget::Commit { commit_id, .. } if commit_id == &resolved_source => {
@@ -187,7 +281,7 @@ fn resolve(
     let sources = NonEmpty::from_vec(sources)
         .expect("BUG: Empty sources should not be possible as it's a required argument");
 
-    Ok(MoveOperation::Commit(MoveCommitsOperation {
+    Ok(MoveOperation::RelativeTo(MoveCommitsRelativeToOperation {
         sources,
         target,
     }))
@@ -208,7 +302,8 @@ fn run(
         DryRun::No,
         |mut tx| {
             let new_branch_name = match move_op.clone() {
-                MoveOperation::Commit(op) => op.execute(&mut tx)?,
+                MoveOperation::RelativeTo(op) => op.execute(&mut tx)?,
+                MoveOperation::ToNewBranch(op) => Some(op.execute(&mut tx)?),
             };
 
             Ok(but_transaction::Commit(new_branch_name))
@@ -216,9 +311,19 @@ fn run(
     )?;
 
     let outcome = match move_op {
-        MoveOperation::Commit(MoveCommitsOperation { sources, target }) => MoveOutcome {
+        MoveOperation::RelativeTo(MoveCommitsRelativeToOperation { sources, target }) => {
+            MoveOutcome {
+                sources,
+                target: Some(target),
+                new_branch_name,
+            }
+        }
+        MoveOperation::ToNewBranch(MoveCommitsToNewBranchOperation {
             sources,
-            target,
+            branch_name: _,
+        }) => MoveOutcome {
+            sources,
+            target: None,
             new_branch_name,
         },
     };

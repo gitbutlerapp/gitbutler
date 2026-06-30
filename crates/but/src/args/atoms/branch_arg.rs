@@ -64,12 +64,11 @@ impl BranchArg {
     ///
     /// Unlike the GUI, we don't normalize branch names for users in the CLI, as this could lead to
     /// unexpected behavior in scripts. This function rejects names that are possible to normalize.
-    // TODO(david): might wanna return FullName here
     pub fn resolve_for_creation(
         &self,
         repo: &gix::Repository,
-        head_info: &but_workspace::RefInfo,
-    ) -> CliResult<String> {
+        ws: &but_graph::Workspace,
+    ) -> CliResult<FullName> {
         let branch_name = self.0.as_str();
         let normalized = but_core::branch::normalize_short_name(branch_name).map_err(|err| {
             CliError::from(bad_input(format!("Invalid branch name: {err}")).arg_value(branch_name))
@@ -83,13 +82,7 @@ impl BranchArg {
         }
 
         let local_name = self.resolve_local_branch_name()?;
-        if head_info
-            .stacks
-            .iter()
-            .flat_map(|stack| &stack.segments)
-            .flat_map(|segment| &segment.ref_info)
-            .any(|ref_info| ref_info.ref_name == local_name)
-        {
+        if ws.is_reachable_from_entrypoint(local_name.as_ref()) {
             return Err(
                 bad_input(format!("A branch named '{branch_name}' is already applied")).into(),
             );
@@ -102,7 +95,7 @@ impl BranchArg {
             .into());
         }
 
-        Ok(self.0.clone())
+        Ok(local_name)
     }
 
     /// Resolve the argument to a branch that exists in the repository.
