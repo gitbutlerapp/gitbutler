@@ -13,6 +13,40 @@ use std::mem::ManuallyDrop;
 use crate::utils::{fixture, fixture_writable, standard_options};
 
 #[test]
+fn double_revert() -> Result<()> {
+    let (repo, mut meta) = fixture("double-revert")?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * 90492e8 (HEAD -> main) revert to A
+    * 849de96 B
+    * dfb23a6 A
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let main = repo.rev_parse_single("main")?.detach();
+    let b = repo.rev_parse_single("main~1")?.detach();
+    let wrong_tree = repo.rev_parse_single("main^{tree}")?.detach();
+    let expected_tree = repo.rev_parse_single("main~1^{tree}")?.detach();
+
+    let actual_tree = editor.merge_commit_changes_to_tree(
+        main,
+        vec![b],
+        editor.repo().merge_options_fail_fast()?.0,
+    )?;
+
+    assert_eq!(
+        actual_tree.tree_id, expected_tree,
+        "wrong tree {:?} right tree {:?}",
+        wrong_tree, expected_tree,
+    );
+    assert!(actual_tree.conflict.is_none());
+    Ok(())
+}
+
+#[test]
 fn matches_clean_octopus_merge() -> Result<()> {
     let (repo, mut meta) = fixture("octopus-merge-with-redundant-input")?;
 
