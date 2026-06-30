@@ -34,7 +34,7 @@ import {
 	type ListReviewsForBranchParams,
 	type OpenInEditorParams,
 	type PublishReviewParams,
-	type PushStackParams,
+	type WorkspaceBranchAndAncestorsPushParams,
 	type RemoveBranchParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
@@ -602,7 +602,7 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, sha }: PeelRestoreSnapshotParams) => peelRestoreSnapshot(projectId, sha),
 	);
 	senderValidatingHandle(
-		liteIpcChannels.pushStack,
+		liteIpcChannels.workspaceBranchAndAncestorsPush,
 		(
 			_e,
 			{
@@ -612,7 +612,7 @@ const registerIpcHandlers = (): void => {
 				skipForcePushProtection,
 				runHooks,
 				pushOpts,
-			}: PushStackParams,
+			}: WorkspaceBranchAndAncestorsPushParams,
 		) =>
 			workspaceBranchAndAncestorsPush(
 				projectId,

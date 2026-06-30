@@ -203,7 +203,7 @@ export const outlineHotkeys = {
 		hotkey: "Alt+ArrowUp",
 		meta: { group: "Commit", name: "Move commit up" },
 	},
-	pushStack: {
+	workspaceBranchAndAncestorsPush: {
 		hotkey: "Shift+P",
 		meta: { group: "Branch", name: "Push with branches below" },
 	},
