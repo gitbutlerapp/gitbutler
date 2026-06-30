@@ -1923,7 +1923,7 @@ const Changes: FC<{
 					>
 						<Tooltip.Root>
 							<Combobox.Trigger
-								className={classes("text-13", styles.commitTargetComboboxTrigger)}
+								className={classes("text-13 text-semibold", styles.commitTargetComboboxTrigger)}
 								aria-label={changesHotkeys.selectCommitTarget.meta.name}
 								// We pass `disabled` here because we want to disable the button, not
 								// the tooltip. Other props should be passed above.

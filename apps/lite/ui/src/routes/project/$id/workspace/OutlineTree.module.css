@@ -112,23 +112,25 @@
 
 .commitControls {
 	display: flex;
-	row-gap: 8px;
+	row-gap: 10px;
 	flex-direction: column;
 	padding: 8px;
 	border-radius: var(--radius-m);
+	outline: 1px solid var(--border-2);
 	background: var(--bg-1);
 
 	&:not(:has(.commitTextarea[disabled])) {
-		&:hover,
+		&:hover {
+			outline-color: var(--border-1);
+		}
 		&:focus-within {
-			outline: 1px solid var(--border-2);
-			outline-offset: -1px;
+			outline: var(--focus-ring);
 		}
 	}
 }
 
 .commitTextarea {
-	padding: 8px;
+	padding: 4px;
 	resize: none;
 	field-sizing: content;
 	box-sizing: content-box;
@@ -138,11 +140,16 @@
 	&:focus {
 		outline: none;
 	}
+
+	&::placeholder {
+		color: var(--text-3);
+	}
 }
 
 .commitControlsFooter {
 	display: flex;
 	column-gap: 4px;
+	justify-content: space-between;
 }
 
 .commitDropdownButton {
@@ -178,9 +185,7 @@
 .commitTargetComboboxTrigger {
 	display: flex;
 	column-gap: 6px;
-	flex-grow: 1;
 	align-items: center;
-	justify-content: start;
 	min-width: 0;
 	padding-inline: 8px;
 	border-radius: var(--radius-m);
@@ -195,6 +200,7 @@
 
 .commitTargetComboboxTriggerLabel {
 	overflow: hidden;
+	line-height: 1;
 	text-overflow: ellipsis;
 }
 

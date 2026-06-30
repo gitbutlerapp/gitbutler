@@ -11,8 +11,8 @@
 
 	&:not(.disableTransition) {
 		transition:
-			background-color 0.08s ease,
-			color 0.08s ease;
+			background-color var(--transition-fast),
+			color var(--transition-fast);
 	}
 
 	&:disabled,

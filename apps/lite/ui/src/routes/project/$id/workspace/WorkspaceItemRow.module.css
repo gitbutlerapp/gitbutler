@@ -146,22 +146,22 @@
 
 .bubbleClrSafe {
 	--background-color: light-dark(var(--clr-safe-50), var(--clr-safe-30));
-	background-color: color-mix(in srgb, var(--background-color) 18%, transparent);
-	color: light-dark(var(--clr-safe-40), var(--clr-safe-60));
+	background-color: color-mix(in srgb, var(--background-color) 25%, var(--bg-1));
+	color: light-dark(var(--text-safe), var(--clr-safe-60));
 
 	[data-selection-scope]:focus .containerSelected & {
-		background-color: color-mix(in srgb, var(--background-color) 22%, transparent);
-		color: light-dark(var(--clr-safe-60), var(--clr-safe-30));
+		background-color: color-mix(in srgb, var(--background-color) 37%, transparent);
+		color: light-dark(var(--clr-safe-70), var(--clr-safe-30));
 	}
 }
 
 .bubbleClrDanger {
 	--background-color: light-dark(var(--clr-danger-50), var(--clr-danger-30));
-	background-color: color-mix(in srgb, var(--background-color) 18%, transparent);
-	color: light-dark(var(--clr-danger-40), var(--clr-danger-60));
+	background-color: color-mix(in srgb, var(--background-color) 22%, var(--bg-1));
+	color: light-dark(var(--text-danger), var(--clr-danger-60));
 
 	[data-selection-scope]:focus .containerSelected & {
-		background-color: color-mix(in srgb, var(--background-color) 22%, transparent);
-		color: light-dark(var(--clr-danger-60), var(--clr-danger-30));
+		background-color: color-mix(in srgb, var(--background-color) 40%, transparent);
+		color: light-dark(var(--clr-danger-70), var(--clr-danger-30));
 	}
 }
