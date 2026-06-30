@@ -393,7 +393,7 @@ const WorkspacePage: FC = () => {
 						<Panel
 							id={"outline-panel" satisfies PanelId}
 							className={styles.panel}
-							minSize={330}
+							minSize={355}
 							defaultSize={400}
 							groupResizeBehavior="preserve-pixel-size"
 						>
