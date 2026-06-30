@@ -5,7 +5,10 @@ import {
 	getHotkeyManager,
 	getSequenceManager,
 	Hotkey,
+	HotkeyMeta,
+	HotkeyOptions,
 	HotkeySequence,
+	SequenceOptions,
 	useHotkeyRegistrations,
 } from "@tanstack/react-hotkeys";
 import { Order } from "effect";
@@ -39,11 +42,16 @@ const groupCommandPaletteItems = (
 		);
 };
 
+const isEnabled = <T extends HotkeyOptions | SequenceOptions>(
+	opts: T,
+): opts is T & { meta: HotkeyMeta & { name: string } } =>
+	opts.enabled !== false && opts.meta?.name !== undefined;
+
 export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
 	const { hotkeys, sequences } = useHotkeyRegistrations();
 	const hotkeyItems: Array<CommandPaletteItem> = [
 		...hotkeys.flatMap((hotkey): CommandPaletteItem | [] =>
-			hotkey.options.enabled !== false && hotkey.options.meta?.name !== undefined
+			isEnabled(hotkey.options)
 				? {
 						group: hotkey.options.meta.group,
 						id: hotkey.id,
@@ -54,7 +62,7 @@ export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
 				: [],
 		),
 		...sequences.flatMap((sequence): CommandPaletteItem | [] =>
-			sequence.options.enabled !== false && sequence.options.meta?.name !== undefined
+			isEnabled(sequence.options)
 				? {
 						group: sequence.options.meta.group,
 						id: sequence.id,
