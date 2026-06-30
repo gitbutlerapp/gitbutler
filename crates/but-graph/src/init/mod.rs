@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::vec_graph::Direction;
 use anyhow::{Context as _, bail, ensure};
 use bstr::ByteSlice;
 use but_core::{
@@ -11,7 +12,6 @@ use gix::{
     prelude::{ObjectIdExt, ReferenceExt},
     refs::Category,
 };
-use petgraph::Direction;
 use tracing::instrument;
 
 use crate::{
@@ -433,7 +433,7 @@ pub struct Overlay {
     workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }
 
-pub(super) type PetGraph = petgraph::stable_graph::StableGraph<Segment, Edge>;
+pub(super) type PetGraph = crate::vec_graph::Graph<Segment, Edge>;
 
 /// Options for use in [`Graph::from_head()`] and [`Graph::from_commit_traversal()`].
 #[derive(Default, Debug, Clone)]
@@ -619,7 +619,7 @@ impl Graph {
     ///     - options contain an [`extra_target_commit_id`](Options::extra_target_commit_id) for an additional target location.
     /// * remote tracking branches are seen in relation to their branches.
     /// * the graph of segments assigns each reachable commit to exactly one segment
-    /// * one can use [`petgraph::algo`] and [`petgraph::visit`]
+    /// * the segments form a small owned graph tailored to this crate, not a third-party library
     ///     - It maintains information about the intended connections, so modifications afterward will show
     ///       in debugging output if edges are now in violation of this constraint.
     ///
@@ -2203,7 +2203,7 @@ impl Graph {
     fn rebuild_outgoing_edges_for_traversal_order(
         &mut self,
         src: SegmentIndex,
-        new_edge_id: petgraph::stable_graph::EdgeIndex,
+        new_edge_id: crate::vec_graph::EdgeId,
     ) {
         let mut new_edge = None;
         let mut outgoing_edges = Vec::new();

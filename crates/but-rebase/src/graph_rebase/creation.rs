@@ -2,8 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
+use but_graph::Direction;
 use but_graph::{Commit, SegmentIndex};
-use petgraph::{Direction, visit::EdgeRef as _};
+use petgraph::visit::EdgeRef as _;
 
 use crate::graph_rebase::{
     Checkout, Edge, Editor, ExtraRef, ExtraRefMutability, Pick, RevisionHistory, Selector, Step,
@@ -321,7 +322,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             );
 
             let outgoing_edge_ids: Vec<_> = graph
-                .edges_directed(pick_ix, Direction::Outgoing)
+                .edges_directed(pick_ix, petgraph::Direction::Outgoing)
                 .map(|e| e.id())
                 .collect();
             for edge_id in outgoing_edge_ids {

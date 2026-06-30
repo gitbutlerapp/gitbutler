@@ -418,8 +418,7 @@ impl std::fmt::Debug for Segment {
 use anyhow::{Context as _, bail};
 use but_core::{is_workspace_ref_name, ref_metadata::ValueInfo};
 use but_graph::{
-    Graph,
-    petgraph::Direction,
+    Direction, Graph,
     workspace::{StackCommit, WorkspaceKind},
 };
 use gix::prelude::ObjectIdExt;

@@ -71,7 +71,7 @@ impl RefInfo {
         let lower_bound_generation = self.lower_bound.map(|sidx| graph[sidx].generation);
         graph.visit_all_segments_including_start_until(
             target_tip,
-            but_graph::petgraph::Direction::Outgoing,
+            but_graph::Direction::Outgoing,
             |s| {
                 let prune = true;
                 if Some(s.id) == self.lower_bound

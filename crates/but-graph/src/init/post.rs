@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::vec_graph::Direction;
 use anyhow::{Context as _, bail};
 use but_core::{
     RefMetadata, ref_metadata,
@@ -7,7 +8,6 @@ use but_core::{
 };
 use gix::{ObjectId, prelude::ObjectIdExt, reference::Category};
 use itertools::Itertools;
-use petgraph::{Direction, graph::NodeIndex, prelude::EdgeRef, visit::NodeRef};
 use tracing::instrument;
 
 use crate::{
@@ -406,7 +406,7 @@ impl Graph {
 
     fn split_segment<T: RefMetadata>(
         &mut self,
-        sidx: NodeIndex,
+        sidx: SegmentIndex,
         cidx_for_new_segment: CommitIndex,
         segment_name: Option<gix::refs::FullName>,
         refs_by_id: Option<&RefsById>,
@@ -606,7 +606,7 @@ impl Graph {
                             .commits
                             .first()
                             .filter(|c| !c.refs.is_empty())
-                            .map(|c| (s.id(), c))
+                            .map(|c| (s, c))
                     }),
             )
             .collect();
@@ -994,7 +994,7 @@ impl Graph {
             (by_parent, by_metadata)
         });
 
-        // Re-add in reverse because petgraph traverses newest edges first.
+        // Re-add in reverse because the graph yields newest edges first.
         for (eid, target_sidx, _) in edges_pointing_to_named_segment.into_iter().rev() {
             let weight = self
                 .inner
@@ -1195,7 +1195,7 @@ impl Graph {
                     // skip over empty anonymous buckets, even though these shouldn't exist, ever.
                     tracing::warn!(
                         "Skipped segment {sidx} which was anonymous and empty",
-                        sidx = sidx.index()
+                        sidx = sidx
                     );
                     continue;
                 } else if segment.commits[commit_range]
@@ -1234,7 +1234,7 @@ impl Graph {
             .filter(|(_, candidates)| candidates.len() == 1)
         {
             let s = &mut self[anon_sidx];
-            let segment_id = s.id.index();
+            let segment_id = s.id;
             let no_commits = || {
                 format!(
                     "BUG: remote-disambiguated anonymous segment {segment_id} should contain commits"
@@ -1325,12 +1325,11 @@ impl Graph {
                     .edges_directed(remote_sidx, Direction::Outgoing)
                     .map(EdgeOwned::from)
                     .collect();
-                let remote_is_connected_to_local =
-                    outgoing.iter().any(|e| e.target.id() == local_sidx);
+                let remote_is_connected_to_local = outgoing.iter().any(|e| e.target == local_sidx);
                 if !remote_is_connected_to_local
-                    && let Some(edge) = outgoing.iter().find(|e| {
-                        outgoing.len() == 1 || e.target.id() == owner_of_commit_same_as_remote
-                    })
+                    && let Some(edge) = outgoing
+                        .iter()
+                        .find(|e| outgoing.len() == 1 || e.target == owner_of_commit_same_as_remote)
                 {
                     self.inner.remove_edge(edge.id);
                     self.inner.add_edge(
@@ -1473,11 +1472,10 @@ impl Graph {
     // This is called at the end of post-processing to ensure generations are correct
     // after all segment insertions and edge rewiring.
     fn compute_generation_numbers(&mut self) {
-        let mut topo = petgraph::visit::Topo::new(&self.inner);
-        while let Some(sidx) = topo.next(&self.inner) {
+        for sidx in self.inner.toposort() {
             let max_gen_of_incoming = self
                 .inner
-                .neighbors_directed(sidx, petgraph::Direction::Incoming)
+                .neighbors_directed(sidx, crate::vec_graph::Direction::Incoming)
                 .map(|sidx| self[sidx].generation + 1)
                 .max()
                 .unwrap_or(0);
@@ -1574,21 +1572,22 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
         return;
     }
 
-    let mut outgoing = graph.inner.edges_directed(sidx, Direction::Outgoing);
-    let Some(first_outgoing) = outgoing.next() else {
-        return;
+    let new_target = {
+        let mut outgoing = graph.inner.edges_directed(sidx, Direction::Outgoing);
+        let Some(first_outgoing) = outgoing.next() else {
+            return;
+        };
+        if outgoing.next().is_some() {
+            return;
+        }
+        first_outgoing.target()
     };
-
-    if outgoing.next().is_some() {
-        return;
-    }
 
     tracing::debug!(
         ?sidx,
         "Deleting seemingly isolated and now completely unused segment"
     );
     // Reconnect
-    let new_target = first_outgoing.target();
     let incoming: Vec<_> = graph
         .inner
         .edges_directed(sidx, Direction::Incoming)
@@ -1855,7 +1854,7 @@ fn reconnect_outgoing_edges(
     }
 }
 
-/// Collect edges at `commit` in the order petgraph currently traverses them.
+/// Collect edges at `commit` in the order the graph currently traverses them.
 ///
 /// Callers that remove and re-add the returned edges must insert them in reverse
 /// if they want to preserve this traversal order.

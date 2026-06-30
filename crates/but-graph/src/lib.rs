@@ -199,8 +199,6 @@
 #![deny(missing_docs)]
 
 mod segment;
-/// Use this for basic types like [`petgraph::Direction`], and graph algorithms.
-pub use petgraph;
 pub use segment::{
     Commit, CommitFlags, RefInfo, Segment, SegmentFlags, SegmentMetadata, StopCondition, Worktree,
     WorktreeKind,
@@ -216,6 +214,10 @@ pub mod workspace;
 pub use workspace::workspace::Workspace;
 
 mod utils;
+
+mod vec_graph;
+/// The owned graph backing the segment graph, replacing petgraph.
+pub use vec_graph::Direction;
 
 mod statistics;
 pub use statistics::Statistics;
@@ -413,4 +415,4 @@ impl Edge {
     }
 }
 /// An index into the [`Graph`].
-pub type SegmentIndex = petgraph::graph::NodeIndex;
+pub type SegmentIndex = crate::vec_graph::NodeId;

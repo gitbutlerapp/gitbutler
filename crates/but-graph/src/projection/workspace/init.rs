@@ -3,6 +3,7 @@ use std::{
     collections::{BTreeSet, HashSet},
 };
 
+use crate::vec_graph::Direction;
 use anyhow::Context;
 use bstr::ByteSlice;
 use but_core::ref_metadata::{
@@ -11,7 +12,6 @@ use but_core::ref_metadata::{
 };
 use gix::{ObjectId, refs::Category};
 use itertools::Itertools;
-use petgraph::{Direction, prelude::EdgeRef, visit::NodeRef};
 use tracing::instrument;
 
 use crate::{
@@ -389,7 +389,7 @@ impl Graph {
                                 && self
                                     .inner
                                     .neighbors_directed(s.id, Direction::Incoming)
-                                    .all(|n| n.id() != frame.ws_tip_segment_id)
+                                    .all(|n| n != frame.ws_tip_segment_id)
                         },
                         |s| Some(s.id) == frame.lower_bound_segment_id && s.metadata.is_none(),
                     )?

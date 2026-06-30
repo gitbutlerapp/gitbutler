@@ -660,7 +660,7 @@ mod stack_details {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(5),
+                            id: 5,
                             ref_name: "►B",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -677,7 +677,7 @@ mod stack_details {
                             base: "09d8e52",
                         },
                         ref_info::ui::Segment {
-                            id: NodeIndex(4),
+                            id: 4,
                             ref_name: "►A",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -697,18 +697,18 @@ mod stack_details {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: NodeIndex(1),
+                    segment_index: 1,
                     commits_ahead: 0,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
-                    segment_index: NodeIndex(2),
+                    segment_index: 2,
                 },
             ),
             lower_bound: Some(
-                NodeIndex(2),
+                2,
             ),
             is_managed_ref: true,
             is_managed_commit: true,

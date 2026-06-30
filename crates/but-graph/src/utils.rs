@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use petgraph::{Direction, visit::NodeIndexable};
+use crate::vec_graph::Direction;
 
 use crate::{Graph, Segment, SegmentIndex};
 
@@ -32,7 +32,7 @@ impl SeenTable {
     ///
     /// Returns `true` if `sidx` was unseen before this call.
     pub(crate) fn insert_unseen(&mut self, sidx: SegmentIndex) -> bool {
-        let value = &mut self.values[sidx.index()];
+        let value = &mut self.values[sidx];
         if *value {
             return false;
         }
@@ -43,7 +43,7 @@ impl SeenTable {
 
 /// Scratch storage keyed directly by [`SegmentIndex`].
 ///
-/// Segment indices are dense `petgraph::NodeIndex` values while a graph is alive,
+/// Segment indices are dense `usize` values while a graph is alive,
 /// so a vector indexed by `SegmentIndex::index()` is a perfect lookup table and
 /// avoids hash-map overhead in hot graph algorithms. This table is fixed-size:
 /// create it after the graph shape is known and use it only while no newly
@@ -72,19 +72,19 @@ impl<T: Copy + PartialEq> SegmentTable<T> {
     /// Reset all slots touched since the last clear back to the `empty` value.
     pub(crate) fn clear(&mut self) {
         for sidx in self.touched.drain(..) {
-            self.values[sidx.index()] = self.empty;
+            self.values[sidx] = self.empty;
         }
     }
 
     /// Return the value stored for `sidx`.
     pub(crate) fn get(&self, sidx: SegmentIndex) -> T {
-        self.values[sidx.index()]
+        self.values[sidx]
     }
 
     /// Return a mutable slot for `sidx`, marking it for later clearing if it is
     /// currently `empty`.
     pub(crate) fn get_mut(&mut self, sidx: SegmentIndex) -> &mut T {
-        let index = sidx.index();
+        let index = sidx;
         if self.values[index] == self.empty {
             self.touched.push(sidx);
         }
@@ -96,7 +96,7 @@ impl<T: Copy + PartialEq> SegmentTable<T> {
     /// Use this when the caller already knows the slot is empty or doesn't need
     /// to know whether it changed.
     pub(crate) fn set(&mut self, sidx: SegmentIndex, value: T) {
-        let index = sidx.index();
+        let index = sidx;
         if self.values[index] == self.empty {
             self.touched.push(sidx);
         }
@@ -107,7 +107,7 @@ impl<T: Copy + PartialEq> SegmentTable<T> {
     ///
     /// Returns `true` if the slot changed. This is useful for visited sets.
     pub(crate) fn set_if_empty(&mut self, sidx: SegmentIndex, value: T) -> bool {
-        let index = sidx.index();
+        let index = sidx;
         if self.values[index] != self.empty {
             return false;
         }
@@ -156,7 +156,7 @@ impl<T: Copy + PartialEq> GrowingSegmentTable<T> {
 
     /// Ensure `sidx` is addressable by the wrapped table.
     fn ensure_index(&mut self, sidx: SegmentIndex) {
-        let index = sidx.index();
+        let index = sidx;
         if index >= self.inner.values.len() {
             self.inner.values.resize(index + 1, self.inner.empty);
         }

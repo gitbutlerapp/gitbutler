@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
+use crate::vec_graph::Direction;
 use anyhow::Context;
 use bstr::BStr;
 use but_core::{RefMetadata, extract_remote_name_and_short_name, ref_metadata::StackId};
-use petgraph::Direction;
 use tracing::instrument;
 
 use crate::{
@@ -414,7 +414,7 @@ impl Workspace {
         format!(
             "{meta}{sign}:{id}:{name} <> ✓{target}{bound}",
             meta = if self.metadata.is_some() { "📕" } else { "" },
-            id = self.id.index(),
+            id = self.id,
             bound = self
                 .lower_bound
                 .map(|base| format!(" on {}", base.to_hex_with_len(7)))
@@ -456,7 +456,7 @@ impl TargetRef {
 impl std::fmt::Debug for Workspace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(&format!("Workspace({})", self.debug_string()))
-            .field("id", &self.id.index())
+            .field("id", &self.id)
             .field("kind", &self.kind)
             .field("stacks", &self.stacks)
             .field("metadata", &self.metadata)

@@ -5,10 +5,10 @@ use std::{
     ops::Deref,
 };
 
+use crate::vec_graph::Direction;
 use anyhow::{Context as _, bail};
 use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
 use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
-use petgraph::{Direction, prelude::EdgeRef};
 
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
@@ -848,19 +848,18 @@ pub fn propagate_flags_downward(
             }
         }
 
-        // Process outgoing edges
-        let mut neighbors = graph
-            .neighbors_directed(segment, petgraph::Direction::Outgoing)
-            .detach();
+        // Process outgoing edges. Collect first so this immutable read doesn't clash with the
+        // `&mut graph` held across the loop (the detached petgraph walker did the same job).
+        let out_edges: Vec<_> = graph
+            .edges_directed(segment, crate::vec_graph::Direction::Outgoing)
+            .map(|e| (e.target, e.weight.src, e.weight.dst_id, e.weight.dst))
+            .collect();
 
         // Track edges for leaf detection
-        let mut edge_count = 0;
-        while let Some((edge_idx, target_segment)) = neighbors.next(graph) {
-            edge_count += 1;
-            let edge = &graph[edge_idx];
-
+        let edge_count = out_edges.len();
+        for (target_segment, src, dst_id, dst) in out_edges {
             // Skip edges that don't originate from our commit range
-            if let Some(src_cidx) = edge.src
+            if let Some(src_cidx) = src
                 && !commit_range.contains(&src_cidx)
             {
                 continue;
@@ -868,11 +867,10 @@ pub fn propagate_flags_downward(
 
             // For DAG, we can visit each node multiple times from different parents,
             // but we want to process each commit-id only once in this walk.
-            let next_commit = edge.dst_id;
-            if let Some(commit_id) = next_commit
+            if let Some(commit_id) = dst_id
                 && visited.insert(commit_id)
             {
-                stack.push((target_segment, edge.dst));
+                stack.push((target_segment, dst));
             }
         }
 
@@ -1032,8 +1030,7 @@ pub fn possibly_split_occupied_segment(
     let top_cidx = graph[top_sidx].last_commit_index();
     let mut bottom_cidx = graph[bottom_sidx].commit_index_of(id).with_context(|| {
         format!(
-            "BUG: Didn't find commit {id} in segment {bottom_sidx}",
-            bottom_sidx = dst_sidx.index(),
+            "BUG: Didn't find commit {id} in segment {dst_sidx}",
         )
     })?;
 

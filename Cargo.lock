@@ -1288,7 +1288,6 @@ dependencies = [
  "gix",
  "insta",
  "itertools",
- "petgraph",
  "tracing",
 ]
 

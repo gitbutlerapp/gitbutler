@@ -277,11 +277,7 @@ fn explicit_traversal_prioritizes_integrated_tips_independent_of_input_order() -
         main.flags.contains(CommitFlags::Integrated),
         "integrated tips should be queued before reachable tips even if the caller provides them last"
     );
-    assert_eq!(
-        main_seg.id.index(),
-        0,
-        "schedule first, hence the first node"
-    );
+    assert_eq!(main_seg.id, 0, "schedule first, hence the first node");
 
     Ok(())
 }
