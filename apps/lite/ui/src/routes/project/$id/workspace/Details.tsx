@@ -563,8 +563,7 @@ const Title: FC<{
 	selection: Operand;
 }> = ({ bodyCollapsed, bodyId, onBodyCollapsedChange, projectId, selection }) =>
 	Match.value(selection).pipe(
-		Match.tagsExhaustive({
-			Stack: () => null,
+		Match.tags({
 			Branch: ({ branchRef }) => (
 				<SuspenseQuery
 					{...branchDetailsQueryOptions({
@@ -588,7 +587,6 @@ const Title: FC<{
 					<h3 className={classes("text-15", "text-semibold")}>Uncommitted changes</h3>
 				</div>
 			),
-			File: () => null,
 			Commit: ({ commitId }) => (
 				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 					{({ data: commitDetails }) => (
@@ -630,8 +628,8 @@ const Title: FC<{
 					)}
 				</SuspenseQuery>
 			),
-			Hunk: () => null,
 		}),
+		Match.orElseAbsurd,
 	);
 
 const FilesToggle: FC<
@@ -933,7 +931,7 @@ const Diff: FC<{
 				<FilesToggle className={getButtonClassName({})}>Toggle files</FilesToggle>
 
 				<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
-					<ToggleGroup multiple render={<ToggleGroupStyles />}>
+					<ToggleGroupStyles>
 						<Toolbar.Button
 							render={
 								<DiffOverflowToggle render={<ToggleStyles iconOnly />}>
@@ -948,7 +946,7 @@ const Diff: FC<{
 								</DiffBackgroundsToggle>
 							}
 						/>
-					</ToggleGroup>
+					</ToggleGroupStyles>
 					{canUseSplitDiff && (
 						<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
 							<Toolbar.Button

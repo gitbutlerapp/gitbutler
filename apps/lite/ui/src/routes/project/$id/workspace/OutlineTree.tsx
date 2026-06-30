@@ -10,7 +10,7 @@ import {
 	useCommitMove,
 	useCommitReword,
 	useCommitUncommit,
-	usePushStack,
+	useWorkspaceBranchAndAncestorsPush,
 	useWorkspaceIntegrateUpstream,
 	useRemoveBranch,
 	useTearOffBranch,
@@ -230,7 +230,7 @@ const useOutlineTreeHotkeys = ({
 	const commitDiscardMutation = useCommitDiscard();
 	const commitInsertBlankMutation = useCommitInsertBlank();
 	const commitAmendMutation = useCommitAmend({ projectId });
-	const pushStackMutation = usePushStack();
+	const workspaceBranchAndAncestorsPushMutation = useWorkspaceBranchAndAncestorsPush();
 	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream();
 	const branchCreateMutation = useBranchCreate();
 
@@ -434,7 +434,7 @@ const useOutlineTreeHotkeys = ({
 			selectedPushContext.partialStackSegments,
 		);
 
-		pushStackMutation.mutate({
+		workspaceBranchAndAncestorsPushMutation.mutate({
 			projectId,
 			branch: decodeBytes(selectedPushContext.refName.fullNameBytes),
 			withForce: partialStackState.pushWithForce,
@@ -471,7 +471,7 @@ const useOutlineTreeHotkeys = ({
 	const isSelectedChanges = selection?._tag === "UncommittedChanges";
 	const canPushSelectedBranch =
 		!!selectedPushContext &&
-		!pushStackMutation.isPending &&
+		!workspaceBranchAndAncestorsPushMutation.isPending &&
 		!partialStackPushDisabled(
 			partialStackStateFromSegments(selectedPushContext.partialStackSegments),
 		);
@@ -643,13 +643,13 @@ const useOutlineTreeHotkeys = ({
 			},
 		},
 		{
-			hotkey: outlineHotkeys.pushStack.hotkey,
+			hotkey: outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey,
 			callback: pushSelectedBranch,
 			options: {
 				conflictBehavior: "allow",
 				enabled: defaultOutlineHotkeysEnabled && canPushSelectedBranch,
 				target: ref,
-				meta: outlineHotkeys.pushStack.meta,
+				meta: outlineHotkeys.workspaceBranchAndAncestorsPush.meta,
 			},
 		},
 		{
@@ -2137,7 +2137,7 @@ const BranchRow: FC<
 
 	const toastManager = Toast.useToastManager();
 
-	const pushStackMutation = usePushStack();
+	const workspaceBranchAndAncestorsPushMutation = useWorkspaceBranchAndAncestorsPush();
 	const commitInsertBlankMutation = useCommitInsertBlank();
 	const tearOffBranchMutation = useTearOffBranch();
 	const removeBranchMutation = useRemoveBranch();
@@ -2248,8 +2248,8 @@ const BranchRow: FC<
 		});
 	};
 
-	const pushStack = () => {
-		pushStackMutation.mutate({
+	const workspaceBranchAndAncestorsPush = () => {
+		workspaceBranchAndAncestorsPushMutation.mutate({
 			projectId,
 			branch: decodeBytes(refName.fullNameBytes),
 			withForce: partialStackState.pushWithForce,
@@ -2265,8 +2265,9 @@ const BranchRow: FC<
 		await window.lite.openInWebBrowser(mforgeUrl);
 	};
 
-	const pushStackDisabled =
-		pushStackMutation.isPending || partialStackPushDisabled(partialStackState);
+	const workspaceBranchAndAncestorsPushDisabled =
+		workspaceBranchAndAncestorsPushMutation.isPending ||
+		partialStackPushDisabled(partialStackState);
 
 	const pushMenuLabel = pushesMultipleBranches
 		? partialStackState.pushWithForce
@@ -2279,9 +2280,9 @@ const BranchRow: FC<
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: pushMenuLabel,
-			enabled: !pushStackDisabled,
-			accelerator: toElectronAccelerator(outlineHotkeys.pushStack.hotkey),
-			onSelect: pushStack,
+			enabled: !workspaceBranchAndAncestorsPushDisabled,
+			accelerator: toElectronAccelerator(outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey),
+			onSelect: workspaceBranchAndAncestorsPush,
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
@@ -2409,11 +2410,12 @@ const BranchRow: FC<
 
 						{partialStackState.requiresPush &&
 							(() => {
-								const pushStackDisabledReason = pushStackMutation.isPending
-									? "pushing"
-									: partialStackState.hasConflicts
-										? "disabled due to conflicts"
-										: null;
+								const workspaceBranchAndAncestorsPushDisabledReason =
+									workspaceBranchAndAncestorsPushMutation.isPending
+										? "pushing"
+										: partialStackState.hasConflicts
+											? "disabled due to conflicts"
+											: null;
 
 								const pushButtonLabel = `${
 									pushesMultipleBranches
@@ -2423,20 +2425,25 @@ const BranchRow: FC<
 										: partialStackState.pushWithForce
 											? "Force push branch"
 											: "Push branch"
-								}${pushStackDisabledReason !== null ? ` (${pushStackDisabledReason})` : ""}`;
+								}${workspaceBranchAndAncestorsPushDisabledReason !== null ? ` (${workspaceBranchAndAncestorsPushDisabledReason})` : ""}`;
 
 								return (
 									<Tooltip.Root>
 										<Tooltip.Trigger
 											aria-label={pushButtonLabel}
-											onClick={pushStack}
+											onClick={workspaceBranchAndAncestorsPush}
 											className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
 											// We pass `disabled` here because we want to disable the button, not
 											// the tooltip. Other props should be passed above.
-											render={<Button focusableWhenDisabled disabled={pushStackDisabled} />}
+											render={
+												<Button
+													focusableWhenDisabled
+													disabled={workspaceBranchAndAncestorsPushDisabled}
+												/>
+											}
 										>
 											Push
-											{pushStackMutation.isPending ? (
+											{workspaceBranchAndAncestorsPushMutation.isPending ? (
 												<Icon name="spinner" />
 											) : pushesMultipleBranches ? (
 												<Icon size={12} name="arrow-double-up" />
@@ -2447,7 +2454,11 @@ const BranchRow: FC<
 										<Tooltip.Portal>
 											<Tooltip.Positioner sideOffset={4}>
 												<Tooltip.Popup
-													render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}
+													render={
+														<TooltipPopup
+															kbd={outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey}
+														/>
+													}
 												>
 													{pushButtonLabel}
 												</Tooltip.Popup>

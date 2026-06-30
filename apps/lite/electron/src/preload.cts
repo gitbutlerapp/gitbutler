@@ -178,7 +178,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
 	peelRestoreSnapshot: (params) =>
 		ipcRenderer.invoke("workspace:peel-restore-snapshot", params) as Promise<Snapshot | null>,
-	pushStack: (params) => ipcRenderer.invoke("workspace:push-stack", params) as Promise<PushResult>,
+	workspaceBranchAndAncestorsPush: (params) =>
+		ipcRenderer.invoke("workspace:push-stack", params) as Promise<PushResult>,
 	removeBranch: (params) => ipcRenderer.invoke("workspace:remove-branch", params) as Promise<void>,
 	restoreSnapshotWithKind: (params) =>
 		ipcRenderer.invoke("workspace:restore-snapshot-with-kind", params) as Promise<void>,

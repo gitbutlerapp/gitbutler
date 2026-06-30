@@ -581,11 +581,11 @@ export const useCommitUncommitChanges = () => {
 	});
 };
 
-export const usePushStack = () => {
+export const useWorkspaceBranchAndAncestorsPush = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: window.lite.pushStack,
+		mutationFn: window.lite.workspaceBranchAndAncestorsPush,
 		onSuccess: async (_response, input, _context, mutation) => {
 			await mutation.client.invalidateQueries({
 				queryKey: headInfoQueryOptions(input.projectId).queryKey,

@@ -286,7 +286,7 @@ export interface PublishReviewParams {
 	params: CreateForgeReviewParams;
 }
 
-export interface PushStackParams {
+export interface WorkspaceBranchAndAncestorsPushParams {
 	projectId: string;
 	branch: string;
 	withForce: boolean;
@@ -466,7 +466,9 @@ export interface LiteElectronApi {
 	updateReview: (params: UpdateReviewParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
 	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
-	pushStack: (params: PushStackParams) => Promise<PushResult>;
+	workspaceBranchAndAncestorsPush: (
+		params: WorkspaceBranchAndAncestorsPushParams,
+	) => Promise<PushResult>;
 	removeBranch: (params: RemoveBranchParams) => Promise<void>;
 	restoreSnapshotWithKind: (params: RestoreSnapshotWithKindParams) => Promise<void>;
 	reviewTemplate: (projectId: string) => Promise<ReviewTemplateInfo | null>;
@@ -544,7 +546,7 @@ export const liteIpcChannels = {
 	updateReview: "workspace:update-review",
 	tearOffBranch: "workspace:tear-off-branch",
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
-	pushStack: "workspace:push-stack",
+	workspaceBranchAndAncestorsPush: "workspace:push-stack",
 	removeBranch: "workspace:remove-branch",
 	restoreSnapshotWithKind: "workspace:restore-snapshot-with-kind",
 	reviewTemplate: "workspace:review-template",
