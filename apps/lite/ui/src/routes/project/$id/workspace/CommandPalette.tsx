@@ -5,11 +5,14 @@ import {
 	getHotkeyManager,
 	getSequenceManager,
 	Hotkey,
+	HotkeyMeta,
+	HotkeyOptions,
 	HotkeySequence,
+	SequenceOptions,
 	useHotkeyRegistrations,
 } from "@tanstack/react-hotkeys";
 import { Order } from "effect";
-import { type FC } from "react";
+import { useState, type FC } from "react";
 
 type CommandPaletteItem = {
 	group: CommandGroup;
@@ -39,11 +42,24 @@ const groupCommandPaletteItems = (
 		);
 };
 
+const isEnabled = <T extends HotkeyOptions | SequenceOptions>(
+	opts: T,
+	activeElement: Element | null,
+): opts is T & { meta: HotkeyMeta & { name: string } } =>
+	opts.enabled !== false &&
+	opts.meta?.name !== undefined &&
+	(!opts.target ||
+		opts.target === document ||
+		opts.target === window ||
+		opts.target === activeElement);
+
 export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
+	const [initialActiveElement] = useState(() => document.activeElement);
+
 	const { hotkeys, sequences } = useHotkeyRegistrations();
 	const hotkeyItems: Array<CommandPaletteItem> = [
 		...hotkeys.flatMap((hotkey): CommandPaletteItem | [] =>
-			hotkey.options.enabled !== false && hotkey.options.meta?.name !== undefined
+			isEnabled(hotkey.options, initialActiveElement)
 				? {
 						group: hotkey.options.meta.group,
 						id: hotkey.id,
@@ -54,7 +70,7 @@ export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
 				: [],
 		),
 		...sequences.flatMap((sequence): CommandPaletteItem | [] =>
-			sequence.options.enabled !== false && sequence.options.meta?.name !== undefined
+			isEnabled(sequence.options, initialActiveElement)
 				? {
 						group: sequence.options.meta.group,
 						id: sequence.id,

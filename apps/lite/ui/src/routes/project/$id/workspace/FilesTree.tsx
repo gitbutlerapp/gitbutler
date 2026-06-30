@@ -104,7 +104,7 @@ const useFilesTreeHotkeys = ({
 	useNavigationIndexHotkeys({
 		navigationIndex,
 		projectId,
-		group: "Files",
+		group: "File",
 		selectionScope: "files",
 		select: onFileSelection,
 		selection,

@@ -201,7 +201,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select previous" },
 			},
 		},
 		{
@@ -210,7 +209,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select previous" },
 			},
 		},
 		{
@@ -219,7 +217,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select next" },
 			},
 		},
 		{
@@ -228,7 +225,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select next" },
 			},
 		},
 		{
@@ -237,7 +233,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select previous section" },
 			},
 		},
 		{
@@ -246,7 +241,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select previous section" },
 			},
 		},
 		{
@@ -255,7 +249,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select next section" },
 			},
 		},
 		{
@@ -264,7 +257,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select next section" },
 			},
 		},
 		{
@@ -273,7 +265,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select first" },
 			},
 		},
 		{
@@ -282,7 +273,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select first" },
 			},
 		},
 		{
@@ -291,7 +281,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select last" },
 			},
 		},
 		{
@@ -300,7 +289,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select last" },
 			},
 		},
 		{
@@ -309,7 +297,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select last" },
 			},
 		},
 	]);
@@ -321,7 +308,6 @@ export const useNavigationIndexHotkeys = <T>({
 			options: {
 				conflictBehavior: "allow",
 				target: ref,
-				meta: { group, name: "Select first" },
 			},
 		},
 	]);
@@ -355,7 +341,7 @@ export const useNavigationIndexHotkeys = <T>({
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
 				target: ref,
-				meta: { ...selectionOperationHotkeys.move.meta, group },
+				meta: { group, name: "Move" },
 			},
 		},
 		{
@@ -366,7 +352,7 @@ export const useNavigationIndexHotkeys = <T>({
 				enabled: operationEnabled,
 				target: ref,
 				ignoreInputs: true,
-				meta: { ...selectionOperationHotkeys.cut.meta, group },
+				meta: { group, name: "Cut" },
 			},
 		},
 	]);
