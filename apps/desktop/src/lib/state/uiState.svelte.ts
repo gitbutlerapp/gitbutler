@@ -3,6 +3,7 @@ import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
 import { createEntityAdapter, createSlice, type EntityState } from "@reduxjs/toolkit";
+import type { EditCommitMessage } from "$lib/commits/editCommitDraft";
 import type { TerminalService } from "$lib/settings/terminalService";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
 import type { ScrollbarVisilitySettings } from "@gitbutler/ui";
@@ -50,6 +51,7 @@ export type NewCommitMessage = {
 export type StackState = {
 	selection: StackSelection | undefined;
 	newCommitMessage: NewCommitMessage;
+	editCommitMessage: EditCommitMessage | undefined;
 };
 
 export type ExclusiveAction =
@@ -217,6 +219,7 @@ export class UiState {
 	readonly lane = this.buildScopedProps<StackState>(this.scopesCache.lanes, {
 		selection: undefined,
 		newCommitMessage: { title: "", description: "" },
+		editCommitMessage: undefined,
 	});
 
 	/** Properties scoped to a specific project. */
