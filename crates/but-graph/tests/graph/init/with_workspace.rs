@@ -7789,3 +7789,39 @@ fn commit_graph_projection_parity() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+/// KEYSTONE SPIKE (commit-graph-experiment): a CommitGraph built straight from git (no segment graph)
+/// drives the SAME projection as one built from the segment graph — i.e. the segment graph is not
+/// needed to construct the CommitGraph.
+#[test]
+fn commit_graph_from_git_drives_the_same_projection() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &["below"]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let ws_commit = graph
+        .managed_entrypoint_commit(&repo)?
+        .expect("managed workspace commit")
+        .id;
+    let stack_branches: Vec<Vec<gix::refs::FullName>> = vec![
+        vec!["refs/heads/A".try_into()?],
+        vec!["refs/heads/B".try_into()?, "refs/heads/below".try_into()?],
+    ];
+
+    let bridge = but_graph::commit_graph_projection::project(
+        &but_graph::CommitGraph::from_segment_graph(&graph),
+        ws_commit,
+        Some(&stack_branches),
+    );
+    let from_git = but_graph::commit_graph_projection::project(
+        &but_graph::CommitGraph::from_repository(&repo)?,
+        ws_commit,
+        Some(&stack_branches),
+    );
+    assert_eq!(
+        from_git, bridge,
+        "a commit graph built straight from git should drive the same projection as the bridge"
+    );
+    Ok(())
+}

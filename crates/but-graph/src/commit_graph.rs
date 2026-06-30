@@ -138,6 +138,60 @@ impl CommitGraph {
         CommitGraph::from_commits(commits, entrypoint)
     }
 
+    /// KEYSTONE SPIKE: build a commit graph straight from git — no segment graph at all. Resolves the
+    /// workspace ref, walks every ancestor of the workspace commit, and attaches the refs pointing at
+    /// each commit. This is what lets the segment graph eventually be deleted: the `CommitGraph` no
+    /// longer needs to come *from* it (cf. [`Self::from_segment_graph`]).
+    ///
+    /// Spike scope: walks the full reachable history (no bounding at the base) and leaves flags empty;
+    /// both are fine for the projection (which only reads above the base) and for proving the build.
+    pub fn from_repository(repo: &gix::Repository) -> anyhow::Result<Self> {
+        use gix::prelude::ObjectIdExt;
+
+        let ws_ref_name: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
+        let ws_commit = repo
+            .find_reference(&ws_ref_name)?
+            .peel_to_commit()?
+            .id()
+            .detach();
+
+        // Refs pointing at each commit (heads + remotes, peeled).
+        let mut refs_by_commit: HashMap<gix::ObjectId, Vec<gix::refs::FullName>> = HashMap::new();
+        for mut reference in repo.references()?.all()?.filter_map(Result::ok) {
+            if let Ok(id) = reference.peel_to_id() {
+                refs_by_commit
+                    .entry(id.detach())
+                    .or_default()
+                    .push(reference.name().to_owned());
+            }
+        }
+
+        // Every commit reachable from the workspace commit.
+        let mut commits = Vec::new();
+        for info in ws_commit.attach(repo).ancestors().all()? {
+            let id = info?.id;
+            let commit = repo.find_commit(id)?;
+            let parent_ids = commit.parent_ids().map(|p| p.detach()).collect();
+            let refs = refs_by_commit
+                .get(&id)
+                .into_iter()
+                .flatten()
+                .map(|ref_name| crate::RefInfo {
+                    ref_name: ref_name.clone(),
+                    commit_id: None,
+                    worktree: None,
+                })
+                .collect();
+            commits.push(crate::Commit {
+                id,
+                parent_ids,
+                flags: crate::CommitFlags::empty(),
+                refs,
+            });
+        }
+        Ok(CommitGraph::from_commits(commits, Some(ws_commit)))
+    }
+
     /// The node at `id`, if present.
     pub fn node(&self, id: gix::ObjectId) -> Option<&CommitNode> {
         self.by_id.get(&id).map(|&idx| &self.nodes[idx])
