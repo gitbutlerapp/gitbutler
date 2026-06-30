@@ -871,6 +871,137 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Result<()> {
+    // Regression: when the target branch (local `main`/`origin/main`) is ahead of the workspace
+    // base, the merge-base segment is represented in the editor graph by the `gitbutler/target`
+    // reference node sitting above the base commit. Selecting the base by commit would point one
+    // hop too far and fail the direct-parent check. Moving the empty branch onto the non-empty one
+    // must still succeed.
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-with-empty-stack-target-advanced",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   6d5c23e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 09d8e52 (A) A
+    |/  
+    | * e1bbad3 (origin/main, main) add X
+    |/  
+    * 85efbe4 (gitbutler/target, B) M
+    ");
+
+    let mut ws = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 85efbe4
+    ├── ≡📙:3:A on 85efbe4 {1}
+    │   └── 📙:3:A
+    │       └── ·09d8e52 (🏘️)
+    └── ≡📙:5:B on 85efbe4 {2}
+        └── 📙:5:B
+    ");
+
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    // Put empty B on top of non-empty A.
+    let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
+        but_workspace::branch::move_branch(
+            editor,
+            "refs/heads/B".try_into()?,
+            "refs/heads/A".try_into()?,
+        )?;
+
+    rebase.materialize()?;
+    set_workspace_metadata(&mut meta, &ws, ws_meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 2c820f0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 09d8e52 (B, A) A
+    | * e1bbad3 (origin/main, main) add X
+    |/  
+    * 85efbe4 (gitbutler/target) M
+    ");
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 85efbe4
+    └── ≡📙:5:B on 85efbe4 {1}
+        ├── 📙:5:B
+        └── 📙:6:A
+            └── ·09d8e52 (🏘️)
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Result<()> {
+    // Same setup as the empty-onto-non-empty regression, but the subject is the non-empty branch
+    // and the target is the empty one. Both directions must succeed when the target is ahead.
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-with-empty-stack-target-advanced",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   6d5c23e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 09d8e52 (A) A
+    |/  
+    | * e1bbad3 (origin/main, main) add X
+    |/  
+    * 85efbe4 (gitbutler/target, B) M
+    ");
+
+    let mut ws = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 85efbe4
+    ├── ≡📙:3:A on 85efbe4 {1}
+    │   └── 📙:3:A
+    │       └── ·09d8e52 (🏘️)
+    └── ≡📙:5:B on 85efbe4 {2}
+        └── 📙:5:B
+    ");
+
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    // Put non-empty A on top of empty B.
+    let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
+        but_workspace::branch::move_branch(
+            editor,
+            "refs/heads/A".try_into()?,
+            "refs/heads/B".try_into()?,
+        )?;
+
+    rebase.materialize()?;
+    set_workspace_metadata(&mut meta, &ws, ws_meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 2c820f0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 09d8e52 (A) A
+    | * e1bbad3 (origin/main, main) add X
+    |/  
+    * 85efbe4 (gitbutler/target, B) M
+    ");
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 85efbe4
+    └── ≡📙:3:A on 85efbe4 {2}
+        ├── 📙:3:A
+        │   └── ·09d8e52 (🏘️)
+        └── 📙:5:B
+    ");
+
+    Ok(())
+}
+
 fn stack_display_order(ws: &but_graph::Workspace) -> Vec<String> {
     ws.stacks
         .iter()
