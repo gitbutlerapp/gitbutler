@@ -219,6 +219,9 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let mut stacks = collect_stacks(
         head_commit,
         head_is_workspace_commit,
+        direct_checkout_head_ref_name
+            .as_ref()
+            .map(|ref_name| ref_name.as_ref()),
         &editor,
         from_target_sha,
         from_target_ref,
@@ -282,6 +285,8 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         .transpose()?;
     let mut fully_integrated_workspace_parents = HashSet::new();
     let mut direct_checkout_replacement_ref: Option<(Selector, gix::refs::FullName)> = None;
+    let mut preserved_empty_direct_checkout_ref: Option<Selector> = None;
+    let mut refs_to_prune_from_branch_order = Vec::new();
     for stack in &stacks {
         let is_selected = stack.nodes.values().any(|attrs| attrs.to_rebase)
             || stack.to_merge
@@ -297,10 +302,38 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         }
 
         if is_fully_integrated {
+            if !head_is_workspace_commit
+                && preserved_empty_direct_checkout_ref.is_none()
+                && let Some(head_ref_name) = direct_checkout_head_ref_name.as_ref()
+                && head_ref_name.as_ref().category() == Some(gix::refs::Category::LocalBranch)
+            {
+                let head_ref_selector = head_ref_name.as_ref().to_selector(&editor)?;
+                if stack.nodes.contains_key(&head_ref_selector)
+                    && direct_reference_parents(&editor, head_ref_selector)?
+                        .iter()
+                        .any(|(_selector, ref_name)| {
+                            ref_name.category() == Some(gix::refs::Category::LocalBranch)
+                        })
+                {
+                    editor.disconnect_segment_from(
+                        SegmentDelimiter {
+                            child: head_ref_selector,
+                            parent: head_ref_selector,
+                        },
+                        SelectorSet::All,
+                        SelectorSet::All,
+                        false,
+                    )?;
+                    preserve_pick_parents(&mut editor, target_ref_commit_selector)?;
+                    editor.add_edge(head_ref_selector, target_ref_commit_selector, 0)?;
+                    preserved_empty_direct_checkout_ref = Some(head_ref_selector);
+                }
+            }
             // If we're not in the managed workspace, we haven't determined a
             // ref replacement yet and we were checked out on a local branch.
             if !head_is_workspace_commit
                 && direct_checkout_replacement_ref.is_none()
+                && preserved_empty_direct_checkout_ref.is_none()
                 && let Some(head_ref_name) = direct_checkout_head_ref_name.as_ref()
                 && head_ref_name.as_ref().category() == Some(gix::refs::Category::LocalBranch)
             {
@@ -329,7 +362,18 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         // Remove integrated refs from the workspace and from git.
         // TODO: allow to keep some references.
         for (selector, attrs) in &stack.nodes {
-            if let Some(ref_name) = attrs.reference_integrated.as_ref() {
+            if let Some(ref_name) = attrs.reference_integrated.as_ref()
+                && should_delete_integrated_local_branch(ref_name.as_ref())
+            {
+                if direct_checkout_replacement_ref
+                    .as_ref()
+                    .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
+                    || preserved_empty_direct_checkout_ref == Some(*selector)
+                {
+                    continue;
+                }
+                editor.replace(*selector, Step::None)?;
+                refs_to_prune_from_branch_order.push(ref_name.clone());
                 if let Some(ws_meta) = ws_meta.as_mut() {
                     ws_meta.remove_segment(ref_name.as_ref());
                 }
@@ -453,10 +497,15 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
     let mut project_meta = project_meta;
     project_meta.target_commit_id = Some(target_ref_commit.detach());
+    let mut rebase = editor.rebase()?;
+    for ref_name in refs_to_prune_from_branch_order {
+        remove_ref_from_branch_stack_order(rebase.meta_mut(), ref_name.as_ref())?;
+    }
+
     Ok(IntegrateUpstreamOutcome {
         ws_meta,
         project_meta,
-        rebase: editor.rebase()?,
+        rebase,
     })
 }
 
@@ -464,6 +513,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     head_commit: gix::Commit<'_>,
     head_is_workspace_commit: bool,
+    direct_checkout_head_ref_name: Option<&gix::refs::FullNameRef>,
     editor: &Editor<'ws, 'meta, M>,
     from_target_sha: HashSet<Selector>,
     from_target_ref: HashSet<Selector>,
@@ -484,7 +534,10 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             })
             .collect()
     } else {
-        let c = editor.select_commit(head_commit.id)?;
+        let c = direct_checkout_head_ref_name
+            .map(|ref_name| ref_name.to_selector(editor))
+            .transpose()?
+            .unwrap_or(editor.select_commit(head_commit.id)?);
         vec![Stack {
             to_merge: false,
             nodes: HashMap::from([(c, AnnotatedNode::new())]),
@@ -893,6 +946,45 @@ fn selector_commit_id<M: RefMetadata>(
         ),
         Step::None => None,
     })
+}
+
+fn direct_reference_parents<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    selector: Selector,
+) -> Result<Vec<(Selector, gix::refs::FullName)>> {
+    editor
+        .direct_parents(selector)?
+        .into_iter()
+        .filter_map(|(parent, _)| {
+            editor
+                .lookup_step(parent)
+                .map(|step| match step {
+                    Step::Reference { refname } => Some((parent, refname)),
+                    _ => None,
+                })
+                .transpose()
+        })
+        .collect()
+}
+
+fn remove_ref_from_branch_stack_order<M: RefMetadata>(
+    meta: &mut M,
+    ref_name: &gix::refs::FullNameRef,
+) -> Result<()> {
+    let Some(mut branch_stack_order) = meta.branch_stack_order(ref_name)? else {
+        return Ok(());
+    };
+    let original_len = branch_stack_order.len();
+    branch_stack_order.retain(|branch| branch.as_ref() != ref_name);
+    if branch_stack_order.len() == original_len {
+        return Ok(());
+    }
+    if branch_stack_order.is_empty() {
+        meta.remove(ref_name)?;
+    } else {
+        meta.set_branch_stack_order(&branch_stack_order)?;
+    }
+    Ok(())
 }
 
 /// Replace a fully integrated direct-checkout branch with a new canned local branch at the

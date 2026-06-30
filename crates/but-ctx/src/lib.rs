@@ -762,7 +762,10 @@ impl Context {
 
     fn workspace_from_head(&self) -> anyhow::Result<but_graph::Workspace> {
         let repo = self.repo.get()?;
-        let meta = self.meta_inner_read_only()?;
+        let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
+            self.project_data_dir().join("virtual_branches.toml"),
+            self.project_data_dir(),
+        )?;
         let graph = but_graph::Graph::from_head(
             &repo,
             &meta,
@@ -857,9 +860,19 @@ impl Context {
     //            reads. For a correct implementation, this would also have to hold on to
     //            `_read_only`.
     pub fn meta(&self) -> anyhow::Result<impl but_core::RefMetadata + 'static> {
-        but_meta::VirtualBranchesTomlMetadata::from_path(
+        let mut meta = but_meta::BranchOrderMetadata::from_paths(
             self.project_data_dir().join("virtual_branches.toml"),
-        )
+            self.project_data_dir(),
+        )?;
+        let repo = self.repo.get()?;
+        let local_branch_refs = repo
+            .references()?
+            .prefixed("refs/heads/")?
+            .filter_map(Result::ok)
+            .map(|reference| reference.name().to_owned())
+            .collect::<Vec<_>>();
+        meta.remove_missing_branch_stack_order_references(&local_branch_refs)?;
+        Ok(meta)
     }
 
     /// Copy all copyable values into an instance to pass across thread boundaries.

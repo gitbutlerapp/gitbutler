@@ -314,6 +314,11 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         &self.repo
     }
 
+    /// Return the metadata handle that will be carried into materialization.
+    pub fn meta_mut(&mut self) -> &mut M {
+        self.meta
+    }
+
     /// Returns a preview of what the but-graph will look like after
     /// materialization.
     ///
