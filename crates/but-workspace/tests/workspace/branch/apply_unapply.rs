@@ -13,6 +13,7 @@ use but_core::{
 use but_graph::{
     Graph,
     init::{Options, Overlay, Tip},
+    workspace::WorkspaceKind,
 };
 use but_testsupport::{
     CommandExt, InMemoryRefMetadata, git, graph_workspace, graph_workspace_determinisitcally,
@@ -35,6 +36,25 @@ fn project_meta(meta: &impl RefMetadata) -> ref_metadata::ProjectMeta {
     )
     .map(|workspace| workspace.project_meta())
     .unwrap_or_default()
+}
+
+fn assert_worktree_files(repo: &gix::Repository, present: &[&str], absent: &[&str]) {
+    for path in present {
+        let path = repo.workdir_path(path).expect("non-bare");
+        assert!(
+            path.exists(),
+            "{} should exist in the worktree",
+            path.display()
+        );
+    }
+    for path in absent {
+        let path = repo.workdir_path(path).expect("non-bare");
+        assert!(
+            !path.exists(),
+            "{} should not exist in the worktree",
+            path.display()
+        );
+    }
 }
 
 #[test]
@@ -1522,6 +1542,280 @@ fn apply_after_switching_out_of_workspace_drops_stale_stacks() -> anyhow::Result
         in_workspace("applied"),
         Some(true),
         "the newly applied branch is in the new workspace"
+    );
+    Ok(())
+}
+
+#[test]
+fn apply_from_enclosed_adhoc_workspace_rebuilds_around_current_and_applied() -> anyhow::Result<()> {
+    // A managed workspace has two live stacks, then HEAD is moved to one of its branches. Applying
+    // a third branch from that enclosed AdHoc checkout rebuilds the workspace around the checked-out
+    // branch and the newly applied branch.
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-two-file-stacks",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, "initial workspace has A and B applied", @r"
+    *   4fce3a1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * ccf539c (A) A
+    * | 53c254d (B) B
+    |/  
+    * 893d602 (origin/main, main) M
+    ");
+    assert_worktree_files(&repo, &["A", "B"], &["C"]);
+    insta::assert_snapshot!(
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?,
+        "workspace checkout contains A and B files",
+        @"
+    .
+    ├── .git:40755
+    ├── A:100644:f70f10e4db19068f79bc43844b49f3eece45c4e8
+    ├── B:100644:223b7836fb19fdf64ba2d3cd6173c6a283141f78
+    └── base:100644:df967b96a579e45a18b8251732d16804b2e56a55
+    "
+    );
+
+    git(&repo).args(["checkout", "-b", "C", "main"]).run();
+    std::fs::write(repo.workdir_path("C").expect("non-bare"), "C\n")?;
+    git(&repo).args(["add", "C"]).run();
+    git(&repo).args(["commit", "-m", "add C"]).run();
+    git(&repo).args(["checkout", "B"]).run();
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, "direct checkout of B leaves C outside the workspace", @r"
+    * 863775d (C) add C
+    | *   4fce3a1 (gitbutler/workspace) GitButler Workspace Commit
+    | |\  
+    | | * ccf539c (A) A
+    | |/  
+    |/|   
+    | * 53c254d (HEAD -> B) B
+    |/  
+    * 893d602 (origin/main, main) M
+    ");
+    assert_worktree_files(&repo, &["B"], &["A", "C"]);
+    insta::assert_snapshot!(
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?,
+        "direct checkout of B contains only B's file",
+        @"
+    .
+    ├── .git:40755
+    ├── B:100644:223b7836fb19fdf64ba2d3cd6173c6a283141f78
+    └── base:100644:df967b96a579e45a18b8251732d16804b2e56a55
+    "
+    );
+
+    let ws = Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta),
+        standard_traversal_options(),
+    )?
+    .into_workspace()?;
+    assert!(
+        matches!(ws.kind, WorkspaceKind::Managed { .. }),
+        "direct checkout of B can still project as a managed workspace"
+    );
+    insta::assert_snapshot!(graph_workspace(&ws), "direct checkout of B is still enclosed by the existing workspace", @"
+    📕🏘️:1:gitbutler/workspace <> ✓refs/remotes/origin/main on 893d602
+    ├── ≡📙:4:A on 893d602 {1}
+    │   └── 📙:4:A
+    │       └── ·ccf539c (🏘️)
+    └── ≡👉📙:0:B[🌳] on 893d602 {2}
+        └── 👉📙:0:B[🌳]
+            └── ·53c254d (🏘️)
+    ");
+
+    let out =
+        but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())?;
+    assert_eq!(out.status, OutcomeStatus::Applied);
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, "applying C rebuilds the workspace around B and C", @r"
+    * ccf539c (A) A
+    | *   7ed2c6c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | |\  
+    | | * 863775d (C) add C
+    | |/  
+    |/|   
+    | * 53c254d (B) B
+    |/  
+    * 893d602 (origin/main, main) M
+    ");
+    assert_worktree_files(&repo, &["B", "C"], &["A"]);
+    insta::assert_snapshot!(
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?,
+        "workspace checkout contains B and C files after apply",
+        @"
+    .
+    ├── .git:40755
+    ├── B:100644:223b7836fb19fdf64ba2d3cd6173c6a283141f78
+    ├── C:100644:3cc58df83752123644fef39faab2393af643b1d2
+    └── base:100644:df967b96a579e45a18b8251732d16804b2e56a55
+    "
+    );
+    assert_eq!(
+        repo.head_name()?.as_ref().map(|rn| rn.as_bstr()),
+        Some(r("refs/heads/gitbutler/workspace").as_bstr()),
+        "applying from an ad-hoc checkout should switch back to the managed workspace"
+    );
+
+    let ws_md = meta.workspace(WORKSPACE_REF_NAME.try_into().unwrap())?;
+    let in_workspace = |name: &str| {
+        ws_md
+            .stacks
+            .iter()
+            .find(|s| s.name().is_some_and(|n| n.shorten() == name))
+            .map(|s| s.is_in_workspace())
+    };
+    assert_eq!(
+        in_workspace("A"),
+        Some(false),
+        "previously visible stack A should be left behind"
+    );
+    assert_eq!(
+        in_workspace("B"),
+        Some(true),
+        "checked-out enclosed stack B should stay in the workspace"
+    );
+    assert_eq!(
+        in_workspace("C"),
+        Some(true),
+        "the newly applied branch joins the workspace"
+    );
+    Ok(())
+}
+
+#[test]
+fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Result<()> {
+    // A managed workspace has two live stacks, then HEAD is moved to a third branch. Applying one
+    // of the previously applied branches rebuilds the workspace around the checked-out branch and
+    // the branch being applied.
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-two-file-stacks",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+            },
+        )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, "initial workspace has A and B applied", @r"
+    *   4fce3a1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * ccf539c (A) A
+    * | 53c254d (B) B
+    |/  
+    * 893d602 (origin/main, main) M
+    ");
+    assert_worktree_files(&repo, &["A", "B"], &["C"]);
+    insta::assert_snapshot!(
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?,
+        "workspace checkout contains A and B files",
+        @"
+    .
+    ├── .git:40755
+    ├── A:100644:f70f10e4db19068f79bc43844b49f3eece45c4e8
+    ├── B:100644:223b7836fb19fdf64ba2d3cd6173c6a283141f78
+    └── base:100644:df967b96a579e45a18b8251732d16804b2e56a55
+    "
+    );
+
+    git(&repo).args(["checkout", "-b", "C", "main"]).run();
+    std::fs::write(repo.workdir_path("C").expect("non-bare"), "C\n")?;
+    git(&repo).args(["add", "C"]).run();
+    git(&repo).args(["commit", "-m", "add C"]).run();
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, "direct checkout of C leaves A and B in the old workspace", @r"
+    * 863775d (HEAD -> C) add C
+    | *   4fce3a1 (gitbutler/workspace) GitButler Workspace Commit
+    | |\  
+    | | * ccf539c (A) A
+    | |/  
+    |/|   
+    | * 53c254d (B) B
+    |/  
+    * 893d602 (origin/main, main) M
+    ");
+    assert_worktree_files(&repo, &["C"], &["A", "B"]);
+    insta::assert_snapshot!(
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?,
+        "direct checkout of C contains only C's file",
+        @"
+    .
+    ├── .git:40755
+    ├── C:100644:3cc58df83752123644fef39faab2393af643b1d2
+    └── base:100644:df967b96a579e45a18b8251732d16804b2e56a55
+    "
+    );
+
+    let ws = Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta),
+        standard_traversal_options(),
+    )?
+    .into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), "direct checkout of C is an ad-hoc workspace next to the existing managed workspace", @"
+    ⌂:0:C[🌳] <> ✓refs/remotes/origin/main on 893d602
+    └── ≡:0:C[🌳] on 893d602 {1}
+        └── :0:C[🌳]
+            └── ·863775d
+    ");
+
+    let out =
+        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    assert_eq!(out.status, OutcomeStatus::Applied);
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, "applying A rebuilds the workspace around C and A", @r"
+    * 53c254d (B) B
+    | *   dbb9910 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | |\  
+    | | * 863775d (C) add C
+    | |/  
+    |/|   
+    | * ccf539c (A) A
+    |/  
+    * 893d602 (origin/main, main) M
+    ");
+    assert_worktree_files(&repo, &["A", "C"], &["B"]);
+    insta::assert_snapshot!(
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?,
+        "workspace checkout contains C and A files after apply",
+        @"
+    .
+    ├── .git:40755
+    ├── A:100644:f70f10e4db19068f79bc43844b49f3eece45c4e8
+    ├── C:100644:3cc58df83752123644fef39faab2393af643b1d2
+    └── base:100644:df967b96a579e45a18b8251732d16804b2e56a55
+    "
+    );
+    assert_eq!(
+        repo.head_name()?.as_ref().map(|rn| rn.as_bstr()),
+        Some(r("refs/heads/gitbutler/workspace").as_bstr()),
+        "applying from an ad-hoc checkout should switch back to the managed workspace"
+    );
+
+    let ws_md = meta.workspace(WORKSPACE_REF_NAME.try_into().unwrap())?;
+    let in_workspace = |name: &str| {
+        ws_md
+            .stacks
+            .iter()
+            .find(|s| s.name().is_some_and(|n| n.shorten() == name))
+            .map(|s| s.is_in_workspace())
+    };
+    assert_eq!(
+        in_workspace("A"),
+        Some(true),
+        "the newly applied branch joins the workspace"
+    );
+    assert_eq!(
+        in_workspace("B"),
+        Some(false),
+        "previously visible stack B should be left behind"
+    );
+    assert_eq!(
+        in_workspace("C"),
+        Some(true),
+        "the checked-out branch joins the workspace"
     );
     Ok(())
 }

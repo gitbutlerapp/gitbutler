@@ -381,6 +381,10 @@ pub fn apply(
             )
         }
     };
+    let current_head_name = repo.head_name()?.map(|rn| rn.to_owned());
+    let switch_head_to_workspace_ref = current_head_name
+        .as_ref()
+        .is_none_or(|head_name| head_name.as_bstr() != workspace_ref_name_to_update.as_bstr());
 
     // First, see if the branches to apply would naturally emerge if they had metadata.
     let (ws_ref_id, ws_ref_exists) = match repo
@@ -401,26 +405,49 @@ pub fn apply(
 
     let mut ws_md = meta.workspace(workspace_ref_name_to_update.as_ref())?;
     let ws_md_orig = ws_md.clone();
+    let checked_out_applied_branch = current_head_name
+        .as_ref()
+        .filter(|head_name| head_name.as_bstr() != workspace_ref_name_to_update.as_bstr())
+        .filter(|head_name| {
+            ws_md
+                .find_branch(head_name.as_ref(), StackKind::Applied)
+                .is_some()
+        })
+        .cloned();
+    let recreate_workspace_around_selected_branches = checked_out_applied_branch.is_some();
     {
         let ws_mut: &mut Workspace = &mut ws_md;
         // After switching out of a workspace the metadata can be stale: old stacks are still marked
         // in-workspace though they're gone from the projection. Demote them, except stacks still
-        // visible in the projection (genuinely enclosed adhoc checkouts).
-        if matches!(ws.kind, WorkspaceKind::AdHoc) {
-            let visible_ref_names: std::collections::HashSet<&gix::bstr::BStr> = ws
-                .stacks
+        // visible in the projection. If HEAD is an already-applied branch rather than the workspace
+        // ref, rebuild the workspace around HEAD and the newly applied branches.
+        let visible_ref_names = matches!(ws.kind, WorkspaceKind::AdHoc).then(|| {
+            ws.stacks
                 .iter()
                 .flat_map(|s| s.segments.iter())
                 .filter_map(|seg| seg.ref_name().map(|rn| rn.as_bstr()))
-                .collect();
-            for stack in &mut ws_mut.stacks {
-                let visible = stack
-                    .branches
-                    .iter()
-                    .any(|b| visible_ref_names.contains(b.ref_name.as_ref().as_bstr()));
-                if !visible {
-                    stack.workspacecommit_relation = Outside;
-                }
+                .collect::<std::collections::HashSet<_>>()
+        });
+        for stack in &mut ws_mut.stacks {
+            let is_stale_ad_hoc_stack =
+                visible_ref_names.as_ref().is_some_and(|visible_ref_names| {
+                    !stack
+                        .branches
+                        .iter()
+                        .any(|b| visible_ref_names.contains(b.ref_name.as_ref().as_bstr()))
+                });
+            let is_selected_branch = stack.branches.iter().any(|b| {
+                checked_out_applied_branch
+                    .as_ref()
+                    .is_some_and(|head_ref| b.ref_name.as_ref() == head_ref.as_ref())
+                    || branches_to_apply
+                        .iter()
+                        .any(|rn| b.ref_name.as_ref() == rn.as_ref())
+            });
+            if is_stale_ad_hoc_stack
+                || (recreate_workspace_around_selected_branches && !is_selected_branch)
+            {
+                stack.workspacecommit_relation = Outside;
             }
         }
         for rn in &branches_to_apply {
@@ -515,7 +542,8 @@ pub fn apply(
         set_head_to_reference(
             repo,
             new_head_id,
-            (!ws_ref_exists).then_some(workspace_ref_name_to_update.as_ref()),
+            (switch_head_to_workspace_ref || !ws_ref_exists)
+                .then_some(workspace_ref_name_to_update.as_ref()),
         )?;
         return Ok(Outcome {
             workspace: graph.into_workspace()?,
@@ -570,12 +598,10 @@ pub fn apply(
         });
     }
 
-    let prev_head_id = ws
-        .graph
-        .entrypoint()?
-        .commit()
-        .context("BUG: unborn was skipped, why no entrypoint")?
-        .id;
+    let prev_head_id = repo
+        .head_id()
+        .context("BUG: we assume HEAD is born here")?
+        .detach();
     let mut new_head_id = merge_result.workspace_commit_id;
     let mut conflicting_stacks =
         correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
@@ -744,7 +770,8 @@ pub fn apply(
     set_head_to_reference(
         repo,
         new_head_id,
-        (!ws_ref_exists).then_some(workspace_ref_name_to_update.as_ref()),
+        (switch_head_to_workspace_ref || !ws_ref_exists)
+            .then_some(workspace_ref_name_to_update.as_ref()),
     )?;
     Ok(Outcome {
         workspace: ws,
@@ -1088,7 +1115,7 @@ fn set_head_to_reference(
                             force_create_reflog: false,
                             message: "created by GitButler during apply-branch".into(),
                         },
-                        expected: PreviousValue::MustNotExist,
+                        expected: PreviousValue::Any,
                         new: Target::Object(new_ref_target),
                     },
                     name: new_ref.to_owned(),

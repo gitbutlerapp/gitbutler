@@ -357,6 +357,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::virtual_branches::tauri_upstream_integration_statuses::upstream_integration_statuses,
                 legacy::virtual_branches::tauri_integrate_upstream::integrate_upstream,
                 legacy::virtual_branches::tauri_resolve_upstream_integration::resolve_upstream_integration,
+                branch::tauri_apply::apply,
                 branch::tauri_get_initial_branch_integration::get_initial_branch_integration,
                 branch::tauri_apply_branch_integration::apply_branch_integration,
                 legacy::stack::tauri_create_reference::create_reference,
