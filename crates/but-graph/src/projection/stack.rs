@@ -1,6 +1,6 @@
 use std::fmt::Formatter;
 
-use crate::vec_graph::Direction;
+use crate::Direction;
 use anyhow::{Context as _, bail};
 use bitflags::bitflags;
 use but_core::{ref_metadata, ref_metadata::StackId};
@@ -313,6 +313,7 @@ impl StackSegment {
             remote_tracking_branch_segment_id,
             commits: _,
             ref metadata,
+            connections: _,
         } = segments_iter
             .next()
             .context("BUG: need one or more segments")?;

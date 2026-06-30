@@ -5,13 +5,13 @@ use std::{
     ops::Deref,
 };
 
-use crate::vec_graph::Direction;
+use crate::Direction;
 use anyhow::{Context as _, bail};
 use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
 use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
 
 use crate::{
-    Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
+    Commit, CommitFlags, CommitIndex, Connection, Graph, Segment, SegmentIndex, SegmentMetadata,
     Worktree,
     init::{
         Goals, PetGraph,
@@ -168,13 +168,7 @@ pub fn split_commit_into_segment(
             graph.connect_new_segment(sidx, top_commit_index, bottom_segment, 0, bottom_commit_id)
         }
         Some(standin_sidx) => {
-            let outgoing_edges: Vec<_> = graph
-                .edges_directed(standin_sidx, Direction::Outgoing)
-                .map(|e| e.id())
-                .collect();
-            for edge_id in outgoing_edges {
-                graph.remove_edge(edge_id);
-            }
+            graph.inner[standin_sidx].connections.clear();
 
             let top_commit_id = top_commit_index.map(|idx| graph[sidx].commits[idx].id);
             graph.connect_segments_with_ids(
@@ -239,7 +233,7 @@ fn split_connections(
     }
     let edges = collect_edges_from_commit(graph, from, Direction::Outgoing);
     for edge in &edges {
-        graph.remove_edge(edge.id);
+        graph.remove_edge(edge.source, &edge.weight);
     }
 
     for edge in edges {
@@ -267,10 +261,9 @@ fn split_connections(
         };
         graph.add_edge(
             edge_src_sidx,
-            edge_dst_sidx,
-            Edge {
-                src: edge
-                    .weight
+            Connection::new(
+                edge_dst_sidx,
+                edge.weight
                     .src_id
                     .map(|id| {
                         graph[edge_src_sidx].commit_index_of(id).with_context(|| {
@@ -281,9 +274,8 @@ fn split_connections(
                         })
                     })
                     .transpose()?,
-                src_id: edge.weight.src_id,
-                dst: edge
-                    .weight
+                edge.weight.src_id,
+                edge.weight
                     .dst_id
                     .map(|id| {
                         graph[edge_dst_sidx].commit_index_of(id).with_context(|| {
@@ -294,8 +286,8 @@ fn split_connections(
                         })
                     })
                     .transpose()?,
-                dst_id: edge.weight.dst_id,
-            },
+                edge.weight.dst_id,
+            ),
         );
     }
     Ok(())
@@ -851,7 +843,7 @@ pub fn propagate_flags_downward(
         // Process outgoing edges. Collect first so this immutable read doesn't clash with the
         // `&mut graph` held across the loop (the detached petgraph walker did the same job).
         let out_edges: Vec<_> = graph
-            .edges_directed(segment, crate::vec_graph::Direction::Outgoing)
+            .edges_directed(segment, crate::Direction::Outgoing)
             .map(|e| (e.target, e.weight.src, e.weight.dst_id, e.weight.dst))
             .collect();
 
@@ -1028,11 +1020,9 @@ pub fn possibly_split_occupied_segment(
             (src_sidx, dst_sidx)
         };
     let top_cidx = graph[top_sidx].last_commit_index();
-    let mut bottom_cidx = graph[bottom_sidx].commit_index_of(id).with_context(|| {
-        format!(
-            "BUG: Didn't find commit {id} in segment {dst_sidx}",
-        )
-    })?;
+    let mut bottom_cidx = graph[bottom_sidx]
+        .commit_index_of(id)
+        .with_context(|| format!("BUG: Didn't find commit {id} in segment {dst_sidx}",))?;
 
     if bottom_cidx != 0 {
         // Re-use an existing empty segment to better integrate them into the graph, and to prevent loose segments

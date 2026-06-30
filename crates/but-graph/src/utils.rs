@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::vec_graph::Direction;
+use crate::Direction;
 
 use crate::{Graph, Segment, SegmentIndex};
 

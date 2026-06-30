@@ -3,7 +3,7 @@
 use std::str::FromStr;
 
 use but_core::ref_metadata;
-use but_graph::{Commit, CommitFlags, Graph, RefInfo, Segment, SegmentIndex, SegmentMetadata};
+use but_graph::{Commit, CommitFlags, Graph, RefInfo, Segment, SegmentMetadata};
 use but_testsupport::graph_tree;
 use gix::ObjectId;
 
@@ -78,6 +78,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
             commit(init_commit_id, None, CommitFlags::InWorkspace),
         ],
         metadata: None,
+        connections: Vec::new(),
     };
     let branch = graph.connect_new_segment(local_target, None, branch, 0, None);
 
