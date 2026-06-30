@@ -280,6 +280,10 @@ const FileRow: FC<
 		selectProjectHasCheckedCommits(state, projectId),
 	);
 
+	const lastSepIdx = relativePath.lastIndexOf("/");
+	const mpathInit = lastSepIdx !== -1 ? relativePath.slice(0, lastSepIdx + 1) : null;
+	const pathLast = lastSepIdx !== -1 ? relativePath.slice(lastSepIdx + 1) : relativePath;
+
 	return (
 		<Tooltip.Root disableHoverablePopup>
 			<Tooltip.Trigger
@@ -322,8 +326,9 @@ const FileRow: FC<
 				</div>
 
 				<WorkspaceItemRowLabelContainer>
-					<WorkspaceItemRowLabel singleLine>
-						{relativePath}
+					<WorkspaceItemRowLabel singleLine className={styles.filePath}>
+						{mpathInit}
+						<span className={styles.pathLast}>{pathLast}</span>
 						{item._tag === "Conflict" && " ⚠️"}
 					</WorkspaceItemRowLabel>
 				</WorkspaceItemRowLabelContainer>

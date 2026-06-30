@@ -14,6 +14,22 @@
 	}
 }
 
+.filePath {
+	color: var(--text-3);
+
+	/* Overflow ellipsis on the left, pioritising filename. */
+	direction: rtl;
+	text-align: left;
+}
+
+.pathLast {
+	color: var(--text-1);
+
+	[data-selection-scope]:focus .fileRow[aria-selected="true"] & {
+		color: var(--text-1-invert);
+	}
+}
+
 .fileStatusBadge {
 	align-self: center;
 	width: 12px;
