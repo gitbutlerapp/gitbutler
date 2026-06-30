@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, VecDeque};
 
-use crate::vec_graph::EdgeRef;
+use crate::segment_graph::EdgeRef;
 use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice, ByteVec};
 use gix::reference::Category;
 
 use crate::{
-    CommitFlags, Edge, Graph, Segment, SegmentIndex, SegmentMetadata, StopCondition, init::PetGraph,
+    CommitFlags, Graph, Segment, SegmentIndex, SegmentMetadata, StopCondition, init::PetGraph,
 };
 
 /// Debugging
@@ -509,7 +509,7 @@ impl Graph {
             )
         };
 
-        let edge_attrs = &|g: &PetGraph, e: EdgeRef<'_, Edge>| {
+        let edge_attrs = &|g: &PetGraph, e: EdgeRef<'_>| {
             let src = &g[e.source()];
             let dst = &g[e.target()];
             // Graphs may be half-baked, let's not worry about it then.
@@ -585,7 +585,7 @@ impl Graph {
                     }
                 }
                 next.extend(
-                    self.neighbors_directed(sidx, crate::vec_graph::Direction::Incoming)
+                    self.neighbors_directed(sidx, crate::Direction::Incoming)
                         .filter(|n| seen.insert_unseen(*n)),
                 );
                 self.remove_node(sidx);
@@ -606,7 +606,7 @@ impl Graph {
         let mut queue = VecDeque::from([lower_bound_segment_id]);
         while let Some(sidx) = queue.pop_front() {
             let below_segments: Vec<_> = self
-                .neighbors_directed(sidx, crate::vec_graph::Direction::Outgoing)
+                .neighbors_directed(sidx, crate::Direction::Outgoing)
                 .filter(|n| seen.insert_unseen(*n))
                 .collect();
             for below_sidx in below_segments {

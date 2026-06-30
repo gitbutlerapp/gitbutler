@@ -3,7 +3,7 @@ use std::{
     collections::{BTreeSet, HashSet},
 };
 
-use crate::vec_graph::Direction;
+use crate::Direction;
 use anyhow::Context;
 use bstr::ByteSlice;
 use but_core::ref_metadata::{

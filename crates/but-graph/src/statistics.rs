@@ -1,4 +1,4 @@
-use crate::vec_graph::Direction;
+use crate::Direction;
 
 use crate::{
     CommitFlags, CommitIndex, Graph, SegmentIndex, SegmentMetadata, init::types::TopoWalk,

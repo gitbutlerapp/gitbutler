@@ -3,9 +3,9 @@ use std::{
     ops::Range,
 };
 
-use crate::vec_graph::Direction;
+use crate::Direction;
 
-use crate::{CommitFlags, CommitIndex, Edge, SegmentIndex};
+use crate::{CommitFlags, CommitIndex, Connection, SegmentIndex};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Limit {
@@ -364,21 +364,19 @@ impl Instruction {
 
 pub type QueueItem = (super::walk::TraverseInfo, CommitFlags, Instruction, Limit);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct EdgeOwned {
     pub source: SegmentIndex,
     pub target: SegmentIndex,
-    pub weight: Edge,
-    pub id: crate::vec_graph::EdgeId,
+    pub weight: Connection,
 }
 
-impl From<crate::vec_graph::EdgeRef<'_, Edge>> for EdgeOwned {
-    fn from(e: crate::vec_graph::EdgeRef<'_, Edge>) -> Self {
+impl From<crate::segment_graph::EdgeRef<'_>> for EdgeOwned {
+    fn from(e: crate::segment_graph::EdgeRef<'_>) -> Self {
         EdgeOwned {
             source: e.source(),
             target: e.target(),
             weight: *e.weight(),
-            id: e.id(),
         }
     }
 }

@@ -4,12 +4,12 @@ use std::{
     ops::{Deref, Index, IndexMut},
 };
 
-use crate::vec_graph::{Direction, EdgeRef};
+use crate::{Direction, segment_graph::EdgeRef};
 use anyhow::{Context as _, bail, ensure};
 
 use crate::{
-    Commit, CommitFlags, CommitIndex, Edge, EntryPoint, EntryPointCommit, Graph, Segment,
-    SegmentFlags, SegmentIndex, SegmentRelation, StopCondition,
+    Commit, CommitFlags, CommitIndex, EntryPoint, EntryPointCommit, Graph, Segment, SegmentFlags,
+    SegmentIndex, SegmentRelation, StopCondition,
     init::PetGraph,
     utils::{SegmentTable, SegmentVisitScratch},
     workspace::commit::is_managed_workspace_by_message,
@@ -1274,7 +1274,7 @@ impl Graph {
     /// Fail with an error if the `edge` isn't consistent.
     pub(crate) fn check_edge(
         graph: &PetGraph,
-        edge: EdgeRef<'_, Edge>,
+        edge: EdgeRef<'_>,
         weight_only: bool,
     ) -> anyhow::Result<()> {
         let e = edge;

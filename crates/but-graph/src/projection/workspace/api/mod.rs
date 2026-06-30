@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::vec_graph::Direction;
+use crate::Direction;
 use anyhow::Context;
 use bstr::BStr;
 use but_core::{RefMetadata, extract_remote_name_and_short_name, ref_metadata::StackId};

@@ -208,7 +208,7 @@ use but_core::{
         WorkspaceCommitRelation::{Merged, Outside},
     },
 };
-use but_graph::{SegmentIndex, init::Overlay, petgraph::Direction, workspace::WorkspaceKind};
+use but_graph::{Direction, SegmentIndex, init::Overlay, workspace::WorkspaceKind};
 use gix::{
     prelude::ObjectIdExt,
     reference::Category,
@@ -917,7 +917,7 @@ fn find_superseded_stacks(
         let mut superseded = Vec::new();
         graph.visit_all_segments_excluding_start_until(
             branch_segment.id,
-            Direction::Outgoing,
+            petgraph::Direction::Outgoing,
             |segment| {
                 let prune = _tip_commit_ids_and_sidx.iter().any(|(cid, sidx)| {
                     segment.id == *sidx || segment.commits.first().is_some_and(|c| c.id == *cid)

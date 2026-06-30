@@ -215,9 +215,9 @@ pub use workspace::workspace::Workspace;
 
 mod utils;
 
-mod vec_graph;
-/// The owned graph backing the segment graph, replacing petgraph.
-pub use vec_graph::Direction;
+mod segment_graph;
+/// The segment graph, where segments directly own their outgoing connections.
+pub use segment_graph::{Connection, Direction, SegmentGraph};
 
 mod statistics;
 pub use statistics::Statistics;
@@ -360,59 +360,5 @@ pub enum SegmentRelation {
     Disjoint,
 }
 
-/// This structure is used as data associated with each edge and is mainly for collecting
-/// the intent of an edge, which should always represent the connection of a commit to another.
-/// Sometimes, it represents the connection from a commit (or segment) to an empty segment which
-/// doesn't yet have a commit.
-/// The idea is to write code that keeps edge information consistent, and our visualization tools highlights
-/// issues with the inherent invariants.
-#[derive(Debug, Copy, Clone)]
-pub struct Edge {
-    /// `None` if the source segment has no commit.
-    src: Option<CommitIndex>,
-    /// The commit id at `src` in the segment commit list.
-    src_id: Option<gix::ObjectId>,
-    dst: Option<CommitIndex>,
-    /// The commit id at `dst` in the segment commit list.
-    dst_id: Option<gix::ObjectId>,
-}
-
-impl Edge {
-    /// The parent commit this edge points at; `None` for synthetic edges with no concrete commit.
-    pub fn dst_id(&self) -> Option<gix::ObjectId> {
-        self.dst_id
-    }
-
-    /// The source commit id this edge emanates from, if it starts at a concrete commit.
-    pub fn src_id(&self) -> Option<gix::ObjectId> {
-        self.src_id
-    }
-
-    /// Useful when reusing an edge to assure it doesn't list commits that don't exist in `src_idx` and `dst_idx` anymore.
-    pub(crate) fn adjusted_for(
-        mut self,
-        src_sidx: SegmentIndex,
-        dst_sidx: SegmentIndex,
-        graph: &init::PetGraph,
-    ) -> Self {
-        let commits = &graph[src_sidx].commits;
-        let (id, idx) = commits
-            .last()
-            .map(|c| (Some(c.id), Some(commits.len() - 1)))
-            .unwrap_or_default();
-        self.src_id = id;
-        self.src = idx;
-
-        let commits = &graph[dst_sidx].commits;
-        let (id, idx) = commits
-            .first()
-            .map(|c| (Some(c.id), Some(0)))
-            .unwrap_or_default();
-        self.dst_id = id;
-        self.dst = idx;
-
-        self
-    }
-}
 /// An index into the [`Graph`].
-pub type SegmentIndex = crate::vec_graph::NodeId;
+pub type SegmentIndex = usize;

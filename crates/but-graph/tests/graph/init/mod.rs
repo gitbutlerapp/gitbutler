@@ -20,29 +20,27 @@ fn unborn() -> anyhow::Result<()> {
     ");
     insta::assert_debug_snapshot!(graph, @r#"
     Graph {
-        inner: StableGraph {
-            Ty: "Directed",
-            node_count: 1,
-            edge_count: 0,
-            node weights: {
-                0: Segment {
-                    id: NodeIndex(0),
-                    generation: 0,
-                    ref_info: "►main[🌳]",
-                    remote_tracking_ref_name: None,
-                    sibling_segment_id: None,
-                    remote_tracking_branch_segment_id: None,
-                    commits: [],
-                    metadata: "None",
-                },
-            },
-            edge weights: {},
-            free_node: NodeIndex(4294967295),
-            free_edge: EdgeIndex(4294967295),
+        inner: SegmentGraph {
+            segments: [
+                Some(
+                    Segment {
+                        id: 0,
+                        generation: 0,
+                        ref_info: "►main[🌳]",
+                        remote_tracking_ref_name: None,
+                        sibling_segment_id: None,
+                        remote_tracking_branch_segment_id: None,
+                        commits: [],
+                        metadata: "None",
+                        connections: [],
+                    },
+                ),
+            ],
+            free: [],
         },
         entrypoint: Some(
             (
-                NodeIndex(0),
+                0,
                 Unborn,
             ),
         ),
@@ -104,59 +102,60 @@ fn detached() -> anyhow::Result<()> {
     ");
     insta::assert_debug_snapshot!(graph, @r#"
     Graph {
-        inner: StableGraph {
-            Ty: "Directed",
-            node_count: 2,
-            edge_count: 1,
-            edges: (0, 1),
-            node weights: {
-                0: Segment {
-                    id: NodeIndex(0),
-                    generation: 0,
-                    ref_info: None,
-                    remote_tracking_ref_name: None,
-                    sibling_segment_id: None,
-                    remote_tracking_branch_segment_id: None,
-                    commits: [
-                        Commit(541396b, ⌂|1►annotated, ►release/v1, ►main),
-                    ],
-                    metadata: "None",
-                },
-                1: Segment {
-                    id: NodeIndex(1),
-                    generation: 1,
-                    ref_info: "►other",
-                    remote_tracking_ref_name: None,
-                    sibling_segment_id: None,
-                    remote_tracking_branch_segment_id: None,
-                    commits: [
-                        Commit(fafd9d0, ⌂|1),
-                    ],
-                    metadata: "None",
-                },
-            },
-            edge weights: {
-                0: Edge {
-                    src: Some(
-                        0,
-                    ),
-                    src_id: Some(
-                        Sha1(541396b24e13b8ac45b7905c3fe8691c7fc5fbd0),
-                    ),
-                    dst: Some(
-                        0,
-                    ),
-                    dst_id: Some(
-                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                    ),
-                },
-            },
-            free_node: NodeIndex(4294967295),
-            free_edge: EdgeIndex(4294967295),
+        inner: SegmentGraph {
+            segments: [
+                Some(
+                    Segment {
+                        id: 0,
+                        generation: 0,
+                        ref_info: None,
+                        remote_tracking_ref_name: None,
+                        sibling_segment_id: None,
+                        remote_tracking_branch_segment_id: None,
+                        commits: [
+                            Commit(541396b, ⌂|1►annotated, ►release/v1, ►main),
+                        ],
+                        metadata: "None",
+                        connections: [
+                            Connection {
+                                target: 1,
+                                src: Some(
+                                    0,
+                                ),
+                                src_id: Some(
+                                    Sha1(541396b24e13b8ac45b7905c3fe8691c7fc5fbd0),
+                                ),
+                                dst: Some(
+                                    0,
+                                ),
+                                dst_id: Some(
+                                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                                ),
+                            },
+                        ],
+                    },
+                ),
+                Some(
+                    Segment {
+                        id: 1,
+                        generation: 1,
+                        ref_info: "►other",
+                        remote_tracking_ref_name: None,
+                        sibling_segment_id: None,
+                        remote_tracking_branch_segment_id: None,
+                        commits: [
+                            Commit(fafd9d0, ⌂|1),
+                        ],
+                        metadata: "None",
+                        connections: [],
+                    },
+                ),
+            ],
+            free: [],
         },
         entrypoint: Some(
             (
-                NodeIndex(0),
+                0,
                 AtCommit(
                     Sha1(541396b24e13b8ac45b7905c3fe8691c7fc5fbd0),
                 ),
@@ -1344,7 +1343,7 @@ fn with_limits() -> anyhow::Result<()> {
         segments_behind_of_entrypoint: 4,
         segments_ahead_of_entrypoint: 0,
         entrypoint: (
-            NodeIndex(0),
+            0,
             Some(
                 0,
             ),
@@ -1358,7 +1357,7 @@ fn with_limits() -> anyhow::Result<()> {
                         "refs/heads/C",
                     ),
                 ),
-                NodeIndex(0),
+                0,
                 Some(
                     CommitFlags(
                         NotInRemote | 0x10,
