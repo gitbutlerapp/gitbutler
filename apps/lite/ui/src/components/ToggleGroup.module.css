@@ -38,7 +38,7 @@
 	}
 }
 
-/* In single-select groups, the pressed item can't be unpressed — block interaction */
+/* In single-select groups, the pressed item can't be unpressed — prevent hover */
 /* data-orientation is only set by Base UI on real ToggleGroup elements, not standalone wrappers */
 .group[data-orientation]:not([data-multiple]) .item[data-pressed] {
 	pointer-events: none;
