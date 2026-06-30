@@ -108,6 +108,22 @@ impl CommitGraph {
         graph
     }
 
+    /// Bridge (spike): build a commit graph from the existing segment graph, so the StepGraph and
+    /// projection builders can be exercised against it without first rewriting traversal. Every
+    /// segment's commits become nodes; their `parent_ids` are the edges, and the entrypoint commit
+    /// carries over.
+    pub fn from_segment_graph(graph: &crate::Graph) -> Self {
+        let entrypoint = graph
+            .entrypoint()
+            .ok()
+            .and_then(|ep| ep.commit_and_owner.map(|(c, _)| c.id));
+        let commits = graph
+            .node_weights()
+            .flat_map(|s| s.commits.iter().cloned())
+            .collect::<Vec<_>>();
+        CommitGraph::from_commits(commits, entrypoint)
+    }
+
     /// The node at `id`, if present.
     pub fn node(&self, id: gix::ObjectId) -> Option<&CommitNode> {
         self.by_id.get(&id).map(|&idx| &self.nodes[idx])
@@ -284,6 +300,37 @@ mod tests {
         assert_eq!(g.node(id(3)).unwrap().generation, 2);
         // No boundaries on a plain linear chain → the whole thing is one run.
         assert_eq!(g.first_parent_run(id(3)), vec![id(3), id(2), id(1)]);
+    }
+
+    #[test]
+    fn bridge_from_segment_graph_captures_commits_and_parents() {
+        // Build a tiny real segment graph: segment A (a2 -> a1) on base segment B (b0).
+        let mut graph = crate::Graph::default();
+        let a = graph.insert_segment_set_entrypoint(crate::Segment {
+            commits: vec![commit(0xA2, &[0xA1]), commit(0xA1, &[0xB0])],
+            ..Default::default()
+        });
+        graph.connect_new_segment(
+            a,
+            1, // from a1 (A's second commit)
+            crate::Segment {
+                commits: vec![commit(0xB0, &[])],
+                ..Default::default()
+            },
+            0,
+            id(0xB0),
+        );
+
+        let cg = CommitGraph::from_segment_graph(&graph);
+        // All three commits made it across, with their parent edges intact.
+        assert!(cg.node(id(0xA2)).is_some() && cg.node(id(0xA1)).is_some() && cg.node(id(0xB0)).is_some());
+        assert_eq!(cg.first_parent(id(0xA2)), Some(id(0xA1)));
+        assert_eq!(cg.first_parent(id(0xA1)), Some(id(0xB0)));
+        assert_eq!(cg.first_parent(id(0xB0)), None);
+        // Reverse adjacency derived correctly.
+        assert_eq!(cg.children(id(0xB0)).collect::<Vec<_>>(), vec![id(0xA1)]);
+        // Entrypoint commit carried over (A is the entrypoint segment; its tip is a2).
+        assert_eq!(cg.entrypoint, Some(id(0xA2)));
     }
 
     #[test]
