@@ -573,6 +573,10 @@ export class StackService {
 		return this.backendApi.endpoints.unapply.mutate;
 	}
 
+	get landBranch() {
+		return this.backendApi.endpoints.landBranch.mutate;
+	}
+
 	get discardChanges() {
 		return this.backendApi.endpoints.discardChanges.mutate;
 	}

@@ -4,6 +4,7 @@ This component keeps the analytics context up-to-date, i.e. the metadata
 attached to posthog events.
 -->
 <script lang="ts">
+	import { projectLandDirectly } from "$lib/config/config";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { EVENT_CONTEXT } from "$lib/telemetry/eventContext";
 	import { inject } from "@gitbutler/core/context";
@@ -15,6 +16,7 @@ attached to posthog events.
 
 	const globalState = uiState.global;
 	const projectState = $derived(uiState.project(projectId));
+	const landDirectly = $derived(projectLandDirectly(projectId));
 
 	$effect(() => {
 		eventContext.update({
@@ -43,6 +45,12 @@ attached to posthog events.
 	$effect(() => {
 		eventContext.update({
 			v3: true,
+		});
+	});
+
+	$effect(() => {
+		eventContext.update({
+			landDirectly: $landDirectly,
 		});
 	});
 </script>
