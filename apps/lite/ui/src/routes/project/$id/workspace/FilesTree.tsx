@@ -1,4 +1,5 @@
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
@@ -137,13 +138,21 @@ export const FilesTree: FC<
 		select: getHeadInfoIndex,
 	});
 
-	const ref = useRef<HTMLDivElement>(null);
+	const treeRef = useRef<HTMLDivElement>(null);
+	const virtRef = useRef<HTMLDivElement>(null);
+
+	// oxlint-disable-next-line react-hooks-js/incompatible-library
+	const rowVirtualizer = useVirtualizer({
+		count: items.length,
+		getScrollElement: () => virtRef.current,
+		estimateSize: () => 28,
+	});
 
 	useFilesTreeHotkeys({
 		navigationIndex,
 		onFileSelection,
 		projectId,
-		ref,
+		ref: treeRef,
 		fileParent,
 	});
 
@@ -155,9 +164,9 @@ export const FilesTree: FC<
 				role="tree"
 				aria-activedescendant={selection !== null ? treeItemId(selection) : undefined}
 				className={classes(props.className, styles.tree)}
-				ref={useMergedRefs(refProp, ref)}
+				ref={useMergedRefs(refProp, treeRef)}
 			>
-				<div className={styles.section}>
+				<div className={styles.section} style={{ maxHeight: "100%" }}>
 					{items.length === 0 ? (
 						<WorkspaceItemRow interactive={false}>
 							<WorkspaceItemRowLabelContainer>
@@ -168,37 +177,61 @@ export const FilesTree: FC<
 						</WorkspaceItemRow>
 					) : (
 						// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation.
-						<div role="group">
-							{items.map((item) => (
-								<TreeItem
-									key={item.path}
-									projectId={projectId}
-									path={item.path}
-									aria-label={
-										item._tag === "Change"
-											? `${item.change.status.type} ${item.change.path}`
-											: `Conflict ${item.path}`
-									}
-									render={
-										<OperationSourceC
-											projectId={projectId}
-											source={fileOperand({ parent: fileParent, path: item.path })}
-											render={
-												<FileRow
-													item={item}
-													path={item.path}
-													onFileSelection={onFileSelection}
-													projectId={projectId}
-													fileParent={fileParent}
-													branchNameByCommitId={(cid) =>
-														headInfoIndex?.commitContextById(cid)?.segment.refName?.displayName
-													}
-												/>
-											}
-										/>
-									}
-								/>
-							))}
+						<div role="group" ref={virtRef} style={{ maxHeight: "100%", overflow: "auto" }}>
+							<div
+								style={{
+									height: rowVirtualizer.getTotalSize(),
+									width: "100%",
+									position: "relative",
+								}}
+							>
+								{rowVirtualizer.getVirtualItems().map((virtItem) => {
+									// oxlint-disable-next-line no-non-null-assertion
+									const item = items[virtItem.index]!;
+									return (
+										<div
+											key={virtItem.key}
+											style={{
+												position: "absolute",
+												top: 0,
+												left: 0,
+												width: "100%",
+												height: virtItem.size,
+												transform: `translateY(${virtItem.start}px)`,
+											}}
+										>
+											<TreeItem
+												projectId={projectId}
+												path={item.path}
+												aria-label={
+													item._tag === "Change"
+														? `${item.change.status.type} ${item.change.path}`
+														: `Conflict ${item.path}`
+												}
+												render={
+													<OperationSourceC
+														projectId={projectId}
+														source={fileOperand({ parent: fileParent, path: item.path })}
+														render={
+															<FileRow
+																item={item}
+																path={item.path}
+																onFileSelection={onFileSelection}
+																projectId={projectId}
+																fileParent={fileParent}
+																branchNameByCommitId={(cid) =>
+																	headInfoIndex?.commitContextById(cid)?.segment.refName
+																		?.displayName
+																}
+															/>
+														}
+													/>
+												}
+											/>
+										</div>
+									);
+								})}
+							</div>
 						</div>
 					)}
 				</div>
