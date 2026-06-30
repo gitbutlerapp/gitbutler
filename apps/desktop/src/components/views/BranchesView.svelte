@@ -23,6 +23,7 @@
 	import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
 	import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
 	import { workspacePath } from "$lib/routes/routes.svelte";
+	import { handleApplyOutcome } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
 	import { inject } from "@gitbutler/core/context";
@@ -97,15 +98,20 @@
 		defaultValue: 20,
 	};
 
-	async function checkoutBranch(args: { branchName: string; remote?: string; hasLocal: boolean }) {
+	async function applyBranchToWorkspace(args: {
+		branchName: string;
+		remote?: string;
+		hasLocal: boolean;
+	}) {
 		const { remote, hasLocal, branchName } = args;
 		const remoteRef = remote ? `refs/remotes/${remote}/${branchName}` : undefined;
 		const branchRef = hasLocal ? `refs/heads/${branchName}` : remoteRef;
 		if (branchRef) {
-			await stackService.branchApply({
+			const outcome = await stackService.branchApply({
 				projectId,
 				existingBranch: branchRef,
 			});
+			handleApplyOutcome(outcome);
 			await baseBranchService.refreshBaseBranch(projectId);
 		}
 		goto(workspacePath(projectId));
@@ -320,7 +326,7 @@
 													icon="workbench"
 													shrinkable
 													action={async () => {
-														await checkoutBranch({ remote, branchName, hasLocal });
+														await applyBranchToWorkspace({ remote, branchName, hasLocal });
 													}}
 												>
 													Apply to workspace

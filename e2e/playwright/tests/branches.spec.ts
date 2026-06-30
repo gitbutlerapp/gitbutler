@@ -263,7 +263,7 @@ test("should handle gracefully applying two conflicting branches", async ({ page
 	await clickByTestId(page, "branches-view-apply-branch-button");
 	await waitForTestId(page, "workspace-view");
 
-	await waitForTestId(page, "stacks-unapplied-toast");
+	await waitForTestId(page, "branch-apply-conflict-toast");
 });
 
 test("should update the stale selection of an unexisting branch", async ({ page, gitbutler }) => {
