@@ -1,34 +1,28 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context as _, bail, ensure};
-use bstr::ByteSlice;
 use but_core::{
     RefMetadata, extract_remote_name_and_short_name,
     ref_metadata::{self, ProjectMeta},
 };
-use gix::{
-    hashtable::hash_map::Entry,
-    prelude::{ObjectIdExt, ReferenceExt},
-    refs::Category,
-};
+use gix::prelude::{ObjectIdExt, ReferenceExt};
 use tracing::instrument;
 
-use crate::{
-    CommitFlags, CommitIndex, Connection, EntryPointCommit, Graph, SegmentIndex, SegmentMetadata,
-};
+use crate::{CommitFlags, CommitIndex, Connection, Graph, SegmentIndex, SegmentMetadata};
 
 mod walk;
 use walk::*;
 
 pub(crate) mod types;
-use types::{Goals, Instruction, Limit, Queue};
+use types::{Goals, Limit};
 
 use crate::init::overlay::{OverlayMetadata, OverlayRepo};
 
 mod remotes;
 
-mod overlay;
-mod post;
+mod ad_hoc;
+pub(crate) mod native_walk;
+pub(crate) mod overlay;
 
 pub(crate) type Entrypoint = Option<(gix::ObjectId, Option<gix::refs::FullName>)>;
 
@@ -38,14 +32,14 @@ pub(crate) type Entrypoint = Option<(gix::ObjectId, Option<gix::refs::FullName>)
 /// ## Traversal invariants
 ///
 /// The traversal will build a segment graph, where Segments follow specific rules.
-/// We differentiate between [tip segments](Segment), segments created from [Tip]s, (*TS*) and
+/// We differentiate between [tip segments](crate::Segment), segments created from [Tip]s, (*TS*) and
 /// ancestor segments (*AS*), which are ancestors of *TS* and connected to them by outgoing
 /// connections.
 ///
-/// - Virtual segments (*VS*) are created in a post-processing step to represent refs
-///   which are described in [but_core::ref_metadata::Workspace]. They are [named](Segment::ref_name())
+/// - Virtual segments (*VS*) are minted by lane materialization to represent refs
+///   which are described in [but_core::ref_metadata::Workspace]. They are [named](crate::Segment::ref_name())
 ///   and always empty graph nodes, and ordinary virtual segments have *exactly one*
-///   outgoing connection that lets [Graph::resolve_to_unambiguously_pointed_to_commit()]
+///   outgoing connection that lets `Graph::resolve_to_unambiguously_pointed_to_commit()`
 ///   find the commit named by the ref. The commit is owned by another segment, sometimes
 ///   because another segment was prioritized when multiple refs point to the same commit.
 /// - The virtual workspace tip segment is a special kind of *VS*, which may have one or more
@@ -54,17 +48,17 @@ pub(crate) type Entrypoint = Option<(gix::ObjectId, Option<gix::refs::FullName>)
 ///   be followed, yielding multiple commits.
 ///   Note that ordinary workspace tip segments may also exist as *TS*, which do own a commit,
 ///   which *typically* is the workspace commit.
-/// - After the traversal, before post-processing, forks and joins of the underlying
+/// - Forks and joins of the underlying
 ///   commit graph are represented by segments. This allows traversals or
 ///   graph computations, like merge-bases, to work the same as on the commit-graph, but
 ///   possibly with less jumps among nodes as segments may contain more than one commit,
 ///   allowing to skip over uninteresting commits naturally.
-/// - After post-processing, the graph may not fully represent the commit-graph anymore
+/// - The built graph may not fully represent the commit-graph
 ///   due to the creation of *VS*. What makes a *VS* virtual is not the ref itself,
 ///   but that its relationship to other segments is not represented by the Git
 ///   commit-graph or by Git refs: to Git, these are refs pointing to the same commit,
 ///   while GitButler sees one or more stacks of branches with specific ordering.
-/// - *TS* with [Self::ref_name] set will return that as [Segment::ref_name()].
+/// - *TS* with [Self::ref_name] set will return that as [crate::Segment::ref_name()].
 /// - *TS* that contain [Self::id] contain it as first commit
 /// - *TS* that don't contain [Self::id] are empty and can find their commit by following
 ///   their only outgoing connection until a non-empty commit is found which contains
@@ -161,7 +155,7 @@ impl Tip {
     }
 
     /// Set whether this tip is the traversal entrypoint.
-    pub fn with_is_entrypoint(mut self, is_entrypoint: bool) -> Self {
+    pub(crate) fn with_is_entrypoint(mut self, is_entrypoint: bool) -> Self {
         self.is_entrypoint = is_entrypoint;
         self
     }
@@ -179,7 +173,7 @@ impl Tip {
     }
 
     /// Mark this entrypoint as detached for segment presentation.
-    pub fn with_detached_entrypoint(mut self) -> Self {
+    pub(crate) fn with_detached_entrypoint(mut self) -> Self {
         self = self.with_is_entrypoint(true).with_is_detached(true);
         self
     }
@@ -339,7 +333,7 @@ type WorkspaceTargetTip = (gix::refs::FullName, gix::ObjectId, Option<LocalTrack
 ///
 /// [`queue_initial_tips()`] consumes this value to create graph *segments*, seed
 /// the traversal queue, and provide the auxiliary ref and remote information
-/// needed by traversal and post-processing.
+/// needed by the traversal and the graph build.
 ///
 /// This means that each of these tip *will get its own possibly empty* graph segment.
 struct InitialTips {
@@ -395,22 +389,6 @@ struct TargetLocalLinks {
     local_by_target: BTreeMap<gix::refs::FullName, gix::refs::FullName>,
     /// Target remote ref by local tracking ref.
     target_by_local: BTreeMap<gix::refs::FullName, gix::refs::FullName>,
-}
-
-/// An integrated target that has a segment but cannot be queued yet.
-///
-/// This temporary state is needed when the target should be linked to a local
-/// tracking branch that appears later in the normalized initial-tip list. Once
-/// the local side exists, the pending target can be queued with the correct
-/// sibling relationship and goal.
-struct PendingIntegratedTip {
-    /// Commit id of the integrated target.
-    id: gix::ObjectId,
-    /// Segment created for the integrated target before it is queued.
-    segment: SegmentIndex,
-    /// Whether to insert the target before existing initial queue work once it
-    /// is released.
-    queue_front: bool,
 }
 
 /// A way to define information to be served from memory, instead of from the underlying data source, when
@@ -478,11 +456,6 @@ pub struct Options {
     /// to extend the border of the workspace. Typically, it's a past position
     /// of an existing target, or a target chosen by the user.
     pub extra_target_commit_id: Option<gix::ObjectId>,
-    /// Enabling this will prevent the postprocessing step to run which is what makes the graph useful through clean-up
-    /// and to make it more amenable to a workspace project.
-    ///
-    /// This should only be used in case post-processing fails and one wants to preview the version before that.
-    pub dangerously_skip_postprocessing_for_debugging: bool,
 }
 
 /// Presets
@@ -537,7 +510,7 @@ impl Options {
     /// The commit is queued like an integrated target so traversal can connect
     /// the workspace to history that may otherwise be outside the ordinary
     /// target ref or workspace metadata. The tip is also kept as a tip of
-    /// interest and re-resolved after post-processing so workspace projection
+    /// interest and re-resolved against the built graph so workspace projection
     /// can use it as a past target/base candidate.
     pub fn with_extra_target_commit_id(mut self, id: impl Into<gix::ObjectId>) -> Self {
         self.extra_target_commit_id = Some(id.into());
@@ -557,6 +530,9 @@ impl Graph {
         options: Options,
     ) -> anyhow::Result<Self> {
         let head = repo.head()?;
+        // The dispatch lives in `from_commit_traversal` (which every case below delegates to):
+        // a checkout inside a managed workspace — including HEAD on the workspace ref itself —
+        // builds via the managed builder, everything else via the non-managed one.
         let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {
@@ -641,7 +617,7 @@ impl Graph {
     /// * Multiple tips with different [roles](TipRole) may point to the same commit id,
     ///   as multiple refs can name the same commit.
     /// * A detached tip must be the entrypoint and cannot carry a ref name.
-    /// * The entrypoint always causes the start of a [`Segment`].
+    /// * The entrypoint always causes the start of a [`crate::Segment`].
     /// * Tips discovered from workspace metadata preserve their queue order.
     ///   Explicit tips without a custom queue position are normalized into
     ///   deterministic traversal order: integrated and target tips first,
@@ -662,7 +638,7 @@ impl Graph {
     /// * Remote tracking branches are picked up during traversal for any ref
     ///   that we reached through traversal.
     ///     - Remote tracking branches are discovered only for refs encountered
-    ///       during traversal. Segments created later during post-processing,
+    ///       during traversal. Segments minted later during the graph build,
     ///       especially virtual or empty segments, do not cause additional remote
     ///       traversal.
     ///     - Remote tracking branches never take commits that are already owned.
@@ -680,24 +656,30 @@ impl Graph {
     ) -> anyhow::Result<Self> {
         let repo = tip.repo;
         let tip = tip.detach();
-        let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
         let ref_name = ref_name.into();
-        let tips = initial_tips_from_workspace_metadata(
-            &overlay_repo,
-            &overlay_meta,
-            tip,
-            ref_name.as_ref(),
-            &project_meta,
-            options.extra_target_commit_id,
-        )?;
-        Graph::traverse_tips_with_overlay(
-            &overlay_repo,
-            tips,
-            &overlay_meta,
-            project_meta,
-            options,
-            ref_name,
-        )
+        // Build from a CommitGraph: inside a managed workspace with an entrypoint split, else via
+        // the non-managed builder. A workspace-ref tip is the plain from_head case (no explicit
+        // entrypoint).
+        let is_ws_tip = ref_name
+            .as_ref()
+            .is_some_and(|r| but_core::is_workspace_ref_name(r.as_ref()));
+        let (entrypoint, entrypoint_ref) = if is_ws_tip {
+            (None, None)
+        } else {
+            (Some(tip), ref_name.clone())
+        };
+        if let Some(graph) = crate::graph_from_repository(
+            repo,
+            meta,
+            entrypoint,
+            entrypoint_ref,
+            project_meta.clone(),
+            options.clone(),
+        )? {
+            return Ok(graph);
+        }
+        // No managed workspace, or the entrypoint is outside it: the non-managed builder.
+        crate::graph_from_repository_unmanaged(repo, meta, tip, ref_name, project_meta, options)
     }
 
     /// Produce a graph from already resolved tips and their traversal roles.
@@ -712,7 +694,7 @@ impl Graph {
     /// contain exactly one tip whose [`Tip::is_entrypoint`] flag is set.
     /// `meta` provides branch metadata for any refs encountered while walking.
     /// `options` controls tag collection, traversal limits, additional
-    /// integrated tips, and post-processing behavior.
+    /// integrated tips, and graph-build behavior.
     pub fn from_commit_traversal_tips(
         repo: &gix::Repository,
         tips: impl IntoIterator<Item = Tip>,
@@ -721,8 +703,50 @@ impl Graph {
         options: Options,
     ) -> anyhow::Result<Self> {
         let tips: Vec<_> = tips.into_iter().collect();
-        let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
-        Graph::traverse_tips_with_overlay(
+        // Build from a CommitGraph derived from the same tips traversal.
+        crate::graph_from_repository_tips(repo, meta, tips, project_meta, options)
+    }
+    /// NATIVE twin of [`Self::from_commit_traversal_with_overlay`]: same seeding, commits
+    /// accumulated directly (see `native_walk`).
+    pub(crate) fn native_from_commit_traversal_with_overlay(
+        repo: &gix::Repository,
+        tip: gix::ObjectId,
+        ref_name: Option<gix::refs::FullName>,
+        meta: &impl RefMetadata,
+        project_meta: ProjectMeta,
+        options: Options,
+        overlay: Overlay,
+    ) -> anyhow::Result<native_walk::NativeOutcome> {
+        let (overlay_repo, overlay_meta, _entrypoint) = overlay.into_parts(repo, meta);
+        let tips = initial_tips_from_workspace_metadata(
+            &overlay_repo,
+            &overlay_meta,
+            tip,
+            ref_name.as_ref(),
+            &project_meta,
+            options.extra_target_commit_id,
+        )?;
+        native_walk::traverse(
+            &overlay_repo,
+            tips,
+            &overlay_meta,
+            project_meta,
+            options,
+            ref_name,
+        )
+    }
+
+    /// NATIVE twin of [`Self::from_commit_traversal_tips_with_overlay`].
+    pub(crate) fn native_from_commit_traversal_tips_with_overlay(
+        repo: &gix::Repository,
+        tips: Vec<Tip>,
+        meta: &impl RefMetadata,
+        project_meta: ProjectMeta,
+        options: Options,
+        overlay: Overlay,
+    ) -> anyhow::Result<native_walk::NativeOutcome> {
+        let (overlay_repo, overlay_meta, _entrypoint) = overlay.into_parts(repo, meta);
+        native_walk::traverse(
             &overlay_repo,
             tips,
             &overlay_meta,
@@ -732,296 +756,13 @@ impl Graph {
         )
     }
 
-    fn traverse_tips_with_overlay<T: RefMetadata>(
-        repo: &OverlayRepo<'_>,
-        tips: Vec<Tip>,
-        meta: &OverlayMetadata<'_, T>,
-        project_meta: ProjectMeta,
-        options: Options,
-        entrypoint_ref_override: Option<gix::refs::FullName>,
-    ) -> anyhow::Result<Self> {
-        let entrypoint = validate_explicit_tips(repo, &tips, entrypoint_ref_override.as_ref())?;
-        let tip = entrypoint.id;
-        let ref_name = if entrypoint.is_detached {
-            None
-        } else {
-            entrypoint_ref_override.or_else(|| entrypoint.ref_name.clone())
-        };
-        let detach_entrypoint = entrypoint.is_detached;
-
-        {
-            if let Some(name) = &ref_name {
-                let span = tracing::Span::current();
-                span.record("ref_name", name.as_bstr().to_str_lossy().as_ref());
-            }
-        }
-        let mut graph = Graph {
-            options: options.clone(),
-            entrypoint_ref: ref_name.clone(),
-            project_meta,
-            ..Graph::default()
-        };
-        let Options {
-            collect_tags,
-            extra_target_commit_id,
-            commits_limit_hint: limit,
-            commits_limit_recharge_location: mut max_commits_recharge_location,
-            hard_limit,
-            dangerously_skip_postprocessing_for_debugging,
-        } = options;
-        let max_limit = Limit::new(limit);
-        if ref_name
-            .as_ref()
-            .is_some_and(|name| name.category() == Some(Category::RemoteBranch))
-        {
-            // TODO: see if this is a thing - Git doesn't like to checkout remote tracking branches by name,
-            //       and if we should handle it, we need to setup the initial flags accordingly.
-            //       Also we have to assure not to double-traverse the ref, once as tip and once by discovery.
-            bail!("Cannot currently handle remotes as start position");
-        }
-        let commit_graph = repo.commit_graph_if_enabled()?;
-        let shallow_commits = repo.shallow_commits()?;
-        let mut buf = Vec::new();
-
-        let configured_remote_tracking_branches =
-            remotes::configured_remote_tracking_branches(repo)?;
-        let initial_tips =
-            initial_tips_from_tips(repo, tips, &graph.project_meta, extra_target_commit_id);
-        graph.traversal_tips = initial_tips.tips.clone();
-        let refs_by_id = repo.collect_ref_mapping_by_prefix(
-            [
-                "refs/heads/",
-                // Remote refs are special as we collect them into commits to know about them,
-                // just to later remove them unless they are on an actual remote commit.
-                // In that case, we also split the segment there if the previous segment then wouldn't be empty.
-                // Naturally we only pick them up and segment them if they are added by the local tracking branch
-                // that was seen in the walk before.
-                "refs/remotes/",
-            ]
-            .into_iter()
-            .chain(if collect_tags {
-                Some("refs/tags/")
-            } else {
-                None
-            }),
-            &initial_tips
-                .workspace_ref_names
-                .iter()
-                .map(|ref_name| ref_name.as_ref())
-                .collect::<Vec<_>>(),
-        )?;
-        let mut seen = gix::revwalk::graph::IdMap::<SegmentIndex>::default();
-        let mut goals = Goals::default();
-        // The tip transports itself.
-        let tip_flags = CommitFlags::NotInRemote
-            | goals
-                .flag_for(tip)
-                .expect("we more than one bitflags for this");
-
-        let mut next = Queue::new_with_limit(hard_limit);
-        let worktree_by_branch =
-            repo.worktree_branches(graph.entrypoint_ref.as_ref().map(|r| r.as_ref()))?;
-
-        let mut ctx = post::Context {
-            repo,
-            symbolic_remote_names: &initial_tips.symbolic_remote_names,
-            configured_remote_tracking_branches: &configured_remote_tracking_branches,
-            inserted_proxy_segments: Vec::new(),
-            refs_by_id,
-            hard_limit: false,
-            detach_entrypoint,
-            dangerously_skip_postprocessing_for_debugging,
-            worktree_by_branch,
-        };
-
-        let target_limit = max_limit
-            .with_indirect_goal(tip, &mut goals)
-            .without_allowance();
-        ctx.inserted_proxy_segments = queue_initial_tips(
-            &mut graph,
-            &mut next,
-            &initial_tips,
-            tip,
-            tip_flags,
-            max_limit,
-            target_limit,
-            &mut goals,
-            commit_graph.as_ref(),
-            repo,
-            meta,
-            &ctx,
-            &mut buf,
-        )?;
-        max_commits_recharge_location.sort();
-        let mut points_of_interest_to_traverse_first = next.iter().count();
-        while let Some((info, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
-            points_of_interest_to_traverse_first =
-                points_of_interest_to_traverse_first.saturating_sub(1);
-
-            let id = info.id;
-            if max_commits_recharge_location.binary_search(&id).is_ok() {
-                limit.set_but_keep_goal(max_limit);
-            }
-            let src_flags = graph[instruction.segment_idx()]
-                .commits
-                .last()
-                .map(|c| c.flags)
-                .unwrap_or_default();
-
-            // These flags might be outdated as they have been queued, meanwhile we may have propagated flags.
-            // So be sure this gets picked up.
-            propagated_flags |= src_flags;
-            let is_shallow_boundary = shallow_commits
-                .as_ref()
-                .is_some_and(|boundary| boundary.binary_search(&id).is_ok());
-            if is_shallow_boundary {
-                propagated_flags |= CommitFlags::ShallowBoundary;
-            }
-            let segment_idx_for_id = match instruction {
-                Instruction::CollectCommit { into: src_sidx } => match seen.entry(id) {
-                    Entry::Occupied(_) => {
-                        possibly_split_occupied_segment(
-                            &mut graph,
-                            &mut seen,
-                            &mut next,
-                            id,
-                            propagated_flags,
-                            src_sidx,
-                            limit,
-                        )?;
-                        continue;
-                    }
-                    Entry::Vacant(e) => {
-                        let src_sidx = try_split_non_empty_segment_at_branch(
-                            &mut graph,
-                            src_sidx,
-                            &info,
-                            &ctx.refs_by_id,
-                            meta,
-                            &ctx.worktree_by_branch,
-                        )?
-                        .unwrap_or(src_sidx);
-                        e.insert(src_sidx);
-                        src_sidx
-                    }
-                },
-                Instruction::ConnectNewSegment {
-                    parent_above,
-                    at_commit,
-                } => match seen.entry(id) {
-                    Entry::Occupied(_) => {
-                        possibly_split_occupied_segment(
-                            &mut graph,
-                            &mut seen,
-                            &mut next,
-                            id,
-                            propagated_flags,
-                            parent_above,
-                            limit,
-                        )?;
-                        continue;
-                    }
-                    Entry::Vacant(e) => {
-                        let segment_below = branch_segment_from_name_and_meta(
-                            None,
-                            meta,
-                            Some((&ctx.refs_by_id, id)),
-                            &ctx.worktree_by_branch,
-                        )?;
-                        let segment_below = graph.connect_new_segment(
-                            parent_above,
-                            at_commit as CommitIndex,
-                            segment_below,
-                            0,
-                            id,
-                        );
-                        e.insert(segment_below);
-                        segment_below
-                    }
-                },
-            };
-
-            let refs_at_commit_before_removal = ctx.refs_by_id.remove(&id).unwrap_or_default();
-            let RemoteQueueOutcome {
-                items_to_queue_later: remote_items_to_queue_later,
-                maybe_make_id_a_goal_so_remote_can_find_local,
-                limit_to_let_local_find_remote,
-            } = try_queue_remote_tracking_branches(
-                repo,
-                &refs_at_commit_before_removal,
-                &mut graph,
-                &initial_tips.symbolic_remote_names,
-                &configured_remote_tracking_branches,
-                &initial_tips.target_refs,
-                meta,
-                id,
-                limit,
-                &mut goals,
-                &next,
-                &ctx.worktree_by_branch,
-                commit_graph.as_ref(),
-                repo.for_find_only(),
-                &mut buf,
-            )?;
-
-            let segment = &mut graph[segment_idx_for_id];
-            let commit_idx_for_possible_fork = segment.commits.len();
-            let propagated_flags = propagated_flags | maybe_make_id_a_goal_so_remote_can_find_local;
-            queue_parents(
-                &mut next,
-                &info.parent_ids,
-                propagated_flags,
-                segment_idx_for_id,
-                commit_idx_for_possible_fork,
-                limit.additional_goal(limit_to_let_local_find_remote),
-                is_shallow_boundary,
-                commit_graph.as_ref(),
-                repo.for_find_only(),
-                &mut buf,
-            )?;
-
-            segment.commits.push(
-                info.into_commit(
-                    segment
-                        .commits
-                        // Flags are additive, and meanwhile something may have dumped flags on us
-                        // so there is more compared to when the 'flags' value was put onto the queue.
-                        .last()
-                        .map_or(propagated_flags, |last| last.flags | propagated_flags),
-                    refs_at_commit_before_removal
-                        .clone()
-                        .into_iter()
-                        .filter(|rn| segment.ref_name() != Some(rn.as_ref()))
-                        .collect(),
-                    &ctx.worktree_by_branch,
-                )?,
-            );
-
-            for item in remote_items_to_queue_later {
-                if next.push_back_exhausted(item) {
-                    // The break here means we may end up with unconnected remote tracking ref segments,
-                    // that's fine. If it ever is not, we should remove the hard limit.
-                    break;
-                }
-            }
-
-            prune_integrated_tips(&mut graph, &mut next)?;
-            if points_of_interest_to_traverse_first == 0 {
-                next.sort();
-            }
-        }
-
-        ctx.hard_limit = next.hard_limit_hit();
-        graph.post_processed(meta, tip, ctx)
-    }
-
     /// Take the ref-info from a named segment and put it back onto the first commit
     /// where it pointed to before it was lifted up.
     ///
     /// Graph traversal eagerly names segments from refs pointing at their
     /// first commit. Detached entrypoints keep those refs on the commit, but
     /// the entrypoint segment itself must stay anonymous.
-    fn detach_entrypoint_segment(&mut self) -> anyhow::Result<()> {
+    pub(crate) fn detach_entrypoint_segment(&mut self) -> anyhow::Result<()> {
         let sidx = self
             .entrypoint
             .context("BUG: entrypoint is set after first traversal")?
@@ -1046,6 +787,7 @@ impl Graph {
         meta: &impl RefMetadata,
         overlay: Overlay,
     ) -> anyhow::Result<Self> {
+        let overlay_for_flip = overlay.clone();
         let (repo, meta, entrypoint) = overlay.into_parts(repo, meta);
         let (tip, ref_name) = match entrypoint {
             Some(t) => t,
@@ -1081,21 +823,36 @@ impl Graph {
                 (tip, ref_name)
             }
         };
-        let tips = initial_tips_from_workspace_metadata(
-            &repo,
-            &meta,
-            tip,
-            ref_name.as_ref(),
-            &self.project_meta,
-            self.options.extra_target_commit_id,
-        )?;
-        Graph::traverse_tips_with_overlay(
-            &repo,
-            tips,
-            &meta,
+        // The same dispatch as `from_commit_traversal`, with the overlay served from memory by
+        // the builders.
+        let is_ws_tip = ref_name
+            .as_ref()
+            .is_some_and(|r| but_core::is_workspace_ref_name(r.as_ref()));
+        let (flip_ep, flip_ep_ref) = if is_ws_tip {
+            (None, None)
+        } else {
+            (Some(tip), ref_name.clone())
+        };
+        if let Some(graph) = crate::graph_from_repository_with_overlay(
+            repo.for_attach_only(),
+            meta.for_inner_only(),
+            flip_ep,
+            flip_ep_ref,
             self.project_meta.clone(),
             self.options.clone(),
+            overlay_for_flip.clone(),
+        )? {
+            return Ok(graph);
+        }
+        // No managed workspace, or the entrypoint is outside it: the non-managed builder.
+        crate::graph_from_repository_unmanaged_with_overlay(
+            repo.for_attach_only(),
+            meta.for_inner_only(),
+            tip,
             ref_name,
+            self.project_meta.clone(),
+            self.options.clone(),
+            overlay_for_flip,
         )
     }
 
@@ -1202,7 +959,7 @@ fn validate_tip_ref(
 /// The traversal seed is the commit id, the traversal role, and whether the tip
 /// is the entrypoint. Labels and presentation data like `ref_name`, metadata,
 /// detached entrypoint mode, and caller order are intentionally ignored here:
-/// they can affect naming, post-processing, or stable tie-breaking, but they
+/// they can affect naming, the graph build, or stable tie-breaking, but they
 /// don't make it useful to enqueue the same commit with the same traversal
 /// semantics twice.
 fn tips_have_same_traversal_seed(previous: &Tip, tip: &Tip) -> bool {
@@ -1353,7 +1110,7 @@ fn tips_in_queue_order(
 ///
 /// Workspace, workspace-stack, and target-local tips are not just additional
 /// roots. Their relative order influences which segment owns a shared commit
-/// and how post-processing reconstructs virtual workspace and stack segments.
+/// and how the graph build mints virtual workspace and stack segments.
 /// Detecting such tips switches sorting from "mostly preserve caller order" to
 /// "rebuild the metadata order deterministically".
 fn has_workspace_related_tips(tips: &[Tip]) -> bool {
@@ -1824,294 +1581,6 @@ fn sorted_symbolic_remote_names(names: impl Iterator<Item = (usize, String)>) ->
     names.sort();
     names.dedup();
     names.into_iter().map(|(_order, remote)| remote).collect()
-}
-
-/// Insert initial segments, seed the traversal queue, and return workspace
-/// ownership roots for post-processing.
-#[expect(clippy::too_many_arguments)]
-fn queue_initial_tips<T: RefMetadata>(
-    graph: &mut Graph,
-    next: &mut Queue,
-    initial_tips: &InitialTips,
-    entrypoint: gix::ObjectId,
-    entrypoint_flags: CommitFlags,
-    max_limit: Limit,
-    target_limit: Limit,
-    goals: &mut Goals,
-    commit_graph: Option<&gix::commitgraph::Graph>,
-    repo: &OverlayRepo<'_>,
-    meta: &OverlayMetadata<'_, T>,
-    ctx: &post::Context<'_>,
-    buf: &mut Vec<u8>,
-) -> anyhow::Result<Vec<SegmentIndex>> {
-    // `target_local_segments` holds the local side once its segment and goal
-    // exist. `pending_integrated_tips` holds the remote target side if it
-    // appears first. Both maps are keyed by target remote ref names inferred
-    // from tip refs and repository branch configuration.
-    let mut target_local_segments =
-        BTreeMap::<gix::refs::FullName, (Option<SegmentIndex>, CommitFlags)>::new();
-    let mut pending_integrated_tips = BTreeMap::<gix::refs::FullName, PendingIntegratedTip>::new();
-
-    for tip in &initial_tips.tips {
-        match &tip.role {
-            TipRole::WorkspaceStackBranch { .. } if next.iter().any(|t| t.0.id == tip.id) => {
-                next.add_goal_to(tip.id, goals.flag_for(entrypoint).unwrap_or_default());
-                continue;
-            }
-            TipRole::TargetRemote
-                if tip.is_auxiliary_integrated_tip(&initial_tips.auxiliary_integrated_tip_ids)
-                    && next.iter().any(|(info, _, _, _)| info.id == tip.id) =>
-            {
-                continue;
-            }
-            _ => {}
-        }
-
-        let mut segment = branch_segment_from_name_and_meta(
-            tip.ref_name
-                .clone()
-                .map(|ref_name| (ref_name, tip.metadata.clone())),
-            meta,
-            Some((&ctx.refs_by_id, tip.id)),
-            &ctx.worktree_by_branch,
-        )?;
-        if let TipRole::WorkspaceStackBranch { desired_ref_name } = &tip.role {
-            let is_remote = desired_ref_name
-                .category()
-                .is_some_and(|c| c == Category::RemoteBranch);
-            if segment.ref_info.is_none() && is_remote {
-                segment.ref_info = Some(crate::RefInfo::from_ref(
-                    desired_ref_name.clone(),
-                    tip.id,
-                    &ctx.worktree_by_branch,
-                ));
-                segment.metadata = meta
-                    .branch_opt(desired_ref_name.as_ref())?
-                    .map(SegmentMetadata::Branch);
-            }
-        }
-        let segment = graph.insert_segment(segment);
-        if let TipRole::TargetRemote = &tip.role {
-            let pending = PendingIntegratedTip {
-                id: tip.id,
-                segment,
-                queue_front: queue_should_frontload_tip(
-                    tip,
-                    initial_tips.frontload_workspace_related_tips,
-                    &initial_tips.auxiliary_integrated_tip_ids,
-                ),
-            };
-            if let Some(target_ref) = tip
-                .ref_name
-                .as_ref()
-                .filter(|ref_name| {
-                    initial_tips
-                        .target_local_links
-                        .local_by_target
-                        .contains_key(*ref_name)
-                })
-                .cloned()
-            {
-                let Some(local) = target_local_segments.get(&target_ref).copied() else {
-                    pending_integrated_tips.insert(target_ref, pending);
-                    continue;
-                };
-                queue_pending_integrated_tip(
-                    graph,
-                    next,
-                    pending,
-                    local,
-                    target_limit,
-                    commit_graph,
-                    repo,
-                    buf,
-                )?;
-            } else {
-                queue_pending_integrated_tip(
-                    graph,
-                    next,
-                    pending,
-                    (None, CommitFlags::empty()),
-                    target_limit,
-                    commit_graph,
-                    repo,
-                    buf,
-                )?;
-            }
-            continue;
-        }
-
-        let (flags, limit) = match &tip.role {
-            TipRole::Reachable if tip.is_entrypoint => {
-                graph.entrypoint = Some((segment, EntryPointCommit::AtCommit(tip.id)));
-                (entrypoint_flags, max_limit)
-            }
-            TipRole::Reachable => {
-                reachable_tip_flags_and_limit(tip.id, entrypoint, max_limit, goals)
-            }
-            TipRole::TargetRemote => unreachable!("handled above"),
-            TipRole::Workspace => {
-                if tip.is_entrypoint && graph.entrypoint.is_none() {
-                    graph.entrypoint = Some((segment, EntryPointCommit::AtCommit(tip.id)));
-                }
-                let extra_flags = if tip.is_entrypoint {
-                    entrypoint_flags
-                } else {
-                    CommitFlags::empty()
-                };
-                let limit = if tip.is_entrypoint {
-                    max_limit
-                } else {
-                    max_limit.with_indirect_goal(entrypoint, goals)
-                };
-                (
-                    CommitFlags::InWorkspace | CommitFlags::NotInRemote | extra_flags,
-                    limit,
-                )
-            }
-            TipRole::TargetLocal { local_ref_name } => {
-                let has_remote_link = {
-                    let s = &graph[segment];
-                    s.ref_name()
-                        .is_some_and(|ref_name| ref_name == local_ref_name.as_ref())
-                };
-                let goal = goals.flag_for(tip.id).unwrap_or_default();
-                if let Some(target_ref) = initial_tips
-                    .target_local_links
-                    .target_by_local
-                    .get(local_ref_name)
-                {
-                    target_local_segments.insert(
-                        target_ref.clone(),
-                        (has_remote_link.then_some(segment), goal),
-                    );
-                }
-                next.add_goal_to(entrypoint, goal);
-                (CommitFlags::NotInRemote | goal, target_limit)
-            }
-            TipRole::WorkspaceStackBranch { .. } => (
-                CommitFlags::NotInRemote,
-                max_limit.with_indirect_goal(entrypoint, goals),
-            ),
-        };
-        let tip_info = find(commit_graph, repo.for_find_only(), tip.id, buf)?;
-        let item = (
-            tip_info,
-            flags,
-            Instruction::CollectCommit { into: segment },
-            limit,
-        );
-        // A target ref and its local tracking branch can point at the same
-        // commit. In that case, the integrated target was held back only until
-        // the local side created its segment and goal above. Queue the
-        // integrated item before pushing the current local item so the shared
-        // commit is owned as integrated history while still carrying the local
-        // goal that lets both sides connect.
-        let paired_target_ref = match &tip.role {
-            TipRole::TargetLocal { local_ref_name } => initial_tips
-                .target_local_links
-                .target_by_local
-                .get(local_ref_name)
-                .cloned(),
-            TipRole::Reachable
-            | TipRole::Workspace
-            | TipRole::WorkspaceStackBranch { .. }
-            | TipRole::TargetRemote => None,
-        };
-        let pending_before_current = paired_target_ref.as_ref().and_then(|target_ref| {
-            pending_integrated_tips
-                .get(target_ref)
-                .is_some_and(|pending| pending.id == tip.id)
-                .then(|| pending_integrated_tips.remove(target_ref))
-                .flatten()
-        });
-        if let Some(pending) = pending_before_current {
-            let local = paired_target_ref
-                .as_ref()
-                .and_then(|target_ref| target_local_segments.get(target_ref))
-                .copied()
-                .unwrap_or((None, CommitFlags::empty()));
-            queue_pending_integrated_tip(
-                graph,
-                next,
-                pending,
-                local,
-                target_limit,
-                commit_graph,
-                repo,
-                buf,
-            )?;
-        }
-        if queue_should_frontload_tip(
-            tip,
-            initial_tips.frontload_workspace_related_tips,
-            &initial_tips.auxiliary_integrated_tip_ids,
-        ) {
-            _ = next.push_front_exhausted(item);
-        } else {
-            _ = next.push_back_exhausted(item);
-        }
-
-        if let Some(target_ref) = paired_target_ref
-            && let Some(pending) = pending_integrated_tips.remove(&target_ref)
-        {
-            let local = target_local_segments
-                .get(&target_ref)
-                .copied()
-                .unwrap_or((None, CommitFlags::empty()));
-            queue_pending_integrated_tip(
-                graph,
-                next,
-                pending,
-                local,
-                target_limit,
-                commit_graph,
-                repo,
-                buf,
-            )?;
-        }
-    }
-
-    prioritize_initial_tips_and_assure_ws_commit_ownership(
-        graph,
-        next,
-        (initial_tips.workspace_tips.clone(), repo, meta),
-        &ctx.worktree_by_branch,
-    )
-}
-
-/// Queue an integrated target after optionally linking it to its local tracking segment.
-#[expect(clippy::too_many_arguments)]
-fn queue_pending_integrated_tip(
-    graph: &mut Graph,
-    next: &mut Queue,
-    pending: PendingIntegratedTip,
-    local: (Option<SegmentIndex>, CommitFlags),
-    target_limit: Limit,
-    commit_graph: Option<&gix::commitgraph::Graph>,
-    repo: &OverlayRepo<'_>,
-    buf: &mut Vec<u8>,
-) -> anyhow::Result<()> {
-    let (local_sidx, local_goal) = local;
-    if let Some(local_sidx) = local_sidx {
-        graph[local_sidx].remote_tracking_branch_segment_id = Some(pending.segment);
-        graph[pending.segment].sibling_segment_id = Some(local_sidx);
-    }
-    let tip_info = find(commit_graph, repo.for_find_only(), pending.id, buf)?;
-    let item = (
-        tip_info,
-        CommitFlags::Integrated,
-        Instruction::CollectCommit {
-            into: pending.segment,
-        },
-        target_limit.additional_goal(local_goal),
-    );
-    if pending.queue_front {
-        _ = next.push_front_exhausted(item);
-    } else {
-        _ = next.push_back_exhausted(item);
-    }
-    Ok(())
 }
 
 /// Return whether an initial queue item should be pushed to the front.

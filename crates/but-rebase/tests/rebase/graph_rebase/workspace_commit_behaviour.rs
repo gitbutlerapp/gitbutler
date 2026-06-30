@@ -49,14 +49,15 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:gitbutler/workspace[🌳]
-        ├── ·8795f47 (⌂|1)
-        └── ·dd72792 (⌂|1) ►c, ►main
-            └── ►:1[1]:b
-                └── ·e5aa7b5 (⌂|1)
-                    └── ►:2[2]:a
-                        └── ·3bfeb52 (⌂|1)
-                            └── ►:3[3]:base
-                                └── 🏁·b6e2f57 (⌂|1)
+        └── ·8795f47 (⌂|1)
+            └── ►:1[1]:anon:
+                └── ·dd72792 (⌂|1) ►c, ►main
+                    └── ►:2[2]:b
+                        └── ·e5aa7b5 (⌂|1)
+                            └── ►:3[3]:a
+                                └── ·3bfeb52 (⌂|1)
+                                    └── ►:4[4]:base
+                                        └── 🏁·b6e2f57 (⌂|1)
     ");
 
     let step = outcome.lookup_step(selector)?;
@@ -117,11 +118,12 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:gitbutler/workspace[🌳]
-        ├── ·badca2f (⌂|1)
-        ├── ·06106c2 (⌂|1) ►c, ►main
-        └── ·3bfeb52 (⌂|1) ►a, ►b
-            └── ►:1[1]:base
-                └── 🏁·b6e2f57 (⌂|1)
+        └── ·badca2f (⌂|1)
+            └── ►:1[1]:anon:
+                ├── ·06106c2 (⌂|1) ►c, ►main
+                └── ·3bfeb52 (⌂|1) ►a, ►b
+                    └── ►:2[2]:base
+                        └── 🏁·b6e2f57 (⌂|1)
     ");
     let outcome = outcome.materialize()?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());

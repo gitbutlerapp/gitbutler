@@ -1671,4 +1671,60 @@ EOF
        commit x2
      create_workspace_commit_once X
   )
+
+  # ── applied-main corners: main as an ordinary (metadata-applied) branch ──
+  # (a) main rests at the workspace base and is NOT a workspace-commit parent;
+  # only metadata membership can bring it in (the empty-lane splice machinery).
+  git init applied-main-at-base
+  (cd applied-main-at-base
+     commit M1
+     setup_target_to_match_main
+     git checkout -b A
+       commit A1
+     git checkout -b B main
+       commit B1
+     create_workspace_commit_once A B
+  )
+
+  # (b) main has its OWN commit ahead of origin/main and is the workspace commit's
+  # first parent — a real lane with commits, ahead of its remote like any branch.
+  git init applied-main-ahead
+  (cd applied-main-ahead
+     commit M1
+     setup_target_to_match_main
+     git checkout -b A main
+       commit A1
+     git checkout main
+       commit M2
+     create_workspace_commit_once main A
+  )
+
+  # (c) main is a workspace-commit parent at the base while origin/main moved AHEAD —
+  # the applied lane is behind its remote (integration will consider it integrated).
+  git init applied-main-behind
+  (cd applied-main-behind
+     commit M1
+     git checkout -b A main
+       commit A1
+     git checkout main
+     create_workspace_commit_once main A
+     git checkout -b soon-origin-main main
+       commit RM1
+     git checkout gitbutler/workspace
+     add_main_remote_setup
+     setup_remote_tracking soon-origin-main main "move"
+  )
+
+  # (d) main (and its remote) advanced ABOVE another stack's fork point: A forked at M1,
+  # the base moved to M2 — the stale-fork corner.
+  git init applied-main-above-fork
+  (cd applied-main-above-fork
+     commit M1
+     git checkout -b A main
+       commit A1
+     git checkout main
+       commit M2
+     setup_target_to_match_main
+     create_workspace_commit_once main A
+  )
 )

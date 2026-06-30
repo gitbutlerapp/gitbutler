@@ -59,7 +59,7 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 2,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -80,18 +80,18 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 5,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(eabf2989a998260c7fbe181b33d5772705d62907),
-                    segment_index: 2,
+                    segment_index: 1,
                 },
             ),
             lower_bound: Some(
-                5,
+                3,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -156,7 +156,7 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 2,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -177,18 +177,18 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 5,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(d89aadb67d5c32e6a63cad3d36020b5e8e192a91),
-                    segment_index: 2,
+                    segment_index: 1,
                 },
             ),
             lower_bound: Some(
-                5,
+                3,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -250,7 +250,7 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -271,7 +271,7 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 0,
                 },
             ),
@@ -347,7 +347,7 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 2,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -368,18 +368,18 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 5,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(7a2d071f19ec7551996099943167460ff2c2dd9d),
-                    segment_index: 2,
+                    segment_index: 1,
                 },
             ),
             lower_bound: Some(
-                5,
+                3,
             ),
             is_managed_ref: true,
             is_managed_commit: true,

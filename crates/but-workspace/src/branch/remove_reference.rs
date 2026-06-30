@@ -84,10 +84,7 @@ pub fn remove_reference(
     }
 
     let stack_id = stack.id;
-    let mut graph = workspace
-        .graph
-        .redo_traversal_with_overlay(repo, meta, Default::default())?;
-    let ws = graph.into_workspace()?;
+    let ws = workspace.redo_with_overlay(repo, meta, Default::default())?;
     if avoid_anonymous_stacks {
         let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
             // The whole stack is gone, so nothing that could be anonymous.
@@ -117,10 +114,11 @@ pub fn remove_reference(
                 PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
                 "move segment reference up to avoid anonymous stack",
             )?;
-            graph = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, Default::default())?;
-            Ok(Some(graph.into_workspace()?))
+            Ok(Some(ws.redo_with_overlay(
+                repo,
+                meta,
+                Default::default(),
+            )?))
         } else {
             Ok(Some(ws))
         }

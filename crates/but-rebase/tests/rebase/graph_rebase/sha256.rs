@@ -127,11 +127,11 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
         └── ·f6f0125 (⌂|1)
             └── ►:1[1]:anon:
                 └── ·fccb3fd (⌂|1)
-                    ├── ►:2[2]:A
+                    ├── ►:3[2]:A
                     │   └── ·b5c16ab (⌂|1)
                     │       └── ►:4[3]:main
                     │           └── 🏁·8dcf66f (⌂|1) ►tags/base
-                    └── ►:3[2]:B
+                    └── ►:2[2]:B
                         └── ·8f04e4a (⌂|1)
                             └── →:4: (main)
     ");
@@ -208,11 +208,11 @@ fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
         └── ·93b14a1 (⌂|1)
             └── ►:1[1]:A
                 └── ·9d083f9 (⌂|1)
-                    ├── ►:2[3]:main
+                    ├── ►:3[3]:main
                     │   └── 🏁·8dcf66f (⌂|1) ►tags/base
-                    └── ►:3[2]:B
+                    └── ►:2[2]:B
                         └── ·8f04e4a (⌂|1)
-                            └── →:2: (main)
+                            └── →:3: (main)
     ");
     let outcome = outcome.materialize()?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());

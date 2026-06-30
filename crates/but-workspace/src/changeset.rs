@@ -75,15 +75,31 @@ impl RefInfo {
             self.compute_pushstatus(graph);
             return Ok(());
         };
-        let lower_bound_generation = self.lower_bound.map(|sidx| graph[sidx].generation);
+        // RULING (2026-07-04): a DISJOINT target contributes no upstream commits. One pass
+        // decides everything on the carried commit graph: paint the lower bound's ancestor set
+        // (= shared history, following connected edges only), then walk down from the target
+        // tip collecting commits until the walk TOUCHES shared history. Diverged commits are
+        // never in that set, so a rewritten remote is collected at any depth; if the walk never
+        // touches it, target and workspace share no history — as far as the graph can see —
+        // and nothing is upstream.
+        let shared_history = graph
+            .commit_graph()
+            .zip(self.lower_bound)
+            .and_then(|(cg, sidx)| {
+                let lb = graph[sidx].commits.first()?.id;
+                Some(cg.ancestor_set(lb))
+            });
+        let mut touched_shared_history = false;
         graph.visit_all_segments_including_start_until(
             target_tip,
             but_graph::Direction::Outgoing,
             |s| {
                 let prune = true;
-                if Some(s.id) == self.lower_bound
-                    || lower_bound_generation.is_some_and(|generation| s.generation > generation)
-                {
+                let in_shared_history = shared_history.as_ref().is_some_and(|shared| {
+                    s.commits.first().is_some_and(|c| shared.contains(&c.id))
+                });
+                touched_shared_history |= in_shared_history;
+                if Some(s.id) == self.lower_bound || in_shared_history {
                     return prune;
                 }
                 for c in &s.commits {
@@ -92,6 +108,23 @@ impl RefInfo {
                 !prune
             },
         );
+        if shared_history.is_some() && !touched_shared_history {
+            // Never touching shared history means either a truly DISJOINT target (nothing is
+            // upstream) or a target whose connection point lies beyond the traversal window
+            // (a diverged remote cut short by limits — its commits ARE upstream). The graph
+            // records where the traversal cut: if every collected commit's ancestry is fully
+            // present and roots out without meeting shared history, it is genuinely disjoint.
+            let genuinely_disjoint = graph.commit_graph().is_some_and(|cg| {
+                !upstream_commits.iter().any(|id| cg.has_cut_parents(*id))
+                    && !shared_history
+                        .iter()
+                        .flatten()
+                        .any(|id| cg.has_cut_parents(*id))
+            });
+            if genuinely_disjoint {
+                upstream_commits.clear();
+            }
+        }
 
         let cost_info = (
             upstream_commits.len(),

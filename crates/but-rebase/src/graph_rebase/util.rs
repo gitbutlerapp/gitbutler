@@ -169,9 +169,7 @@ mod test {
             let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
             let a = graph.add_node(Step::new_pick(a_id));
             // First parent is a reference that must be descended through to reach its commit.
-            let r = graph.add_node(Step::Reference {
-                refname: "refs/heads/foobar".try_into()?,
-            });
+            let r = graph.add_node(Step::new_reference("refs/heads/foobar".try_into()?));
             let first_id = gix::ObjectId::from_str("2000000000000000000000000000000000000000")?;
             let first = graph.add_node(Step::new_pick(first_id));
             // A real second parent that must not be returned.

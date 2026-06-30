@@ -240,11 +240,11 @@ impl<'repo> OverlayRepo<'repo> {
         Ok(self.inner.find_commit(id)?)
     }
 
-    pub fn for_attach_only(&self) -> &'repo gix::Repository {
+    pub(crate) fn for_attach_only(&self) -> &'repo gix::Repository {
         self.inner
     }
 
-    pub fn for_find_only(&self) -> &'repo gix::Repository {
+    pub(crate) fn for_find_only(&self) -> &'repo gix::Repository {
         self.inner
     }
 
@@ -263,7 +263,7 @@ impl<'repo> OverlayRepo<'repo> {
 
     /// Create a mapping of all heads to the object ids they point to.
     /// `workspace_ref_names` is the names of all known workspace references.
-    pub fn collect_ref_mapping_by_prefix<'a>(
+    pub(crate) fn collect_ref_mapping_by_prefix<'a>(
         &self,
         prefixes: impl Iterator<Item = &'a str>,
         workspace_ref_names: &[&gix::refs::FullNameRef],
@@ -463,7 +463,7 @@ impl<T> OverlayMetadata<'_, T>
 where
     T: RefMetadata,
 {
-    pub fn iter_workspaces(
+    pub(crate) fn iter_workspaces(
         &self,
     ) -> impl Iterator<Item = (gix::refs::FullName, ref_metadata::Workspace)> {
         self.inner
@@ -529,5 +529,119 @@ where
             return Ok(Some(branches.clone()));
         }
         self.inner.branch_stack_order(ref_name)
+    }
+
+    /// The wrapped metadata WITHOUT the overlay — only for callers that re-apply the overlay
+    /// themselves.
+    pub(crate) fn for_inner_only(&self) -> &'_ T {
+        self.inner
+    }
+}
+
+/// An owned metadata handle for [`OverlayMetadata`]'s [`RefMetadata`] impl: values are cloned out
+/// of the overlay or the underlying store, so this view is read-only.
+pub(crate) struct OwnedHandle<V> {
+    name: gix::refs::FullName,
+    value: V,
+    is_default: bool,
+}
+
+impl<V> std::ops::Deref for OwnedHandle<V> {
+    type Target = V;
+    fn deref(&self) -> &V {
+        &self.value
+    }
+}
+
+impl<V> std::ops::DerefMut for OwnedHandle<V> {
+    fn deref_mut(&mut self) -> &mut V {
+        &mut self.value
+    }
+}
+
+impl<V> AsRef<gix::refs::FullNameRef> for OwnedHandle<V> {
+    fn as_ref(&self) -> &gix::refs::FullNameRef {
+        self.name.as_ref()
+    }
+}
+
+impl<V> ref_metadata::ValueInfo for OwnedHandle<V> {
+    fn is_default(&self) -> bool {
+        self.is_default
+    }
+}
+
+/// A read-only [`RefMetadata`] view that substitutes the overlay's workspace and branch overrides,
+/// so overlay-aware graph builders can slot in wherever a `RefMetadata` is expected.
+impl<T> RefMetadata for OverlayMetadata<'_, T>
+where
+    T: RefMetadata,
+{
+    type Handle<V> = OwnedHandle<V>;
+
+    fn iter(
+        &self,
+    ) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn std::any::Any>)>> {
+        self.inner.iter().map(|res| {
+            res.map(|(name, item)| {
+                if item.is::<ref_metadata::Workspace>()
+                    && let Some((_, ws)) = self.workspace.as_ref().filter(|(r, _)| *r == name)
+                {
+                    return (name, Box::new(ws.clone()) as Box<dyn std::any::Any>);
+                }
+                if item.is::<ref_metadata::Branch>()
+                    && let Some((_, b)) = self.meta_branches.iter().find(|(r, _)| *r == name)
+                {
+                    return (name, Box::new(b.clone()) as Box<dyn std::any::Any>);
+                }
+                (name, item)
+            })
+        })
+    }
+
+    fn workspace(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Self::Handle<ref_metadata::Workspace>> {
+        let value = OverlayMetadata::workspace_opt(self, ref_name)?;
+        Ok(OwnedHandle {
+            name: ref_name.to_owned(),
+            is_default: value.is_none(),
+            value: value.unwrap_or_default(),
+        })
+    }
+
+    fn branch(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Self::Handle<ref_metadata::Branch>> {
+        let value = OverlayMetadata::branch_opt(self, ref_name)?;
+        Ok(OwnedHandle {
+            name: ref_name.to_owned(),
+            is_default: value.is_none(),
+            value: value.unwrap_or_default(),
+        })
+    }
+
+    fn set_workspace(
+        &mut self,
+        _value: &Self::Handle<ref_metadata::Workspace>,
+    ) -> anyhow::Result<()> {
+        bail!("OverlayMetadata is a read-only view")
+    }
+
+    fn set_branch(&mut self, _value: &Self::Handle<ref_metadata::Branch>) -> anyhow::Result<()> {
+        bail!("OverlayMetadata is a read-only view")
+    }
+
+    fn remove(&mut self, _ref_name: &gix::refs::FullNameRef) -> anyhow::Result<bool> {
+        bail!("OverlayMetadata is a read-only view")
+    }
+
+    fn branch_stack_order(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<Vec<gix::refs::FullName>>> {
+        OverlayMetadata::branch_stack_order(self, ref_name)
     }
 }

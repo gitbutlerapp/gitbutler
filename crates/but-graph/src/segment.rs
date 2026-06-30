@@ -18,17 +18,7 @@ pub struct Commit {
     pub refs: Vec<RefInfo>,
 }
 
-impl Commit {
-    /// Return an iterator over all reference names that point to this commit.
-    pub fn ref_name_iter(&self) -> impl Iterator<Item = &gix::refs::FullName> + Clone {
-        self.refs.iter().map(|ri| &ri.ref_name)
-    }
-
-    /// Return information about the reference that matches `name`.
-    pub fn ref_by_name(&self, name: &gix::refs::FullNameRef) -> Option<&RefInfo> {
-        self.refs.iter().find(|ri| ri.ref_name.as_ref() == name)
-    }
-}
+impl Commit {}
 
 /// A structure to inform about a reference which was present at a commit.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -184,14 +174,14 @@ impl StopCondition {
     }
 
     /// Return `true` if traversal stopped because the configured traversal limit was reached.
-    pub fn at_limit(&self) -> bool {
+    pub(crate) fn at_limit(&self) -> bool {
         self.contains(StopCondition::Limit)
     }
 
     /// Return `true` if traversal stopped due to an artificial boundary, not because history naturally ended.
     ///
     /// This also means that the traversal would have continued otherwise.
-    pub fn is_unnatural(&self) -> bool {
+    pub(crate) fn is_unnatural(&self) -> bool {
         self.intersects(StopCondition::Limit | StopCondition::ShallowBoundary)
     }
 }
@@ -242,7 +232,7 @@ bitflags! {
 
 impl CommitFlags {
     /// The amount of goals that were tracked, i.e. 0 if there is no goal, or N if there are N goal.
-    pub fn num_goals(&self) -> usize {
+    pub(crate) fn num_goals(&self) -> usize {
         let goals = self.bits() & !Self::all().bits();
         if goals == 0 {
             0
@@ -289,10 +279,6 @@ pub struct Segment {
     /// An ID which can uniquely identify this segment among all segments within the graph that owned it.
     /// Note that it's not suitable to permanently identify the segment, so should not be persisted.
     pub id: SegmentIndex,
-    /// A non-null number, and starting at `1`, to indicate how high up the segment is in the graph past the root nodes.
-    /// Thus, higher numbers mean they are further down.
-    /// If `0`, this is a root node, i.e. one without any incoming connections.
-    pub generation: usize,
     /// The unambiguous or disambiguated name of the branch *or tag* at the tip of the segment, i.e. at the first commit,
     /// along with its worktree if one happens to point at it.
     ///
@@ -358,7 +344,7 @@ impl Segment {
     ///
     /// The sibling id is graph-local, so the lookup must happen in the `graph`
     /// that owns this segment.
-    pub fn sibling_segment<'graph>(&self, graph: &'graph Graph) -> Option<&'graph Segment> {
+    pub(crate) fn sibling_segment<'graph>(&self, graph: &'graph Graph) -> Option<&'graph Segment> {
         graph.inner.node_weight(self.sibling_segment_id?)
     }
 
@@ -368,7 +354,7 @@ impl Segment {
     }
 
     /// Return the index of the last (present) commit, or `None` if there is no commit stored in this segment.
-    pub fn last_commit_index(&self) -> Option<usize> {
+    pub(crate) fn last_commit_index(&self) -> Option<usize> {
         self.commits.len().checked_sub(1)
     }
 
@@ -381,18 +367,18 @@ impl Segment {
     }
 
     /// Find the commit associated with the given `commit_index`, which for convenience is optional.
-    pub fn commit_id_by_index(&self, idx: Option<CommitIndex>) -> Option<gix::ObjectId> {
+    pub(crate) fn commit_id_by_index(&self, idx: Option<CommitIndex>) -> Option<gix::ObjectId> {
         self.commits.get(idx?).map(|c| c.id)
     }
 
     /// Find the commit with the given `id` in the commits of this segment.
-    pub fn commit_by_id(&self, id: gix::ObjectId) -> Option<&Commit> {
+    pub(crate) fn commit_by_id(&self, id: gix::ObjectId) -> Option<&Commit> {
         self.commits.iter().find(|c| c.id == id)
     }
 
     /// Return the flags of the first commit if non-empty, which is the top-most commit in the stack assuming
     /// it grows upwards into the future.
-    pub fn non_empty_flags_of_first_commit(&self) -> Option<CommitFlags> {
+    pub(crate) fn non_empty_flags_of_first_commit(&self) -> Option<CommitFlags> {
         let commit = self.commits.first()?;
         (!commit.flags.is_empty()).then_some(commit.flags)
     }
@@ -414,7 +400,6 @@ impl std::fmt::Debug for Segment {
         if f.alternate() {
             let Segment {
                 ref_info,
-                generation,
                 id,
                 commits,
                 remote_tracking_ref_name,
@@ -425,7 +410,6 @@ impl std::fmt::Debug for Segment {
             } = self;
             f.debug_struct("Segment")
                 .field("id", id)
-                .field("generation", generation)
                 .field(
                     "ref_info",
                     &MaybeDebug(&ref_info.as_ref().map(|ri| ri.debug_string())),

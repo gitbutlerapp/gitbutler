@@ -90,11 +90,13 @@ Use it for state/query questions such as:
 - which commits belong under a ref or stack-like UI grouping?
 - what branch/ref relationships exist before deciding what to display or mutate?
 
+Construction: production code asks for the projection directly — `but_graph::Workspace::from_head()`, `Workspace::from_commit_traversal()`, `workspace.redo_with_overlay()`, or `SuccessfulRebase::overlayed_workspace()` after an editor rebase. The graph rides along as `Workspace::graph`; only tests and debug tooling build a bare `Graph`.
+
 Caveats:
 
 - The graph is segment/bucket based because older UI concerns influenced it.
 - It can encode ordering information Git itself does not represent, especially around refs.
-- Merge parent order may not always be reliable; be careful with first-parent traversal or UI that assumes the first parent is the mainline.
+- Within `but_graph`, parent order is preserved and authoritative: parent arrays are ordered, and a segment's outgoing connections follow them. Whether the *first* parent is the user's "mainline" is still a workflow assumption — question it at the product level, not the graph level.
 
 ## Workspace projection and refinfo
 

@@ -275,10 +275,7 @@ pub(crate) mod function {
             // TODO: this will actually be observable even if it doens't work, unless it's run in a transaction, which right now it's not!
             //       Should be able to redo the traversal with an overlay that hides branch metadata, but I'd say it's not important enough.
             meta.remove(branch)?;
-            let graph = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, Overlay::default())?;
-            let workspace = graph.into_workspace()?;
+            let workspace = ws.redo_with_overlay(repo, meta, Overlay::default())?;
             if workspace.refname_is_segment(branch) {
                 bail!(
                     "Cannot unapply branch '{branch}' from an ad-hoc workspace because non-tip branches can only disappear if their now removed metadata disambiguated them",
@@ -291,19 +288,16 @@ pub(crate) mod function {
         // Everything past this point is stricly in non-dry-run mode and we may totally end up in intermediate states
         // if something fails.
         // Redo the traversal with the changed workspace metadata so code below can rely on the reconciled version.
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                repo,
-                meta,
-                Overlay::default()
-                    .with_dropped_references([branch.to_owned()])
-                    .with_workspace_metadata_override(Some((
-                        workspace_ref_name.to_owned(),
-                        ws_md.clone(),
-                    ))),
-            )?
-            .into_workspace()?;
+        let ws = ws.redo_with_overlay(
+            repo,
+            meta,
+            Overlay::default()
+                .with_dropped_references([branch.to_owned()])
+                .with_workspace_metadata_override(Some((
+                    workspace_ref_name.to_owned(),
+                    ws_md.clone(),
+                ))),
+        )?;
         // Normal unapply first:
         // - re-merge or collapse the workspace commit
         // - point workspace to it
@@ -324,10 +318,7 @@ pub(crate) mod function {
         let overlay = Overlay::default()
             .with_dropped_references([branch.to_owned()])
             .with_workspace_metadata_override(Some((workspace_ref_name.to_owned(), ws_md.clone())));
-        let mut ws = ws
-            .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+        let mut ws = ws.redo_with_overlay(repo, meta, overlay)?;
         let checked_out = if !workspace_tip_was_entrypoint
             && (ws.is_entrypoint() || branch_stack_was_entrypoint)
         {
@@ -338,10 +329,7 @@ pub(crate) mod function {
             let overlay = Overlay::default()
                 .with_dropped_references([branch.to_owned()])
                 .with_entrypoint(entrypoint_id, Some(workspace_ref_name.to_owned()));
-            ws = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
-                .into_workspace()?;
+            ws = ws.redo_with_overlay(repo, meta, overlay)?;
             Some(workspace_ref_name.to_owned())
         } else {
             None
@@ -387,10 +375,7 @@ pub(crate) mod function {
                         Some(ref_to_switch_to.ref_name.clone()),
                     )
                     .with_dropped_references([branch.to_owned()]);
-                let ws = ws
-                    .graph
-                    .redo_traversal_with_overlay(repo, meta, overlay)?
-                    .into_workspace()?;
+                let ws = ws.redo_with_overlay(repo, meta, overlay)?;
 
                 Ok(Outcome {
                     workspace: Cow::Owned(ws),
@@ -602,10 +587,7 @@ pub(crate) mod function {
             ref_to_checkout.commit_id,
             Some(ref_to_checkout.ref_name.clone()),
         );
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+        let ws = ws.redo_with_overlay(repo, meta, overlay)?;
         Ok(Outcome {
             workspace: Cow::Owned(ws),
             checked_out: Some(ref_to_checkout.ref_name),
@@ -706,30 +688,35 @@ pub(crate) mod function {
         if let Some(target) = local_tracking_branch_of_target(ws)? {
             return Ok(target);
         }
-        named_stack_with_lowest_generation(ws)?.with_context(
+        most_recent_named_stack(ws)?.with_context(
             || "Cannot unapply workspace reference because no target or named stack could be found",
         )
     }
 
-    /// The idea here is to put the user at the topologically most recent stack.
-    /// This is also arbitrary, but *feels* like what one would want.
-    fn named_stack_with_lowest_generation(
-        ws: &but_graph::Workspace,
-    ) -> anyhow::Result<Option<RefToCheckout>> {
+    /// The idea here is to put the user at the topologically most recent stack — the one whose
+    /// first segment's anchor commit (its tip, or the pointed-at commit for an empty splice)
+    /// sits deepest in the carried commit graph; stack order breaks ties. This is also
+    /// arbitrary, but *feels* like what one would want.
+    fn most_recent_named_stack(ws: &but_graph::Workspace) -> anyhow::Result<Option<RefToCheckout>> {
+        let cg = ws.graph.commit_graph();
         let mut selected = None;
         for stack in &ws.stacks {
-            let Some((sidx, ref_info)) = stack
-                .segments
-                .first()
-                .and_then(|s| s.ref_info.as_ref().map(|ri| (s.id, ri)))
-            else {
+            let Some((sidx, ref_info, anchor)) = stack.segments.first().and_then(|s| {
+                s.ref_info
+                    .as_ref()
+                    .map(|ri| (s.id, ri, s.commits.first().map(|c| c.id).or(ri.commit_id)))
+            }) else {
                 continue;
             };
-            let generation = ws.graph[sidx].generation;
+            let generation = cg
+                .zip(anchor)
+                .and_then(|(cg, anchor)| cg.node(anchor))
+                .map(|n| n.generation)
+                .unwrap_or(0);
             let ref_to_checkout = RefToCheckout::from_segment_ref_info(ws, sidx, ref_info)?;
             if selected
                 .as_ref()
-                .is_none_or(|(best_generation, _)| generation < *best_generation)
+                .is_none_or(|(best_generation, _)| generation > *best_generation)
             {
                 selected = Some((generation, ref_to_checkout));
             }
@@ -881,25 +868,28 @@ pub(crate) mod function {
             .transpose()
     }
 
-    /// Return the local branch to check out for the workspace target.
+    /// The local branch tracking the workspace target (e.g. `main` for `origin/main`), resolved
+    /// as data: the graph's carried tracking map names it, the carried commit graph positions it.
     ///
-    /// `ws` is the current graph projection with adjusted metadata. The workspace target already
-    /// carries the local tracking branch inferred while building the graph, including the peeled
-    /// commit id to check out.
+    /// `ws` is the current graph projection with adjusted metadata.
     fn local_tracking_branch_of_target(
         ws: &but_graph::Workspace,
     ) -> anyhow::Result<Option<RefToCheckout>> {
         let Some(target_ref) = ws.target_ref.as_ref() else {
             return Ok(None);
         };
-        let Some(local_target_ref_sidx) = ws.graph[target_ref.segment_index].sibling_segment_id
-        else {
-            return Ok(None);
-        };
-        let Some(ref_info) = ws.graph[local_target_ref_sidx].ref_info.as_ref() else {
-            return Ok(None);
-        };
-        RefToCheckout::from_segment_ref_info(ws, local_target_ref_sidx, ref_info).map(Some)
+        Ok(ws
+            .graph
+            .local_tracking_branch(target_ref.ref_name.as_ref())
+            .and_then(|local| {
+                ws.graph
+                    .commit_graph()
+                    .and_then(|cg| cg.commit_by_ref(local.as_ref()))
+                    .map(|commit_id| RefToCheckout {
+                        ref_name: local.clone(),
+                        commit_id,
+                    })
+            }))
     }
 
     /// Ref name and peeled commit id selected from the workspace projection for checkout.

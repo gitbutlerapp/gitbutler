@@ -24,7 +24,7 @@ pub fn worktree_conflicts_for_rebase<M: RefMetadata>(
         return Ok(Vec::new());
     }
 
-    let preview_workspace = rebase.overlayed_graph()?.into_workspace()?;
+    let preview_workspace = rebase.overlayed_workspace()?;
     let resulting_head = preview_workspace
         .graph
         .entrypoint()?

@@ -229,14 +229,14 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/master⇣4 on 85aa44b
-    └── ≡📙:4:E on 85aa44b {1}
-        ├── 📙:4:E
+    └── ≡📙:2:E on 85aa44b {1}
+        ├── 📙:2:E
         │   └── ·a6588cf (🏘️)
-        ├── :6:C
+        ├── :3:C
         │   └── ·4827d2f (🏘️)
-        ├── :7:B
+        ├── :5:B
         │   └── ·3d3bfa7 (🏘️)
-        └── :9:A
+        └── :7:A
             └── ·f5b02d3 (🏘️)
     ");
     let project_meta = workspace.graph.project_meta.clone();
@@ -388,11 +388,11 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
-    ⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
-    └── ≡:1:A[🌳] on 3183e43 {1}
-        ├── :1:A[🌳]
+    ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+    └── ≡:0:A[🌳] on 3183e43 {1}
+        ├── :0:A[🌳]
         │   └── ·e792f40
-        └── :3:B
+        └── :1:B
             └── ·b38b04b (✓)
     ");
     let project_meta = workspace.graph.project_meta.clone();
@@ -535,11 +535,11 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
-    ⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
-    └── ≡:1:A[🌳] on 3183e43 {1}
-        ├── :1:A[🌳]
+    ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+    └── ≡:0:A[🌳] on 3183e43 {1}
+        ├── :0:A[🌳]
         │   └── ·e792f40
-        └── :3:B
+        └── :1:B
             └── ·b38b04b (✓)
     ");
     let project_meta = workspace.graph.project_meta.clone();
@@ -714,11 +714,11 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-    ├── ≡📙:4:A on 3183e43 {1}
-    │   └── 📙:4:A
+    ├── ≡📙:1:A on 3183e43 {1}
+    │   └── 📙:1:A
     │       └── ·905d6e5 (🏘️|✓)
-    └── ≡📙:3:B on 3183e43 {2}
-        └── 📙:3:B
+    └── ≡📙:2:B on 3183e43 {2}
+        └── 📙:2:B
             └── ·b38b04b (🏘️)
     ");
 
@@ -743,8 +743,8 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
-    └── ≡📙:3:B on 905d6e5 {2}
-        └── 📙:3:B
+    └── ≡📙:1:B on 905d6e5 {2}
+        └── 📙:1:B
             └── ·c932222 (🏘️)
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -789,8 +789,8 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-    └── ≡📙:3:A on 3183e43 {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 3183e43 {1}
+        └── 📙:1:A
             └── ·905d6e5 (🏘️|✓)
     ");
 
@@ -852,8 +852,8 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 8d5739f
-    └── ≡📙:3:A on 8d5739f {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 8d5739f {1}
+        └── 📙:1:A
             ├── ·ffde79e (🏘️|✓)
             └── ·86b55e6 (🏘️|✓)
     ");
@@ -937,8 +937,8 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 8d5739f
-    └── ≡📙:3:A on 8d5739f {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 8d5739f {1}
+        └── 📙:1:A
             ├── ·ffde79e (🏘️|✓)
             └── ·86b55e6 (🏘️|✓)
     ");
@@ -987,8 +987,8 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 8d5739f
-    └── ≡📙:3:A on 8d5739f {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 8d5739f {1}
+        └── 📙:1:A
             ├── ·ffde79e (🏘️|✓)
             └── ·86b55e6 (🏘️|✓)
     ");
@@ -1297,11 +1297,11 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fe9ae6e
-    ├── ≡:5:anon: on fe9ae6e
-    │   └── :5:anon:
+    ├── ≡:1:anon: on fe9ae6e
+    │   └── :1:anon:
     │       └── ·0d97cc1 (🏘️)
-    └── ≡📙:4:A on fe9ae6e {1}
-        └── 📙:4:A
+    └── ≡📙:3:A on fe9ae6e {1}
+        └── 📙:3:A
             └── ·90d25da (🏘️)
     ");
     integrate_and_materialize(
@@ -1319,11 +1319,11 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fe9ae6e
-    ├── ≡:5:anon: on fe9ae6e
-    │   └── :5:anon:
+    ├── ≡:2:anon: on fe9ae6e
+    │   └── :2:anon:
     │       └── ·0d97cc1 (🏘️)
-    └── ≡📙:3:A on 20a5ffc {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 20a5ffc {1}
+        └── 📙:1:A
             └── ·c529875 (🏘️)
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -1486,13 +1486,13 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-    ├── ≡📙:3:A on 3183e43 {1}
-    │   ├── 📙:3:A
+    ├── ≡📙:1:A on 3183e43 {1}
+    │   ├── 📙:1:A
     │   │   └── ·44c9428 (🏘️)
-    │   └── 📙:5:C
+    │   └── 📙:3:C
     │       └── ·f1e7451 (🏘️|✓)
-    └── ≡📙:4:B on 3183e43 {2}
-        └── 📙:4:B
+    └── ≡📙:2:B on 3183e43 {2}
+        └── 📙:2:B
             └── ·b38b04b (🏘️)
     ");
 
@@ -1517,11 +1517,11 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f1e7451
-    ├── ≡📙:3:A on f1e7451 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:1:A on f1e7451 {1}
+    │   └── 📙:1:A
     │       └── ·44c9428 (🏘️)
-    └── ≡📙:4:B on f1e7451 {2}
-        └── 📙:4:B
+    └── ≡📙:2:B on f1e7451 {2}
+        └── 📙:2:B
             └── ·a27415e (🏘️)
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -1574,13 +1574,13 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-    ├── ≡📙:5:A on 3183e43 {1}
-    │   ├── 📙:5:A
+    ├── ≡📙:1:A on 3183e43 {1}
+    │   ├── 📙:1:A
     │   │   └── ·44c9428 (🏘️|✓)
     │   └── 📙:3:C
     │       └── ·f1e7451 (🏘️|✓)
-    └── ≡📙:4:B on 3183e43 {2}
-        └── 📙:4:B
+    └── ≡📙:2:B on 3183e43 {2}
+        └── 📙:2:B
             └── ·b38b04b (🏘️)
     ");
 
@@ -1605,8 +1605,8 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 44c9428
-    └── ≡📙:3:B on 44c9428 {2}
-        └── 📙:3:B
+    └── ≡📙:1:B on 44c9428 {2}
+        └── 📙:1:B
             └── ·f59d71f (🏘️)
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -1664,11 +1664,11 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
-    ├── ≡📙:4:A on 3183e43 {1}
-    │   └── 📙:4:A
+    ├── ≡📙:3:A on 3183e43 {1}
+    │   └── 📙:3:A
     │       └── ·905d6e5 (🏘️|✓)
-    └── ≡📙:5:B on 3183e43 {2}
-        └── 📙:5:B
+    └── ≡📙:4:B on 3183e43 {2}
+        └── 📙:4:B
             └── ·b38b04b (🏘️|✓)
     ");
 
@@ -1926,8 +1926,8 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
-    └── ≡📙:4:topic <> origin/topic →:5: on 563a7fc {1}
-        └── 📙:4:topic <> origin/topic →:5:
+    └── ≡📙:2:topic <> origin/topic →:5: on 563a7fc {1}
+        └── 📙:2:topic <> origin/topic →:5:
             └── ❄️6ba217e (🏘️|✓)
     ");
 
@@ -1957,8 +1957,8 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
-    └── ≡:2:main <> origin/main →:1: on 563a7fc
-        └── :2:main <> origin/main →:1:
+    └── ≡:1:main <> origin/main →:4: on 563a7fc
+        └── :1:main <> origin/main →:4:
             └── ❄️364a08f (🏘️|✓)
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -2011,8 +2011,8 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
-    └── ≡📙:4:topic <> origin/topic →:5:⇡1 on 563a7fc {1}
-        └── 📙:4:topic <> origin/topic →:5:⇡1
+    └── ≡📙:2:topic <> origin/topic →:3:⇡1 on 563a7fc {1}
+        └── 📙:2:topic <> origin/topic →:3:⇡1
             ├── ·f1a3cba (🏘️)
             └── ❄️6ba217e (🏘️|✓)
     ");
@@ -2043,10 +2043,10 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
-    └── ≡📙:4:topic <> origin/topic →:5:⇡1 on 563a7fc {1}
-        ├── 📙:4:topic <> origin/topic →:5:⇡1
+    └── ≡📙:1:topic <> origin/topic →:3:⇡1 on 563a7fc {1}
+        ├── 📙:1:topic <> origin/topic →:3:⇡1
         │   └── ·f3ceb3d (🏘️)
-        └── :2:main <> origin/main →:1:
+        └── :2:main <> origin/main →:5:
             └── ❄️364a08f (🏘️|✓)
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -2098,9 +2098,9 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
-    └── ≡📙:7:top <> origin/top →:6: on 563a7fc {1}
-        ├── 📙:7:top <> origin/top →:6:
-        └── 📙:8:bottom <> origin/bottom →:5:
+    └── ≡📙:4:top <> origin/top →:7: on 563a7fc {1}
+        ├── 📙:4:top <> origin/top →:7:
+        └── 📙:2:bottom <> origin/bottom →:6:
             └── ❄️141de4f (🏘️|✓)
     ");
 
@@ -2138,9 +2138,9 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
-    └── ≡📙:2:top <> origin/top →:4: on 563a7fc {1}
-        └── 📙:2:top <> origin/top →:4:
-            └── ·334227d (🏘️|✓)
+    └── ≡📙:1:top <> origin/top →:2: on 563a7fc {1}
+        └── 📙:1:top <> origin/top →:2:
+            └── ·334227d (🏘️|✓) ►main
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * f381153 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -2354,12 +2354,12 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-    ├── ≡📙:3:A on 3183e43 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:1:A on 3183e43 {1}
+    │   └── 📙:1:A
     │       ├── ·ad1d22b (🏘️)
     │       └── ·fe98e29 (🏘️)
-    └── ≡📙:4:B on 3183e43 {2}
-        └── 📙:4:B
+    └── ≡📙:2:B on 3183e43 {2}
+        └── 📙:2:B
             └── ·b38b04b (🏘️)
     ");
 
@@ -2384,8 +2384,8 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-    └── ≡📙:3:B on 3183e43 {2}
-        └── 📙:3:B
+    └── ≡📙:1:B on 3183e43 {2}
+        └── 📙:1:B
             └── ·b38b04b (🏘️)
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -2452,9 +2452,9 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
 
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
-    ⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-    └── ≡:1:A[🌳] on 3183e43 {1}
-        └── :1:A[🌳]
+    ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    └── ≡:0:A[🌳] on 3183e43 {1}
+        └── :0:A[🌳]
             ├── ·ad1d22b
             └── ·fe98e29
     ");
@@ -2540,8 +2540,8 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-    └── ≡📙:3:A on 3183e43 {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 3183e43 {1}
+        └── 📙:1:A
             ├── ·f015e95 (🏘️)
             ├── ·ad1d22b (🏘️)
             └── ·fe98e29 (🏘️)
@@ -2565,8 +2565,8 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e2f5892
-    └── ≡📙:3:A on e2f5892 {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on e2f5892 {1}
+        └── 📙:1:A
             └── ·92f1780 (🏘️)
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -2622,9 +2622,9 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
 
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
-    ⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-    └── ≡:1:A[🌳] on 3183e43 {1}
-        └── :1:A[🌳]
+    ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    └── ≡:0:A[🌳] on 3183e43 {1}
+        └── :0:A[🌳]
             ├── ·f015e95
             ├── ·ad1d22b
             └── ·fe98e29
@@ -2665,9 +2665,9 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     )?;
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
-    ⌂:1:A[🌳] <> ✓refs/remotes/origin/main on e2f5892
-    └── ≡:1:A[🌳] on e2f5892 {1}
-        └── :1:A[🌳]
+    ⌂:0:A[🌳] <> ✓refs/remotes/origin/main on e2f5892
+    └── ≡:0:A[🌳] on e2f5892 {1}
+        └── :0:A[🌳]
             └── ·92f1780
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"

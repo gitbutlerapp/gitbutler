@@ -138,7 +138,7 @@ impl SegmentGraph {
     }
 
     /// Number of live (non-tombstoned) segments.
-    pub fn node_count(&self) -> usize {
+    pub(crate) fn node_count(&self) -> usize {
         self.segments.iter().filter(|n| n.is_some()).count()
     }
 
@@ -161,21 +161,21 @@ impl SegmentGraph {
     }
 
     /// The segment at `id` mutably, if live.
-    pub fn node_mut(&mut self, id: SegmentIndex) -> Option<&mut Segment> {
+    pub(crate) fn node_mut(&mut self, id: SegmentIndex) -> Option<&mut Segment> {
         self.segments.get_mut(id).and_then(Option::as_mut)
     }
 
     /// Alias for [`Self::node`].
-    pub fn node_weight(&self, id: SegmentIndex) -> Option<&Segment> {
+    pub(crate) fn node_weight(&self, id: SegmentIndex) -> Option<&Segment> {
         self.node(id)
     }
     /// Alias for [`Self::node_mut`].
-    pub fn node_weight_mut(&mut self, id: SegmentIndex) -> Option<&mut Segment> {
+    pub(crate) fn node_weight_mut(&mut self, id: SegmentIndex) -> Option<&mut Segment> {
         self.node_mut(id)
     }
 
     /// Tombstone `id` and drop every connection incident to it (its own, and those pointing at it).
-    pub fn remove_node(&mut self, id: SegmentIndex) -> Option<Segment> {
+    pub(crate) fn remove_node(&mut self, id: SegmentIndex) -> Option<Segment> {
         let removed = self.segments.get_mut(id)?.take()?;
         for seg in self.segments.iter_mut().flatten() {
             seg.connections.retain(|c| c.target != id);
@@ -210,7 +210,7 @@ impl SegmentGraph {
     }
 
     /// Mutable access to the first connection leaving `source` that equals `weight`.
-    pub fn edge_weight_mut(
+    pub(crate) fn edge_weight_mut(
         &mut self,
         source: SegmentIndex,
         weight: &Connection,
@@ -222,14 +222,14 @@ impl SegmentGraph {
     }
 
     /// Live segment ids, ascending.
-    pub fn node_ids(&self) -> impl Iterator<Item = SegmentIndex> + '_ {
+    pub(crate) fn node_ids(&self) -> impl Iterator<Item = SegmentIndex> + '_ {
         self.segments
             .iter()
             .enumerate()
             .filter_map(|(i, n)| n.as_ref().map(|_| i))
     }
 
-    /// petgraph-compatible alias for [`Self::node_ids`].
+    /// petgraph-compatible alias for `Self::node_ids`.
     pub fn node_indices(&self) -> impl Iterator<Item = SegmentIndex> + '_ {
         self.node_ids()
     }
@@ -273,7 +273,7 @@ impl SegmentGraph {
     }
 
     /// Neighboring segment ids in the given direction.
-    pub fn neighbors_directed(
+    pub(crate) fn neighbors_directed(
         &self,
         node: SegmentIndex,
         dir: Direction,
@@ -289,7 +289,7 @@ impl SegmentGraph {
 
     /// Topological order (Kahn's algorithm): every connection's source precedes its target.
     /// Assumes a DAG; nodes left over after a cycle are omitted.
-    pub fn toposort(&self) -> Vec<SegmentIndex> {
+    pub(crate) fn toposort(&self) -> Vec<SegmentIndex> {
         let bound = self.segments.len();
         let mut in_degree = vec![0usize; bound];
         for src in self.node_ids() {
@@ -321,7 +321,7 @@ impl SegmentGraph {
     }
 
     /// Number of live connections.
-    pub fn edge_count(&self) -> usize {
+    pub(crate) fn edge_count(&self) -> usize {
         self.segments
             .iter()
             .flatten()
@@ -349,49 +349,19 @@ impl SegmentGraph {
         out.into_iter()
     }
 
-    /// Live connections from `source` to `target`, in stored order.
-    pub fn edges_connecting(
-        &self,
-        source: SegmentIndex,
-        target: SegmentIndex,
-    ) -> impl Iterator<Item = EdgeRef<'_>> + '_ {
-        self.edges_directed(source, Direction::Outgoing)
-            .filter(move |e| e.target == target)
-            .collect::<Vec<_>>()
-            .into_iter()
-    }
-
     /// One past the largest segment id ever handed out (tombstoned slots included).
-    pub fn node_bound(&self) -> usize {
+    pub(crate) fn node_bound(&self) -> usize {
         self.segments.len()
     }
 
     /// All live segments, ascending by id.
-    pub fn node_weights(&self) -> impl Iterator<Item = &Segment> + '_ {
+    pub(crate) fn node_weights(&self) -> impl Iterator<Item = &Segment> + '_ {
         self.segments.iter().filter_map(Option::as_ref)
     }
 
     /// All live segments mutably, ascending by id.
-    pub fn node_weights_mut(&mut self) -> impl Iterator<Item = &mut Segment> + '_ {
+    pub(crate) fn node_weights_mut(&mut self) -> impl Iterator<Item = &mut Segment> + '_ {
         self.segments.iter_mut().filter_map(Option::as_mut)
-    }
-
-    /// Two distinct live segments, mutably.
-    pub fn index_twice_mut(
-        &mut self,
-        a: SegmentIndex,
-        b: SegmentIndex,
-    ) -> (&mut Segment, &mut Segment) {
-        assert_ne!(a, b, "index_twice_mut requires distinct segments");
-        let (lo, hi) = if a < b { (a, b) } else { (b, a) };
-        let (left, right) = self.segments.split_at_mut(hi);
-        let lo_ref = left[lo].as_mut().expect("live segment");
-        let hi_ref = right[0].as_mut().expect("live segment");
-        if a < b {
-            (lo_ref, hi_ref)
-        } else {
-            (hi_ref, lo_ref)
-        }
     }
 }
 

@@ -5,7 +5,7 @@
 
 use anyhow::Context;
 
-use crate::{RefInfo, SegmentIndex, Workspace, segment, workspace::TargetRef};
+use crate::{SegmentIndex, Workspace, segment, workspace::TargetRef};
 
 /// Legacy query helpers kept for callers that still depend on compatibility
 /// semantics.
@@ -15,6 +15,13 @@ pub mod legacy;
 
 /// # Points of Interest
 impl Workspace {
+    /// The name of the segment owning the workspace's lower bound — the ref marking the
+    /// common base all stacks converge on (e.g. the target's local `main`), if the bound
+    /// exists and its segment is named.
+    pub fn lower_bound_ref_name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.graph[self.lower_bound_segment_id?].ref_name()
+    }
+
     /// Return the `commit` at the tip of the workspace, or that the tip reference
     /// was pointing to in Git.
     ///
@@ -55,19 +62,9 @@ impl Workspace {
     ///
     /// This is the previous target position remembered in workspace metadata.
     /// It is normally the base the workspace last integrated with, and
-    /// intentionally differs from [`Self::target_ref_tip_commit_id()`], which
-    /// returns the current tip of the target reference.
+    /// intentionally differs from the current tip of the target reference.
     pub fn stored_target_commit_id(&self) -> Option<gix::ObjectId> {
         self.target_commit.as_ref().map(|target| target.commit_id)
-    }
-
-    /// Return the current tip commit id of the target reference if it is
-    /// present in the workspace graph.
-    pub fn target_ref_tip_commit_id(&self) -> Option<gix::ObjectId> {
-        self.target_ref
-            .as_ref()
-            .and_then(|target| self.tip_commit_by_segment_id(target.segment_index))
-            .map(|commit| commit.id)
     }
 
     /// Return the commit id that currently acts as the workspace target.
@@ -96,7 +93,7 @@ impl Workspace {
     ///
     /// This follows target ref, then stored target commit, then the first
     /// integrated traversal tip in that order.
-    pub fn effective_target_segment_index(&self) -> Option<SegmentIndex> {
+    pub(crate) fn effective_target_segment_index(&self) -> Option<SegmentIndex> {
         self.target_ref
             .as_ref()
             .map(|target| target.segment_index)
@@ -119,17 +116,6 @@ impl Workspace {
             .as_ref()
             .map(|target| target.ref_name.as_ref())
     }
-
-    /// Return the local tracking branch reference information with the configured
-    ///  [target reference](Self::target_ref). This is available as long as a target
-    /// ref exists (i.e. `refs/remotes/origin/main`) and a local tracking ref for it
-    /// was configured or inferred.
-    pub fn target_local_tracking_ref_info(&self) -> Option<&RefInfo> {
-        self.target_ref
-            .as_ref()
-            .and_then(|target_ref| self.graph[target_ref.segment_index].sibling_segment_id)
-            .and_then(|local_target_ref_sidx| self.graph[local_target_ref_sidx].ref_info.as_ref())
-    }
 }
 
 /// # Sets of Interest
@@ -147,9 +133,7 @@ impl Workspace {
             .target_ref
             .as_ref()
             .context("incoming target commits require a workspace with a target ref")?;
-        let lower_bound = self
-            .lower_bound_segment_id
-            .map(|segment_id| (segment_id, self.graph[segment_id].generation));
+        let lower_bound = self.lower_bound_segment_id;
 
         let mut commit_ids = Vec::new();
         TargetRef::visit_upstream_commits(

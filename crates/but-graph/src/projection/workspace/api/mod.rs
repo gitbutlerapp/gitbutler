@@ -62,11 +62,6 @@ impl Workspace {
         self.graph[self.id].ref_name()
     }
 
-    /// Like [Self::ref_name()], but returns reference and worktree information instead.
-    pub fn ref_info(&self) -> Option<&crate::RefInfo> {
-        self.graph[self.id].ref_info.as_ref()
-    }
-
     /// Like [`Self::ref_name()`], but return a generic `<anonymous>` name for unnamed workspaces.
     pub fn ref_name_display(&self) -> &BStr {
         self.ref_name()
@@ -118,7 +113,8 @@ impl Workspace {
     }
 
     /// Return the `(merge-base, target-commit-id)` of the merge-base between the `commit_to_merge`
-    /// and the effective target side, see [Self::effective_target_segment_index()].
+    /// and the effective target side (target ref, then stored target commit, then the first
+    /// integrated traversal tip).
     /// Return `None` when none of these is set, or if there was no merge-base.
     ///
     /// Use this to get the merge-base for test-merges between `commit_to_merge` and the target,
@@ -324,31 +320,6 @@ impl Workspace {
         })
     }
 
-    /// Try to find the owning graph segment of `commit_id` in the workspace.
-    ///
-    /// This uses the stack segment's `commits_by_segment` offsets to map a projected
-    /// commit back to its source graph segment.
-    pub fn find_commit_segment_index(&self, commit_id: gix::ObjectId) -> Option<SegmentIndex> {
-        let (stack_segment, commit_offset) = self.stacks.iter().find_map(|stack| {
-            stack.segments.iter().find_map(|seg| {
-                seg.commits
-                    .iter()
-                    .enumerate()
-                    .find_map(|(offset, commit)| (commit.id == commit_id).then_some((seg, offset)))
-            })
-        })?;
-
-        let mut owning_segment = stack_segment.id;
-        for (segment_id, offset) in &stack_segment.commits_by_segment {
-            if *offset > commit_offset {
-                break;
-            }
-            owning_segment = *segment_id;
-        }
-
-        Some(owning_segment)
-    }
-
     /// Like [`Self::find_segment_and_stack_by_refname`], but fails with an error.
     pub fn try_find_segment_and_stack_by_refname(
         &self,
@@ -431,25 +402,57 @@ impl TargetRef {
     pub(crate) fn visit_upstream_commits(
         graph: &Graph,
         target_segment: SegmentIndex,
-        lower_bound_segment_and_generation: Option<(SegmentIndex, usize)>,
+        lower_bound: Option<SegmentIndex>,
         mut visit: impl FnMut(&Segment),
     ) {
+        // Shared-history semantics (the disjoint-target ruling): paint the lower bound's
+        // ancestor set on the carried commit graph, then collect from the target tip until the
+        // walk TOUCHES shared history — the paint, or any workspace-reachable commit. Diverged
+        // commits are never in either, so a rewritten remote is collected at any depth.
+        let shared_history = graph
+            .commit_graph()
+            .zip(lower_bound)
+            .and_then(|(cg, sidx)| {
+                let lb = graph[sidx].commits.first()?.id;
+                Some(cg.ancestor_set(lb))
+            });
+        let mut touched_shared_history = false;
+        let mut collected: Vec<SegmentIndex> = Vec::new();
         graph.visit_all_segments_including_start_until(target_segment, Direction::Outgoing, |s| {
             let prune = true;
-            if lower_bound_segment_and_generation.is_some_and(
-                |(lower_bound, lower_bound_generation)| {
-                    s.id == lower_bound || s.generation > lower_bound_generation
-                },
-            ) || s
+            let in_shared_history = shared_history
+                .as_ref()
+                .is_some_and(|shared| s.commits.first().is_some_and(|c| shared.contains(&c.id)));
+            let in_workspace = s
                 .commits
                 .iter()
-                .any(|c| c.flags.contains(CommitFlags::InWorkspace))
-            {
+                .any(|c| c.flags.contains(CommitFlags::InWorkspace));
+            touched_shared_history |= in_shared_history || in_workspace;
+            if Some(s.id) == lower_bound || in_shared_history || in_workspace {
                 return prune;
             }
-            visit(s);
+            collected.push(s.id);
             !prune
         });
+        if let Some(shared) = shared_history.as_ref().filter(|_| !touched_shared_history) {
+            // A walk that never touched shared history found a DISJOINT target — nothing is
+            // upstream — unless either side's ancestry ends at a traversal CUT (a raw parent
+            // the walk did not follow), in which case the shared base may lie beyond the
+            // window and everything visible stays.
+            let genuinely_disjoint = graph.commit_graph().is_some_and(|cg| {
+                !collected
+                    .iter()
+                    .flat_map(|sidx| graph[*sidx].commits.iter())
+                    .any(|c| cg.has_cut_parents(c.id))
+                    && !shared.iter().any(|id| cg.has_cut_parents(*id))
+            });
+            if genuinely_disjoint {
+                return;
+            }
+        }
+        for sidx in collected {
+            visit(&graph[sidx]);
+        }
     }
 }
 

@@ -69,7 +69,6 @@ pub(crate) fn run(
                     .expect("the prefix is unambiguous")
             })
             .collect(),
-        dangerously_skip_postprocessing_for_debugging: graph_args.no_post,
     };
 
     let graph = match graph_args.ref_name.as_deref() {
@@ -156,7 +155,6 @@ fn emit_workspace(
 /// must be passed directly into `but_graph::Graph::from_*`.
 fn uses_context_discovery(graph_args: &GraphArgs) -> bool {
     graph_args.extra_target.is_none()
-        && !graph_args.no_post
         && graph_args.hard_limit.is_none()
         && graph_args.limit == Some(Some(300))
         && graph_args.limit_extension.is_empty()

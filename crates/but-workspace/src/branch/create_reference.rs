@@ -433,7 +433,7 @@ pub(super) mod function {
             workspace.try_find_owner_indexes_by_commit_id(ref_target_id)?;
         }
 
-        let graph_with_new_ref = {
+        let updated_workspace = {
             // Always update the metadata, this may help disambiguating.
             let mut branch_md = meta.branch(ref_name)?;
             update_branch_metadata(ref_name, repo, &mut branch_md)?;
@@ -460,12 +460,9 @@ pub(super) mod function {
                 overlay = overlay.with_entrypoint(ref_target_id, Some(new_tip));
             }
 
-            workspace
-                .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
+            workspace.redo_with_overlay(repo, meta, overlay)?
         };
 
-        let updated_workspace = graph_with_new_ref.into_workspace()?;
         let has_new_ref_as_standalone_segment = updated_workspace
             .find_segment_and_stack_by_refname(ref_name)
             .is_some();

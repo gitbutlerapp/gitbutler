@@ -163,9 +163,6 @@ pub struct GraphArgs {
     /// The rev-spec of the extra target to provide for traversal.
     #[arg(long)]
     pub extra_target: Option<String>,
-    /// Disable post-processing of the graph, useful if that's failing.
-    #[arg(long)]
-    pub no_post: bool,
     /// Do not debug-print the workspace.
     ///
     /// If too large, it takes a long time or runs out of memory.

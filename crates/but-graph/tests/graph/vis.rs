@@ -64,7 +64,6 @@ fn post_graph_traversal() -> anyhow::Result<()> {
 
     let branch = Segment {
         id: 3,
-        generation: 2,
         ref_info: Some(RefInfo {
             ref_name: "refs/heads/A".try_into()?,
             commit_id: None,
@@ -103,13 +102,13 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉📕►►►:0[0]:main <> origin/main
-        ├── ►:1[0]:new-stack
-        ├── ►:2[0]:origin/main
+        ├── ►:1[1]:new-stack
+        ├── ►:2[1]:origin/main
         │   └── ✂🟣ccccccc
-        └── ►:3[2]:A <> origin/A →:1:
+        └── ►:3[1]:A <> origin/A →:1:
             ├── 🟣aaaaaaa (🏘)
             └── 🟣febafeb (🏘)
-                └── ►:4[0]:origin/A
+                └── ►:4[2]:origin/A
                     └── ✂🟣bbbbbbb
     ");
 

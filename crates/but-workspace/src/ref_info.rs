@@ -447,13 +447,12 @@ pub fn head_info_and_workspace(
     meta: &impl but_core::RefMetadata,
     opts: Options<'_>,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
-    let graph = Graph::from_head(
+    let ws = but_graph::Workspace::from_head(
         repo,
         meta,
         opts.project_meta.clone(),
         opts.traversal.clone(),
     )?;
-    let ws = graph.into_workspace()?;
     Ok((graph_to_ref_info(&ws, repo, opts)?, ws))
 }
 
@@ -473,14 +472,14 @@ pub fn ref_info(
 ) -> anyhow::Result<RefInfo> {
     let id = existing_ref.peel_to_id()?;
     let repo = id.repo;
-    let graph = Graph::from_commit_traversal(
+    let ws = but_graph::Workspace::from_commit_traversal(
         id,
         existing_ref.inner.name,
         meta,
         opts.project_meta.clone(),
         opts.traversal.clone(),
     )?;
-    graph_to_ref_info(&graph.into_workspace()?, repo, opts)
+    graph_to_ref_info(&ws, repo, opts)
 }
 
 pub(crate) fn find_ancestor_workspace_commit(
@@ -489,14 +488,27 @@ pub(crate) fn find_ancestor_workspace_commit(
     workspace_id: SegmentIndex,
     lower_bound_segment_id: Option<SegmentIndex>,
 ) -> Option<AncestorWorkspaceCommit> {
-    let lower_bound_generation = lower_bound_segment_id.map(|sidx| graph[sidx].generation);
+    // The depth safety-bound, expressed over the carried commit graph: a segment is beyond the
+    // lower bound when its first commit sits below the bound commit (cg generation: tips high,
+    // roots low). Dual-computed against the segment-generation bound at zero divergence across
+    // the corpus before the swap.
+    let cg_bound = graph.commit_graph().zip(lower_bound_segment_id).and_then(
+        |(cg, sidx)| -> Option<(u32, &but_graph::CommitGraph)> {
+            let lb = graph[sidx].commits.first()?.id;
+            Some((cg.node(lb)?.generation, cg))
+        },
+    );
 
     let mut commits_outside = Vec::new();
     let mut sidx_and_cidx = None;
     graph.visit_all_segments_excluding_start_until(workspace_id, Direction::Outgoing, |s| {
-        if sidx_and_cidx.is_some()
-            || lower_bound_generation.is_some_and(|max_gen| s.generation > max_gen)
-        {
+        let beyond_bound = cg_bound.is_some_and(|(bound, cg)| {
+            s.commits
+                .first()
+                .and_then(|c| cg.node(c.id))
+                .is_some_and(|n| n.generation < bound)
+        });
+        if sidx_and_cidx.is_some() || beyond_bound {
             return true;
         }
         for (cidx, graph_commit) in s.commits.iter().enumerate() {
@@ -704,10 +716,10 @@ impl crate::ref_info::Segment {
         but_graph::workspace::StackSegment {
             ref_info,
             base,
-            base_segment_id: _,
             remote_tracking_ref_name,
             sibling_segment_id: _,
             remote_tracking_branch_segment_id,
+            name_projected_from_outside: _,
             id,
             commits,
             // TODO: make it visible in this this data structure.

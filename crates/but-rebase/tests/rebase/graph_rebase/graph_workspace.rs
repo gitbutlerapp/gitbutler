@@ -303,16 +303,16 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
     ●  f97c026 GitButler Workspace Commit
 
     # Stack 0
-    ◎  refs/heads/stack-b
-    ●  cb7021b B2
-    ●  ce3278a B1
-
-    # Stack 1
     ◎  refs/heads/stack-a
     ●  49c06ff A2
     ●  ff76d2f A1
     ◎  refs/heads/main
     ●  965998b base
+
+    # Stack 1
+    ◎  refs/heads/stack-b
+    ●  cb7021b B2
+    ●  ce3278a B1
     ");
     Ok(())
 }
@@ -332,15 +332,15 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
     ●  f97c026 GitButler Workspace Commit
 
     # Stack 0
-    ◎  refs/heads/stack-b
-    ●  cb7021b B2
-    ●  ce3278a B1
-
-    # Stack 1
     ◎  refs/heads/stack-a
     ●  49c06ff A2
     ●  ff76d2f A1
     ◎  refs/heads/main
+
+    # Stack 1
+    ◎  refs/heads/stack-b
+    ●  cb7021b B2
+    ●  ce3278a B1
     ");
     Ok(())
 }

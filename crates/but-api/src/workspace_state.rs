@@ -93,7 +93,7 @@ impl WorkspaceState {
         rebase: &mut SuccessfulRebase<'_, '_, M>,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<WorkspaceState> {
-        let workspace = rebase.overlayed_graph()?.into_workspace()?;
+        let workspace = rebase.overlayed_workspace()?;
         let (repo, meta) = rebase.repo_and_meta_mut();
         Self::from_workspace(&workspace, meta, repo, replaced_commits)
     }

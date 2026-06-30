@@ -159,7 +159,7 @@ fn insert_single_node_segment_below() -> Result<()> {
 
     └── 👉►:0[0]:main[🌳]
         └── ·b005f3c (⌂|1)
-            ├── ►:1[2]:A
+            ├── ►:3[2]:A
             │   └── ·7f0cc55 (⌂|1)
             │       ├── ►:4[3]:anon:
             │       │   └── ·62e05ba (⌂|1)
@@ -168,8 +168,8 @@ fn insert_single_node_segment_below() -> Result<()> {
             │       └── →:5:
             ├── ►:2[1]:B
             │   └── ·a3301fe (⌂|1)
-            │       └── →:1: (A)
-            └── ►:3[1]:C
+            │       └── →:3: (A)
+            └── ►:1[1]:C
                 ├── ·930563a (⌂|1)
                 ├── ·68a2fc3 (⌂|1)
                 └── ·984fd1c (⌂|1)
@@ -342,13 +342,13 @@ fn insert_multi_node_segment_below() -> Result<()> {
         └── ·4db28a9 (⌂|1)
             ├── ►:1[1]:A
             │   └── ·71dfc8f (⌂|1)
-            │       └── ►:2[2]:B
+            │       └── ►:3[2]:B
             │           ├── ·a748762 (⌂|1)
             │           └── ·62e05ba (⌂|1)
             │               └── ►:4[3]:anon:
             │                   └── 🏁·8f0d338 (⌂|1) ►tags/base
-            ├── →:2: (B)
-            └── ►:3[1]:C
+            ├── →:3: (B)
+            └── ►:2[1]:C
                 ├── ·930563a (⌂|1)
                 ├── ·68a2fc3 (⌂|1)
                 └── ·984fd1c (⌂|1)
@@ -435,22 +435,22 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
 
     └── 👉►:0[0]:main[🌳]
         └── ·cca953f (⌂|1)
-            ├── ►:1[2]:A
+            ├── ►:2[2]:A
             │   └── ·69221b4 (⌂|1)
-            │       ├── ►:2[3]:B
+            │       ├── ►:4[3]:B
             │       │   ├── ·a748762 (⌂|1)
             │       │   └── ·62e05ba (⌂|1)
-            │       │       └── ►:4[4]:anon:
+            │       │       └── ►:5[4]:anon:
             │       │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-            │       └── →:4:
-            ├── →:2: (B)
-            └── ►:3[1]:C
+            │       └── →:5:
+            ├── →:4: (B)
+            └── ►:1[1]:C
                 └── ·76e2160 (⌂|1)
-                    ├── ►:5[2]:anon:
+                    ├── ►:3[2]:anon:
                     │   ├── ·68a2fc3 (⌂|1)
                     │   └── ·984fd1c (⌂|1)
-                    │       └── →:4:
-                    └── →:1: (A)
+                    │       └── →:5:
+                    └── →:2: (A)
     ");
     let outcome = outcome.materialize()?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
@@ -541,7 +541,7 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
         └── ·54f9cab (⌂|1)
             ├── ►:1[1]:A
             │   └── ·9501727 (⌂|1)
-            │       ├── ►:4[4]:anon:
+            │       ├── ►:5[4]:anon:
             │       │   └── 🏁·8f0d338 (⌂|1) ►tags/base
             │       └── ►:2[2]:B
             │           └── ·347772f (⌂|1)
@@ -549,10 +549,10 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
             │               │   ├── ·930563a (⌂|1)
             │               │   ├── ·68a2fc3 (⌂|1)
             │               │   └── ·984fd1c (⌂|1)
-            │               │       └── →:4:
-            │               └── ►:5[3]:anon:
+            │               │       └── →:5:
+            │               └── ►:4[3]:anon:
             │                   └── ·62e05ba (⌂|1)
-            │                       └── →:4:
+            │                       └── →:5:
             ├── →:2: (B)
             └── →:3: (C)
     ");

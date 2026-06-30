@@ -254,11 +254,11 @@ fn second_parent_leg_long() -> Result<()> {
         └── ·a6775ea (⌂|1)
             └── ►:1[1]:anon:
                 └── ·b85214b (⌂|1)
-                    ├── ►:2[2]:A
+                    ├── ►:3[2]:A
                     │   └── ·add59d2 (⌂|1)
                     │       └── ►:4[3]:main
                     │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-                    └── ►:3[2]:B
+                    └── ►:2[2]:B
                         ├── ·f87f875 (⌂|1)
                         ├── ·cb181a0 (⌂|1)
                         └── ·984fd1c (⌂|1)
@@ -315,19 +315,19 @@ fn workspace_with_empty_stack() -> Result<()> {
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
     │   └── ·74bcc92 (⌂|🏘|01)
-    │       ├── 📙►:3[1]:stack-1
+    │       ├── 📙►:1[1]:stack-1
     │       │   ├── ·2169646 (⌂|🏘|01)
     │       │   └── ·46ef828 (⌂|🏘|01)
-    │       │       └── ►:4[2]:anon:
+    │       │       └── ►:3[2]:anon:
     │       │           ├── ·f555940 (⌂|🏘|✓|11)
     │       │           ├── ·d664be0 (⌂|🏘|✓|11)
     │       │           └── 🏁·fafd9d0 (⌂|🏘|✓|11)
-    │       └── 📙►:5[1]:stack-2
-    │           └── →:4:
-    └── ►:1[0]:origin/main →:2:
-        └── ►:2[1]:main <> origin/main →:1:
+    │       └── 📙►:4[1]:stack-2
+    │           └── →:3:
+    └── ►:5[0]:origin/main →:2:
+        └── ►:2[1]:main <> origin/main →:5:
             └── ·a0f2ac5 (⌂|✓|10)
-                └── →:4:
+                └── →:3:
     ");
 
     let mut ws = graph.into_workspace()?;
@@ -376,17 +376,17 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
     │   └── ·a26ae77 (⌂|🏘|01)
-    │       ├── 📙►:4[1]:stack-1
-    │       │   └── ►:3[2]:anon:
+    │       ├── 📙►:3[1]:stack-1
+    │       │   └── ►:2[2]:anon:
     │       │       └── 🏁·fafd9d0 (⌂|🏘|✓|11)
-    │       ├── 📙►:5[1]:stack-2
-    │       │   └── →:3:
-    │       └── 📙►:6[1]:stack-3
-    │           └── →:3:
-    └── ►:1[0]:origin/main →:2:
-        └── ►:2[1]:main <> origin/main →:1:
+    │       ├── 📙►:4[1]:stack-2
+    │       │   └── →:2:
+    │       └── 📙►:5[1]:stack-3
+    │           └── →:2:
+    └── ►:6[0]:origin/main →:1:
+        └── ►:1[1]:main <> origin/main →:6:
             └── ·1cf9cf4 (⌂|✓|10)
-                └── →:3:
+                └── →:2:
     ");
 
     let mut ws = graph.into_workspace()?;
@@ -431,10 +431,8 @@ fn commit_with_two_parents() -> Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:main[🌳]
-        └── ·d70d863 (⌂|1)
-            ├── ►:1[1]:anon:
-            │   └── 🏁·35b8235 (⌂|1)
-            └── →:1:
+        ├── ·d70d863 (⌂|1)
+        └── 🏁·35b8235 (⌂|1)
     ");
 
     let mut ws = graph.into_workspace()?;
@@ -621,22 +619,22 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
 
     insta::assert_snapshot!(graph_tree(&graph), @"
 
-    ├── ►:0[0]:explicit-const
+    ├── ►:2[0]:explicit-const
     │   └── ·be4ae80 (⌂) ►main
     │       └── ►:3[1]:implicit-const
     │           └── ·120e3a9 (⌂)
-    │               └── ►:6[2]:explicit-mut
+    │               └── ►:4[2]:explicit-mut
     │                   └── ·a96434e (⌂)
-    │                       └── ►:5[3]:foo
+    │                       └── ►:1[3]:foo
     │                           ├── ·d591dfe (⌂|1)
     │                           └── 🏁·35b8235 (⌂|1)
-    └── ►:1[0]:explicit-const-2
+    └── ►:5[0]:explicit-const-2
         └── ·d9fa122 (⌂)
-            └── ►:4[1]:implicit-const-2
+            └── ►:6[1]:implicit-const-2
                 └── ·85bccf0 (⌂)
-                    └── 👉►:2[2]:implicit-mut
+                    └── 👉►:0[2]:implicit-mut
                         └── ·c8dd361 (⌂|1)
-                            └── →:5: (foo)
+                            └── →:1: (foo)
     ");
 
     let mut ws = graph.into_workspace()?;

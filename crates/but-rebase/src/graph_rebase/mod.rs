@@ -371,6 +371,11 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             .graph
             .redo_traversal_with_overlay(&self.repo, self.meta, overlay)
     }
+
+    /// Like [`Self::overlayed_graph`], but projected onto the workspace view most callers want.
+    pub fn overlayed_workspace(&self) -> Result<but_graph::Workspace> {
+        self.overlayed_graph()?.into_workspace()
+    }
 }
 
 /// The outcome of a materialize

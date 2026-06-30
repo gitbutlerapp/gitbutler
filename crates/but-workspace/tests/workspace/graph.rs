@@ -579,13 +579,6 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
     ");
     insta::assert_snapshot!(render(&detailed), @"
     # Stack 0
-    ◎  0 refs/heads/stack-b
-    ●  1 cb7021b B2
-    ●  2 ce3278a B1
-      linear    ref=0  rows=[0, 1, 2]
-      reference ref=0  rows=[0, 1, 2]
-
-    # Stack 1
     ◎  0 refs/heads/stack-a
     ●  1 49c06ff A2
     ●  2 ff76d2f A1
@@ -595,6 +588,13 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
       linear    ref=3  rows=[3, 4]
       reference ref=0  rows=[0, 1, 2]
       reference ref=3  rows=[3, 4]
+
+    # Stack 1
+    ◎  0 refs/heads/stack-b
+    ●  1 cb7021b B2
+    ●  2 ce3278a B1
+      linear    ref=0  rows=[0, 1, 2]
+      reference ref=0  rows=[0, 1, 2]
     ");
     Ok(())
 }
@@ -605,13 +605,6 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
     let (_repo, detailed) = detailed("workspace-disjoint-stacks", Some("refs/heads/main"))?;
     insta::assert_snapshot!(render(&detailed), @"
     # Stack 0
-    ◎  0 refs/heads/stack-b
-    ●  1 cb7021b B2
-    ●  2 ce3278a B1
-      linear    ref=0  rows=[0, 1, 2]
-      reference ref=0  rows=[0, 1, 2]
-
-    # Stack 1
     ◎  0 refs/heads/stack-a
     ●  1 49c06ff A2
     ●  2 ff76d2f A1
@@ -620,6 +613,13 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
       linear    ref=3  rows=[3]
       reference ref=0  rows=[0, 1, 2]
       reference ref=3  rows=[3]
+
+    # Stack 1
+    ◎  0 refs/heads/stack-b
+    ●  1 cb7021b B2
+    ●  2 ce3278a B1
+      linear    ref=0  rows=[0, 1, 2]
+      reference ref=0  rows=[0, 1, 2]
     ");
     Ok(())
 }
@@ -942,14 +942,14 @@ fn integration_status_marks_fully_integrated_two_stacks() -> Result<()> {
     )?;
     insta::assert_snapshot!(render_statuses(&detailed), @"
     # Stack 0
-    refs/heads/B   push=Integrated                     combined=Integrated                     remote=-
-    # Stack 1
     refs/heads/A   push=Integrated                     combined=Integrated                     remote=-
+    # Stack 1
+    refs/heads/B   push=Integrated                     combined=Integrated                     remote=-
 
     # Stack 0
-    b38b04b add B1   state=integrated
-    # Stack 1
     905d6e5 add A1   state=integrated
+    # Stack 1
+    b38b04b add B1   state=integrated
     ");
     Ok(())
 }

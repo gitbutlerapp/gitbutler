@@ -523,19 +523,14 @@ pub mod merge {
     ) -> anyhow::Result<(gix::ObjectId, SegmentIndex)> {
         let base_sidx = graph.find_merge_base(left, right).with_context(|| {
             format!(
-                "Couldn't find merge-base between segments {l} and {r} - they are disjoint in the commit-graph",
-                l = left,
-                r = right
+                "Couldn't find merge-base between segments {left} and {right} - they are disjoint in the commit-graph"
             )
         })?;
         let base_commit_id = graph
             .tip_skip_empty(base_sidx)
             .with_context(|| {
                 format!(
-                    "Base segment {base} between {l} and {r} didn't have  single commit reachable",
-                    base = base_sidx,
-                    l = left,
-                    r = right
+                    "Base segment {base_sidx} between {left} and {right} didn't have a single commit reachable"
                 )
             })?
             .id

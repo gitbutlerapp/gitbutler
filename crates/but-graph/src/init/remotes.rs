@@ -6,7 +6,7 @@ use crate::init::overlay::OverlayRepo;
 
 /// Returns the unique names of all remote tracking branches that are configured in the repository.
 /// Useful to avoid claiming them for deduction.
-pub fn configured_remote_tracking_branches(
+pub(crate) fn configured_remote_tracking_branches(
     repo: &OverlayRepo<'_>,
 ) -> anyhow::Result<BTreeSet<gix::refs::FullName>> {
     let mut out = BTreeSet::default();
@@ -28,7 +28,7 @@ pub fn configured_remote_tracking_branches(
 // Note that despite having multiple candidates for remote names, there can only be one
 // remote per branch.
 // TODO: remove deduction entirely by properly setting up remotes.
-pub fn lookup_remote_tracking_branch_or_deduce_it(
+pub(crate) fn lookup_remote_tracking_branch_or_deduce_it(
     repo: &OverlayRepo<'_>,
     ref_name: &gix::refs::FullNameRef,
     symbolic_remote_names: &[String],
@@ -60,7 +60,7 @@ pub fn lookup_remote_tracking_branch_or_deduce_it(
     }))
 }
 
-pub fn lookup_remote_tracking_branch(
+pub(crate) fn lookup_remote_tracking_branch(
     repo: &OverlayRepo<'_>,
     ref_name: &gix::refs::FullNameRef,
 ) -> anyhow::Result<Option<gix::refs::FullName>> {

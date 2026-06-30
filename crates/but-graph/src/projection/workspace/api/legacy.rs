@@ -91,48 +91,4 @@ impl Workspace {
 
         Ok(out)
     }
-    /// Return the target reference name if this workspace has a branch-backed target.
-    ///
-    /// ## Before Promoting this to non-legacy
-    ///
-    /// To me this looks like an 'unsure' way of getting the target-ref name.
-    /// I'd trust that `but-graph` knows how to 'see' the target ref during traversal
-    /// so the `target_ref` field is populated. I would *not* read it from `self.metadata`,
-    /// which means it might also not exist at all.
-    /// If promoted as is, these exact semantics should be documented, along with its intended use.
-    ///
-    /// Use [Self::target_ref_name()] instead.
-    pub fn legacy_target_ref_name(&self) -> Option<&gix::refs::FullNameRef> {
-        self.target_ref
-            .as_ref()
-            .map(|target| target.ref_name.as_ref())
-            .or_else(|| {
-                self.graph
-                    .project_meta
-                    .target_ref
-                    .as_ref()
-                    .map(|name| name.as_ref())
-            })
-    }
-
-    /// Return the remembered target commit id that anchors this workspace to its target.
-    ///
-    /// This is the projection equivalent of the legacy `Target::sha` field. It intentionally
-    /// differs from [`Self::target_ref_tip_commit_id()`], which returns the current tip of the target
-    /// branch.
-    ///
-    /// ## Before Promoting this to non-legacy
-    ///
-    /// I'd expect this to not be useful unless maybe for display purposes.
-    /// What I don't like about this function is that it resorts prefers `metadata` over
-    /// the resolved and validated `target_commit` on this instance, without making clear why
-    /// in the docs.
-    /// I think it's important to nail this semantically, and if in doubt, I'd rather make `metadata`
-    /// inaccessible to provide only a single-source of truth and remove ambiguity.
-    pub fn target_base_commit_id(&self) -> Option<gix::ObjectId> {
-        self.graph
-            .project_meta
-            .target_commit_id
-            .or_else(|| self.target_commit.as_ref().map(|target| target.commit_id))
-    }
 }

@@ -155,10 +155,10 @@ pub fn commit_uncommit_only_with_perm(
             })?;
 
     let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
-        let graph = rebase.overlayed_graph()?;
+        let workspace = rebase.overlayed_workspace()?;
         let replaced_commits = rebase.history.commit_mappings();
         let (repo, meta) = rebase.repo_and_meta_mut();
-        (&mut graph.into_workspace()?, replaced_commits, repo, meta)
+        (&mut { workspace }, replaced_commits, repo, meta)
     } else {
         let materialized = rebase.materialize_without_checkout()?;
         (
@@ -284,10 +284,10 @@ pub fn commit_uncommit_changes_only_with_perm(
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
     let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
-        let graph = outcome.rebase.overlayed_graph()?;
+        let workspace = outcome.rebase.overlayed_workspace()?;
         let replaced_commits = outcome.rebase.history.commit_mappings();
         let (repo, meta) = outcome.rebase.repo_and_meta_mut();
-        (&mut graph.into_workspace()?, replaced_commits, repo, meta)
+        (&mut { workspace }, replaced_commits, repo, meta)
     } else {
         let materialized = outcome.rebase.materialize_without_checkout()?;
         (

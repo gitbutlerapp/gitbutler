@@ -193,6 +193,13 @@ impl TestTui {
     {
         let mut other_messages = Vec::new();
 
+        // Force a full redraw: ratatui's diff assumes real-terminal side effects (overwriting
+        // half of a wide char blanks the other half) that TestBackend does not emulate, so
+        // incremental updates can leave stale cells in snapshots (ratatui-core 0.1.2).
+        self.terminal
+            .clear()
+            .expect("failed to clear test terminal");
+
         with_stable_commit_env(|| {
             let mut ctx = self.env().context();
             let mut out = TestTuiInputOutputChannel(&mut self.out);

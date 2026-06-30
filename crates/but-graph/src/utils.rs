@@ -121,7 +121,7 @@ impl<T: Copy + PartialEq> SegmentTable<T> {
 ///
 /// Most algorithms should prefer [`SegmentTable`] because fixed-size direct
 /// indexing makes invalid usage obvious. This wrapper is for longer-lived
-/// scratch state in post-processing, where the graph may grow while the scratch
+/// scratch state in the graph build, where the graph may grow while the scratch
 /// table is still reused. It preserves the same touched-slot clearing behavior,
 /// but grows before accessing an out-of-range segment index.
 pub(crate) struct GrowingSegmentTable<T> {
@@ -163,13 +163,13 @@ impl<T: Copy + PartialEq> GrowingSegmentTable<T> {
     }
 }
 
-/// Reusable scratch state for repeated segment graph walks during post-processing.
+/// Reusable scratch state for repeated segment graph walks.
 ///
-/// Workspace post-processing may run many short traversals while also inserting
+/// The graph build may run many short traversals while also inserting
 /// new segments into the graph. Reusing the queue and visited table avoids
 /// allocating a fresh visited set for every walk, and the growable table keeps
-/// the scratch state valid if post-processing creates segment indices that did
-/// not exist when the scratch state was created.
+/// the scratch state valid for segment indices that did not exist when the
+/// scratch state was created.
 pub(crate) struct SegmentVisitScratch {
     seen: GrowingSegmentTable<bool>,
     next: VecDeque<SegmentIndex>,

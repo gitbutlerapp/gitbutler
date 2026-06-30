@@ -76,13 +76,55 @@ fn tree_for_stack_segment(
     root
 }
 
+/// Longest path from a root (a segment with no incoming connection); roots are generation 0.
+/// Derived at render time from the graph's connections — the render's `[N]` markers do not
+/// depend on any stored value.
+fn generations(graph: &Graph) -> BTreeMap<SegmentIndex, usize> {
+    let all: Vec<SegmentIndex> = graph.segments().collect();
+    let mut indegree = BTreeMap::<SegmentIndex, usize>::new();
+    for &sidx in &all {
+        indegree.entry(sidx).or_insert(0);
+        for conn in &graph[sidx].connections {
+            *indegree.entry(conn.target).or_insert(0) += 1;
+        }
+    }
+    let mut depth = BTreeMap::<SegmentIndex, usize>::new();
+    let mut queue: std::collections::VecDeque<SegmentIndex> = indegree
+        .iter()
+        .filter_map(|(&sidx, &n)| (n == 0).then_some(sidx))
+        .collect();
+    for &sidx in &all {
+        depth.insert(sidx, 0);
+    }
+    while let Some(sidx) = queue.pop_front() {
+        let g = depth[&sidx];
+        for conn in &graph[sidx].connections {
+            let e = depth.entry(conn.target).or_insert(0);
+            *e = (*e).max(g + 1);
+            let d = indegree.get_mut(&conn.target).expect("all indexed");
+            *d -= 1;
+            if *d == 0 {
+                queue.push_back(conn.target);
+            }
+        }
+    }
+    depth
+}
+
 /// Visualize `graph` as a tree.
 pub fn graph_tree(graph: &Graph) -> StringTree {
     let mut root = Tree::new("".to_string());
     let mut seen = Default::default();
     let max_goals = graph.max_goals();
+    let generations = generations(graph);
     for sidx in graph.tip_segments() {
-        root.push(recurse_segment(graph, sidx, &mut seen, max_goals));
+        root.push(recurse_segment(
+            graph,
+            sidx,
+            &mut seen,
+            max_goals,
+            &generations,
+        ));
     }
     let missing = graph.num_segments() - seen.len();
     if missing > 0 {
@@ -91,7 +133,13 @@ pub fn graph_tree(graph: &Graph) -> StringTree {
         ));
         let mut newly_seen = Default::default();
         for sidx in graph.segments().filter(|sidx| !seen.contains(sidx)) {
-            missing.push(recurse_segment(graph, sidx, &mut newly_seen, max_goals));
+            missing.push(recurse_segment(
+                graph,
+                sidx,
+                &mut newly_seen,
+                max_goals,
+                &generations,
+            ));
         }
         root.push(missing);
         seen.extend(newly_seen);
@@ -127,6 +175,7 @@ fn recurse_segment(
     sidx: SegmentIndex,
     seen: &mut BTreeSet<SegmentIndex>,
     max_goals: Option<usize>,
+    generations: &BTreeMap<SegmentIndex, usize>,
 ) -> StringTree {
     let segment = &graph[sidx];
     if seen.contains(&sidx) {
@@ -145,7 +194,7 @@ fn recurse_segment(
                     maybe_sibling = segment
                         .remote_tracking_branch_segment_id
                         .or(segment.sibling_segment_id)
-                        .map_or_else(String::new, |sid| format!(" →:{}:", sid))
+                        .map_or_else(String::new, |sid| format!(" →:{sid}:"))
                 ))
                 .unwrap_or_default()
         )
@@ -190,7 +239,7 @@ fn recurse_segment(
             }
         },
         id = segment.id,
-        generation = segment.generation,
+        generation = generations.get(&sidx).copied().unwrap_or_default(),
         arrow = if segment.workspace_metadata().is_some() {
             "►►►"
         } else {
@@ -227,7 +276,7 @@ fn recurse_segment(
         );
         if let Some(segment_indices) = connected_segments.get(&Some(cidx)) {
             for sidx in segment_indices {
-                commit_tree.push(recurse_segment(graph, *sidx, seen, max_goals));
+                commit_tree.push(recurse_segment(graph, *sidx, seen, max_goals, generations));
             }
         }
         root.push(commit_tree);
@@ -235,7 +284,7 @@ fn recurse_segment(
     // Get the segments that are directly connected.
     if let Some(segment_indices) = connected_segments.get(&None) {
         for sidx in segment_indices {
-            root.push(recurse_segment(graph, *sidx, seen, max_goals));
+            root.push(recurse_segment(graph, *sidx, seen, max_goals, generations));
         }
     }
 

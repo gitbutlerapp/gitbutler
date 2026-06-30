@@ -119,25 +119,8 @@ impl Graph {
         }
         Ok(self)
     }
-    /// Produce a string that concisely represents `commit`, adding `extra` information as needed.
-    pub fn commit_debug_string(
-        commit: &crate::Commit,
-        is_entrypoint: bool,
-        stop_condition: Option<StopCondition>,
-        hard_limit: bool,
-        max_goals: Option<usize>,
-    ) -> String {
-        Self::commit_debug_string_inner(
-            commit,
-            is_entrypoint,
-            stop_condition,
-            hard_limit,
-            max_goals,
-            false,
-        )
-    }
 
-    /// Like [`Self::commit_debug_string()`], but includes graph-contextual worktree ownership markers.
+    /// Like `Self::commit_debug_string()`, but includes graph-contextual worktree ownership markers.
     pub fn commit_debug_string_with_graph_context(
         &self,
         commit: &crate::Commit,
@@ -204,14 +187,14 @@ impl Graph {
     }
 
     /// Shorten the given `name` so it's still clear if it is a special ref (like tag) or not.
-    pub fn ref_debug_string(
+    pub(crate) fn ref_debug_string(
         ref_name: &gix::refs::FullNameRef,
         worktree: Option<&crate::Worktree>,
     ) -> String {
         Self::ref_debug_string_inner(ref_name, worktree, false)
     }
 
-    /// Like [`Self::ref_debug_string()`], but includes graph-contextual worktree ownership markers.
+    /// Like `Self::ref_debug_string()`, but includes graph-contextual worktree ownership markers.
     pub fn ref_debug_string_with_graph_context(
         &self,
         ref_name: &gix::refs::FullNameRef,
@@ -246,7 +229,7 @@ impl Graph {
 
     /// Return a useful one-line string showing the relationship between `ref_name`, `remote_ref_name` and how
     /// they are linked with `sibling_id` and `remote_tracking_branch_id`.
-    pub fn ref_and_remote_debug_string(
+    pub(crate) fn ref_and_remote_debug_string(
         ref_info: Option<&crate::RefInfo>,
         remote_ref_name: Option<&gix::refs::FullName>,
         sibling_id: Option<SegmentIndex>,
@@ -261,7 +244,7 @@ impl Graph {
         )
     }
 
-    /// Like [`Self::ref_and_remote_debug_string()`], but includes graph-contextual worktree ownership markers.
+    /// Like `Self::ref_and_remote_debug_string()`, but includes graph-contextual worktree ownership markers.
     pub fn ref_and_remote_debug_string_with_graph_context(
         &self,
         ref_info: Option<&crate::RefInfo>,
@@ -443,6 +426,7 @@ impl Graph {
         let entrypoint = self.entrypoint_location();
         let max_goals = self.max_goals();
         let show_owned_by_repo = self.has_multiple_worktrees();
+        let generations = self.derived_generations();
         let node_attrs = |_: &PetGraph, (sidx, s): (SegmentIndex, &Segment)| {
             let name = format!(
                 "{ref_name_and_remote}{maybe_centering_newline}",
@@ -505,7 +489,7 @@ impl Graph {
                 },
                 entrypoint = if show_segment_entrypoint { "👉" } else { "" },
                 id = sidx,
-                generation = s.generation,
+                generation = generations.get(sidx),
             )
         };
 
@@ -549,7 +533,7 @@ impl Graph {
     // WARNING: should only be run on a fresh clone as it probably leaves the graph unusable.
     fn prune_for_dot_graph(&mut self) {
         let lower_bound_segment_id = self
-            .to_workspace_state(crate::workspace::workspace::Downgrade::Allow)
+            .to_workspace_state()
             .ok()
             .and_then(|state| state.lower_bound_segment_id);
         if let Some(lower_bound_segment_id) = lower_bound_segment_id {
