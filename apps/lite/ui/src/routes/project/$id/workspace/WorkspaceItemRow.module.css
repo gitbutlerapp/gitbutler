@@ -88,10 +88,9 @@
 
 		--button-border: none;
 		--button-bg: transparent;
-		--button-fg: var(--text-1-invert);
-		--button-icon-opacity: 0.7;
+		--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
+		--button-hover-fg: var(--text-1-invert);
 		--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
-		--button-hover-icon-opacity: 0.9;
 	}
 }
 
@@ -103,10 +102,9 @@
 
 		--button-border: 1px solid color-mix(in srgb, var(--fill-gray-fg) 30%, transparent);
 		--button-bg: transparent;
-		--button-fg: var(--text-1-invert);
-		--button-icon-opacity: 0.6;
+		--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
+		--button-hover-fg: var(--text-1-invert);
 		--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
-		--button-hover-icon-opacity: 0.8;
 	}
 }
 
