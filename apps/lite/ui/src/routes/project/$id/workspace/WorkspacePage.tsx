@@ -120,7 +120,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 			options: {
 				conflictBehavior: "allow",
-				meta: globalHotkeys.commandPalette.meta,
 			},
 		},
 		{
@@ -140,7 +139,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.focusPreviousSelectionScope.meta,
 			},
 		},
 		{
@@ -150,7 +148,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.focusNextSelectionScope.meta,
 			},
 		},
 	]);

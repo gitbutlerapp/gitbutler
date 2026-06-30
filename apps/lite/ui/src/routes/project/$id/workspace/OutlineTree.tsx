@@ -128,7 +128,6 @@ import {
 	outlineHotkeys,
 	selectionOperationHotkeys,
 	toElectronAccelerator,
-	type CommandGroup,
 } from "#ui/hotkeys.ts";
 import { segmentBottomRelativeTo, stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
@@ -505,7 +504,7 @@ const useOutlineTreeHotkeys = ({
 				dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
 				focusSelectionScope("outline");
 			},
-			options: { conflictBehavior: "allow", meta: outlineHotkeys.selectChanges.meta },
+			options: { conflictBehavior: "allow" },
 		},
 		{
 			hotkey: outlineHotkeys.composeCommitMessage.hotkey,
@@ -515,7 +514,6 @@ const useOutlineTreeHotkeys = ({
 			},
 			options: {
 				conflictBehavior: "allow",
-				meta: outlineHotkeys.composeCommitMessage.meta,
 			},
 		},
 		...Match.value(selection).pipe(
@@ -564,7 +562,6 @@ const useOutlineTreeHotkeys = ({
 							conflictBehavior: "allow",
 							enabled: defaultOutlineHotkeysEnabled,
 							target: ref,
-							meta: outlineHotkeys.composeCommitMessageFromChanges.meta,
 						},
 					},
 				],
@@ -719,7 +716,6 @@ const useOutlineTreeHotkeys = ({
 									conflictBehavior: "allow",
 									enabled: defaultOutlineHotkeysEnabled,
 									target: ref,
-									meta: outlineHotkeys.composeCommitHere.meta,
 								},
 							} satisfies UseHotkeyDefinition,
 							{
@@ -984,13 +980,12 @@ const OperandC: FC<
 const InlineEditor: FC<{
 	value: string;
 	label: string;
-	hotkeyGroup: CommandGroup;
 	onMount?: (el: HTMLTextAreaElement | HTMLInputElement) => void;
 	onSubmit: (value: string) => void;
 	onExit: () => void;
 	multiline: boolean;
 	heading?: boolean;
-}> = ({ value, label, hotkeyGroup, onMount, onSubmit, onExit, multiline, heading }) => {
+}> = ({ value, label, onMount, onSubmit, onExit, multiline, heading }) => {
 	const name = useId();
 	const formRef = useRef<HTMLFormElement | null>(null);
 	const textFieldRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
@@ -1002,14 +997,12 @@ const InlineEditor: FC<{
 	useHotkey("Enter", () => formRef.current?.requestSubmit(), {
 		conflictBehavior: "allow",
 		ignoreInputs: false,
-		meta: { group: hotkeyGroup, name: "Save" },
 		target: textFieldRef,
 	});
 
 	useHotkey("Escape", onExit, {
 		conflictBehavior: "allow",
 		ignoreInputs: false,
-		meta: { group: hotkeyGroup, name: "Cancel" },
 		target: textFieldRef,
 	});
 
@@ -1424,7 +1417,6 @@ const CommitRow: FC<
 					multiline
 					value={optimisticMessage.trim()}
 					label="Commit message"
-					hotkeyGroup="Reword commit"
 					onMount={(el) => {
 						const firstNewline = el.value.indexOf("\n");
 						const cursorPosition = firstNewline !== -1 ? firstNewline : el.value.length;
@@ -1845,7 +1837,6 @@ const Changes: FC<{
 			options: {
 				conflictBehavior: "allow",
 				enabled: isDefaultMode && !isCommitOrAmendPending,
-				meta: changesHotkeys.selectCommitTarget.meta,
 			},
 		},
 		{
@@ -1924,14 +1915,14 @@ const Changes: FC<{
 						<Tooltip.Root>
 							<Combobox.Trigger
 								className={classes("text-13 text-semibold", styles.commitTargetComboboxTrigger)}
-								aria-label={changesHotkeys.selectCommitTarget.meta.name}
+								aria-label="Select commit target"
 								// We pass `disabled` here because we want to disable the button, not
 								// the tooltip. Other props should be passed above.
 								render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 							>
 								<Icon name="bullseye" size={14} />
 								<span className={styles.commitTargetComboboxTriggerLabel}>
-									<Combobox.Value placeholder={changesHotkeys.selectCommitTarget.meta.name} />
+									<Combobox.Value placeholder="Select commit target" />
 								</span>
 							</Combobox.Trigger>
 							<Tooltip.Portal>
@@ -1939,7 +1930,7 @@ const Changes: FC<{
 									<Tooltip.Popup
 										render={<TooltipPopup kbd={changesHotkeys.selectCommitTarget.hotkey} />}
 									>
-										{changesHotkeys.selectCommitTarget.meta.name}
+										Select commit target
 									</Tooltip.Popup>
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
@@ -2373,7 +2364,6 @@ const BranchRow: FC<
 					heading
 					value={optimisticBranchDisplayName}
 					label="Branch name"
-					hotkeyGroup="Rename branch"
 					onMount={(el) => {
 						el.select();
 					}}

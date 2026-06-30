@@ -35,8 +35,6 @@ export type CommandGroup =
 	| "Outline"
 	| "Operation mode"
 	| "Selection scopes"
-	| "Rename branch"
-	| "Reword commit"
 	| "Stack";
 
 declare module "@tanstack/react-hotkeys" {
@@ -82,13 +80,12 @@ export const toElectronAccelerator = (hotkey: RegisterableHotkey): string | unde
 
 type HotkeyWithMeta = {
 	hotkey: RegisterableHotkey;
-	meta: HotkeyMeta;
+	meta?: HotkeyMeta;
 };
 
 export const globalHotkeys = {
 	commandPalette: {
 		hotkey: "Mod+K",
-		meta: { group: "Global", name: "Command palette" },
 	},
 	redo: {
 		hotkey: "Mod+Shift+Z",
@@ -122,11 +119,9 @@ export const workspaceHotkeys = {
 	},
 	focusPreviousSelectionScope: {
 		hotkey: "Mod+Alt+ArrowLeft",
-		meta: { group: "Selection scopes", name: "Focus previous selection scope" },
 	},
 	focusNextSelectionScope: {
 		hotkey: "Mod+Alt+ArrowRight",
-		meta: { group: "Selection scopes", name: "Focus next selection scope" },
 	},
 	toggleFiles: {
 		hotkey: "F",
@@ -149,7 +144,6 @@ export const outlineHotkeys = {
 	},
 	composeCommitHere: {
 		hotkey: "C",
-		meta: { group: "Commit", name: "Compose commit here" },
 	},
 	checkCommit: {
 		hotkey: "Space",
@@ -185,7 +179,6 @@ export const outlineHotkeys = {
 	},
 	composeCommitMessage: {
 		hotkey: "Shift+Z",
-		meta: { group: "Outline", name: "Compose commit message" },
 	},
 	deleteCommit: {
 		hotkey: globalThis.window.lite.platform === "darwin" ? "Mod+Backspace" : "Delete",
@@ -193,7 +186,6 @@ export const outlineHotkeys = {
 	},
 	composeCommitMessageFromChanges: {
 		hotkey: "R",
-		meta: { group: "Uncommitted changes", name: "Compose commit message" },
 	},
 	moveCommitDown: {
 		hotkey: "Alt+ArrowDown",
@@ -225,7 +217,6 @@ export const outlineHotkeys = {
 	},
 	selectChanges: {
 		hotkey: "Z",
-		meta: { group: "Outline", name: "Select changes" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
@@ -240,7 +231,6 @@ export const changesHotkeys = {
 	},
 	selectCommitTarget: {
 		hotkey: "Mod+Shift+B",
-		meta: { group: "Uncommitted changes", name: "Select commit target" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
@@ -272,27 +262,21 @@ export const selectionOperationHotkeys = {
 export const operationHotkeys = {
 	cancel: {
 		hotkey: "Escape",
-		meta: { group: "Operation mode", name: "Cancel" },
 	},
 	confirm: {
 		hotkey: "Enter",
-		meta: { group: "Operation mode", name: "Confirm" },
 	},
 	confirmTransfer: {
 		hotkey: "Mod+V",
-		meta: { group: "Operation mode", name: "Confirm" },
 	},
 	selectAbove: {
 		hotkey: "A",
-		meta: { group: "Operation mode", name: "Select above" },
 	},
 	selectBelow: {
 		hotkey: "B",
-		meta: { group: "Operation mode", name: "Select below" },
 	},
 	selectInto: {
 		hotkey: "I",
-		meta: { group: "Operation mode", name: "Select into" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 

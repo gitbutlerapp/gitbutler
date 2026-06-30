@@ -59,7 +59,7 @@ const Controls: FC<{
 }> = ({ onCancel, confirm }) => {
 	const confirmHotkeys: Array<Omit<UseHotkeyDefinition, "callback">> = [
 		...(confirm?.extraHotkeys ?? []),
-		{ hotkey: operationHotkeys.confirm.hotkey, options: { meta: operationHotkeys.confirm.meta } },
+		{ hotkey: operationHotkeys.confirm.hotkey },
 	];
 
 	useHotkeys([
@@ -81,7 +81,6 @@ const Controls: FC<{
 			callback: onCancel,
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.cancel.meta,
 			},
 		},
 	]);
@@ -106,7 +105,7 @@ const Controls: FC<{
 					<Tooltip.Portal>
 						<Tooltip.Positioner sideOffset={4}>
 							<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.confirm.hotkey} />}>
-								{operationHotkeys.confirm.meta.name}
+								Confirm
 							</Tooltip.Popup>
 						</Tooltip.Positioner>
 					</Tooltip.Portal>
@@ -127,7 +126,7 @@ const Controls: FC<{
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.cancel.hotkey} />}>
-							{operationHotkeys.cancel.meta.name}
+							Cancel
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
@@ -221,7 +220,6 @@ const TransferTypeToggleGroup: FC<{
 			callback: () => setOperationType("above"),
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.selectAbove.meta,
 			},
 		},
 		{
@@ -229,7 +227,6 @@ const TransferTypeToggleGroup: FC<{
 			callback: () => setOperationType("into"),
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.selectInto.meta,
 			},
 		},
 		{
@@ -237,7 +234,6 @@ const TransferTypeToggleGroup: FC<{
 			callback: () => setOperationType("below"),
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.selectBelow.meta,
 			},
 		},
 	]);
@@ -337,7 +333,7 @@ const TransferKeyboardOperationControls: FC<{
 						extraHotkeys: [
 							{
 								hotkey: operationHotkeys.confirmTransfer.hotkey,
-								options: { meta: operationHotkeys.confirmTransfer.meta, ignoreInputs: true },
+								options: { ignoreInputs: true },
 							},
 						],
 					}}
