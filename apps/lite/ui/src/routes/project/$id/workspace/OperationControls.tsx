@@ -333,7 +333,6 @@ const TransferKeyboardOperationControls: FC<{
 						extraHotkeys: [
 							{
 								hotkey: operationHotkeys.confirmTransfer.hotkey,
-								options: { ignoreInputs: true },
 							},
 						],
 					}}

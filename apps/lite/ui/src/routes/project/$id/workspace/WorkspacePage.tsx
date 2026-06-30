@@ -33,7 +33,7 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { type FC, Component, ReactNode, useDeferredValue } from "react";
+import { type FC, Activity, Component, ReactNode, useDeferredValue } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
@@ -321,7 +321,6 @@ const WorkspacePage: FC = () => {
 			options: {
 				conflictBehavior: "allow",
 				meta: workspaceHotkeys.toggleDetailsFullWindow.meta,
-				ignoreInputs: true,
 			},
 		},
 		{
@@ -388,25 +387,23 @@ const WorkspacePage: FC = () => {
 				defaultLayout={workspaceLayout.defaultLayout}
 				onLayoutChanged={workspaceLayout.onLayoutChanged}
 			>
-				{!detailsFullWindow && (
-					<>
-						<Panel
-							id={"outline-panel" satisfies PanelId}
-							className={styles.panel}
-							minSize={330}
-							defaultSize={400}
-							groupResizeBehavior="preserve-pixel-size"
-						>
-							<Outline
-								projectId={projectId}
-								project={selectedProject}
-								navigationIndex={outlineNavigationIndex}
-								absorptionTargetKeys={absorptionTargetKeys}
-							/>
-						</Panel>
-						<Separator className={styles.resizeHandle} />
-					</>
-				)}
+				<Activity mode={detailsFullWindow ? "hidden" : "visible"}>
+					<Panel
+						id={"outline-panel" satisfies PanelId}
+						className={styles.panel}
+						minSize={355}
+						defaultSize={400}
+						groupResizeBehavior="preserve-pixel-size"
+					>
+						<Outline
+							projectId={projectId}
+							project={selectedProject}
+							navigationIndex={outlineNavigationIndex}
+							absorptionTargetKeys={absorptionTargetKeys}
+						/>
+					</Panel>
+					<Separator className={styles.resizeHandle} />
+				</Activity>
 
 				<Panel id={"details-panel" satisfies PanelId} className={styles.panel}>
 					<Details

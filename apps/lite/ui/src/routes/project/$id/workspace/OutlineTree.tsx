@@ -1845,7 +1845,6 @@ const Changes: FC<{
 			options: {
 				conflictBehavior: "allow",
 				enabled: canCommit,
-				ignoreInputs: false,
 				meta: changesHotkeys.commit.meta,
 			},
 		},
@@ -1855,7 +1854,6 @@ const Changes: FC<{
 			options: {
 				conflictBehavior: "allow",
 				enabled: canAmend,
-				ignoreInputs: false,
 				meta: changesHotkeys.amendCommit.meta,
 			},
 		},

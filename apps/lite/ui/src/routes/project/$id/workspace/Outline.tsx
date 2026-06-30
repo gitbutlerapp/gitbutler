@@ -131,7 +131,6 @@ export const Outline: FC<
 				conflictBehavior: "allow",
 				enabled: canCreateIndependentBranch,
 				meta: workspaceHotkeys.createIndependentBranch.meta,
-				ignoreInputs: true,
 				requireReset: true,
 			},
 		},
@@ -142,7 +141,6 @@ export const Outline: FC<
 				conflictBehavior: "allow",
 				enabled: canUpdateWorkspace,
 				meta: workspaceHotkeys.updateWorkspace.meta,
-				ignoreInputs: true,
 			},
 		},
 	]);
