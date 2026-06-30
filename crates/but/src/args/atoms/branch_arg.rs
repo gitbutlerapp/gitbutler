@@ -64,49 +64,7 @@ impl BranchArg {
     ///
     /// Unlike the GUI, we don't normalize branch names for users in the CLI, as this could lead to
     /// unexpected behavior in scripts. This function rejects names that are possible to normalize.
-    // TODO(david): might wanna return FullName here
     pub fn resolve_for_creation(
-        &self,
-        repo: &gix::Repository,
-        head_info: &but_workspace::RefInfo,
-    ) -> CliResult<String> {
-        let branch_name = self.0.as_str();
-        let normalized = but_core::branch::normalize_short_name(branch_name).map_err(|err| {
-            CliError::from(bad_input(format!("Invalid branch name: {err}")).arg_value(branch_name))
-        })?;
-
-        if normalized != <&BStr>::from(branch_name) {
-            return Err(bad_input("Invalid branch name")
-                .arg_value(branch_name)
-                .hint(format!("Try '{normalized}' instead"))
-                .into());
-        }
-
-        let local_name = self.resolve_local_branch_name()?;
-        if head_info
-            .stacks
-            .iter()
-            .flat_map(|stack| &stack.segments)
-            .flat_map(|segment| &segment.ref_info)
-            .any(|ref_info| ref_info.ref_name == local_name)
-        {
-            return Err(
-                bad_input(format!("A branch named '{branch_name}' is already applied")).into(),
-            );
-        }
-
-        if repo.try_find_reference(&local_name)?.is_some() {
-            return Err(bad_input(format!(
-                "A branch named '{branch_name}' exists but is not applied"
-            ))
-            .into());
-        }
-
-        Ok(self.0.clone())
-    }
-
-    /// TODO replace head_info version with this
-    pub fn resolve_for_creation_ws(
         &self,
         repo: &gix::Repository,
         ws: &but_graph::Workspace,

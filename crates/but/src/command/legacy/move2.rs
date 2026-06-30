@@ -205,7 +205,7 @@ fn resolve(
                 })),
                 None => {
                     let branch_name =
-                        BranchArg(branch.to_string()).resolve_for_creation_ws(&repo, &ws)?;
+                        BranchArg(branch.to_string()).resolve_for_creation(&repo, &ws)?;
                     Ok(MoveOperation::ToNewBranch(
                         MoveCommitsToNewBranchOperation {
                             sources,

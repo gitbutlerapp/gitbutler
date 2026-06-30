@@ -219,7 +219,10 @@ fn resolve(
         (guard, CommitSelection::AllChanges)
     };
 
-    let commit_op = route_commit_operation(&*ctx.repo.get()?, head_info, out, id_map, target_ish)?;
+    let commit_op = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        route_commit_operation(&repo, &ws, head_info, out, id_map, target_ish)?
+    };
 
     let reword_op = RewordCommitOperation::resolve(no_message, message);
 
@@ -307,6 +310,7 @@ enum CommitOperationTargetIsh {
 
 fn route_commit_operation(
     repo: &gix::Repository,
+    ws: &but_graph::Workspace,
     head_info: &RefInfo,
     out: &mut IntermediateChannel<'_>,
     id_map: &IdMap,
@@ -335,11 +339,9 @@ fn route_commit_operation(
                 Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
             } else {
                 let branch = BranchArg(cli_id.0);
-                let branch_name =
-                    BranchArg(branch.resolve_for_creation(repo, head_info).with_hint(|| {
-                        format!("Run `but apply {branch}` to apply the branch first")
-                    })?)
-                    .resolve_local_branch_name()?;
+                let branch_name = branch
+                    .resolve_for_creation(repo, ws)
+                    .with_hint(|| format!("Run `but apply {branch}` to apply the branch first"))?;
                 Ok(CommitOperation::CommitToNewBranch(
                     CommitToNewBranchOperation {
                         branch_name: Some(branch_name),
