@@ -7733,46 +7733,27 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// SPIKE (commit-graph-experiment): the gather-then-build commit-graph projection reproduces the
-/// segment-based stack structure in FULL — including the empty `below` branch, placed via the
-/// gathered branch lists. Compares (ref_name, [commit ids]) per segment across all stacks.
-#[test]
-fn commit_graph_projection_parity() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
-    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
-    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &["below"]);
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+/// Comparable `[(ref_name, [commit ids])]` from a commit-graph projection.
+fn cg_projection_shape(
+    stacks: &[but_graph::commit_graph_projection::StackView],
+) -> Vec<(Option<String>, Vec<gix::ObjectId>)> {
+    stacks
+        .iter()
+        .flat_map(|s| s.segments.iter())
+        .map(|seg| {
+            (
+                seg.ref_name.as_ref().map(|r| r.as_bstr().to_string()),
+                seg.commits.clone(),
+            )
+        })
+        .collect()
+}
 
-    // Each in-workspace stack's ordered branch refs (mirrors the metadata above) — the enrichment
-    // data the gather phase consumes to place empty branches.
-    let stack_branches: Vec<Vec<gix::refs::FullName>> = vec![
-        vec!["refs/heads/A".try_into()?],
-        vec!["refs/heads/B".try_into()?, "refs/heads/below".try_into()?],
-    ];
-
-    // Commit-graph projection (built before into_workspace consumes the graph).
-    let ws_commit = graph
-        .managed_entrypoint_commit(&repo)?
-        .expect("managed workspace commit")
-        .id;
-    let cg = but_graph::CommitGraph::from_segment_graph(&graph);
-    let commit_based: Vec<(Option<String>, Vec<gix::ObjectId>)> =
-        but_graph::commit_graph_projection::project(&cg, ws_commit, Some(&stack_branches))
-            .iter()
-            .flat_map(|s| s.segments.iter())
-            .map(|seg| {
-                (
-                    seg.ref_name.as_ref().map(|r| r.as_bstr().to_string()),
-                    seg.commits.clone(),
-                )
-            })
-            .collect();
-
-    // Segment-based projection.
-    let ws = graph.into_workspace()?;
-    let segment_based: Vec<(Option<String>, Vec<gix::ObjectId>)> = ws
-        .stacks
+/// The same shape from the segment-based `Workspace`.
+fn segment_projection_shape(
+    ws: &but_graph::Workspace,
+) -> Vec<(Option<String>, Vec<gix::ObjectId>)> {
+    ws.stacks
         .iter()
         .flat_map(|s| s.segments.iter())
         .map(|seg| {
@@ -7781,47 +7762,66 @@ fn commit_graph_projection_parity() -> anyhow::Result<()> {
                 seg.commits.iter().map(|c| c.id).collect(),
             )
         })
-        .collect();
+        .collect()
+}
 
+/// Each in-workspace stack's ordered branch refs, read from the workspace metadata.
+fn stack_branches_from_meta(
+    meta: &impl RefMetadata,
+) -> anyhow::Result<Vec<Vec<gix::refs::FullName>>> {
+    let ws = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
+    Ok(ws
+        .stacks
+        .iter()
+        .filter(|s| s.is_in_workspace())
+        .map(|s| s.branches.iter().map(|b| b.ref_name.clone()).collect())
+        .collect())
+}
+
+/// SPIKE (commit-graph-experiment): assert the gather-then-build commit-graph projection — built from
+/// BOTH a `from_segment_graph` bridge and a straight-from-git `from_repository` CommitGraph — exactly
+/// reproduces the segment-based `Workspace.stacks` (ref names + commits, including empty branches).
+/// Consumes `graph` to project the segment-based view.
+fn assert_commit_graph_projection_parity(
+    repo: &gix::Repository,
+    graph: but_graph::Graph,
+    stack_branches: &[Vec<gix::refs::FullName>],
+) -> anyhow::Result<()> {
+    let ws_commit = graph
+        .managed_entrypoint_commit(repo)?
+        .expect("managed workspace commit")
+        .id;
+    let bridge = but_graph::commit_graph_projection::project(
+        &but_graph::CommitGraph::from_segment_graph(&graph),
+        ws_commit,
+        Some(stack_branches),
+    );
+    let from_git = but_graph::commit_graph_projection::project(
+        &but_graph::CommitGraph::from_repository(repo)?,
+        ws_commit,
+        Some(stack_branches),
+    );
     assert_eq!(
-        commit_based, segment_based,
-        "commit-graph projection should reproduce the full segment-based stack structure"
+        cg_projection_shape(&from_git),
+        cg_projection_shape(&bridge),
+        "straight-from-git vs bridge CommitGraph should project identically"
+    );
+    let ws = graph.into_workspace()?;
+    assert_eq!(
+        cg_projection_shape(&bridge),
+        segment_projection_shape(&ws),
+        "commit-graph projection should reproduce the segment-based stacks"
     );
     Ok(())
 }
 
-/// KEYSTONE SPIKE (commit-graph-experiment): a CommitGraph built straight from git (no segment graph)
-/// drives the SAME projection as one built from the segment graph — i.e. the segment graph is not
-/// needed to construct the CommitGraph.
 #[test]
-fn commit_graph_from_git_drives_the_same_projection() -> anyhow::Result<()> {
+fn commit_graph_projection_parity_two_stacks_with_empty_branch() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &["below"]);
     let graph =
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
-    let ws_commit = graph
-        .managed_entrypoint_commit(&repo)?
-        .expect("managed workspace commit")
-        .id;
-    let stack_branches: Vec<Vec<gix::refs::FullName>> = vec![
-        vec!["refs/heads/A".try_into()?],
-        vec!["refs/heads/B".try_into()?, "refs/heads/below".try_into()?],
-    ];
-
-    let bridge = but_graph::commit_graph_projection::project(
-        &but_graph::CommitGraph::from_segment_graph(&graph),
-        ws_commit,
-        Some(&stack_branches),
-    );
-    let from_git = but_graph::commit_graph_projection::project(
-        &but_graph::CommitGraph::from_repository(&repo)?,
-        ws_commit,
-        Some(&stack_branches),
-    );
-    assert_eq!(
-        from_git, bridge,
-        "a commit graph built straight from git should drive the same projection as the bridge"
-    );
-    Ok(())
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches)
 }
