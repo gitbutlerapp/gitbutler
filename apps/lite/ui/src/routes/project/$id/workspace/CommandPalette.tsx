@@ -1,7 +1,6 @@
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import { type CommandGroup } from "#ui/hotkeys.ts";
-import { getFocusedSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
 import {
 	getHotkeyManager,
 	getSequenceManager,
@@ -45,21 +44,22 @@ const groupCommandPaletteItems = (
 
 const isEnabled = <T extends HotkeyOptions | SequenceOptions>(
 	opts: T,
-	focusedSelectionScope: SelectionScope | null,
+	activeElement: Element | null,
 ): opts is T & { meta: HotkeyMeta & { name: string } } =>
 	opts.enabled !== false &&
 	opts.meta?.name !== undefined &&
-	(opts.meta.selectionScope === undefined || opts.meta.selectionScope === focusedSelectionScope);
+	(!opts.target ||
+		opts.target === document ||
+		opts.target === window ||
+		opts.target === activeElement);
 
 export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
-	const [initialFocusedSelectionScope] = useState(() =>
-		getFocusedSelectionScope(document.activeElement),
-	);
+	const [initialActiveElement] = useState(() => document.activeElement);
 
 	const { hotkeys, sequences } = useHotkeyRegistrations();
 	const hotkeyItems: Array<CommandPaletteItem> = [
 		...hotkeys.flatMap((hotkey): CommandPaletteItem | [] =>
-			isEnabled(hotkey.options, initialFocusedSelectionScope)
+			isEnabled(hotkey.options, initialActiveElement)
 				? {
 						group: hotkey.options.meta.group,
 						id: hotkey.id,
@@ -70,7 +70,7 @@ export const CommandPalette: FC<Props> = ({ open, onOpenChange }) => {
 				: [],
 		),
 		...sequences.flatMap((sequence): CommandPaletteItem | [] =>
-			isEnabled(sequence.options, initialFocusedSelectionScope)
+			isEnabled(sequence.options, initialActiveElement)
 				? {
 						group: sequence.options.meta.group,
 						id: sequence.id,
