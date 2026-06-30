@@ -1062,7 +1062,6 @@ const PullRequestForm: FC<{
 	useHotkey(pullRequestHotkeys.update.hotkey, () => formRef.current?.requestSubmit(), {
 		conflictBehavior: "allow",
 		ignoreInputs: false,
-		meta: pullRequestHotkeys.update.meta,
 		target: formRef,
 	});
 

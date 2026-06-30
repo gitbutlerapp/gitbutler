@@ -341,7 +341,7 @@ export const useNavigationIndexHotkeys = <T>({
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
 				target: ref,
-				meta: { ...selectionOperationHotkeys.move.meta, group },
+				meta: { group, name: "Move" },
 			},
 		},
 		{
@@ -352,7 +352,7 @@ export const useNavigationIndexHotkeys = <T>({
 				enabled: operationEnabled,
 				target: ref,
 				ignoreInputs: true,
-				meta: { ...selectionOperationHotkeys.cut.meta, group },
+				meta: { group, name: "Cut" },
 			},
 		},
 	]);

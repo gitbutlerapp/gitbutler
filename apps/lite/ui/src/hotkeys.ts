@@ -23,19 +23,15 @@ export const formatForDisplaySorted = (hotkey: Parameters<typeof formatForDispla
 
 export type CommandGroup =
 	| "Branch"
-	| "Branches"
-	| "Changes file"
-	| "Uncommitted changes"
-	| "Commit file"
 	| "Commit"
-	| "Details"
 	| "Diff"
-	| "Files"
+	| "Display"
+	| "File"
 	| "Global"
-	| "Outline"
-	| "Operation mode"
-	| "Selection scopes"
-	| "Stack";
+	| "Operations log"
+	| "Stack"
+	| "Uncommitted changes"
+	| "Workspace";
 
 declare module "@tanstack/react-hotkeys" {
 	interface HotkeyMeta {
@@ -89,7 +85,7 @@ export const globalHotkeys = {
 	},
 	redo: {
 		hotkey: "Mod+Shift+Z",
-		meta: { group: "Outline", name: "Redo" },
+		meta: { group: "Operations log", name: "Redo" },
 	},
 	selectProject: {
 		hotkey: "Mod+Shift+P",
@@ -97,23 +93,23 @@ export const globalHotkeys = {
 	},
 	undo: {
 		hotkey: "Mod+Z",
-		meta: { group: "Outline", name: "Undo" },
+		meta: { group: "Operations log", name: "Undo" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const workspaceHotkeys = {
 	applyBranch: {
 		hotkey: "Mod+Shift+A",
-		meta: { group: "Branches", name: "Apply branch" },
+		meta: { group: "Workspace", name: "Apply branch" },
 	},
 	createIndependentBranch: {
 		hotkey: "Mod+N",
-		meta: { group: "Branches", name: "Add new branch" },
+		meta: { group: "Workspace", name: "Add new branch" },
 	},
 	updateWorkspace: {
 		hotkey: "Alt+Shift+R",
 		meta: {
-			group: "Global",
+			group: "Workspace",
 			name: "Update workspace (rebases all stacks)",
 		},
 	},
@@ -125,11 +121,11 @@ export const workspaceHotkeys = {
 	},
 	toggleFiles: {
 		hotkey: "F",
-		meta: { group: "Files", name: "Toggle files" },
+		meta: { group: "Diff", name: "Toggle files" },
 	},
 	toggleDetailsFullWindow: {
 		hotkey: ".",
-		meta: { group: "Details", name: "Toggle full window details" },
+		meta: { group: "Display", name: "Toggle full window details" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
@@ -156,7 +152,6 @@ export const outlineHotkeys = {
 	insertEmptyCommit: {
 		hotkey: "N",
 		meta: {
-			// TODO: this also works for branch selections, not just commit selections. is this group correct?
 			group: "Commit",
 			name: "Insert empty commit",
 		},
@@ -213,7 +208,7 @@ export const outlineHotkeys = {
 	},
 	selectBranch: {
 		hotkey: "T",
-		meta: { group: "Outline", name: "Select branch" },
+		meta: { group: "Workspace", name: "Jump to branch" },
 	},
 	selectChanges: {
 		hotkey: "Z",
@@ -237,25 +232,22 @@ export const changesHotkeys = {
 export const changesFileHotkeys = {
 	absorb: {
 		hotkey: "A",
-		meta: { group: "Changes file", name: "Absorb" },
+		meta: { group: "File", name: "Absorb" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const pullRequestHotkeys = {
 	update: {
 		hotkey: "Mod+Enter",
-		meta: { group: "Details", name: "Update pull request" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const selectionOperationHotkeys = {
 	move: {
 		hotkey: "M",
-		meta: { group: "Selection scopes", name: "Move" },
 	},
 	cut: {
 		hotkey: "Mod+X",
-		meta: { group: "Selection scopes", name: "Cut" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
