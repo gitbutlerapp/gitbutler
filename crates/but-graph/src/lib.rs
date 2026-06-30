@@ -219,6 +219,10 @@ mod segment_graph;
 /// The segment graph, where segments directly own their outgoing connections.
 pub use segment_graph::{Connection, Direction, SegmentGraph};
 
+/// SPIKE: a commit-first graph that the projection and StepGraph could be built from directly,
+/// so the segment graph can be removed. Not yet wired into traversal — see the module docs.
+mod commit_graph;
+
 mod statistics;
 pub use statistics::Statistics;
 
