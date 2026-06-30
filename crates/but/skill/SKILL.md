@@ -39,7 +39,7 @@ but commit <branch> -c -m "<msg>" --changes <id>,<id>
 
 1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. If the user says a `git` write command, translate it to `but` and run that.
 2. After mutations, read the returned output for the updated workspace state — it replaces a follow-up status command.
-3. You may chain `but commit` mutations with `&&` to make several commits from one diff: file/hunk IDs copied from the original output generally remain usable across commits, and branch IDs are stable. Do NOT chain mutations that consume or rewrite commit IDs (`amend`, `squash`, `move`, `uncommit`); those reassign IDs the next command needs, so run one, read the returned workspace state, and take fresh IDs from it. If a chained command cannot resolve an ID, re-read with `but status`/`but diff` and retry.
+3. You may chain `but commit` mutations with `&&` to make several commits from one diff; they stack in the order you write them, so the first `but commit` is the oldest of the new commits and each later one goes on top (newest). File/hunk IDs copied from the original output generally remain usable across commits, and branch IDs are stable. Do NOT chain mutations that consume or rewrite commit IDs (`amend`, `squash`, `move`, `uncommit`); those reassign IDs the next command needs, so run one, read the returned workspace state, and take fresh IDs from it. If a chained command cannot resolve an ID, re-read with `but status`/`but diff` and retry.
 4. Use CLI IDs from `but diff` / `but status` / `but status -fv` / `but show`; never hardcode IDs.
 5. Do not run `but status` or `but status -fv` as routine preflight for selected dirty-file or hunk commits. Start with `but diff`; use compact `but status` for commit order, branch/stack placement, or conflict overview. Use `but status -fv` when file/hunk IDs or per-commit file details matter.
 6. For "commit these selected changes on a new branch", prefer one command: `but commit <branch> -c -m "<msg>" --changes <ids>`.
@@ -75,7 +75,7 @@ but <mutation> ...
 ## Command Patterns
 
 - Commit: `but commit <branch> -m "<msg>" --changes <id>,<id>`
-- Several commits from one diff: chain `but commit` calls - `but commit <branch> -m "<msg>" --changes <id>,<id> && but commit <branch> -m "<msg>" --changes <id>,<id>` (file/hunk IDs from the initial output generally remain usable; refresh if an ID stops resolving)
+- Several commits from one diff: chain `but commit` calls - `but commit <branch> -m "<msg>" --changes <id>,<id> && but commit <branch> -m "<msg>" --changes <id>,<id>` (commits stack oldest-first in the order you write them — first call is oldest; file/hunk IDs from the initial output generally remain usable; refresh if an ID stops resolving)
 - `but commit -a` is accepted as a no-op compatibility flag; GitButler already includes uncommitted changes by default.
 - Commit + create branch: `but commit <branch> -c -m "<msg>" --changes <id>`
 - Commit at a specific history position: `but commit <branch> -m "<msg>" --changes <id>,<id> --before <commit-or-branch-id>` or `--after <commit-or-branch-id>`
@@ -133,10 +133,11 @@ Use this when an existing commit should be replaced by selected smaller commits.
 1. `but status -fv` when you need the source commit, branch name, or placement anchor.
 2. `but uncommit <source-commit-id> --diff` to expose that commit's changes as uncommitted changes and print committable file/hunk IDs.
 3. Pick replacement commit contents from the dirty diff printed by `but uncommit --diff`, not from the old committed diff.
-4. For multiple replacement commits from the same diff, chain `but commit` calls - file/hunk IDs from the initial output generally remain usable across commits:
+4. Create the replacement commits in the requested order, oldest first, by chaining `but commit` calls (file/hunk IDs from the diff stay usable across commits):
    `but commit <branch> -m "<message 1>" --changes <id>,<id> && but commit <branch> -m "<message 2>" --changes <id>,<id>`
-   Chain them in history order, oldest first; each new commit stacks on top of the previous one. For a specific mid-history position, add `--before <target>`/`--after <target>` and anchor on the branch or an unchanged neighbor commit; if an earlier command in the chain rewrote the anchor, run the rest separately with fresh IDs.
-5. Leave unwanted changes uncommitted. If the returned workspace state shows the requested commits and leftovers, stop; do not run `status`, `diff`, `show`, or `--help` only to reconfirm.
+   Each new commit goes to the TOP of the stack. So if you split a commit that had other commits above it, the replacements are now sitting above those preserved commits.
+5. **If any commit must stay ABOVE the replacements (a preserved top commit), put it back on top instead of fighting anchors.** Do not anchor the replacements with `--before <top>`/`--after <top>`: `but uncommit` and each insert rewrite the top commit's ID, so a captured anchor goes stale (and `--before <branch>` just puts commits on top of the branch). Instead, take the preserved commit's CURRENT id from the workspace state the last `but commit` printed, then `but move <preserved-commit-id> <branch>` to lift it back to the top/newest (for several preserved commits, list every one, oldest first: `but move <id1>,<id2>,<id3> <branch>`).
+6. Leave unwanted changes uncommitted. The returned workspace state shows the resulting commit order; if it matches the request, stop.
 
 ### Reorder commits
 

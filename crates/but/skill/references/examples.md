@@ -469,8 +469,9 @@ but commit my-branch -m "Add parser" --changes qs:5,qs:2 \
   && but commit my-branch -m "Add tests" --changes uo:d
 ```
 
-Only chain when each command references uncommitted IDs (plus the stable branch ID).
-If an ID stops resolving, re-read the diff and continue.
+The commits stack in the order you write them, so `Add parser` ends up below (older
+than) `Add tests`. Only chain when each command references uncommitted IDs (plus the
+stable branch ID). If an ID stops resolving, re-read the diff and continue.
 Mutations that consume commit IDs — `amend`, `squash`, `move`, `uncommit` — rewrite
 those IDs, so run them one at a time and take fresh IDs from returned status.
 
