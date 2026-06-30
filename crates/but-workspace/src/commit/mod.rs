@@ -521,8 +521,8 @@ pub mod merge {
         let base_sidx = graph.find_merge_base(left, right).with_context(|| {
             format!(
                 "Couldn't find merge-base between segments {l} and {r} - they are disjoint in the commit-graph",
-                l = left.index(),
-                r = right.index()
+                l = left,
+                r = right
             )
         })?;
         let base_commit_id = graph
@@ -530,9 +530,9 @@ pub mod merge {
             .with_context(|| {
                 format!(
                     "Base segment {base} between {l} and {r} didn't have  single commit reachable",
-                    base = base_sidx.index(),
-                    l = left.index(),
-                    r = right.index()
+                    base = base_sidx,
+                    l = left,
+                    r = right
                 )
             })?
             .id

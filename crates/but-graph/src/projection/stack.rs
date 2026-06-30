@@ -1,10 +1,10 @@
 use std::fmt::Formatter;
 
+use crate::vec_graph::Direction;
 use anyhow::{Context as _, bail};
 use bitflags::bitflags;
 use but_core::{ref_metadata, ref_metadata::StackId};
 use gix::prelude::ObjectIdExt;
-use petgraph::Direction;
 
 use crate::{CommitFlags, Graph, SegmentIndex, SegmentMetadata, init::PetGraph};
 
@@ -449,7 +449,7 @@ impl StackSegment {
             "{ep}{meta}:{id}:{ref_name_remote}{local_commits}{remote_commits}",
             ep = if self.is_entrypoint { "👉" } else { "" },
             meta = if self.metadata.is_some() { "📙" } else { "" },
-            id = self.id.index(),
+            id = self.id,
             local_commits = if num_local_commits == 0 {
                 "".into()
             } else {

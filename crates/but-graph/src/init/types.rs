@@ -3,7 +3,7 @@ use std::{
     ops::Range,
 };
 
-use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
+use crate::vec_graph::Direction;
 
 use crate::{CommitFlags, CommitIndex, Edge, SegmentIndex};
 
@@ -369,11 +369,11 @@ pub(crate) struct EdgeOwned {
     pub source: SegmentIndex,
     pub target: SegmentIndex,
     pub weight: Edge,
-    pub id: petgraph::graph::EdgeIndex,
+    pub id: crate::vec_graph::EdgeId,
 }
 
-impl From<EdgeReference<'_, Edge>> for EdgeOwned {
-    fn from(e: EdgeReference<'_, Edge>) -> Self {
+impl From<crate::vec_graph::EdgeRef<'_, Edge>> for EdgeOwned {
+    fn from(e: crate::vec_graph::EdgeRef<'_, Edge>) -> Self {
         EdgeOwned {
             source: e.source(),
             target: e.target(),
@@ -391,7 +391,7 @@ impl From<EdgeReference<'_, Edge>> for EdgeOwned {
 ///
 /// ### Note
 ///
-/// In theory, a normal [`petgraph::visit::Topo`] would do here, if we assume that everything works
+/// In theory, a normal `petgraph::visit::Topo` would do here, if we assume that everything works
 /// as it should. So at some point, this code might be removed once it's clear we won't need it anymore.
 /// TODO: one fine day remove this in favor of `petgraph::visit::Topo`.
 pub struct TopoWalk {

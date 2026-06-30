@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, VecDeque};
 
+use crate::vec_graph::EdgeRef;
 use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice, ByteVec};
 use gix::reference::Category;
-use petgraph::{prelude::EdgeRef, stable_graph::EdgeReference};
 
 use crate::{
     CommitFlags, Edge, Graph, Segment, SegmentIndex, SegmentMetadata, StopCondition, init::PetGraph,
@@ -298,14 +298,12 @@ impl Graph {
                     ),
                     maybe_id = sibling_id
                         .filter(|_| remote_ref_name.is_none())
-                        .map(|id| format!(" →:{}:", id.index()))
+                        .map(|id| format!(" →:{id}:"))
                         .unwrap_or_default()
                 ))
                 .unwrap_or_else(|| format!(
                     "anon:{maybe_id}",
-                    maybe_id = sibling_id
-                        .map(|id| format!(" →:{}:", id.index()))
-                        .unwrap_or_default()
+                    maybe_id = sibling_id.map(|id| format!(" →:{id}:")).unwrap_or_default()
                 )),
             remote = remote_ref_name
                 .as_ref()
@@ -314,7 +312,7 @@ impl Graph {
                     remote_name = Graph::ref_debug_string(remote_ref_name.as_ref(), None),
                     maybe_id = remote_tracking_branch_id
                         .or(sibling_id)
-                        .map(|id| format!(" →:{}:", id.index()))
+                        .map(|id| format!(" →:{id}:"))
                         .unwrap_or_default()
                 ))
                 .unwrap_or_default()
@@ -325,7 +323,6 @@ impl Graph {
     /// Mostly useful for debugging to stop early when a connection wasn't created correctly.
     #[cfg(unix)]
     pub fn validated_or_open_as_svg(self) -> anyhow::Result<Self> {
-        use petgraph::visit::IntoEdgeReferences;
         for edge in self.inner.edge_references() {
             let res = Self::check_edge(&self.inner, edge, false);
             if res.is_err() {
@@ -507,12 +504,12 @@ impl Graph {
                     }
                 },
                 entrypoint = if show_segment_entrypoint { "👉" } else { "" },
-                id = sidx.index(),
+                id = sidx,
                 generation = s.generation,
             )
         };
 
-        let edge_attrs = &|g: &PetGraph, e: EdgeReference<'_, Edge>| {
+        let edge_attrs = &|g: &PetGraph, e: EdgeRef<'_, Edge>| {
             let src = &g[e.source()];
             let dst = &g[e.target()];
             // Graphs may be half-baked, let's not worry about it then.
@@ -535,8 +532,18 @@ impl Graph {
                 .unwrap_or_else(|| "dst".into());
             format!(", label = \"⚠{src} → {dst} ({err})\", fontname = Courier")
         };
-        let dot = petgraph::dot::Dot::with_attr_getters(&self.inner, &[], &edge_attrs, &node_attrs);
-        format!("{dot:?}")
+        let mut dot = String::from("digraph {\n");
+        for sidx in self.inner.node_ids() {
+            let attrs = node_attrs(&self.inner, (sidx, &self.inner[sidx]));
+            dot.push_str(&format!("    {sidx} [ label = \"{sidx}\"{attrs} ]\n"));
+        }
+        for e in self.inner.edge_references() {
+            let (src, dst) = (e.source(), e.target());
+            let attrs = edge_attrs(&self.inner, e);
+            dot.push_str(&format!("    {src} -> {dst} [ label = \"\"{attrs} ]\n"));
+        }
+        dot.push_str("}\n");
+        dot
     }
 
     // WARNING: should only be run on a fresh clone as it probably leaves the graph unusable.
@@ -578,7 +585,7 @@ impl Graph {
                     }
                 }
                 next.extend(
-                    self.neighbors_directed(sidx, petgraph::Direction::Incoming)
+                    self.neighbors_directed(sidx, crate::vec_graph::Direction::Incoming)
                         .filter(|n| seen.insert_unseen(*n)),
                 );
                 self.remove_node(sidx);
@@ -599,7 +606,7 @@ impl Graph {
         let mut queue = VecDeque::from([lower_bound_segment_id]);
         while let Some(sidx) = queue.pop_front() {
             let below_segments: Vec<_> = self
-                .neighbors_directed(sidx, petgraph::Direction::Outgoing)
+                .neighbors_directed(sidx, crate::vec_graph::Direction::Outgoing)
                 .filter(|n| seen.insert_unseen(*n))
                 .collect();
             for below_sidx in below_segments {

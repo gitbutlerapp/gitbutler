@@ -17,7 +17,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     // The local target branch sets right at the base and typically doesn't have commits,
     // these are in the segments above it.
     let local_target = Segment {
-        id: 0.into(),
+        id: 0,
         ref_info: Some(RefInfo {
             ref_name: "refs/heads/main".try_into()?,
             commit_id: None,
@@ -38,7 +38,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         None,
         // A newly created branch which appears at the workspace base.
         Segment {
-            id: 1.into(),
+            id: 1,
             ref_info: Some(RefInfo {
                 ref_name: "refs/heads/new-stack".try_into()?,
                 commit_id: None,
@@ -51,7 +51,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     );
 
     let remote_to_local_target = Segment {
-        id: 2.into(),
+        id: 2,
         ref_info: Some(RefInfo {
             ref_name: "refs/remotes/origin/main".try_into()?,
             commit_id: None,
@@ -63,7 +63,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     graph.connect_new_segment(local_target, None, remote_to_local_target, 0, None);
 
     let branch = Segment {
-        id: 3.into(),
+        id: 3,
         generation: 2,
         ref_info: Some(RefInfo {
             ref_name: "refs/heads/A".try_into()?,
@@ -72,7 +72,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         }),
         remote_tracking_ref_name: Some("refs/remotes/origin/A".try_into()?),
         sibling_segment_id: None,
-        remote_tracking_branch_segment_id: Some(SegmentIndex::from(1)),
+        remote_tracking_branch_segment_id: Some(1),
         commits: vec![
             commit(id("a"), Some(init_commit_id), CommitFlags::InWorkspace),
             commit(init_commit_id, None, CommitFlags::InWorkspace),
@@ -82,7 +82,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     let branch = graph.connect_new_segment(local_target, None, branch, 0, None);
 
     let remote_to_root_branch = Segment {
-        id: 4.into(),
+        id: 4,
         ref_info: Some(RefInfo {
             ref_name: "refs/remotes/origin/A".try_into()?,
             commit_id: None,

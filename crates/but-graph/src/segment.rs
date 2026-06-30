@@ -432,14 +432,14 @@ impl std::fmt::Debug for Segment {
                 )
                 .field(
                     "sibling_segment_id",
-                    &MaybeDebug(&sibling_segment_id.as_ref().map(|id| id.index().to_string())),
+                    &MaybeDebug(&sibling_segment_id.as_ref().map(|id| id.to_string())),
                 )
                 .field(
                     "remote_tracking_branch_segment_id",
                     &MaybeDebug(
                         &remote_tracking_branch_segment_id
                             .as_ref()
-                            .map(|id| id.index().to_string()),
+                            .map(|id| id.to_string()),
                     ),
                 )
                 .field("commits", &commits)

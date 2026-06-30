@@ -2321,7 +2321,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         segments_behind_of_entrypoint: 1,
         segments_ahead_of_entrypoint: 2,
         entrypoint: (
-            NodeIndex(0),
+            0,
             Some(
                 0,
             ),
@@ -2335,7 +2335,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
                         "refs/heads/gitbutler/workspace",
                     ),
                 ),
-                NodeIndex(1),
+                1,
                 Some(
                     CommitFlags(
                         NotInRemote | InWorkspace,
@@ -2348,7 +2348,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
                         "refs/remotes/origin/main",
                     ),
                 ),
-                NodeIndex(2),
+                2,
                 None,
             ),
             (
@@ -2357,7 +2357,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
                         "refs/remotes/origin/B",
                     ),
                 ),
-                NodeIndex(6),
+                6,
                 Some(
                     CommitFlags(
                         0x100,

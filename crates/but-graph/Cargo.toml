@@ -20,7 +20,6 @@ but-core.workspace = true
 
 gix = { workspace = true, features = ["revision"] }
 bstr.workspace = true
-petgraph.workspace = true
 anyhow.workspace = true
 bitflags.workspace = true
 boolean-enums.workspace = true

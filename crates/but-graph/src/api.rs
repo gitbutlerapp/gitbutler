@@ -4,13 +4,8 @@ use std::{
     ops::{Deref, Index, IndexMut},
 };
 
+use crate::vec_graph::{Direction, EdgeRef};
 use anyhow::{Context as _, bail, ensure};
-use petgraph::{
-    Direction,
-    prelude::EdgeRef,
-    stable_graph::EdgeReference,
-    visit::{IntoEdgeReferences, NodeIndexable, Visitable},
-};
 
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, EntryPoint, EntryPointCommit, Graph, Segment,
@@ -434,16 +429,16 @@ impl Graph {
             let mut parents = self.inner.neighbors_directed(current, Direction::Outgoing);
             let Some(parent) = parents.next() else {
                 tracing::warn!(
-                    start = start.index(),
-                    current = current.index(),
+                    start = start,
+                    current = current,
                     "Could not resolve empty segment as it has no outgoing parent segment"
                 );
                 return None;
             };
             if parents.next().is_some() {
                 tracing::warn!(
-                    start = start.index(),
-                    current = current.index(),
+                    start = start,
+                    current = current,
                     "Could not resolve empty segment as it has multiple outgoing parent segments"
                 );
                 return None;
@@ -455,8 +450,8 @@ impl Graph {
             }
         }
         tracing::warn!(
-            start = start.index(),
-            current = current.index(),
+            start = start,
+            current = current,
             "Could not resolve empty segment as traversal ended, there were only empty segments or none at all"
         );
         None
@@ -598,7 +593,7 @@ impl Graph {
             }
         }
 
-        walk_start.sort_by_key(|(sidx, _)| sidx.index());
+        walk_start.sort_by_key(|(sidx, _)| *sidx);
 
         // Allow walking everything at first (remove STALE from walk_start entries)
         for (sidx, _) in &walk_start {
@@ -999,17 +994,6 @@ impl Graph {
     }
 }
 
-/// Query
-///
-/// The query relies on the segmentation of the graph being as advertised, something we assure as part
-/// of the initial creation.
-impl Graph {
-    /// Return a utility to perform topological walks on the graph.
-    pub fn topo_walk(&self) -> petgraph::visit::Topo<SegmentIndex, <PetGraph as Visitable>::Map> {
-        petgraph::visit::Topo::new(&self.inner)
-    }
-}
-
 /// Validation
 impl Graph {
     /// Validate the graph for consistency and fail loudly when an issue was found.
@@ -1290,7 +1274,7 @@ impl Graph {
     /// Fail with an error if the `edge` isn't consistent.
     pub(crate) fn check_edge(
         graph: &PetGraph,
-        edge: EdgeReference<'_, Edge>,
+        edge: EdgeRef<'_, Edge>,
         weight_only: bool,
     ) -> anyhow::Result<()> {
         let e = edge;

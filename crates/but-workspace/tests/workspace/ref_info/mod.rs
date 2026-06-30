@@ -163,7 +163,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -259,7 +259,7 @@ fn detached() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "None",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -328,7 +328,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -450,7 +450,7 @@ fn single_branch() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -581,7 +581,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(0),
+                        id: 0,
                         ref_name: "►main[🌳]",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -594,7 +594,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         base: "344e320",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(1),
+                        id: 1,
                         ref_name: "►nine",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -609,7 +609,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         base: "c4f2a35",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(2),
+                        id: 2,
                         ref_name: "►six",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -624,7 +624,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         base: "281da94",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 3,
                         ref_name: "►three",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -638,7 +638,7 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                         base: "3d57fc1",
                     },
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
+                        id: 4,
                         ref_name: "►one",
                         remote_tracking_ref_name: "None",
                         commits: [
