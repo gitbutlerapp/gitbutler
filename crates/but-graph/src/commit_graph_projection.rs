@@ -64,9 +64,13 @@ pub fn gather(
     cg: &CommitGraph,
     workspace_commit: gix::ObjectId,
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+    target: Option<gix::ObjectId>,
 ) -> ProjectionData {
     let stack_tops: Vec<_> = cg.parents(workspace_commit).collect();
-    let base = merge_base(cg, &stack_tops);
+    // The base is the merge base of the stack tops AND the target (origin/main). The target is what
+    // bounds a single stack — without it, merge_base of one top is the top itself.
+    let anchors: Vec<_> = stack_tops.iter().copied().chain(target).collect();
+    let base = merge_base(cg, &anchors);
     let stacks = stack_tops
         .iter()
         .enumerate()
@@ -99,8 +103,9 @@ pub fn project(
     cg: &CommitGraph,
     workspace_commit: gix::ObjectId,
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+    target: Option<gix::ObjectId>,
 ) -> Vec<StackView> {
-    build(gather(cg, workspace_commit, stack_branches))
+    build(gather(cg, workspace_commit, stack_branches, target))
 }
 
 /// Walk the stack's ordered `branches`, taking each commit-bearing segment from `spine` when its ref
@@ -261,7 +266,7 @@ mod tests {
             Some(oid(0xff)),
         );
 
-        let stacks = project(&cg, oid(0xff), None);
+        let stacks = project(&cg, oid(0xff), None, None);
         assert_eq!(
             shape(&stacks),
             vec![
@@ -289,7 +294,7 @@ mod tests {
             ],
             Some(oid(0xff)),
         );
-        let stacks = project(&cg, oid(0xff), None);
+        let stacks = project(&cg, oid(0xff), None, None);
         // Stack A stays one segment spanning a2 and a1 (the special ref didn't split it).
         assert_eq!(
             shape(&stacks)[0],
@@ -316,7 +321,7 @@ mod tests {
                 "refs/heads/below".try_into().expect("valid"),
             ],
         ];
-        let stacks = project(&cg, oid(0xff), Some(&branches));
+        let stacks = project(&cg, oid(0xff), Some(&branches), None);
         assert_eq!(
             shape(&stacks),
             vec![

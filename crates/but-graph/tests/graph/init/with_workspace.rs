@@ -7778,6 +7778,22 @@ fn stack_branches_from_meta(
         .collect())
 }
 
+/// The target (e.g. `origin/main`) commit that bounds the workspace base: the metadata's target ref,
+/// falling back to `origin/main`.
+fn target_commit(repo: &gix::Repository, meta: &impl RefMetadata) -> Option<gix::ObjectId> {
+    let target_ref = project_meta(meta)
+        .target_ref
+        .or_else(|| "refs/remotes/origin/main".try_into().ok())?;
+    Some(
+        repo.find_reference(&target_ref)
+            .ok()?
+            .peel_to_commit()
+            .ok()?
+            .id()
+            .detach(),
+    )
+}
+
 /// SPIKE (commit-graph-experiment): assert the gather-then-build commit-graph projection — built from
 /// BOTH a `from_segment_graph` bridge and a straight-from-git `from_repository` CommitGraph — exactly
 /// reproduces the segment-based `Workspace.stacks` (ref names + commits, including empty branches).
@@ -7786,6 +7802,7 @@ fn assert_commit_graph_projection_parity(
     repo: &gix::Repository,
     graph: but_graph::Graph,
     stack_branches: &[Vec<gix::refs::FullName>],
+    target: Option<gix::ObjectId>,
 ) -> anyhow::Result<()> {
     let ws_commit = graph
         .managed_entrypoint_commit(repo)?
@@ -7795,11 +7812,13 @@ fn assert_commit_graph_projection_parity(
         &but_graph::CommitGraph::from_segment_graph(&graph),
         ws_commit,
         Some(stack_branches),
+        target,
     );
     let from_git = but_graph::commit_graph_projection::project(
         &but_graph::CommitGraph::from_repository(repo)?,
         ws_commit,
         Some(stack_branches),
+        target,
     );
     assert_eq!(
         cg_projection_shape(&from_git),
@@ -7823,5 +7842,19 @@ fn commit_graph_projection_parity_two_stacks_with_empty_branch() -> anyhow::Resu
     let graph =
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let stack_branches = stack_branches_from_meta(&*meta)?;
-    assert_commit_graph_projection_parity(&repo, graph, &stack_branches)
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
+fn commit_graph_projection_parity_single_multi_segment_stack() -> anyhow::Result<()> {
+    // A single stack B -> B-sub -> A on base origin/main — exercises the single-stack base (bounded by
+    // the target) and within-stack segmentation at each ref.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
 }
