@@ -55,13 +55,28 @@ pub struct ProjectionData {
     pub stacks: Vec<Vec<SegmentRun>>,
 }
 
-/// Phase 1 — GATHER: read the commit graph and compute every fact, with no mutation.
-pub fn gather(cg: &CommitGraph, workspace_commit: gix::ObjectId) -> ProjectionData {
+/// Phase 1 — GATHER: read the commit graph (and, if given, each stack's ordered branch names) and
+/// compute every fact, with no mutation. `stack_branches` is enrichment *data* — the in-workspace
+/// stacks' branch lists, in the same order as the stack tops (the workspace commit's parent array
+/// is kept in metadata order). It lets empty branches (no unique commits) be placed; it does not
+/// drive a second pass. Passing a minimal `[[FullName]]` keeps this decoupled from the metadata type.
+pub fn gather(
+    cg: &CommitGraph,
+    workspace_commit: gix::ObjectId,
+    stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+) -> ProjectionData {
     let stack_tops: Vec<_> = cg.parents(workspace_commit).collect();
     let base = merge_base(cg, &stack_tops);
     let stacks = stack_tops
         .iter()
-        .map(|&top| segment_runs(cg, top, base))
+        .enumerate()
+        .map(|(i, &top)| {
+            let spine = segment_runs(cg, top, base);
+            match stack_branches.and_then(|b| b.get(i)) {
+                Some(branches) => reconcile_with_branches(spine, branches),
+                None => spine,
+            }
+        })
         .collect();
     ProjectionData {
         workspace_commit,
@@ -80,8 +95,38 @@ pub fn build(data: ProjectionData) -> Vec<StackView> {
 }
 
 /// Gather, then build.
-pub fn project(cg: &CommitGraph, workspace_commit: gix::ObjectId) -> Vec<StackView> {
-    build(gather(cg, workspace_commit))
+pub fn project(
+    cg: &CommitGraph,
+    workspace_commit: gix::ObjectId,
+    stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+) -> Vec<StackView> {
+    build(gather(cg, workspace_commit, stack_branches))
+}
+
+/// Walk the stack's ordered `branches`, taking each commit-bearing segment from `spine` when its ref
+/// matches, and emitting an empty segment for a branch the spine doesn't cover (an empty branch).
+/// Spine segments whose ref isn't among `branches` are appended as-is.
+fn reconcile_with_branches(
+    spine: Vec<SegmentRun>,
+    branches: &[gix::refs::FullName],
+) -> Vec<SegmentRun> {
+    let mut spine = spine.into_iter().peekable();
+    let mut out = Vec::new();
+    for branch in branches {
+        if spine
+            .peek()
+            .is_some_and(|s| s.ref_name.as_ref() == Some(branch))
+        {
+            out.push(spine.next().expect("peeked"));
+        } else {
+            out.push(SegmentRun {
+                ref_name: Some(branch.clone()),
+                commits: Vec::new(),
+            });
+        }
+    }
+    out.extend(spine);
+    out
 }
 
 /// Walk `top`'s first-parent spine down to (excluding) `base`, slicing into segments wherever a
@@ -216,7 +261,7 @@ mod tests {
             Some(oid(0xff)),
         );
 
-        let stacks = project(&cg, oid(0xff));
+        let stacks = project(&cg, oid(0xff), None);
         assert_eq!(
             shape(&stacks),
             vec![
@@ -244,11 +289,44 @@ mod tests {
             ],
             Some(oid(0xff)),
         );
-        let stacks = project(&cg, oid(0xff));
+        let stacks = project(&cg, oid(0xff), None);
         // Stack A stays one segment spanning a2 and a1 (the special ref didn't split it).
         assert_eq!(
             shape(&stacks)[0],
             vec![(Some("refs/heads/A".into()), vec![oid(0xa2), oid(0xa1)])]
+        );
+    }
+
+    #[test]
+    fn empty_branches_from_metadata_are_placed_after_their_commit_bearing_segment() {
+        // Stacks A (a1) and B (b1) on base b0; metadata says stack B also has an empty `below`.
+        let cg = CommitGraph::from_commits(
+            [
+                commit(0xff, &[0xa1, 0xb1], None),
+                commit(0xa1, &[0xb0], Some("refs/heads/A")),
+                commit(0xb1, &[0xb0], Some("refs/heads/B")),
+                commit(0xb0, &[], None),
+            ],
+            Some(oid(0xff)),
+        );
+        let branches: Vec<Vec<gix::refs::FullName>> = vec![
+            vec!["refs/heads/A".try_into().expect("valid")],
+            vec![
+                "refs/heads/B".try_into().expect("valid"),
+                "refs/heads/below".try_into().expect("valid"),
+            ],
+        ];
+        let stacks = project(&cg, oid(0xff), Some(&branches));
+        assert_eq!(
+            shape(&stacks),
+            vec![
+                vec![(Some("refs/heads/A".into()), vec![oid(0xa1)])],
+                vec![
+                    (Some("refs/heads/B".into()), vec![oid(0xb1)]),
+                    // `below` has no unique commits, so it lands as an empty segment.
+                    (Some("refs/heads/below".into()), vec![]),
+                ],
+            ]
         );
     }
 }

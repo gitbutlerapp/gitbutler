@@ -7734,8 +7734,8 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
 }
 
 /// SPIKE (commit-graph-experiment): the gather-then-build commit-graph projection reproduces the
-/// segment-based stack structure. Compares non-empty (ref_name, [commit ids]) segments per stack;
-/// empty branches (no tip commit in the commit graph yet) and enrichment passes are out of scope.
+/// segment-based stack structure in FULL — including the empty `below` branch, placed via the
+/// gathered branch lists. Compares (ref_name, [commit ids]) per segment across all stacks.
 #[test]
 fn commit_graph_projection_parity() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
@@ -7744,6 +7744,13 @@ fn commit_graph_projection_parity() -> anyhow::Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
+    // Each in-workspace stack's ordered branch refs (mirrors the metadata above) — the enrichment
+    // data the gather phase consumes to place empty branches.
+    let stack_branches: Vec<Vec<gix::refs::FullName>> = vec![
+        vec!["refs/heads/A".try_into()?],
+        vec!["refs/heads/B".try_into()?, "refs/heads/below".try_into()?],
+    ];
+
     // Commit-graph projection (built before into_workspace consumes the graph).
     let ws_commit = graph
         .managed_entrypoint_commit(&repo)?
@@ -7751,10 +7758,9 @@ fn commit_graph_projection_parity() -> anyhow::Result<()> {
         .id;
     let cg = but_graph::CommitGraph::from_segment_graph(&graph);
     let commit_based: Vec<(Option<String>, Vec<gix::ObjectId>)> =
-        but_graph::commit_graph_projection::project(&cg, ws_commit)
+        but_graph::commit_graph_projection::project(&cg, ws_commit, Some(&stack_branches))
             .iter()
             .flat_map(|s| s.segments.iter())
-            .filter(|seg| !seg.commits.is_empty())
             .map(|seg| {
                 (
                     seg.ref_name.as_ref().map(|r| r.as_bstr().to_string()),
@@ -7769,7 +7775,6 @@ fn commit_graph_projection_parity() -> anyhow::Result<()> {
         .stacks
         .iter()
         .flat_map(|s| s.segments.iter())
-        .filter(|seg| !seg.commits.is_empty())
         .map(|seg| {
             (
                 seg.ref_name().map(|r| r.as_bstr().to_string()),
@@ -7780,7 +7785,7 @@ fn commit_graph_projection_parity() -> anyhow::Result<()> {
 
     assert_eq!(
         commit_based, segment_based,
-        "commit-graph projection should reproduce the segment-based stack structure"
+        "commit-graph projection should reproduce the full segment-based stack structure"
     );
     Ok(())
 }
