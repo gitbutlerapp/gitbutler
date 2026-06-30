@@ -1,4 +1,5 @@
 import { openWorkspace } from "../../src/setup.ts";
+import { clickByTestId, getByTestId, waitForTestId } from "../../src/util.ts";
 import { expect, type Page } from "@playwright/test";
 import type { GitButler } from "../../src/setup.ts";
 
@@ -18,4 +19,15 @@ export async function openSingleBranchWorkspace(page: Page): Promise<void> {
 
 export async function expectCurrentBranchChip(page: Page, branchName: string): Promise<void> {
 	await expect(page.getByTestId("chrome-header-current-branch")).toContainText(branchName);
+}
+
+export async function applyBranchFromBranchesView(page: Page, branchName: string): Promise<void> {
+	await clickByTestId(page, "navigation-branches-button");
+	await waitForTestId(page, "branches-view");
+
+	await getByTestId(page, "branches-view").getByText(branchName, { exact: true }).click();
+	await waitForTestId(page, "branches-view-apply-branch-button");
+
+	await clickByTestId(page, "branches-view-apply-branch-button");
+	await waitForTestId(page, "workspace-view");
 }

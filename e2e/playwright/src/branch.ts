@@ -58,6 +58,15 @@ export async function assertBranch(branchName: string, pathToRepo: string): Prom
 		.toBe(branchName);
 }
 
+export async function assertSymbolicHead(refName: string, pathToRepo: string): Promise<void> {
+	await expect
+		.poll(() => git(pathToRepo, ["symbolic-ref", "--short", "HEAD"]), {
+			message: `Expected HEAD to point to "${refName}"`,
+			intervals: [100, 200, 500, 1000],
+		})
+		.toBe(refName);
+}
+
 export async function assertCommitSubjects(
 	expectedSubjects: string[],
 	pathToRepo: string,
