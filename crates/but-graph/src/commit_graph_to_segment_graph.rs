@@ -1416,6 +1416,14 @@ fn insert_empty_branches(
         }
     }
     for list in lists {
+        // Branches whose ref does not resolve contribute nothing — and must not SPLIT a same-commit
+        // group (e.g. a nonexistent branch listed between two branches on the same commit would
+        // otherwise break the group in two, mis-naming the anchor and losing the empties).
+        let list: Vec<gix::refs::FullName> = list
+            .iter()
+            .filter(|b| cg.commit_by_ref(b.as_ref()).is_some())
+            .cloned()
+            .collect();
         // `from_sidx` feeds the top of the stack: the workspace segment for the first group, then each
         // group's anchor for the next (so its empties splice into the edge coming from above).
         let mut from_sidx = ws_sidx;
