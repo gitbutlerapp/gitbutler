@@ -1,5 +1,7 @@
+import { encodeBytes } from "#ui/api/bytes.ts";
 import { useApply } from "#ui/api/mutations.ts";
-import { listBranchesQueryOptions } from "#ui/api/queries.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
+import { headInfoQueryOptions, listBranchesQueryOptions } from "#ui/api/queries.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import { BranchListing } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
@@ -85,11 +87,20 @@ const groupApplyBranchPickerOptions = (
 	);
 
 export const ApplyBranchPicker: FC<Props> = ({ open, onOpenChange, projectId }) => {
-	const branchesQuery = useQuery(
-		listBranchesQueryOptions({ projectId, filter: { local: null, applied: false } }),
-	);
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
+	const branchesQuery = useQuery({
+		...listBranchesQueryOptions({ projectId, filter: null }),
+		select: (branches) =>
+			branches
+				.flatMap(branchListingToApplyBranchPickerOptions)
+				// Filter out branches that are applied in the *current* workspace.
+				.filter((option) => !headInfoIndex?.branchContextByRefBytes(encodeBytes(option.branchRef))),
+	});
 	const [now] = useState(() => Date.now());
-	const items = (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions);
+	const items = branchesQuery.data ?? [];
 	const apply = useApply();
 	const statusLabel =
 		items.length === 0
