@@ -88,7 +88,6 @@
 
 .targetTriggerLabel {
 	overflow: hidden;
-	line-height: 1;
 	text-overflow: ellipsis;
 }
 

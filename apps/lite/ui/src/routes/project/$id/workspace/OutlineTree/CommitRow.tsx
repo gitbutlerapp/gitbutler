@@ -48,11 +48,16 @@ import {
 } from "../WorkspaceItemRow.tsx";
 import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
 import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
+import { commitMessageInputId } from "./CommitForm.tsx";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
 import styles from "./CommitRow.module.css";
+
+const focusCommitMessageInput = () => {
+	document.getElementById(commitMessageInputId)?.focus();
+};
 
 export const CommitRow: FC<
 	{
@@ -61,17 +66,8 @@ export const CommitRow: FC<
 		stackId: string;
 		isCommitTarget: boolean;
 		dryRunCommit: Commit | null;
-		onComposeCommitHere: () => void;
 	} & ComponentProps<"div">
-> = ({
-	commit,
-	projectId,
-	stackId,
-	isCommitTarget,
-	dryRunCommit,
-	onComposeCommitHere,
-	...restProps
-}) => {
+> = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
 
@@ -254,7 +250,7 @@ export const CommitRow: FC<
 
 	const composeCommitHere = () => {
 		setCommitTarget();
-		onComposeCommitHere();
+		focusCommitMessageInput();
 	};
 
 	const openCommitInBrowser = async (): Promise<void> => {
@@ -322,7 +318,7 @@ export const CommitRow: FC<
 		}),
 		nativeMenuItem({
 			label: mforgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
-			enabled: mforgeUrl !== null,
+			enabled: mforgeUrl != null,
 			accelerator: toElectronAccelerator(outlineHotkeys.openCommitInBrowser.hotkey),
 			onSelect: openCommitInBrowser,
 		}),

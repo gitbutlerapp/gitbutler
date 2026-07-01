@@ -316,11 +316,11 @@ const WorkspacePage: FC = () => {
 
 	useHotkeys([
 		{
-			hotkey: workspaceHotkeys.toggleDetailsFullWindow.hotkey,
+			hotkey: workspaceHotkeys.toggleOutline.hotkey,
 			callback: toggleDetailsFullWindow,
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.toggleDetailsFullWindow.meta,
+				meta: workspaceHotkeys.toggleOutline.meta,
 			},
 		},
 		{

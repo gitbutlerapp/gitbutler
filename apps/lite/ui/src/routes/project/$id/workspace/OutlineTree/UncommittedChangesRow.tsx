@@ -15,7 +15,7 @@ import { projectActions, selectProjectOutlineModeState } from "#ui/projects/stat
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Toolbar } from "@base-ui/react/toolbar";
-import { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
+import { AbsorptionTarget, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { FC } from "react";
 import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
 import {
@@ -26,18 +26,38 @@ import {
 	WorkspaceItemRowToolbar,
 } from "../WorkspaceItemRow.tsx";
 import { ItemRow } from "./ItemRow.tsx";
+import { useQueries } from "@tanstack/react-query";
+import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
+import { commitMessageInputId } from "./CommitForm.tsx";
 
-export type LineStats = {
+type LineStats = {
 	linesAdded: number;
 	linesRemoved: number;
 };
 
+const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats => {
+	const stats: LineStats = { linesAdded: 0, linesRemoved: 0 };
+	for (const diff of diffs) {
+		if (diff?.type !== "Patch") continue;
+		stats.linesAdded += diff.subject.linesAdded;
+		stats.linesRemoved += diff.subject.linesRemoved;
+	}
+	return stats;
+};
+
+const focusCommitMessageInput = () => {
+	document.getElementById(commitMessageInputId)?.focus();
+};
+
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
-	lineStats: LineStats | null;
 	projectId: string;
-	onComposeCommitMessage: () => void;
-}> = ({ changes, lineStats, projectId, onComposeCommitMessage }) => {
+}> = ({ changes, projectId }) => {
+	const treeChangeDiffs = useQueries({
+		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
+	});
+	const lineStats = getLineStats(treeChangeDiffs.map((result) => result.data));
+
 	const operand = uncommittedChangesOperand;
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
@@ -68,7 +88,7 @@ export const UncommittedChangesRow: FC<{
 
 	const composeCommitMessage = () => {
 		dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
-		onComposeCommitMessage();
+		focusCommitMessageInput();
 	};
 
 	const discardChanges = () => {
@@ -119,7 +139,7 @@ export const UncommittedChangesRow: FC<{
 
 				<WorkspaceItemRowBubble variant="fillGray">{changes.length}</WorkspaceItemRowBubble>
 
-				{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
+				{(lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
 					<WorkspaceItemRowBubbleGroup>
 						{lineStats.linesAdded > 0 && (
 							<WorkspaceItemRowBubble variant="safe">

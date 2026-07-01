@@ -42,10 +42,15 @@ import {
 } from "../WorkspaceItemRow.tsx";
 import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
+import { commitMessageInputId } from "./CommitForm.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import { type PartialStackState, partialStackPushDisabled } from "./partialStackState.ts";
 import styles from "./BranchRow.module.css";
+
+const focusCommitMessageInput = () => {
+	document.getElementById(commitMessageInputId)?.focus();
+};
 
 export const BranchRow: FC<
 	{
@@ -61,7 +66,6 @@ export const BranchRow: FC<
 		pullRequest: number | null;
 		bottomRelativeTo: RelativeTo | null;
 		isTopSegment: boolean;
-		onComposeCommitHere: () => void;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -76,7 +80,6 @@ export const BranchRow: FC<
 	pullRequest,
 	bottomRelativeTo,
 	isTopSegment,
-	onComposeCommitHere,
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
@@ -167,7 +170,7 @@ export const BranchRow: FC<
 
 	const composeCommitHere = () => {
 		setCommitTarget();
-		onComposeCommitHere();
+		focusCommitMessageInput();
 	};
 
 	const cutBranch = () => {
@@ -301,7 +304,7 @@ export const BranchRow: FC<
 		}),
 		nativeMenuItem({
 			label: "Open In Browser",
-			enabled: mforgeUrl !== null,
+			enabled: mforgeUrl != null,
 			accelerator: toElectronAccelerator(outlineHotkeys.openPRInBrowser.hotkey),
 			onSelect: openPRInBrowser,
 		}),
