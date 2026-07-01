@@ -20,6 +20,59 @@ use crate::{
     segment_graph::{Connection, SegmentGraph},
 };
 
+/// Build the managed-workspace segment [`Graph`](crate::Graph) straight from a git `CommitGraph`,
+/// deriving the enrichment inputs from `(repo, meta, project_meta)` — the flip entry for
+/// [`Graph::from_head`](crate::Graph::from_head). Mirrors `project_from_repository`'s derivation.
+pub fn graph_from_repository<T: but_core::RefMetadata>(
+    repo: &gix::Repository,
+    meta: &T,
+    project_meta: but_core::ref_metadata::ProjectMeta,
+    options: crate::init::Options,
+) -> anyhow::Result<crate::Graph> {
+    let mut cg = CommitGraph::from_repository(repo)?;
+    let ws_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
+    let ws_commit = repo
+        .find_reference(&ws_ref)?
+        .peel_to_commit()?
+        .id()
+        .detach();
+
+    let ws_meta = meta.workspace(ws_ref.as_ref())?;
+    let stack_branches: Vec<Vec<gix::refs::FullName>> = ws_meta
+        .stacks
+        .iter()
+        .filter(|s| s.is_in_workspace())
+        .map(|s| s.branches.iter().map(|b| b.ref_name.clone()).collect())
+        .collect();
+    let target = project_meta
+        .target_ref
+        .clone()
+        .or_else(|| "refs/remotes/origin/main".try_into().ok())
+        .and_then(|tr| {
+            Some(
+                repo.find_reference(&tr)
+                    .ok()?
+                    .peel_to_commit()
+                    .ok()?
+                    .id()
+                    .detach(),
+            )
+        });
+    cg.mark_integrated(target);
+    let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(repo)?;
+
+    Ok(graph_from_commit_graph(
+        &cg,
+        ws_commit,
+        target,
+        &remote_tracking,
+        Some(&stack_branches),
+        meta,
+        project_meta,
+        options,
+    ))
+}
+
 /// Build a segment [`Graph`](crate::Graph) from `cg`.
 ///
 /// Inputs mirror the projection's enrichment: the workspace commit, the target that bounds/integrates,
@@ -226,6 +279,10 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             }
         }
     }
+
+    // Normalize every connection's endpoints (src = source's last commit, dst = target's first) so the
+    // graph passes `check_edge` validation — we only set the ids while building, not the indices.
+    normalize_connections(&mut sg);
 
     // Generations: longest path from a root (a segment with no incoming connections).
     assign_generations(&mut sg);
@@ -589,6 +646,27 @@ fn insert_empty_branches(
                 sg.add_edge(cur, Connection::new(new, None, src_last, None, None));
                 current = Some(new);
             }
+        }
+    }
+}
+
+/// Re-normalize each connection's endpoints against the final segments (src = source's last commit,
+/// dst = target's first), matching what `check_edge` validates.
+fn normalize_connections(sg: &mut SegmentGraph) {
+    let mut updates: Vec<(SegmentIndex, usize, Connection)> = Vec::new();
+    for src in sg.node_indices().collect::<Vec<_>>() {
+        let conns = sg
+            .node(src)
+            .map(|s| s.connections.clone())
+            .unwrap_or_default();
+        for (i, c) in conns.into_iter().enumerate() {
+            let target = c.target;
+            updates.push((src, i, c.adjusted_for(src, target, sg)));
+        }
+    }
+    for (src, i, adj) in updates {
+        if let Some(s) = sg.node_mut(src) {
+            s.connections[i] = adj;
         }
     }
 }

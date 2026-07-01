@@ -556,6 +556,16 @@ impl Graph {
         options: Options,
     ) -> anyhow::Result<Self> {
         let head = repo.head()?;
+        // SPIKE flip (BUT_GRAPH_FLIP): for a managed workspace (HEAD on the workspace ref), build the
+        // segment graph from a CommitGraph instead of walking. Falls through to the walk otherwise.
+        if std::env::var_os("BUT_GRAPH_FLIP").is_some()
+            && matches!(
+                &head.kind,
+                gix::head::Kind::Symbolic(r) if r.name.as_bstr() == but_core::WORKSPACE_REF_NAME.as_bytes()
+            )
+        {
+            return crate::graph_from_repository(repo, meta, project_meta, options);
+        }
         let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {

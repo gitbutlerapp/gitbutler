@@ -299,7 +299,7 @@ pub fn project_from_repository<T: but_core::RefMetadata>(
 
 /// Local branch -> its remote-tracking branch, deduced by name (`refs/remotes/origin/<X>` for
 /// `refs/heads/<X>`) for every `origin` remote branch that exists.
-fn remote_tracking_from_repository(
+pub(crate) fn remote_tracking_from_repository(
     repo: &gix::Repository,
 ) -> anyhow::Result<HashMap<gix::refs::FullName, gix::refs::FullName>> {
     let mut map = HashMap::new();
