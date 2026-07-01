@@ -33,6 +33,7 @@ export type KeyboardTransferOperationMode = {
 /** @public */
 export type PointerTransferOperationMode = {
 	source: Operand;
+	target: Operand | null;
 	operationType: OperationType | null;
 };
 
@@ -54,10 +55,12 @@ export const keyboardTransferOperationMode = ({
 /** @public */
 export const pointerTransferOperationMode = ({
 	source,
+	target,
 	operationType,
 }: PointerTransferOperationMode): TransferOperationMode => ({
 	_tag: "Pointer",
 	source,
+	target,
 	operationType,
 });
 

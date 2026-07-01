@@ -89,17 +89,16 @@ export const updatePointerTransfer = (
 ) => {
 	Match.value(state.mode).pipe(
 		Match.when({ _tag: "Transfer", value: { _tag: "Pointer" } }, (mode) => {
-			if (
-				target !== null &&
-				(!state.selection.outline || !operandEquals(state.selection.outline, target))
-			)
-				selectOutline(state, target);
-
-			if (mode.value.operationType === operationType) return;
+			const sameTarget =
+				target === null
+					? mode.value.target === null
+					: mode.value.target !== null && operandEquals(mode.value.target, target);
+			if (sameTarget && mode.value.operationType === operationType) return;
 
 			state.mode = transferOutlineMode({
 				value: pointerTransferOperationMode({
 					source: mode.value.source,
+					target,
 					operationType,
 				}),
 				restoreSelection: mode.restoreSelection,

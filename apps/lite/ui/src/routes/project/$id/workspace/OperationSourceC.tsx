@@ -60,6 +60,7 @@ export const OperationSourceC: FC<
 				projectId,
 				mode: pointerTransferOperationMode({
 					source,
+					target: null,
 					operationType: null,
 				}),
 			}),
