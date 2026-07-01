@@ -362,13 +362,16 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // is anonymized into its own segment and its ref floats up as an empty placeholder that the
         // workspace connects to (the dependent-branch pattern).
         anonymize_shared_stack_tips(cg, &mut sg, workspace_commit, target, &seg_of_tip, &in_set);
-        // Empty metadata branches (no commits) are spliced in at their place in the stack's branch order.
-        let ws_sidx = seg_of_tip.get(&workspace_commit).copied();
-        insert_empty_branches(&mut sg, cg, ws_sidx, stack_branches);
+        // The empty workspace segment must exist BEFORE empty branches are spliced in, so each empty
+        // stack routes from it (not from the stack segment the ws ref sits on — which would be degenerate).
         if empty_ws_case {
             ws_empty_sidx =
                 insert_empty_workspace_segment(&mut sg, &seg_of_tip, cg, workspace_commit);
         }
+        // Empty metadata branches (no commits) are spliced in at their place in the stack's branch order,
+        // routing from the workspace segment (the empty one when present, else the ws-commit's segment).
+        let ws_sidx = ws_empty_sidx.or_else(|| seg_of_tip.get(&workspace_commit).copied());
+        insert_empty_branches(&mut sg, cg, ws_sidx, stack_branches);
     }
 
     // A checkout inside a stack (from_commit_traversal) splits the enclosing segment so the entrypoint
@@ -1113,10 +1116,11 @@ fn segment_by_commit(sg: &SegmentGraph, commit: gix::ObjectId) -> Option<Segment
     })
 }
 
-/// Splice `empties` as a chain of empty segments ABOVE `anchor`, moving only `from_sidx`'s edge into
-/// `anchor` onto the top of the chain (so the segment feeding the stack from above reaches `anchor`
-/// through the empties). Sibling stacks' and remotes' edges into `anchor` are untouched. Produces
-/// `top_empty → … → anchor`.
+/// Splice `empties` as a chain of empty segments ABOVE `anchor`, routing `from_sidx` to `anchor`
+/// through them. If `from_sidx` already has edge(s) into `anchor` (including a merge's duplicate
+/// parents), they are moved onto the chain top; if it has none — because a sibling empty stack already
+/// consumed the shared edge to `anchor` (two empty stacks on the same base) — a fresh edge is added.
+/// Other stacks' and remotes' edges into `anchor` are untouched. Produces `top_empty → … → anchor`.
 fn insert_empty_chain_above(
     sg: &mut SegmentGraph,
     from_sidx: Option<SegmentIndex>,
@@ -1148,14 +1152,22 @@ fn insert_empty_chain_above(
     let Some(&top) = seg_ids.first() else {
         return;
     };
-    // Move only `from_sidx`'s edge into the anchor onto the chain top; sibling stacks and remotes that
-    // also reach the anchor keep their direct edges.
-    if let Some(from) = from_sidx.and_then(|s| sg.node_mut(s)) {
-        for conn in &mut from.connections {
-            if conn.target == anchor {
-                conn.target = top;
-                conn.dst_id = None;
+    // Move `from_sidx`'s edge(s) into the anchor onto the chain top; other stacks and remotes that also
+    // reach the anchor keep their direct edges. If no such edge remains (a sibling empty stack already
+    // took the shared edge to this base), add a fresh one so this stack still connects from above.
+    if let Some(from_sidx) = from_sidx {
+        let mut redirected = false;
+        if let Some(from) = sg.node_mut(from_sidx) {
+            for conn in &mut from.connections {
+                if conn.target == anchor {
+                    conn.target = top;
+                    conn.dst_id = None;
+                    redirected = true;
+                }
             }
+        }
+        if !redirected {
+            sg.add_edge(from_sidx, Connection::new(top, None, None, None, None));
         }
     }
     for i in 0..seg_ids.len() {
@@ -1181,15 +1193,6 @@ fn normalize_connections(sg: &mut SegmentGraph) {
     for (src, i, adj) in updates {
         if let Some(s) = sg.node_mut(src) {
             s.connections[i] = adj;
-        }
-    }
-    // Collapse duplicate edges to the same destination — a duplicated workspace-commit parent (two
-    // lanes onto the same base) yields two identical connections after empty-branch redirection.
-    for src in sg.node_indices().collect::<Vec<_>>() {
-        if let Some(s) = sg.node_mut(src) {
-            let mut seen = HashSet::new();
-            s.connections
-                .retain(|c| seen.insert((c.target, c.src, c.dst, c.src_id, c.dst_id)));
         }
     }
 }

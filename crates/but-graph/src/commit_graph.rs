@@ -222,7 +222,17 @@ impl CommitGraph {
         for info in repo.rev_walk(seeds).all()? {
             let id = info?.id;
             let commit = repo.find_commit(id)?;
-            let parent_ids = commit.parent_ids().map(|p| p.detach()).collect();
+            // Collapse EXACT duplicate parents (a GitButler workspace merge encodes empty lanes as
+            // repeated parents, e.g. `[base, base]`). Lanes are derived from workspace metadata here,
+            // so the repeated edge is pure redundancy — dropping it at the source avoids emitting
+            // duplicate connections downstream. Distinct parents (real merges) are preserved in order.
+            let mut parent_ids: Vec<gix::ObjectId> = Vec::new();
+            for p in commit.parent_ids() {
+                let p = p.detach();
+                if !parent_ids.contains(&p) {
+                    parent_ids.push(p);
+                }
+            }
             let refs = refs_by_commit
                 .get(&id)
                 .into_iter()
