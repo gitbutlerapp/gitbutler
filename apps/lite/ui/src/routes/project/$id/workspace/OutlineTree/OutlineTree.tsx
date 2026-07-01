@@ -5,7 +5,6 @@ import {
 	useCommitAmend,
 	useCommitCreate,
 	useCommitDiscard,
-	useDiscardWorktreeChanges,
 	useCommitInsertBlank,
 	useCommitMove,
 	useWorkspaceBranchAndAncestorsPush,
@@ -38,7 +37,6 @@ import {
 	type Operand,
 } from "#ui/operands.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
 import {
 	focusSelectionScope,
 	useNavigationIndexHotkeys,
@@ -70,7 +68,6 @@ import {
 	Segment,
 	Stack,
 	PushStatus,
-	TreeChange,
 	UnifiedPatch,
 	WorkspaceState,
 	InsertSide,
@@ -93,15 +90,12 @@ import {
 import styles from "./OutlineTree.module.css";
 import {
 	WorkspaceItemRow,
-	WorkspaceItemRowBubble,
-	WorkspaceItemRowBubbleGroup,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowLabelContainer,
 	WorkspaceItemRowToolbar,
 } from "../WorkspaceItemRow.tsx";
 import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
 import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
-import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { reverse } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { GraphSegment, Status } from "#ui/components/GraphSegment.tsx";
@@ -111,7 +105,6 @@ import {
 	changesHotkeys,
 	formatForDisplaySorted,
 	outlineHotkeys,
-	selectionOperationHotkeys,
 	toElectronAccelerator,
 } from "#ui/hotkeys.ts";
 import { segmentBottomRelativeTo, stackBottomRelativeTo } from "#ui/api/stack.ts";
@@ -120,7 +113,6 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { prForgeUrl } from "#ui/pr.ts";
 import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
-import { ItemRow } from "./ItemRow.tsx";
 import { useIsSelected } from "./useIsSelected.ts";
 import { CommitRow } from "./CommitRow.tsx";
 import { BranchRow } from "./BranchRow.tsx";
@@ -130,6 +122,7 @@ import {
 	partialStackStatesFromSegments,
 	type PartialStackState,
 } from "./partialStackState.ts";
+import { UncommittedChangesRow, type LineStats } from "./UncommittedChangesRow.tsx";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -898,128 +891,6 @@ const CommitC: FC<{
 	);
 };
 
-const UncommittedChangesRow: FC<{
-	changes: Array<TreeChange>;
-	lineStats: LineStats | null;
-	projectId: string;
-}> = ({ changes, lineStats, projectId }) => {
-	const operand = uncommittedChangesOperand;
-	const isDefaultMode = useAppSelector(
-		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
-	);
-	const discardWorktreeChanges = useDiscardWorktreeChanges();
-
-	const dispatch = useAppDispatch();
-	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {
-		dispatch(projectActions.enterAbsorbMode({ projectId, source, sourceTarget }));
-	};
-
-	const absorb = () => {
-		enterAbsorbMode(operand, { type: "all" });
-	};
-
-	const cutChanges = () => {
-		dispatch(
-			projectActions.enterTransferMode({
-				projectId,
-				mode: keyboardTransferOperationMode({
-					source: operand,
-					operationType: "into",
-				}),
-			}),
-		);
-		focusSelectionScope("outline");
-	};
-
-	const composeCommitMessage = () => {
-		dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
-		focusCommitMessageInput();
-	};
-
-	const discardChanges = () => {
-		discardWorktreeChanges.mutate({
-			projectId,
-			changes: changes.map((change) => createDiffSpec(change, [])),
-		});
-	};
-
-	const menuItems: Array<NativeMenuItem> = [
-		nativeMenuItem({
-			label: "Compose Commit Message",
-			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitMessageFromChanges.hotkey),
-			onSelect: composeCommitMessage,
-			enabled: isDefaultMode,
-		}),
-		nativeMenuItem({
-			label: "Cut Changes",
-			enabled: changes.length > 0,
-			onSelect: cutChanges,
-			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Absorb",
-			accelerator: toElectronAccelerator(outlineHotkeys.absorb.hotkey),
-			onSelect: absorb,
-		}),
-		nativeMenuItem({
-			label: "Discard Changes",
-			enabled: changes.length > 0 && !discardWorktreeChanges.isPending,
-			onSelect: discardChanges,
-		}),
-	];
-
-	return (
-		<ItemRow
-			projectId={projectId}
-			operand={operand}
-			onContextMenu={(event) => {
-				void showNativeContextMenu(event, menuItems);
-			}}
-		>
-			<WorkspaceItemRowLabelContainer>
-				<WorkspaceItemRowLabel heading>
-					{changes.length === 0 ? "Nothing to commit" : "Uncommitted changes"}
-				</WorkspaceItemRowLabel>
-
-				<WorkspaceItemRowBubble variant="fillGray">{changes.length}</WorkspaceItemRowBubble>
-
-				{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
-					<WorkspaceItemRowBubbleGroup>
-						{lineStats.linesAdded > 0 && (
-							<WorkspaceItemRowBubble variant="safe">
-								+{lineStats.linesAdded}
-							</WorkspaceItemRowBubble>
-						)}
-						{lineStats.linesRemoved > 0 && (
-							<WorkspaceItemRowBubble variant="danger">
-								-{lineStats.linesRemoved}
-							</WorkspaceItemRowBubble>
-						)}
-					</WorkspaceItemRowBubbleGroup>
-				)}
-			</WorkspaceItemRowLabelContainer>
-
-			{isDefaultMode && (
-				<Toolbar.Root
-					aria-label="Uncommitted changes actions"
-					render={<WorkspaceItemRowToolbar forceVisible />}
-				>
-					<Toolbar.Button
-						aria-label="Uncommitted changes menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-						}}
-						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
-			)}
-		</ItemRow>
-	);
-};
-
 const relativeToKey = (relativeTo: RelativeTo): string => {
 	switch (relativeTo.type) {
 		case "reference":
@@ -1120,11 +991,6 @@ const CommitTargetComboboxPopup: FC = () => (
 const commitMessageInputId = "commit-message-input";
 const focusCommitMessageInput = () => {
 	document.getElementById(commitMessageInputId)?.focus();
-};
-
-type LineStats = {
-	linesAdded: number;
-	linesRemoved: number;
 };
 
 const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats => {
@@ -1292,6 +1158,7 @@ const UncommittedChanges: FC<{
 				changes={worktreeChanges?.changes ?? []}
 				lineStats={lineStats}
 				projectId={projectId}
+				onComposeCommitMessage={focusCommitMessageInput}
 			/>
 
 			<div className={styles.commitControls}>
