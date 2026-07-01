@@ -195,10 +195,6 @@
 	display: flex;
 }
 
-.fileHeaderCollapseButton {
-	display: grid;
-}
-
 .filePath {
 	overflow: hidden;
 	color: var(--text-3);

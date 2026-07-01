@@ -592,7 +592,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					<Tooltip.Trigger
 						aria-label={collapseLabel}
 						aria-expanded={!p.collapsed}
-						className={styles.fileHeaderCollapseButton}
+						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
 						onClick={() => p.setCollapsed(!p.collapsed)}
 					>
 						<Icon name={p.collapsed ? "chevron-right" : "chevron-down"} />
