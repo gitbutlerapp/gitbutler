@@ -281,8 +281,8 @@ const FileRow: FC<
 	);
 
 	const lastSepIdx = relativePath.lastIndexOf("/");
-	const mpathInit = lastSepIdx !== -1 ? relativePath.slice(0, lastSepIdx + 1) : null;
-	const pathLast = lastSepIdx !== -1 ? relativePath.slice(lastSepIdx + 1) : relativePath;
+	const directoryPath = lastSepIdx !== -1 ? relativePath.slice(0, lastSepIdx) : null;
+	const fileName = lastSepIdx !== -1 ? relativePath.slice(lastSepIdx + 1) : relativePath;
 
 	return (
 		<Tooltip.Root disableHoverablePopup>
@@ -326,10 +326,14 @@ const FileRow: FC<
 				</div>
 
 				<WorkspaceItemRowLabelContainer>
+					{item._tag === "Conflict" && "⚠️"}
 					<WorkspaceItemRowLabel singleLine className={styles.filePath}>
-						<span className={workspaceItemRowStyles.fadedText}>{mpathInit}</span>
-						{pathLast}
-						{item._tag === "Conflict" && " ⚠️"}
+						{fileName}
+						{directoryPath !== null && (
+							<span className={classes(styles.pathInit, workspaceItemRowStyles.fadedText)}>
+								{directoryPath}
+							</span>
+						)}
 					</WorkspaceItemRowLabel>
 				</WorkspaceItemRowLabelContainer>
 

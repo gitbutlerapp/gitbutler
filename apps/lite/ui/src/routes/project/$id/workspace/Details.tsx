@@ -568,8 +568,8 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	});
 
 	const lastSepIdx = p.change.path.lastIndexOf("/");
-	const mpathInit = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx + 1) : null;
-	const pathLast = lastSepIdx !== -1 ? p.change.path.slice(lastSepIdx + 1) : p.change.path;
+	const directoryPath = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx) : null;
+	const fileName = lastSepIdx !== -1 ? p.change.path.slice(lastSepIdx + 1) : p.change.path;
 
 	const changeType = Match.value(p.item.fileDiff.type).pipe(
 		Match.when("new", () => "Added"),
@@ -592,8 +592,8 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					onClick={() => p.setCollapsed(!p.collapsed)}
 				/>
 				<h4 className={classes("text-13", styles.filePath)}>
-					{mpathInit}
-					<span className={styles.pathLast}>{pathLast}</span>
+					{fileName}
+					{directoryPath !== null && <span className={styles.pathInit}>{directoryPath}</span>}
 				</h4>
 				<span>{changeType}</span>
 				<span>
