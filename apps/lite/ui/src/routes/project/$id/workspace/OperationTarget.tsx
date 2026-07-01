@@ -1,5 +1,5 @@
 import { operandEquals, type Operand } from "#ui/operands.ts";
-import type { DragData } from "./OperationSourceC.tsx";
+import { parseDragData } from "./DragData.ts";
 import styles from "./OperationTarget.module.css";
 import { OperationTooltip } from "./OperationTooltip.tsx";
 import {
@@ -19,11 +19,6 @@ import {
 import { mergeProps, useRender } from "@base-ui/react";
 import { Match, pipe } from "effect";
 import { FC, useEffect, useEffectEvent, useRef } from "react";
-
-const parseDragData = (data: unknown): DragData | null => {
-	if (typeof data !== "object" || data === null || !("source" in data)) return null;
-	return data as DragData;
-};
 
 type DropTargetParams = Parameters<typeof dropTargetForElements>[0];
 type GetDataArgs = Parameters<NonNullable<DropTargetParams["getData"]>>[0];

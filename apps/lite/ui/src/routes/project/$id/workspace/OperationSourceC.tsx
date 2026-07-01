@@ -14,10 +14,7 @@ import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
-
-export type DragData = {
-	source: Operand;
-};
+import type { DragData } from "./DragData.ts";
 
 const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes(styles.dragPreview, "text-13")}>{children}</div>
@@ -25,11 +22,10 @@ const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 
 export const OperationSourceC: FC<
 	{
-		onDragStart?: () => void;
 		projectId: string;
 		source: Operand;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
-> = ({ onDragStart: onDragStartProp, projectId, source, render, ...props }) => {
+> = ({ projectId, source, render, ...props }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
@@ -59,7 +55,6 @@ export const OperationSourceC: FC<
 		() => outlineMode._tag !== "RenameBranch" && outlineMode._tag !== "RewordCommit",
 	);
 	const onDragStart = useEffectEvent(() => {
-		onDragStartProp?.();
 		dispatch(
 			projectActions.enterTransferMode({
 				projectId,

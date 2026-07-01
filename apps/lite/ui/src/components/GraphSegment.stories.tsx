@@ -1,5 +1,5 @@
 import preview from "#storybook/preview";
-import { GlyphType, GraphSegment } from "./GraphSegment.tsx";
+import { GraphSegmentGlyph, GraphSegment } from "./GraphSegment.tsx";
 
 const meta = preview.meta({
 	component: GraphSegment,
@@ -63,7 +63,7 @@ export const AllGlyphs = meta.story({
 					"commit",
 					"group",
 					"space",
-				] satisfies Array<GlyphType>
+				] satisfies Array<GraphSegmentGlyph>
 			).map((glyph) => (
 				<div
 					key={glyph}

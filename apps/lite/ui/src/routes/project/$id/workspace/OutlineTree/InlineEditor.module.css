@@ -1,0 +1,33 @@
+.form {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.input {
+	flex-grow: 1;
+
+	textarea& {
+		resize: none;
+		field-sizing: content;
+	}
+
+	&:focus {
+		outline: none;
+	}
+}
+
+.help {
+	display: flex;
+	margin-left: -6px;
+	padding-block-end: 6px;
+
+	& > button {
+		text-transform: lowercase;
+	}
+}
+
+.shortcutLabel {
+	opacity: 0.6;
+}

@@ -980,7 +980,9 @@ const Diff: FC<{
 	}, [diffContentsEl]);
 
 	const layoutId = `project=${projectId}:details`;
-	const panelIds: Array<PanelId> = filesVisible ? ["files-panel", "diff-panel"] : ["diff-panel"];
+	const hasFilesColumn = outlineSelection._tag !== "UncommittedChanges";
+	const panelIds: Array<PanelId> =
+		hasFilesColumn && filesVisible ? ["files-panel", "diff-panel"] : ["diff-panel"];
 	const diffLayout = useDefaultLayout({
 		id: layoutId,
 		panelIds,
@@ -989,7 +991,9 @@ const Diff: FC<{
 	return (
 		<div className={styles.diffTab}>
 			<div className={styles.actions}>
-				<FilesToggle className={getButtonClassName({})}>Toggle files</FilesToggle>
+				{hasFilesColumn && (
+					<FilesToggle className={getButtonClassName({})}>Toggle files</FilesToggle>
+				)}
 
 				<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
 					<ToggleGroupStyles>
@@ -1033,7 +1037,7 @@ const Diff: FC<{
 				defaultLayout={diffLayout.defaultLayout}
 				onLayoutChanged={diffLayout.onLayoutChanged}
 			>
-				{filesVisible && (
+				{hasFilesColumn && filesVisible && (
 					<>
 						<Panel
 							id={"files-panel" satisfies PanelId}
