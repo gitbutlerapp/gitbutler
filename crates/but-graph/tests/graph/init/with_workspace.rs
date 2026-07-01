@@ -8156,6 +8156,38 @@ fn cg_to_sg_shared_segment() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_to_sg_merge_into_main() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-merge-into-main")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[ignore = "frontier: integration pruning"]
+#[test]
+fn cg_to_sg_one_integrated() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/multi-lane-with-shared-segment-one-integrated")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[ignore = "frontier: anon segments + stack alignment"]
+#[test]
+fn cg_to_sg_reproduce_11459() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11459")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[ignore = "frontier: stack tip outside workspace"]
+#[test]
+fn cg_to_sg_advanced_tip_outside() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/advanced-stack-tip-outside-workspace")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[test]
 fn graph_structure_is_stable_and_discriminating() -> anyhow::Result<()> {
     // The fingerprint equals itself and distinguishes structurally different workspaces — the property
     // a CommitGraph-built graph will be verified against.
