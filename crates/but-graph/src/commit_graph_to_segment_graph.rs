@@ -214,6 +214,17 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         .filter(|p| in_set.contains(p))
         .collect();
 
+    // Every commit a workspace stack branch points at starts a segment: even when the commit is
+    // name-ambiguous (several branches on it, so anonymous), the metadata branches float above it as
+    // empty segments, so the commit itself must begin its own (anonymous) segment.
+    let metadata_commits: HashSet<gix::ObjectId> = stack_branches
+        .unwrap_or(&[])
+        .iter()
+        .flatten()
+        .filter_map(|b| cg.commit_by_ref(b.as_ref()))
+        .filter(|c| in_set.contains(c))
+        .collect();
+
     // A commit starts a new segment when it carries a disambiguated ref, is the workspace tip, is a
     // merge, or is a convergence/branch point (reached by other than a single first-parent child).
     let is_boundary = |c: gix::ObjectId| -> bool {
@@ -221,6 +232,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             || ws_parents.contains(&c)
             || merge_first_parents.contains(&c)
             || remote_rejoins.contains(&c)
+            || metadata_commits.contains(&c)
             || disambiguated_ref(cg, c, remote_tracking).is_some()
             || cg.all_parent_ids(c).len() > 1
             || {
@@ -1007,9 +1019,12 @@ fn segment_by_ref(sg: &SegmentGraph, ref_name: &gix::refs::FullName) -> Option<S
     })
 }
 
-/// Splice each stack's empty metadata branches (those with no commits, hence no ref on a commit) into
-/// the segment chain at their position in the branch list: an empty branch sits between the segment
-/// above it and that segment's base.
+/// Splice each stack's empty metadata branches (no commits of their own) into the segment chain at
+/// their metadata position. Each branch points at a commit (`cg.commit_by_ref`); consecutive branches
+/// on the same commit form a group whose segment (the anchor) already exists — the metadata-pointed
+/// commit was made a boundary. Any branch in a group that does not NAME the anchor is an empty segment
+/// stacked above it, in list order. Groups are threaded top→bottom so the chain interleaves
+/// `ws → [empties] → seg(c1) → [empties] → seg(c2) → … → [empties] → base`.
 fn insert_empty_branches(
     sg: &mut SegmentGraph,
     cg: &CommitGraph,
@@ -1020,64 +1035,49 @@ fn insert_empty_branches(
         return;
     };
     for list in lists {
-        if list.is_empty() {
-            continue;
-        }
-        // The anchor is the first branch that already has a materialised segment. Empty branches BEFORE
-        // it are spliced in as a chain ABOVE it (the leading-empty-branch case: an empty branch at the
-        // stack top). Empty branches after it are inserted below, as the loop already handles.
-        let anchor_pos = list.iter().position(|b| segment_by_ref(sg, b).is_some());
-        let (mut current, rest_start) = match anchor_pos {
-            Some(pos) => {
-                let anchor = segment_by_ref(sg, &list[pos]).expect("just checked");
-                if pos > 0 {
-                    insert_empty_chain_above(sg, ws_sidx, anchor, &list[..pos]);
-                }
-                (Some(anchor), pos + 1)
+        // `from_sidx` feeds the top of the stack: the workspace segment for the first group, then each
+        // group's anchor for the next (so its empties splice into the edge coming from above).
+        let mut from_sidx = ws_sidx;
+        let mut i = 0;
+        while i < list.len() {
+            let commit = cg.commit_by_ref(list[i].as_ref());
+            let start = i;
+            while i < list.len() && cg.commit_by_ref(list[i].as_ref()) == commit {
+                i += 1;
             }
-            None => {
-                // All-empty stack: no branch has commits. The chain hangs off the base segment that
-                // owns the commit these empty branches point at (they all sit on the merge base).
-                let base = list
-                    .iter()
-                    .find_map(|b| cg.commit_by_ref(b.as_ref()))
-                    .and_then(|c| segment_by_commit(sg, c));
-                match base {
-                    Some(anchor) => {
-                        insert_empty_chain_above(sg, ws_sidx, anchor, list);
-                        (None, list.len())
-                    }
-                    None => (None, 1),
-                }
-            }
-        };
-        for b in &list[rest_start..] {
-            if let Some(existing) = segment_by_ref(sg, b) {
-                current = Some(existing);
-            } else if let Some(cur) = current {
-                // Insert an empty segment `b` between `cur` and its base: `cur`'s outgoing connections
-                // move to the new empty segment, and `cur` connects into it.
-                let moved = std::mem::take(&mut sg.node_mut(cur).expect("present").connections);
-                let src_last = sg.node(cur).and_then(|s| s.commits.last().map(|c| c.id));
-                let new = sg.add_node(Segment {
-                    id: 0,
-                    generation: 0,
-                    ref_info: Some(RefInfo {
-                        ref_name: b.clone(),
-                        commit_id: None,
-                        worktree: None,
-                    }),
-                    remote_tracking_ref_name: None,
-                    sibling_segment_id: None,
-                    remote_tracking_branch_segment_id: None,
-                    commits: Vec::new(),
-                    metadata: None,
-                    connections: moved,
+            let group = &list[start..i];
+            let (Some(commit), Some(anchor)) =
+                (commit, commit.and_then(|c| segment_by_commit(sg, c)))
+            else {
+                continue;
+            };
+            // When several branches share a commit its segment is name-ambiguous (anonymous). The
+            // bottom-most branch (adjacent to the commit) NAMES that segment; the ones above it are the
+            // empties. Skip if it already has a segment (e.g. a placeholder floated by anonymize).
+            let anchor_is_anon = sg.node(anchor).is_some_and(|s| s.ref_info.is_none());
+            if anchor_is_anon
+                && let Some(namer) = group.last()
+                && segment_by_ref(sg, namer).is_none()
+                && let Some(s) = sg.node_mut(anchor)
+            {
+                s.ref_info = Some(RefInfo {
+                    ref_name: namer.clone(),
+                    commit_id: Some(commit),
+                    worktree: None,
                 });
-                sg.node_mut(new).expect("just added").id = new;
-                sg.add_edge(cur, Connection::new(new, None, src_last, None, None));
-                current = Some(new);
             }
+            // Only branches without any segment yet become empties — one that already names a segment
+            // (its own materialised segment, the anchor just named above, or a placeholder floated by
+            // `anonymize_shared_stack_tips`) is already placed.
+            let empties: Vec<gix::refs::FullName> = group
+                .iter()
+                .filter(|b| segment_by_ref(sg, b).is_none())
+                .cloned()
+                .collect();
+            if !empties.is_empty() {
+                insert_empty_chain_above(sg, from_sidx, anchor, &empties);
+            }
+            from_sidx = Some(anchor);
         }
     }
 }
@@ -1097,12 +1097,13 @@ fn segment_by_commit(sg: &SegmentGraph, commit: gix::ObjectId) -> Option<Segment
     })
 }
 
-/// Splice `empties` as a chain of empty segments ABOVE `anchor`, moving the workspace segment's edge
-/// into `anchor` onto the top of the chain (so the workspace reaches `anchor` through the empties).
-/// Sibling stacks' and remotes' edges into `anchor` are untouched. Produces `top_empty → … → anchor`.
+/// Splice `empties` as a chain of empty segments ABOVE `anchor`, moving only `from_sidx`'s edge into
+/// `anchor` onto the top of the chain (so the segment feeding the stack from above reaches `anchor`
+/// through the empties). Sibling stacks' and remotes' edges into `anchor` are untouched. Produces
+/// `top_empty → … → anchor`.
 fn insert_empty_chain_above(
     sg: &mut SegmentGraph,
-    ws_sidx: Option<SegmentIndex>,
+    from_sidx: Option<SegmentIndex>,
     anchor: SegmentIndex,
     empties: &[gix::refs::FullName],
 ) {
@@ -1131,10 +1132,10 @@ fn insert_empty_chain_above(
     let Some(&top) = seg_ids.first() else {
         return;
     };
-    // Move only the workspace segment's edge into the anchor onto the chain top; sibling stacks and
-    // remotes that also reach the anchor keep their direct edges.
-    if let Some(ws) = ws_sidx.and_then(|s| sg.node_mut(s)) {
-        for conn in &mut ws.connections {
+    // Move only `from_sidx`'s edge into the anchor onto the chain top; sibling stacks and remotes that
+    // also reach the anchor keep their direct edges.
+    if let Some(from) = from_sidx.and_then(|s| sg.node_mut(s)) {
+        for conn in &mut from.connections {
             if conn.target == anchor {
                 conn.target = top;
                 conn.dst_id = None;
