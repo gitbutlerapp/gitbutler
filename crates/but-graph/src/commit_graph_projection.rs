@@ -112,6 +112,10 @@ pub fn gather(
 pub fn build(data: ProjectionData) -> Vec<StackView> {
     data.stacks
         .into_iter()
+        // Drop a stack with no commits at all: its tip is at/below its base, i.e. fully integrated
+        // into the target (all its commits are shared with, or reachable from, the target). Empty
+        // *branches* within an otherwise non-empty stack are kept.
+        .filter(|segments| segments.iter().any(|s| !s.commits.is_empty()))
         .map(|segments| StackView { segments })
         .collect()
 }

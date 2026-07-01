@@ -7907,6 +7907,34 @@ fn cg_proj_parity_advanced_stack_tip_outside() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_proj_parity_multi_lane_shared_segment() -> anyhow::Result<()> {
+    // Three stacks (A, B, D) sharing an S1..S3 "shared" segment, with D stacked on the non-workspace
+    // C. The shared segment repeats in every stack — the per-stack spine walk reproduces that.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
+fn cg_proj_parity_multi_lane_shared_segment_one_integrated() -> anyhow::Result<()> {
+    // Like the above, but A is fully integrated into origin/main (a merge). Without an extra target the
+    // base rises to the shared tip (d4f537e): A drops out entirely (zero commits) and the shared
+    // segment is excluded from B and D.
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/multi-lane-with-shared-segment-one-integrated")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
 fn cg_proj_parity_single_stack_ambiguous() -> anyhow::Result<()> {
     // Stack B: segment-B~1 carries two competing local branches (B-empty, ambiguous-01), neither in the
     // workspace metadata — the real projection leaves that split anonymous (disambiguation fails).
