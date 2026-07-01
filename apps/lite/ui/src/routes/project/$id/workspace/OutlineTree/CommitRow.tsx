@@ -61,7 +61,7 @@ export const CommitRow: FC<
 		stackId: string;
 		isCommitTarget: boolean;
 		dryRunCommit: Commit | null;
-		onComposeCommitHere: () => void;
+		focusCommitMessageInput: () => void;
 	} & ComponentProps<"div">
 > = ({
 	commit,
@@ -69,7 +69,7 @@ export const CommitRow: FC<
 	stackId,
 	isCommitTarget,
 	dryRunCommit,
-	onComposeCommitHere,
+	focusCommitMessageInput,
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
@@ -254,7 +254,7 @@ export const CommitRow: FC<
 
 	const composeCommitHere = () => {
 		setCommitTarget();
-		onComposeCommitHere();
+		focusCommitMessageInput();
 	};
 
 	const openCommitInBrowser = async (): Promise<void> => {

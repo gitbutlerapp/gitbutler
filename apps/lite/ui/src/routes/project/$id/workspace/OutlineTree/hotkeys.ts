@@ -76,12 +76,12 @@ export const useOutlineTreeHotkeys = ({
 	navigationIndex,
 	projectId,
 	ref,
-	onComposeCommitMessage,
+	focusCommitMessageInput,
 }: {
 	navigationIndex: NavigationIndex<Operand>;
 	projectId: string;
 	ref: RefObject<HTMLElement | null>;
-	onComposeCommitMessage: () => void;
+	focusCommitMessageInput: () => void;
 }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
@@ -156,7 +156,7 @@ export const useOutlineTreeHotkeys = ({
 
 	const composeCommitHere = (relativeTo: RelativeTo) => {
 		setCommitTarget(relativeTo);
-		onComposeCommitMessage();
+		focusCommitMessageInput();
 	};
 
 	const insertEmptyCommit = () => {
@@ -413,7 +413,7 @@ export const useOutlineTreeHotkeys = ({
 			hotkey: outlineHotkeys.composeCommitMessage.hotkey,
 			callback: () => {
 				dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
-				onComposeCommitMessage();
+				focusCommitMessageInput();
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -460,7 +460,7 @@ export const useOutlineTreeHotkeys = ({
 				(): Array<UseHotkeyDefinition> => [
 					{
 						hotkey: outlineHotkeys.composeCommitMessageFromChanges.hotkey,
-						callback: onComposeCommitMessage,
+						callback: focusCommitMessageInput,
 						options: {
 							conflictBehavior: "allow",
 							enabled: defaultOutlineHotkeysEnabled,

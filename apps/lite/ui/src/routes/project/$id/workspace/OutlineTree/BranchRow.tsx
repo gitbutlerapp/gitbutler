@@ -61,7 +61,7 @@ export const BranchRow: FC<
 		pullRequest: number | null;
 		bottomRelativeTo: RelativeTo | null;
 		isTopSegment: boolean;
-		onComposeCommitHere: () => void;
+		focusCommitMessageInput: () => void;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -76,7 +76,7 @@ export const BranchRow: FC<
 	pullRequest,
 	bottomRelativeTo,
 	isTopSegment,
-	onComposeCommitHere,
+	focusCommitMessageInput,
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
@@ -167,7 +167,7 @@ export const BranchRow: FC<
 
 	const composeCommitHere = () => {
 		setCommitTarget();
-		onComposeCommitHere();
+		focusCommitMessageInput();
 	};
 
 	const cutBranch = () => {

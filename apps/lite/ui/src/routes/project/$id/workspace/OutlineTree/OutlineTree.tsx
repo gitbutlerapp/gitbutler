@@ -111,7 +111,7 @@ export const OutlineTree: FC<
 		navigationIndex,
 		projectId,
 		ref,
-		onComposeCommitMessage: focusCommitMessageInput,
+		focusCommitMessageInput,
 	});
 
 	return (
@@ -236,7 +236,7 @@ const CommitC: FC<{
 							stackId={stackId}
 							isCommitTarget={isCommitTarget}
 							dryRunCommit={dryRunCommit}
-							onComposeCommitHere={focusCommitMessageInput}
+							focusCommitMessageInput={focusCommitMessageInput}
 						/>
 					}
 				/>
@@ -270,7 +270,7 @@ const UncommittedChanges: FC<{
 			<UncommittedChangesRow
 				changes={worktreeChanges?.changes ?? []}
 				projectId={projectId}
-				onComposeCommitMessage={focusCommitMessageInput}
+				focusCommitMessageInput={focusCommitMessageInput}
 			/>
 
 			<CommitForm
@@ -348,7 +348,7 @@ const BranchSegment: FC<{
 				pullRequest={segment.metadata?.review.pullRequest ?? null}
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				isTopSegment={isTopSegment}
-				onComposeCommitHere={focusCommitMessageInput}
+				focusCommitMessageInput={focusCommitMessageInput}
 			/>
 
 			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation. */}

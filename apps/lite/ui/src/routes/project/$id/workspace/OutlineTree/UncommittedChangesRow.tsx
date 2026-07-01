@@ -47,8 +47,8 @@ const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats 
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
 	projectId: string;
-	onComposeCommitMessage: () => void;
-}> = ({ changes, projectId, onComposeCommitMessage }) => {
+	focusCommitMessageInput: () => void;
+}> = ({ changes, projectId, focusCommitMessageInput }) => {
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const treeChangeDiffs = useQueries({
 		queries:
@@ -88,7 +88,7 @@ export const UncommittedChangesRow: FC<{
 
 	const composeCommitMessage = () => {
 		dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
-		onComposeCommitMessage();
+		focusCommitMessageInput();
 	};
 
 	const discardChanges = () => {
