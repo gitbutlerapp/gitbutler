@@ -307,6 +307,9 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // segment, doubly-linked via siblings.
     add_remote_segments(cg, &mut sg, &seg_of_tip, &in_set, &owner_of);
     add_untracked_remote_segments(cg, &mut sg, &seg_of_tip, &in_set, &owner_of);
+    // A remote's ahead-run may absorb a lower remote's ref (e.g. `origin/split-segment` sitting inside
+    // `origin/main`'s ahead commits): split it out into its own named segment first.
+    split_remote_interior_refs(&mut sg);
     // Stacked remotes: a remote whose spine passes through another remote's tip stops there and
     // connects into it, rather than absorbing the lower remote's commits.
     split_stacked_remotes(&mut sg);
@@ -609,6 +612,60 @@ fn add_untracked_remote_segments(
                 Connection::new(owner_sidx, None, None, None, Some(tip)),
             );
         }
+    }
+}
+
+/// Split a remote segment at any INTERIOR commit carrying its own remote branch ref. When a stacked
+/// remote (`origin/split-segment`) sits inside a tracked remote's ahead-run (`origin/main`), the lower
+/// part becomes a new segment named by that ref, connected from above. Repeats down the chain.
+fn split_remote_interior_refs(sg: &mut SegmentGraph) {
+    let is_remote = |sg: &SegmentGraph, sidx: SegmentIndex| {
+        sg.node(sidx)
+            .and_then(|s| s.ref_info.as_ref())
+            .is_some_and(|ri| ri.ref_name.as_ref().category() == Some(Category::RemoteBranch))
+    };
+    let mut work: Vec<SegmentIndex> = sg.node_indices().filter(|&s| is_remote(sg, s)).collect();
+    while let Some(sidx) = work.pop() {
+        let commits = sg.node(sidx).map(|s| s.commits.clone()).unwrap_or_default();
+        let cut = commits.iter().enumerate().skip(1).find_map(|(i, c)| {
+            c.refs
+                .iter()
+                .find(|ri| {
+                    ri.ref_name.as_ref().category() == Some(Category::RemoteBranch)
+                        // A ref that already names a segment is handled by `split_stacked_remotes`
+                        // (re-point into it); only create a segment for one that has none yet.
+                        && segment_by_ref(sg, &ri.ref_name).is_none()
+                })
+                .map(|ri| (i, c.id, ri.ref_name.clone()))
+        });
+        let Some((i, cut_id, ref_name)) = cut else {
+            continue;
+        };
+        let lower = sg.node_mut(sidx).expect("present").commits.split_off(i);
+        let moved = std::mem::take(&mut sg.node_mut(sidx).expect("present").connections);
+        let new = sg.add_node(Segment {
+            id: 0,
+            generation: 0,
+            ref_info: Some(RefInfo {
+                ref_name,
+                commit_id: Some(cut_id),
+                worktree: None,
+            }),
+            remote_tracking_ref_name: None,
+            sibling_segment_id: None,
+            remote_tracking_branch_segment_id: None,
+            commits: lower,
+            metadata: None,
+            connections: moved,
+        });
+        sg.node_mut(new).expect("just added").id = new;
+        let src_last = sg.node(sidx).and_then(|s| s.commits.last().map(|c| c.id));
+        sg.add_edge(
+            sidx,
+            Connection::new(new, None, src_last, None, Some(cut_id)),
+        );
+        // The new lower segment may itself carry further interior remote refs.
+        work.push(new);
     }
 }
 
