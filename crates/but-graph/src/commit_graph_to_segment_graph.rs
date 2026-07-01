@@ -340,13 +340,25 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
 
     // Every commit a workspace stack branch points at starts a segment: even when the commit is
     // name-ambiguous (several branches on it, so anonymous), the metadata branches float above it as
-    // empty segments, so the commit itself must begin its own (anonymous) segment.
+    // empty segments, so the commit itself must begin its own (anonymous) segment. A branch that
+    // ADVANCED past the workspace anchors at its rejoin point instead — the first in-workspace commit
+    // on its first-parent spine — which must equally start a segment (the advanced branch is projected
+    // onto it via a sibling link).
     let metadata_commits: HashSet<gix::ObjectId> = stack_branches
         .unwrap_or(&[])
         .iter()
         .flatten()
         .filter_map(|b| cg.commit_by_ref(b.as_ref()))
-        .filter(|c| in_set.contains(c))
+        .filter_map(|tip| {
+            let mut c = Some(tip);
+            while let Some(id) = c {
+                if in_set.contains(&id) {
+                    return Some(id);
+                }
+                c = cg.first_parent(id);
+            }
+            None
+        })
         .collect();
 
     // A commit starts a new segment when it carries a disambiguated ref, is the workspace tip, is a
@@ -552,6 +564,21 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // later pass (anonymize / empty-branch splicing) floats that local up into its own empty segment,
         // the remote's sibling is left pointing at the now-anonymous segment below. Re-establish the
         // walk's invariant — a remote `origin/X` is the sibling of the local segment named `X`.
+        // Naming passes (anchor naming, metadata-order renames, floats) don't carry remote-tracking
+        // names — backfill them so any named local segment knows its remote, as segments named at
+        // creation time do.
+        for sidx in sg.node_indices().collect::<Vec<_>>() {
+            if let Some(s) = sg.node_mut(sidx)
+                && s.remote_tracking_ref_name.is_none()
+                && let Some(rt) = s
+                    .ref_info
+                    .as_ref()
+                    .filter(|ri| is_plain_local_branch(&ri.ref_name))
+                    .and_then(|ri| remote_tracking.get(&ri.ref_name).cloned())
+            {
+                s.remote_tracking_ref_name = Some(rt);
+            }
+        }
         reconcile_remote_siblings(&mut sg, remote_tracking);
     }
 
