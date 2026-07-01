@@ -142,11 +142,24 @@ pub fn gather(
             };
             let mut segments = match &aligned[i] {
                 // Metadata-driven: the stack's branch list defines the segments and their names.
-                Some(branches) => {
-                    segment_by_branches(cg, top, stack_base, branches, &meta_branches, &all_tops)
-                }
+                Some(branches) => segment_by_branches(
+                    cg,
+                    top,
+                    stack_base,
+                    branches,
+                    &meta_branches,
+                    &all_tops,
+                    remote_tracking,
+                ),
                 // No metadata: fall back to slicing at each disambiguated local-branch ref on the spine.
-                None => segment_runs(cg, top, stack_base, &meta_branches, &all_tops),
+                None => segment_runs(
+                    cg,
+                    top,
+                    stack_base,
+                    &meta_branches,
+                    &all_tops,
+                    remote_tracking,
+                ),
             };
             // Enrichment: attach each named segment's remote-tracking branch (a pure lookup by ref).
             for seg in &mut segments {
@@ -342,6 +355,7 @@ fn segment_by_branches(
     branches: &[gix::refs::FullName],
     meta_branches: &HashSet<gix::refs::FullName>,
     sibling_tops: &HashSet<gix::ObjectId>,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) -> Vec<SegmentRun> {
     let spine = first_parent_spine(cg, top, base);
     // Where each branch begins on the spine: the top branch at 0, each later branch at its ref (or
@@ -384,7 +398,9 @@ fn segment_by_branches(
         // A metadata segment may still enclose a SHARED segment below it — a commit carrying a
         // (non-sibling-top) branch ref that another stack also passes through, e.g. a shared base
         // branch. Split those out; a sibling stack's own top is left absorbed.
-        .flat_map(|run| split_run_at_shared_refs(cg, run, meta_branches, sibling_tops))
+        .flat_map(|run| {
+            split_run_at_shared_refs(cg, run, meta_branches, sibling_tops, remote_tracking)
+        })
         .collect()
 }
 
@@ -396,13 +412,14 @@ fn split_run_at_shared_refs(
     run: SegmentRun,
     meta_branches: &HashSet<gix::refs::FullName>,
     sibling_tops: &HashSet<gix::ObjectId>,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) -> Vec<SegmentRun> {
     let mut runs = Vec::new();
     let mut current = SegmentRun::new(run.ref_name, Vec::new());
     for (i, &c) in run.commits.iter().enumerate() {
         if i > 0
             && !sibling_tops.contains(&c)
-            && let Some(rn) = disambiguated_branch_ref(cg, c, meta_branches)
+            && let Some(rn) = disambiguated_branch_ref(cg, c, meta_branches, remote_tracking)
         {
             runs.push(std::mem::replace(
                 &mut current,
@@ -446,9 +463,13 @@ fn segment_runs(
     base: Option<gix::ObjectId>,
     meta_branches: &HashSet<gix::refs::FullName>,
     sibling_tops: &HashSet<gix::ObjectId>,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) -> Vec<SegmentRun> {
     let mut runs = Vec::new();
-    let mut current = SegmentRun::new(disambiguated_branch_ref(cg, top, meta_branches), Vec::new());
+    let mut current = SegmentRun::new(
+        disambiguated_branch_ref(cg, top, meta_branches, remote_tracking),
+        Vec::new(),
+    );
     let mut id = Some(top);
     while let Some(c) = id {
         if Some(c) == base {
@@ -456,7 +477,7 @@ fn segment_runs(
         }
         if c != top
             && !sibling_tops.contains(&c)
-            && let Some(rn) = disambiguated_branch_ref(cg, c, meta_branches)
+            && let Some(rn) = disambiguated_branch_ref(cg, c, meta_branches, remote_tracking)
         {
             // `c` is the tip of a new segment.
             runs.push(std::mem::replace(
@@ -478,30 +499,29 @@ fn local_branch_ref(cg: &CommitGraph, c: gix::ObjectId) -> Option<gix::refs::Ful
         .find(|rn| is_plain_local_branch(rn))
 }
 
-/// The unambiguous local-branch name at `c`, mirroring the segment graph's
-/// `disambiguate_refs_by_branch_metadata`: prefer the single branch *with* metadata; else fall back
-/// to the single branch overall. When several branches compete and none (or more than one) is
-/// distinguished by metadata, the commit is ambiguous and gets no name (`None`) — it does not start a
-/// new segment, folding into the run above it.
+/// The unambiguous local-branch name at `c`, mirroring the segment graph's disambiguation: prefer the
+/// single branch *with metadata*, else the single branch *with a remote-tracking branch*, else the
+/// single branch overall. When several branches compete and none (or more than one) is distinguished
+/// at a tier, the commit is ambiguous and gets no name (`None`) — it does not start a new segment,
+/// folding into the run above it.
 fn disambiguated_branch_ref(
     cg: &CommitGraph,
     c: gix::ObjectId,
     meta_branches: &HashSet<gix::refs::FullName>,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) -> Option<gix::refs::FullName> {
     let branches: Vec<gix::refs::FullName> = cg
         .refs_at(c)
         .into_iter()
         .filter(is_plain_local_branch)
         .collect();
-    let mut with_meta = branches.iter().filter(|rn| meta_branches.contains(*rn));
-    with_meta
-        .next()
-        .filter(|_| with_meta.next().is_none())
-        .or_else(|| {
-            let mut all = branches.iter();
-            all.next().filter(|_| all.next().is_none())
-        })
-        .cloned()
+    let unique_by = |pred: &dyn Fn(&gix::refs::FullName) -> bool| {
+        let mut it = branches.iter().filter(|rn| pred(rn));
+        it.next().filter(|_| it.next().is_none()).cloned()
+    };
+    unique_by(&|rn| meta_branches.contains(rn))
+        .or_else(|| unique_by(&|rn| remote_tracking.contains_key(rn)))
+        .or_else(|| unique_by(&|_| true))
 }
 
 /// A plain (non-`gitbutler/*`) local branch ref.
