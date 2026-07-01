@@ -349,7 +349,7 @@ const UncommittedChanges: FC<{
 		<TreeItem
 			projectId={projectId}
 			operand={operand}
-			aria-label={`Changes (${worktreeChanges?.changes.length ?? 0})`}
+			aria-label={`Uncommitted changes (${worktreeChanges?.changes.length ?? 0})`}
 			className={classes(styles.section, styles.uncommittedChanges)}
 			render={<OperandC projectId={projectId} operand={operand} />}
 		>
