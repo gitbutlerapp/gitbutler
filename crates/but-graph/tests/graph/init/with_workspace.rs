@@ -8127,6 +8127,22 @@ fn cg_to_sg_two_stacks_empty_branch() -> anyhow::Result<()> {
 }
 
 #[test]
+#[ignore = "frontier: shared commit between dependent branches → anon segment + empty ref placeholder"]
+fn cg_to_sg_dependent_branches() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-12146")?;
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[test]
+fn cg_to_sg_remote_ahead() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[test]
 fn graph_structure_is_stable_and_discriminating() -> anyhow::Result<()> {
     // The fingerprint equals itself and distinguishes structurally different workspaces — the property
     // a CommitGraph-built graph will be verified against.

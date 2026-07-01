@@ -33,12 +33,11 @@ pub fn graph_from_commit_graph(
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
 ) -> crate::Graph {
-    // The commit set the segment graph spans: everything reachable (any parent) from the workspace
-    // commit and the target. Bounded implicitly by what the CommitGraph holds.
-    let in_set: HashSet<gix::ObjectId> = std::iter::once(workspace_commit)
-        .chain(target)
-        .flat_map(|seed| ancestors(cg, seed))
-        .collect();
+    // The commit set the LOCAL segments span: everything reachable from the workspace commit. The
+    // integrated trunk below the base is reachable through it; remote-ahead commits are NOT (they hang
+    // off remote tips only) and become their own remote segments.
+    let _ = target;
+    let in_set: HashSet<gix::ObjectId> = ancestors(cg, workspace_commit);
 
     // In-set children per commit, to detect branch points (a commit reached by >1 child).
     let mut children: HashMap<gix::ObjectId, Vec<gix::ObjectId>> = HashMap::new();
@@ -50,10 +49,28 @@ pub fn graph_from_commit_graph(
         }
     }
 
+    // Where each remote-tracking branch rejoins the local graph: the first in-set commit along the
+    // remote tip's first-parent spine. These are segment boundaries (the remote connects INTO them).
+    let remote_rejoins: HashSet<gix::ObjectId> = remote_tracking
+        .values()
+        .filter_map(|r| cg.commit_by_ref(r.as_ref()))
+        .filter_map(|tip| {
+            let mut c = Some(tip);
+            while let Some(id) = c {
+                if in_set.contains(&id) {
+                    return Some(id);
+                }
+                c = cg.first_parent(id);
+            }
+            None
+        })
+        .collect();
+
     // A commit starts a new segment when it carries a disambiguated ref, is the workspace tip, is a
     // merge, or is a convergence/branch point (reached by other than a single first-parent child).
     let is_boundary = |c: gix::ObjectId| -> bool {
         c == workspace_commit
+            || remote_rejoins.contains(&c)
             || disambiguated_ref(cg, c, remote_tracking).is_some()
             || cg.all_parent_ids(c).len() > 1
             || {
@@ -214,17 +231,25 @@ fn add_remote_segments(
                 .map(|rt| (sidx, rt, tip))
         })
         .collect();
-    for (local_sidx, remote_ref, local_tip) in locals {
+    for (local_sidx, remote_ref, _local_tip) in locals {
         let Some(remote_tip) = cg.commit_by_ref(remote_ref.as_ref()) else {
             continue;
         };
-        // Remote-ahead commits (only on the remote, not in the local set), newest-first.
-        let mut ahead: Vec<Commit> = ancestors(cg, remote_tip)
-            .into_iter()
-            .filter(|c| !in_set.contains(c))
-            .filter_map(|c| cg.node(c).map(|n| n.commit.clone()))
-            .collect();
-        ahead.sort_by_key(|c| std::cmp::Reverse(cg.node(c.id).map(|n| n.generation).unwrap_or(0)));
+        // Walk the remote tip's first-parent spine, collecting the commits it is ahead by (not in the
+        // local set) until it rejoins the local graph. `rejoin` is where the remote reconnects.
+        let mut ahead: Vec<Commit> = Vec::new();
+        let mut rejoin = None;
+        let mut c = Some(remote_tip);
+        while let Some(id) = c {
+            if in_set.contains(&id) {
+                rejoin = Some(id);
+                break;
+            }
+            if let Some(node) = cg.node(id) {
+                ahead.push(node.commit.clone());
+            }
+            c = cg.first_parent(id);
+        }
         let remote_sidx = sg.add_node(Segment {
             id: 0,
             generation: 0,
@@ -244,20 +269,19 @@ fn add_remote_segments(
         sg.node_mut(local_sidx)
             .expect("present")
             .remote_tracking_branch_segment_id = Some(remote_sidx);
-        // Connect the remote segment to the local one (into the shared commit), matching the walk's
-        // remote→local link.
-        let dst_first = sg
-            .node(local_sidx)
-            .and_then(|s| s.commits.first().map(|c| c.id))
-            .unwrap_or(local_tip);
-        let src_last = sg
-            .node(remote_sidx)
-            .and_then(|s| s.commits.last().map(|c| c.id));
-        sg.add_edge(
-            remote_sidx,
-            Connection::new(local_sidx, None, src_last, None, Some(dst_first)),
-        );
-        let _ = owner_of;
+        // Connect the remote segment to the segment owning the rejoin commit.
+        if let Some(rejoin) = rejoin
+            && let Some(&owner) = owner_of.get(&rejoin)
+            && let Some(&dst) = seg_of_tip.get(&owner)
+        {
+            let src_last = sg
+                .node(remote_sidx)
+                .and_then(|s| s.commits.last().map(|c| c.id));
+            sg.add_edge(
+                remote_sidx,
+                Connection::new(dst, None, src_last, None, Some(rejoin)),
+            );
+        }
     }
 }
 
