@@ -353,9 +353,10 @@ pub(crate) fn remote_tracking_from_repository(
     // Git-configured tracking branches win over name-deduction.
     for reference in repo.references()?.local_branches()?.filter_map(Result::ok) {
         let local = reference.name().to_owned();
+        // The configured NAME counts even when the remote ref does not exist (yet) — the link is
+        // name-only then, and passes that need the remote's commits skip unresolvable refs anyway.
         if let Some(Ok(rt)) =
             repo.branch_remote_tracking_ref_name(local.as_ref(), gix::remote::Direction::Fetch)
-            && remote_refs.iter().any(|r| r.as_ref() == rt.as_ref())
         {
             let rt = rt.into_owned();
             // The walk also traverses the remotes of git-configured tracking branches — their remote
