@@ -48,10 +48,19 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         .iter()
         .map(|s| s.branches.iter().map(|b| b.ref_name.clone()).collect())
         .collect();
-    // Use ONLY the configured target ref — the walk never falls back to a hard-coded `origin/main`, so
-    // fabricating one here invents a phantom target (and spurious `Integrated` marks) on no-target
-    // workspaces, diverging from the walk.
-    let target = project_meta.target_ref.clone().and_then(|tr| {
+    // The effective target/push-remote configuration: the caller's project meta, falling back to the
+    // workspace metadata's own (the walk reads the target from workspace metadata even when the caller
+    // passes a default `ProjectMeta`). No hard-coded `origin/main` fallback — a workspace with neither
+    // configured has NO target, matching the walk.
+    let effective_pm = {
+        let ws_pm = ws_meta.project_meta();
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: project_meta.target_ref.clone().or(ws_pm.target_ref),
+            push_remote: project_meta.push_remote.clone().or(ws_pm.push_remote),
+            ..project_meta.clone()
+        }
+    };
+    let target = effective_pm.target_ref.clone().and_then(|tr| {
         Some(
             repo.find_reference(&tr)
                 .ok()?
@@ -62,10 +71,8 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         )
     });
     cg.mark_integrated(target);
-    let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(
-        repo,
-        project_meta.push_remote.as_deref(),
-    )?;
+    let remote_tracking =
+        crate::commit_graph_projection::remote_tracking_from_repository(repo, &effective_pm)?;
     let worktree_by_branch = {
         let (overlay_repo, _om, _ep) = crate::init::Overlay::default().into_parts(repo, meta);
         overlay_repo.worktree_branches(entrypoint_ref.as_ref().map(|r| r.as_ref()))?
@@ -108,10 +115,8 @@ pub fn graph_from_repository_unmanaged<T: but_core::RefMetadata>(
     options: crate::init::Options,
 ) -> anyhow::Result<crate::Graph> {
     let cg = CommitGraph::from_repository_unmanaged(repo, Some(head_tip))?;
-    let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(
-        repo,
-        project_meta.push_remote.as_deref(),
-    )?;
+    let remote_tracking =
+        crate::commit_graph_projection::remote_tracking_from_repository(repo, &project_meta)?;
     let worktree_by_branch = {
         let (overlay_repo, _om, _ep) = crate::init::Overlay::default().into_parts(repo, meta);
         overlay_repo.worktree_branches(entrypoint_ref.as_ref().map(|r| r.as_ref()))?

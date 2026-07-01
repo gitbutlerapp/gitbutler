@@ -286,8 +286,7 @@ pub fn project_from_repository<T: but_core::RefMetadata>(
                     .detach(),
             )
         });
-    let remote_tracking =
-        remote_tracking_from_repository(repo, ws_meta.project_meta().push_remote.as_deref())?;
+    let remote_tracking = remote_tracking_from_repository(repo, &ws_meta.project_meta())?;
 
     Ok(project(
         &cg,
@@ -298,21 +297,30 @@ pub fn project_from_repository<T: but_core::RefMetadata>(
     ))
 }
 
-/// Local branch -> its remote-tracking branch, deduced by name (`refs/remotes/<remote>/<X>` for
-/// `refs/heads/<X>`). When several remotes carry the same branch, a configured `push_remote` wins,
-/// then the remaining remotes in name order — mirroring the walk's `symbolic_remote_names` priority
-/// ("the push-remote overrides the remote we use for listing, even if a fetch remote is available").
+/// Local branch -> its remote-tracking branch, mirroring the walk's
+/// `lookup_remote_tracking_branch_or_deduce_it`:
+/// 1. A branch CONFIGURED in git (`branch.<name>.remote`/`merge`) tracks that remote branch.
+/// 2. Otherwise the relationship is deduced by name (`refs/remotes/<remote>/<X>` for `refs/heads/<X>`),
+///    but ONLY against remotes the workspace configuration implies — the `push_remote` (highest
+///    priority: "the push-remote overrides the remote we use for listing, even if a fetch remote is
+///    available"), then the remote of the configured `target_ref`. A workspace with neither deduces
+///    NO name-based relationships at all.
 pub(crate) fn remote_tracking_from_repository(
     repo: &gix::Repository,
-    push_remote: Option<&str>,
+    project_meta: &but_core::ref_metadata::ProjectMeta,
 ) -> anyhow::Result<HashMap<gix::refs::FullName, gix::refs::FullName>> {
-    // Candidate remotes: the configured ones, plus the first path component of every ref under
-    // `refs/remotes/` (fixtures and users can have remote refs without a configured remote).
-    let mut candidates: std::collections::BTreeSet<String> = repo
-        .remote_names()
-        .into_iter()
-        .map(|n| n.to_string())
-        .collect();
+    let mut remotes: Vec<String> = Vec::new();
+    if let Some(push_remote) = project_meta.push_remote.as_deref() {
+        remotes.push(push_remote.to_string());
+    }
+    if let Some(target_ref) = project_meta.target_ref.as_ref()
+        && let Some((remote, _short)) =
+            but_core::extract_remote_name_and_short_name(target_ref.as_ref(), &repo.remote_names())
+        && !remotes.contains(&remote)
+    {
+        remotes.push(remote);
+    }
+
     let remote_refs: Vec<gix::refs::FullName> = repo
         .references()?
         .all()?
@@ -320,22 +328,8 @@ pub(crate) fn remote_tracking_from_repository(
         .filter(|r| r.name().as_bstr().starts_with(b"refs/remotes/"))
         .map(|r| r.name().to_owned())
         .collect();
-    for name in &remote_refs {
-        let rest = &name.as_bstr()[b"refs/remotes/".len()..];
-        if let Some(slash) = rest.iter().position(|&b| b == b'/') {
-            candidates.insert(String::from_utf8_lossy(&rest[..slash]).into_owned());
-        }
-    }
-    // Priority order: the push remote first, then the rest sorted by name (BTreeSet is sorted).
-    let mut remotes: Vec<String> = candidates
-        .into_iter()
-        .filter(|n| Some(n.as_str()) != push_remote)
-        .collect();
-    if let Some(push_remote) = push_remote {
-        remotes.insert(0, push_remote.to_string());
-    }
-
     let mut map = HashMap::new();
+    // Name-deduction against the symbolic remotes.
     for remote in remotes {
         let prefix = format!("refs/remotes/{remote}/");
         for name in &remote_refs {
@@ -346,6 +340,16 @@ pub(crate) fn remote_tracking_from_repository(
                     map.entry(local_ref).or_insert_with(|| name.clone());
                 }
             }
+        }
+    }
+    // Git-configured tracking branches win over name-deduction.
+    for reference in repo.references()?.local_branches()?.filter_map(Result::ok) {
+        let local = reference.name().to_owned();
+        if let Some(Ok(rt)) =
+            repo.branch_remote_tracking_ref_name(local.as_ref(), gix::remote::Direction::Fetch)
+            && remote_refs.iter().any(|r| r.as_ref() == rt.as_ref())
+        {
+            map.insert(local, rt.into_owned());
         }
     }
     Ok(map)
