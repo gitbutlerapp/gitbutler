@@ -936,6 +936,570 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn move_file_below_commit_creates_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊│     9a:wu A second
+┊●   fe12bcd add first
+┊│     fe:lz A first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 9a:wu --below fe")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 changes from 9ac4652 to new commit 8e35f84 below commit fe12bcd
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   01a55b8 add second (no changes)
+┊●   12b9152 add first
+┊│     12:lz A first
+┊●   8e35f84 (no commit message)
+┊│     8e:wu A second
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_above_commit_creates_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊│     9a:wu A second
+┊●   fe12bcd add first
+┊│     fe:lz A first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 fe:lz --above 9a")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 changes from fe12bcd to new commit c019027 above commit 9ac4652
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   c019027 (no commit message)
+┊│     c0:lz A first
+┊●   38b1f1a add second
+┊│     38:wu A second
+┊●   d8dfd0f add first (no changes)
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_below_branch_creates_branch_and_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊│     9a:wu A second
+┊●   fe12bcd add first
+┊│     fe:lz A first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 9a:wu --below A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 changes from 9ac4652 to new commit 8e35f84 on new branch 'a-branch-1' below branch 'A'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   01a55b8 add second (no changes)
+┊●   12b9152 add first
+┊│     12:lz A first
+┊│
+┊├┄br [a-branch-1]
+┊●   8e35f84 (no commit message)
+┊│     8e:wu A second
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_above_branch_creates_branch_and_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊│     9a:wu A second
+┊●   fe12bcd add first
+┊│     fe:lz A first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 fe:lz --above A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 changes from fe12bcd to new commit c019027 on new branch 'a-branch-1' above branch 'A'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   c019027 (no commit message)
+┊│     c0:lz A first
+┊│
+┊├┄g0 [A]
+┊●   38b1f1a add second
+┊│     38:wu A second
+┊●   d8dfd0f add first (no changes)
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_to_branch_tip_creates_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 d3:pl --branch A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 changes from d3e2ba3 to new commit be174de to the tip of branch 'A'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   be174de (no commit message)
+┊│     be:pl A B
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   5bbe27c add B (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_to_non_existing_branch_tip_creates_unstacked_branch_and_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊│     9a:wu A second
+┊●   fe12bcd add first
+┊│     fe:lz A first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 9a:wu --branch new-branch")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 changes from 9ac4652 to new commit 8e35f84 on new branch 'new-branch'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   810e515 add second (no changes)
+┊●   fe12bcd add first
+┊│     fe:lz A first
+├╯
+┊
+┊╭┄ne [new-branch]
+┊●   8e35f84 (no commit message)
+┊│     8e:wu A second
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_branch_without_argument_creates_unstacked_branch_with_canned_name_and_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊│     9a:wu A second
+┊●   fe12bcd add first
+┊│     fe:lz A first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 9a:wu --branch")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 changes from 9ac4652 to new commit 8e35f84 on new branch 'a-branch-1'
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   810e515 add second (no changes)
+┊●   fe12bcd add first
+┊│     fe:lz A first
+├╯
+┊
+┊╭┄br [a-branch-1]
+┊●   8e35f84 (no commit message)
+┊│     8e:wu A second
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_should_be_order_independent() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("new", "Some data");
+    env.but("_commit2 -m 'Add new file'").assert().success();
+    std::fs::rename(
+        env.projects_root().join("new"),
+        env.projects_root().join("moved"),
+    )
+    .unwrap();
+    env.file("new/file", "Stuff");
+    env.file("unrelated", "This should stay here :)");
+    env.but("_commit2 -m 'Prepare for moves!'")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   e3d3e3a Prepare for moves!
+┊│     e3:ul R moved
+┊│     e3:py A new/file
+┊│     e3:tt A unrelated
+┊●   24ac1e5 Add new file
+┊│     24:nx A new
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 e3:py e3:ul --above e3")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 2 changes from e3d3e3a to new commit 99ef17e above commit e3d3e3a
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   99ef17e (no commit message)
+┊│     99:ul R moved
+┊│     99:py A new/file
+┊●   f94e59f Prepare for moves!
+┊│     f9:tt A unrelated
+┊●   24ac1e5 Add new file
+┊│     24:nx A new
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("undo").assert().success();
+
+    env.but("_move2 e3:ul e3:py --above e3")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 2 changes from e3d3e3a to new commit 99ef17e above commit e3d3e3a
+
+"#]]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   99ef17e (no commit message)
+┊│     99:ul R moved
+┊│     99:py A new/file
+┊●   f94e59f Prepare for moves!
+┊│     f9:tt A unrelated
+┊●   24ac1e5 Add new file
+┊│     24:nx A new
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn move_file_from_multiple_source_commits_is_not_allowed() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 94:tm d3:pl -b")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot move changes from multiple commits
+
+Hint: Move changes from a single commit at first, then squash additional changes into the new commit
+
+"#]]);
+}
+
+#[test]
+fn mixing_commits_and_changes_is_not_allowed() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊│     9a:wu A second
+┊●   fe12bcd add first
+┊│     fe:lz A first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 9a fe:lz -b")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<SOURCES>'
+
+Mixing source types is not allowed
+
+Hint: You can only move one kind of source (e.g. commits) at a time
+
+"#]]);
+}
+
+#[test]
 fn targeting_unapplied_branch_errors() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
     env.setup_metadata(&["A", "B"]);
@@ -1024,6 +1588,25 @@ For more information, try '--help'.
 }
 
 #[test]
+fn must_specify_source() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("_move2 -b")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the following required arguments were not provided:
+  <SOURCES>...
+
+Usage: but _move2 <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]> <SOURCES>...
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
 fn source_cannot_be_target() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
     env.setup_metadata(&["A"]);
@@ -1049,6 +1632,84 @@ Error: Bad input '9a' for '--below'
 Source cannot also be target
 
 Hint: Trying to move items below '9a'? Remove '9a' from '<SOURCES>' and try again!
+
+"#]]);
+}
+
+#[test]
+fn cannot_move_from_uncommitted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("file", "some text");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted]
+┊   qs A file
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("_move2 qs -b A")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'qs' for '<SOURCES>'
+
+Cannot pass uncommitted file or hunk as source
+
+Hint: Sources must be commits or committed files
+
+"#]]);
+    env.but("_move2 zz -b A")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input 'zz' for '<SOURCES>'
+
+Cannot pass uncommitted changes as source
+
+Hint: Sources must be commits or committed files
+
+"#]]);
+}
+
+#[test]
+fn cannot_move_to_uncommitted() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&[]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 94 --below zz")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Expected a commit or a branch, got uncommitted changes
 
 "#]]);
 }
