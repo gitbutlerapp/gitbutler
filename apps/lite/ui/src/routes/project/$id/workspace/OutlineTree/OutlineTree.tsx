@@ -49,7 +49,6 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
 import {
 	focusSelectionScope,
-	resolveNavigationIndexSelection,
 	useNavigationIndexHotkeys,
 	useOutlineSelection,
 } from "#ui/selection-scopes.ts";
@@ -60,7 +59,6 @@ import {
 	selectProjectHasCheckedCommits,
 	selectProjectHighlightedCommitIds,
 	selectProjectOutlineModeState,
-	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { rewrittenCommitSelection } from "#ui/projects/workspace/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -136,6 +134,8 @@ import { OperationControls } from "#ui/routes/project/$id/workspace/OperationCon
 import { prForgeUrl } from "#ui/pr.ts";
 import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
+import { ItemRow } from "./ItemRow.tsx";
+import { useIsSelected } from "./useIsSelected.ts";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -818,82 +818,8 @@ export const OutlineTree: FC<
 	);
 };
 
-const useIsSelected = ({
-	projectId,
-	operand,
-}: {
-	projectId: string;
-	operand: Operand;
-}): boolean => {
-	const navigationIndex = assert(use(NavigationIndexContext));
-	return useAppSelector((state) => {
-		const selectionState = selectProjectSelectionOutline(state, projectId);
-		const selection = resolveNavigationIndexSelection(
-			navigationIndex,
-			selectionState,
-			operandIdentityKey,
-		);
-
-		return selection ? operandEquals(selection, operand) : false;
-	});
-};
-
 const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
-
-const CommitTargetIndicator: FC = () => (
-	<Tooltip.Root>
-		<Tooltip.Trigger aria-label="Commit target" className={styles.commitTargetIndicator}>
-			<svg
-				aria-hidden
-				xmlns="http://www.w3.org/2000/svg"
-				width="20"
-				height="13"
-				viewBox="0 0 20 13"
-				fill="none"
-			>
-				<path
-					d="M11.7571 11.7906C10.5268 12.5802 9.09568 13 7.63376 13L6.5 13C2.91015 13 -1.65294e-06 10.0898 -1.3391e-06 6.5C-1.02527e-06 2.91015 2.91015 4.13306e-07 6.5 7.27141e-07L7.63377 8.26258e-07C9.09568 9.54062e-07 10.5268 0.419776 11.7571 1.20943L18.6888 5.65843C19.3019 6.05196 19.3019 6.94804 18.6888 7.34157L11.7571 11.7906Z"
-					fill="#25B1B1"
-				/>
-				<circle cx="6.5" cy="6.5" r="3.75" stroke="var(--bg-1)" strokeWidth="1.5" />
-				<circle cx="6.5" cy="6.5" r="0.75" stroke="var(--bg-1)" strokeWidth="1.5" />
-			</svg>
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup />}>Commit target</Tooltip.Popup>
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
-);
-
-const ItemRow: FC<
-	{
-		projectId: string;
-		operand: Operand;
-		isCommitTarget?: boolean;
-	} & Omit<ComponentProps<typeof WorkspaceItemRow>, "inert" | "isSelected" | "onSelect">
-> = ({ projectId, operand, isCommitTarget, ...props }) => {
-	const dispatch = useAppDispatch();
-	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useIsSelected({ projectId, operand });
-	const selectItem = () => {
-		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
-	};
-
-	return (
-		<div className={styles.itemRowContainer}>
-			<WorkspaceItemRow
-				{...props}
-				inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
-				isSelected={isSelected}
-				onSelect={selectItem}
-			/>
-			{isCommitTarget && <CommitTargetIndicator />}
-		</div>
-	);
-};
 
 const TreeItem: FC<
 	{
