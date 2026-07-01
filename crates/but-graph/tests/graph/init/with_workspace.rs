@@ -8163,6 +8163,36 @@ fn cg_to_sg_projects_remote_ahead() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_to_sg_projects_dependent_branches() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-12146")?;
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
+    assert_cg_to_sg_projects(&repo, &*meta)
+}
+
+#[test]
+fn cg_to_sg_projects_ambiguous() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_projects(&repo, &*meta)
+}
+
+#[test]
+fn cg_to_sg_projects_one_integrated() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/multi-lane-with-shared-segment-one-integrated")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_projects(&repo, &*meta)
+}
+
+#[test]
+fn cg_to_sg_projects_remote_includes_another_remote() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-includes-another-remote")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_projects(&repo, &*meta)
+}
+
+#[test]
 fn cg_to_sg_single_stack() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack")?;
     add_workspace(&mut meta);
