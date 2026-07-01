@@ -1570,14 +1570,13 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    // Duplicate parent commits are kept verbatim.
+    // Duplicate parent commits are collapsed at read time: lanes come from workspace metadata, not
+    // repeated parent entries, so `[base, base]` becomes a single edge and the history stays linear.
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:main[🌳]
-        └── ·06470d7 (⌂|1)
-            ├── ►:1[1]:anon:
-            │   └── 🏁·86719d5 (⌂|1)
-            └── →:1:
+        ├── ·06470d7 (⌂|1)
+        └── 🏁·86719d5 (⌂|1)
     ");
     Ok(())
 }

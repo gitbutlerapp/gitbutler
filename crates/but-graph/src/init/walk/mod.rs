@@ -673,7 +673,7 @@ pub fn find(
     buf: &mut Vec<u8>,
 ) -> anyhow::Result<TraverseInfo> {
     let mut parent_ids = gix::traverse::commit::ParentIds::new();
-    let (commit, gen_then_time) = match gix::traverse::commit::find(cache, objects, &id, buf)? {
+    let (mut commit, gen_then_time) = match gix::traverse::commit::find(cache, objects, &id, buf)? {
         Either::CachedCommit(c) => {
             let cache = cache.expect("cache is available if a cached commit is returned");
             for parent_id in c.iter_parents() {
@@ -732,6 +732,26 @@ pub fn find(
             )
         }
     };
+
+    // Collapse EXACT duplicate parents right after reading the commit (a GitButler workspace merge
+    // encodes empty lanes as repeated parents, e.g. `[base, base]`). Lanes are derived from workspace
+    // metadata, so the repeated edge is pure redundancy; dropping it here keeps the graph from emitting
+    // a second connection to the same segment. Distinct parents (real merges) are preserved in order.
+    // Matches the `CommitGraph` reader so both builders agree.
+    if parent_ids.len() > 1 {
+        let mut deduped = gix::traverse::commit::ParentIds::new();
+        for p in parent_ids.iter() {
+            if !deduped.iter().any(|seen| seen == p) {
+                deduped.push(*p);
+            }
+        }
+        if deduped.len() != parent_ids.len() {
+            parent_ids = deduped;
+            if let Some(c) = commit.as_mut() {
+                c.parent_ids = parent_ids.iter().cloned().collect();
+            }
+        }
+    }
 
     Ok(TraverseInfo {
         inner: gix::traverse::commit::Info {
