@@ -326,10 +326,10 @@ const FileRow: FC<
 				</div>
 
 				<WorkspaceItemRowLabelContainer>
+					{item._tag === "Conflict" && "⚠️"}
 					<WorkspaceItemRowLabel singleLine className={styles.filePath}>
 						<span className={workspaceItemRowStyles.fadedText}>{mpathInit}</span>
 						{pathLast}
-						{item._tag === "Conflict" && " ⚠️"}
 					</WorkspaceItemRowLabel>
 				</WorkspaceItemRowLabelContainer>
 
