@@ -1600,6 +1600,19 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
         push_integrated_tip_once(&mut tips, extra_target);
     }
 
+    // The live tip of the target ref, used to detect target commits orphaned by an upstream
+    // history rewrite: they still exist as objects (so `find_commit` succeeds below) but no
+    // longer share any history with the rewritten target.
+    let target_ref_tip = workspace_target_tip(repo, project_meta.target_ref.as_ref())?
+        .map(|(_target_ref, target_ref_id, _local_info)| target_ref_id);
+    // On a shallow clone gix's merge-base silently treats a missing (below-graft) parent as a root,
+    // so a commit whose real merge-base lies below the boundary reports as "no merge-base" exactly
+    // like a genuinely rewritten-away commit. We therefore only trust a disjoint result on a full
+    // clone; on a shallow clone we keep the stored commit rather than risk dropping a still-reachable
+    // target and silently shifting the workspace base. An unreadable `.git/shallow` is assumed
+    // shallow, preserving the conservative "don't drop what we can't prove disjoint" default.
+    let repo_is_shallow = repo.shallow_commits().map(|c| c.is_some()).unwrap_or(true);
+
     for target_commit_id in additional_target_commits {
         // These are possibly from metadata, and thus might not exist (anymore). Ignore if that's the case.
         if let Err(err) = repo.find_commit(target_commit_id) {
@@ -1607,6 +1620,28 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
                 ?target_commit_id,
                 ?err,
                 "Ignoring stale target commit id as it didn't exist"
+            );
+            continue;
+        }
+        // A history rewrite (e.g. `git filter-repo` + force-push) can leave the stored target commit
+        // existing as an object but sharing no history with the rewritten target ref. Pinning such a
+        // disjoint commit anchors the workspace on a base with no merge-base with its target -> the
+        // perpetual "No merge-base found" / "Target branch divergence" state of #14415. On a full
+        // clone, gix's `NotFound` ("no common ancestor") reliably means a genuine rewrite, so drop the
+        // commit and let the workspace fall back to the live target tip. Anything else -- it shares
+        // history, or the relationship couldn't be computed -- leaves the stored commit untouched.
+        if let Some(target_ref_tip) = target_ref_tip
+            && !repo_is_shallow
+            && matches!(
+                repo.for_find_only()
+                    .merge_base(target_commit_id, target_ref_tip),
+                Err(gix::repository::merge_base::Error::NotFound { .. })
+            )
+        {
+            tracing::warn!(
+                ?target_commit_id,
+                ?target_ref_tip,
+                "Ignoring stale target commit id as it shares no history with the target ref (history rewritten?)"
             );
             continue;
         }

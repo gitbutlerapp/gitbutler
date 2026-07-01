@@ -156,3 +156,64 @@ fn returns_extra_target_without_target_ref() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn ignores_orphaned_target_commit_unreachable_from_target_ref() -> anyhow::Result<()> {
+    // Reproduces #14415: after an upstream history rewrite (e.g. `git filter-branch` /
+    // `git filter-repo` followed by a force-push), the stored `target_commit_id`
+    // (`gitbutler.project.targetCommitId`) points at a commit that still EXISTS as an object
+    // but is no longer reachable from the rewritten target ref. The init code only skips such
+    // a commit when the object is *gone* (`repo.find_commit` errors), so an orphaned-but-still-
+    // existing commit gets pinned into the workspace as an integrated tip. The workspace then
+    // shares no merge-base with its target -> the perpetual "No merge-base found" /
+    // "Target branch divergence" loop the issue describes.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
+
+    // Stand-in for the pre-rewrite target commit: a real object that shares no history with
+    // origin/main, so `find_commit` succeeds but there is no merge-base with the target.
+    let orphan = write_orphan_commit(&repo, "orphaned pre-rewrite target")?;
+    assert!(
+        repo.find_commit(orphan).is_ok(),
+        "the orphaned commit must still exist as an object (not yet GC'd) to trigger the bug"
+    );
+
+    add_workspace_with_target(&mut meta, orphan);
+
+    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?
+        .into_workspace()?;
+
+    let origin_main_tip = repo.rev_parse_single("origin/main")?.detach();
+    assert_eq!(
+        ws.resolved_target_commit_id(),
+        Some(origin_main_tip),
+        "an orphaned target_commit (unreachable from the target ref) must be ignored and the live \
+         target tip used instead; pinning the orphan is the #14415 divergence bug"
+    );
+
+    Ok(())
+}
+
+/// Write a parent-less commit with an empty tree directly into `repo`'s object database.
+/// It exists as an object (so `find_commit` succeeds) but shares no history with any branch,
+/// standing in for a commit orphaned by an upstream history rewrite.
+fn write_orphan_commit(repo: &gix::Repository, message: &str) -> anyhow::Result<gix::ObjectId> {
+    let signature = gix::actor::Signature {
+        name: "Rewrite".into(),
+        email: "rewrite@example.com".into(),
+        time: gix::date::Time {
+            seconds: 0,
+            offset: 0,
+        },
+    };
+    let commit = gix::objs::Commit {
+        tree: repo.object_hash().empty_tree(),
+        parents: vec![].into(),
+        author: signature.clone(),
+        committer: signature,
+        encoding: None,
+        message: message.into(),
+        extra_headers: Vec::new(),
+    };
+    Ok(repo.write_object(&commit)?.detach())
+}
