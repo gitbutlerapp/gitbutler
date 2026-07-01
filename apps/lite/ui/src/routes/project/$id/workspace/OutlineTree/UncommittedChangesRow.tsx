@@ -34,7 +34,7 @@ export type LineStats = {
 
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
-	lineStats: LineStats | null;
+	lineStats: LineStats;
 	projectId: string;
 	onComposeCommitMessage: () => void;
 }> = ({ changes, lineStats, projectId, onComposeCommitMessage }) => {
@@ -119,7 +119,7 @@ export const UncommittedChangesRow: FC<{
 
 				<WorkspaceItemRowBubble variant="fillGray">{changes.length}</WorkspaceItemRowBubble>
 
-				{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
+				{(lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
 					<WorkspaceItemRowBubbleGroup>
 						{lineStats.linesAdded > 0 && (
 							<WorkspaceItemRowBubble variant="safe">
