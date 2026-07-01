@@ -22,7 +22,7 @@ const FullWindowToggle: FC<
 				render={
 					<Toggle
 						{...toggleProps}
-						aria-label={workspaceHotkeys.toggleDetailsFullWindow.meta.name}
+						aria-label={workspaceHotkeys.toggleOutline.meta.name}
 						pressed={fullWindow}
 						onPressedChange={(fullWindow) =>
 							dispatch(projectActions.setDetailsFullWindow({ projectId, fullWindow }))
@@ -32,10 +32,8 @@ const FullWindowToggle: FC<
 			/>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup
-						render={<TooltipPopup kbd={workspaceHotkeys.toggleDetailsFullWindow.hotkey} />}
-					>
-						{workspaceHotkeys.toggleDetailsFullWindow.meta.name}
+					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.toggleOutline.hotkey} />}>
+						{workspaceHotkeys.toggleOutline.meta.name}
 					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
