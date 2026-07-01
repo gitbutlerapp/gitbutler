@@ -62,12 +62,7 @@
 .dropdownButtonSeparator {
 	display: grid;
 	width: 1px;
-	background-color: color-mix(in srgb, var(--scale-pop-60) 50%, transparent);
-
-	&:after {
-		background-color: color-mix(in srgb, var(--scale-pop-40) 20%, transparent);
-		content: "";
-	}
+	background-color: color-mix(in srgb, var(--scale-pop-40) 20%, var(--scale-pop-70));
 }
 
 .targetTrigger {
