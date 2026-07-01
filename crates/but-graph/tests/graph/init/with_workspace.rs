@@ -7925,6 +7925,24 @@ fn cg_proj_parity_advanced_stack_tip_outside() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_proj_parity_diverged_disjoint_target() -> anyhow::Result<()> {
+    // origin/main is a DISJOINT target (not an ancestor of the stacks), so the fork point falls back to
+    // the global base (fafd9d0). advanced-lane keeps its commit; lane is an empty, metadata-tracked
+    // stack sitting on the base and is kept. The ws-commit parents are swapped, exercising alignment.
+    let (repo, mut meta) = read_only_in_memory_scenario(
+        "ws/two-branches-one-advanced-two-parent-ws-commit-diverged-ttb",
+    )?;
+    for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
+        add_stack_with_segments(&mut meta, idx, name, StackState::InWorkspace, &[]);
+    }
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
 fn cg_proj_parity_multiple_stacks_shared_remote() -> anyhow::Result<()> {
     // Two stacks B-on-A and C-on-A share the base segment A (which has a remote origin/A ahead). A is
     // NOT itself a stack top, so it forms a shared segment inside each stack — unlike a sibling stack
