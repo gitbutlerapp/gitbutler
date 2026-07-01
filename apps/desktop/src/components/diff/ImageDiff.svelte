@@ -22,7 +22,7 @@
 	};
 
 	function buildImageDataUrl(
-		content: string | undefined,
+		content: string | null | undefined,
 		mimeType: string | undefined,
 		path: string,
 	): string | null {
