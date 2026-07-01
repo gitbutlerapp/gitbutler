@@ -62,7 +62,10 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         )
     });
     cg.mark_integrated(target);
-    let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(repo)?;
+    let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(
+        repo,
+        project_meta.push_remote.as_deref(),
+    )?;
     let worktree_by_branch = {
         let (overlay_repo, _om, _ep) = crate::init::Overlay::default().into_parts(repo, meta);
         overlay_repo.worktree_branches(entrypoint_ref.as_ref().map(|r| r.as_ref()))?
@@ -105,7 +108,10 @@ pub fn graph_from_repository_unmanaged<T: but_core::RefMetadata>(
     options: crate::init::Options,
 ) -> anyhow::Result<crate::Graph> {
     let cg = CommitGraph::from_repository_unmanaged(repo, Some(head_tip))?;
-    let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(repo)?;
+    let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(
+        repo,
+        project_meta.push_remote.as_deref(),
+    )?;
     let worktree_by_branch = {
         let (overlay_repo, _om, _ep) = crate::init::Overlay::default().into_parts(repo, meta);
         overlay_repo.worktree_branches(entrypoint_ref.as_ref().map(|r| r.as_ref()))?

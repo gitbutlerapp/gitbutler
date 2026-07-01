@@ -286,7 +286,8 @@ pub fn project_from_repository<T: but_core::RefMetadata>(
                     .detach(),
             )
         });
-    let remote_tracking = remote_tracking_from_repository(repo)?;
+    let remote_tracking =
+        remote_tracking_from_repository(repo, ws_meta.project_meta().push_remote.as_deref())?;
 
     Ok(project(
         &cg,
@@ -297,18 +298,53 @@ pub fn project_from_repository<T: but_core::RefMetadata>(
     ))
 }
 
-/// Local branch -> its remote-tracking branch, deduced by name (`refs/remotes/origin/<X>` for
-/// `refs/heads/<X>`) for every `origin` remote branch that exists.
+/// Local branch -> its remote-tracking branch, deduced by name (`refs/remotes/<remote>/<X>` for
+/// `refs/heads/<X>`). When several remotes carry the same branch, a configured `push_remote` wins,
+/// then the remaining remotes in name order — mirroring the walk's `symbolic_remote_names` priority
+/// ("the push-remote overrides the remote we use for listing, even if a fetch remote is available").
 pub(crate) fn remote_tracking_from_repository(
     repo: &gix::Repository,
+    push_remote: Option<&str>,
 ) -> anyhow::Result<HashMap<gix::refs::FullName, gix::refs::FullName>> {
+    // Candidate remotes: the configured ones, plus the first path component of every ref under
+    // `refs/remotes/` (fixtures and users can have remote refs without a configured remote).
+    let mut candidates: std::collections::BTreeSet<String> = repo
+        .remote_names()
+        .into_iter()
+        .map(|n| n.to_string())
+        .collect();
+    let remote_refs: Vec<gix::refs::FullName> = repo
+        .references()?
+        .all()?
+        .filter_map(Result::ok)
+        .filter(|r| r.name().as_bstr().starts_with(b"refs/remotes/"))
+        .map(|r| r.name().to_owned())
+        .collect();
+    for name in &remote_refs {
+        let rest = &name.as_bstr()[b"refs/remotes/".len()..];
+        if let Some(slash) = rest.iter().position(|&b| b == b'/') {
+            candidates.insert(String::from_utf8_lossy(&rest[..slash]).into_owned());
+        }
+    }
+    // Priority order: the push remote first, then the rest sorted by name (BTreeSet is sorted).
+    let mut remotes: Vec<String> = candidates
+        .into_iter()
+        .filter(|n| Some(n.as_str()) != push_remote)
+        .collect();
+    if let Some(push_remote) = push_remote {
+        remotes.insert(0, push_remote.to_string());
+    }
+
     let mut map = HashMap::new();
-    for reference in repo.references()?.all()?.filter_map(Result::ok) {
-        let full = reference.name().as_bstr();
-        if let Some(short) = full.strip_prefix(b"refs/remotes/origin/") {
-            let local = format!("refs/heads/{}", String::from_utf8_lossy(short));
-            if let Ok(local_ref) = gix::refs::FullName::try_from(local) {
-                map.insert(local_ref, reference.name().to_owned());
+    for remote in remotes {
+        let prefix = format!("refs/remotes/{remote}/");
+        for name in &remote_refs {
+            if let Some(short) = name.as_bstr().strip_prefix(prefix.as_bytes()) {
+                let local = format!("refs/heads/{}", String::from_utf8_lossy(short));
+                if let Ok(local_ref) = gix::refs::FullName::try_from(local) {
+                    // The first (highest-priority) remote to claim a local branch wins.
+                    map.entry(local_ref).or_insert_with(|| name.clone());
+                }
             }
         }
     }
