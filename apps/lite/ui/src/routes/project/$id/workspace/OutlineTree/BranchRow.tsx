@@ -17,7 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { ComponentProps, FC, useOptimistic, useTransition } from "react";
 import { classes } from "#ui/components/classes.ts";
-import { GraphSegment, type Status } from "#ui/components/GraphSegment.tsx";
+import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -57,7 +57,7 @@ export const BranchRow: FC<
 		canRemoveBranch: boolean;
 		partialStackState: PartialStackState;
 		pushStatus: PushStatus;
-		graphStatus: Status;
+		graphStatus: GraphSegmentStatus;
 		pullRequest: number | null;
 		bottomRelativeTo: RelativeTo | null;
 		isTopSegment: boolean;

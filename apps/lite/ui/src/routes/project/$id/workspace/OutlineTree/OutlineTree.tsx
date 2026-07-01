@@ -53,7 +53,7 @@ import {
 } from "../WorkspaceItemRow.tsx";
 import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
 import { reverse } from "effect/Array";
-import { GraphSegment, Status } from "#ui/components/GraphSegment.tsx";
+import { GraphSegment, GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -370,7 +370,7 @@ const UncommittedChanges: FC<{
 	);
 };
 
-const segmentPushStatusToStatus = (pushStatus: PushStatus): Status => {
+const segmentPushStatusToGraphSegmentStatus = (pushStatus: PushStatus): GraphSegmentStatus => {
 	switch (pushStatus) {
 		case "nothingToPush":
 			return "LocalAndRemote";
@@ -431,7 +431,7 @@ const BranchSegment: FC<{
 						: false
 				}
 				pushStatus={segment.pushStatus}
-				graphStatus={segmentPushStatusToStatus(segment.pushStatus)}
+				graphStatus={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
 				pullRequest={segment.metadata?.review.pullRequest ?? null}
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				isTopSegment={isTopSegment}
@@ -470,7 +470,10 @@ const SegmentContent: FC<{
 		return (
 			<div>
 				<WorkspaceItemRow interactive={false} inert={inert}>
-					<GraphSegment glyph="parent" status={segmentPushStatusToStatus(segment.pushStatus)} />
+					<GraphSegment
+						glyph="parent"
+						status={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
+					/>
 					<WorkspaceItemRowLabelContainer>
 						<WorkspaceItemRowLabel className={workspaceItemRowStyles.fadedText}>
 							No commits.
@@ -606,7 +609,7 @@ const StackC: FC<{
 									glyph="parent"
 									status={
 										segment.commits.length === 0
-											? segmentPushStatusToStatus(segment.pushStatus)
+											? segmentPushStatusToGraphSegmentStatus(segment.pushStatus)
 											: commitIsDiverged(assert(segment.commits.at(-1)))
 												? "Diverged"
 												: assert(segment.commits.at(-1)).state.type

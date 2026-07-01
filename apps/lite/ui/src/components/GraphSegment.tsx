@@ -44,9 +44,9 @@ const groupGlyph = (
 );
 
 /** @public */
-export type GlyphType = keyof typeof glyphPaths | "commit" | "group";
+export type GraphSegmentGlyph = keyof typeof glyphPaths | "commit" | "group";
 
-const stretchableGlyphs = new Set<GlyphType>([
+const stretchableGlyphs = new Set<GraphSegmentGlyph>([
 	"parent",
 	"commit",
 	"group",
@@ -58,11 +58,11 @@ const stretchableGlyphs = new Set<GlyphType>([
 	"joinBoth",
 ]);
 
-export type Status = "Diverged" | CommitState["type"];
+export type GraphSegmentStatus = "Diverged" | CommitState["type"];
 
 interface GraphSegmentProps extends ComponentProps<"div"> {
-	glyph: GlyphType;
-	status: Status;
+	glyph: GraphSegmentGlyph;
+	status: GraphSegmentStatus;
 }
 
 export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, ...props }) => (
