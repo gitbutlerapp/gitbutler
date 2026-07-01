@@ -184,7 +184,7 @@ impl TestRepo {
         )
         .expect("failed to commit");
         but_core::worktree::safe_checkout(
-            parent,
+            tree_id,
             commit_id,
             &repo,
             but_core::worktree::checkout::Options {
