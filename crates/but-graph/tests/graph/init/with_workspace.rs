@@ -8029,6 +8029,94 @@ fn cg_proj_parity_diverged_disjoint_target() -> anyhow::Result<()> {
     assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
 }
 
+/// A canonical, `SegmentIndex`-free structural fingerprint of a segment `Graph`: one sorted line per
+/// segment describing its name, remote, generation, commits (+flags), outgoing connection targets, and
+/// sibling — all keyed by COMMIT ID, not segment index. Two graphs with equal fingerprints are
+/// structurally identical regardless of how segment ids happen to be numbered. This is the oracle for a
+/// future `CommitGraph`-built `Graph`, whose id numbering will differ from the walk's.
+fn graph_structure(graph: &but_graph::Graph) -> Vec<String> {
+    let mask = but_graph::CommitFlags::all();
+    let seg_key = |sidx: but_graph::SegmentIndex| -> String {
+        let s = &graph[sidx];
+        s.commits
+            .first()
+            .map(|c| c.id.to_hex_with_len(7).to_string())
+            .or_else(|| s.ref_info.as_ref().map(|ri| ri.ref_name.to_string()))
+            .unwrap_or_else(|| "∅".into())
+    };
+    let mut lines: Vec<String> = graph
+        .segments()
+        .map(|sidx| {
+            let s = &graph[sidx];
+            let name = s
+                .ref_info
+                .as_ref()
+                .map_or("∅".to_string(), |ri| ri.ref_name.to_string());
+            let remote = s
+                .remote_tracking_ref_name
+                .as_ref()
+                .map_or("∅".to_string(), |r| r.to_string());
+            let commits: Vec<String> = s
+                .commits
+                .iter()
+                .map(|c| format!("{}:{:?}", c.id.to_hex_with_len(7), c.flags & mask))
+                .collect();
+            let mut conns: Vec<String> = s
+                .connections
+                .iter()
+                .map(|c| {
+                    c.dst_id()
+                        .map_or("∅".into(), |id| id.to_hex_with_len(7).to_string())
+                })
+                .collect();
+            conns.sort();
+            let sibling = s.sibling_segment_id.map_or("∅".to_string(), seg_key);
+            format!(
+                "{name}|rt={remote}|gen={}|commits=[{}]|conn=[{}]|sib={sibling}",
+                s.generation,
+                commits.join(","),
+                conns.join(","),
+            )
+        })
+        .collect();
+    lines.sort();
+    lines
+}
+
+#[test]
+fn graph_structure_is_stable_and_discriminating() -> anyhow::Result<()> {
+    // The fingerprint equals itself and distinguishes structurally different workspaces — the property
+    // a CommitGraph-built graph will be verified against.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    add_workspace(&mut meta);
+    let a =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let a2 =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    assert_eq!(
+        graph_structure(&a),
+        graph_structure(&a2),
+        "the same workspace fingerprints identically"
+    );
+
+    let (repo_b, mut meta_b) = read_only_in_memory_scenario("ws/reproduce-12146")?;
+    add_stack_with_segments(&mut meta_b, 0, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta_b, 1, "B", StackState::InWorkspace, &[]);
+    let b = Graph::from_head(
+        &repo_b,
+        &*meta_b,
+        project_meta(&*meta_b),
+        standard_options(),
+    )?
+    .validated()?;
+    assert_ne!(
+        graph_structure(&a),
+        graph_structure(&b),
+        "structurally different workspaces fingerprint differently"
+    );
+    Ok(())
+}
+
 /// The straight-from-git CommitGraph must compute the same per-commit `CommitFlags` (the standard
 /// four: NotInRemote/InWorkspace/Integrated/ShallowBoundary, ignoring goal bits) as the segment graph,
 /// whose flags the `from_segment_graph` bridge carries over. Compared on the segment graph's commits.
