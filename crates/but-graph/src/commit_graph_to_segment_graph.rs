@@ -1166,6 +1166,15 @@ fn normalize_connections(sg: &mut SegmentGraph) {
             s.connections[i] = adj;
         }
     }
+    // Collapse duplicate edges to the same destination — a duplicated workspace-commit parent (two
+    // lanes onto the same base) yields two identical connections after empty-branch redirection.
+    for src in sg.node_indices().collect::<Vec<_>>() {
+        if let Some(s) = sg.node_mut(src) {
+            let mut seen = HashSet::new();
+            s.connections
+                .retain(|c| seen.insert((c.target, c.src, c.dst, c.src_id, c.dst_id)));
+        }
+    }
 }
 
 /// Longest path from a root (segment with no incoming connection); roots are generation 0.
