@@ -593,7 +593,15 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					</Tooltip.Trigger>
 					<Tooltip.Portal>
 						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup render={<TooltipPopup />}>{collapseLabel}</Tooltip.Popup>
+							<Tooltip.Popup
+								render={
+									<TooltipPopup
+										kbd={p.collapsed ? diffHotkeys.unfoldFile.hotkey : diffHotkeys.foldFile.hotkey}
+									/>
+								}
+							>
+								{collapseLabel}
+							</Tooltip.Popup>
 						</Tooltip.Positioner>
 					</Tooltip.Portal>
 				</Tooltip.Root>
