@@ -4,7 +4,6 @@ import {
 	changesInWorktreeQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
-	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { relativeToEquals } from "#ui/api/relative-to.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -38,10 +37,9 @@ import {
 	Segment,
 	Stack,
 	PushStatus,
-	UnifiedPatch,
 	WorkspaceState,
 } from "@gitbutler/but-sdk";
-import { useQueries, useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { ComponentProps, createContext, FC, Fragment, use, useRef } from "react";
@@ -65,7 +63,7 @@ import { BranchRow } from "./BranchRow.tsx";
 import { StackRow } from "./StackRow.tsx";
 import { useOutlineTreeHotkeys } from "./hotkeys.ts";
 import { partialStackStatesFromSegments, type PartialStackState } from "./partialStackState.ts";
-import { UncommittedChangesRow, type LineStats } from "./UncommittedChangesRow.tsx";
+import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -319,29 +317,12 @@ const focusCommitMessageInput = () => {
 	document.getElementById(commitMessageInputId)?.focus();
 };
 
-const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats => {
-	const stats: LineStats = { linesAdded: 0, linesRemoved: 0 };
-	for (const diff of diffs) {
-		if (diff?.type !== "Patch") continue;
-		stats.linesAdded += diff.subject.linesAdded;
-		stats.linesRemoved += diff.subject.linesRemoved;
-	}
-	return stats;
-};
-
 const UncommittedChanges: FC<{
 	projectId: string;
 	commitTarget: CommitTargetComboboxItem | null;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
 }> = ({ projectId, commitTarget, targetComboboxItems }) => {
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
-	const treeChangeDiffs = useQueries({
-		queries:
-			worktreeChanges?.changes.map((change) =>
-				treeChangeDiffsQueryOptions({ projectId, change }),
-			) ?? [],
-	});
-	const lineStats = getLineStats(treeChangeDiffs.map((result) => result.data));
 
 	const operand = uncommittedChangesOperand;
 
@@ -355,7 +336,6 @@ const UncommittedChanges: FC<{
 		>
 			<UncommittedChangesRow
 				changes={worktreeChanges?.changes ?? []}
-				lineStats={lineStats}
 				projectId={projectId}
 				onComposeCommitMessage={focusCommitMessageInput}
 			/>
