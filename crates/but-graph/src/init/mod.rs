@@ -591,7 +591,20 @@ impl Graph {
                         options.clone(),
                     );
                 }
-                // Detached / unborn: fall through to the walk for now.
+                // Detached HEAD: the tip is forced anonymous, no worktree marker, no ref name.
+                gix::head::Kind::Detached { target, peeled } => {
+                    let tip = peeled.unwrap_or(*target);
+                    return crate::graph_from_repository_unmanaged(
+                        repo,
+                        meta,
+                        tip,
+                        None,
+                        false,
+                        project_meta.clone(),
+                        options.clone(),
+                    );
+                }
+                // Unborn: no commit to build from — fall through to the direct empty-segment path.
                 _ => {}
             }
         }
