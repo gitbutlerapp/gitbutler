@@ -1192,7 +1192,17 @@ fn insert_empty_branches(
                 .cloned()
                 .collect();
             if !empties.is_empty() {
-                insert_empty_chain_above(sg, from_sidx, anchor, &empties);
+                // Dependent-branch splice vs own lane: a commit at/below the base (Integrated) or
+                // shared by several metadata stacks gets its own lane from the workspace; a commit
+                // strictly inside another stack's lane means these branches are DEPENDENT and must
+                // splice into that chain instead of minting a duplicate lane.
+                let dependent = lists_per_commit.get(&commit).copied().unwrap_or(0) <= 1
+                    && sg.node(anchor).is_some_and(|s| {
+                        s.commits
+                            .first()
+                            .is_some_and(|c| !c.flags.contains(crate::CommitFlags::Integrated))
+                    });
+                insert_empty_chain_above(sg, from_sidx, anchor, &empties, dependent);
             }
             from_sidx = Some(anchor);
         }
@@ -1224,6 +1234,9 @@ fn insert_empty_chain_above(
     from_sidx: Option<SegmentIndex>,
     anchor: SegmentIndex,
     empties: &[gix::refs::FullName],
+    // The anchor commit sits strictly inside another stack's lane (not at/below the base): splice into
+    // that chain's existing edge rather than adding a fresh workspace lane.
+    dependent: bool,
 ) {
     let seg_ids: Vec<SegmentIndex> = empties
         .iter()
@@ -1251,8 +1264,12 @@ fn insert_empty_chain_above(
         return;
     };
     // Move `from_sidx`'s edge(s) into the anchor onto the chain top; other stacks and remotes that also
-    // reach the anchor keep their direct edges. If no such edge remains (a sibling empty stack already
-    // took the shared edge to this base), add a fresh one so this stack still connects from above.
+    // reach the anchor keep their direct edges. If it has none, the anchor may sit MID-CHAIN of another
+    // stack (dependent branches, e.g. `D`/`E` pointing into `S1`'s spine): splice into the existing
+    // incoming edge from the commit-holding local segment above, matching the walk — a fresh workspace
+    // edge would mint a duplicate lane showing the anchor's commits twice. Only when no such chain
+    // parent exists (a sibling empty stack already took the shared edge to this base) does a fresh
+    // edge connect this stack from above.
     if let Some(from_sidx) = from_sidx {
         let mut redirected = false;
         if let Some(from) = sg.node_mut(from_sidx) {
@@ -1265,7 +1282,33 @@ fn insert_empty_chain_above(
             }
         }
         if !redirected {
-            sg.add_edge(from_sidx, Connection::new(top, None, None, None, None));
+            let chain_parent = dependent
+                .then(|| {
+                    sg.node_indices().find(|&sidx| {
+                        sidx != from_sidx
+                            && !is_remote_segment(sg, sidx)
+                            && sg.node(sidx).is_some_and(|s| {
+                                !s.commits.is_empty()
+                                    && s.connections.iter().any(|c| c.target == anchor)
+                            })
+                    })
+                })
+                .flatten();
+            match chain_parent {
+                Some(parent) => {
+                    if let Some(parent) = sg.node_mut(parent) {
+                        for conn in &mut parent.connections {
+                            if conn.target == anchor {
+                                conn.target = top;
+                                conn.dst_id = None;
+                            }
+                        }
+                    }
+                }
+                None => {
+                    sg.add_edge(from_sidx, Connection::new(top, None, None, None, None));
+                }
+            }
         }
     }
     for i in 0..seg_ids.len() {
