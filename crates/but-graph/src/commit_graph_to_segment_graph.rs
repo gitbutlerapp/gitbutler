@@ -40,10 +40,12 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         .detach();
 
     let ws_meta = meta.workspace(ws_ref.as_ref())?;
+    // Include inactive/outside stacks too: their branches are still spliced as empty segments where
+    // they sit on an in-graph commit (e.g. an inactive `unapplied` branch on the shared base). Stacks
+    // whose branches resolve below the base are skipped naturally when their commit isn't in the graph.
     let stack_branches: Vec<Vec<gix::refs::FullName>> = ws_meta
         .stacks
         .iter()
-        .filter(|s| s.is_in_workspace())
         .map(|s| s.branches.iter().map(|b| b.ref_name.clone()).collect())
         .collect();
     let target = project_meta
