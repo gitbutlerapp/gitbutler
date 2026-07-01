@@ -173,7 +173,7 @@
 
 .commitDropdownButtonSeparator {
 	width: 1px;
-	background-color: color-mix(in srgb, var(--scale-pop-40) 20%, var(--scale-pop-70));
+	background-color: color-mix(in srgb, currentColor 14%, var(--scale-pop-70));
 }
 
 .commitTargetComboboxTrigger {
