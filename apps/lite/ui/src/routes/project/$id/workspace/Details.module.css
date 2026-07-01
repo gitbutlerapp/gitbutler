@@ -177,7 +177,7 @@
 
 .fileHeader {
 	display: grid;
-	grid-template-columns: 1fr auto auto auto;
+	grid-template-columns: auto 1fr auto auto auto;
 	column-gap: 12px;
 	align-items: center;
 	justify-content: space-between;
