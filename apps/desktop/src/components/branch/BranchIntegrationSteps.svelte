@@ -206,6 +206,7 @@
 <style lang="postcss">
 	.branch-integration__actions {
 		display: flex;
+		flex-shrink: 0;
 		justify-content: end;
 		padding: 12px 14px;
 		gap: 8px;
@@ -214,11 +215,15 @@
 
 	.branch-integration__steps {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
+		min-height: 0;
+		overflow: auto;
 	}
 
 	.branch-integration__step {
 		display: flex;
+		flex-shrink: 0;
 		flex-direction: column;
 		padding: 12px 14px;
 		gap: 10px;
@@ -267,6 +272,7 @@
 	}
 
 	.branch-integration__empty {
+		flex-shrink: 0;
 		padding: 16px 14px;
 		color: var(--text-2);
 		font-size: 12px;
