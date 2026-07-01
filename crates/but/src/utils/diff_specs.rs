@@ -184,6 +184,7 @@ impl<'a> DiffSpecBuilder<'a> {
         Ok(())
     }
 
+    #[expect(dead_code)]
     pub fn push_changes_from_single_hunk(&mut self, path: BString, header: HunkHeader) {
         self.diff_specs.push(DiffSpec {
             previous_path: None,

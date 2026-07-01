@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     iter::{empty, once, repeat_n},
     sync::Arc,
     time::Instant,
@@ -37,17 +37,16 @@ use crate::{
     CliId, IdMap,
     command::legacy::status::tui::{
         CommandMessage, CommitMessage, DebugAsType, DetailsLayoutMessage, FilesMessage, Message,
-        MessageOnDrop, MoveMessage,
+        MoveMessage,
         app::{CommittedHunk, RewordMessage, RubMessage},
         details::details_cursor::DetailsCursor,
         highlight,
-        message_on_drop::message_on_drop,
     },
     id::{UncommittedHunk, UncommittedHunkOrFile},
     theme::Theme,
 };
 
-use super::{HelpMessage, JumpMessage, StackMessage, app::RubSource};
+use super::{HelpMessage, JumpMessage, StackMessage};
 
 mod details_cursor;
 
@@ -62,19 +61,7 @@ pub enum DetailsMessage {
     ScrollDown(usize),
     GotoTop,
     GotoBottom,
-    StartRub,
-    Unlock,
 }
-
-// The majority of time in diff rendering is spent syntax highlighting. So we cache highlighted
-// lines.
-//
-// Large files that take noticable time to highlight are also likely to contain many duplicate
-// lines, such as json files. Regular code files don't contain that many duplicate lines but
-// they're also unlikely to be big so they're fast to highlight.
-type LineHighlightCache = HashMap<BString, HashMap<Box<str>, Vec<Span<'static>>>>;
-//                                ^^^^^^^          ^^^^^^^^  ^^^^^^^^^^^^^^^^^^
-//                                file path        raw line  highlighted line
 
 #[derive(Debug)]
 pub struct Details {
@@ -85,22 +72,19 @@ pub struct Details {
     renderer: IncrementalDiffRenderer,
     syntax_set: DebugAsType<OnDemand<SyntaxSet>>,
     syntax_theme: DebugAsType<OnDemand<highlighting::Theme>>,
-    line_highlight_cache: LineHighlightCache,
-    is_locked: bool,
     copied_hunk_highlight: highlight::Highlights<SectionId>,
     theme: &'static Theme,
 }
 
 impl Details {
+    #[allow(dead_code)]
     pub fn new(theme: &'static Theme) -> Self {
         Self {
             is_dirty: false,
-            is_locked: false,
             widget: Default::default(),
             renderer: Default::default(),
             cursor: Default::default(),
             scroll_top: 0,
-            line_highlight_cache: Default::default(),
             copied_hunk_highlight: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
             syntax_theme: OnDemand::new(|| theme.load_syntax_highlighting_theme()).into(),
@@ -121,19 +105,6 @@ impl Details {
         self.copied_hunk_highlight.update()
     }
 
-    fn lock(&mut self, messages: &mut Vec<Message>) -> MessageOnDrop {
-        self.is_locked = true;
-        message_on_drop(Message::Details(DetailsMessage::Unlock), messages)
-    }
-
-    pub fn unlock(&mut self) {
-        if !self.is_locked {
-            return;
-        }
-        self.is_locked = false;
-        self.mark_dirty();
-    }
-
     pub fn needs_update(&self, is_visible: bool) -> bool {
         is_visible && self.is_dirty()
     }
@@ -144,10 +115,6 @@ impl Details {
     }
 
     pub fn needs_update_after_message(&self, is_visible: bool, msg: &Message) -> bool {
-        if self.is_locked {
-            return false;
-        }
-
         if !is_visible {
             return false;
         }
@@ -206,8 +173,7 @@ impl Details {
                 RubMessage::Start
                 | RubMessage::StartReverse
                 | RubMessage::UseTargetMessage
-                | RubMessage::UseSourceMessage
-                | RubMessage::StartWithSource { .. } => false,
+                | RubMessage::UseSourceMessage => false,
                 RubMessage::Confirm => true,
             },
             Message::Reword(reword_message) => match reword_message {
@@ -228,15 +194,13 @@ impl Details {
                 MoveMessage::Confirm => true,
             },
             Message::Details(details_message) => match details_message {
-                DetailsMessage::Unlock // `unlock` sets the dirty flag if necessary
-                | DetailsMessage::Deselect
+                DetailsMessage::Deselect
                 | DetailsMessage::CopyCurrentHunk
                 | DetailsMessage::SelectFirstSection
                 | DetailsMessage::SelectNextSection
                 | DetailsMessage::SelectPrevSection
                 | DetailsMessage::GotoTop
                 | DetailsMessage::GotoBottom
-                | DetailsMessage::StartRub
                 | DetailsMessage::ScrollUp(_)
                 | DetailsMessage::ScrollDown(_) => false,
             },
@@ -270,7 +234,6 @@ impl Details {
         &mut self,
         msg: DetailsMessage,
         viewport: Rect,
-        messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
         match msg {
             DetailsMessage::ScrollUp(n) => {
@@ -316,28 +279,6 @@ impl Details {
             }
             DetailsMessage::CopyCurrentHunk => {
                 self.copy_current_hunk()?;
-            }
-            DetailsMessage::StartRub => {
-                let Some(selection) = self.cursor.selection() else {
-                    return Ok(());
-                };
-                let source = match selection {
-                    SectionId::ShortId(cli_id) => RubSource::CliId(Arc::clone(cli_id)),
-                    SectionId::Opaque(_) => return Ok(()),
-                    SectionId::CommittedHunk { id: _, hunk } => {
-                        RubSource::CommittedHunk(hunk.clone())
-                    }
-                };
-
-                let unlock = self.lock(messages);
-
-                messages.extend([Message::Rub(RubMessage::StartWithSource {
-                    source,
-                    unlock_details: Some(unlock),
-                })]);
-            }
-            DetailsMessage::Unlock => {
-                self.unlock();
             }
         }
 
@@ -486,7 +427,6 @@ impl Details {
             let result = self.renderer.render_next_chunk(
                 &syntax_set,
                 &theme,
-                &mut self.line_highlight_cache,
                 self.theme,
                 widget.diff_line_items_mut(),
             );
@@ -607,7 +547,6 @@ impl Details {
                     match self.renderer.render_next_chunk(
                         &syntax_set,
                         &theme,
-                        &mut self.line_highlight_cache,
                         self.theme,
                         widget.diff_line_items_mut(),
                     ) {
@@ -1357,7 +1296,6 @@ impl IncrementalDiffRenderer {
         &mut self,
         syntax_set: &SyntaxSet,
         syntax_theme: &highlighting::Theme,
-        cache: &mut LineHighlightCache,
         theme: &'static Theme,
         out: &mut Vec<RenderedDiffLine>,
     ) -> RenderNextChunkResult {
@@ -1467,11 +1405,11 @@ impl IncrementalDiffRenderer {
                     let PartiallyRenderedDiffSection { content: diffs, id } =
                         &mut self.sections[*section_idx];
                     let SectionContent::DiffLines {
-                        path,
                         old_width,
                         new_width,
                         syntax,
                         diff,
+                        path: _,
                         old_start: _,
                         new_start: _,
                     } = &mut diffs[*diff_idx]
@@ -1508,11 +1446,9 @@ impl IncrementalDiffRenderer {
                                 .into_iter()
                                 .chain(syntax_highlight(
                                     &code,
-                                    path.as_ref(),
                                     theme.addition_rich.bg,
                                     &mut highlight_lines,
                                     syntax_set,
-                                    cache,
                                 )),
                             ));
                             *new_line_num += 1;
@@ -1533,11 +1469,9 @@ impl IncrementalDiffRenderer {
                                 .into_iter()
                                 .chain(syntax_highlight(
                                     &code,
-                                    path.as_ref(),
                                     theme.deletion_rich.bg,
                                     &mut highlight_lines,
                                     syntax_set,
-                                    cache,
                                 )),
                             ));
                             *old_line_num += 1;
@@ -1561,11 +1495,9 @@ impl IncrementalDiffRenderer {
                                 .into_iter()
                                 .chain(syntax_highlight(
                                     &code,
-                                    path.as_ref(),
                                     None,
                                     &mut highlight_lines,
                                     syntax_set,
-                                    cache,
                                 )),
                             ));
                             *old_line_num += 1;
@@ -1911,43 +1843,30 @@ fn num_digits(n: u32) -> u32 {
 
 fn syntax_highlight(
     code: &str,
-    path: &BStr,
     bg: Option<Color>,
     highlight_lines: &mut HighlightLines<'_>,
     syntax_set: &SyntaxSet,
-    cache: &mut LineHighlightCache,
 ) -> impl Iterator<Item = Span<'static>> {
-    loop {
-        if let Some(cached_spans) = cache.get(path).and_then(|cache| cache.get(code)) {
-            return Either::Left(cached_spans.clone().into_iter().map(move |span| {
-                if let Some(background) = bg {
-                    span.bg(background)
-                } else {
-                    span
-                }
-            }));
-        }
+    let Ok(ranges) = highlight_lines.highlight_line(code, syntax_set) else {
+        return Either::Right(once(Span::raw(code.to_owned())));
+    };
 
-        let Ok(ranges) = highlight_lines.highlight_line(code, syntax_set) else {
-            return Either::Right(once(Span::raw(code.to_owned())));
-        };
+    let iter = ranges
+        .iter()
+        .map(|(style, text)| {
+            let color = Color::Rgb(style.foreground.r, style.foreground.g, style.foreground.b);
+            Span::raw(text.to_string()).fg(color)
+        })
+        .map(move |span| {
+            if let Some(background) = bg {
+                span.bg(background)
+            } else {
+                span
+            }
+        })
+        .collect::<Vec<_>>();
 
-        if let Some(lines) = cache.get_mut(path) {
-            lines.insert(
-                Box::from(code),
-                ranges
-                    .iter()
-                    .map(|(style, text)| {
-                        let color =
-                            Color::Rgb(style.foreground.r, style.foreground.g, style.foreground.b);
-                        Span::raw(text.to_string()).fg(color)
-                    })
-                    .collect(),
-            );
-        } else {
-            cache.insert(path.to_owned(), Default::default());
-        }
-    }
+    Either::Left(iter.into_iter())
 }
 
 #[cfg(test)]
