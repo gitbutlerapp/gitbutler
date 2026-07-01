@@ -167,6 +167,7 @@ pub fn gather(
                 cg,
                 segments,
                 cg.entrypoint(),
+                cg.entrypoint_ref(),
                 &meta_branches,
                 remote_tracking,
             );
@@ -421,11 +422,18 @@ fn split_at_entrypoint(
     cg: &CommitGraph,
     segments: Vec<SegmentRun>,
     entrypoint: Option<gix::ObjectId>,
+    entrypoint_ref: Option<&gix::refs::FullName>,
     meta_branches: &HashSet<gix::refs::FullName>,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) -> Vec<SegmentRun> {
     let Some(ep) = entrypoint else {
         return segments;
+    };
+    // A checked-out ref names the entrypoint segment (even if otherwise ambiguous); else disambiguate.
+    let ep_name = || {
+        entrypoint_ref
+            .cloned()
+            .or_else(|| disambiguated_branch_ref(cg, ep, meta_branches, remote_tracking))
     };
     let mut out = Vec::with_capacity(segments.len() + 1);
     for seg in segments {
@@ -434,10 +442,7 @@ fn split_at_entrypoint(
             Some(pos) if pos > 0 => {
                 let (above, below) = seg.commits.split_at(pos);
                 out.push(SegmentRun::new(seg.ref_name, above.to_vec()));
-                out.push(SegmentRun::new(
-                    disambiguated_branch_ref(cg, ep, meta_branches, remote_tracking),
-                    below.to_vec(),
-                ));
+                out.push(SegmentRun::new(ep_name(), below.to_vec()));
             }
             _ => out.push(seg),
         }

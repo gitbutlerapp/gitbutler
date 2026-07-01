@@ -68,6 +68,9 @@ pub struct CommitGraph {
     children: Vec<Vec<CommitIdx>>,
     /// Where traversal/HEAD started; the projection uses it as a focus boundary.
     entrypoint: Option<gix::ObjectId>,
+    /// The ref the entrypoint was checked out as, if any. When set, it names the entrypoint segment
+    /// (overriding disambiguation), mirroring `from_commit_traversal(id, Some(ref))`.
+    entrypoint_ref: Option<gix::refs::FullName>,
 }
 
 impl CommitGraph {
@@ -106,6 +109,7 @@ impl CommitGraph {
             by_id,
             children,
             entrypoint,
+            entrypoint_ref: None,
         };
         graph.recompute_generations();
         graph
@@ -116,10 +120,16 @@ impl CommitGraph {
     /// segment's commits become nodes; their `parent_ids` are the edges, and the entrypoint commit
     /// carries over.
     pub fn from_segment_graph(graph: &crate::Graph) -> Self {
-        let entrypoint = graph
-            .entrypoint()
-            .ok()
+        let ep = graph.entrypoint().ok();
+        let entrypoint = ep
+            .as_ref()
             .and_then(|ep| ep.commit_and_owner.map(|(c, _)| c.id));
+        // The entrypoint segment's own ref names it (e.g. a checkout of a specific branch inside a
+        // stack); the owner is the segment holding the entrypoint commit.
+        let entrypoint_ref = ep
+            .as_ref()
+            .and_then(|ep| ep.commit_and_owner)
+            .and_then(|(_, owner)| owner.ref_info.as_ref().map(|ri| ri.ref_name.clone()));
         let mut commits = Vec::new();
         for s in graph.node_weights() {
             for (i, c) in s.commits.iter().enumerate() {
@@ -135,7 +145,9 @@ impl CommitGraph {
                 commits.push(c);
             }
         }
-        CommitGraph::from_commits(commits, entrypoint)
+        let mut cg = CommitGraph::from_commits(commits, entrypoint);
+        cg.entrypoint_ref = entrypoint_ref;
+        cg
     }
 
     /// KEYSTONE SPIKE: build a commit graph straight from git — no segment graph at all. Resolves the
@@ -198,6 +210,11 @@ impl CommitGraph {
     /// segment boundary here — there is always a segment starting at the entrypoint.
     pub fn entrypoint(&self) -> Option<gix::ObjectId> {
         self.entrypoint
+    }
+
+    /// The ref the entrypoint was checked out as, if any — it names the entrypoint segment.
+    pub fn entrypoint_ref(&self) -> Option<&gix::refs::FullName> {
+        self.entrypoint_ref.as_ref()
     }
 
     /// The node at `id`, if present.

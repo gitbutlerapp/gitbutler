@@ -8083,6 +8083,26 @@ fn cg_proj_parity_entrypoint_splits_segment() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_proj_parity_entrypoint_named_segment() -> anyhow::Result<()> {
+    // Same checkout, but with the B-empty ref passed: the entrypoint segment is NAMED B-empty even
+    // though the commit is ambiguous, overriding disambiguation.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    add_workspace(&mut meta);
+    let (ep_id, ep_ref) = id_at(&repo, "B-empty");
+    let graph = Graph::from_commit_traversal(
+        ep_id,
+        ep_ref,
+        &*meta,
+        project_meta(&*meta),
+        standard_options(),
+    )?
+    .validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_bridge_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
 fn cg_proj_parity_disambiguate_by_remote() -> anyhow::Result<()> {
     // Each commit carries competing local branches; the one with a remote-tracking branch wins (A over
     // ambiguous-A, B over ambiguous-B). The C commit stays anonymous because BOTH C and ambiguous-C
