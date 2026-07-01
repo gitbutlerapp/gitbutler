@@ -938,8 +938,9 @@ fn disambiguated_ref(
 
 fn is_plain_local_branch(rn: &gix::refs::FullName) -> bool {
     let rn = rn.as_ref();
-    rn.category() == Some(Category::LocalBranch)
-        && !rn.as_bstr().starts_with_str("refs/heads/gitbutler/")
+    // Only the workspace ref itself is special; other `gitbutler/*` refs (e.g. `gitbutler/target`)
+    // name segments like any branch, matching the walk.
+    rn.category() == Some(Category::LocalBranch) && !but_core::is_workspace_ref_name(rn)
 }
 
 /// The segment metadata for a ref: `Branch` for a tracked branch, `Workspace` for the workspace ref,
