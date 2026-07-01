@@ -39,7 +39,7 @@
 
 #![allow(dead_code)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bstr::ByteSlice;
 use gix::reference::Category;
@@ -81,6 +81,10 @@ pub struct CommitGraph {
     /// The ref the entrypoint was checked out as, if any. When set, it names the entrypoint segment
     /// (overriding disambiguation), mirroring `from_commit_traversal(id, Some(ref))`.
     entrypoint_ref: Option<gix::refs::FullName>,
+    /// Commits whose message marks them as a GitButler-managed workspace commit. Kept out of
+    /// [`CommitFlags`](crate::CommitFlags) so it neither perturbs the walk's goal bits nor the
+    /// segment fingerprint; used to tell a real managed merge from a ws ref advanced past it.
+    managed_ws_commits: HashSet<gix::ObjectId>,
 }
 
 impl CommitGraph {
@@ -120,6 +124,7 @@ impl CommitGraph {
             children,
             entrypoint,
             entrypoint_ref: None,
+            managed_ws_commits: HashSet::new(),
         };
         graph.recompute_generations();
         graph
@@ -213,6 +218,7 @@ impl CommitGraph {
             .chain(refs_by_commit.keys().copied())
             .collect();
         let mut commits = Vec::new();
+        let mut managed_ws_commits = HashSet::new();
         for info in repo.rev_walk(seeds).all()? {
             let id = info?.id;
             let commit = repo.find_commit(id)?;
@@ -227,6 +233,13 @@ impl CommitGraph {
                     worktree: None,
                 })
                 .collect();
+            // A GitButler-managed workspace commit is recognised by its message; a workspace ref that
+            // has advanced past it points at a normal commit that is not in this set.
+            if let Ok(message) = commit.message_raw()
+                && crate::workspace::commit::is_managed_workspace_by_message(message)
+            {
+                managed_ws_commits.insert(id);
+            }
             commits.push(crate::Commit {
                 id,
                 parent_ids,
@@ -235,6 +248,7 @@ impl CommitGraph {
             });
         }
         let mut cg = CommitGraph::from_commits(commits, head_seed);
+        cg.managed_ws_commits = managed_ws_commits;
 
         // Reachability flags (each seeded on a tip, propagated to its ancestors — a commit carries a
         // flag iff it is an ancestor-or-self of a seed of that kind). See `CommitFlags`.
@@ -308,6 +322,11 @@ impl CommitGraph {
     /// The ref the entrypoint was checked out as, if any — it names the entrypoint segment.
     pub fn entrypoint_ref(&self) -> Option<&gix::refs::FullName> {
         self.entrypoint_ref.as_ref()
+    }
+
+    /// Whether `id` is a GitButler-managed workspace commit (recognised by its message).
+    pub fn is_managed_ws_commit(&self, id: gix::ObjectId) -> bool {
+        self.managed_ws_commits.contains(&id)
     }
 
     /// The node at `id`, if present.

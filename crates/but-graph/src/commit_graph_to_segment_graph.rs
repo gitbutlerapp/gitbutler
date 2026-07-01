@@ -185,21 +185,19 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         })
         .collect();
 
-    // When the workspace ref peels straight to a stack tip (no dedicated octopus-merge commit), that
-    // commit carries a stack branch ref — `disambiguated_ref` finds it (a real merge carries only the
-    // workspace ref, so this is `None`). In that co-located case the "workspace commit" is just the
-    // stack tip: it keeps its stack chain, and an empty workspace segment is spliced in above later.
-    let ws_colocated_ref = if managed {
-        disambiguated_ref(cg, workspace_commit, remote_tracking)
-    } else {
-        None
-    };
+    // Is the checked-out workspace commit a real GitButler-managed merge, or a plain commit the ws ref
+    // merely sits on (co-located with a stack tip) or has advanced PAST (an "on-top" commit above the
+    // real merge)? Only a real merge is held in the workspace segment with its parents as stack tips;
+    // otherwise the workspace segment is empty and spliced in above, and the commit keeps its normal
+    // history and segmentation.
+    let ws_is_managed_merge = managed && cg.is_managed_ws_commit(workspace_commit);
+    let empty_ws_case = managed && !ws_is_managed_merge;
 
     // The workspace commit's parents are stack tips — always segment boundaries (so the workspace
     // segment holds only the workspace commit, even when a parent is anonymous, e.g. an advanced tip).
-    // Only in a managed workspace with a real merge commit; a plain checked-out tip or a co-located
-    // stack tip has no stack parents to split on.
-    let ws_parents: HashSet<gix::ObjectId> = if managed && ws_colocated_ref.is_none() {
+    // Only for a real managed merge; a plain checked-out tip, co-located stack tip, or advanced ref has
+    // no stack parents to split on.
+    let ws_parents: HashSet<gix::ObjectId> = if ws_is_managed_merge {
         cg.parents(workspace_commit).collect()
     } else {
         HashSet::new()
@@ -277,15 +275,16 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // normal disambiguation skips). A non-managed tip is named by disambiguation, unless HEAD is
         // detached — then it is forced anonymous. Every other tip: disambiguated.
         let ref_name = if tip == workspace_commit {
-            if managed {
-                // Co-located: the ws commit is a stack tip — name its segment by the stack branch (the
-                // empty workspace segment is spliced in above it afterward).
-                ws_colocated_ref.clone().or_else(|| {
-                    cg.refs_at(tip)
-                        .into_iter()
-                        .find(|r| r.as_bstr().starts_with_str("refs/heads/gitbutler/"))
-                })
-            } else if head_symbolic {
+            if ws_is_managed_merge {
+                // The real managed merge is named by the workspace ref itself (a `gitbutler/*` ref that
+                // normal disambiguation skips).
+                cg.refs_at(tip)
+                    .into_iter()
+                    .find(|r| r.as_bstr().starts_with_str("refs/heads/gitbutler/"))
+            } else if managed || head_symbolic {
+                // Co-located stack tip / advanced ref (managed) or a non-managed symbolic tip: name by
+                // disambiguation — a stack branch when present, else anonymous. For the managed cases the
+                // empty workspace segment is spliced in above afterward.
                 disambiguated_ref(cg, tip, remote_tracking)
             } else {
                 None
@@ -355,7 +354,8 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // connects into it, rather than absorbing the lower remote's commits.
     split_stacked_remotes(&mut sg);
 
-    // When the workspace ref is co-located with a stack tip, an empty workspace segment sits above it.
+    // When the ws commit is not a real managed merge (co-located stack tip or advanced ref), an empty
+    // workspace segment sits above it.
     let mut ws_empty_sidx = None;
     if managed {
         // A workspace-stack tip that another stack flows into (via first-parent) is a SHARED commit: it
@@ -365,7 +365,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // Empty metadata branches (no commits) are spliced in at their place in the stack's branch order.
         let ws_sidx = seg_of_tip.get(&workspace_commit).copied();
         insert_empty_branches(&mut sg, cg, ws_sidx, stack_branches);
-        if ws_colocated_ref.is_some() {
+        if empty_ws_case {
             ws_empty_sidx =
                 insert_empty_workspace_segment(&mut sg, &seg_of_tip, cg, workspace_commit);
         }
