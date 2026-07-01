@@ -163,6 +163,7 @@ describe("Your Feature", () => {
 - **Playwright**: Test scripts are in `playwright/scripts/` - these are bash scripts that set up git repositories
 - **Blackbox**: Setup scripts in `blackbox/scripts/` prepare test repositories
 - **Fixtures**: Shared fixtures can be placed in `playwright/fixtures/`
+- **Review apply fixture**: See [review-apply-fixture.md](review-apply-fixture.md) for the fake GitHub setup used by PR apply tests.
 
 ### Best Practices
 
