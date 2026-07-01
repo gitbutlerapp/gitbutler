@@ -348,25 +348,31 @@ const FileRow: FC<
 						>
 							<Icon name="kebab" />
 						</Toolbar.Button>
-
-						{item._tag === "Change" &&
-							fileParent._tag === "UncommittedChanges" &&
-							item.dependencyCommitIds && (
-								<Toolbar.Button
-									render={
-										<DependencyIndicator
-											projectId={projectId}
-											commitIds={item.dependencyCommitIds}
-											branchNameByCommitId={branchNameByCommitId}
-											className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-										/>
-									}
-								>
-									<Icon name="link" />
-								</Toolbar.Button>
-							)}
 					</Toolbar.Root>
 				)}
+
+				{outlineMode._tag === "Default" &&
+					item._tag === "Change" &&
+					fileParent._tag === "UncommittedChanges" &&
+					item.dependencyCommitIds && (
+						<Toolbar.Root
+							aria-label="File actions"
+							render={<WorkspaceItemRowToolbar forceVisible />}
+						>
+							<Toolbar.Button
+								render={
+									<DependencyIndicator
+										projectId={projectId}
+										commitIds={item.dependencyCommitIds}
+										branchNameByCommitId={branchNameByCommitId}
+										className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+									/>
+								}
+							>
+								<Icon name="link" />
+							</Toolbar.Button>
+						</Toolbar.Root>
+					)}
 
 				{item._tag === "Change" && (
 					<Tooltip.Root disableHoverablePopup>
