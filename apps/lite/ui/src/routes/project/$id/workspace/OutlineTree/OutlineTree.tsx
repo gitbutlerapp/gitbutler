@@ -381,7 +381,7 @@ const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats 
 	return stats;
 };
 
-const UncommittedChanges: FC<{
+const CommitControls: FC<{
 	projectId: string;
 	commitTarget: CommitTargetComboboxItem | null;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
@@ -391,13 +391,6 @@ const UncommittedChanges: FC<{
 	const commitAmendMutation = useCommitAmend({ projectId });
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
-	const treeChangeDiffs = useQueries({
-		queries:
-			worktreeChanges?.changes.map((change) =>
-				treeChangeDiffsQueryOptions({ projectId, change }),
-			) ?? [],
-	});
-	const lineStats = getLineStats(treeChangeDiffs.map((result) => result.data));
 
 	const operand = uncommittedChangesOperand;
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -523,14 +516,123 @@ const UncommittedChanges: FC<{
 	)}`;
 
 	return (
+		<form onSubmit={submit} className={styles.commitControls}>
+			<textarea
+				id={commitMessageInputId}
+				ref={commitTextareaRef}
+				aria-label={commitTextareaLabel}
+				disabled={!isDefaultMode}
+				readOnly={isCommitOrAmendPending}
+				placeholder={commitTextareaLabel}
+				className={classes("text-13", "text-body", styles.commitTextarea)}
+				onFocus={selectChanges}
+			/>
+
+			<div className={styles.commitControlsFooter}>
+				<Combobox.Root<CommitTargetComboboxItem>
+					items={targetComboboxItems}
+					open={open}
+					onOpenChange={setOpen}
+					// Note `undefined` means uncontrolled.
+					value={commitTarget ?? null}
+					onValueChange={selectBranch}
+					itemToStringLabel={(x) => x.label}
+					itemToStringValue={(x) => relativeToKey(x.relativeTo)}
+					isItemEqualToValue={(a, b) => relativeToEquals(a.relativeTo, b.relativeTo)}
+					autoHighlight
+					disabled={!isDefaultMode || isCommitOrAmendPending}
+				>
+					<Tooltip.Root>
+						<Combobox.Trigger
+							className={classes("text-13 text-semibold", styles.commitTargetComboboxTrigger)}
+							aria-label="Select commit target"
+							// We pass `disabled` here because we want to disable the button, not
+							// the tooltip. Other props should be passed above.
+							render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
+						>
+							<Icon name="bullseye" size={14} />
+							<span className={styles.commitTargetComboboxTriggerLabel}>
+								<Combobox.Value placeholder="Select commit target" />
+							</span>
+						</Combobox.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup
+									render={<TooltipPopup kbd={changesHotkeys.selectCommitTarget.hotkey} />}
+								>
+									Select commit target
+								</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+					<Combobox.Portal>
+						<Combobox.Positioner align="start" sideOffset={4}>
+							<CommitTargetComboboxPopup />
+						</Combobox.Positioner>
+					</Combobox.Portal>
+				</Combobox.Root>
+
+				{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation. */}
+				<div role="group" className={styles.commitDropdownButton}>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							className={getButtonClassName({ variant: "pop" })}
+							// We pass `disabled` here because we want to disable the button, not
+							// the tooltip. Other props should be passed above.
+							render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
+						>
+							Commit
+							<Kbd hotkey={changesHotkeys.commit.hotkey} />
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup kbd={changesHotkeys.commit.hotkey} />}>
+									{changesHotkeys.commit.meta.name}
+								</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+					<div aria-hidden className={styles.commitDropdownButtonSeparator} />
+					<Button
+						focusableWhenDisabled
+						disabled={!(canAmend || canCommit)}
+						aria-label="Commit options"
+						className={getButtonClassName({ variant: "pop", iconOnly: true })}
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
+						}}
+					>
+						<Icon name="chevron-down" />
+					</Button>
+				</div>
+			</div>
+		</form>
+	);
+};
+
+const UncommittedChanges: FC<{
+	projectId: string;
+	commitTarget: CommitTargetComboboxItem | null;
+	targetComboboxItems: Array<CommitTargetComboboxItem>;
+}> = ({ projectId, commitTarget, targetComboboxItems }) => {
+	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
+	const treeChangeDiffs = useQueries({
+		queries:
+			worktreeChanges?.changes.map((change) =>
+				treeChangeDiffsQueryOptions({ projectId, change }),
+			) ?? [],
+	});
+	const lineStats = getLineStats(treeChangeDiffs.map((result) => result.data));
+
+	const operand = uncommittedChangesOperand;
+
+	return (
 		<TreeItem
 			projectId={projectId}
 			operand={operand}
 			aria-label={`Changes (${worktreeChanges?.changes.length ?? 0})`}
 			className={classes(styles.section, styles.uncommittedChanges)}
-			render={
-				<OperandC projectId={projectId} operand={operand} render={<form onSubmit={submit} />} />
-			}
+			render={<OperandC projectId={projectId} operand={operand} />}
 		>
 			<UncommittedChangesRow
 				changes={worktreeChanges?.changes ?? []}
@@ -539,97 +641,11 @@ const UncommittedChanges: FC<{
 				onComposeCommitMessage={focusCommitMessageInput}
 			/>
 
-			<div className={styles.commitControls}>
-				<textarea
-					id={commitMessageInputId}
-					ref={commitTextareaRef}
-					aria-label={commitTextareaLabel}
-					disabled={!isDefaultMode}
-					readOnly={isCommitOrAmendPending}
-					placeholder={commitTextareaLabel}
-					className={classes("text-13", "text-body", styles.commitTextarea)}
-					onFocus={selectChanges}
-				/>
-
-				<div className={styles.commitControlsFooter}>
-					<Combobox.Root<CommitTargetComboboxItem>
-						items={targetComboboxItems}
-						open={open}
-						onOpenChange={setOpen}
-						// Note `undefined` means uncontrolled.
-						value={commitTarget ?? null}
-						onValueChange={selectBranch}
-						itemToStringLabel={(x) => x.label}
-						itemToStringValue={(x) => relativeToKey(x.relativeTo)}
-						isItemEqualToValue={(a, b) => relativeToEquals(a.relativeTo, b.relativeTo)}
-						autoHighlight
-						disabled={!isDefaultMode || isCommitOrAmendPending}
-					>
-						<Tooltip.Root>
-							<Combobox.Trigger
-								className={classes("text-13 text-semibold", styles.commitTargetComboboxTrigger)}
-								aria-label="Select commit target"
-								// We pass `disabled` here because we want to disable the button, not
-								// the tooltip. Other props should be passed above.
-								render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
-							>
-								<Icon name="bullseye" size={14} />
-								<span className={styles.commitTargetComboboxTriggerLabel}>
-									<Combobox.Value placeholder="Select commit target" />
-								</span>
-							</Combobox.Trigger>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup
-										render={<TooltipPopup kbd={changesHotkeys.selectCommitTarget.hotkey} />}
-									>
-										Select commit target
-									</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
-						<Combobox.Portal>
-							<Combobox.Positioner align="start" sideOffset={4}>
-								<CommitTargetComboboxPopup />
-							</Combobox.Positioner>
-						</Combobox.Portal>
-					</Combobox.Root>
-
-					{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation. */}
-					<div role="group" className={styles.commitDropdownButton}>
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								className={getButtonClassName({ variant: "pop" })}
-								// We pass `disabled` here because we want to disable the button, not
-								// the tooltip. Other props should be passed above.
-								render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
-							>
-								Commit
-								<Kbd hotkey={changesHotkeys.commit.hotkey} />
-							</Tooltip.Trigger>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup kbd={changesHotkeys.commit.hotkey} />}>
-										{changesHotkeys.commit.meta.name}
-									</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
-						<div aria-hidden className={styles.commitDropdownButtonSeparator} />
-						<Button
-							focusableWhenDisabled
-							disabled={!(canAmend || canCommit)}
-							aria-label="Commit options"
-							className={getButtonClassName({ variant: "pop", iconOnly: true })}
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
-							}}
-						>
-							<Icon name="chevron-down" />
-						</Button>
-					</div>
-				</div>
-			</div>
+			<CommitControls
+				projectId={projectId}
+				commitTarget={commitTarget}
+				targetComboboxItems={targetComboboxItems}
+			/>
 		</TreeItem>
 	);
 };
