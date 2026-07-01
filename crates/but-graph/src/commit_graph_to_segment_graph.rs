@@ -337,7 +337,8 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // workspace connects to (the dependent-branch pattern).
         anonymize_shared_stack_tips(cg, &mut sg, workspace_commit, target, &seg_of_tip, &in_set);
         // Empty metadata branches (no commits) are spliced in at their place in the stack's branch order.
-        insert_empty_branches(&mut sg, stack_branches);
+        let ws_sidx = seg_of_tip.get(&workspace_commit).copied();
+        insert_empty_branches(&mut sg, cg, ws_sidx, stack_branches);
         if ws_colocated_ref.is_some() {
             ws_empty_sidx =
                 insert_empty_workspace_segment(&mut sg, &seg_of_tip, cg, workspace_commit);
@@ -886,6 +887,8 @@ fn segment_by_ref(sg: &SegmentGraph, ref_name: &gix::refs::FullName) -> Option<S
 /// above it and that segment's base.
 fn insert_empty_branches(
     sg: &mut SegmentGraph,
+    cg: &CommitGraph,
+    ws_sidx: Option<SegmentIndex>,
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
 ) {
     let Some(lists) = stack_branches else {
@@ -903,11 +906,25 @@ fn insert_empty_branches(
             Some(pos) => {
                 let anchor = segment_by_ref(sg, &list[pos]).expect("just checked");
                 if pos > 0 {
-                    insert_empty_chain_above(sg, anchor, &list[..pos]);
+                    insert_empty_chain_above(sg, ws_sidx, anchor, &list[..pos]);
                 }
                 (Some(anchor), pos + 1)
             }
-            None => (None, 1),
+            None => {
+                // All-empty stack: no branch has commits. The chain hangs off the base segment that
+                // owns the commit these empty branches point at (they all sit on the merge base).
+                let base = list
+                    .iter()
+                    .find_map(|b| cg.commit_by_ref(b.as_ref()))
+                    .and_then(|c| segment_by_commit(sg, c));
+                match base {
+                    Some(anchor) => {
+                        insert_empty_chain_above(sg, ws_sidx, anchor, list);
+                        (None, list.len())
+                    }
+                    None => (None, 1),
+                }
+            }
         };
         for b in &list[rest_start..] {
             if let Some(existing) = segment_by_ref(sg, b) {
@@ -947,11 +964,20 @@ fn is_remote_segment(sg: &SegmentGraph, sidx: SegmentIndex) -> bool {
         .is_some_and(|ri| ri.ref_name.as_ref().category() == Some(Category::RemoteBranch))
 }
 
-/// Splice `empties` as a chain of empty segments ABOVE `anchor`, redirecting the anchor's incoming
-/// stack edges (from non-remote sources) through the chain. Remote sibling edges keep pointing at the
-/// anchor. Produces `top_empty → … → anchor`.
+/// Find the segment that holds `commit`, if any.
+fn segment_by_commit(sg: &SegmentGraph, commit: gix::ObjectId) -> Option<SegmentIndex> {
+    sg.node_indices().find(|&sidx| {
+        sg.node(sidx)
+            .is_some_and(|s| s.commits.iter().any(|c| c.id == commit))
+    })
+}
+
+/// Splice `empties` as a chain of empty segments ABOVE `anchor`, moving the workspace segment's edge
+/// into `anchor` onto the top of the chain (so the workspace reaches `anchor` through the empties).
+/// Sibling stacks' and remotes' edges into `anchor` are untouched. Produces `top_empty → … → anchor`.
 fn insert_empty_chain_above(
     sg: &mut SegmentGraph,
+    ws_sidx: Option<SegmentIndex>,
     anchor: SegmentIndex,
     empties: &[gix::refs::FullName],
 ) {
@@ -980,17 +1006,13 @@ fn insert_empty_chain_above(
     let Some(&top) = seg_ids.first() else {
         return;
     };
-    let chain: HashSet<SegmentIndex> = seg_ids.iter().copied().collect();
-    for src in sg.node_indices().collect::<Vec<_>>() {
-        if chain.contains(&src) || is_remote_segment(sg, src) {
-            continue;
-        }
-        if let Some(s) = sg.node_mut(src) {
-            for conn in &mut s.connections {
-                if conn.target == anchor {
-                    conn.target = top;
-                    conn.dst_id = None;
-                }
+    // Move only the workspace segment's edge into the anchor onto the chain top; sibling stacks and
+    // remotes that also reach the anchor keep their direct edges.
+    if let Some(ws) = ws_sidx.and_then(|s| sg.node_mut(s)) {
+        for conn in &mut ws.connections {
+            if conn.target == anchor {
+                conn.target = top;
+                conn.dst_id = None;
             }
         }
     }
