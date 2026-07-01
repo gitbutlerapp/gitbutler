@@ -75,6 +75,15 @@ pub fn gather(
     // Metadata stacks aren't necessarily in the same order as the stack tops (the ws-commit parent
     // array), so match each top to the branch list one of its commits carries before zipping.
     let aligned = align_branches_to_tops(cg, &stack_tops, global_base, stack_branches);
+    // Every branch known to the metadata, used to disambiguate a commit carrying competing refs
+    // (mirrors the segment graph's `disambiguate_refs_by_branch_metadata`): a branch *with* metadata
+    // wins over one without.
+    let meta_branches: HashSet<gix::refs::FullName> = stack_branches
+        .into_iter()
+        .flatten()
+        .flatten()
+        .cloned()
+        .collect();
     let stacks = stack_tops
         .iter()
         .enumerate()
@@ -86,8 +95,8 @@ pub fn gather(
             match &aligned[i] {
                 // Metadata-driven: the stack's branch list defines the segments and their names.
                 Some(branches) => segment_by_branches(cg, top, stack_base, branches),
-                // No metadata: fall back to slicing at any local-branch ref on the spine.
-                None => segment_runs(cg, top, stack_base),
+                // No metadata: fall back to slicing at each disambiguated local-branch ref on the spine.
+                None => segment_runs(cg, top, stack_base, &meta_branches),
             }
         })
         .collect();
@@ -236,10 +245,11 @@ fn segment_runs(
     cg: &CommitGraph,
     top: gix::ObjectId,
     base: Option<gix::ObjectId>,
+    meta_branches: &HashSet<gix::refs::FullName>,
 ) -> Vec<SegmentRun> {
     let mut runs = Vec::new();
     let mut current = SegmentRun {
-        ref_name: local_branch_ref(cg, top),
+        ref_name: disambiguated_branch_ref(cg, top, meta_branches),
         commits: Vec::new(),
     };
     let mut id = Some(top);
@@ -248,7 +258,7 @@ fn segment_runs(
             break;
         }
         if c != top
-            && let Some(rn) = local_branch_ref(cg, c)
+            && let Some(rn) = disambiguated_branch_ref(cg, c, meta_branches)
         {
             // `c` is the tip of a new segment.
             runs.push(std::mem::replace(
@@ -268,11 +278,42 @@ fn segment_runs(
 
 /// The first non-special local-branch ref pointing at `c`, if any.
 fn local_branch_ref(cg: &CommitGraph, c: gix::ObjectId) -> Option<gix::refs::FullName> {
-    cg.refs_at(c).into_iter().find(|rn| {
-        let rn = rn.as_ref();
-        rn.category() == Some(Category::LocalBranch)
-            && !rn.as_bstr().starts_with_str("refs/heads/gitbutler/")
-    })
+    cg.refs_at(c)
+        .into_iter()
+        .find(|rn| is_plain_local_branch(rn))
+}
+
+/// The unambiguous local-branch name at `c`, mirroring the segment graph's
+/// `disambiguate_refs_by_branch_metadata`: prefer the single branch *with* metadata; else fall back
+/// to the single branch overall. When several branches compete and none (or more than one) is
+/// distinguished by metadata, the commit is ambiguous and gets no name (`None`) — it does not start a
+/// new segment, folding into the run above it.
+fn disambiguated_branch_ref(
+    cg: &CommitGraph,
+    c: gix::ObjectId,
+    meta_branches: &HashSet<gix::refs::FullName>,
+) -> Option<gix::refs::FullName> {
+    let branches: Vec<gix::refs::FullName> = cg
+        .refs_at(c)
+        .into_iter()
+        .filter(is_plain_local_branch)
+        .collect();
+    let mut with_meta = branches.iter().filter(|rn| meta_branches.contains(*rn));
+    with_meta
+        .next()
+        .filter(|_| with_meta.next().is_none())
+        .or_else(|| {
+            let mut all = branches.iter();
+            all.next().filter(|_| all.next().is_none())
+        })
+        .cloned()
+}
+
+/// A plain (non-`gitbutler/*`) local branch ref.
+fn is_plain_local_branch(rn: &gix::refs::FullName) -> bool {
+    let rn = rn.as_ref();
+    rn.category() == Some(Category::LocalBranch)
+        && !rn.as_bstr().starts_with_str("refs/heads/gitbutler/")
 }
 
 /// The merge base of `tops` — the highest-generation commit that is an ancestor of all of them.

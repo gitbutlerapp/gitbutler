@@ -7905,3 +7905,16 @@ fn cg_proj_parity_advanced_stack_tip_outside() -> anyhow::Result<()> {
     let target = target_commit(&repo, &*meta);
     assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
 }
+
+#[test]
+fn cg_proj_parity_single_stack_ambiguous() -> anyhow::Result<()> {
+    // Stack B: segment-B~1 carries two competing local branches (B-empty, ambiguous-01), neither in the
+    // workspace metadata — the real projection leaves that split anonymous (disambiguation fails).
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
