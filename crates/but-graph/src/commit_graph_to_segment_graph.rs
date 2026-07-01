@@ -1034,6 +1034,20 @@ fn insert_empty_branches(
     let Some(lists) = stack_branches else {
         return;
     };
+    // Commits pointed at by branches from MORE THAN ONE stack are the shared base/convergence; they
+    // keep their anonymity (each stack's empty branch floats above), whereas a commit owned by a single
+    // stack is named by that stack's bottom-most branch.
+    let mut lists_per_commit: HashMap<gix::ObjectId, usize> = HashMap::new();
+    for list in lists {
+        let mut seen = HashSet::new();
+        for b in list {
+            if let Some(c) = cg.commit_by_ref(b.as_ref())
+                && seen.insert(c)
+            {
+                *lists_per_commit.entry(c).or_default() += 1;
+            }
+        }
+    }
     for list in lists {
         // `from_sidx` feeds the top of the stack: the workspace segment for the first group, then each
         // group's anchor for the next (so its empties splice into the edge coming from above).
@@ -1051,11 +1065,13 @@ fn insert_empty_branches(
             else {
                 continue;
             };
-            // When several branches share a commit its segment is name-ambiguous (anonymous). The
-            // bottom-most branch (adjacent to the commit) NAMES that segment; the ones above it are the
-            // empties. Skip if it already has a segment (e.g. a placeholder floated by anonymize).
+            // When several branches of a SINGLE stack share a commit its segment is name-ambiguous
+            // (anonymous). The bottom-most branch (adjacent to the commit) NAMES that segment; the ones
+            // above it are the empties. Skip if it already has a segment (a placeholder floated by
+            // anonymize) or if the commit is a shared base owned by more than one stack (stays anon).
             let anchor_is_anon = sg.node(anchor).is_some_and(|s| s.ref_info.is_none());
             if anchor_is_anon
+                && lists_per_commit.get(&commit).copied().unwrap_or(0) <= 1
                 && let Some(namer) = group.last()
                 && segment_by_ref(sg, namer).is_none()
                 && let Some(s) = sg.node_mut(anchor)
