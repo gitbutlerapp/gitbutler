@@ -298,6 +298,17 @@ where
         Ok(())
     }
 
+    pub fn stack_branch_on(
+        &mut self,
+        source_branch: &FullNameRef,
+        target_branch: &FullNameRef,
+    ) -> anyhow::Result<()> {
+        self.rebase(|editor, _, _| {
+            let outcome = but_workspace::branch::move_branch(editor, source_branch, target_branch)?;
+            Ok(((), outcome.rebase))
+        })
+    }
+
     pub fn create_reference<'name>(
         &mut self,
         ref_name: &FullNameRef,
