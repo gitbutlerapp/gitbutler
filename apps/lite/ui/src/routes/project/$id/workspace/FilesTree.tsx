@@ -281,7 +281,7 @@ const FileRow: FC<
 	);
 
 	const lastSepIdx = relativePath.lastIndexOf("/");
-	const directoryPath = lastSepIdx !== -1 ? relativePath.slice(0, lastSepIdx + 1) : null;
+	const directoryPath = lastSepIdx !== -1 ? relativePath.slice(0, lastSepIdx) : null;
 	const fileName = lastSepIdx !== -1 ? relativePath.slice(lastSepIdx + 1) : relativePath;
 
 	return (

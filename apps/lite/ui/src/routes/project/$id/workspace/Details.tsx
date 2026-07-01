@@ -568,7 +568,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	});
 
 	const lastSepIdx = p.change.path.lastIndexOf("/");
-	const directoryPath = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx + 1) : null;
+	const directoryPath = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx) : null;
 	const fileName = lastSepIdx !== -1 ? p.change.path.slice(lastSepIdx + 1) : p.change.path;
 
 	const changeType = Match.value(p.item.fileDiff.type).pipe(
