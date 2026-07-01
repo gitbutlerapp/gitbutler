@@ -1,0 +1,23 @@
+[package]
+name = "but-utils"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[features]
+legacy = []
+
+[dependencies]
+serde.workspace = true
+anyhow.workspace = true
+gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
+walkdir = "2.5.0"
+toml.workspace = true
+
+[lints]
+workspace = true

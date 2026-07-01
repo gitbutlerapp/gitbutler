@@ -1,0 +1,16 @@
+.dragPreview {
+	max-width: 400px;
+	padding: 8px;
+	overflow: hidden;
+	border: 1px solid var(--border-2);
+	border-radius: 8px;
+	background-color: var(--bg-1);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.activeSource {
+	border-radius: 8px;
+	outline: 2px dashed var(--border-1);
+	outline-offset: 1px;
+}

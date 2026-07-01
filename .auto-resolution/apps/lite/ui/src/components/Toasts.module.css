@@ -1,0 +1,36 @@
+.viewport {
+	display: flex;
+	/* Appear above other floating UI e.g. dialogs. */
+	z-index: 1;
+	position: fixed;
+	right: 16px;
+	bottom: 16px;
+	row-gap: 8px;
+	flex-direction: column;
+	align-items: flex-end;
+}
+
+.root {
+	width: 250px;
+	padding: 12px;
+	transition:
+		translate 0.3s,
+		opacity 0.2s;
+
+	&[data-starting-style] {
+		translate: 0 5px;
+		opacity: 0;
+	}
+}
+
+.content {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}

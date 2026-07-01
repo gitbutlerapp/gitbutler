@@ -1,0 +1,1356 @@
+use std::{
+    any::Any,
+    cell::RefCell,
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet, HashSet, btree_map},
+    ops::{Deref, DerefMut},
+    path::{Path, PathBuf},
+    time::Instant,
+};
+
+use anyhow::{Context as _, bail};
+use bstr::ByteSlice;
+use but_core::{
+    RefMetadata, WORKSPACE_REF_NAME, is_workspace_ref_name,
+    ref_metadata::{
+        Branch, ProjectMeta, RefInfo, StackId,
+        StackKind::{Applied, AppliedAndUnapplied},
+        ValueInfo, Workspace, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
+    },
+};
+use gitbutler_reference::RemoteRefname;
+use gix::{
+    reference::Category,
+    refs::{FullName, FullNameRef},
+};
+use itertools::Itertools;
+use tracing::instrument;
+
+use crate::virtual_branches_legacy_types::{Stack, StackBranch, Target, VirtualBranches};
+
+#[cfg(feature = "legacy")]
+pub mod storage;
+
+#[derive(Debug, Clone)]
+struct Snapshot {
+    /// The time at which the `content` was changed, before it was written to disk.
+    changed_at: Option<Instant>,
+    content: VirtualBranches,
+    path: PathBuf,
+}
+
+enum ReconcileWithWorkspace {
+    Allow,
+    Disallow,
+}
+
+impl Snapshot {
+    fn from_path(path: PathBuf) -> anyhow::Result<Self> {
+        let content = storage::read_synced_virtual_branches(&path)?;
+        Ok(Self {
+            path,
+            changed_at: None,
+            content,
+        })
+    }
+
+    fn write_if_changed(
+        &mut self,
+        reconcile: ReconcileWithWorkspace,
+        repo: Option<&gix::Repository>,
+    ) -> anyhow::Result<()> {
+        let discovered_repo = repo
+            .is_none()
+            .then(|| gix::discover(self.path.parent().expect("at least a file")).ok())
+            .flatten();
+        let repo = repo.or(discovered_repo.as_ref());
+        let mut projected_workspace = None;
+        self.write_if_changed_with_projection(reconcile, repo, &mut projected_workspace)
+    }
+
+    fn write_if_changed_with_projection(
+        &mut self,
+        reconcile: ReconcileWithWorkspace,
+        repo: Option<&gix::Repository>,
+        projected_workspace: &mut Option<Option<but_graph::Workspace>>,
+    ) -> anyhow::Result<()> {
+        if self.changed_at.is_some() || self.has_null_head_hash() || {
+            let mut snapshot = self.clone();
+            snapshot.enforce_constraints(
+                repo,
+                self.project_workspace_if_uncached(repo, projected_workspace),
+            )
+        } {
+            let data = self.to_consistent_data(
+                reconcile,
+                repo,
+                self.project_workspace_if_uncached(repo, projected_workspace),
+            );
+            storage::write_virtual_branches_and_sync(&self.path, &data)?;
+            self.content = data;
+            self.changed_at.take();
+        }
+        Ok(())
+    }
+
+    fn try_write_if_changed(
+        &mut self,
+        reconcile: ReconcileWithWorkspace,
+        repo: Option<&gix::Repository>,
+    ) {
+        let res = self.write_if_changed(reconcile, repo);
+        if let Err(err) = res {
+            tracing::error!(
+                "Could not write back changes to virtual branches toml file to '{}': {err}",
+                self.path.display()
+            );
+        }
+    }
+
+    /// The vb.toml snapshot held internally is marked as changed so it will be written back to disk on drop.
+    pub fn set_changed_to_necessitate_write(&mut self) {
+        self.changed_at = Some(Instant::now());
+    }
+}
+
+/// Evil hacks to reconcile the workspace metadata with the workspace as new code sees it,
+/// so old code keeps up (it relies only on metadata).
+impl Snapshot {
+    /// The fixes here aren't relevant for the ref-metadata, but important for storage.
+    /// Instead of trying to maintain this, let's just fix it before writing.
+    /// `reconcile` controls if the data should also be reconciled.
+    fn to_consistent_data(
+        &self,
+        reconcile: ReconcileWithWorkspace,
+        repo: Option<&gix::Repository>,
+        projected_workspace: Option<&but_graph::Workspace>,
+    ) -> VirtualBranches {
+        // EVIL HACK: assure we fill-in the CommitIDs of heads or else everything breaks.
+        //            this probably won't be needed once no old code is running, and by then
+        //            we should move away from this anyway and have a DB backed implementation.
+        let mut clone = self.clone();
+        if let Some(repo) = repo
+            .as_ref()
+            .filter(|_| matches!(reconcile, ReconcileWithWorkspace::Allow))
+        {
+            clone
+                .reconcile_and_fix_vb_toml(repo, projected_workspace)
+                .ok();
+        }
+        clone.enforce_constraints(repo, projected_workspace);
+        clone.content
+    }
+
+    /// Return `true` if any of the heads needs fixing because it's null.
+    fn has_null_head_hash(&self) -> bool {
+        let null_id = gix::hash::Kind::Sha1.null();
+        self.content
+            .branches
+            .values()
+            .any(|stack| stack.heads.iter().any(|segment| segment.head == null_id))
+    }
+
+    /// Enforce data constraints and return `true` if this instance changed.
+    /// * ensure stack.name is set with the top-most segment name.
+    /// * Use `repo` to fill in object hashes which were set with `<null>`
+    /// * each ref-name is used once, unless the workspace projection shows duplicates
+    ///   refer to the same segment.
+    fn enforce_constraints(
+        &mut self,
+        repo: Option<&gix::Repository>,
+        projected_workspace: Option<&but_graph::Workspace>,
+    ) -> bool {
+        let mut changed = false;
+        let mut empty_stacks_to_remove = Vec::new();
+        let null_id = gix::hash::Kind::Sha1.null();
+        let projected_segment_ids = projected_workspace
+            .filter(|workspace| workspace.kind.has_managed_commit())
+            .map(|workspace| {
+                workspace
+                    .stacks
+                    .iter()
+                    .flat_map(|stack| stack.segments.iter())
+                    .filter_map(|segment| {
+                        segment
+                            .ref_name()
+                            .map(|ref_name| (ref_name.shorten().to_string(), segment.id))
+                    })
+                    .collect::<BTreeMap<_, _>>()
+            });
+        let mut seen_refnames = BTreeMap::<String, Option<but_graph::SegmentIndex>>::new();
+        for (stack_id, stack) in self
+            .content
+            .branches
+            .iter_mut()
+            .sorted_by(|(_, a), (_, b)| order_then_name(&&**a, &&**b))
+        {
+            if let Some(repo) = repo {
+                for segment in &mut stack.heads {
+                    if segment.head == null_id {
+                        let Ok(mut r) = repo.find_reference(&segment.name) else {
+                            continue;
+                        };
+                        if let Ok(id) = r.peel_to_id() {
+                            segment.head = id.detach();
+                            changed = true;
+                        }
+                    }
+                }
+            }
+
+            let head_indices_to_remove: Vec<_> = stack
+                .heads
+                .iter()
+                .enumerate()
+                .filter_map(|(head_idx, head)| {
+                    let projected_segment_id = projected_segment_ids
+                        .as_ref()
+                        .and_then(|ids| ids.get(&head.name).copied());
+                    match seen_refnames.entry(head.name.clone()) {
+                        btree_map::Entry::Vacant(entry) => {
+                            entry.insert(projected_segment_id);
+                            None
+                        }
+                        btree_map::Entry::Occupied(entry) => {
+                            let preserve_duplicate = entry
+                                .get()
+                                .as_ref()
+                                .zip(projected_segment_id)
+                                .is_some_and(|(seen, current)| *seen == current);
+                            (!preserve_duplicate).then_some(head_idx)
+                        }
+                    }
+                })
+                .collect();
+            for head_idx in head_indices_to_remove.into_iter().rev() {
+                let head = stack.heads.remove(head_idx);
+                tracing::warn!(
+                    "Removed '{head_name}' from stack {stack_id} as it was already used in another stack",
+                    head_name = head.name
+                );
+                changed = true;
+            }
+
+            if stack.heads.is_empty() {
+                empty_stacks_to_remove.push(*stack_id);
+            }
+        }
+
+        for stack_id in empty_stacks_to_remove {
+            self.content.branches.remove(&stack_id);
+            tracing::warn!("Removed now empty stack {stack_id}");
+            changed = true;
+        }
+        changed
+    }
+
+    fn project_workspace_if_uncached<'a>(
+        &self,
+        repo: Option<&gix::Repository>,
+        cache: &'a mut Option<Option<but_graph::Workspace>>,
+    ) -> Option<&'a but_graph::Workspace> {
+        if cache.is_none() {
+            *cache = Some(repo.and_then(|repo| self.project_workspace(repo).ok()));
+        }
+        cache.as_ref().and_then(Option::as_ref)
+    }
+
+    fn project_workspace(&self, repo: &gix::Repository) -> anyhow::Result<but_graph::Workspace> {
+        let mut reference = repo.find_reference(INTEGRATION_BRANCH)?;
+        let commit_id = reference.peel_to_commit()?.id();
+        let sideeffect_free_meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata {
+            snapshot: Snapshot {
+                changed_at: None,
+                ..self.clone()
+            },
+            write_on_drop: false,
+        });
+        let graph = but_graph::Graph::from_commit_traversal(
+            commit_id,
+            reference.name().to_owned(),
+            &*sideeffect_free_meta,
+            sideeffect_free_meta
+                .workspace(reference.name())?
+                .project_meta(),
+            but_graph::init::Options::limited(),
+        )?;
+        graph.into_workspace()
+    }
+
+    #[instrument(level = "debug", skip(self, repo, projected_workspace))]
+    fn reconcile_and_fix_vb_toml(
+        &mut self,
+        repo: &gix::Repository,
+        projected_workspace: Option<&but_graph::Workspace>,
+    ) -> anyhow::Result<()> {
+        fn make_heads_match(ws_stack: &but_graph::workspace::Stack, vb_stack: &mut Stack) -> bool {
+            // Always leave extra segments.
+
+            // Add missing segments
+            let segments_to_add: Vec<_> = ws_stack
+                .segments
+                .iter()
+                .filter_map(|s| {
+                    s.ref_name().and_then(|rn| {
+                        let is_in_vb_stack_branches =
+                            vb_stack.heads.iter().any(|sb| sb.name == rn.shorten());
+                        (!is_in_vb_stack_branches).then_some((s, rn))
+                    })
+                })
+                .collect();
+
+            for (segment, segment_name) in segments_to_add {
+                let first_commit_or_null = segment
+                    .commits
+                    .first()
+                    .map_or(gix::hash::Kind::Sha1.null(), |c| c.id);
+                tracing::warn!(segment_name=%segment_name.shorten(), first_commit_or_null=%first_commit_or_null, stack_id=?vb_stack.id, "Adding head to stack");
+                vb_stack.heads.push(StackBranch {
+                    head: first_commit_or_null,
+                    name: segment_name.shorten().to_string(),
+                    pr_number: None,
+                    archived: false,
+                    review_id: None,
+                });
+            }
+
+            // finally, put them in order, for good measure.
+            let previous_heads = vb_stack.heads.clone();
+            let original_positions_by_name: BTreeMap<_, _> = vb_stack
+                .heads
+                .iter()
+                // Use our order
+                .rev()
+                .enumerate()
+                .map(|(idx, s)| (s.name.clone(), idx))
+                .collect();
+            vb_stack.heads.sort_by_key(|sb| {
+                ws_stack
+                    .segments
+                    .iter()
+                    .position(|s| s.ref_name().is_some_and(|rn| rn.shorten() == sb.name))
+                    .or_else(|| original_positions_by_name.get(&sb.name).copied())
+            });
+            // The ws_stack order is top to bottom, the other is bottom to top.
+            vb_stack.heads.reverse();
+            vb_stack.heads != previous_heads
+        }
+
+        let owned_workspace;
+        let ws = if let Some(workspace) = projected_workspace {
+            workspace
+        } else {
+            owned_workspace = self.project_workspace(repo)?;
+            &owned_workspace
+        };
+        if !ws.kind.has_managed_commit() {
+            tracing::debug!("Avoiding workspace->vb-toml reconciliation in unmanaged workspace");
+            return Ok(());
+        }
+        let mut seen = BTreeSet::new();
+
+        // Make sure we have a stack id, which is something that may not be the case in
+        // single-branch mode or in tests that start off with just a Git repository.
+        // Having stack IDs is useful and maybe one day we can pre-generate them just like we do here
+        // as they only have to be locally unique.
+        let workspace_unique_stack_id = |mut idx: usize| -> StackId {
+            let mut stack_id = StackId::from_number_for_testing(idx as u128);
+            while self.content.branches.contains_key(&stack_id) {
+                idx += 1;
+                stack_id = StackId::from_number_for_testing(idx as u128);
+            }
+            stack_id
+        };
+        let original_stack_ids: Vec<_> = self.content.branches.keys().copied().collect();
+        let ws_stacks_to_represent_in_vb_toml: Vec<_> = ws
+            .stacks
+            .iter()
+            .enumerate()
+            .map(|(idx, s)| {
+                let id = s.id.unwrap_or_else(|| workspace_unique_stack_id(idx + 1));
+                (s, id, idx)
+            })
+            .collect();
+        for (ws_stack, in_workspace_stack_id, ws_stack_idx) in ws_stacks_to_represent_in_vb_toml {
+            seen.insert(in_workspace_stack_id);
+            let mut inserted_new_stack = false;
+            let vb_stack = self
+                .content
+                .branches
+                .entry(in_workspace_stack_id)
+                .or_insert_with(|| {
+                    inserted_new_stack = true;
+                    let mut stack = Stack::new_with_just_heads(vec![], ws_stack_idx, true);
+                    stack.id = in_workspace_stack_id;
+                    stack
+                });
+            let made_heads_match = make_heads_match(ws_stack, vb_stack);
+            if !vb_stack.in_workspace {
+                tracing::warn!(
+                    "Fixing stale metadata of stack {in_workspace_stack_id} to be considered inside the workspace",
+                );
+                vb_stack.in_workspace = true;
+                self.set_changed_to_necessitate_write();
+            }
+            if made_heads_match {
+                tracing::warn!(
+                    "Adjusted segments in stack {in_workspace_stack_id} to match what's actually there"
+                );
+                self.set_changed_to_necessitate_write();
+            }
+            if inserted_new_stack {
+                self.set_changed_to_necessitate_write();
+            }
+        }
+
+        let stack_ids_to_mark_outside_workspace: Vec<_> = original_stack_ids
+            .into_iter()
+            .filter(|stack_id| !seen.contains(stack_id))
+            .collect();
+        for stack_id_not_in_workspace in stack_ids_to_mark_outside_workspace {
+            let vb_stack = self
+                .content
+                .branches
+                .get_mut(&stack_id_not_in_workspace)
+                .expect("BUG: we just traversed this stack-id");
+            if vb_stack.in_workspace {
+                tracing::warn!(
+                    "Fixing stale metadata of stack {stack_id_not_in_workspace} to be considered outside the workspace",
+                );
+                vb_stack.in_workspace = false;
+                self.set_changed_to_necessitate_write();
+            }
+        }
+        Ok(())
+    }
+}
+
+/// An implementation to read and write metadata from the `virtual_branches.toml` file, meant to be a short-lived item
+/// that is possibly written multiple times. It will write itself on drop only, and log write failures.
+///
+/// The idea is that it's forgiving and easy to use, while helping to eventually migrate to a database.
+#[derive(Debug)]
+pub struct VirtualBranchesTomlMetadata {
+    // What is currently in memory for query or editing.
+    snapshot: Snapshot,
+    // Invariant: this stays `true` for normal metadata instances so `Drop` persists pending
+    // changes. It is set to `false` only in consuming explicit-write paths after the final write
+    // has already happened, which means no further mutations of this instance are possible.
+    write_on_drop: bool,
+}
+
+/// Lifecycle
+impl VirtualBranchesTomlMetadata {
+    /// Initialize a store backed by a file on disk.
+    ///
+    /// Also, set-up a thread for debounced writing.
+    pub fn from_path(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
+        Ok(Self {
+            snapshot: Snapshot::from_path(path.into())?,
+            write_on_drop: true,
+        })
+    }
+
+    /// Initialize a store backed by the file at `path`, without writing it back on drop.
+    ///
+    /// This is intended for callers that only need metadata as input for read-only projections.
+    pub fn from_path_read_only(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
+        Ok(Self {
+            snapshot: Snapshot::from_path(path.into())?,
+            write_on_drop: false,
+        })
+    }
+
+    /// Return the path at which the toml file is located.
+    ///
+    /// We will write changes to it on drop.
+    pub fn path(&self) -> &Path {
+        &self.snapshot.path
+    }
+
+    /// Validate and fix workspace stack `in_workspace` status of `virtual_branches.toml`
+    /// so they match what's actually in the workspace.
+    /// If there is a change, the data is written back once instantly.
+    ///
+    /// Errors are silently ignored to allow the application to continue loading even if
+    /// the migration fails - the workspace will still be functional, just potentially
+    /// with stale metadata that can confuse 'old' code.
+    ///
+    /// NOTE: This isn't needed for new code - it won't base any decisions on the metadata alone.
+    ///
+    /// `repo` is expected to be the repository this instance relates to.
+    /// Consume this instance to prevent double-reconciliation which also happens on drop.
+    pub fn write_reconciled(mut self, repo: &gix::Repository) -> anyhow::Result<()> {
+        let mut projected_workspace = None;
+        // First possibly change our data…
+        self.snapshot.reconcile_and_fix_vb_toml(
+            repo,
+            self.snapshot
+                .project_workspace_if_uncached(Some(repo), &mut projected_workspace),
+        )?;
+
+        // Then write changes back.
+        let res = self.snapshot.write_if_changed_with_projection(
+            ReconcileWithWorkspace::Disallow,
+            Some(repo),
+            &mut projected_workspace,
+        );
+        self.write_on_drop = false;
+        res
+    }
+
+    /// Write pending changes without reconciling the metadata against the workspace.
+    ///
+    /// This is useful for tests that intentionally seed legacy metadata and need the write to be
+    /// deterministic across cold and warm fixture creation paths.
+    pub fn write_unreconciled(&mut self) -> anyhow::Result<()> {
+        self.snapshot
+            .write_if_changed(ReconcileWithWorkspace::Disallow, None)
+    }
+
+    /// Garbage collect stacks that are outside the workspace and hold no commits relative to the
+    /// target, or whose head points to a missing commit.
+    pub fn garbage_collect(
+        &mut self,
+        repo: &gix::Repository,
+        project_meta: &ProjectMeta,
+    ) -> anyhow::Result<()> {
+        let Some(target_sha) = project_meta.target_commit_id else {
+            return Ok(());
+        };
+        let cache = repo.commit_graph_if_enabled()?;
+        let mut graph = repo.revision_graph(cache.as_ref());
+        let mut to_remove = Vec::new();
+        for stack in self
+            .data()
+            .branches
+            .values()
+            .filter(|stack| !stack.in_workspace)
+        {
+            if let Ok(stack_head) = stack_head_oid(repo, stack, target_sha)
+                && (repo.find_commit(stack_head).is_err()
+                    || stack_head
+                        == repo
+                            .merge_base_with_graph(stack_head, target_sha, &mut graph)?
+                            .detach())
+            {
+                to_remove.push(stack.id);
+            }
+        }
+
+        for stack_id in to_remove {
+            if self.data_mut().branches.remove(&stack_id).is_some() {
+                self.snapshot.set_changed_to_necessitate_write();
+            }
+        }
+        Ok(())
+    }
+
+    /// Set the legacy default target and materialize the change immediately.
+    ///
+    /// This exists for transitional callers that still have to initialize the old
+    /// `default_target` shape, which stores fields that don't exist in workspace metadata.
+    pub fn set_default_target(
+        &mut self,
+        target: impl Into<crate::virtual_branches_legacy_types::Target>,
+    ) -> anyhow::Result<()> {
+        self.snapshot.content.default_target = Some(target.into());
+        self.snapshot.set_changed_to_necessitate_write();
+        self.write_unreconciled()
+    }
+}
+
+/// Mostly used in testing, and it's fine as it's intermediate, and we are very practical here.
+impl VirtualBranchesTomlMetadata {
+    /// Return a mutable snapshot of the underlying data. Useful for testing mainly.
+    ///
+    /// Consider calling [Self::set_changed_to_necessitate_write()] to have the changes written back.
+    pub fn data_mut(&mut self) -> &mut VirtualBranches {
+        &mut self.snapshot.content
+    }
+
+    /// Return a snapshot of the underlying data. Useful for working around (intended) limitations of the RefMetadata trait.
+    pub fn data(&self) -> &VirtualBranches {
+        &self.snapshot.content
+    }
+
+    /// The vb.toml snapshot held internally is marked as changed so it will be written back to disk on drop.
+    pub fn set_changed_to_necessitate_write(&mut self) {
+        self.snapshot.set_changed_to_necessitate_write();
+    }
+}
+
+// Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).
+impl Drop for VirtualBranchesTomlMetadata {
+    fn drop(&mut self) {
+        if self.write_on_drop {
+            self.snapshot
+                .try_write_if_changed(ReconcileWithWorkspace::Allow, None);
+        }
+    }
+}
+
+const INTEGRATION_BRANCH: &str = WORKSPACE_REF_NAME;
+
+impl RefMetadata for VirtualBranchesTomlMetadata {
+    type Handle<T> = VBTomlMetadataHandle<T>;
+
+    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn Any>)>> {
+        let data = &self.snapshot.content;
+        // Keep it simple - dump everything into a Vec, pre-allocated.
+        let mut out = Vec::new();
+        if data.branches.is_empty() {
+            return out.into_iter();
+        }
+
+        // Brute force, but simple.
+        for stack in data.branches.values().sorted_by(order_then_name) {
+            for branch_ref_name in stack
+                .heads
+                .iter()
+                .filter_map(|branch| full_branch_name(&branch.name))
+            {
+                out.push(self.branch(branch_ref_name.as_ref()).map(|branch| {
+                    (
+                        branch_ref_name.clone(),
+                        Box::new((*branch).clone()) as Box<dyn Any>,
+                    )
+                }));
+            }
+        }
+
+        // Workspace last, also so that journey test has a harder time as it can delete the branches one by one.
+        out.push(Ok((
+            gix::refs::FullName::try_from(INTEGRATION_BRANCH).expect("known to be valid"),
+            Box::new(Self::workspace_from_data(data)),
+        )));
+        out.into_iter()
+    }
+
+    fn workspace(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Workspace>> {
+        if is_workspace_ref_name(ref_name) {
+            let value = Self::workspace_from_data(self.data());
+            Ok(VBTomlMetadataHandle {
+                is_default: value == default_workspace(),
+                ref_name: ref_name.to_owned(),
+                stack_id: None.into(),
+                value,
+            })
+        } else {
+            Ok(VBTomlMetadataHandle {
+                is_default: true,
+                ref_name: ref_name.to_owned(),
+                stack_id: None.into(),
+                value: Default::default(),
+            })
+        }
+    }
+
+    fn branch(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
+        let Some((stack, branch)) = self
+            .data()
+            .branches
+            .values()
+            // There shouldn't be duplication, but let's be sure it's deterministic if it is.
+            .sorted_by(order_then_name)
+            .find_map(|stack| {
+                stack.heads.iter().find_map(|branch| {
+                    full_branch_name(branch.name.as_str()).and_then(|full_name| {
+                        (full_name.as_ref() == ref_name).then_some((stack, branch))
+                    })
+                })
+            })
+        else {
+            return Ok(VBTomlMetadataHandle {
+                is_default: true,
+                ref_name: ref_name.to_owned(),
+                stack_id: None.into(),
+                value: Branch::default(),
+            });
+        };
+
+        let ref_info = RefInfo {
+            // keep None, as otherwise it means we created it, which allows us to delete the ref.
+            // However, for it's too early for that logic.
+            created_at: None,
+            updated_at: None,
+        };
+        Ok(VBTomlMetadataHandle {
+            is_default: false,
+            ref_name: ref_name.to_owned(),
+            stack_id: Some(stack.id).into(),
+            value: Branch {
+                ref_info,
+                review: but_core::ref_metadata::Review {
+                    pull_request: branch.pr_number,
+                    review_id: branch.review_id.clone(),
+                },
+            },
+        })
+    }
+
+    fn set_workspace(&mut self, value: &Self::Handle<Workspace>) -> anyhow::Result<()> {
+        let ref_name = value.ref_name.as_ref();
+        if !is_workspace_ref_name(ref_name) {
+            bail!("This backend doesn't support saving arbitrary workspaces");
+        }
+        let previous_content = self.snapshot.content.clone();
+
+        // Find exactly one stack-id per branch name, and assign all branches to it.
+        // `stacks` is the target state, and we have to make an actual stack look like it.
+        let mut seen_stack_ids = HashSet::new();
+        for stack in &value.stacks {
+            if stack.branches.is_empty() {
+                bail!(
+                    "BUG: incoming stack is probably empty, caller should have removed the whole stack"
+                );
+            }
+
+            let mut branches_to_create = Vec::new();
+            // Prefer the incoming stack identity whenever possible. During cross-stack moves,
+            // this avoids picking another stack id just because its branch is visited first,
+            // which could overwrite the intended destination stack later in this pass.
+            let mut stack_id = self
+                .data()
+                .branches
+                .contains_key(&stack.id)
+                .then_some(stack.id);
+            for stack_branch in &stack.branches {
+                let branch = self.branch(stack_branch.ref_name.as_ref())?;
+                if branch.is_default() {
+                    branches_to_create.push(stack_branch);
+                    continue;
+                }
+                if let Some(stack_id) = *branch.stack_id.borrow() {
+                    seen_stack_ids.insert(stack_id);
+                }
+                if stack_id.is_none() {
+                    stack_id = *branch.stack_id.borrow();
+                } else if let Some(stack_id) = branch.stack_id.borrow().zip(stack_id).and_then(
+                    |(branch_stack_id, stack_id)| (branch_stack_id != stack_id).then_some(stack_id),
+                ) {
+                    // This branch was in another stack previously, but is now assigned to this one
+                    // via the workspace data.
+                    // Make sure we move it in the underlying data structure to here.
+                    let to_move =
+                        self.remove_branch(branch.ref_name.as_ref())?
+                            .with_context(|| {
+                                format!(
+                                    "BUG: couldn't remove branch {branch} from its original stack",
+                                    branch = branch.ref_name
+                                )
+                            })?;
+                    self.data_mut()
+                        .branches
+                        .get_mut(&stack_id)
+                        .context(
+                            "BUG: stack id we saw should exist for inserting moved stack branch",
+                        )?
+                        .heads
+                        .push(to_move);
+                }
+            }
+
+            if let Some(stack_id) = stack_id {
+                seen_stack_ids.insert(stack_id);
+            }
+
+            let vb_stack = match stack_id {
+                None => {
+                    let branch_for_stack = match stack.branches.iter().find(|branch| {
+                        !branches_to_create
+                            .iter()
+                            .any(|other_branch| other_branch.ref_name == branch.ref_name)
+                    }) {
+                        Some(branch) => branch,
+                        None => branches_to_create.pop().context(
+                            "BUG: incoming stack is probably empty, caller should have removed the whole stack",
+                        )?,
+                    };
+
+                    let branch = self.branch(branch_for_stack.ref_name.as_ref())?;
+                    self.set_branch(&branch)?;
+                    let new_stack_id = branch.stack_id.borrow().expect("was just created");
+                    *branch.stack_id.borrow_mut() = Some(stack.id);
+                    let mut vb_stack = self
+                        .data_mut()
+                        .branches
+                        .remove(&new_stack_id)
+                        .expect("just added");
+                    vb_stack.id = stack.id;
+                    self.data_mut().branches.insert(stack.id, vb_stack);
+                    let vb_stack = self
+                        .data_mut()
+                        .branches
+                        .get_mut(&stack.id)
+                        .expect("just added");
+                    seen_stack_ids.insert(stack.id);
+                    vb_stack
+                }
+                Some(stack_id) => self
+                    .data_mut()
+                    .branches
+                    .get_mut(&stack_id)
+                    .expect("we just looked it up"),
+            };
+            for branch in branches_to_create {
+                vb_stack.heads.push(branch_to_stack_branch(
+                    branch.ref_name.as_ref(),
+                    &Branch::default(),
+                    branch.archived,
+                ))
+            }
+            vb_stack.in_workspace = stack.is_in_workspace();
+            vb_stack.heads.sort_by_key(|head| {
+                stack.branches.iter().enumerate().find_map(|(idx, branch)| {
+                    (branch.ref_name.shorten() == head.name.as_str()).then_some(idx)
+                })
+            });
+
+            // remove heads that aren't there anymore.
+            vb_stack.heads.retain(|head| {
+                stack
+                    .branches
+                    .iter()
+                    .any(|branch| branch.ref_name.shorten() == head.name)
+            });
+            // branches now match our order
+            for (vb_stack, stack) in vb_stack.heads.iter_mut().zip(stack.branches.iter()) {
+                vb_stack.archived = stack.archived;
+            }
+            vb_stack.heads.reverse()
+        }
+
+        for (stack_idx, stack) in value.stacks.iter().enumerate() {
+            if let Some(vb_stack) = self.data_mut().branches.get_mut(&stack.id) {
+                vb_stack.order = stack_idx;
+            }
+        }
+
+        let stacks_to_delete: Vec<_> = self
+            .data()
+            .branches
+            .keys()
+            .copied()
+            .filter(|sid| !seen_stack_ids.contains(sid))
+            .collect();
+        for sid in stacks_to_delete {
+            self.data_mut().branches.remove(&sid);
+        }
+
+        let new_target_branch = value
+            .target_ref()
+            .as_ref()
+            .map(|rn| branch_from_ref_name(rn.as_ref()))
+            .transpose()?;
+        // We don't support initialising this yet, for now just changes.
+        let mut changed_target = false;
+        match (&mut self.data_mut().default_target, new_target_branch) {
+            (existing @ Some(_), None) => {
+                // Have to clear everything then due to limitations of the data structure.
+                *existing = None;
+                changed_target = true;
+            }
+            (target @ None, Some(new)) => {
+                // Without a commit id the null id would be the only representable placeholder,
+                // but legacy consumers that resolve `default_target.sha` cannot handle it.
+                // Leave the target unset until a writer provides a commit id.
+                match value.target_commit_id().filter(|id| !id.is_null()) {
+                    Some(sha) => {
+                        *target = Some(Target {
+                            branch: new,
+                            remote_url: String::new(),
+                            sha,
+                            push_remote_name: value.push_remote().map(ToOwned::to_owned),
+                        });
+                        changed_target = true;
+                    }
+                    None => {
+                        tracing::warn!(
+                            target_ref = %new,
+                            "Not persisting the default target without a commit id \
+                            to avoid a null sha in virtual_branches.toml"
+                        );
+                    }
+                }
+            }
+            (Some(existing), Some(new)) => {
+                if existing.branch != new {
+                    existing.branch = new;
+                    changed_target = true;
+                }
+                if let Some(new_id) = value.target_commit_id().filter(|id| !id.is_null())
+                    && new_id != existing.sha
+                {
+                    existing.sha = new_id;
+                    changed_target = true;
+                }
+            }
+            (None, None) => {}
+        }
+
+        if let Some(target) = self.data_mut().default_target.as_mut()
+            && target.push_remote_name.as_deref() != value.push_remote()
+        {
+            target.push_remote_name = value.push_remote().map(ToOwned::to_owned);
+            changed_target = true;
+        }
+
+        if changed_target || self.snapshot.content != previous_content {
+            self.snapshot.set_changed_to_necessitate_write();
+        }
+        Ok(())
+    }
+
+    fn set_branch(&mut self, value: &Self::Handle<Branch>) -> anyhow::Result<()> {
+        let ref_name = value.ref_name.as_ref();
+        let stack_id = *value.stack_id.borrow();
+        let ws = self.workspace(INTEGRATION_BRANCH.try_into().unwrap())?;
+        match stack_id {
+            Some(stack_id) => {
+                let stack = self
+                    .snapshot
+                    .content
+                    .branches
+                    .get_mut(&stack_id)
+                    .with_context(|| format!("Couldn't find stack with id {stack_id}"))?;
+
+                let short_name = ref_name.shorten();
+                let StackBranch {
+                    pr_number,
+                    archived,
+                    review_id,
+                    ..
+                } = stack
+                    .heads
+                    .iter_mut()
+                    .find(|b| short_name == b.name.as_str())
+                    .expect(
+                        "It's not possible anymore to place values at any ref \
+                    - one first has to get them, which binds values to their name.",
+                    );
+
+                let metadata_stack_indices =
+                    ws.find_owner_indexes_by_name(ref_name, AppliedAndUnapplied);
+                self.snapshot.changed_at = Some(Instant::now());
+                *pr_number = value.review.pull_request;
+                *review_id = value.review.review_id.clone();
+                if let Some((stack_idx, segment_idx)) = metadata_stack_indices {
+                    let meta_stack = &ws.stacks[stack_idx];
+                    stack.in_workspace = meta_stack.is_in_workspace();
+                    *archived = meta_stack.branches[segment_idx].archived;
+                }
+                Ok(())
+            }
+            None => {
+                let stack = Stack::new_with_just_heads(
+                    vec![branch_to_stack_branch(ref_name, value, false)],
+                    self.data().branches.len(),
+                    ws.contains_ref(ref_name, Applied),
+                );
+                *value.stack_id.borrow_mut() = Some(stack.id);
+                self.data_mut().branches.insert(stack.id, stack);
+                self.snapshot.set_changed_to_necessitate_write();
+                Ok(())
+            }
+        }
+    }
+
+    fn remove(&mut self, ref_name: &FullNameRef) -> anyhow::Result<bool> {
+        if is_workspace_ref_name(ref_name) {
+            // There is only one workspace, and it's the same as deleting everything.
+            // The real implementation of this would just delete data associated with a ref, no special case needed there.
+            let existed_as_non_default =
+                Self::workspace_from_data(self.data()) != default_workspace();
+            self.snapshot.content = Default::default();
+            self.snapshot.set_changed_to_necessitate_write();
+            Ok(existed_as_non_default)
+        } else {
+            Ok(self.remove_branch(ref_name)?.is_some())
+        }
+    }
+}
+
+/// Ref metadata backed by legacy TOML for historical workspace metadata and by
+/// the project database for ad-hoc branch order metadata.
+pub struct BranchOrderMetadata {
+    legacy: VirtualBranchesTomlMetadata,
+    db: Option<but_db::DbHandle>,
+    read_only: bool,
+}
+
+impl BranchOrderMetadata {
+    /// Open metadata from a legacy TOML path and a project database directory.
+    pub fn from_paths(
+        toml_path: impl AsRef<Path>,
+        db_dir: impl AsRef<Path>,
+    ) -> anyhow::Result<Self> {
+        Ok(Self {
+            legacy: VirtualBranchesTomlMetadata::from_path(toml_path.as_ref().to_owned())?,
+            db: Some(but_db::DbHandle::new_in_directory(db_dir)?),
+            read_only: false,
+        })
+    }
+
+    /// Open metadata for read-only projections.
+    ///
+    /// This observes existing branch-order data when the project database already
+    /// exists, but it never creates the database or runs migrations.
+    pub fn from_paths_read_only(
+        toml_path: impl AsRef<Path>,
+        db_dir: impl AsRef<Path>,
+    ) -> anyhow::Result<Self> {
+        Ok(Self {
+            legacy: VirtualBranchesTomlMetadata::from_path_read_only(
+                toml_path.as_ref().to_owned(),
+            )?,
+            db: but_db::DbHandle::open_existing_read_only_in_directory(db_dir)?,
+            read_only: true,
+        })
+    }
+}
+
+impl RefMetadata for BranchOrderMetadata {
+    type Handle<T> = VBTomlMetadataHandle<T>;
+
+    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>> {
+        self.legacy.iter()
+    }
+
+    fn workspace(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Workspace>> {
+        self.legacy.workspace(ref_name)
+    }
+
+    fn branch(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
+        self.legacy.branch(ref_name)
+    }
+
+    fn set_workspace(&mut self, value: &Self::Handle<Workspace>) -> anyhow::Result<()> {
+        self.legacy.set_workspace(value)
+    }
+
+    fn set_branch(&mut self, value: &Self::Handle<Branch>) -> anyhow::Result<()> {
+        self.legacy.set_branch(value)
+    }
+
+    fn branch_stack_order(&self, ref_name: &FullNameRef) -> anyhow::Result<Option<Vec<FullName>>> {
+        let Some(db) = self.db.as_ref() else {
+            return Ok(None);
+        };
+        let refs = db
+            .branch_order()
+            .order_for_reference(ref_name.as_bstr().to_str()?)?;
+        match refs {
+            Some(refs) => refs
+                .into_iter()
+                .map(|ref_name| FullName::try_from(ref_name.as_str()).map_err(Into::into))
+                .collect::<anyhow::Result<Vec<_>>>()
+                .map(Some),
+            None => Ok(None),
+        }
+    }
+
+    fn set_branch_stack_order(&mut self, branches: &[FullName]) -> anyhow::Result<()> {
+        if self.read_only {
+            bail!("Read-only metadata can't persist branch stack order");
+        }
+        let db = self
+            .db
+            .as_mut()
+            .context("BUG: writable branch-order metadata should have a database handle")?;
+        let branches = branches
+            .iter()
+            .map(|branch| branch.as_bstr().to_str().map(ToOwned::to_owned))
+            .collect::<Result<Vec<_>, _>>()?;
+        db.branch_order_mut()?.set_order(&branches)?;
+        Ok(())
+    }
+
+    fn can_persist_branch_stack_order(&self) -> bool {
+        self.db.is_some() && !self.read_only
+    }
+
+    fn rename_branch_stack_order_reference(
+        &mut self,
+        old_ref_name: &FullNameRef,
+        new_ref_name: &FullNameRef,
+    ) -> anyhow::Result<()> {
+        if self.read_only {
+            bail!("Read-only metadata can't rename branch stack order references");
+        }
+        let Some(db) = self.db.as_mut() else {
+            return Ok(());
+        };
+        db.branch_order_mut()?.rename_reference(
+            old_ref_name.as_bstr().to_str()?,
+            new_ref_name.as_bstr().to_str()?,
+        )?;
+        Ok(())
+    }
+
+    fn remove_missing_branch_stack_order_references(
+        &mut self,
+        existing_ref_names: &[FullName],
+    ) -> anyhow::Result<()> {
+        if self.read_only {
+            bail!("Read-only metadata can't prune branch stack order references");
+        }
+        let Some(db) = self.db.as_mut() else {
+            return Ok(());
+        };
+        let existing_ref_names = existing_ref_names
+            .iter()
+            .map(|ref_name| ref_name.as_bstr().to_str().map(ToOwned::to_owned))
+            .collect::<Result<Vec<_>, _>>()?;
+        db.branch_order_mut()?
+            .remove_missing_references(&existing_ref_names)?;
+        Ok(())
+    }
+
+    fn remove(&mut self, ref_name: &FullNameRef) -> anyhow::Result<bool> {
+        let removed_branch_order =
+            !self.read_only && self.db.is_some() && self.branch_stack_order(ref_name)?.is_some();
+        if !self.read_only
+            && let Some(db) = self.db.as_mut()
+        {
+            db.branch_order_mut()?
+                .remove_reference(ref_name.as_bstr().to_str()?)?;
+        }
+        Ok(self.legacy.remove(ref_name)? || removed_branch_order)
+    }
+}
+
+fn branch_from_ref_name(ref_name: &FullNameRef) -> anyhow::Result<RemoteRefname> {
+    let (category, short_name) = ref_name
+        .category_and_short_name()
+        .context("couldn't classify supposed remote tracking branch")?;
+    if category != Category::RemoteBranch {
+        bail!(
+            "Cannot set target branches to a branch that isn't a remote tracking branch: '{short_name}'"
+        );
+    }
+
+    // TODO: remove this as we don't handle symbolic names with slashes correctly.
+    //       At least try to not always set this value, but this test is also ambiguous.
+    let slash_pos = short_name
+        .find_byte(b'/')
+        .context("remote branch didn't have '/' in the name, but should be 'origin/foo'")?;
+    Ok(RemoteRefname::new(
+        short_name[..slash_pos].to_str_lossy().as_ref(),
+        short_name[slash_pos + 1..].to_str_lossy().as_ref(),
+    ))
+}
+
+impl VirtualBranchesTomlMetadata {
+    fn workspace_from_data(data: &VirtualBranches) -> Workspace {
+        let (target_branch, target_commit_id, push_remote) = data
+            .default_target
+            .as_ref()
+            .map(|target| {
+                (
+                    gix::refs::FullName::try_from(target.branch.to_string()).ok(),
+                    (!target.sha.is_null()).then_some(target.sha),
+                    target.push_remote_name.clone(),
+                )
+            })
+            .unwrap_or_default();
+
+        let stacks: Vec<_> = data
+            .branches
+            .values()
+            .sorted_by(order_then_name)
+            .cloned()
+            .collect();
+
+        Workspace::new(
+            managed_ref_info(),
+            stacks
+                .iter()
+                // We aren't able to handle these well, so let's ignore them.
+                .filter(|stack| !stack.heads.is_empty())
+                .sorted_by_key(|s| s.order)
+                .map(|s| WorkspaceStack {
+                    id: s.id,
+                    workspacecommit_relation: if s.in_workspace {
+                        WorkspaceCommitRelation::Merged
+                    } else {
+                        WorkspaceCommitRelation::Outside
+                    },
+                    branches: s
+                        .heads
+                        .iter()
+                        .rev()
+                        .filter_map(|sb| {
+                            full_branch_name(sb.name.as_str()).map(|ref_name| {
+                                WorkspaceStackBranch {
+                                    ref_name,
+                                    archived: sb.archived,
+                                }
+                            })
+                        })
+                        .collect(),
+                })
+                .collect(),
+            but_core::ref_metadata::ProjectMeta {
+                target_ref: target_branch,
+                target_commit_id,
+                push_remote,
+            },
+        )
+    }
+
+    fn remove_branch(&mut self, ref_name: &FullNameRef) -> anyhow::Result<Option<StackBranch>> {
+        let branch = self.branch(ref_name)?;
+        if branch.is_default() {
+            return Ok(None);
+        }
+
+        let Some((stack_id, branch_idx)) = self
+            .data()
+            .branches
+            .values()
+            .sorted_by(order_then_name)
+            .find_map(|stack| {
+                stack
+                    .heads
+                    .iter()
+                    .enumerate()
+                    .find_map(|(branch_idx, branch)| {
+                        full_branch_name(branch.name.as_str()).and_then(|full_name| {
+                            (full_name.as_ref() == ref_name).then_some((stack.id, branch_idx))
+                        })
+                    })
+            })
+        else {
+            return Ok(None);
+        };
+
+        let stack = self
+            .data_mut()
+            .branches
+            .get_mut(&stack_id)
+            .expect("still there");
+        let removed = stack.heads.remove(branch_idx);
+        if stack.heads.is_empty() {
+            self.data_mut().branches.remove(&stack_id);
+        }
+        self.snapshot.set_changed_to_necessitate_write();
+        Ok(Some(removed))
+    }
+}
+
+pub struct VBTomlMetadataHandle<T> {
+    is_default: bool,
+    ref_name: gix::refs::FullName,
+    // Allow faster lookup next time. This is more like a PoC,
+    // other storage backends like database may have similar handles to avoid searches by name.
+    stack_id: RefCell<Option<StackId>>,
+    value: T,
+}
+
+impl<T> VBTomlMetadataHandle<T> {
+    /// Return the stack_id of the underlying stack if there is one.
+    pub fn stack_id(&self) -> Option<StackId> {
+        *self.stack_id.borrow()
+    }
+}
+
+impl<T> AsRef<FullNameRef> for VBTomlMetadataHandle<T> {
+    fn as_ref(&self) -> &FullNameRef {
+        self.ref_name.as_ref()
+    }
+}
+
+impl<T> Deref for VBTomlMetadataHandle<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl<T> DerefMut for VBTomlMetadataHandle<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.value
+    }
+}
+
+impl<T> ValueInfo for VBTomlMetadataHandle<T> {
+    fn is_default(&self) -> bool {
+        self.is_default
+    }
+}
+
+/// We can't store time, so put a placeholder that helps to mimic proper behaviour.
+fn standard_time() -> gix::date::Time {
+    gix::date::Time::new(1675176957, 0)
+}
+
+fn default_workspace() -> Workspace {
+    Workspace::new(
+        RefInfo {
+            created_at: Some(standard_time()),
+            updated_at: None,
+        },
+        Vec::new(),
+        Default::default(),
+    )
+}
+
+fn full_branch_name(name: &str) -> Option<gix::refs::FullName> {
+    gix::refs::FullName::try_from(format!("refs/heads/{name}")).ok()
+}
+
+fn stack_head_oid(
+    repo: &gix::Repository,
+    stack: &Stack,
+    default_target: gix::ObjectId,
+) -> anyhow::Result<gix::ObjectId> {
+    let Some(head) = stack.heads.last() else {
+        return Ok(default_target);
+    };
+    let full_name = full_branch_name(&head.name)
+        .context("Stack head name could not be turned into a full branch reference name")?;
+    let Some(reference) = repo.try_find_reference(full_name.as_ref())? else {
+        return Ok(head.head);
+    };
+    reference
+        .try_id()
+        .map(|id| id.detach())
+        .context("Stack head reference did not point to an object id")
+}
+
+/// Make it appear managed, which it is as we created it. Can only make the date up though,
+/// which shouldn't matter yet. Let's hope we never use the time while this store is in play.
+fn managed_ref_info() -> RefInfo {
+    RefInfo {
+        created_at: Some(standard_time()),
+        updated_at: None,
+    }
+}
+
+fn branch_to_stack_branch(
+    ref_name: &gix::refs::FullNameRef,
+    Branch {
+        ref_info: _, // TODO: should change parent stack if it's the top.
+        review,
+    }: &Branch,
+    archived: bool,
+) -> StackBranch {
+    StackBranch::new_with_zero_head(
+        ref_name.shorten().to_string(),
+        review.pull_request,
+        review.review_id.clone(),
+        archived,
+    )
+}
+
+/// Deterministically compare two stacks by their `order` field, using `name` and `id` as a tiebreaker.
+fn order_then_name(a: &&Stack, b: &&Stack) -> Ordering {
+    a.order.cmp(&b.order).then_with(|| {
+        a.derived_name()
+            .ok()
+            .cmp(&b.derived_name().ok())
+            .then_with(|| a.id.cmp(&b.id))
+    })
+}

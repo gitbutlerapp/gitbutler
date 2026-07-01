@@ -1,0 +1,5 @@
+error: Cannot handle &self, &mut self or self
+  --> tests/ui/fail/base_receiver_self.rs:12:15
+   |
+12 |     fn method(&self, value: i32) -> anyhow::Result<i32> {
+   |               ^^^^^

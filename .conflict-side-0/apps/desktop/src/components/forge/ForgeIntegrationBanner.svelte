@@ -1,0 +1,127 @@
+<script lang="ts">
+	import githubLogoSvg from "$lib/assets/unsized-logos/github.svg?raw";
+	import gitlabLogoSvg from "$lib/assets/unsized-logos/gitlab.svg?raw";
+	import { persistedDismissedForgeIntegrationPrompt } from "$lib/config/config";
+	import { useForgeAuth } from "$lib/forge/forgeAuth.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+	import { Button, Link } from "@gitbutler/ui";
+
+	type Props = {
+		projectId: string;
+	};
+
+	const { projectId }: Props = $props();
+
+	const { openGeneralSettings } = useSettingsModal();
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const auth = useForgeAuth(reactive(() => projectId));
+	const canSetupIntegration = $derived(
+		forgeInfo &&
+			!auth.authenticated.current &&
+			(forgeInfo.name === "github" || forgeInfo.name === "gitlab")
+			? forgeInfo.name
+			: undefined,
+	);
+	const dismissedTheIntegrationPrompt = $derived(
+		persistedDismissedForgeIntegrationPrompt(projectId),
+	);
+
+	// Delay showing the banner to prevent flickering when auth state changes rapidly
+	let canShowPrompt = $state(false);
+	let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+	$effect(() => {
+		clearTimeout(timeoutId);
+
+		const shouldShow =
+			(forgeInfo?.name ?? "default") !== "default" &&
+			!auth.isLoading.current &&
+			!auth.authenticated.current &&
+			canSetupIntegration &&
+			!$dismissedTheIntegrationPrompt;
+
+		if (shouldShow) {
+			timeoutId = setTimeout(() => (canShowPrompt = true), 100);
+		} else {
+			canShowPrompt = false;
+		}
+
+		return () => clearTimeout(timeoutId);
+	});
+
+	function configureIntegration(): void {
+		openGeneralSettings("integrations");
+	}
+
+	function dismissPrompt() {
+		dismissedTheIntegrationPrompt.set(true);
+	}
+
+	function forgeLabelFor(name: "github" | "gitlab"): string {
+		return name === "github" ? "GitHub" : "GitLab";
+	}
+
+	function forgeUnitFor(name: "github" | "gitlab"): string {
+		return name === "github" ? "Pull Requests" : "Merge Requests";
+	}
+
+	function forgeDocsLinkFor(name: "github" | "gitlab"): string {
+		return name === "github"
+			? "https://docs.gitbutler.com/features/forge-integration/github-integration"
+			: "https://docs.gitbutler.com/features/forge-integration/gitlab-integration";
+	}
+</script>
+
+{#if canShowPrompt}
+	{@const forgeName = canSetupIntegration!}
+	{@const forgeLabel = forgeLabelFor(forgeName)}
+	{@const forgeUnit = forgeUnitFor(forgeName)}
+	{@const integrationDocs = forgeDocsLinkFor(forgeName)}
+
+	<div class="forge-prompt">
+		<div class="forge-prompt__logo">
+			{@html forgeName === "github" ? githubLogoSvg : gitlabLogoSvg}
+		</div>
+		<h3 class="text-13 text-body text-bold">It looks like you have a {forgeLabel} remote!</h3>
+		<p class="text-12 text-body m-b-8 clr-text-2">
+			GitButler can display, create and manage {forgeUnit} for you directly in the app.
+			<Link href={integrationDocs}>Read more</Link>
+		</p>
+
+		<div class="forge-prompt__footer">
+			<Button kind="outline" onclick={dismissPrompt}>Dismiss</Button>
+			<Button style="pop" onclick={configureIntegration}>Configure integration…</Button>
+		</div>
+	</div>
+{/if}
+
+<style lang="postcss">
+	.forge-prompt {
+		display: flex;
+		z-index: 1;
+		flex-direction: column;
+		margin-bottom: -1px;
+		padding: 14px;
+		gap: 8px;
+		border-top: 1px solid var(--border-2);
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-1);
+	}
+
+	.forge-prompt__logo {
+		width: 22px;
+		height: 22px;
+		fill: var(--text-2);
+	}
+
+	.forge-prompt__footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 6px;
+	}
+</style>

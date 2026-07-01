@@ -1,0 +1,173 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TelemetrySettings {
+    /// Whether the anonymous metrics are enabled.
+    pub app_metrics_enabled: bool,
+    /// Whether anonymous error reporting is enabled.
+    pub app_error_reporting_enabled: bool,
+    /// Distinct ID, if reporting is enabled.
+    pub app_distinct_id: Option<String>,
+    /// Whether settings have been migrated from the legacy Tauri store.
+    /// This flag is set to true after the one-time migration and prevents repeated migration attempts.
+    pub migrated_from_legacy: bool,
+}
+
+/// Access utilities
+impl TelemetrySettings {
+    /// Return the distinct ID if reporting is enabled, and if it is set.
+    pub fn distinct_id_if_enabled(&self) -> Option<String> {
+        self.app_metrics_enabled
+            .then(|| self.app_distinct_id.clone())
+            .flatten()
+    }
+}
+but_schemars::register_sdk_type!(TelemetrySettings);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GitHubOAuthAppSettings {
+    /// Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.
+    pub oauth_client_id: String,
+}
+but_schemars::register_sdk_type!(GitHubOAuthAppSettings);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FeatureFlags {
+    /// Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref.
+    pub unapply_v3_pgm: bool,
+    /// Enable single branch mode.
+    pub single_branch: bool,
+    /// Enable IRC integration.
+    pub irc: bool,
+    /// Control how the filesystem watch should be established.
+    /// Possible values: "auto", "legacy", "modern".
+    /// "auto" automatically picks based on platform heuristics (default).
+    /// "legacy" uses recursive watching.
+    /// "modern" uses ignore-aware non-recursive watching.
+    pub watch_mode: String,
+    /// Experimental.
+    pub write_commit_evolution: bool,
+    /// Show the experimental file browser in the TUI.
+    pub tui_file_browser: bool,
+}
+but_schemars::register_sdk_type!(FeatureFlags);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtraCsp {
+    /// Additional hosts that the application can connect to.
+    pub hosts: Vec<String>,
+    /// Additional hosts for img-src that the application can load images from.
+    pub img_src: Vec<String>,
+}
+but_schemars::register_sdk_type!(ExtraCsp);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Fetch {
+    /// The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
+    pub auto_fetch_interval_minutes: isize,
+}
+but_schemars::register_sdk_type!(Fetch);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Claude {
+    /// Path to the Claude Code executable. Defaults to "claude" if not set.
+    pub executable: String,
+    /// Whether to show notifications when Claude Code finishes.
+    pub notify_on_completion: bool,
+    /// Whether to show notifications when Claude Code needs permission.
+    pub notify_on_permission_request: bool,
+    /// Whether to dangerously allow all permissions without prompting.
+    pub dangerously_allow_all_permissions: bool,
+    /// Whether to automatically commit changes and rename branches after completion.
+    pub auto_commit_after_completion: bool,
+    /// Whether to use the configured model in .claude/settings.json instead of passing --model.
+    pub use_configured_model: bool,
+}
+but_schemars::register_sdk_type!(Claude);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct Reviews {
+    /// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
+    pub auto_fill_pr_description_from_commit: bool,
+}
+but_schemars::register_sdk_type!(Reviews);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UiSettings {
+    /// Whether to use the native system title bar.
+    pub use_native_title_bar: bool,
+    /// When `true`, app windows are drawn without a drop shadow (macOS only).
+    /// Set in GitButler `settings.json` as `ui.noShadow`; requires an app restart.
+    pub no_shadow: bool,
+    /// Whether the `but` CLI is managed by a package manager.
+    /// When true, the UI should show a specific message instead of installation options.
+    pub cli_is_managed_by_package_manager: bool,
+    /// **LEGACY**: The duration between UI update checks in seconds. If `0`, no update checks will be performed.
+    /// This setting controls Tauri's built-in update mechanism for the desktop application.
+    ///
+    /// **DEPRECATED**: This field is legacy and will be replaced by the top-level `appUpdatesCheckIntervalSec` setting.
+    /// New code should use `appUpdatesCheckIntervalSec` instead, which will control update checks for both CLI and GUI.
+    #[deprecated(
+        since = "0.18.4",
+        note = "Use AppSettings.app_updates_check_interval_sec instead. This will be removed once GUI migrates away from Tauri's update mechanism."
+    )]
+    pub check_for_updates_interval_in_seconds: u64,
+}
+but_schemars::register_sdk_type!(UiSettings);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct IrcSettings {
+    /// IRC server configuration
+    pub server: IrcServerSettings,
+    /// Auto-share new Claude Code sessions to IRC channels
+    pub auto_share: bool,
+    /// Channel to auto-join when opening a project
+    /// If set, joins that channel name (sanitized)
+    /// If null, auto-constructs #project-name
+    pub project_channel: Option<String>,
+    /// IRC connection settings
+    pub connection: IrcConnectionSettings,
+}
+but_schemars::register_sdk_type!(IrcSettings);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct IrcServerSettings {
+    /// IRC server hostname (e.g., "irc.gitbutler.com")
+    pub host: String,
+    /// IRC server port (default: 6697 for TLS)
+    pub port: u16,
+}
+but_schemars::register_sdk_type!(IrcServerSettings);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct IrcConnectionSettings {
+    /// Whether this connection is enabled (controls connect/disconnect).
+    pub enabled: bool,
+    /// IRC nickname
+    pub nickname: Option<String>,
+    /// Shared server connection password (the gate all clients must pass).
+    ///
+    /// # Security note
+    /// Stored in plaintext on disk. Do not use a password that protects sensitive
+    /// personal accounts — treat this as a low-value shared secret.
+    pub server_password: Option<String>,
+    /// Per-user SASL account password. On first use this registers the account.
+    ///
+    /// # Security note
+    /// Stored in plaintext on disk. Do not reuse a password from another service.
+    pub sasl_password: Option<String>,
+    /// IRC real name
+    pub realname: Option<String>,
+}
+but_schemars::register_sdk_type!(IrcConnectionSettings);

@@ -1,0 +1,22 @@
+[package]
+name = "gitbutler-commit"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[features]
+# Set when building in test-mode to enable features that help with generating repeatable tests.
+testing = []
+
+[dependencies]
+gix.workspace = true
+bstr.workspace = true
+but-core.workspace = true
+
+[lints]
+workspace = true

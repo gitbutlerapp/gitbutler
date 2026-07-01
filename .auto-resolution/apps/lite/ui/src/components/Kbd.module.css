@@ -1,0 +1,16 @@
+.keys {
+	display: inline-flex;
+	align-items: center;
+	/* gap: 1px; */
+}
+
+.key {
+	display: inline-flex;
+	position: relative;
+	align-items: center;
+	justify-content: center;
+	color: color-mix(in srgb, currentColor 45%, transparent);
+	font: inherit;
+	line-height: 1;
+	white-space: nowrap;
+}

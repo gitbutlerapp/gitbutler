@@ -1,0 +1,71 @@
+[package]
+name = "gitbutler-git"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+path = "src/lib.rs"
+doctest = false
+
+[[bin]]
+name = "gitbutler-git-askpass"
+path = "src/bin/askpass.rs"
+test = false
+
+[features]
+default = ["tokio"]
+tokio = ["dep:tokio"]
+## a flag to indicate benchmarks are run
+benches = []
+## a flag to turn on the askpass machinery for Git commands (should be enabled for GUI, disabled for CLI)
+askpass = []
+
+[dependencies]
+but-askpass.workspace = true
+but-core.workspace = true
+but-ctx.workspace = true
+but-error.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, optional = true, features = [
+    "process",
+    "time",
+    "io-util",
+    "net",
+    "fs",
+    "rt-multi-thread",
+] }
+rand.workspace = true
+futures.workspace = true
+sysinfo = { workspace = true, features = ["system"] }
+gix.workspace = true
+serde.workspace = true
+
+[target."cfg(unix)".dependencies]
+nix = { version = "0.30.0", features = ["process", "socket", "user"] }
+
+[target."cfg(windows)".dependencies]
+windows = { version = "0.62.0", features = [
+    "Win32",
+    "Win32_System",
+    "Win32_System_Pipes",
+    "Win32_Storage",
+    "Win32_Storage_FileSystem",
+    "Win32_Security",
+    "Win32_System_IO",
+    "Win32_System_Threading",
+] }
+tokio = { workspace = true, optional = true, features = ["sync", "rt"] }
+# TODO: use released version once published.
+file-id = { git = "https://github.com/notify-rs/notify", rev = "978fe719b066a8ce76b9a9d346546b1569eecfb6", version = "0.2.3" }
+
+[dev-dependencies]
+but-testsupport.workspace = true
+snapbox.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

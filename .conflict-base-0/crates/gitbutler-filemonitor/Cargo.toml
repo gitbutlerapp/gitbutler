@@ -1,0 +1,27 @@
+[package]
+name = "gitbutler-filemonitor"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
+tracing.workspace = true
+gix = { workspace = true, features = ["excludes"] }
+but-project-handle = { workspace = true, features = ["legacy"] }
+
+backoff.workspace = true
+notify.workspace = true
+gitbutler-notify-debouncer.path = "vendor/debouncer"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+but-testsupport.workspace = true
+snapbox.workspace = true

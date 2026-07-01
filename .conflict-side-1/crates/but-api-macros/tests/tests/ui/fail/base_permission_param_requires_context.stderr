@@ -1,0 +1,5 @@
+error: Explicit repository permission parameters require a `Context`, `&Context`, or `&mut Context` parameter
+ --> tests/ui/fail/base_permission_param_requires_context.rs:6:31
+  |
+6 | pub fn missing_context(_perm: &mut but_ctx::access::RepoExclusive) -> anyhow::Result<()> {
+  |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

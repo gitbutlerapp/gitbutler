@@ -1,0 +1,33 @@
+[package]
+name = "but-db"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+description = "A place for defining metadata stored in a sqlite file"
+
+[lib]
+doctest = false
+
+[dependencies]
+rusqlite = { workspace = true, features = ["chrono"] }
+serde.workspace = true
+anyhow.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+but-utils.workspace = true
+# other things
+tracing.workspace = true
+backoff.workspace = true
+
+
+[dev-dependencies]
+tempfile = "3.24.0"
+snapbox.workspace = true
+
+# for multi-process migration testing.
+[target."cfg(unix)".dev-dependencies]
+libc = "0.2.186"
+
+[lints]
+workspace = true

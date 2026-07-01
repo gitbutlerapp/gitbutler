@@ -1,0 +1,161 @@
+use snapbox::str;
+
+use crate::utils::{CommandExt, Sandbox};
+
+/// Get commit SHA from a git reference
+fn get_commit_sha(env: &Sandbox, git_ref: &str) -> String {
+    env.invoke_git(&format!("rev-parse {git_ref}"))
+}
+
+/// Check if a branch contains a commit with the given message substring
+fn branch_has_commit_message(env: &Sandbox, branch_name: &str, message_contains: &str) -> bool {
+    let result = env.but("status --format json").assert().success();
+    let stdout = String::from_utf8_lossy(&result.get_output().stdout);
+    let status: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
+
+    status["stacks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|stack| stack["branches"].as_array().unwrap())
+        .filter(|branch| branch["name"] == branch_name)
+        .flat_map(|branch| branch["commits"].as_array().unwrap())
+        .any(|commit| {
+            commit["message"]
+                .as_str()
+                .map(|m| m.contains(message_contains))
+                .unwrap_or(false)
+        })
+}
+
+// === Success cases ===
+
+#[test]
+fn pick_by_full_sha() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
+
+    let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
+    env.but(format!("pick {sha} applied-branch"))
+        .assert()
+        .success();
+
+    assert!(branch_has_commit_message(
+        &env,
+        "applied-branch",
+        "first pickable commit"
+    ));
+}
+
+#[test]
+fn pick_by_short_sha() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
+
+    let short_sha = &get_commit_sha(&env, "refs/gitbutler/pickable-first")[..7];
+    env.but(format!("pick {short_sha} applied-branch"))
+        .assert()
+        .success();
+
+    assert!(branch_has_commit_message(
+        &env,
+        "applied-branch",
+        "first pickable commit"
+    ));
+}
+
+#[test]
+fn pick_by_branch_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
+
+    // When picking by branch name in non-interactive mode, picks the head commit
+    env.but("pick unapplied-branch applied-branch")
+        .assert()
+        .success();
+
+    assert!(branch_has_commit_message(
+        &env,
+        "applied-branch",
+        "second pickable commit"
+    ));
+}
+
+#[test]
+fn pick_auto_selects_single_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
+
+    let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
+
+    // No target specified - should auto-select the only stack
+    let result = env.but(format!("pick {sha}")).assert().success();
+    let stdout = String::from_utf8_lossy(&result.get_output().stdout);
+
+    assert!(stdout.contains("into branch applied-branch"));
+}
+
+#[test]
+fn pick_target_is_case_insensitive() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
+
+    let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
+    env.but(format!("pick {sha} APPLIED-BRANCH"))
+        .assert()
+        .success();
+}
+
+#[test]
+fn pick_json_output() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    let stack_ids = env.setup_metadata(&["applied-branch"]);
+
+    let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
+    let result = env
+        .but(format!("--format json pick {sha} applied-branch"))
+        .allow_json()
+        .output()?;
+
+    assert!(result.status.success());
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let json: serde_json::Value = serde_json::from_str(stdout.trim())?;
+
+    assert_eq!(json["picked_commit"], sha);
+    assert_eq!(json["target_branch"], "applied-branch");
+    assert_eq!(json["target_stack_id"], stack_ids[0].to_string());
+    Ok(())
+}
+
+// === Error cases ===
+
+#[test]
+fn pick_invalid_source_fails() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
+
+    env.but("pick nonexistent-thing applied-branch")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to pick commit. Source 'nonexistent-thing' is not a valid commit ID, CLI ID, or unapplied branch name.
+Run 'but status' to see available CLI IDs, or 'but branch list' to see branches.
+
+"#]]);
+}
+
+#[test]
+fn pick_invalid_target_fails() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
+
+    let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
+    env.but(format!("pick {sha} nonexistent-branch"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to pick commit. Target branch 'nonexistent-branch' not found among applied stacks.
+Available stacks: applied-branch
+
+"#]]);
+}

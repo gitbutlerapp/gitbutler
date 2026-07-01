@@ -1,0 +1,356 @@
+use anyhow::{Result, bail};
+use bstr::{BString, ByteSlice};
+use but_api::diff::ComputeLineStats;
+use but_core::{DryRun, sync::RepoExclusive};
+use but_ctx::Context;
+use gix::prelude::ObjectIdExt;
+
+use super::{
+    ShowDiffInEditor,
+    commit_message_prep::{normalize_commit_message, should_update_commit_message},
+    estimate_diff_blob_size,
+};
+use crate::{
+    CliResult, IdMap,
+    args::atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
+    bad_input, tui,
+    utils::OutputChannel,
+};
+
+pub(crate) fn reword_target(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    target: CliIdArg,
+    message: Option<&str>,
+    format: bool,
+    show_diff_in_editor: ShowDiffInEditor,
+) -> CliResult<()> {
+    // Formats without an interactive editor must provide the new message up front.
+    if message.is_none() && !format && !out.format().allows_human_ui() {
+        return Err(bad_input(
+            "A message must be provided via --message (-m) for this output format",
+        )
+        .into());
+    }
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+
+    let target = {
+        let repo = ctx.repo.get()?;
+        target.resolve_in_workspace(&repo, &id_map, Purpose::Target, None)?
+    };
+
+    match target.into_branch_or_commit()? {
+        BranchOrCommit::Branch(BranchArg(name)) => {
+            if format {
+                return Err(anyhow::anyhow!(
+                    "--fix-formatting flag can only be used with commits, not branches"
+                )
+                .into());
+            }
+            if !matches!(show_diff_in_editor, ShowDiffInEditor::Unspecified) {
+                return Err(anyhow::anyhow!(
+                    "--diff and --no-diff flags can only be used with commits, not branches"
+                )
+                .into());
+            }
+            edit_branch_name(ctx, &name, out, message, guard.write_permission())?;
+        }
+        BranchOrCommit::Commit(commit) => {
+            edit_commit_message_by_id_and_reword_commit(
+                ctx,
+                commit,
+                out,
+                message,
+                format,
+                show_diff_in_editor,
+                guard.write_permission(),
+            )?;
+        }
+    }
+
+    Ok(())
+}
+
+fn edit_branch_name(
+    ctx: &mut Context,
+    branch_name: &str,
+    out: &mut OutputChannel,
+    message: Option<&str>,
+    perm: &mut RepoExclusive,
+) -> CliResult<()> {
+    // Find which stack this branch belongs to
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
+    for stack_entry in &stacks {
+        if !stack_entry.contains_branch(branch_name) {
+            // Not found in this stack,
+            continue;
+        }
+
+        if let Some(sid) = stack_entry.id {
+            let non_validated_new_name = prepare_provided_message(message, "branch name")
+                .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
+
+            if non_validated_new_name == branch_name {
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "Branch already named '{branch_name}' - nothing to do")?;
+                };
+                return Ok(());
+            };
+
+            let new_branch_name = {
+                let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+                BranchArg(non_validated_new_name)
+                    .resolve_for_creation(&repo, &ws)?
+                    .shorten()
+                    .to_string()
+            };
+            but_api::legacy::stack::update_branch_name_with_perm(
+                ctx,
+                sid,
+                branch_name.to_owned(),
+                new_branch_name.clone(),
+                perm,
+            )?;
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Renamed branch '{branch_name}' to '{new_branch_name}'")?;
+            }
+            return Ok(());
+        }
+    }
+
+    Err(bad_input("Branch not found in workspace")
+        .arg_value(branch_name)
+        .hint("You can only reword applied branches")
+        .into())
+}
+
+fn prepare_provided_message(msg: Option<&str>, entity: &str) -> Option<Result<String>> {
+    msg.map(|msg| {
+        let trimmed = msg.trim();
+        if trimmed.is_empty() {
+            bail!("Aborting due to empty {entity}");
+        }
+        Ok(trimmed.to_string())
+    })
+}
+
+pub(crate) fn get_commit_message_from_editor(
+    repo: &gix::Repository,
+    context_lines: u32,
+    commit_details: but_core::diff::CommitDetails,
+    editor_initial_message: String,
+    current_message_for_comparison: &str,
+    show_diff_in_editor: ShowDiffInEditor,
+) -> Result<Option<String>> {
+    let changed_files = get_changed_files_from_commit_details(&commit_details);
+
+    let should_show_diff = show_diff_in_editor.should_show_diff(|| {
+        estimate_diff_blob_size(&commit_details.diff_with_first_parent, repo)
+    })?;
+    let diff = should_show_diff
+        .then(|| {
+            commit_details
+                .diff_with_first_parent
+                .iter()
+                .map(|change| change.unified_diff(repo, context_lines))
+                .filter_map(|diff| diff.transpose())
+                .collect::<Result<Vec<_>>>()
+        })
+        .transpose()?;
+
+    let new_message = actually_get_commit_message_from_editor(
+        &editor_initial_message,
+        &changed_files,
+        diff.as_deref(),
+    )?;
+
+    if should_update_commit_message(current_message_for_comparison, &new_message) {
+        Ok(Some(normalize_commit_message(&new_message).to_owned()))
+    } else {
+        Ok(None)
+    }
+}
+
+fn edit_commit_message_by_id_and_reword_commit(
+    ctx: &mut Context,
+    commit_oid: gix::ObjectId,
+    out: &mut OutputChannel,
+    message: Option<&str>,
+    format: bool,
+    show_diff_in_editor: ShowDiffInEditor,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    // Get commit details directly - no need to iterate through stacks
+    let commit_details = but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
+    let current_message = commit_details.commit.inner.message.to_string();
+
+    // Get new message from provided argument, format flag, or editor
+    let new_message = if format {
+        if message.is_some() {
+            bail!("Cannot use both --fix-formatting and --message flags together");
+        }
+        // Format the current message without opening an editor
+        Some(but_action::commit_format::format_commit_message(
+            &current_message,
+        ))
+    } else if let Some(message) = message {
+        Some(normalize_commit_message(message).to_owned())
+    } else {
+        get_commit_message_from_editor(
+            &*ctx.repo.get()?,
+            ctx.settings.context_lines,
+            commit_details,
+            current_message.clone(),
+            &current_message,
+            show_diff_in_editor,
+        )?
+    }
+    .filter(|new_message| should_update_commit_message(&current_message, new_message));
+
+    if let Some(new_message) = new_message {
+        let new_commit_oid = but_api::commit::reword::commit_reword_with_perm(
+            ctx,
+            commit_oid,
+            BString::from(new_message),
+            DryRun::No,
+            perm,
+        )?;
+
+        if let Some(out) = out.for_human() {
+            let repo = ctx.repo.get()?;
+            writeln!(
+                out,
+                "Updated commit message for {} (now {})",
+                commit_oid.attach(&repo).shorten_or_id(),
+                new_commit_oid.new_commit.attach(&repo).shorten_or_id()
+            )?;
+        } else if let Some(out) = out.for_json() {
+            out.write_value(serde_json::json!({
+                "new_commit_id": new_commit_oid.new_commit.to_string(),
+            }))?;
+        }
+
+        Ok(())
+    } else {
+        if let Some(out) = out.for_human() {
+            writeln!(out, "No changes to commit message - nothing to be done")?;
+        }
+        Ok(())
+    }
+}
+
+fn get_changed_files_from_commit_details(
+    commit_details: &but_core::diff::CommitDetails,
+) -> Vec<String> {
+    let mut files = Vec::new();
+
+    for change in &commit_details.diff_with_first_parent {
+        let status = match &change.status {
+            but_core::TreeStatus::Addition { .. } => "new file:",
+            but_core::TreeStatus::Deletion { .. } => "deleted:",
+            but_core::TreeStatus::Modification { .. } => "modified:",
+            but_core::TreeStatus::Rename { .. } => "modified:",
+        };
+
+        let file_path = change.path.to_string();
+        files.push(format!("{status}   {file_path}"));
+    }
+
+    files.sort();
+    files
+}
+
+fn actually_get_commit_message_from_editor(
+    current_message: &str,
+    changed_files: &[String],
+    diff: Option<&[BString]>,
+) -> Result<String> {
+    // Generate commit message template with current message
+    let mut template = String::new();
+    template.push_str(current_message);
+    if !current_message.is_empty() && !current_message.ends_with('\n') {
+        template.push('\n');
+    }
+    template.push_str("\n# Please enter the commit message for your changes. Lines starting\n");
+    template.push_str("# with '#' will be ignored, and an empty message aborts the commit.\n");
+    template.push_str("#\n");
+    template.push_str("# Changes in this commit:\n");
+
+    for file in changed_files {
+        template.push_str(&format!("#\t{file}\n"));
+    }
+    template.push_str("#\n");
+
+    let mut template_rest = String::new();
+    if let Some(diff) = diff
+        && !diff.is_empty()
+    {
+        for line in diff {
+            template_rest.push_str(&line.to_str_lossy());
+        }
+    }
+
+    // Read the result and strip comments
+    let lossy_message = tui::get_text::from_editor_no_comments_as_patch(
+        "commit_msg",
+        &template,
+        Some(template_rest.as_str()).filter(|s| !s.is_empty()),
+    )?
+    .to_string();
+
+    Ok(lossy_message)
+}
+
+pub(crate) fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
+    let mut template = String::new();
+    template.push_str(current_name);
+    if !current_name.is_empty() && !current_name.ends_with('\n') {
+        template.push('\n');
+    }
+    template.push_str("\n# Please enter the new branch name. Lines starting\n");
+    template.push_str("# with '#' will be ignored, and an empty name aborts the operation.\n");
+    template.push_str("#\n");
+
+    let branch_name_lossy =
+        tui::get_text::from_editor_no_comments("branch_name", &template)?.to_string();
+    let branch_name = branch_name_lossy.trim();
+
+    if branch_name.is_empty() {
+        bail!("Aborting due to empty branch name");
+    }
+
+    Ok(branch_name.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod prepare_provided_message {
+        use super::*;
+
+        #[test]
+        fn empty_is_fails() {
+            assert_eq!(
+                prepare_provided_message(Some(""), "message")
+                    .unwrap()
+                    .unwrap_err()
+                    .to_string(),
+                "Aborting due to empty message"
+            );
+        }
+
+        #[test]
+        fn empty_is_after_trimming_fails() {
+            assert_eq!(
+                prepare_provided_message(Some("    "), "message")
+                    .unwrap()
+                    .unwrap_err()
+                    .to_string(),
+                "Aborting due to empty message"
+            );
+        }
+    }
+}

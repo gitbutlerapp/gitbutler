@@ -1,0 +1,322 @@
+<script lang="ts">
+	import ResizeHandles from "$lib/floating/ResizeHandles.svelte";
+	import { DragResizeHandler } from "$lib/floating/dragResizeHandler";
+	import { ResizeCalculator } from "$lib/floating/resizeCalculator";
+	import { SnapPointManager } from "$lib/floating/snapPointManager";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { getStorageItem, setStorageItem } from "@gitbutler/shared/persisted";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { portal } from "@gitbutler/ui/utils/portal";
+	import { pxToRem, remToPx } from "@gitbutler/ui/utils/pxToRem";
+	import { onMount, untrack, type Snippet } from "svelte";
+	import type { SnapPositionName } from "$lib/floating/types";
+	import type { SnapPoint, ModalBounds } from "$lib/floating/types";
+
+	interface Props {
+		children: Snippet;
+		dragHandleElement?: HTMLElement;
+		defaults: {
+			snapPosition: string;
+			width: number;
+			minWidth: number;
+			height: number;
+			minHeight: number;
+		};
+		onUpdateSnapPosition?: (snapPosition: SnapPositionName) => void;
+		onUpdateSize?: (width: number, height: number) => void;
+		persistId?: string;
+		onCancel?: () => void;
+	}
+
+	const {
+		children,
+		dragHandleElement,
+		defaults,
+		onUpdateSnapPosition,
+		onUpdateSize,
+		persistId,
+		onCancel,
+	}: Props = $props();
+
+	function getPersistedSize() {
+		if (!persistId) return;
+		const savedWidth = getStorageItem(`${persistId}-width`);
+		const savedHeight = getStorageItem(`${persistId}-height`);
+		return {
+			width: typeof savedWidth === "number" ? savedWidth : undefined,
+			height: typeof savedHeight === "number" ? savedHeight : undefined,
+		};
+	}
+
+	function persistSize(nextWidth: number, nextHeight: number) {
+		if (!persistId) return;
+		setStorageItem(`${persistId}-width`, nextWidth);
+		setStorageItem(`${persistId}-height`, nextHeight);
+	}
+
+	const uiState = inject(UI_STATE);
+	const zoom = $derived(uiState.global.zoom.current);
+
+	// Margin constants for viewport constraints (in rem; actual px depend on root font size and zoom)
+	const VIEWPORT_MARGIN_REM = 5; // total horizontal margin of 5rem (e.g., 2.5rem on each side)
+	const VIEWPORT_EDGE_REM = 2.5; // minimum distance from any viewport edge in rem
+	const VIEWPORT_MARGIN = $derived(remToPx(VIEWPORT_MARGIN_REM, zoom));
+	const VIEWPORT_EDGE = $derived(remToPx(VIEWPORT_EDGE_REM, zoom));
+
+	// Managers
+	const snapManager = $derived(new SnapPointManager(VIEWPORT_EDGE));
+	const resizeCalculator = $derived(new ResizeCalculator(defaults.minWidth, defaults.minHeight));
+	const dragResizeHandler = $derived(new DragResizeHandler(snapManager, resizeCalculator));
+
+	// Modal state
+	let x = $state(0);
+	let y = $state(0);
+	let width = $state(0);
+	let height = $state(0);
+	let currentSnapPoint: SnapPoint | null = $state(null);
+	let snapping = $state(false);
+	let snapPoints: SnapPoint[] = [];
+
+	// DOM reference
+	let modalEl: HTMLDivElement;
+
+	// Animation helper
+	function animateToPosition(newX: number, newY: number, threshold = 5) {
+		if (Math.abs(x - newX) > threshold || Math.abs(y - newY) > threshold) {
+			snapping = true;
+			setTimeout(() => {
+				snapping = false;
+			}, 300);
+		}
+		x = newX;
+		y = newY;
+	}
+
+	// Snap to nearest point
+	function snapToNearestPoint() {
+		const modalCenterX = x + width / 2;
+		const modalCenterY = y + height / 2;
+		const nearestSnapPoint = snapManager.findNearestSnapPoint(
+			modalCenterX,
+			modalCenterY,
+			snapPoints,
+		);
+
+		const { offsetX, offsetY } = snapManager.getAlignmentOffset(
+			nearestSnapPoint.x,
+			nearestSnapPoint.y,
+			width,
+			height,
+		);
+
+		const newX = nearestSnapPoint.x + offsetX;
+		const newY = nearestSnapPoint.y + offsetY;
+
+		animateToPosition(newX, newY);
+
+		currentSnapPoint = nearestSnapPoint;
+
+		onUpdateSnapPosition?.(nearestSnapPoint.name);
+	}
+
+	// Update position maintaining snap point
+	function updatePositionForSnapPoint() {
+		if (!currentSnapPoint) return;
+
+		const updatedSnapPoint = snapPoints.find((p) => p.name === currentSnapPoint!.name);
+		if (!updatedSnapPoint) return;
+
+		currentSnapPoint = updatedSnapPoint;
+		const { offsetX, offsetY } = snapManager.getAlignmentOffset(
+			currentSnapPoint.x,
+			currentSnapPoint.y,
+			width,
+			height,
+		);
+
+		x = currentSnapPoint.x + offsetX;
+		y = currentSnapPoint.y + offsetY;
+	}
+
+	// Event handlers
+	function handleHeaderPointerDown(event: PointerEvent) {
+		event.stopPropagation();
+		dragResizeHandler.startDrag(event, { x, y, width, height });
+	}
+
+	function handleResizeStart(event: PointerEvent, direction: string) {
+		event.stopPropagation();
+		dragResizeHandler.startResize(event, direction, { x, y, width, height });
+	}
+
+	function handleWindowResize() {
+		snapPoints = snapManager.calcSnapPoints();
+		updatePositionForSnapPoint();
+
+		// Constrain size to viewport
+		const maxWidth = window.innerWidth - VIEWPORT_MARGIN;
+		const maxHeight = window.innerHeight - VIEWPORT_MARGIN;
+		width = Math.min(width, maxWidth);
+		height = Math.min(height, maxHeight);
+
+		// Constrain position to viewport
+		const constrainedPosition = snapManager.constrainToViewport({ x, y, width, height });
+		x = Math.max(VIEWPORT_EDGE, Math.min(x, constrainedPosition.x));
+		y = Math.max(VIEWPORT_EDGE, Math.min(y, constrainedPosition.y));
+	}
+
+	// Setup drag/resize callbacks and keep currentSnapPosition in sync
+	$effect(() => {
+		dragResizeHandler.onDrag = (bounds: ModalBounds) => {
+			x = bounds.x;
+			y = bounds.y;
+		};
+
+		dragResizeHandler.onResize = (bounds: ModalBounds) => {
+			// Constrain size to viewport
+			const maxWidth = window.innerWidth - VIEWPORT_MARGIN;
+			const maxHeight = window.innerHeight - VIEWPORT_MARGIN;
+
+			x = bounds.x;
+			y = bounds.y;
+			width = Math.min(bounds.width, maxWidth);
+			height = Math.min(bounds.height, maxHeight);
+			persistSize(width, height);
+
+			onUpdateSize?.(width, height);
+		};
+
+		dragResizeHandler.onDragEnd = () => {
+			snapToNearestPoint();
+		};
+
+		dragResizeHandler.onResizeEnd = () => {
+			const constrainedPosition = snapManager.constrainToViewport({ x, y, width, height });
+			if (Math.abs(x - constrainedPosition.x) > 1 || Math.abs(y - constrainedPosition.y) > 1) {
+				animateToPosition(constrainedPosition.x, constrainedPosition.y, 1);
+			}
+			// Don't snap to nearest point on resize end - maintain current position
+		};
+
+		dragResizeHandler.currentSnapPosition = currentSnapPoint?.name || "";
+	});
+
+	// Re-calculate snap points when zoom changes (VIEWPORT_EDGE scales with zoom)
+	$effect(() => {
+		snapPoints = snapManager.calcSnapPoints();
+		// untrack prevents currentSnapPoint writes inside from re-triggering this effect
+		untrack(() => updatePositionForSnapPoint());
+	});
+
+	// Reactively wire the drag handle — handles element changes after mount.
+	$effect(() => {
+		const element = dragHandleElement;
+		if (!element) return;
+		element.addEventListener("pointerdown", handleHeaderPointerDown);
+		return () => {
+			element.removeEventListener("pointerdown", handleHeaderPointerDown);
+		};
+	});
+
+	onMount(() => {
+		width = defaults.width;
+		height = defaults.height;
+
+		const persistedSize = getPersistedSize();
+		if (persistedSize?.width !== undefined) width = persistedSize.width;
+		if (persistedSize?.height !== undefined) height = persistedSize.height;
+
+		snapPoints = snapManager.calcSnapPoints();
+
+		// Constrain initial size to viewport
+		const maxWidth = window.innerWidth - VIEWPORT_MARGIN;
+		const maxHeight = window.innerHeight - VIEWPORT_MARGIN;
+		width = Math.min(width, maxWidth);
+		height = Math.min(height, maxHeight);
+
+		// Initialize position
+		const defaultSnapPoint =
+			snapPoints.find((p) => p.name === defaults.snapPosition) || snapPoints[0];
+		if (defaultSnapPoint) {
+			const { offsetX, offsetY } = snapManager.getAlignmentOffset(
+				defaultSnapPoint.x,
+				defaultSnapPoint.y,
+				width,
+				height,
+			);
+
+			x = defaultSnapPoint.x + offsetX;
+			y = defaultSnapPoint.y + offsetY;
+			currentSnapPoint = defaultSnapPoint;
+		}
+
+		window.addEventListener("resize", handleWindowResize);
+		return () => {
+			window.removeEventListener("resize", handleWindowResize);
+		};
+	});
+</script>
+
+<div
+	bind:this={modalEl}
+	use:portal={"body"}
+	use:focusable={{
+		trap: true,
+		activate: true,
+		focusable: true,
+		dim: true,
+		onEsc: () => {
+			onCancel?.();
+			return true;
+		},
+	}}
+	class="floating-modal"
+	class:snapping
+	class:resizing={dragResizeHandler.isResizing}
+	style:left={pxToRem(x, zoom) + "rem"}
+	style:top={pxToRem(y, zoom) + "rem"}
+	style:width={pxToRem(width, zoom) + "rem"}
+	style:height={pxToRem(height, zoom) + "rem"}
+	style:max-width={`calc(100vw - ${VIEWPORT_MARGIN_REM}rem)`}
+	style:max-height={`calc(100vh - ${VIEWPORT_MARGIN_REM}rem)`}
+>
+	<ResizeHandles onResizeStart={handleResizeStart} snapPosition={currentSnapPoint?.name || ""} />
+	{@render children()}
+</div>
+
+<style>
+	.floating-modal {
+		display: flex;
+		z-index: var(--z-floating);
+		position: absolute;
+		flex-direction: column;
+		overflow: hidden;
+		border: 1px solid var(--border-2);
+		border-radius: var(--radius-ml);
+		background: var(--bg-1);
+		box-shadow: var(--fx-shadow-l);
+		animation: slide-in 0.2s ease-out forwards;
+	}
+
+	@keyframes slide-in {
+		from {
+			transform: translateY(30px);
+			opacity: 0;
+		}
+		to {
+			transform: translateY(0);
+			opacity: 1;
+		}
+	}
+
+	.floating-modal.snapping {
+		transition:
+			left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+			top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.floating-modal.resizing {
+		transition: none;
+	}
+</style>

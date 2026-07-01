@@ -1,0 +1,31 @@
+[package]
+name = "but-worktrees"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+but-rebase.workspace = true
+but-core.workspace = true
+but-graph.workspace = true
+
+anyhow.workspace = true
+gix.workspace = true
+serde.workspace = true
+but-serde.workspace = true
+uuid.workspace = true
+bstr.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+but-ctx.workspace = true
+but-testsupport.workspace = true
+snapbox.workspace = true
+
+[lints]
+workspace = true

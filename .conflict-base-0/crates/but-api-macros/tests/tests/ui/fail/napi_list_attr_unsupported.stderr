@@ -1,0 +1,5 @@
+error: Expected `try_from = Type`; only `try_from` is supported as a key
+ --> tests/ui/fail/napi_list_attr_unsupported.rs:8:17
+  |
+8 | #[but_api(napi, from = json::HexHash)]
+  |                 ^^^^

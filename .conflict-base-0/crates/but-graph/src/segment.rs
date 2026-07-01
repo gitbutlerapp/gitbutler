@@ -1,0 +1,462 @@
+use bitflags::bitflags;
+use bstr::{BString, ByteSlice};
+use but_core::ref_metadata::MaybeDebug;
+
+use crate::{CommitIndex, Graph, SegmentIndex};
+
+/// A commit with must useful information extracted from the Git commit itself.
+#[derive(Clone, Eq, PartialEq)]
+pub struct Commit {
+    /// The hash of the commit.
+    pub id: gix::ObjectId,
+    /// The IDs of the parent commits, but may be empty if this is the first commit.
+    pub parent_ids: Vec<gix::ObjectId>,
+    /// Additional properties to help classify this commit.
+    pub flags: CommitFlags,
+    /// The references pointing to this commit, even after dereferencing tag objects.
+    /// These can be names of tags and branches.
+    pub refs: Vec<RefInfo>,
+}
+
+impl Commit {
+    /// Return an iterator over all reference names that point to this commit.
+    pub fn ref_name_iter(&self) -> impl Iterator<Item = &gix::refs::FullName> + Clone {
+        self.refs.iter().map(|ri| &ri.ref_name)
+    }
+
+    /// Return information about the reference that matches `name`.
+    pub fn ref_by_name(&self, name: &gix::refs::FullNameRef) -> Option<&RefInfo> {
+        self.refs.iter().find(|ri| ri.ref_name.as_ref() == name)
+    }
+}
+
+/// A structure to inform about a reference which was present at a commit.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct RefInfo {
+    /// The name of the reference.
+    pub ref_name: gix::refs::FullName,
+    /// The peeled commit id the reference pointed to when the graph was built.
+    ///
+    /// This is `None` if the reference was known only by name, for example for
+    /// unborn branches or synthetic segments created without a resolved ref tip.
+    ///
+    /// It's useful if the segment with this ref-info instance doesn't actually
+    /// own a commit, and can't (always) discover it with [crate::Graph::tip_skip_empty()].
+    /// Workspace queries use it as a fallback in
+    /// [`Workspace::tip_commit_by_segment_id()`](crate::Workspace::tip_commit_by_segment_id).
+    pub commit_id: Option<gix::ObjectId>,
+    /// If `Some`, provide information about the worktree that checks out the reference at `ref_name`,
+    /// i.e. its `HEAD` points to `ref_name` directly or indirectly due to chains of .
+    ///
+    /// It is `None` if no worktree needs to be updated if this reference is changed.
+    pub worktree: Option<Worktree>,
+}
+
+/// Describes which kind of worktree is checked out by a [Ref](RefInfo).
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum WorktreeKind {
+    /// The main worktree, i.e. the primary workspace associated with this repository, is checked out.
+    ///
+    /// It cannot be removed.
+    Main,
+    /// The identifier of the worktree, which is always `.git/worktrees/<id>`,
+    /// indicating that this is a linked worktree that can be removed.
+    LinkedId(BString),
+}
+
+/// Describes which worktree is checked out and how it relates to the repository that produced the graph.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Worktree {
+    /// The kind of worktree that checks out the reference.
+    pub kind: WorktreeKind,
+    /// The repository that produced the graph is using this worktree.
+    ///
+    /// Only one worktree in a graph should have this flag set.
+    pub owned_by_repo: bool,
+}
+
+impl Worktree {
+    /// Produce a string that identifies this instance concisely, and visually distinguishable.
+    /// `ref_name` is the name from the [`RefInfo`] that owns this worktree,
+    /// used to deduplicate the name we chose.
+    ///
+    /// For example, `refs/heads/foo` in linked worktree id `foo` prints
+    /// `foo[📁]`, not `foo[📁foo]`.
+    pub fn debug_string(&self, ref_name: &gix::refs::FullNameRef) -> String {
+        self.debug_string_with_graph_context(ref_name, false)
+    }
+
+    /// Like [`Self::debug_string()`], but includes graph-contextual worktree ownership markers.
+    pub fn debug_string_with_graph_context(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+        show_owned_by_repo: bool,
+    ) -> String {
+        let owned_by_repo = if show_owned_by_repo && self.owned_by_repo {
+            "@repo"
+        } else {
+            ""
+        };
+        self.kind.debug_string(ref_name, owned_by_repo)
+    }
+}
+
+impl WorktreeKind {
+    fn debug_string(&self, ref_name: &gix::refs::FullNameRef, owned_by_repo: &str) -> String {
+        match self {
+            WorktreeKind::Main => format!("[🌳{owned_by_repo}]"),
+            WorktreeKind::LinkedId(id) => {
+                format!(
+                    "[📁{id}{owned_by_repo}]",
+                    id = if ref_name.shorten() != id {
+                        id.as_bstr()
+                    } else {
+                        "".into()
+                    }
+                )
+            }
+        }
+    }
+}
+
+impl RefInfo {
+    /// Produce a string that identifies this instance concisely, and visually distinguishable.
+    pub fn debug_string(&self) -> String {
+        let ws = self
+            .worktree
+            .as_ref()
+            .map(|ws| ws.debug_string(self.ref_name.as_ref()))
+            .unwrap_or_default();
+        format!("►{}{ws}", self.ref_name.shorten())
+    }
+}
+
+impl std::fmt::Debug for Commit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let refs = self
+            .refs
+            .iter()
+            .map(|ri| ri.debug_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        write!(
+            f,
+            "Commit({hash}, {flags}{refs})",
+            hash = self.id.to_hex_with_len(7),
+            flags = self.flags.debug_string(None)
+        )
+    }
+}
+
+bitflags! {
+    /// The reason a segment stops without an outgoing graph edge.
+    ///
+    /// Multiple flags can be present at once if multiple conditions apply to the same commit.
+    #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
+    pub struct StopCondition: u8 {
+        /// Traversal stopped before following parents due to configured traversal limits.
+        ///
+        /// If this was a *hard* limit, the graph may not contain all the *interesting* portions of the commit-graph,
+        /// see [`hard_limit`](crate::init::Options::hard_limit)
+        const Limit = 1 << 0;
+        /// Traversal reached the first commit in history, which has no parents, and is an orphan.
+        /// There can be more than one in one graph if unrelated histories were merged.
+        const FirstCommit = 1 << 1;
+        /// Traversal reached a Git shallow boundary, as is created with the shallow clone feature.
+        const ShallowBoundary = 1 << 2;
+    }
+}
+
+impl StopCondition {
+    /// Return a concise symbolic representation of this stop condition for debug output.
+    pub fn debug_string(&self, hard_limit: bool) -> String {
+        let mut out = String::new();
+        if self.contains(StopCondition::Limit) {
+            out.push_str(if hard_limit { "❌" } else { "✂" });
+        }
+        if self.contains(StopCondition::FirstCommit) {
+            out.push('🏁');
+        }
+        if self.contains(StopCondition::ShallowBoundary) {
+            out.push('⛰');
+        }
+        out
+    }
+
+    /// Return `true` if traversal stopped because the configured traversal limit was reached.
+    pub fn at_limit(&self) -> bool {
+        self.contains(StopCondition::Limit)
+    }
+
+    /// Return `true` if traversal stopped due to an artificial boundary, not because history naturally ended.
+    ///
+    /// This also means that the traversal would have continued otherwise.
+    pub fn is_unnatural(&self) -> bool {
+        self.intersects(StopCondition::Limit | StopCondition::ShallowBoundary)
+    }
+}
+
+bitflags! {
+    /// Flags used temporarily during merge-base computation on segments.
+    ///
+    /// These flags are cleared before each merge-base computation and should not be persisted.
+    #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
+    pub struct SegmentFlags: u8 {
+        /// The segment is reachable from the first input.
+        const SEGMENT1 = 1 << 0;
+        /// The segment is reachable from the second input (or any of "others").
+        const SEGMENT2 = 1 << 1;
+        /// The segment has been marked as a potential merge-base result.
+        const RESULT = 1 << 2;
+        /// The segment should be skipped in further traversal (already processed or redundant).
+        const STALE = 1 << 3;
+    }
+}
+
+bitflags! {
+    /// Provide more information about a commit, as gathered during traversal.
+    ///
+    /// Note that unknown bits beyond this list are used to track individual goals that we want to discover.
+    /// This is useful for when they are ahead of the tip that looks for them.
+    /// If they are below, the goal will be propagated downward automatically.
+    #[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
+    pub struct CommitFlags: u32 {
+        /// Identify commits that have never been owned *only* by a remote.
+        /// It may be that a remote is directly pointing at them though.
+        /// Note that this flag is negative as all flags are propagated through the graph,
+        /// a property we don't want for this trait.
+        const NotInRemote = 1 << 0;
+        /// Following the graph upward will lead to at least one tip that is a workspace.
+        ///
+        /// Note that if this flag isn't present, this means the commit isn't reachable
+        /// from a workspace.
+        const InWorkspace = 1 << 1;
+        /// The commit is reachable from either the target branch (usually `refs/remotes/origin/main`).
+        /// Note that when multiple workspaces are included in the traversal, this flag is set by
+        /// any of many target branches.
+        const Integrated = 1 << 2;
+        /// The commit is listed in the repository's shallow boundary file.
+        const ShallowBoundary = 1 << 3;
+    }
+}
+
+impl CommitFlags {
+    /// The amount of goals that were tracked, i.e. 0 if there is no goal, or N if there are N goal.
+    pub fn num_goals(&self) -> usize {
+        let goals = self.bits() & !Self::all().bits();
+        if goals == 0 {
+            0
+        } else {
+            (Self::all().bits().leading_zeros() - goals.leading_zeros()) as usize
+        }
+    }
+    /// Return a less verbose debug string, with `max_goals` marking the highest amount of goals we have to display.
+    pub fn debug_string(&self, max_goals: Option<usize>) -> String {
+        if self.is_empty() {
+            "".into()
+        } else {
+            let flags = *self & Self::all();
+            let extra = (self.bits() & !Self::all().bits()) >> Self::all().iter().count();
+            let string = format!("{flags:?}");
+            let out = &string["CommitFlags(".len()..];
+            let mut out = out[..out.len() - 1]
+                .to_string()
+                .replace("NotInRemote", "⌂")
+                .replace("InWorkspace", "🏘")
+                .replace("Integrated", "✓")
+                .replace("ShallowBoundary", "⛰")
+                .replace(" ", "");
+            if extra != 0 {
+                out.push_str(&format!(
+                    "|{extra:>0width$b}",
+                    width = max_goals.unwrap_or(0)
+                ));
+            }
+            out
+        }
+    }
+
+    /// Return `true` if this flag denotes a remote commit, i.e. a commit that isn't reachable from anything
+    /// but a remote tracking branch tip.
+    pub fn is_remote(&self) -> bool {
+        !self.contains(CommitFlags::NotInRemote)
+    }
+}
+
+/// A segment of a commit graph, representing a set of commits exclusively.
+#[derive(Default, Clone, Eq, PartialEq)]
+pub struct Segment {
+    /// An ID which can uniquely identify this segment among all segments within the graph that owned it.
+    /// Note that it's not suitable to permanently identify the segment, so should not be persisted.
+    pub id: SegmentIndex,
+    /// A non-null number, and starting at `1`, to indicate how high up the segment is in the graph past the root nodes.
+    /// Thus, higher numbers mean they are further down.
+    /// If `0`, this is a root node, i.e. one without any incoming connections.
+    pub generation: usize,
+    /// The unambiguous or disambiguated name of the branch *or tag* at the tip of the segment, i.e. at the first commit,
+    /// along with its worktree if one happens to point at it.
+    ///
+    /// Even though most of the time this will be local branches, when setting the entrypoint onto a commit with a *tag*,
+    /// it will be used for naming it.
+    ///
+    /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
+    /// a commit anymore that was reached by our rev-walk.
+    /// This can happen if the ref is deleted, or if it was advanced by other means.
+    /// Alternatively, the naming would have been ambiguous.
+    /// Finally, this is `None` of the original name can be found searching upwards, finding exactly one
+    /// named segment.
+    pub ref_info: Option<RefInfo>,
+    /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
+    /// Its presence means that a remote is configured and that the stack content
+    pub remote_tracking_ref_name: Option<gix::refs::FullName>,
+    /// If `remote_tracking_ref_name` is `None`, and `ref_name` is a remote tracking branch, then this is set to be
+    /// the segment id of the local tracking branch, effectively doubly-linking them for ease of traversal.
+    /// If `ref_name` is `None` and this segment is the ancestor of a named segment that is known to a workspace,
+    /// this id is pointing to that named segment to allow the reconstruction of the originally desired workspace.
+    pub sibling_segment_id: Option<SegmentIndex>,
+    /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
+    /// avoiding a search through the entire graph.
+    /// It *only* ever points to the remote tracking branch segment.
+    pub remote_tracking_branch_segment_id: Option<SegmentIndex>,
+    /// The portion of commits that can be reached from the tip of the *branch* downwards, so that they are unique
+    /// for that stack segment and not included in any other stack or stack segment.
+    ///
+    /// The list could be empty for when this is a dedicated empty segment as insertion position of commits.
+    pub commits: Vec<Commit>,
+    /// Read-only metadata with additional information, or `None` if nothing was present.
+    pub metadata: Option<SegmentMetadata>,
+}
+
+/// Metadata for segments, which are either dedicated branches or represent workspaces.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum SegmentMetadata {
+    /// [Segments](Segment) with this data are considered a branch in the workspace.
+    Branch(but_core::ref_metadata::Branch),
+    /// [Segments](Segment) with this data are considered the tip of the workspace.
+    Workspace(but_core::ref_metadata::Workspace),
+}
+
+/// Direct Access (without graph)
+impl Segment {
+    /// Return the name of the reference that points to the first commit reachable through this segment.
+    pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
+    }
+
+    /// Return the segment that this segment treats as its sibling, if any.
+    ///
+    /// A sibling is a paired segment that represents the same logical ref
+    /// relationship from another side of the graph. For remote-tracking
+    /// segments, this points back to the local branch segment configured to
+    /// track them, such as `refs/remotes/origin/main` pointing to
+    /// `refs/heads/main`. For anonymous workspace-reconstruction segments, this
+    /// can point to the named segment that gives the otherwise anonymous segment
+    /// its intended workspace identity.
+    ///
+    /// The sibling id is graph-local, so the lookup must happen in the `graph`
+    /// that owns this segment.
+    pub fn sibling_segment<'graph>(&self, graph: &'graph Graph) -> Option<&'graph Segment> {
+        graph.inner.node_weight(self.sibling_segment_id?)
+    }
+
+    /// Return the top-most commit id of the segment.
+    pub fn tip(&self) -> Option<gix::ObjectId> {
+        self.commits.first().map(|commit| commit.id)
+    }
+
+    /// Return the index of the last (present) commit, or `None` if there is no commit stored in this segment.
+    pub fn last_commit_index(&self) -> Option<usize> {
+        self.commits.len().checked_sub(1)
+    }
+
+    /// Try to find the index of `id` in our list of local commits.
+    pub fn commit_index_of(&self, id: gix::ObjectId) -> Option<usize> {
+        self.commits
+            .iter()
+            .enumerate()
+            .find_map(|(cidx, c)| (c.id == id).then_some(cidx))
+    }
+
+    /// Find the commit associated with the given `commit_index`, which for convenience is optional.
+    pub fn commit_id_by_index(&self, idx: Option<CommitIndex>) -> Option<gix::ObjectId> {
+        self.commits.get(idx?).map(|c| c.id)
+    }
+
+    /// Find the commit with the given `id` in the commits of this segment.
+    pub fn commit_by_id(&self, id: gix::ObjectId) -> Option<&Commit> {
+        self.commits.iter().find(|c| c.id == id)
+    }
+
+    /// Return the flags of the first commit if non-empty, which is the top-most commit in the stack assuming
+    /// it grows upwards into the future.
+    pub fn non_empty_flags_of_first_commit(&self) -> Option<CommitFlags> {
+        let commit = self.commits.first()?;
+        (!commit.flags.is_empty()).then_some(commit.flags)
+    }
+
+    /// Return `Some(md)` if this segment contains workspace metadata, which makes it governing a workspace.
+    ///
+    /// Note that we assume that this kind of metadata is only assigned to portions of the graph which don't include
+    /// each other *outside* of integrated portions of the graph, i.e. workspaces can't be nested.
+    pub fn workspace_metadata(&self) -> Option<&but_core::ref_metadata::Workspace> {
+        self.metadata.as_ref().and_then(|md| match md {
+            SegmentMetadata::Workspace(md) => Some(md),
+            _ => None,
+        })
+    }
+}
+
+impl std::fmt::Debug for Segment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            let Segment {
+                ref_info,
+                generation,
+                id,
+                commits,
+                remote_tracking_ref_name,
+                sibling_segment_id,
+                remote_tracking_branch_segment_id,
+                metadata,
+            } = self;
+            f.debug_struct("Segment")
+                .field("id", id)
+                .field("generation", generation)
+                .field(
+                    "ref_info",
+                    &MaybeDebug(&ref_info.as_ref().map(|ri| ri.debug_string())),
+                )
+                .field(
+                    "remote_tracking_ref_name",
+                    &MaybeDebug(&remote_tracking_ref_name.as_ref().map(|n| n.to_string())),
+                )
+                .field(
+                    "sibling_segment_id",
+                    &MaybeDebug(&sibling_segment_id.as_ref().map(|id| id.index().to_string())),
+                )
+                .field(
+                    "remote_tracking_branch_segment_id",
+                    &MaybeDebug(
+                        &remote_tracking_branch_segment_id
+                            .as_ref()
+                            .map(|id| id.index().to_string()),
+                    ),
+                )
+                .field("commits", &commits)
+                .field(
+                    "metadata",
+                    match metadata {
+                        None => &"None",
+                        Some(SegmentMetadata::Branch(m)) => m,
+                        Some(SegmentMetadata::Workspace(m)) => m,
+                    },
+                )
+                .finish()
+        } else {
+            f.debug_struct(
+                "StackSegment(empty for 'dot' program to not get past 2^16 max label size)",
+            )
+            .finish()
+        }
+    }
+}

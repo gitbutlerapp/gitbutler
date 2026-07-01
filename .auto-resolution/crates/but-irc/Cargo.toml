@@ -1,0 +1,30 @@
+[package]
+name = "but-irc"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = true
+
+[dependencies]
+chrono.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "time", "net", "rt", "macros"] }
+futures.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+base64 = "0.22"
+but-project-handle.workspace = true
+but-settings = { path = "../but-settings" }
+notify-rust.workspace = true
+
+# IRC client library (using native TLS for system certificate support)
+irc = { version = "1.0", default-features = false, features = ["tls-native"] }
+
+[dev-dependencies]
+anyhow.workspace = true
+tokio = { workspace = true, features = ["full"] }

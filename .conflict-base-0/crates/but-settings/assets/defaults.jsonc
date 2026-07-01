@@ -1,0 +1,111 @@
+{
+	// The amount of context lines to show in unified diffs, above and below the hunk.
+	"contextLines": 3,
+	// Whether the user has passed the onboarding flow.
+	"onboardingComplete": false,
+	"telemetry": {
+		// Whether the anonymous metrics are enabled.
+		"appMetricsEnabled": true,
+		// Whether anonymous error reporting is enabled.
+		"appErrorReportingEnabled": true,
+		/// Distinct ID, if reporting is enabled.
+		"appDistinctId": null,
+		// Whether settings have been migrated from the legacy Tauri store.
+		// This flag is set to true after the one-time migration and prevents repeated migration attempts.
+		"migratedFromLegacy": false
+	},
+	"githubOauthApp": {
+		// Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.
+		"oauthClientId": "cd51880daa675d9e6452"
+	},
+	"featureFlags": {
+		/// Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref.
+		"unapplyV3Pgm": false,
+		/// Enable single branch mode.
+		"singleBranch": false,
+		/// Enable IRC integration.
+		"irc": false,
+		/// Control how the filesystem watch should be established.
+		/// Possible values: "auto", "legacy", "modern".
+		"watchMode": "auto",
+		"writeCommitEvolution": false,
+        "tuiFileBrowser": false
+	},
+	// Allows for additional "connect-src" hosts to be included. Requires app restart.
+	"extraCsp": {
+		// Additional hosts that the application can connect to.
+		"hosts": [],
+		// Additional hosts for img-src that the application can load images from.
+		"imgSrc": []
+	},
+	// Settings related to fetching.
+	"fetch": {
+	  // The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
+		"autoFetchIntervalMinutes": 15
+	},
+	// Settings related to Claude Code.
+	"claude": {
+		// Path to the Claude Code executable. Defaults to "claude" if not set.
+		"executable": "claude",
+		// Whether to show notifications when Claude Code finishes.
+		"notifyOnCompletion": false,
+		// Whether to show notifications when Claude Code needs permission.
+		"notifyOnPermissionRequest": false,
+		// Whether to dangerously allow all permissions without prompting.
+		"dangerouslyAllowAllPermissions": false,
+		// Whether to automatically commit changes and rename branches after completion.
+		"autoCommitAfterCompletion": true,
+		// Whether to use the configured model in .claude/settings.json instead of passing --model.
+		"useConfiguredModel": false
+	},
+	// Settings related to code reviews and pull requests.
+	"reviews": {
+		// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
+		"autoFillPrDescriptionFromCommit": true
+	},
+	// UI settings.
+	"ui": {
+		// Whether to use the native system title bar.
+		"useNativeTitleBar": false,
+		// When true, skip the macOS window drop shadow for app windows (requires restart).
+		"noShadow": false,
+		// Whether the `but` CLI is managed by a package manager.
+		// When true, the UI should show a specific message instead of installation options.
+		"cliIsManagedByPackageManager": false,
+		// LEGACY: The duration between UI update checks in seconds. If `0`, no update checks will be performed.
+		// This controls Tauri's built-in update mechanism for the desktop application.
+		// DEPRECATED: This field will be replaced by the top-level `appUpdatesCheckIntervalSec` setting.
+		// New code should use `appUpdatesCheckIntervalSec` instead.
+		"checkForUpdatesIntervalInSeconds": 3600
+	},
+	// The duration between application update checks in seconds. If `0`, no update checks will be performed.
+	// This controls background update checks for both CLI and GUI.
+	// In the future, this will replace the legacy `ui.checkForUpdatesIntervalInSeconds` setting.
+	"appUpdatesCheckIntervalSec": 3600,
+	// IRC integration settings
+	"irc": {
+		// Shared IRC server configuration
+		"server": {
+			// IRC server hostname
+			"host": "irc.gitbutler.com",
+			// IRC server port (6697 for TLS)
+			"port": 6697
+		},
+		// Auto-share new Claude Code sessions to IRC channels
+		"autoShare": false,
+		// Channel to auto-join when opening a project.
+		// null = auto-construct #<project-name>. A string = join that exact channel name.
+		"projectChannel": null,
+		// IRC connection settings
+		"connection": {
+			// Whether to connect to IRC
+			"enabled": false,
+			// IRC nickname (defaults to username if not set)
+			"nickname": null,
+			// IRC server password
+			"password": null,
+			// Real name (defaults to user's name if not set)
+			"realname": null
+		}
+	}
+}

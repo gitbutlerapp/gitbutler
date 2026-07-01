@@ -1,0 +1,33 @@
+.DS_Store
+node_modules
+butler/target
+build
+dist
+.svelte-kit
+package
+.env
+.env.*
+!.env.example
+crates/
+flake*
+
+# Ignore files for PNPM, NPM and YARN
+pnpm-lock.yaml
+package-lock.json
+
+# Ignore  minified css
+*.min.css
+e2e/playwright/fixtures
+packages/but-sdk/src/generated
+packages/but-sdk/**/*.md
+
+# TanStack Router's generated types for file-based routing
+apps/lite/ui/src/routeTree.gen.ts
+
+# Auto-generated icon names union type
+apps/lite/ui/src/components/iconNames.ts
+
+# Apple Icon Composer generated file
+apps/lite/resources/icons/macos/icon.icon/icon.json
+
+apps/lite/release

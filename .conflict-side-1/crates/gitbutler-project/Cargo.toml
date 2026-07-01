@@ -1,0 +1,46 @@
+[package]
+name = "gitbutler-project"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars", "but-forge/export-schema"]
+
+[lib]
+doctest = false
+
+[dependencies]
+but-error.workspace = true
+but-path.workspace = true
+but-serde = { workspace = true, features = ["legacy"] }
+but-core.workspace = true
+but-utils = { workspace = true, features = ["legacy"] }
+but-forge.workspace = true
+but-project-handle = { workspace = true, features = ["legacy"] }
+but-schemars = { workspace = true, optional = true }
+
+anyhow.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
+# git2.workspace = true
+gix = { workspace = true, features = [
+    "dirwalk",
+    "credentials",
+    "parallel",
+    "blocking-http-transport-reqwest-rust-tls",
+] }
+strum = { version = "0.27", features = ["derive"] }
+tracing.workspace = true
+schemars = { workspace = true, optional = true }
+
+[dev-dependencies]
+but-testsupport.workspace = true
+tempfile.workspace = true
+snapbox.workspace = true
+temp-env = "0.3"
+
+[lints]
+workspace = true

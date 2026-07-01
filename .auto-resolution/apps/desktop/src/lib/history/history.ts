@@ -1,0 +1,163 @@
+import { InjectionToken } from "@gitbutler/core/context";
+import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
+import { get, writable } from "svelte/store";
+import type { IBackend } from "$lib/backend";
+import type { Snapshot } from "$lib/history/types";
+import type { BackendApi } from "$lib/state/backendApi";
+import type { TreeChange } from "@gitbutler/but-sdk";
+
+const snapshotDiffAdapter = createEntityAdapter({
+	selectId: (tc: TreeChange) => tc.path,
+});
+const snapshotDiffSelectors = snapshotDiffAdapter.getSelectors();
+
+export const HISTORY_SERVICE = new InjectionToken<HistoryService>("HistoryService");
+class SnapshotPager {
+	cursor: string | undefined = undefined;
+
+	readonly loading = writable(false);
+	readonly isAllLoaded = writable(false);
+	readonly snapshots = writable<Snapshot[]>([], (set) => {
+		// Load snapshots when going from 0 -> 1 subscriber.
+		this.load();
+		return () => {
+			// Clear store when component last subscriber unsubscribes.
+			set([]);
+			this.cursor = undefined;
+			this.isAllLoaded.set(false);
+		};
+	});
+
+	constructor(
+		private readonly projectId: string,
+		private backend: IBackend,
+	) {}
+
+	async load() {
+		const data = await this.fetch();
+		if (data.length) {
+			this.snapshots.set(data);
+			this.cursor = data.at(-1)?.id;
+		}
+	}
+
+	async loadMore() {
+		if (!this.cursor) throw new Error("Not without a cursor");
+		if (get(this.isAllLoaded)) return; // Nothing to do.
+
+		const more = await this.fetch(this.cursor);
+
+		if (more.length === 0) {
+			this.isAllLoaded.set(true);
+		} else {
+			this.snapshots.update((snapshots) => [...snapshots, ...more]);
+			this.cursor = more.at(-1)?.id;
+		}
+	}
+
+	private async fetch(after?: string) {
+		this.loading.set(true);
+		const resp = await this.backend.invoke<Snapshot[]>("list_snapshots", {
+			projectId: this.projectId,
+			sha: after,
+			limit: 32,
+		});
+		this.loading.set(false);
+		return resp;
+	}
+
+	clear() {
+		this.snapshots.set([]);
+	}
+}
+
+type SnapshotDiffParams = {
+	projectId: string;
+	snapshotId: string;
+	childId?: string;
+};
+
+export class HistoryService {
+	private api: ReturnType<typeof injectEndpoints>;
+
+	constructor(
+		private backend: IBackend,
+		backendApi: BackendApi,
+	) {
+		this.api = injectEndpoints(backendApi);
+	}
+
+	#snapshots = new Map<string, SnapshotPager>();
+	snapshots(projectId: string) {
+		let snapshot = this.#snapshots.get(projectId);
+		if (!snapshot) {
+			snapshot = new SnapshotPager(projectId, this.backend);
+			this.#snapshots.set(projectId, snapshot);
+		}
+		return snapshot;
+	}
+
+	async getSnapshotDiff(projectId: string, snapshotId: string): Promise<TreeChange[]> {
+		return await this.api.endpoints.snapshotDiff.fetch(
+			{ projectId, snapshotId },
+			{ transform: snapshotDiffSelectors.selectAll },
+		);
+	}
+
+	snapshotDiff(params: SnapshotDiffParams) {
+		return this.api.endpoints.snapshotDiff.useQuery(params, {
+			transform: snapshotDiffSelectors.selectAll,
+		});
+	}
+
+	snapshotDiffByPath(params: SnapshotDiffParams & { path: string }) {
+		return this.api.endpoints.snapshotDiff.useQuery(
+			{ projectId: params.projectId, snapshotId: params.snapshotId },
+			{
+				transform: (data) => snapshotDiffSelectors.selectById(data, params.path),
+			},
+		);
+	}
+
+	get restoreSnapshot() {
+		return this.api.endpoints.restoreSnapshot.useMutation();
+	}
+
+	async createSnapshot(projectId: string, message?: string) {
+		await this.backend.invoke<string>("create_snapshot", {
+			projectId,
+			message: message?.trim() || undefined,
+		});
+		// Refresh snapshots list after creating
+		this.snapshots(projectId).load();
+	}
+}
+
+/** Formats a date (milliseconds since epoch) as a human-readable day string. */
+export function createdOnDay(epochMs: number) {
+	const d = new Date(epochMs);
+	const t = new Date();
+	return `${t.toDateString() === d.toDateString() ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })}, ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+}
+
+function injectEndpoints(api: BackendApi) {
+	return api.injectEndpoints({
+		endpoints: (build) => ({
+			snapshotDiff: build.query<EntityState<TreeChange, string>, SnapshotDiffParams>({
+				extraOptions: { command: "snapshot_diff" },
+				query: ({ projectId, snapshotId, childId }) => ({
+					projectId,
+					sha: snapshotId,
+					childId: childId ?? null,
+				}),
+				transformResponse: (data: TreeChange[]) => {
+					return snapshotDiffAdapter.addMany(snapshotDiffAdapter.getInitialState(), data);
+				},
+			}),
+			restoreSnapshot: build.mutation<void, { projectId: string; sha: string }>({
+				extraOptions: { command: "restore_snapshot" },
+				query: (args) => args,
+			}),
+		}),
+	});
+}

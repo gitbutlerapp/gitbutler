@@ -1,0 +1,22 @@
+@import "@gitbutler/design-core/core";
+
+:root {
+	color-scheme: light dark;
+
+	--list-item-hover-bg: color-mix(var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
+	--focus-ring: 1.5px solid color-mix(in srgb, var(--fill-gray-bg) 70%, transparent);
+	--transition-fast: 0.08s ease;
+	--panel-padding: 16px;
+}
+
+body {
+	user-select: none;
+}
+
+button {
+	app-region: no-drag;
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+	}
+}

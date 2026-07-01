@@ -1,0 +1,28 @@
+{
+	"name": "@gitbutler/no-cross-domain-imports",
+	"version": "0.0.1",
+	"license": "MIT",
+	"private": true,
+	"description": "An ESLint rule that enforces component domain boundaries by limiting cross-domain $components imports",
+	"type": "module",
+	"peerDependencies": {
+		"eslint": ">=9.0.0"
+	},
+	"devDependencies": {
+		"eslint": "^9.0.0",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	},
+	"scripts": {
+		"check": "eslint src",
+		"package": "tsc",
+		"test": "vitest run",
+		"prepare": "pnpm package"
+	},
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	}
+}

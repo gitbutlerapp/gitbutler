@@ -1,0 +1,174 @@
+[package]
+name = "but"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE.md"
+description = "A GitButler CLI tool"
+authors.workspace = true
+readme = "../../README.md"
+publish = false
+rust-version.workspace = true
+
+[[bin]]
+name = "but"
+path = "src/main.rs"
+doctest = false
+
+[features]
+default = ["legacy"]
+## A very specific utility flag to make clear that the 'but' binary is managed by a package manager.
+## When set, the CLI cannot self-manage itself and commands like `but update install` are disabled.
+packaged-but-distribution = []
+legacy = [
+    "but-workspace/legacy",
+    "but-api/legacy",
+    "but-ctx/legacy",
+    "dep:but-action",
+    "dep:but-gerrit",
+    "dep:but-worktrees",
+    "dep:but-cherry-apply",
+    "dep:gitbutler-project",
+    "dep:gitbutler-commit",
+    "dep:gitbutler-branch",
+    "dep:gitbutler-branch-actions",
+    "dep:gitbutler-oplog",
+    "dep:gitbutler-edit-mode",
+    "dep:gitbutler-operating-modes",
+    "dep:gitbutler-repo",
+    "dep:gitbutler-git",
+    "dep:gitbutler-watcher",
+]
+# Feature that enables profiling related features of the TUI.
+tui-profiling = []
+# Enables new experimental CLI commands that'll eventually replace old commands
+but-2 = []
+# Outputs help sections exactly as written, instead of putting them through clap's Markdown formatter. This is useful e.g. for generating docs for the website.
+raw-clap-docs = []
+
+[dependencies]
+but-core.workspace = true
+but-settings.workspace = true
+but-serde.workspace = true
+but-secret.workspace = true
+but-askpass.workspace = true
+but-update.workspace = true
+but-installer.workspace = true
+but-path.workspace = true
+but-ctx.workspace = true
+but-rebase.workspace = true
+but-github.workspace = true
+but-gitlab.workspace = true
+but-forge.workspace = true
+but-forge-storage.workspace = true
+but-workspace = { workspace = true }
+but-api = { workspace = true, features = ["path-bytes"] }
+but-graph.workspace = true
+but-hunk-dependency.workspace = true
+but-llm.workspace = true
+but-agentlog.workspace = true
+but-transaction.workspace = true
+but-db.workspace = true
+but-error.workspace = true
+
+# What follows is *basically* newly written crates that are built on top of legacy,
+# so need some refactoring/rethinking to become usable.
+but-action = { workspace = true, optional = true }
+# Still uses `gitbutler-stack`, but otherwise it is non-legacy.
+but-hunk-assignment.workspace = true
+but-gerrit = { workspace = true, optional = true }
+but-worktrees = { workspace = true, optional = true }
+but-cherry-apply = { workspace = true, optional = true }
+
+gitbutler-project = { workspace = true, optional = true }
+gitbutler-commit = { workspace = true, optional = true }
+gitbutler-branch = { workspace = true, optional = true }
+gitbutler-branch-actions = { workspace = true, optional = true }
+gitbutler-oplog = { workspace = true, optional = true }
+gitbutler-edit-mode = { workspace = true, optional = true }
+gitbutler-operating-modes = { workspace = true, optional = true }
+gitbutler-repo = { workspace = true, optional = true }
+gitbutler-git = { workspace = true, optional = true }
+gitbutler-watcher = { workspace = true, optional = true }
+
+schemars.workspace = true
+posthog-rs = { git = "https://github.com/gitbutlerapp/posthog-rs", rev = "664c9245f79aaedcdd025b9f3c141b62bb866b8e" }
+serde.workspace = true
+shell-words.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
+strum = { version = "0.27", features = ["derive"] }
+clap = { workspace = true, features = [
+    "env",
+    "wrap_help",
+    "color",
+    "error-context",
+    "usage",
+    "suggestions",
+] }
+clap_complete = "4.6.2"
+chrono.workspace = true
+bstr.workspace = true
+anyhow.workspace = true
+rmcp.workspace = true
+command-group = { version = "5.0.1", features = ["with-tokio"] }
+gix = { workspace = true, features = ["tracing", "tracing-detail"] }
+colored = "3.0.0"
+serde_json.workspace = true
+boolean-enums.workspace = true
+terminal_size = "0.4.4"
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = [
+    "env-filter",
+    "std",
+    "fmt",
+] }
+tracing-forest.workspace = true
+dirs.workspace = true
+minus = { git = "https://github.com/arijit79/minus", rev = "57f1848f831d153a10d65060562ce1fdde938a01", default-features = false, features = [
+    "static_output",
+    "search",
+] }
+unicode-width = "0.2"
+cfg-if = "1.0.4"
+ratatui = { workspace = true, features = [
+    "unstable-rendered-line-info",
+    "palette",
+    "serde",
+] }
+crossterm.workspace = true
+sha2.workspace = true
+machine-uid = "0.5.4"
+tempfile.workspace = true
+nonempty.workspace = true
+itertools.workspace = true
+self_cell.workspace = true
+rand.workspace = true
+ratatui-textarea = "0.8.0"
+arboard = { version = "3.6.1", default-features = false }
+textwrap = "0.16.2"
+syntect = { version = "5.3.0", default-features = false, features = [
+    "default-syntaxes",
+    "default-themes",
+    "regex-onig",
+    "metadata",
+    "html",
+] }
+tracing-appender = "0.2.5"
+uuid.workspace = true
+fuzzy-matcher = "0.3.7"
+indexmap.workspace = true
+
+[dev-dependencies]
+but-graph.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
+snapbox = { workspace = true, features = ["term-svg"] }
+shell-words.workspace = true
+insta.workspace = true
+temp-env = "0.3"
+serial_test = "3.2.0"
+syn = { version = "2.0", features = ["visit", "full", "extra-traits", "parsing", "printing"] }
+quote = "1.0"
+
+[lints]
+workspace = true

@@ -1,0 +1,22 @@
+[package]
+name = "gitbutler-repo-actions"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+but-ctx.workspace = true
+
+gitbutler-stack.workspace = true
+gitbutler-repo.workspace = true
+
+gix.workspace = true
+anyhow.workspace = true
+
+[lints]
+workspace = true

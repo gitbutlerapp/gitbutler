@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <!--
+      WARNING: This local entitlements file is for local/ad-hoc development builds only.
+      `com.apple.security.cs.disable-library-validation` weakens the hardened runtime by
+      allowing unsigned or untrusted dynamic libraries to load.
+      Do not use this file for production packaging, release signing, or notarized builds.
+      
+      This is unfortunately necessary for local bundling to be able to load libraries,
+      including the Electron framework itself.
+     -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

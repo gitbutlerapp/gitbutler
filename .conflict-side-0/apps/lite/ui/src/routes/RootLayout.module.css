@@ -1,0 +1,17 @@
+.dragRegion {
+	z-index: -1;
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	height: 40px;
+	app-region: drag;
+}
+
+.content {
+	display: flex;
+	flex-direction: column;
+	height: 100dvh;
+	overflow: auto;
+	background: var(--bg-1);
+}

@@ -1,0 +1,9 @@
+{
+	"recommendations": [
+		"dbaeumer.vscode-eslint",
+		"svelte.svelte-vscode",
+		"rust-lang.rust-analyzer",
+		"esbenp.prettier-vscode",
+		"oxc.oxc-vscode"
+	]
+}

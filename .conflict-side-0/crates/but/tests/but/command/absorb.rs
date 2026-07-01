@@ -1,0 +1,551 @@
+use bstr::ByteSlice;
+use snapbox::str;
+
+use crate::{
+    command::util::{self, commit_file_with_worktree_changes_as_two_hunks},
+    utils::{CommandExt, Sandbox},
+};
+
+fn find_uncommitted_cli_id(status: &serde_json::Value, path: &str) -> Option<String> {
+    status["uncommittedChanges"]
+        .as_array()?
+        .iter()
+        .find(|change| change["filePath"].as_str() == Some(path))
+        .and_then(|change| change["cliId"].as_str().map(ToOwned::to_owned))
+}
+
+#[test]
+fn uncommitted_file() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    env.but("--format json status -f")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "uncommittedChanges": [
+    {
+      "cliId": "nk",
+      "filePath": "a.txt",
+      "changeType": "modified"
+    }
+  ],
+...
+"#]]);
+
+    env.but("absorb i0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Found 1 changed file to absorb:
+
+Absorbed to commit: f4ea7f8 a.txt
+  (files locked to commit due to hunk range overlap)
+    a.txt @1,4 +1,4
+    a.txt @6,4 +6,4
+
+
+Hint: you can run `but undo` to undo these changes
+
+"#]])
+        .stderr_eq(str![""]);
+
+    // Change was absorbed
+    let repo = env.open_repo();
+    let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
+    insta::assert_snapshot!(blob.data.as_bstr(), @"
+    firsta
+    line
+    line
+    line
+    line
+    line
+    line
+    line
+    lasta
+    ");
+
+    // Status is clean
+    env.but("--format json status -f")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "uncommittedChanges": [],
+...
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn uncommitted_hunk() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Verify that the first hunk is nk:2, and absorb it.
+    env.but("diff a.txt")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+──────────╮
+nk:2 a.txt│
+──────────╯
+   1  │-first
+     1│+firsta
+   2 2│ line
+   3 3│ line
+   4 4│ line
+──────────╮
+nk:e a.txt│
+──────────╯
+    6  6│ line
+    7  7│ line
+    8  8│ line
+    9   │-last
+       9│+lasta
+
+"#]]);
+    env.but("absorb nk:2")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Found 1 changed file to absorb:
+
+Absorbed to commit: f4ea7f8 a.txt
+  (files locked to commit due to hunk range overlap)
+    a.txt @1,4 +1,4
+
+
+Hint: you can run `but undo` to undo these changes
+
+"#]])
+        .stderr_eq(str![""]);
+
+    // Change was partially absorbed
+    let repo = env.open_repo();
+    let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
+    insta::assert_snapshot!(blob.data.as_bstr(), @"
+    firsta
+    line
+    line
+    line
+    line
+    line
+    line
+    line
+    last
+    ");
+
+    // Status is not clean
+    env.but("--format json status -f")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "uncommittedChanges": [
+    {
+      "cliId": "nk",
+      "filePath": "a.txt",
+      "changeType": "modified"
+    }
+  ],
+...
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn committed_hunk() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    env.but("diff a.txt")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+──────────╮
+nk:2 a.txt│
+──────────╯
+   1  │-first
+     1│+firsta
+   2 2│ line
+   3 3│ line
+   4 4│ line
+──────────╮
+nk:e a.txt│
+──────────╯
+    6  6│ line
+    7  7│ line
+    8  8│ line
+    9   │-last
+       9│+lasta
+
+"#]]);
+
+    env.but("commit A -m 'partial change to a.txt 1'")
+        .assert()
+        .success();
+
+    let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
+
+    // Change the file at the top & commit
+    env.file(
+        "a.txt",
+        format!("first\n{}lasta\n", "line\n".repeat(context_distance)),
+    );
+
+    // Verify the hunks
+    env.but("diff a.txt")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+──────────╮
+nk:f a.txt│
+──────────╯
+   1  │-firsta
+     1│+first
+   2 2│ line
+   3 3│ line
+   4 4│ line
+
+"#]]);
+
+    env.but("commit A -m 'partial change to a.txt 2'")
+        .assert()
+        .success();
+
+    // Change the file at the bottom & commit
+    env.file(
+        "a.txt",
+        format!("first\n{}last\n", "line\n".repeat(context_distance)),
+    );
+
+    // Verify the hunks
+    env.but("diff a.txt")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+──────────╮
+nk:1 a.txt│
+──────────╯
+    6  6│ line
+    7  7│ line
+    8  8│ line
+    9   │-lasta
+       9│+last
+
+"#]]);
+
+    env.but("commit A -m 'partial change to a.txt 3'")
+        .assert()
+        .success();
+
+    // Change the file at the top & bottom & absorb
+    env.file(
+        "a.txt",
+        format!("first new\n{}last new\n", "line\n".repeat(context_distance)),
+    );
+
+    // Verify the hunks
+    env.but("diff a.txt")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+──────────╮
+nk:b a.txt│
+──────────╯
+   1  │-first
+     1│+first new
+   2 2│ line
+   3 3│ line
+   4 4│ line
+──────────╮
+nk:5 a.txt│
+──────────╯
+    6  6│ line
+    7  7│ line
+    8  8│ line
+    9   │-last
+       9│+last new
+
+"#]]);
+
+    env.but("stf")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted]
+┊   nk M a.txt
+┊
+┊╭┄g0 [A]
+┊●   a7aa4ef partial change to a.txt 3
+┊│     a7:nk M a.txt
+┊●   889385c partial change to a.txt 2
+┊│     88:nk M a.txt
+┊●   8dc39e0 partial change to a.txt 1
+┊│     8d:nk M a.txt
+┊●   f4ea7f8 a.txt
+┊│     f4:nk A a.txt
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("absorb i0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Found 1 changed file to absorb:
+
+Absorbed to commit: 889385c partial change to a.txt 2
+  (files locked to commit due to hunk range overlap)
+    a.txt @1,4 +1,4
+
+Absorbed to commit: a7aa4ef partial change to a.txt 3
+  (files locked to commit due to hunk range overlap)
+    a.txt @6,4 +6,4
+
+
+Hint: you can run `but undo` to undo these changes
+
+"#]])
+        .stderr_eq(str![""]);
+
+    env.but("stf")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   4822140 partial change to a.txt 3
+┊│     48:nk M a.txt
+┊●   4593422 partial change to a.txt 2
+┊│     45:nk M a.txt
+┊●   8dc39e0 partial change to a.txt 1
+┊│     8d:nk M a.txt
+┊●   f4ea7f8 a.txt
+┊│     f4:nk A a.txt
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+┊│     d3:pl A B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // Change was full absorbed
+    let repo = env.open_repo();
+    let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
+    insta::assert_snapshot!(blob.data.as_bstr(), @"
+    first new
+    line
+    line
+    line
+    line
+    line
+    line
+    line
+    last new
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "B", "b.txt");
+
+    let status = util::status_json(&env)?;
+    let id_a = find_uncommitted_cli_id(&status, "a.txt").expect("should find a.txt CLI ID");
+    let id_b = find_uncommitted_cli_id(&status, "b.txt").expect("should find b.txt CLI ID");
+
+    let child_a = util::but_std_cmd(&env, &format!("absorb {id_a}")).spawn()?;
+    let child_b = util::but_std_cmd(&env, &format!("absorb {id_b}")).spawn()?;
+
+    let out_a = child_a.wait_with_output()?;
+    let out_b = child_b.wait_with_output()?;
+
+    assert!(
+        out_a.status.success(),
+        "absorb a.txt failed: {}",
+        out_a.stderr.as_bstr()
+    );
+    assert!(
+        out_b.status.success(),
+        "absorb b.txt failed: {}",
+        out_b.stderr.as_bstr()
+    );
+
+    let status = util::status_json(&env)?;
+    assert_eq!(
+        status["uncommittedChanges"]
+            .as_array()
+            .map(|changes| changes.len())
+            .unwrap_or(0),
+        0,
+        "both files should be absorbed from the worktree"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn dry_run_shows_plan_without_changes() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Get initial status
+    let initial_status = env
+        .but("--format json status -f")
+        .allow_json()
+        .output()?
+        .stdout;
+
+    // Run absorb with dry-run flag
+    env.but("absorb i0 --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Found 1 changed file to absorb:
+
+Absorbed to commit: f4ea7f8 a.txt
+  (files locked to commit due to hunk range overlap)
+    a.txt @1,4 +1,4
+    a.txt @6,4 +6,4
+
+Dry run complete. No changes were made.
+
+"#]])
+        .stderr_eq(str![""]);
+
+    // Verify that no changes were actually made - status should be unchanged
+    let post_dry_run_status = env
+        .but("--format json status -f")
+        .allow_json()
+        .output()?
+        .stdout;
+    assert_eq!(
+        initial_status, post_dry_run_status,
+        "Status should be unchanged after dry-run"
+    );
+
+    // Also verify the workspace commit did NOT change during dry-run
+    let repo = env.open_repo();
+    let ws_id = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+    // Re-run dry-run and confirm workspace is still the same
+    env.but("absorb i0 --dry-run").assert().success();
+    let ws_id_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+    assert_eq!(ws_id, ws_id_after, "dry-run must not touch workspace HEAD");
+
+    // Verify the file content wasn't actually changed
+    let repo = env.open_repo();
+    let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
+    insta::assert_snapshot!(blob.data.as_bstr(), @"
+    first
+    line
+    line
+    line
+    line
+    line
+    line
+    line
+    last
+    ");
+
+    // Verify there are still uncommitted changes
+    env.but("--format json status -f")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "uncommittedChanges": [
+    {
+      "cliId": "nk",
+      "filePath": "a.txt",
+      "changeType": "modified"
+    }
+  ],
+...
+
+"#]]);
+
+    Ok(())
+}
+
+/// Regression test for https://github.com/gitbutlerapp/gitbutler/issues/12750
+/// After absorb, the `gitbutler/workspace` HEAD must be refreshed so that
+/// tools inspecting HEAD (e.g. pre-push hooks that stash against it) see
+/// an up-to-date synthetic commit rather than a stale one.
+#[test]
+fn workspace_head_is_refreshed_after_absorb() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Record the workspace commit *before* absorb.
+    let repo = env.open_repo();
+    let ws_before = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+
+    env.but("absorb i0").assert().success().stderr_eq(str![""]);
+
+    // After absorb the workspace commit must have changed.
+    let ws_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
+
+    assert_ne!(
+        ws_before, ws_after,
+        "gitbutler/workspace HEAD should be refreshed after absorb"
+    );
+
+    Ok(())
+}

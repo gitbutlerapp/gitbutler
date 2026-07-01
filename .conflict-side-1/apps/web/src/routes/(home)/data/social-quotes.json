@@ -1,0 +1,110 @@
+[
+	{
+		"social": "x",
+		"handle": "@hunkybill",
+		"author": "Dave Lazar",
+		"occupation": "Ruby & JavaScript Developer",
+		"avatar": "/images/social-avatars/hunkybill.jpg",
+		"quote": "This is excellent stuff! Love the concise, precise lanes and use of Claude in this fashion! Can use this for sure!",
+		"source": "https://x.com/hunkybill/status/1947723999104143787"
+	},
+	{
+		"social": "Bluesky",
+		"handle": "@ericclemmons.com",
+		"author": "Eric Clemmons",
+		"occupation": "Frontend Engineer, ex-Honor, ex-Stripe, AWS_Amplify",
+		"avatar": "/images/social-avatars/ericclemmons.jpg",
+		"quote": "Y'all. I haven't used the `git` CLI in *months* thanks to Gitbutler. But now they have actual Stacked PRs (not just independent lanes) 😍 I don't think I'll ever have to go back to the CLI 🙏",
+		"source": "https://bsky.app/profile/ericclemmons.com/post/3lcojptzvfs2e"
+	},
+	{
+		"social": "Bluesky",
+		"handle": "@lesh0.bsky.social",
+		"author": "Alesh",
+		"occupation": "DevOps Engineer",
+		"avatar": "/images/social-avatars/lesh0.jpg",
+		"quote": "Tried the gitbutler for the first time. Amazing tool! After so many years using CLI only, this is first UI git tool I enjoy working with. Awesome job guys! 👏",
+		"source": "https://bsky.app/profile/lesh0.bsky.social/post/3ll4izc3fr222"
+	},
+	{
+		"social": "Bluesky",
+		"handle": "@lostdomain.org",
+		"author": "Martijn Smit",
+		"occupation": "Technical Founder and Developer",
+		"avatar": "/images/social-avatars/lostdomain.jpg",
+		"quote": "highly recommend checking out GitButler if you're using git and the branches process - it's saved me so much time switching between branches having multiple different PRs open, and it's just awesome how it presents all the data you need",
+		"source": "https://bsky.app/profile/lostdomain.org/post/3lsxr3pvyzc2e"
+	},
+	{
+		"social": "X",
+		"handle": "@sergedottech",
+		"author": "Serge",
+		"occupation": "DevEx at Sentry",
+		"avatar": "/images/social-avatars/sergedottech.jpg",
+		"quote": "fwiw Gitbutler is such an incredible piece of software. i used the github app, tower and the cli in the past, but this is better, kudos to the team",
+		"source": "https://x.com/sergedottech/status/1896603782945112515"
+	},
+	{
+		"social": "Bluesky",
+		"handle": "@renderg.host",
+		"author": "B. Prendergast",
+		"occupation": "Lead Designer and DesignOps",
+		"avatar": "/images/social-avatars/renderg.jpg",
+		"quote": "Gitbutler Latest iteration of v3 is soooo f'ing good. The visual hierarchy rocks. The h scrolling is neat (no inner scroll issues👏 ). And it looks so great 🌈",
+		"source": "https://bsky.app/profile/renderg.host/post/3lsfwbsftmk2x"
+	},
+	{
+		"social": "X",
+		"handle": "@ItsAndreKoenig",
+		"author": "André König",
+		"occupation": "CEO & Founder | Scalable Software Solutions",
+		"avatar": "/images/social-avatars/andrekoenig.jpg",
+		"quote": "Gitbutler is pretty cool!",
+		"source": "https://x.com/ItsAndreKoenig/status/1936819109301572071"
+	},
+	{
+		"social": "Bluesky",
+		"handle": "@djlink.bsky.social",
+		"author": "David Amador",
+		"occupation": "Indie Game Developer | Founder of Upfall Studios",
+		"avatar": "/images/social-avatars/djlink.jpg",
+		"quote": "this git client looks like a brilliant idea, virtual branches so you can work simultaneously on different features and move your uncommitted work to different things very easily gitbutler.com",
+		"source": "https://bsky.app/profile/djlink.bsky.social/post/3lukodmv2ps2q"
+	},
+	{
+		"social": "X",
+		"handle": "@colebemis",
+		"author": "Cole Bemis",
+		"occupation": "Design Engineer at Notion",
+		"avatar": "/images/social-avatars/colebemis.jpg",
+		"quote": "I was using Graphite's CLI for managing stacked PRs and I find GitButler's GUI so much easier",
+		"source": "https://x.com/colebemis/status/1967839675307135115"
+	},
+	{
+		"social": "X",
+		"handle": "@EstradiotoLuan",
+		"author": "Luan Estra",
+		"occupation": "Frontend-focused Full Stack Developer",
+		"avatar": "/images/social-avatars/estradiotoluan.jpg",
+		"quote": "Gitbutler wow, cant express myself how good this GitButler thing is, so much headache avoided",
+		"source": "https://x.com/EstradiotoLuan/status/1963276484962828772"
+	},
+	{
+		"social": "X",
+		"handle": "@sethgho",
+		"author": "Seth Gholson",
+		"occupation": "Founding Engineer at Ethos | ex-Atlassian",
+		"avatar": "/images/social-avatars/sethgho.jpg",
+		"quote": "Big fan of gitbutler here! It’s changed my got workflow. So much easier to test my branch in parallel with others’ or to spin off a small bit into a quick PR.",
+		"source": "https://x.com/sethgho/status/1937014523325751474"
+	},
+	{
+		"social": "X",
+		"handle": "@tonyennis",
+		"author": "Tony Ennis",
+		"occupation": "Developer and entrepreneur | Really Good Software",
+		"avatar": "/images/social-avatars/tonyennis.jpg",
+		"quote": "Git workflows are still one of the biggest barriers to agentic coding. Gitbutler has been working on tech for years that just so happens to solve the problem beautifully. Love this",
+		"source": "https://x.com/tonyennis/status/1947734649058607144"
+	}
+]

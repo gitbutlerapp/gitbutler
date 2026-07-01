@@ -1,0 +1,31 @@
+[package]
+name = "gitbutler-user"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+but-secret.workspace = true
+but-utils = { workspace = true, features = ["legacy"] }
+but-path.workspace = true
+
+anyhow.workspace = true
+base64.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+serde_json = { workspace = true, features = ["arbitrary_precision"] }
+
+[dev-dependencies]
+serial_test = "3.2.0"
+tempfile.workspace = true
+keyring.workspace = true
+
+[lints]
+workspace = true

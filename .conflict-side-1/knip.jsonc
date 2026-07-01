@@ -1,0 +1,33 @@
+{
+	"$schema": "https://unpkg.com/knip@5/schema-jsonc.json",
+	"rules": {
+		// Disabled due to too many false positives: Knip doesn't consider catalog
+		// usages in ignored workspaces.
+		"catalog": "off",
+	},
+	"ignoreWorkspaces": [".", "apps/desktop", "apps/web", "e2e", "packages/*"],
+	"workspaces": {
+		"apps/lite": {
+			"entry": [
+				"electron/src/ipc.ts!",
+				"electron/src/main.ts!",
+				"electron/src/preload.cts!",
+
+				"ui/src/css-modules.d.ts!",
+				"ui/src/electron.d.ts!",
+				"ui/src/react-css-properties.d.ts!",
+				"ui/src/components/ToggleGroup.tsx!",
+			],
+			"project": ["electron/src/**!", "ui/src/**!"],
+			"includeEntryExports": true,
+			"ignoreDependencies": [
+				"babel-plugin-react-compiler",
+				"@gitbutler/design-core",
+				"@tanstack/eslint-plugin-query",
+				"eslint-plugin-react-you-might-not-need-an-effect",
+				"electron",
+				"@types/semver",
+			],
+		},
+	},
+}

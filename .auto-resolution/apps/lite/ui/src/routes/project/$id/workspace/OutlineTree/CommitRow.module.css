@@ -1,0 +1,23 @@
+.graphSegmentWithCheckbox {
+	display: grid;
+	justify-items: center;
+
+	& > * {
+		grid-area: 1 / 1;
+	}
+}
+
+.checkbox {
+	margin-block-start: 7px;
+	opacity: 0;
+
+	:global([data-has-checked-commits]) &,
+	.row:hover &,
+	&:focus {
+		opacity: 1;
+	}
+
+	:global([role="tree"]:not([data-has-checked-commits])) &[data-disabled] {
+		display: none;
+	}
+}

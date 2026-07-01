@@ -1,0 +1,38 @@
+.popup {
+	border-radius: 8px;
+	outline: 1px solid light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.16));
+	background-color: var(--bg-1);
+	box-shadow: 0 12px 16px -8px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.4));
+}
+
+.dialogPopup {
+	display: flex;
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	row-gap: 12px;
+	flex-direction: column;
+	padding: 16px;
+	transform: translate(-50%, -50%);
+}
+
+.scrollerWithSeparator {
+	container-type: scroll-state;
+	overflow: auto;
+
+	&:before {
+		display: block;
+		z-index: 1;
+		position: sticky;
+		top: 0;
+		margin-top: -1px;
+		border-top: 1px solid light-dark(hsl(0 0% 83.9% / 0.45), hsl(0 0% 0% / 0.5));
+		content: "";
+		opacity: 0;
+		transition: opacity 120ms ease;
+
+		@container scroll-state(scrollable: top) {
+			opacity: 1;
+		}
+	}
+}

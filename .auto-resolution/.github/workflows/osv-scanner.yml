@@ -1,0 +1,180 @@
+name: OSV-Scanner
+
+on:
+  pull_request:
+    branches: ["master"]
+  merge_group:
+    branches: ["master"]
+  schedule:
+    - cron: "40 4 * * 5"
+  push:
+    branches: ["master"]
+
+jobs:
+  scan-default-branch:
+    if: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Run scanner
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --config=.github/osv-scanner.toml
+            --output=results.sarif
+            --format=sarif
+            -r
+            ./
+        continue-on-error: true
+      - name: Check SARIF output
+        if: ${{ !cancelled() }}
+        run: |
+          if [ ! -f results.sarif ]; then
+            echo "::error::OSV scanner did not produce results.sarif; the scan likely failed."
+            exit 1
+          fi
+      - name: Upload artifact
+        if: ${{ !cancelled() && hashFiles('results.sarif') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: osv-scanner-sarif-default-${{ github.run_id }}-${{ github.run_attempt }}
+          path: results.sarif
+          retention-days: 5
+      - name: Upload to code-scanning
+        if: ${{ !cancelled() && hashFiles('results.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        with:
+          sarif_file: results.sarif
+      - name: Report vulnerabilities
+        if: ${{ !cancelled() && hashFiles('results.sarif') != '' }}
+        run: |
+          findings="$(jq '[.runs[].results[]?] | length' results.sarif)"
+          if [ "${findings}" -gt 0 ]; then
+            echo "::warning::OSV found ${findings} vulnerabilities on default branch scan."
+          fi
+
+  scan-pr:
+    if: ${{ github.event_name == 'merge_group' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Checkout target branch
+        run: |
+          target_ref="$(jq -r '
+            if .pull_request then
+              .pull_request.base.sha
+            elif .merge_group then
+              (.merge_group.base_sha // .merge_group.base_ref // empty)
+            else
+              empty
+            end
+          ' "$GITHUB_EVENT_PATH")"
+
+          if [ -z "${target_ref}" ]; then
+            echo "::error::Unable to determine target ref for ${GITHUB_EVENT_NAME}."
+            exit 1
+          fi
+
+          if ! git checkout "${target_ref}"; then
+            git fetch --no-tags origin "${target_ref}"
+            git checkout FETCH_HEAD
+          fi
+      - name: Run scanner on existing code
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --config=.github/osv-scanner.toml
+            --format=json
+            --output=old-results.json
+            -r
+            ./
+        continue-on-error: true
+      - name: Checkout current branch
+        run: git checkout -f "$GITHUB_SHA"
+      - name: Run scanner on new code
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --config=.github/osv-scanner.toml
+            --format=json
+            --output=new-results.json
+            -r
+            ./
+        continue-on-error: true
+      - name: Check scan outputs
+        id: check_scan_outputs
+        if: ${{ always() && !cancelled() }}
+        run: |
+          missing=0
+          for result in old-results.json new-results.json; do
+            if [ ! -f "${result}" ]; then
+              echo "::error::Missing ${result}; OSV scan likely failed before producing output."
+              missing=1
+            fi
+          done
+          exit "${missing}"
+        continue-on-error: true
+      - name: Run reporter
+        id: run_reporter
+        if: ${{ always() && !cancelled() && steps.check_scan_outputs.outcome == 'success' }}
+        uses: google/osv-scanner-action/osv-reporter-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --output=results.sarif
+            --old=old-results.json
+            --new=new-results.json
+            --gh-annotations=true
+            --fail-on-vuln=true
+        continue-on-error: true
+      - name: Check reporter output
+        id: check_reporter_output
+        if: ${{ always() && !cancelled() && steps.run_reporter.outcome != 'skipped' }}
+        run: |
+          if [ ! -f results.sarif ]; then
+            echo "::error::OSV reporter did not produce results.sarif."
+            exit 1
+          fi
+      - name: Upload artifact
+        if: ${{ always() && !cancelled() && hashFiles('results.sarif') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: osv-scanner-sarif-pr-${{ github.run_id }}-${{ github.run_attempt }}
+          path: results.sarif
+          retention-days: 5
+      - name: Upload old scan json results
+        if: ${{ always() && !cancelled() && hashFiles('old-results.json') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: osv-scanner-old-json-${{ github.run_id }}-${{ github.run_attempt }}
+          path: old-results.json
+          retention-days: 5
+      - name: Upload new scan json results
+        if: ${{ always() && !cancelled() && hashFiles('new-results.json') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: osv-scanner-new-json-${{ github.run_id }}-${{ github.run_attempt }}
+          path: new-results.json
+          retention-days: 5
+      - name: Upload to code-scanning
+        if: ${{ always() && !cancelled() && hashFiles('results.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        with:
+          sarif_file: results.sarif
+      - name: Fail on vulnerabilities introduced by PR
+        if: ${{ always() && !cancelled() && (steps.check_scan_outputs.outcome == 'failure' || steps.run_reporter.outcome == 'failure' || steps.check_reporter_output.outcome == 'failure') }}
+        run: |
+          echo "::error::OSV PR scan failed (scan output missing, reporter failure, or vulnerabilities introduced). See logs and artifacts."
+          exit 1

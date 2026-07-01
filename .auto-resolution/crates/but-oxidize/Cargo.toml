@@ -1,0 +1,19 @@
+[package]
+name = "but-oxidize"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+description = "Utilities to convert between `gitoxide` and `git`"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+git2.workspace = true
+gix = { workspace = true, features = ["merge"] }
+
+[lints]
+workspace = true

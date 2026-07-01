@@ -1,0 +1,625 @@
+#![cfg_attr(
+    all(windows, not(test), not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
+// FIXME(qix-): Stuff we want to fix but don't have a lot of time for.
+// FIXME(qix-): PRs welcome!
+#![allow(
+    clippy::used_underscore_binding,
+    clippy::module_name_repetitions,
+    clippy::struct_field_names,
+    clippy::too_many_lines
+)]
+
+use std::sync::Arc;
+
+use anyhow::{Context, bail};
+use but_api::{branch, commit, diff, github, gitlab, land, legacy, open, platform, workspace};
+#[cfg(feature = "irc")]
+use but_irc::IrcManager;
+use but_settings::AppSettingsWithDiskSync;
+#[cfg(feature = "irc")]
+use gitbutler_tauri::irc;
+use gitbutler_tauri::{
+    WindowState, action, askpass, broadcaster::Broadcaster, csp::csp_with_extras, env, logs, menu,
+    projects, settings, zip,
+};
+use tauri::{Emitter, Manager, generate_context};
+use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_log::{Target, TargetKind};
+use tokio::sync::Mutex;
+
+#[cfg(feature = "irc")]
+/// Return a copy of `irc` with `connection.enabled` forced to `false` when
+/// the IRC feature flag is off. This lets the existing reconciliation logic
+/// treat "flag turned off" the same as "user disabled the connection".
+fn effective_irc(
+    irc: &but_settings::app_settings::IrcSettings,
+    feature_enabled: bool,
+) -> but_settings::app_settings::IrcSettings {
+    if feature_enabled {
+        irc.clone()
+    } else {
+        let mut copy = irc.clone();
+        copy.connection.enabled = false;
+        copy
+    }
+}
+
+fn main() -> anyhow::Result<()> {
+    but_api::panic_capture::install_panic_hook();
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+    #[cfg(feature = "builtin-but")]
+    {
+        if but::is_executed_as_but()? {
+            but_askpass::disable();
+            return runtime.block_on(but::handle_args(std::env::args_os()));
+        }
+    }
+    let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
+    let tauri_debug_logging = std::env::var_os("GITBUTLER_TAURI_DEBUG_LOG").is_some();
+
+    let mut tauri_context = generate_context!();
+    but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
+
+    // Set the macOS notification bundle ID so notifications appear as GitButler.
+    #[cfg(target_os = "macos")]
+    {
+        if let Err(e) = notify_rust::set_application(&tauri_context.config().identifier) {
+            tracing::warn!(error = %e, "Failed to set notification application");
+        }
+    }
+
+    let config_dir = but_path::app_config_dir().expect("missing config dir");
+    std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
+    let custom_settings = cfg!(feature = "packaged-but-distribution")
+        .then(but_settings::customization::packaged_but_binary);
+    // While it serves a function, this behavior is sub-optimal. The proper solution is to decouple:
+    // - Checking for updates from
+    // - Performing an update
+    // This way people can be informed that there is an update even if self-updating is not possible (i.e. installed via package manager).
+    let custom_settings = if cfg!(feature = "disable-auto-updates") {
+        but_settings::customization::merge_two(
+            but_settings::customization::disable_auto_update_checks(),
+            custom_settings,
+        )
+        .into()
+    } else {
+        custom_settings
+    };
+    let mut app_settings =
+        AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), custom_settings)
+            .expect("failed to create app settings");
+
+    if let Ok(updated_csp) = csp_with_extras(
+        tauri_context.config().app.security.csp.as_ref().cloned(),
+        &app_settings,
+    ) {
+        tauri_context.config_mut().app.security.csp = updated_csp;
+    };
+
+    if let Some(project_to_open) =
+        std::env::var_os("GITBUTLER_PROJECT_DIR").map(std::path::PathBuf::from)
+    {
+        bail!(
+            "GUI says: how do we tell the frontend to open: {}? \
+               We could figure out the project-ID while that's important, and pass it along somehow",
+            project_to_open.display()
+        );
+    }
+    let (app_data_dir, app_cache_dir, app_log_dir) = (
+        but_path::app_data_dir()?,
+        but_path::app_cache_dir()?,
+        but_path::app_log_dir()?,
+    );
+    std::fs::create_dir_all(&app_data_dir).context("failed to create app data dir")?;
+    std::fs::create_dir_all(&app_cache_dir).context("failed to create app cache dir")?;
+    std::fs::create_dir_all(&app_log_dir).context("failed to create app log dir")?;
+
+    let tokio_debug = matches!(std::env::var("GITBUTLER_TOKIO_DEBUG").as_deref(), Ok("1"));
+    runtime.block_on(async {
+        tauri::async_runtime::set(tokio::runtime::Handle::current());
+
+        let log = tauri_plugin_log::Builder::default()
+            .target(Target::new(TargetKind::LogDir {
+                file_name: Some("ui-logs".to_string()),
+            }))
+            .level(if tauri_debug_logging {
+                tauri_plugin_log::log::LevelFilter::Debug
+            } else {
+                tauri_plugin_log::log::LevelFilter::Error
+            });
+
+        let builder = tauri::Builder::default()
+            .setup(move |tauri_app| {
+                let window = gitbutler_tauri::window::create(
+                    tauri_app.handle(),
+                    "main",
+                    "index.html".into(),
+                )
+                .expect("Failed to create window");
+
+                // TODO(mtsgrd): Is there a better way to disable devtools in E2E tests?
+                #[cfg(debug_assertions)]
+                if tauri_app.config().product_name != Some("GitButler Test".to_string()) {
+                    window.open_devtools();
+                }
+
+                let app_handle = tauri_app.handle();
+
+                logs::init(app_handle, &app_log_dir, performance_logging, tokio_debug);
+
+                but_action::cli::auto_fix_broken_but_cli_symlink();
+                inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
+                migrate_projects().ok();
+
+                tracing::info!(
+                    "system git executable for fetch/push: {git:?}",
+                    git = gix::path::env::exe_invocation(),
+                );
+                if cfg!(windows) {
+                    tracing::info!("system git bash: {bash:?}", bash = gix::path::env::shell());
+                } else {
+                    tracing::info!("SHELL env: {var:?}", var = std::env::var_os("SHELL"));
+                }
+
+                but_askpass::init({
+                    let handle = app_handle.clone();
+                    move |event| {
+                        handle
+                            .emit("git_prompt", event)
+                            .expect("tauri event emission doesn't fail in practice")
+                    }
+                });
+
+
+                tracing::info!(version = %app_handle.package_info().version,
+                                   name = %app_handle.package_info().name, "starting app");
+
+                app_handle.manage(WindowState::new(app_handle.clone()));
+                #[cfg(feature = "irc")]
+                {
+                    let irc_manager = IrcManager::new();
+                    app_handle.manage(but_irc::WorkingFilesBroadcast::new(irc_manager.clone()));
+                    app_handle.manage(irc_manager);
+                }
+
+                // Track previous effective IRC settings for diffing on changes.
+                // "Effective" means connection.enabled is forced false when the
+                // feature flag is off, so toggling the flag also disconnects.
+                #[cfg(feature = "irc")]
+                let prev_irc_settings = std::sync::Mutex::new(
+                    app_settings.get().ok().map(|s| effective_irc(&s.irc, s.feature_flags.irc))
+                );
+
+                app_settings.watch_in_background({
+                    let app_handle = app_handle.clone();
+                    move |app_settings| {
+                        #[cfg(feature = "irc")]
+                        {
+                            let new_irc = effective_irc(&app_settings.irc, app_settings.feature_flags.irc);
+                            if let Ok(mut prev) = prev_irc_settings.lock() {
+                                if let Some(old_irc) = prev.as_ref()
+                                    && old_irc != &new_irc
+                                {
+                                    gitbutler_tauri::irc_lifecycle::on_settings_changed(
+                                        &app_handle, old_irc, &new_irc,
+                                    );
+                                }
+                                *prev = Some(new_irc);
+                            }
+                        }
+
+                        gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
+                    }
+                })?;
+
+                let broadcaster = Arc::new(Mutex::new(Broadcaster::new()));
+
+                let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
+                let broadcaster2 = broadcaster.clone();
+                tokio::spawn(async move {
+                    broadcaster2
+                        .lock()
+                        .await
+                        .register_sender(&uuid::Uuid::new_v4(), send)
+                });
+
+                let window2 = window.clone();
+                std::thread::spawn(move || {
+                    while let Some(message) = recv.blocking_recv() {
+                        window2.emit(&message.name, message.payload).unwrap();
+                    }
+                });
+
+                let archival = but_feedback::Archival {
+                    cache_dir: app_cache_dir.clone(),
+                    logs_dir: app_log_dir.clone(),
+                };
+                app_handle.manage(archival);
+                app_handle.manage(app_settings);
+
+                // Auto-connect IRC connections based on settings (only when feature flag is on).
+                #[cfg(feature = "irc")]
+                if let Ok(settings) = app_handle.state::<AppSettingsWithDiskSync>().get() {
+                    let irc = effective_irc(&settings.irc, settings.feature_flags.irc);
+                    gitbutler_tauri::irc_lifecycle::auto_connect_on_startup(app_handle, &irc);
+                }
+                tauri_app.on_menu_event(move |handle, event| {
+                    let target_window = handle
+                        .webview_windows()
+                        .into_values()
+                        .find(|webview| webview.is_focused().unwrap_or(false))
+                        .or_else(|| handle.get_webview_window("main"));
+
+                    if let Some(webview) = target_window {
+                        menu::handle_event(&webview, &event);
+                    } else {
+                        tracing::warn!(
+                            menu_event = %event.id().as_ref(),
+                            "no webview window available to handle menu event"
+                        );
+                    }
+                });
+
+                let app_handle_for_deep_link = app_handle.clone();
+                app_handle.deep_link().on_open_url(move |_| {
+                    // Get main window
+                    if let Some(window) = app_handle_for_deep_link.get_window("main") {
+                        let _ = window.unminimize();
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                });
+                Ok(())
+            })
+            .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
+            .plugin(tauri_plugin_shell::init())
+            .plugin(tauri_plugin_os::init())
+            .plugin(tauri_plugin_process::init())
+            .plugin(tauri_plugin_deep_link::init())
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_dialog::init())
+            .plugin(tauri_plugin_fs::init())
+            .plugin(tauri_plugin_clipboard_manager::init())
+            .plugin(tauri_plugin_store::Builder::default().build())
+            .plugin(log.build())
+            .invoke_handler(tauri::generate_handler![
+                github::tauri_init_github_device_oauth::init_github_device_oauth,
+                github::tauri_check_github_auth_status::check_github_auth_status,
+                github::tauri_store_github_pat::store_github_pat,
+                github::tauri_store_github_enterprise_pat::store_github_enterprise_pat,
+                github::tauri_get_gh_user::get_gh_user,
+                github::tauri_forget_github_account::forget_github_account,
+                github::tauri_list_known_github_accounts::list_known_github_accounts,
+                github::tauri_clear_all_github_tokens::clear_all_github_tokens,
+                gitlab::tauri_store_gitlab_pat::store_gitlab_pat,
+                gitlab::tauri_store_gitlab_selfhosted_pat::store_gitlab_selfhosted_pat,
+                gitlab::tauri_get_gl_user::get_gl_user,
+                gitlab::tauri_forget_gitlab_account::forget_gitlab_account,
+                gitlab::tauri_list_known_gitlab_accounts::list_known_gitlab_accounts,
+                gitlab::tauri_clear_all_gitlab_tokens::clear_all_gitlab_tokens,
+                diff::tauri_commit_details::commit_details,
+                diff::tauri_commit_details_with_line_stats::commit_details_with_line_stats,
+                but_api::branch::tauri_branch_diff::branch_diff,
+                but_api::branch::tauri_move_branch::move_branch,
+                but_api::branch::tauri_tear_off_branch::tear_off_branch,
+                legacy::git::tauri_git_remote_branches::git_remote_branches,
+                legacy::git::tauri_delete_all_data::delete_all_data,
+                legacy::git::tauri_git_set_global_config::git_set_global_config,
+                legacy::git::tauri_git_remove_global_config::git_remove_global_config,
+                legacy::git::tauri_git_get_global_config::git_get_global_config,
+                legacy::git::tauri_git_test_push::git_test_push,
+                legacy::git::tauri_git_test_fetch::git_test_fetch,
+                legacy::git::tauri_git_index_size::git_index_size,
+                legacy::users::tauri_set_user::set_user,
+                legacy::users::tauri_delete_user::delete_user,
+                legacy::users::tauri_get_user::get_user,
+                legacy::users::tauri_get_login_token::get_login_token,
+                legacy::users::tauri_login_with_token::login_with_token,
+                legacy::users::tauri_get_user_profile::get_user_profile,
+                legacy::users::tauri_update_user_profile::update_user_profile,
+                legacy::projects::tauri_add_project::add_project,
+                legacy::projects::tauri_add_project_best_effort::add_project_best_effort,
+                legacy::projects::tauri_get_project::get_project,
+                legacy::projects::tauri_update_project::update_project,
+                legacy::projects::tauri_delete_project::delete_project,
+                legacy::projects::tauri_is_gerrit::is_gerrit,
+                legacy::repo::tauri_check_signing_settings::check_signing_settings,
+                legacy::repo::tauri_git_clone_repository::git_clone_repository,
+                legacy::repo::tauri_get_commit_file::get_commit_file,
+                legacy::repo::tauri_get_workspace_file::get_workspace_file,
+                legacy::repo::tauri_get_blob_file::get_blob_file,
+                legacy::repo::tauri_find_files::find_files,
+                legacy::repo::tauri_pre_commit_hook_diffspecs::pre_commit_hook_diffspecs,
+                legacy::repo::tauri_post_commit_hook::post_commit_hook,
+                legacy::repo::tauri_message_hook::message_hook,
+                legacy::cherry_apply::tauri_cherry_apply_status::cherry_apply_status,
+                legacy::cherry_apply::tauri_cherry_apply::cherry_apply,
+                legacy::virtual_branches::tauri_create_virtual_branch::create_virtual_branch,
+                legacy::virtual_branches::tauri_delete_local_branch::delete_local_branch,
+                legacy::virtual_branches::tauri_get_base_branch_data::get_base_branch_data,
+                legacy::virtual_branches::tauri_set_base_branch::set_base_branch,
+                legacy::virtual_branches::tauri_switch_back_to_workspace::switch_back_to_workspace,
+                legacy::virtual_branches::tauri_push_base_branch::push_base_branch,
+                legacy::virtual_branches::tauri_integrate_upstream_commits::integrate_upstream_commits,
+                legacy::virtual_branches::tauri_get_initial_integration_steps_for_branch::get_initial_integration_steps_for_branch,
+                legacy::virtual_branches::tauri_update_stack_order::update_stack_order,
+                legacy::virtual_branches::tauri_unapply_stack::unapply_stack,
+                legacy::virtual_branches::tauri_create_virtual_branch_from_branch::create_virtual_branch_from_branch,
+                legacy::virtual_branches::tauri_list_branches::list_branches,
+                legacy::virtual_branches::tauri_get_branch_listing_details::get_branch_listing_details,
+                legacy::virtual_branches::tauri_integrate_branch_with_steps::integrate_branch_with_steps,
+                legacy::virtual_branches::tauri_fetch_from_remotes::fetch_from_remotes,
+                legacy::virtual_branches::tauri_normalize_branch_name::normalize_branch_name,
+                legacy::virtual_branches::tauri_upstream_integration_statuses::upstream_integration_statuses,
+                legacy::virtual_branches::tauri_integrate_upstream::integrate_upstream,
+                legacy::virtual_branches::tauri_resolve_upstream_integration::resolve_upstream_integration,
+                branch::tauri_get_initial_branch_integration::get_initial_branch_integration,
+                branch::tauri_apply_branch_integration::apply_branch_integration,
+                legacy::stack::tauri_create_reference::create_reference,
+                legacy::stack::tauri_create_branch::create_branch,
+                legacy::stack::tauri_remove_branch::remove_branch,
+                legacy::stack::tauri_update_branch_name::update_branch_name,
+                legacy::stack::tauri_update_branch_pr_number::update_branch_pr_number,
+                legacy::stack::tauri_push_stack::push_stack,
+                legacy::secret::tauri_secret_get_global::secret_get_global,
+                legacy::secret::tauri_secret_set_global::secret_set_global,
+                legacy::secret::tauri_secret_delete_global::secret_delete_global,
+                legacy::oplog::tauri_list_snapshots::list_snapshots,
+                legacy::oplog::tauri_create_snapshot::create_snapshot,
+                legacy::oplog::tauri_restore_snapshot::restore_snapshot,
+                legacy::oplog::tauri_snapshot_diff::snapshot_diff,
+                legacy::config::tauri_get_gb_config::get_gb_config,
+                legacy::config::tauri_set_gb_config::set_gb_config,
+                legacy::config::tauri_store_author_globally_if_unset::store_author_globally_if_unset,
+                legacy::config::tauri_get_author_info::get_author_info,
+                legacy::remotes::tauri_list_remotes::list_remotes,
+                legacy::remotes::tauri_add_remote::add_remote,
+                legacy::modes::tauri_operating_mode::operating_mode,
+                legacy::modes::tauri_head_sha::head_sha,
+                legacy::modes::tauri_enter_edit_mode::enter_edit_mode,
+                legacy::modes::tauri_save_edit_and_return_to_workspace::save_edit_and_return_to_workspace,
+                legacy::modes::tauri_abort_edit_and_return_to_workspace::abort_edit_and_return_to_workspace,
+                legacy::modes::tauri_edit_initial_index_state::edit_initial_index_state,
+                legacy::modes::tauri_edit_changes_from_initial::edit_changes_from_initial,
+                open::tauri_open_url::open_url,
+                open::tauri_open_in_terminal::open_in_terminal,
+                open::tauri_show_in_finder::show_in_finder,
+                open::terminal::tauri_get_terminal_options_for_platform::get_terminal_options_for_platform,
+                open::terminal::tauri_get_recommended_terminal_for_platform::get_recommended_terminal_for_platform,
+                legacy::forge::tauri_pr_templates::pr_templates,
+                legacy::forge::tauri_pr_template::pr_template,
+                legacy::forge::tauri_forge_provider::forge_provider,
+                legacy::forge::tauri_forge_info::forge_info,
+                legacy::forge::tauri_forge_compare_branch_url::forge_compare_branch_url,
+                legacy::forge::tauri_list_reviews::list_reviews,
+                legacy::forge::tauri_get_review::get_review,
+                legacy::forge::tauri_get_review_merge_status::get_review_merge_status,
+                legacy::forge::tauri_get_review_base_repo_url::get_review_base_repo_url,
+                legacy::forge::tauri_get_repo_info::get_repo_info,
+                legacy::forge::tauri_update_review::update_review,
+                legacy::forge::tauri_list_ci_checks::list_ci_checks,
+                legacy::forge::tauri_publish_review::publish_review,
+                legacy::forge::tauri_merge_review::merge_review,
+                legacy::forge::tauri_set_review_auto_merge::set_review_auto_merge,
+                legacy::forge::tauri_set_review_draftiness::set_review_draftiness,
+                legacy::forge::tauri_update_review_footers::update_review_footers,
+                legacy::cli::tauri_install_cli::install_cli,
+                legacy::cli::tauri_cli_path::cli_path,
+                legacy::workspace::tauri_head_info::head_info,
+                legacy::workspace::tauri_branch_details::branch_details,
+                legacy::workspace::tauri_discard_worktree_changes::discard_worktree_changes,
+                legacy::workspace::tauri_stash_into_branch::stash_into_branch,
+                legacy::workspace::tauri_canned_branch_name::canned_branch_name,
+                legacy::workspace::tauri_target_commits::target_commits,
+                legacy::workspace::tauri_workspace_branch_and_ancestors_push::workspace_branch_and_ancestors_push,
+                legacy::absorb::tauri_absorb::absorb,
+                legacy::absorb::tauri_absorption_plan::absorption_plan,
+                diff::tauri_changes_in_worktree::changes_in_worktree,
+                diff::tauri_tree_change_diffs::tree_change_diffs,
+                diff::tauri_assign_hunk::assign_hunk,
+                #[cfg(unix)]
+                legacy::workspace::tauri_show_graph_svg::show_graph_svg,
+                action::list_actions,
+                action::handle_changes,
+                action::list_workflows,
+                askpass::submit_prompt_response,
+                menu::menu_item_set_enabled,
+                projects::list_projects,
+                projects::server_capabilities,
+                projects::set_project_active,
+                projects::open_project_in_window,
+                zip::get_logs_archive_path,
+                zip::get_project_archive_path,
+                zip::get_anonymous_graph_path,
+                settings::get_app_settings,
+                settings::update_onboarding_complete,
+                settings::update_telemetry,
+                settings::update_feature_flags,
+                settings::update_telemetry_distinct_id,
+                settings::update_fetch,
+                settings::update_reviews,
+                settings::update_ui,
+                settings::update_irc,
+                // Debug-only - not for production!
+                #[cfg(debug_assertions)]
+                env::env_vars,
+                #[cfg(feature = "irc")]
+                irc::irc_connect,
+                #[cfg(feature = "irc")]
+                irc::irc_disconnect,
+                #[cfg(feature = "irc")]
+                irc::irc_state,
+                #[cfg(feature = "irc")]
+                irc::irc_wait_ready,
+                #[cfg(feature = "irc")]
+                irc::irc_join,
+                #[cfg(feature = "irc")]
+                irc::irc_part,
+                #[cfg(feature = "irc")]
+                irc::irc_auto_join,
+                #[cfg(feature = "irc")]
+                irc::irc_auto_leave,
+                #[cfg(feature = "irc")]
+                irc::irc_send_message,
+                #[cfg(feature = "irc")]
+                irc::irc_send_message_with_data,
+                #[cfg(feature = "irc")]
+                irc::irc_send_raw,
+                #[cfg(feature = "irc")]
+                irc::irc_send_typing,
+                #[cfg(feature = "irc")]
+                irc::irc_send_reaction,
+                #[cfg(feature = "irc")]
+                irc::irc_remove_reaction,
+                #[cfg(feature = "irc")]
+                irc::irc_redact_message,
+                #[cfg(feature = "irc")]
+                irc::irc_list_connections,
+                #[cfg(feature = "irc")]
+                irc::irc_exists,
+                #[cfg(feature = "irc")]
+                irc::irc_nick,
+                #[cfg(feature = "irc")]
+                irc::irc_request_history,
+                #[cfg(feature = "irc")]
+                irc::irc_request_history_before,
+                #[cfg(feature = "irc")]
+                irc::irc_messages,
+                #[cfg(feature = "irc")]
+                irc::irc_channels,
+                #[cfg(feature = "irc")]
+                irc::irc_users,
+                #[cfg(feature = "irc")]
+                irc::irc_mark_read,
+                #[cfg(feature = "irc")]
+                irc::irc_clear_messages,
+                #[cfg(feature = "irc")]
+                irc::irc_get_all_commit_reactions,
+                #[cfg(feature = "irc")]
+                irc::irc_get_all_message_reactions,
+                #[cfg(feature = "irc")]
+                irc::irc_get_file_message_reactions,
+                #[cfg(feature = "irc")]
+                irc::irc_get_working_files,
+                #[cfg(feature = "irc")]
+                irc::irc_start_working_files_broadcast,
+                #[cfg(feature = "irc")]
+                irc::irc_stop_working_files_broadcast,
+                commit::reword::tauri_commit_reword::commit_reword,
+                commit::insert_blank::tauri_commit_insert_blank::commit_insert_blank,
+                commit::create::tauri_commit_create::commit_create,
+                commit::amend::tauri_commit_amend::commit_amend,
+                commit::move_commit::tauri_commit_move::commit_move,
+                commit::move_changes::tauri_commit_move_changes_between::commit_move_changes_between,
+                commit::squash::tauri_commit_squash::commit_squash,
+                commit::uncommit::tauri_commit_uncommit_changes::commit_uncommit_changes,
+                commit::uncommit::tauri_commit_uncommit::commit_uncommit,
+                workspace::tauri_workspace_integrate_upstream::workspace_integrate_upstream,
+                land::tauri_branch_land::branch_land,
+                platform::tauri_build_type::build_type,
+            ])
+            .menu(menu::build)
+            .on_window_event(|window, event| match event {
+                #[cfg(target_os = "macos")]
+                tauri::WindowEvent::CloseRequested { .. } => {
+                    let app_handle = window.app_handle();
+                    if app_handle.windows().len() == 1 {
+                        app_handle.cleanup_before_exit();
+                        app_handle.exit(0);
+                    }
+                }
+                tauri::WindowEvent::Destroyed => {
+                    window
+                        .app_handle()
+                        .state::<WindowState>()
+                        .remove(window.label());
+                }
+                tauri::WindowEvent::Focused(focused) if *focused => {
+                    window
+                        .app_handle()
+                        .state::<WindowState>()
+                        .flush(window.label())
+                        .ok();
+                }
+                _ => {}
+            });
+
+        #[cfg(not(target_os = "linux"))]
+        let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
+
+        builder
+            .build(tauri_context)
+            .expect("Failed to build tauri app")
+            .run(|#[cfg_attr(not(feature = "irc"), allow(unused_variables))] app_handle,
+                  #[cfg_attr(not(feature = "irc"), allow(unused_variables))] event| {
+                #[cfg(feature = "irc")]
+                if let tauri::RunEvent::Exit = event {
+                    let irc_manager = app_handle.state::<IrcManager>();
+                    // Note that we can't use `tauri::async_runtime::block_on`  during shutdown as it panics.
+                    irc_manager.shutdown_now();
+                }
+            });
+    });
+    Ok(())
+}
+
+/// read all objects, migrate them, and write them back if there was a migration.
+fn migrate_projects() -> anyhow::Result<()> {
+    for mut project in gitbutler_project::dangerously_list_projects_without_migration()? {
+        if let Ok(true) = project.migrate() {
+            let (title, git_dir) = (project.title.clone(), project.git_dir().to_owned());
+            if let Err(err) = gitbutler_project::update(project.into()) {
+                tracing::warn!(
+                    "Failed to store migrated project {} at {}: {err}",
+                    title,
+                    git_dir.display()
+                );
+            } else {
+                tracing::info!("Migrated project {} at {}", title, git_dir.display());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Launch a shell as interactive login shell, similar to what a login terminal would do if we are not already in a terminal.
+///
+/// That way, each process launched by the backend will act similar to what users would get in their terminal,
+/// something vital to act more similar to Git, which is also launched from an interactive shell most of the time.
+fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
+    if std::env::var_os("TERM").is_some() {
+        tracing::info!(
+            "TERM is set - assuming the app is run from a terminal with suitable environment variables"
+        );
+        return;
+    }
+
+    fn doit() {
+        if let Some(terminal_vars) = but_core::cmd::extract_interactive_login_shell_environment() {
+            tracing::info!(
+                "Inheriting static interactive shell environment, valid for the entire runtime of the application"
+            );
+            for (key, value) in terminal_vars {
+                unsafe {
+                    std::env::set_var(key, value);
+                }
+            }
+        } else {
+            tracing::info!(
+                "SHELL variable isn't set - launching with default GUI application environment "
+            );
+        }
+    }
+    if cfg!(windows) {
+        // This can be slow on Windows IF it runs, so background it.
+        // This could also trigger a race, so let's only do it when we must, and hope that this works
+        // in the few occasions where it may run.
+        std::thread::spawn(doit);
+    } else {
+        doit();
+    }
+}

@@ -1,0 +1,333 @@
+//! Put command-specific tests here. They should be focused on what's important for each command.
+//!
+//! Ideally they *show* the initial state, and the *post* state, to validate the commands actually do what they claim.
+//! **Only** test the *happy path* of a typical user journey, while keeping details in unit tests with private module access.
+#[cfg(feature = "legacy")]
+mod absorb;
+mod agent;
+mod alias;
+#[cfg(feature = "legacy")]
+mod amend;
+#[cfg(feature = "legacy")]
+mod branch;
+#[cfg(feature = "legacy")]
+mod clean;
+#[cfg(feature = "legacy")]
+mod commit;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+mod commit2;
+mod config;
+#[cfg(feature = "legacy")]
+mod diff;
+#[cfg(feature = "legacy")]
+mod discard;
+#[cfg(unix)]
+mod external;
+mod format;
+mod gui;
+mod help;
+#[cfg(feature = "legacy")]
+mod land;
+#[cfg(feature = "legacy")]
+mod r#move;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+mod move2;
+mod onboarding;
+#[cfg(feature = "legacy")]
+mod pick;
+#[cfg(feature = "legacy")]
+mod push;
+#[cfg(feature = "legacy")]
+mod resolve;
+#[cfg(feature = "legacy")]
+mod reword;
+#[cfg(feature = "legacy")]
+mod rub;
+#[cfg(feature = "legacy")]
+mod setup;
+mod skill;
+#[cfg(feature = "legacy")]
+mod squash;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+mod squash2;
+#[cfg(feature = "legacy")]
+mod status;
+mod r#switch;
+#[cfg(feature = "legacy")]
+mod teardown;
+#[cfg(feature = "legacy")]
+mod undo;
+#[cfg(feature = "legacy")]
+mod worktree;
+
+#[cfg(feature = "legacy")]
+mod util {
+    use std::{
+        collections::BTreeMap,
+        path::{Path, PathBuf},
+    };
+
+    use anyhow::Context as _;
+
+    use crate::utils::{CommandExt as _, Sandbox};
+
+    /// Create two files `filename1` and `filename2` and commit them to `branch`,
+    /// each having two lines, `first_line`, then filler, and a last line that are far enough apart to
+    /// ensure that they become 2 hunks when changed.
+    pub fn commit_two_files_as_two_hunks_each(
+        env: &Sandbox,
+        branch: &str,
+        filename1: &str,
+        filename2: &str,
+        first_line: &str,
+    ) {
+        let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
+        env.file(
+            filename1,
+            format!("{first_line}\n{}last\n", "line\n".repeat(context_distance)),
+        );
+        env.file(
+            filename2,
+            format!("{first_line}\n{}last\n", "line\n".repeat(context_distance)),
+        );
+        env.but(format!(
+            "commit {branch} -m 'create {filename1} and {filename2}'"
+        ))
+        .assert()
+        .success();
+    }
+
+    /// Create a file with `filename`, commit it to `branch`, then edit it once more to have two uncommitted hunks.
+    pub fn commit_file_with_worktree_changes_as_two_hunks(
+        env: &Sandbox,
+        branch: &str,
+        filename: &str,
+    ) {
+        let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
+        env.file(
+            filename,
+            format!("first\n{}last\n", "line\n".repeat(context_distance)),
+        );
+        env.but(format!("commit {branch} -m {filename}"))
+            .assert()
+            .success();
+        env.file(
+            filename,
+            format!("firsta\n{}lasta\n", "line\n".repeat(context_distance)),
+        );
+    }
+
+    /// Return `but status` JSON output as a parsed value.
+    pub fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
+        let output = env.but("--format json status").allow_json().output()?;
+        serde_json::from_slice(&output.stdout).context("status output should be valid JSON")
+    }
+
+    /// Return `but status -f` JSON output as a parsed value.
+    pub fn status_json_with_files(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
+        let output = env.but("--format json status -f").allow_json().output()?;
+        serde_json::from_slice(&output.stdout).context("status output should be valid JSON")
+    }
+
+    /// Return the CLI ids for all commits on `branch_name` in `status` output.
+    pub fn branch_commit_ids(status: &serde_json::Value, branch_name: &str) -> Vec<String> {
+        status["stacks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|stack| stack["branches"].as_array().unwrap().iter())
+            .find(|branch| branch["name"].as_str().unwrap() == branch_name)
+            .unwrap()["commits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|commit| commit["cliId"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    /// Return the CLI id of the commit on `branch_name` containing `file_path` in `status` output.
+    pub fn branch_commit_id_for_file(
+        status: &serde_json::Value,
+        branch_name: &str,
+        file_path: &str,
+    ) -> Option<String> {
+        status["stacks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|stack| stack["branches"].as_array().unwrap().iter())
+            .find(|branch| branch["name"].as_str().unwrap() == branch_name)
+            .and_then(|branch| {
+                branch["commits"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find_map(|commit| {
+                        let has_file = commit["changes"]
+                            .as_array()
+                            .unwrap()
+                            .iter()
+                            .any(|change| change["filePath"].as_str().unwrap() == file_path);
+                        has_file.then(|| commit["cliId"].as_str().unwrap().to_string())
+                    })
+            })
+    }
+
+    /// Build an isolated `std::process::Command` for `but` with the same environment as the Sandbox.
+    pub fn but_std_cmd(env: &Sandbox, args: &str) -> std::process::Command {
+        let mut cmd = std::process::Command::new(snapbox::cmd::cargo_bin!("but"));
+        cmd.args(shell_words::split(args).unwrap());
+        cmd.current_dir(env.projects_root());
+        cmd.env("E2E_TEST_APP_DATA_DIR", env.app_data_dir());
+        cmd.env("GITBUTLER_CHANGE_ID", "42");
+        cmd.env("NOPAGER", "1");
+        cmd.stdin(std::process::Stdio::null());
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
+        but_testsupport::isolate_env_std_cmd(&mut cmd);
+        cmd
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum SnapshotFileContents {
+        Text(String),
+        Binary(Vec<u8>),
+    }
+
+    pub type WorkingDirectorySnapshot = BTreeMap<PathBuf, SnapshotFileContents>;
+
+    /// Capture all regular files from the working directory recursively, excluding `.git`.
+    pub fn working_directory_snapshot(env: &Sandbox) -> anyhow::Result<WorkingDirectorySnapshot> {
+        let root = env.projects_root();
+        let mut snapshot = WorkingDirectorySnapshot::new();
+        collect_files_recursively(root, root, &mut snapshot)?;
+        Ok(snapshot)
+    }
+
+    fn collect_files_recursively(
+        root: &Path,
+        dir: &Path,
+        out: &mut WorkingDirectorySnapshot,
+    ) -> anyhow::Result<()> {
+        for entry in std::fs::read_dir(dir)
+            .with_context(|| format!("failed to read directory '{}'", dir.display()))?
+        {
+            let entry = entry.with_context(|| {
+                format!("failed to read directory entry in '{}'", dir.display())
+            })?;
+            let path = entry.path();
+            let file_name = entry.file_name();
+
+            if file_name.to_string_lossy() == ".git" {
+                continue;
+            }
+
+            let file_type = entry
+                .file_type()
+                .with_context(|| format!("failed to determine type for '{}'", path.display()))?;
+            if file_type.is_dir() {
+                collect_files_recursively(root, &path, out)?;
+                continue;
+            }
+            if !file_type.is_file() {
+                continue;
+            }
+
+            let relative_path = path
+                .strip_prefix(root)
+                .with_context(|| {
+                    format!(
+                        "expected '{}' to be under root '{}'",
+                        path.display(),
+                        root.display()
+                    )
+                })?
+                .to_path_buf();
+            let contents = std::fs::read(&path)
+                .with_context(|| format!("failed to read file '{}'", path.display()))?;
+            out.insert(relative_path, snapshot_file_contents(contents));
+        }
+        Ok(())
+    }
+
+    fn snapshot_file_contents(contents: Vec<u8>) -> SnapshotFileContents {
+        if is_printable_text(&contents) {
+            // Safe because `is_printable_text` verifies valid UTF-8 first.
+            SnapshotFileContents::Text(String::from_utf8(contents).expect("validated utf-8"))
+        } else {
+            SnapshotFileContents::Binary(contents)
+        }
+    }
+
+    fn is_printable_text(contents: &[u8]) -> bool {
+        let Ok(text) = std::str::from_utf8(contents) else {
+            return false;
+        };
+
+        text.chars()
+            .all(|ch| !ch.is_control() || matches!(ch, '\n' | '\r' | '\t'))
+    }
+
+    /// Find a branch by name in `status` output.
+    pub fn find_branch<'a>(
+        status: &'a serde_json::Value,
+        branch_name: &str,
+    ) -> anyhow::Result<&'a serde_json::Value> {
+        status["stacks"]
+            .as_array()
+            .context("status.stacks should be an array")?
+            .iter()
+            .flat_map(|stack| {
+                stack["branches"]
+                    .as_array()
+                    .into_iter()
+                    .flat_map(|branches| branches.iter())
+            })
+            .find(|branch| branch["name"].as_str() == Some(branch_name))
+            .context("expected branch in status output")
+    }
+
+    /// Create a conflicted edit-mode session by reordering commits and entering `resolve`.
+    pub fn enter_edit_mode_with_conflicted_commit(env: &Sandbox) -> anyhow::Result<()> {
+        env.but("branch new branchB").assert().success();
+
+        env.file("test-file.txt", "line 1\nline 2\nline 3\n");
+        env.but("commit -m 'first commit' branchB")
+            .assert()
+            .success();
+
+        env.file("test-file.txt", "line 1\nline 2\nline 3\nline 4\n");
+        env.but("commit -m 'second commit' branchB")
+            .assert()
+            .success();
+
+        let status_before = status_json(env)?;
+        let branch_before = find_branch(&status_before, "branchB")?;
+        let first_commit_cli_id = branch_before["commits"]
+            .as_array()
+            .context("branch commits should be an array")?
+            .iter()
+            .find(|commit| commit["message"].as_str() == Some("first commit"))
+            .and_then(|commit| commit["cliId"].as_str())
+            .context("should find first commit cli id")?;
+
+        env.but(format!("rub {first_commit_cli_id} zz"))
+            .assert()
+            .success();
+
+        let status_after = status_json(env)?;
+        let branch_after = find_branch(&status_after, "branchB")?;
+        let conflicted_commit_cli_id = branch_after["commits"]
+            .as_array()
+            .context("branch commits should be an array")?
+            .iter()
+            .find(|commit| commit["conflicted"].as_bool() == Some(true))
+            .and_then(|commit| commit["cliId"].as_str())
+            .context("should find conflicted commit cli id")?;
+
+        env.but(format!("resolve {conflicted_commit_cli_id}"))
+            .assert()
+            .success();
+        Ok(())
+    }
+}

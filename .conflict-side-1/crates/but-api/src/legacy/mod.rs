@@ -1,0 +1,24 @@
+#![allow(missing_docs)]
+//! Legacy data structures and functionality tied to `gitbutler-*` crates.
+//!
+
+pub mod absorb;
+pub mod askpass;
+pub mod cherry_apply;
+pub mod cli;
+pub mod config;
+pub mod forge;
+pub mod git;
+pub mod meta;
+pub mod modes;
+pub mod oplog;
+pub mod projects;
+pub mod remotes;
+pub mod repo;
+pub mod secret;
+pub mod settings;
+pub mod stack;
+pub mod users;
+pub mod virtual_branches;
+pub mod workspace;
+pub mod worktree;

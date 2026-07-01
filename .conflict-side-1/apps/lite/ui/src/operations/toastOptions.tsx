@@ -1,0 +1,91 @@
+import { decodeBytes } from "#ui/api/bytes.ts";
+import type { DiffSpec, RejectionReason, RejectedChange } from "@gitbutler/but-sdk";
+import { type ToastManagerAddOptions } from "@base-ui/react";
+import { Array, pipe } from "effect";
+import { FC } from "react";
+
+const listFormatter = new Intl.ListFormat(undefined, {
+	style: "long",
+	type: "conjunction",
+});
+
+const formatPaths = (paths: Array<string>): string => {
+	if (paths.length === 0) return "";
+	if (paths.length <= 3) return listFormatter.format(paths);
+
+	return listFormatter.format([...paths.slice(0, 3), `${paths.length - 3} more`]);
+};
+
+const readableRejectionReason = (reason: RejectionReason): string => {
+	switch (reason) {
+		case "cherryPickMergeConflict":
+			return "Cherry-pick merge conflict";
+		case "noEffectiveChanges":
+			return "No effective changes";
+		case "workspaceMergeConflict":
+			return "Workspace merge conflict";
+		case "workspaceMergeConflictOfUnrelatedFile":
+			return "Workspace merge conflict in another file";
+		case "worktreeFileMissingForObjectConversion":
+			return "Worktree file missing for object conversion";
+		case "fileToLargeOrBinary":
+			return "File too large or binary";
+		case "pathNotFoundInBaseTree":
+			return "Path not found in base tree";
+		case "unsupportedDirectoryEntry":
+			return "Unsupported directory entry";
+		case "unsupportedTreeEntry":
+			return "Unsupported tree entry";
+		case "missingDiffSpecAssociation":
+			return "Missing diff spec association";
+	}
+};
+
+// oxlint-disable-next-line react/only-export-components -- Fix when we tidy up toasts.
+const RejectedChanges: FC<{
+	rejectedChanges: Array<RejectedChange>;
+}> = ({ rejectedChanges }) => {
+	const pathsByReason = new Map<RejectionReason, Array<string>>();
+
+	for (const { reason, path } of rejectedChanges) {
+		const paths = pathsByReason.get(reason);
+		if (paths) paths.push(path);
+		else pathsByReason.set(reason, [path]);
+	}
+
+	return (
+		<ul>
+			{pipe(
+				pathsByReason,
+				Array.fromIterable,
+				Array.map(([reason, paths]) => (
+					<li key={reason}>
+						<strong>{readableRejectionReason(reason)}:</strong> {formatPaths(paths)}
+					</li>
+				)),
+			)}
+		</ul>
+	);
+};
+
+export const rejectedChangesToastOptions = ({
+	newCommit,
+	rejectedChanges,
+}: {
+	newCommit?: string | null;
+	rejectedChanges: Array<RejectedChange>;
+}): ToastManagerAddOptions<never> => ({
+	title: newCommit != null ? "Some changes were not committed" : "Failed to create commit",
+	description: <RejectedChanges rejectedChanges={rejectedChanges} />,
+	priority: "high",
+});
+
+export const discardChangesToastOptions = ({
+	rejectedChanges,
+}: {
+	rejectedChanges: Array<DiffSpec>;
+}): ToastManagerAddOptions<never> => ({
+	title: "Some changes were not discarded",
+	description: formatPaths(rejectedChanges.map((diffSpec) => decodeBytes(diffSpec.pathBytes))),
+	priority: "high",
+});

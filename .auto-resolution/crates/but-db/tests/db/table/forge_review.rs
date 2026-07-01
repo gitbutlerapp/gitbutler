@@ -1,0 +1,306 @@
+use but_db::ForgeReview;
+
+use crate::table::in_memory_db;
+
+#[test]
+fn list_all_empty() -> anyhow::Result<()> {
+    let db = in_memory_db();
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert!(reviews.is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn set_all_and_read() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let review1 = forge_review(1, "First PR", "feature-branch");
+    let review2 = forge_review(2, "Second PR", "fix-branch");
+
+    db.forge_reviews_mut()?
+        .set_all(vec![review1.clone(), review2.clone()])?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 2);
+    assert!(reviews.contains(&review1));
+    assert!(reviews.contains(&review2));
+
+    Ok(())
+}
+
+#[test]
+fn set_all_replaces_existing() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let review1 = forge_review(1, "First PR", "feature-branch");
+    let review2 = forge_review(2, "Second PR", "fix-branch");
+    let review3 = forge_review(3, "Third PR", "new-feature");
+
+    db.forge_reviews_mut()?
+        .set_all(vec![review1.clone(), review2.clone()])?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 2);
+
+    db.forge_reviews_mut()?.set_all(vec![review3.clone()])?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 1);
+    assert_eq!(reviews[0], review3);
+
+    Ok(())
+}
+
+#[test]
+fn set_all_empty_clears_table() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let review1 = forge_review(1, "First PR", "feature-branch");
+    db.forge_reviews_mut()?.set_all(vec![review1])?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 1);
+
+    db.forge_reviews_mut()?.set_all(vec![])?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert!(reviews.is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn with_transaction() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let review1 = forge_review(1, "First PR", "feature-branch");
+    let review2 = forge_review(2, "Second PR", "fix-branch");
+
+    let mut trans = db.transaction()?;
+    trans
+        .forge_reviews_mut()?
+        .set_all(vec![review1.clone(), review2.clone()])?;
+
+    let reviews = trans.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 2);
+
+    trans.commit()?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 2);
+    assert_eq!(reviews, [review1, review2]);
+
+    Ok(())
+}
+
+#[test]
+fn transaction_rollback() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let review1 = forge_review(1, "First PR", "feature-branch");
+    db.forge_reviews_mut()?.set_all(vec![review1.clone()])?;
+
+    let mut trans = db.transaction()?;
+    trans.forge_reviews_mut()?.set_all(vec![])?;
+    trans.rollback()?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 1);
+    assert_eq!(reviews[0], review1);
+
+    Ok(())
+}
+
+#[test]
+fn handles_optional_fields() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let review = ForgeReview {
+        html_url: "https://github.com/owner/repo/pull/1".to_string(),
+        number: 1,
+        title: "Test PR".to_string(),
+        body: None,
+        author: None,
+        labels: "[]".to_string(),
+        draft: false,
+        source_branch: "feature".to_string(),
+        target_branch: "main".to_string(),
+        sha: "abc123".to_string(),
+        integration_commit_shas: "[\"deadbeef\"]".to_string(),
+        created_at: None,
+        modified_at: None,
+        merged_at: None,
+        closed_at: None,
+        repository_ssh_url: None,
+        repository_https_url: None,
+        repo_owner: None,
+        head_repo_is_fork: false,
+        reviewers: "[]".to_string(),
+        unit_symbol: "test".to_string(),
+        last_sync_at: chrono::DateTime::from_timestamp(1000000, 0)
+            .unwrap()
+            .naive_utc(),
+        struct_version: 2,
+    };
+
+    db.forge_reviews_mut()?.set_all(vec![review.clone()])?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews.len(), 1);
+    assert_eq!(reviews[0], review);
+
+    Ok(())
+}
+
+#[test]
+fn upsert_inserts_new_review() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let review = forge_review(1, "First PR", "feature-branch");
+    db.forge_reviews_mut()?.upsert(review.clone())?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews, [review]);
+
+    Ok(())
+}
+
+#[test]
+fn upsert_updates_existing_review() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let review = forge_review(1, "First PR", "feature-branch");
+    db.forge_reviews_mut()?.upsert(review)?;
+
+    let mut updated_review = forge_review(1, "Updated PR title", "updated-branch");
+    updated_review.body = Some("Updated body".to_string());
+    updated_review.author = Some("updated-author".to_string());
+    updated_review.draft = true;
+    updated_review.sha = "updatedsha123".to_string();
+    updated_review.integration_commit_shas = "[\"updated-landing-sha\"]".to_string();
+    updated_review.reviewers = "[\"alice\"]".to_string();
+    updated_review.head_repo_is_fork = true;
+    db.forge_reviews_mut()?.upsert(updated_review.clone())?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(reviews, [updated_review]);
+
+    Ok(())
+}
+
+#[test]
+fn delete_merged_before_prunes_only_stale_merged_reviews() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let cutoff = chrono::DateTime::from_timestamp(2_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    let mut stale_merged = forge_review(1, "Stale merged PR", "stale-merged");
+    stale_merged.merged_at = Some(cutoff);
+    let mut recent_merged = forge_review(2, "Recent merged PR", "recent-merged");
+    recent_merged.merged_at = Some(cutoff + chrono::Duration::seconds(1));
+    let open = forge_review(3, "Open PR", "open");
+
+    db.forge_reviews_mut()?
+        .set_all(vec![stale_merged, recent_merged.clone(), open.clone()])?;
+    db.forge_reviews_mut()?.delete_merged_before(cutoff)?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(
+        reviews,
+        [recent_merged, open],
+        "only merged reviews at or before the cutoff should be pruned"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn reconcile_listed_prunes_stale_rows() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    let cutoff = chrono::DateTime::from_timestamp(2_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    let stale_open = forge_review(1, "Stale open PR", "stale-open");
+    let mut listed_open = forge_review(2, "Cached open PR", "listed-open");
+    let mut closed = forge_review(3, "Closed PR", "closed");
+    closed.closed_at = Some(cutoff);
+    let mut recent_merged = forge_review(4, "Recent merged PR", "recent-merged");
+    recent_merged.merged_at = Some(cutoff + chrono::Duration::seconds(1));
+    let mut old_merged = forge_review(5, "Old merged PR", "old-merged");
+    old_merged.merged_at = Some(cutoff);
+
+    db.forge_reviews_mut()?.set_all(vec![
+        stale_open,
+        listed_open.clone(),
+        closed.clone(),
+        recent_merged.clone(),
+        old_merged,
+    ])?;
+
+    listed_open.title = "Fresh listed open PR".to_string();
+    db.forge_reviews_mut()?
+        .reconcile_listed(vec![listed_open.clone()], cutoff)?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(
+        reviews.len(),
+        3,
+        "stale open and old merged reviews should be pruned"
+    );
+    assert!(
+        reviews.contains(&listed_open),
+        "listed open review should be updated"
+    );
+    assert!(
+        reviews.contains(&closed),
+        "closed review should be retained when absent from open list"
+    );
+    assert!(
+        reviews.contains(&recent_merged),
+        "recent merged review should be retained for integration hints"
+    );
+
+    Ok(())
+}
+
+fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
+    ForgeReview {
+        html_url: format!("https://github.com/owner/repo/pull/{number}"),
+        number,
+        title: title.to_string(),
+        body: Some("PR body".to_string()),
+        author: Some("test-author".to_string()),
+        labels: "[]".to_string(),
+        draft: false,
+        source_branch: source_branch.to_string(),
+        target_branch: "main".to_string(),
+        sha: "abc123def456".to_string(),
+        integration_commit_shas: "[\"deadbeef\"]".to_string(),
+        created_at: Some(
+            chrono::DateTime::from_timestamp(1000000, 0)
+                .unwrap()
+                .naive_utc(),
+        ),
+        modified_at: Some(
+            chrono::DateTime::from_timestamp(1000100, 0)
+                .unwrap()
+                .naive_utc(),
+        ),
+        merged_at: None,
+        closed_at: None,
+        repository_ssh_url: Some("git@github.com:owner/repo.git".to_string()),
+        repository_https_url: Some("https://github.com/owner/repo.git".to_string()),
+        repo_owner: Some("owner".to_string()),
+        head_repo_is_fork: false,
+        reviewers: "[]".to_string(),
+        unit_symbol: "test".to_string(),
+        last_sync_at: chrono::DateTime::from_timestamp(1000000, 0)
+            .unwrap()
+            .naive_utc(),
+        struct_version: 2,
+    }
+}

@@ -1,0 +1,118 @@
+//! In place of commands.rs
+use anyhow::{Context as _, Result, bail};
+use bstr::ByteSlice;
+use but_api_macros::but_api;
+use but_core::git_config::{
+    edit_config, open_global_config_for_reading, remove_config_value, set_config_value,
+};
+use gitbutler_git::GitContextExt as _;
+use gitbutler_reference::RemoteRefname;
+use tracing::instrument;
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn git_remote_branches(ctx: &but_ctx::Context) -> Result<Vec<RemoteRefname>> {
+    let repo = ctx.repo.get()?;
+    repo.references()?
+        .remote_branches()?
+        .filter_map(Result::ok)
+        .filter(|reference| !reference.name().as_bstr().ends_with_str("/HEAD"))
+        .map(|reference| {
+            reference
+                .name()
+                .to_string()
+                .parse()
+                .context("failed to parse remote refname")
+        })
+        .collect()
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn git_test_push(
+    ctx: &but_ctx::Context,
+    remote_name: String,
+    branch_name: String,
+) -> Result<()> {
+    ctx.git_test_push(&remote_name, &branch_name, Some(None))?;
+    Ok(())
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn git_test_fetch(
+    ctx: &but_ctx::Context,
+    remote_name: String,
+    action: Option<String>,
+) -> Result<()> {
+    ctx.fetch(
+        &remote_name,
+        Some(action.unwrap_or_else(|| "test".to_string())),
+    )?;
+    Ok(())
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn git_index_size(ctx: &but_ctx::Context) -> Result<usize> {
+    let size = ctx
+        .repo
+        .get()?
+        .index_or_empty()
+        .context("failed to get index size")?
+        .entries()
+        .len();
+    Ok(size)
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn delete_all_data() -> Result<()> {
+    for project in gitbutler_project::dangerously_list_projects_without_migration()
+        .context("failed to list projects")?
+    {
+        gitbutler_project::delete(project.id)
+            .map_err(|err| err.context("failed to delete project"))?;
+    }
+    Ok(())
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn git_set_global_config(key: String, value: String) -> Result<String> {
+    validate_gitbutler_global_key(&key)?;
+    _ = edit_config(None, gix::config::Source::User, |config| {
+        set_config_value(config, &key, &value)?;
+        Ok(())
+    })?;
+    Ok(value)
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn git_remove_global_config(key: String) -> Result<()> {
+    validate_gitbutler_global_key(&key)?;
+    _ = edit_config(None, gix::config::Source::User, |config| {
+        remove_config_value(config, &key)?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn git_get_global_config(key: String) -> Result<Option<String>> {
+    let config = open_global_config_for_reading()?;
+    Ok(get_config_string(&config, &key))
+}
+
+fn get_config_string(config: &gix::config::File<'_>, key: &str) -> Option<String> {
+    config.string(key).map(|s| s.to_string())
+}
+
+fn validate_gitbutler_global_key(key: &str) -> Result<()> {
+    if !key.starts_with("gitbutler.") {
+        bail!("Invalid section for global key: {key}")
+    }
+    Ok(())
+}

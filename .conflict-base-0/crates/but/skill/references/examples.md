@@ -1,0 +1,491 @@
+# GitButler CLI Workflow Examples
+
+Real-world examples of common workflows.
+
+**Note on CLI IDs:** Examples below use illustrative IDs like `bu`, `c3`, `a1` to keep commands readable. In practice, **always read actual IDs from `but status -fv`** — they are generated per-session and will differ from these examples. Branch IDs are derived from unique substrings of the branch name (e.g., `fe` from `feature-x`), commit IDs use short hex prefixes (e.g., `1b`, `8f`), and file/hunk/stack IDs are auto-generated (e.g., `g0`, `h0`). All IDs are unique across entity types.
+
+## Example 1: Starting Independent Parallel Work
+
+**Scenario:** Need to work on two independent features: a new API endpoint and UI styling updates.
+
+```bash
+# 1. Check current state
+but status -fv
+
+# 2. Create two independent (parallel) branches
+but branch new api-endpoint
+but branch new ui-styling
+
+# 3. Make changes to multiple files
+# (edit api/users.js and components/Button.svelte)
+
+# 4. Check what's uncommitted
+but status -fv
+
+# 5. Commit specific files directly using --changes (recommended for agents)
+# Use CLI ID values from but status -fv output (e.g., branch IDs and file IDs)
+# For multiple IDs, use one comma-separated argument or repeat --changes.
+but commit <api-branch-id> -m "Add user details endpoint" --changes <api-file-id>
+but commit <ui-branch-id> -m "Update button hover styles" --changes <ui-file-id>
+
+# Follow-up fix that belongs in a commit you just made? Amend it in.
+# Each mutation returns updated workspace state — take fresh IDs from it before the next command.
+# but amend <api-commit-id> --changes <api-fix-file-id>,<api-fix-hunk-id>
+
+# 6. Create pull requests (auto-pushes the branches)
+but pr new <api-branch-id>
+but pr new <ui-branch-id>
+```
+
+**Why parallel branches?** The API endpoint and UI styling are independent - neither depends on the other. They can be reviewed and merged separately.
+
+## Example 2: Building Stacked Features
+
+**Scenario:** Need to add authentication, then build a user profile page that requires auth.
+
+```bash
+# 1. Check current state and update
+but pull
+but status -fv
+
+# 2. Create base branch for authentication
+but branch new add-authentication
+
+# 3. Implement auth and commit
+# (edit auth/login.js, auth/middleware.js)
+but status -fv
+but commit bu -m "Add JWT authentication" --changes <file-ids>
+
+# 4. Create stacked branch anchored on authentication
+but branch new user-profile -a bu
+
+# 5. Implement profile page (depends on auth)
+# (edit pages/profile.js)
+but status -fv
+but commit bv -m "Add user profile page" --changes <file-ids>
+
+# 6. Create stacked pull requests through GitButler (auto-pushes the stack)
+but pr new bv -t
+```
+
+**Result:** Two PRs where user-profile targets add-authentication, with GitButler stack information in the PR descriptions.
+
+## Example 3: Using Absorb Instead of New Commits
+
+**Scenario:** Made a small typo fix that should be part of the last commit, not a new commit.
+
+```bash
+# 1. Check current commits and uncommitted changes
+but status -fv
+
+# Output shows:
+# Branch: feature-x (bu)
+# Commits:
+#   c3: Implement feature logic
+#   c2: Add feature tests
+# Uncommitted:
+#   a1: fix-typo.js
+
+# 2. Preview what absorb would do (recommended first step)
+but absorb a1 --dry-run    # Shows where a1 would be absorbed
+
+# 3. Absorb the specific file into appropriate commit
+but absorb a1    # Absorb just this file + get updated status
+
+# GitButler analyzes the change and amends it into c3
+# (because the typo is in code from c3)
+```
+
+**Targeted vs blanket absorb:**
+
+```bash
+but absorb a1    # Absorb specific file (recommended)
+but absorb bu    # Absorb all changes assigned to branch bu
+but absorb       # Absorb ALL uncommitted changes (use with caution)
+```
+
+**Why absorb?** Keeps history clean. Small fixes belong in the commits they fix, not as separate "fix typo" commits.
+
+## Example 4: Reorganizing Commit History
+
+### Scenario A: Squashing Commits
+
+**Situation:** Made 5 small WIP commits, want to combine into one logical commit.
+
+```bash
+# Before:
+# c5: More tweaks
+# c4: Fix another thing
+# c3: Fix tests
+# c2: Adjust logic
+# c1: Initial implementation
+
+# Squash all commits in branch
+but squash bu
+
+# Or squash specific range
+but squash c2..c5    # Squashes c2, c3, c4, c5 into one
+
+# Or squash specific commits
+but squash c2 c3 c4    # Squashes these three
+```
+
+### Scenario B: Moving Files Between Commits
+
+**Situation:** A file was committed in the wrong commit, need to move it.
+
+```bash
+# 1. See which files are in which commits
+but status -fv
+
+# Output shows:
+# c3: api.js, utils.js
+# c2: config.js
+
+# 2. Move utils.js from c3 to c2
+but rub a2 c2    # File a2 (utils.js) → commit c2 + get updated status
+```
+
+### Scenario C: Moving Commit to Different Branch
+
+**Situation:** Committed to wrong branch, need to move commit.
+
+```bash
+# 1. Check current state
+but status -fv
+
+# Output:
+# Branch: feature-a (bu)
+#   c3: This should be in feature-b!
+#   c2: Correct commit
+
+# 2. Create or identify target branch
+but branch new feature-b    # Creates branch bv
+
+# 3. Move the commit
+but move c3 bv    # Move c3 to top of branch bv
+```
+
+## Example 5: Stacking Existing Branches
+
+**Scenario:** Two independent branches exist, but one now depends on the other. Stack them.
+
+```bash
+# 1. Check current state — two independent branches in separate stacks
+but status -fv
+
+# Output:
+# Stack 1: feature/backend (bu) — 2 commits
+# Stack 2: feature/frontend (bv) — 1 commit
+
+# 2. Frontend now depends on backend API — stack frontend on backend
+#    IMPORTANT: Prefer full branch NAMES here; branch CLI IDs are also accepted
+but move feature/frontend feature/backend
+
+# Result: Both branches are now in the same stack:
+# Stack 1: feature/backend → feature/frontend (stacked)
+
+# 3. Continue working — commits go to the right branch
+but status -fv
+but commit bu -m "Add caching layer" --changes <id>   # To backend
+but commit bv -m "Add dialog component" --changes <id> # To frontend
+```
+
+**Key point:** branch stack moves use branch **names** (like `feature/frontend`) or branch CLI IDs. Commit reordering still uses commit IDs.
+
+## Example 6: Conflict Resolution
+
+**Scenario:** After `but pull`, conflicts appear in a commit.
+
+```bash
+# 1. Pull updates
+but pull
+
+# Output:
+# Conflict in commit c3 on branch feature-x
+
+# 2. Check status
+but status -fv
+
+# Output:
+# Branch: feature-x (bu)
+#   c3: Add validation (CONFLICTED)
+
+# 3. Enter resolution mode
+but resolve c3
+
+# Output:
+# Entering resolution mode for commit c3
+# Fix conflicts in: api/users.js, api/validation.js
+
+# 4. Read each conflicted file and edit to resolve
+# IMPORTANT: You MUST edit the files — do NOT just run `but resolve finish`
+# NEVER use `git add`, `git checkout --theirs/--ours`, or any git write command — just edit the files directly with the Edit tool, then `but resolve finish`
+cat api/users.js           # Read to see conflict markers
+# (edit to remove <<<<<<< ======= >>>>>>> markers and keep correct content)
+
+# 5. Check progress
+but resolve status
+
+# Output:
+# Remaining conflicts:
+#   api/validation.js
+
+# 6. Continue fixing...
+# (resolve last conflict)
+
+# 7. Finalize
+but resolve finish
+
+# Back to normal workspace mode
+```
+
+## Example 7: Complete Feature Development Workflow
+
+**Scenario:** Building a complete feature from start to finish.
+
+```bash
+# 1. Update to latest
+but pull
+
+# 2. Create branch for feature
+but branch new user-dashboard
+
+# 3. Make initial changes
+# (create dashboard.js, add routes)
+
+# 4. Check status and gather file IDs
+but status -fv
+
+# 5. First commit
+but commit bu -m "Add dashboard route and basic layout" --changes <file-ids>
+
+# 6. Continue iterating
+# (add widgets, styling)
+but commit bu -m "Add dashboard widgets" --changes <file-ids>
+but commit bu -m "Style dashboard components" --changes <file-ids>
+
+# 7. Make small fix
+# (fix typo in widget)
+but absorb a1    # Absorb specific file into appropriate commit
+
+# 8. Clean up if needed
+but squash bu    # Combine all commits (optional)
+
+# 9. Create pull request (auto-pushes the branch)
+but pr new bu
+
+# Output:
+# Created PR #123: https://github.com/org/repo/pull/123
+
+# 10. After PR is merged, update
+but pull
+```
+
+## Example 8: Working with Applied/Unapplied Branches
+
+**Scenario:** Have 3 branches, but two are causing conflicts. Temporarily unapply them.
+
+```bash
+# 1. Check active branches
+but status -fv
+
+# Output:
+# Applied branches:
+#   bu: feature-a
+#   bv: feature-b
+#   bw: feature-c
+
+# 2. Conflicts between feature-b and feature-c
+# Unapply them temporarily
+but unapply bv
+but unapply bw
+
+# 3. Focus on feature-a
+# (make changes, commit)
+but commit bu -m "Complete feature-a" --changes <file-ids>
+
+# 4. Create PR for feature-a (auto-pushes)
+but pr new bu
+
+# 5. Reapply other branches
+but apply feature-b
+but apply feature-c
+
+# 6. Deal with their conflicts now
+but resolve ...
+```
+
+## Example 9: Fixing History Before Pushing
+
+**Scenario:** Made several commits, realized you need to reword messages and reorder.
+
+```bash
+# 1. Current state
+but status -fv
+
+# Output:
+# Branch: feature-x (bu)
+#   c5: final commit
+#   c4: WIP
+#   c3: Fix stuff
+#   c2: Another fix
+#   c1: Initial
+
+# 2. Reword commit messages
+but reword c4 -m "Add validation logic"
+but reword c3 -m "Fix edge case in parser"
+but reword c2 -m "Update error messages"
+
+# 3. Move c5 to be earlier
+but move c5 c3    # Move c5 before c3
+
+# 4. Squash similar commits
+but squash c2 c3    # Combine error handling commits
+
+# Output:
+# Branch: feature-x (bu)
+#   c4: Add validation logic
+#   c3: final commit
+#   c2: Fix edge case in parser and update error messages
+#   c1: Initial
+
+# 5. Push clean history
+but push feature-x
+```
+
+## Example 10: Daily Development Workflow
+
+**Typical day working with GitButler:**
+
+```bash
+# Morning: Start day
+but pull    # Get latest from team
+
+# Start new task
+but branch new fix-auth-bug  # Create branch for today's work
+
+# Work and commit iteratively
+# (make changes)
+but status -fv              # Check changes
+but commit bu -m "Identify auth bug source" --changes <file-ids>
+# (make more changes)
+but commit bu -m "Fix token expiration handling" --changes <file-ids>
+# (small fix to existing code)
+but absorb a1              # Absorb specific fix into appropriate commit
+
+# Mid-day: Start urgent fix on different branch
+but branch new hotfix-login  # Parallel branch for urgent work
+# (make fix)
+but commit bv -m "Fix login redirect loop" --changes <file-ids>
+but pr new bv      # Push and create PR immediately
+
+# Back to original work
+# (continue working on bu, auth bug fix)
+but commit bu -m "Add tests for token handling" --changes <file-ids>
+
+# End of day: Clean up and create PR
+but squash bu    # Combine into clean history
+but pr new bu      # Push and create PR
+
+# After PR review: Make requested changes
+# (make changes based on feedback)
+but absorb <file-id>    # Absorb specific changes into commits
+# Or absorb all changes for this branch:
+but absorb bu          # Absorb all changes assigned to bu
+but push fix-auth-bug   # Push updated history
+```
+
+## Example 11: Recovering from Mistakes
+
+**Scenario:** Made changes you didn't mean to, need to undo.
+
+### Undo Last Operation
+
+```bash
+# Made a mistake
+but squash bu    # Oops! Didn't mean to squash
+
+# Undo it
+but undo         # Reverts the squash
+```
+
+### Restore to Earlier Point
+
+```bash
+# View operation history
+but oplog
+
+# Output:
+# s5: squash branch bu
+# s4: commit bu "message"
+# s3: amend a1 into c2
+# s2: create branch bu
+# s1: pull from remote
+
+# Restore to before squash
+but oplog restore s4
+```
+
+### Discard Uncommitted Changes
+
+```bash
+# Changed a file but want to discard
+but status -fv
+
+# Output:
+# Uncommitted:
+#   a1: bad-changes.js
+
+# Discard it
+but discard a1
+```
+
+## Tips and Tricks
+
+### Quick Status Check
+
+```bash
+but status -fv    # File-centric view for quick overview
+```
+
+### Preview Before Doing
+
+```bash
+but absorb <file-id> --dry-run  # See where specific file would be absorbed
+but push my-feature --dry-run   # See what would be pushed
+```
+
+### Multiple Commits From One Diff
+
+File/hunk IDs copied from the original output generally remain usable across
+commits. Chain `but commit` calls to split a dirty diff into several commits in
+one go:
+
+```bash
+but diff   # read the file/hunk IDs once
+
+but commit my-branch -m "Add parser" --changes qs:5,qs:2 \
+  && but commit my-branch -m "Add tests" --changes uo:d
+```
+
+The commits stack in the order you write them, so `Add parser` ends up below (older
+than) `Add tests`. Only chain when each command references uncommitted IDs (plus the
+stable branch ID). If an ID stops resolving, re-read the diff and continue.
+Mutations that consume commit IDs — `amend`, `squash`, `move`, `uncommit` — rewrite
+those IDs, so run them one at a time and take fresh IDs from returned status.
+
+
+### Auto-completion
+
+```bash
+eval "$(but completions zsh)"     # Add to ~/.zshrc
+eval "$(but completions bash)"    # Add to ~/.bashrc
+```
+
+### Viewing History
+
+```bash
+but show bu       # Show all commits in branch
+git log bu               # Traditional git log (read-only, still works)
+```

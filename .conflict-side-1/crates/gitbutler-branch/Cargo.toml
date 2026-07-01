@@ -1,0 +1,28 @@
+[package]
+name = "gitbutler-branch"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
+[lib]
+doctest = false
+
+[dependencies]
+but-core.workspace = true
+gitbutler-reference.workspace = true
+
+anyhow.workspace = true
+gix = { workspace = true, features = [] }
+serde.workspace = true
+bstr.workspace = true
+lazy_static = "1.4.0"
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
+
+[lints]
+workspace = true

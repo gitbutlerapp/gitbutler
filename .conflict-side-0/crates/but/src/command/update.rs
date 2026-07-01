@@ -1,0 +1,197 @@
+use crate::{
+    args::update,
+    theme::{self, Paint},
+    utils::OutputChannel,
+};
+use anyhow::Result;
+#[cfg(all(unix, not(feature = "packaged-but-distribution")))]
+use but_installer::VersionRequest;
+use but_settings::AppSettings;
+use but_update::{AppName, CheckUpdateStatus, check_status};
+
+pub fn handle(
+    cmd: update::Subcommands,
+    out: &mut OutputChannel,
+    app_settings: &AppSettings,
+) -> Result<()> {
+    match cmd {
+        update::Subcommands::Check => check_for_updates(out, app_settings),
+        update::Subcommands::Suppress { days } => suppress_updates(out, days),
+        #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
+        update::Subcommands::Install { target } => install(out, target),
+    }
+}
+
+fn check_for_updates(out: &mut OutputChannel, app_settings: &AppSettings) -> Result<()> {
+    let mut cache = but_ctx::Context::app_cache();
+    let status = check_status(AppName::Cli, app_settings, &mut cache)?;
+
+    if let Some(status) = status {
+        if let Some(writer) = out.for_human() {
+            print_human_output(writer, &status)?;
+        } else if let Some(out) = out.for_json() {
+            out.write_value(&status)?;
+        } else if let Some(writer) = out.for_shell()
+            && !status.up_to_date
+        {
+            writeln!(writer, "{}", status.latest_version)?;
+        }
+    } else if let Some(writer) = out.for_human() {
+        writeln!(
+            writer,
+            "{} Another process is currently checking for updates",
+            theme::get().attention.paint("→")
+        )?;
+    }
+
+    Ok(())
+}
+
+fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStatus) -> Result<()> {
+    let t = theme::get();
+    if status.up_to_date {
+        writeln!(
+            writer,
+            "{} You're running the latest version ({})",
+            t.sym().success,
+            t.important.paint(&status.latest_version)
+        )?;
+    } else {
+        let current_version = option_env!("VERSION").unwrap_or("0.0.0");
+
+        let install_hint = {
+            #[cfg(feature = "packaged-but-distribution")]
+            {
+                "Install it with your package manager"
+            }
+            #[cfg(not(feature = "packaged-but-distribution"))]
+            {
+                "Install it with 'but update install'"
+            }
+        };
+
+        writeln!(
+            writer,
+            "{} A new version is available: {} {} {}. {}",
+            t.attention.paint("→"),
+            t.hint.paint(current_version),
+            t.hint.paint("→"),
+            t.success.paint(&status.latest_version),
+            install_hint,
+        )?;
+
+        if let Some(notes) = &status.release_notes {
+            let trimmed = notes.trim();
+            if !trimmed.is_empty() {
+                writeln!(writer)?;
+                writeln!(writer, "{trimmed}")?;
+            }
+        }
+
+        // currently always shows the AppImage URL on Linux, which is rarely what you want
+        #[cfg(not(target_os = "linux"))]
+        if let Some(url) = &status.url {
+            writeln!(writer)?;
+            writeln!(writer, "Download: {}", t.link.paint(url.as_str()))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn suppress_updates(out: &mut OutputChannel, days: u32) -> Result<()> {
+    // Convert days to hours (the API uses hours)
+    // Note: days is already validated to be 1-30 by clap, so no overflow possible
+    let hours = days * 24;
+    let t = theme::get();
+
+    // Call the suppress_update function
+    let mut cache = but_ctx::Context::app_cache();
+    but_update::suppress_update(&mut cache, hours)?;
+
+    if let Some(writer) = out.for_human() {
+        writeln!(
+            writer,
+            "{} Update notifications suppressed for {} {}",
+            t.sym().success,
+            days,
+            if days == 1 { "day" } else { "days" }
+        )?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({
+            "suppressed": true,
+            "days": days,
+            "hours": hours
+        }))?;
+    }
+
+    Ok(())
+}
+
+#[cfg(all(unix, not(feature = "packaged-but-distribution")))]
+fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
+    // Installation requires interactive output and cannot be used with JSON mode
+    // because the installer writes directly to stdout/stderr
+    if out.for_json().is_some() {
+        anyhow::bail!(
+            "JSON output is not supported for 'but update install'.\n\n\
+             The installation process requires interactive output.\n\
+             For automated installations, use the standalone installer:\n\
+             https://docs.gitbutler.com/installation"
+        );
+    }
+
+    // Parse target to determine what to install
+    let version_request = match target.as_deref() {
+        Some("nightly") => VersionRequest::Nightly,
+        Some("release") => VersionRequest::Release,
+        Some(version_str) => {
+            // Specific version - validate and create
+            // Wrap validation errors with CLI-specific context
+            VersionRequest::from_string(Some(version_str.to_string())).map_err(|e| {
+                anyhow::anyhow!(
+                    "Invalid version '{version_str}': {e}\n\nValid targets:\n  nightly          Install latest nightly build\n  release          Install latest stable release\n  <version>        Install specific version (e.g., 0.18.7)"
+                )
+            })?
+        }
+        None => {
+            // Auto-detect from current channel
+            let current_channel = but_path::AppChannel::new();
+            match current_channel {
+                but_path::AppChannel::Nightly => VersionRequest::Nightly,
+                but_path::AppChannel::Release => VersionRequest::Release,
+                but_path::AppChannel::Dev => VersionRequest::Release, // Dev installs release
+            }
+        }
+    };
+
+    // Call installer directly (handles all user-facing output)
+    // Don't print usage info since user is already using the CLI
+    but_installer::run_installation_with_version(version_request, false)?;
+
+    // Show change log link
+    if let Some(writer) = out.for_human() {
+        let t = theme::get();
+        writeln!(
+            writer,
+            "{} {}",
+            t.info.paint("→"),
+            t.link
+                .paint("View release notes: https://gitbutler.com/releases")
+        )?;
+        writeln!(writer)?;
+    }
+
+    let mut cache = but_ctx::Context::app_cache();
+    if let Err(err) = cache.update_check_mut().and_then(|handle| handle.delete()) {
+        tracing::warn!(?err, "Failed to invalidate update check cache");
+        if let Some(writer) = out.for_human() {
+            writeln!(
+                writer,
+                "Failed to invalidate update check cache - skipping invalidation: {err:?}",
+            )?;
+        }
+    }
+
+    Ok(())
+}

@@ -1,0 +1,5 @@
+error: Explicit repository permission parameters are not supported with `ThreadSafeContext`; convert it to `Context` before locking
+ --> tests/ui/fail/base_permission_param_thread_safe_context.rs:8:12
+  |
+8 |     _perm: &but_ctx::access::RepoShared,
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

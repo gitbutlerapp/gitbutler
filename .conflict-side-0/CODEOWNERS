@@ -1,0 +1,13 @@
+/CODEOWNERS @krlvi @schacon
+/.github @krlvi @schacon @Byron @Caleb-T-Owens @estib-vega @mtsgrd @slarse
+/crates/but-core @krlvi @Byron @Caleb-T-Owens @estib-vega @jonathantanmy2
+/crates/but-ctx @krlvi @Byron @Caleb-T-Owens @estib-vega @jonathantanmy2
+/crates/but-db @krlvi @Byron @Caleb-T-Owens @estib-vega @jonathantanmy2
+/crates/but-fs @krlvi @Byron @Caleb-T-Owens @estib-vega @jonathantanmy2
+/crates/but-graph @krlvi @Byron @Caleb-T-Owens @estib-vega @jonathantanmy2
+/crates/but-rebase @krlvi @Byron @Caleb-T-Owens @estib-vega @jonathantanmy2
+/crates/but-meta @krlvi @Byron @Caleb-T-Owens @estib-vega @jonathantanmy2
+/crates/but-secret @krlvi @Byron @Caleb-T-Owens @estib-vega @jonathantanmy2
+/crates/but-update @krlvi @Byron @Caleb-T-Owens @estib-vega @jonathantanmy2
+/crates/but-workspace @krlvi @Byron @Caleb-T-Owens @estib-vega @jonathantanmy2
+/crates/gitbutler-edit-mode @krlvi @Byron @Caleb-T-Owens @estib-vega @jonathantanmy2

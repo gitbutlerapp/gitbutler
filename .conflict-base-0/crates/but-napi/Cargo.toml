@@ -1,0 +1,45 @@
+[package]
+name = "but-napi"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE.md"
+description = "GitButler Node.js SDK via napi-rs"
+authors.workspace = true
+readme = "../../README.md"
+publish = false
+rust-version.workspace = true
+
+[package.metadata.cargo-machete]
+ignored = [
+    # Consumed via napi attribute macros and generated bindings that machete misses.
+    "napi",
+    # Consumed via napi attribute macros and generated bindings that machete misses.
+    "napi-derive",
+]
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = ["legacy", "napi-auto"]
+## Make legacy functionality available - required for most operations.
+legacy = ["but-api/legacy"]
+## Enable auto-generated napi functions from the `#[but_api]` macro.
+napi-auto = ["but-api/napi"]
+
+[dependencies]
+anyhow.workspace = true
+but-askpass.workspace = true
+but-api.workspace = true
+but-ctx.workspace = true
+but-path.workspace = true
+but-settings.workspace = true
+gitbutler-watcher.workspace = true
+napi = { version = "3", features = ["serde-json", "tokio_rt"] }
+napi-derive = "3"
+serde_json.workspace = true
+tracing.workspace = true
+
+[build-dependencies]
+napi-build = "2"

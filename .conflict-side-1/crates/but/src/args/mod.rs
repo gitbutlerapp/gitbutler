@@ -1,0 +1,1465 @@
+//! Command-line argument parsing for GitButler CLI.
+//!
+//! Uses `clap` for defining commands and options.
+//!
+//! This module defines the main `Args` struct which represents the top-level
+//! command-line interface, along with its subcommands and options.
+//!
+//! Nearly all documentation for the CLI is defined here using `clap` attributes,
+//! which are then used to generate help messages and online documentation.
+
+use std::ffi::OsString;
+use std::path::PathBuf;
+
+use crate::args::atoms::CliIdArg;
+
+pub mod atoms;
+
+#[derive(Debug, clap::Parser)]
+#[clap(
+    name = "but",
+    about = "A GitButler CLI tool",
+    version = option_env!("VERSION").unwrap_or("dev"),
+    disable_help_subcommand = true,
+)]
+pub struct Args {
+    /// Enable tracing for debug and performance information printed to stderr.
+    ///
+    /// Repeat up to 4 times for increasingly verbose output.
+    #[clap(short = 't', long, action = clap::ArgAction::Count, hide = true, env = "BUT_TRACE")]
+    pub trace: u8,
+    /// Log to this file instead of stderr.
+    ///
+    /// If the file does not exist it will be created. If it does exist it will be truncated.
+    #[clap(long, hide = true)]
+    pub log_file: Option<PathBuf>,
+    /// Run as if but was started in PATH instead of the current working directory.
+    #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
+    pub current_dir: PathBuf,
+    #[clap(flatten)]
+    pub format: OutputFormatArg,
+    /// Whether mutation commands should append workspace status.
+    #[clap(skip)]
+    pub status_after: bool,
+    // Keep accepting the removed flag so agents with older skills do not start
+    // erroring after the `but` CLI is updated. It is intentionally ignored;
+    // agent detection controls the current status-after behavior.
+    #[clap(long = "status-after", global = true, hide = true)]
+    pub legacy_status_after: bool,
+    /// Subcommand to run (`but <COMMAND>`).
+    ///
+    /// On UNIX, if `<COMMAND>` is not built in and `but-<COMMAND>` exists on the PATH, that program
+    /// is executed with the remaining arguments (`but <COMMAND> [ARGS]`).
+    #[clap(subcommand)]
+    pub cmd: Option<Subcommands>,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct OutputFormatArg {
+    /// Explicitly control how output should be formatted.
+    ///
+    /// If unset and from a terminal, it defaults to human output, when redirected it's for shells.
+    #[clap(
+        long,
+        env = crate::utils::envs::BUT_OUTPUT_FORMAT,
+        default_value = "human",
+        global = true
+    )]
+    pub format: OutputFormat,
+}
+
+/// How we should format anything written to [`std::io::stdout()`].
+#[derive(Debug, Copy, Clone, clap::ValueEnum, Default)]
+pub enum OutputFormat {
+    /// The output to write is supposed to be for human consumption, and can be more verbose.
+    #[default]
+    Human,
+    /// The output is for an AI coding agent, rendered as human-readable text.
+    Agent,
+    /// The output should be suitable for shells, and assigning the major result to variables so that it can be reused
+    /// in subsequent CLI invocations.
+    Shell,
+    /// Output detailed information as JSON for tool consumption.
+    Json,
+    /// Do not output anything, like redirecting to `/dev/null`.
+    None,
+}
+
+impl OutputFormat {
+    /// Whether this format renders human-readable text.
+    pub fn is_human_text(self) -> bool {
+        matches!(self, Self::Human | Self::Agent)
+    }
+
+    /// Whether this format renders plain text.
+    pub fn is_text(self) -> bool {
+        self.is_human_text() || matches!(self, Self::Shell)
+    }
+
+    /// Whether this format may truncate long text when output is not paged.
+    pub fn allows_truncation(self) -> bool {
+        matches!(self, Self::Human | Self::Shell)
+    }
+
+    /// Whether this format may use human terminal UI affordances like pagers, progress, prompts, or ambient messages.
+    pub fn allows_human_ui(self) -> bool {
+        matches!(self, Self::Human)
+    }
+
+    /// Whether this format writes JSON values.
+    pub fn is_json(self) -> bool {
+        matches!(self, Self::Json)
+    }
+}
+
+#[derive(
+    Debug, clap::Subcommand, strum::VariantNames, strum::AsRefStr, strum::EnumDiscriminants,
+)]
+#[strum(serialize_all = "kebab-case")]
+#[strum_discriminants(
+    derive(strum::EnumIter, strum::AsRefStr, Hash),
+    name(SubcommandDiscriminant)
+)]
+pub enum Subcommands {
+    /// Overview of the project workspace state.
+    ///
+    /// This shows unstaged files, files staged to stacks, all applied
+    /// branches (stacked or parallel), commits on each of those branches,
+    /// upstream commits that are unintegrated, commit status (pushed or local),
+    /// and base branch information.
+    ///
+    /// ## Examples
+    ///
+    /// Normal usage:
+    ///
+    /// ```text
+    /// but status
+    /// ```
+    ///
+    /// Shorthand with listing files modified
+    ///
+    /// ```text
+    /// but status -f
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Status {
+        /// Determines whether the committed files should be shown as well.
+        #[clap(short = 'f', alias = "files", default_value_t = false)]
+        show_files: bool,
+        /// Show verbose output with commit author and timestamp.
+        #[clap(short = 'v', long = "verbose", default_value_t = false)]
+        verbose: bool,
+        /// Forces a sync of pull requests from the forge before showing status.
+        #[clap(short = 'r', long = "refresh-prs", default_value_t = false)]
+        refresh_prs: bool,
+        /// Show detailed list of upstream commits that haven't been integrated yet.
+        #[clap(short = 'u', long = "upstream", default_value_t = false)]
+        upstream: bool,
+        /// Disable hints about available commands at the end of output.
+        #[clap(long = "no-hint", default_value_t = false)]
+        no_hint: bool,
+        // Hidden no-op compatibility flag because some agents have a habit of running
+        // `but status --short`.
+        #[clap(long = "short", default_value_t = false, hide = true)]
+        short: bool,
+    },
+
+    /// Displays the diff of changes in the repo.
+    ///
+    /// Without any arguments, it shows the diff of all uncommitted changes.
+    /// Optionally, a CLI ID argument can be provided, which chan show the diff specific to
+    /// - an uncommitted file
+    /// - a branch
+    /// - an entire stack
+    /// - a commit
+    /// - a file change within a commit
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Diff {
+        /// The CLI ID of the entity to show the diff for
+        target: Option<String>,
+        /// Open an interactive TUI diff viewer
+        #[clap(long = "tui", conflicts_with = "no_tui")]
+        tui: bool,
+        /// Disable the interactive TUI diff viewer (overrides but.ui.tui config)
+        #[clap(long = "no-tui", conflicts_with = "tui")]
+        no_tui: bool,
+    },
+
+    /// Shows detailed information about a commit or branch.
+    ///
+    /// When given a commit ID, displays the full commit message, author information,
+    /// committer information (if different from author), and the list of files modified.
+    ///
+    /// When given a branch name, displays the branch name and a list of all commits
+    /// on that branch. Use --verbose to show full commit messages and files changed.
+    ///
+    /// ## Examples
+    ///
+    /// Show commit details by short commit ID:
+    ///
+    /// ```text
+    /// but show a1b2c3d
+    /// ```
+    ///
+    /// Show commit details by CLI ID:
+    ///
+    /// ```text
+    /// but show c5
+    /// ```
+    ///
+    /// Show branch commits by branch name:
+    ///
+    /// ```text
+    /// but show my-feature-branch
+    /// ```
+    ///
+    /// Show branch with full commit details:
+    ///
+    /// ```text
+    /// but show my-feature-branch --verbose
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Show {
+        /// The commit ID (short or full SHA), branch name, or CLI ID to show details for
+        commit: String,
+        /// Show full commit messages and files changed for each commit
+        #[clap(short = 'v', long = "verbose")]
+        verbose: bool,
+    },
+
+    /// Commit changes to a stack.
+    ///
+    /// The `but commit` command allows you to create a new commit
+    /// on a specified branch (stack) with the current uncommitted changes.
+    ///
+    /// If there is only one branch applied, it will commit to that branch by default.
+    ///
+    /// If there are multiple branches applied, you must specify which branch to
+    /// commit to, or if in interactive mode, you will be prompted to select one.
+    ///
+    /// By default, all uncommitted changes and all changes already staged to that
+    /// branch will be included in the commit. If you only want to commit the changes
+    /// that are already staged to that branch, you can use the `--only` flag.
+    ///
+    /// It will not commit changes staged to other branches.
+    ///
+    /// Use `but commit empty --before <target>` or `but commit empty --after <target>`
+    /// to insert a blank commit. This is useful for creating a placeholder
+    /// commit that you can amend changes into later using `but rub` or `but absorb`.
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Commit(commit::Platform),
+
+    #[cfg(all(feature = "legacy", feature = "but-2"))]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, name = "_commit2")]
+    _Commit2(commit2::Platform),
+
+    #[cfg(all(feature = "legacy", feature = "but-2"))]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, name = "_squash2")]
+    _Squash2(squash2::Platform),
+
+    #[cfg(all(feature = "legacy", feature = "but-2"))]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, name = "_move2")]
+    _Move2(move2::Platform),
+
+    /// Stages a file or hunk to a specific branch.
+    ///
+    /// Without arguments, opens an interactive TUI for selecting files and hunks to stage.
+    /// With arguments, stages the specified file or hunk to the given branch.
+    ///
+    /// Usage:
+    ///
+    /// ```text
+    /// but stage                         # interactive TUI selector
+    /// but stage --branch <branch>       # interactive, specific branch
+    /// but stage <file-or-hunk> <branch> # direct staging
+    /// ```
+    ///
+    /// For the interactive hunk picker workflow, see <https://docs.gitbutler.com/gitbutler-tui#stage-hunks-interactively>
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Stage {
+        /// File or hunk ID to stage
+        file_or_hunk: Option<String>,
+        /// Branch to stage to (positional)
+        branch_pos: Option<String>,
+        /// Branch to stage to (for interactive mode)
+        #[clap(long = "branch", short = 'b')]
+        branch: Option<String>,
+    },
+
+    /// Commands for managing branches.
+    ///
+    /// This includes creating, deleting, listing, and showing details about branches.
+    ///
+    /// By default without a subcommand, it will list the branches.
+    ///
+    /// To apply or unapply branches, use `but apply` and `but unapply`.
+    ///
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Branch(branch::Platform),
+
+    /// Land a branch directly onto the target branch.
+    ///
+    /// Lands the branch onto the configured target (for example `origin/master`) without going
+    /// through a pull request — the "just push to the target" workflow. By default the target is
+    /// fast-forwarded to the branch tip when possible (no merge commit); otherwise a merge commit
+    /// is created. For a local (`gb-local`) target the refs are moved locally; otherwise the result
+    /// is pushed to the remote. After landing, the remaining applied branches are reconciled onto
+    /// the moved target, just like `but pull`.
+    ///
+    /// Requires an active GitButler workspace. Updating the target is direct and not easily
+    /// reversible, so a confirmation is required (use `--yes` to skip it in scripts).
+    ///
+    /// When NOT to use this: if your project lands changes through pull requests / code review,
+    /// use `but push` and open a PR (`but pr new`) instead — `but land` deliberately bypasses that
+    /// process. On a real remote, a branch protected against direct pushes will reject the land.
+    ///
+    /// ## Examples
+    ///
+    /// Land a branch by its CLI ID:
+    ///
+    /// ```text
+    /// but land bu
+    /// ```
+    ///
+    /// Land a branch by name, forcing a merge commit:
+    ///
+    /// ```text
+    /// but land my-feature-branch --no-ff
+    /// ```
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Land {
+        /// Branch ID or name to land onto the target branch.
+        branch: String,
+        /// Skip the confirmation prompt.
+        #[clap(long)]
+        yes: bool,
+        /// Always create a merge commit, even when the branch can be fast-forwarded.
+        #[clap(long)]
+        no_ff: bool,
+    },
+
+    /// Discard uncommitted changes from the worktree.
+    ///
+    /// This command permanently discards changes to files, restoring them to their
+    /// state in the HEAD commit. Use this to undo unwanted modifications.
+    ///
+    /// The ID parameter should be a file ID as shown in `but status`. You can
+    /// discard a whole file or specific hunks within a file.
+    ///
+    /// ## Examples
+    ///
+    /// Discard all changes to a file:
+    ///
+    /// ```text
+    /// but discard a1
+    /// ```
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Discard {
+        /// The ID of the file or hunk to discard (as shown in `but status`)
+        id: String,
+    },
+
+    /// Resolve conflicts in a commit.
+    ///
+    /// When a commit is in a conflicted state (marked with conflicts during rebase),
+    /// use this command to enter resolution mode, resolve the conflicts, and finalize.
+    ///
+    /// ## Workflow
+    ///
+    /// 1. Enter resolution mode: `but resolve <commit-id>`
+    /// 2. Resolve conflicts in your editor (remove conflict markers)
+    /// 3. Check remaining conflicts: `but resolve status`
+    /// 4. Finalize resolution: `but resolve finish`
+    ///    Or cancel: `but resolve cancel`
+    ///
+    /// When in resolution mode, `but status` will also show that you're resolving conflicts.
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Resolve {
+        /// Subcommand to run (defaults to entering resolution mode)
+        #[clap(subcommand)]
+        cmd: Option<resolve::Subcommands>,
+        /// Commit ID to enter resolution mode for (when no subcommand is provided)
+        commit: Option<String>,
+    },
+
+    /// Unapply a branch from the workspace.
+    ///
+    /// If you want to unapply an applied branch from your workspace
+    /// (effectively stashing it) so you can work on other branches,
+    /// you can run `but unapply <branch-name>`.
+    ///
+    /// This will remove the changes in that branch from your working
+    /// directory and you can re-apply it later when needed. You will then
+    /// see the branch as unapplied in `but branch list`.
+    ///
+    /// The identifier can be:
+    /// - A CLI ID pointing to a stack or branch (e.g., "bu" from `but status`)
+    /// - A branch name
+    ///
+    /// If a branch name (or an identifier pointing to a branch) is provided,
+    /// the entire stack containing that branch will be unapplied.
+    ///
+    /// ## Examples
+    ///
+    /// Unapply by branch name:
+    ///
+    /// ```text
+    /// but unapply my-feature-branch
+    /// ```
+    ///
+    /// Unapply by CLI ID:
+    ///
+    /// ```text
+    /// but unapply bu
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Unapply {
+        /// CLI ID or name of the branch/stack to unapply
+        identifier: String,
+    },
+
+    /// Apply a branch to the workspace.
+    ///
+    /// If you want to apply an unapplied branch to your workspace so you
+    /// can work on it, you can run `but apply <branch-name>`.
+    ///
+    /// This will apply the changes in that branch into your working directory
+    /// as a parallel applied branch.
+    ///
+    /// ## Examples
+    ///
+    /// Apply by branch name:
+    ///
+    /// ```text
+    /// but apply my-feature-branch
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Apply {
+        /// Name of the branch to apply
+        branch_name: String,
+    },
+
+    /// Push changes in a branch to remote.
+    ///
+    /// `but push` will update the remote with the latest commits from the
+    /// applied branch(es).
+    ///
+    /// Without a branch ID:
+    /// - Interactive mode: Lists all branches with unpushed commits and prompts for selection
+    /// - Non-interactive mode: Automatically pushes all branches with unpushed commits
+    ///
+    /// With a branch ID:
+    /// - `but push bu` - push the branch with CLI ID "bu"
+    /// - `but push feature-branch` - push the branch named "feature-branch"
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Push(push::Command),
+
+    /// Updates all applied branches to be up to date with the target branch.
+    ///
+    /// This fetches the latest changes from the remote and rebases all applied branches
+    /// on top of the updated target branch.
+    ///
+    /// You should run this regularly to keep your branches up to date with the latest
+    /// changes from the main development line.
+    ///
+    /// You can run `but pull --check` first to see if your branches can be cleanly
+    /// merged into the target branch before running the update.
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Pull {
+        /// Only check the status without updating (equivalent to the old `but base check`)
+        #[clap(long, short = 'c')]
+        check: bool,
+    },
+
+    /// Commands for creating and managing reviews on a forge, e.g. GitHub PRs or GitLab MRs.
+    ///
+    /// If you are authenticated with a forge using `but config forge auth`, you can use
+    /// the `but pr` or `but mr` commands to create pull requests (or merge requests) on
+    /// the remote repository for your branches.
+    ///
+    /// Running `but pr` without a subcommand defaults to `but pr new`, which
+    /// will prompt you to select a branch to create a PR for.
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(visible_alias = "review")]
+    #[clap(visible_alias = "mr")]
+    Pr(forge::pr::Platform),
+
+    /// Combines two entities together to perform an operation like amend, squash, stage, or move.
+    ///
+    /// The `rub` command is a simple verb that helps you do a number of editing
+    /// operations by doing combinations of two things.
+    ///
+    /// For example, you can "rub" a file onto a branch to stage that file to
+    /// the branch. You can also "rub" a commit onto another commit to squash
+    /// them together. You can rub a commit onto a branch to move that commit.
+    /// You can rub a file from one commit to another.
+    ///
+    /// ## Operations Matrix
+    ///
+    /// Each cell shows what happens when you rub SOURCE → TARGET:
+    ///
+    /// ```text
+    /// SOURCE ↓ / TARGET →  │ zz (uncommitted) │ Commit     │ Branch      │ Stack
+    /// ─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
+    /// File/Hunk            │ Unstage         │ Amend      │ Stage       │ Stage
+    /// Commit               │ Undo            │ Squash     │ Move        │ -
+    /// Branch (all changes) │ Unstage all     │ Amend all  │ Reassign    │ Reassign
+    /// Stack (all changes)  │ Unstage all     │ -          │ Reassign    │ Reassign
+    /// Uncommitted (zz)     │ -               │ Amend all  │ Stage all   │ Stage all
+    /// File-in-Commit       │ Uncommit        │ Move       │ Uncommit to │ -
+    /// ```
+    ///
+    /// Legend:
+    /// - `zz` is a special target meaning "uncommitted" (no branch)
+    /// - `-` means the operation is not supported
+    /// - "all changes" / "all" refers to all uncommitted changes from that source
+    ///
+    /// ## Examples
+    ///
+    /// Squashing two commits into one (combining the commit messages):
+    ///
+    /// ```text
+    /// but rub 3868155 abe3f53f
+    /// ```
+    ///
+    /// Amending a commit with the contents of a modified file:
+    ///
+    /// ```text
+    /// but rub README.md abe3f53f
+    /// ```
+    ///
+    /// Moving a commit from one branch to another:
+    ///
+    /// ```text
+    /// but rub 3868155 feature-branch
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Rub {
+        /// The source entity to combine
+        source: String,
+        /// The target entity to combine with the source
+        target: String,
+    },
+
+    /// Amends changes into the appropriate commits where they belong.
+    ///
+    /// The semantic for finding "the appropriate commit" is as follows:
+    ///
+    /// - If a change has a dependency to a particular commit, it will be amended into that particular commit
+    /// - If a change is staged to a particular lane (branch), it will be amended into a commit there
+    /// - If there are no commits in this branch, a new commit is created
+    /// - Changes are amended into the topmost commit of the leftmost (first) lane (branch)
+    ///
+    /// Optionally an identifier to an Uncommitted File or a Branch (stack) may be provided.
+    ///
+    /// - If an Uncommitted File id is provided, absorb will be performed for just that file
+    /// - If a Branch (stack) id is provided, absorb will be performed for all changes staged to that stack
+    /// - If no source is provided, absorb is performed for all uncommitted changes
+    ///
+    /// If `--dry-run` is specified, no changes will be made; instead, the absorption plan
+    /// (what changes would be absorbed by which commits) will be shown.
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Absorb {
+        /// If the Source is an uncommitted change - the change will be absorbed.
+        /// If the Source is a stack - anything staged to the stack will be absorbed accordingly.
+        /// If not provided, everything that is uncommitted will be absorbed.
+        source: Option<String>,
+        /// Show the absorption plan without making any changes.
+        #[clap(long = "dry-run")]
+        dry_run: bool,
+    },
+
+    /// Edit the commit message of the specified commit.
+    ///
+    /// You can easily change the commit message of any of your commits by
+    /// running `but reword <commit-id>` and providing a new message in the
+    /// editor.
+    ///
+    /// This will recreate the commit with the new message and then rebase any
+    /// dependent commits on top of it.
+    ///
+    /// You can also use `but reword <branch-id>` to rename the branch.
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Reword {
+        /// Commit ID to edit the message for, or branch ID to rename
+        target: CliIdArg,
+        /// The new commit message or branch name. If not provided, opens an editor.
+        #[clap(short = 'm', long = "message", conflicts_with = "fix_formatting")]
+        message: Option<String>,
+        /// Format the existing commit message to 72-char line wrapping without opening an editor
+        #[clap(
+            id = "fix_formatting",
+            short = 'f',
+            long = "fix-formatting",
+            conflicts_with = "message"
+        )]
+        format: bool,
+        /// Always show diff inside the editor.
+        ///
+        /// By default the diff will be shown unless it's large. The diff will always be shown if
+        /// `--diff` is passed, regardless of the size of the diff.
+        #[clap(long = "diff", default_value_t, conflicts_with_all = &["no_diff", "fix_formatting"])]
+        diff: bool,
+        /// Never show the diff inside the editor.
+        #[clap(long = "no-diff", default_value_t, conflicts_with_all = &["diff", "fix_formatting"])]
+        no_diff: bool,
+    },
+
+    /// Uncommit changes from a commit or file-in-commit to the unstaged area.
+    ///
+    /// Use `--discard` to remove the selected committed changes entirely instead.
+    ///
+    /// Wrapper for `but rub <source> zz`.
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Uncommit {
+        /// Commit ID or file-in-commit ID to uncommit
+        source: String,
+        /// Discard the selected committed changes instead of moving them to uncommitted
+        #[clap(long, short = 'd')]
+        discard: bool,
+        /// Show the resulting uncommitted diff after uncommitting.
+        #[clap(long, conflicts_with = "discard")]
+        diff: bool,
+    },
+
+    /// Amend one or more file changes into a specific commit and rebases any dependent commits.
+    ///
+    /// Use `but amend <commit> --changes <file-or-hunk>[,<file-or-hunk>...]`.
+    #[cfg(feature = "legacy")]
+    #[clap(override_usage = "but amend [OPTIONS] <COMMIT> --changes <CHANGES>")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Amend {
+        /// Commit ID to amend into.
+        ///
+        /// In the legacy two-positional form, this can be the source ID.
+        #[clap(value_name = "COMMIT")]
+        target_or_source: String,
+        /// Commit ID to amend into for the legacy two-positional form.
+        #[clap(value_name = "COMMIT", hide = true)]
+        legacy_commit: Option<String>,
+        /// Uncommitted file or hunk CLI IDs to amend into the commit.
+        ///
+        /// Can be specified multiple times or as comma-separated values.
+        #[clap(long = "changes", short = 'p', value_delimiter = ',')]
+        changes: Vec<String>,
+    },
+
+    /// Squash commits together.
+    ///
+    /// Can be invoked in three ways:
+    /// 1. Using commit identifiers: `but squash <commit1> <commit2>` or `but squash <commit1> <commit2> <commit3>...`
+    ///    - Squashes all commits except the last into the last commit
+    /// 2. Using a commit range: `but squash <commit1>..<commit4>`
+    ///    - Squashes all commits in the range into the last commit in the range
+    /// 3. Using a branch name: `but squash <branch>`
+    ///    - Squashes all commits in the branch into the bottom-most commit
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Squash {
+        /// Commit identifiers, a range (commit1..commit2), or a branch name
+        commits: Vec<String>,
+        /// Drop source commit messages and keep only the target commit's message
+        #[clap(long, short = 'd', group = "message_opts")]
+        drop_message: bool,
+        /// Provide a new commit message for the resulting commit
+        #[clap(long, short = 'm', group = "message_opts")]
+        message: Option<String>,
+        /// Generate commit message using AI with optional user summary or instructions.
+        /// Use --ai by itself or --ai="your instructions" (equals sign required for value)
+        #[clap(long, short = 'i', group = "message_opts", num_args = 0..=1, require_equals = true)]
+        ai: Option<Option<String>>,
+    },
+
+    /// Move a commit or branch to a different location.
+    ///
+    /// Commit moves:
+    /// - By default, commits are moved to be before (below) the target.
+    /// - Use `--after` to move the commit after (above) the target instead.
+    /// - Use comma-separated commit IDs to move multiple commits together.
+    /// - When moving to a branch, the commit is placed at the top of that branch's stack.
+    ///
+    /// Branch moves:
+    /// - Move one branch on top of another to stack them.
+    /// - Move a branch to `zz` to tear it off (unstack it).
+    ///
+    /// ## Examples
+    ///
+    /// Move a commit before another commit:
+    ///
+    /// ```text
+    /// but move abc123 def456
+    /// ```
+    ///
+    /// Move multiple commits before another commit:
+    ///
+    /// ```text
+    /// but move abc123,789abc def456
+    /// ```
+    ///
+    /// Move a commit after another commit:
+    ///
+    /// ```text
+    /// but move abc123 def456 --after
+    /// ```
+    ///
+    /// Move multiple commits after another commit:
+    ///
+    /// ```text
+    /// but move abc123,789abc def456 --after
+    /// ```
+    ///
+    /// Move a commit to a different branch (places at top):
+    ///
+    /// ```text
+    /// but move abc123 my-feature-branch
+    /// ```
+    ///
+    /// Move multiple commits to a different branch (places at top):
+    ///
+    /// ```text
+    /// but move abc123,789abc my-feature-branch
+    /// ```
+    ///
+    /// Stack one branch on top of another:
+    ///
+    /// ```text
+    /// but move feature/frontend feature/backend
+    /// ```
+    ///
+    /// Tear off (unstack) a branch:
+    ///
+    /// ```text
+    /// but move feature/frontend zz
+    /// ```
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Move {
+        /// Commit/branch identifier to move. Use comma-separated commit IDs for multi-commit moves.
+        source: String,
+        /// Target commit/branch identifier, or `zz` to unstack a branch
+        target: String,
+        /// Move the commit after (above) the target instead of before (below).
+        /// Only valid for commit-to-commit moves.
+        #[clap(short = 'a', long = "after")]
+        after: bool,
+    },
+
+    /// Commands for viewing and managing operation history.
+    ///
+    /// Displays a list of past operations performed in the repository,
+    /// including their timestamps and descriptions.
+    ///
+    /// This allows you to restore to any previous point in the history of the
+    /// project. All state is preserved in operations, including uncommitted changes.
+    ///
+    /// You can use `but oplog restore <oplog-sha>` to restore to a specific state.
+    ///
+    /// By default, shows the last 20 oplog entries (same as `but oplog list`).
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Oplog(oplog::Platform),
+
+    /// Undo the last operation.
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Undo,
+
+    /// Redo the last undo.
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Redo,
+
+    /// Sets up a GitButler project from a git repository in the current directory.
+    ///
+    /// This command will:
+    /// - Add the repository to the global GitButler project registry
+    /// - Switch to the gitbutler/workspace branch (if not already on it)
+    /// - Set up a default target branch (the remote's HEAD)
+    /// - Add a gb-local remote if no push remote exists
+    ///
+    /// If you have an existing Git repository and want to start using GitButler
+    /// with it, you can run this command to set up the necessary configuration
+    /// and data structures.
+    ///
+    /// ## Examples
+    ///
+    /// Initialize a new git repository and set up GitButler:
+    ///
+    /// ```text
+    /// but setup --init
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Setup {
+        /// Initialize a new git repository with an empty commit if one doesn't exist.
+        ///
+        /// This is useful when running in non-interactive environments (like CI/CD)
+        /// where you want to ensure a git repository exists before setting up GitButler.
+        #[clap(long)]
+        #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+        init: bool,
+    },
+
+    /// Exit GitButler mode and return to normal Git workflow.
+    ///
+    /// This command:
+    /// - Creates an oplog snapshot of the current state
+    /// - Finds the first active branch and checks it out
+    ///     - Alternatively, use `--checkout-to <branch>` to override this default
+    /// - Cherry-picks any dangling commits from gitbutler/workspace
+    /// - Provides instructions on how to return to GitButler mode
+    ///
+    /// This is useful when you want to temporarily or permanently leave GitButler
+    /// management and work with standard Git commands.
+    ///
+    /// ## Examples
+    ///
+    /// Exit GitButler mode:
+    ///
+    /// ```text
+    /// but teardown
+    /// ```
+    ///
+    /// ```text
+    /// but teardown --checkout-to my-feature-branch
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Teardown {
+        /// Explicit override for which local branch to checkout to.
+        #[clap(long, short = 'c', value_name = "LOCAL_BRANCH")]
+        checkout_to: Option<String>,
+    },
+
+    /// Open the GitButler GUI for the current project.
+    ///
+    /// Running `but gui` will launch the GitButler graphical user interface
+    /// in the current directory's GitButler project.
+    ///
+    /// This provides a visual way to manage branches, commits, and uncommitted
+    /// changes, complementing the command-line interface.
+    ///
+    /// You can also just run `but .` as a shorthand to open the GUI.
+    ///
+    #[clap(visible_alias = ".")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Gui {
+        /// Open the project in a new application window.
+        #[clap(long, short = 'n', default_value_t = false)]
+        new_window: bool,
+        /// Path to the directory to open as a GitButler project. Defaults to the current directory.
+        path: Option<PathBuf>,
+    },
+
+    /// Open a live terminal workspace for branches, commits, changes, and diffs.
+    ///
+    /// The GitButler TUI provides a visual experience similar to the GitButler GUI - right in your
+    /// terminal. For the full workflow and key bindings, see <https://docs.gitbutler.com/gitbutler-tui>
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[cfg(feature = "legacy")]
+    Tui {
+        /// Show debug pane with selected-line metadata.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long, default_value_t = false)]
+        debug: bool,
+        /// Quit after rendering this many frames.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        quit_after: Option<u64>,
+        /// Quit after rendering the full diff.
+        ///
+        /// Implies `--diff`.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        quit_after_rendering_full_diff: bool,
+        /// Run the TUI with an in-memory terminal and no terminal event polling.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        headless: bool,
+        /// Do not print status when the TUI exits.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        skip_status_after: bool,
+        /// Automatically show the diff when opening the TUI.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        diff: bool,
+        /// Automatically select this commit when opening the TUI.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        select_commit: Option<gix::ObjectId>,
+    },
+
+    /// Remove empty branches from the workspace.
+    ///
+    /// A branch is considered empty if it has no local commits, no assigned
+    /// changes, and (by default) no upstream-only commits.
+    ///
+    /// The entire operation is recorded as a single oplog entry, so it can
+    /// be undone with `but undo`.
+    ///
+    /// ## Examples
+    ///
+    /// Remove all empty branches:
+    ///
+    /// ```text
+    /// but clean
+    /// ```
+    ///
+    /// Preview which branches would be removed:
+    ///
+    /// ```text
+    /// but clean --dry-run
+    /// ```
+    ///
+    /// Pull latest changes first, then clean:
+    ///
+    /// ```text
+    /// but clean --pull
+    /// ```
+    ///
+    /// Also remove branches that only have upstream commits:
+    ///
+    /// ```text
+    /// but clean --include-upstream
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Clean {
+        /// Preview which branches would be removed without actually deleting them.
+        #[clap(long)]
+        dry_run: bool,
+        /// Pull latest changes from the remote before cleaning.
+        #[clap(long)]
+        pull: bool,
+        /// Also remove branches that have upstream-only commits but no local commits or changes.
+        #[clap(long)]
+        include_upstream: bool,
+    },
+
+    /// Manage GitButler CLI and app updates.
+    ///
+    /// Check for new versions, install updates, or suppress update notifications.
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Update(update::Platform),
+
+    /// Manage command aliases.
+    ///
+    /// Aliases allow you to create shortcuts for commonly used commands.
+    /// They are stored in git config under the `but.alias.*` namespace.
+    ///
+    /// ## Examples
+    ///
+    /// List all configured aliases:
+    ///
+    /// ```text
+    /// but alias
+    /// ```
+    ///
+    /// Create a new alias:
+    ///
+    /// ```text
+    /// but alias add st status
+    /// but alias add stv "status --verbose"
+    /// ```
+    ///
+    /// Remove an alias:
+    ///
+    /// ```text
+    /// but alias remove st
+    /// ```
+    ///
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Alias(alias::Platform),
+
+    /// View and manage GitButler configuration.
+    ///
+    /// Without a subcommand, displays an overview of important settings including
+    /// user information, target branch, forge configuration, and AI setup.
+    ///
+    /// ## Examples
+    ///
+    /// View configuration overview:
+    ///
+    /// ```text
+    /// but config
+    /// ```
+    ///
+    /// View/set user configuration:
+    ///
+    /// ```text
+    /// but config user
+    /// but config user set name "John Doe"
+    /// but config user set email john@example.com
+    /// ```
+    ///
+    /// View/set forge configuration:
+    ///
+    /// ```text
+    /// but config forge
+    /// ```
+    ///
+    /// View/set target branch:
+    ///
+    /// ```text
+    /// but config target
+    /// ```
+    ///
+    /// View/set metrics:
+    ///
+    /// ```text
+    /// but config metrics
+    /// ```
+    ///
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Config(config::Platform),
+
+    /// Cherry-pick a commit from an unapplied branch into an applied virtual branch.
+    ///
+    /// This command allows you to pick individual commits from unapplied branches
+    /// and apply them to your current workspace branches.
+    ///
+    /// The source can be:
+    /// - A commit SHA (full or short)
+    /// - A CLI ID (e.g., "c5" from `but status`)
+    /// - An unapplied branch name (shows interactive commit selection)
+    ///
+    /// If no target branch is specified:
+    /// - In interactive mode: prompts you to select a target branch
+    /// - If only one branch exists: automatically uses that branch
+    /// - In non-interactive mode: fails with an error
+    ///
+    /// ## Examples
+    ///
+    /// Pick a specific commit into a branch:
+    ///
+    /// ```text
+    /// but pick abc1234 my-feature
+    /// ```
+    ///
+    /// Pick using a CLI ID:
+    ///
+    /// ```text
+    /// but pick c5 my-feature
+    /// ```
+    ///
+    /// Interactively select commits from an unapplied branch:
+    ///
+    /// ```text
+    /// but pick feature-branch
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Pick {
+        /// The commit SHA, CLI ID, or unapplied branch name to cherry-pick from
+        source: String,
+        /// The target virtual branch to apply the commit(s) to
+        #[clap(value_name = "TARGET_BRANCH")]
+        target_branch: Option<String>,
+    },
+
+    /// Switch to a local branch, workspace branch ID, or the GitButler workspace.
+    ///
+    /// ## Examples
+    ///
+    /// Switch to a branch:
+    ///
+    /// ```text
+    /// but switch my-feature
+    /// ```
+    ///
+    /// Switch back to the GitButler workspace:
+    ///
+    /// ```text
+    /// but switch --workspace
+    /// ```
+    ///
+    /// Create a new branch at the project target and switch to it:
+    ///
+    /// ```text
+    /// but switch --new
+    /// ```
+    ///
+    /// Create a named branch at the project target and switch to it:
+    ///
+    /// ```text
+    /// but switch --new my-feature
+    /// ```
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true, group(
+        clap::ArgGroup::new("switch_target")
+            .args(["target", "workspace", "new"])
+            .required(true)
+            .multiple(true)
+    ))]
+    Switch {
+        /// Branch name, full local branch ref, workspace CLI branch ID, or new branch name with --new
+        target: Option<CliIdArg>,
+        /// Switch back to gitbutler/workspace
+        #[clap(long, short = 'w', conflicts_with_all = &["target", "new"])]
+        workspace: bool,
+        /// Create a branch at the project target and switch to it
+        #[clap(long = "new", short = 'n')]
+        new: bool,
+    },
+
+    /// Manage AI agent skills for GitButler.
+    ///
+    /// Skills provide enhanced AI capabilities for working with GitButler through
+    /// Claude Code, Codex, and other AI assistants.
+    ///
+    /// Use `but skill install` to install the GitButler skill files. By default,
+    /// it prompts for scope (repository or global home directory) and then format.
+    /// When run outside a git repository, local scope is unavailable and the
+    /// default install location is global (home directory). You can still
+    /// install to a custom location with `--path` using an absolute or `~` path.
+    ///
+    /// ## Examples
+    ///
+    /// Install interactively (prompts for scope and format):
+    ///
+    /// ```text
+    /// but skill install
+    /// ```
+    ///
+    /// Install the skill globally:
+    ///
+    /// ```text
+    /// but skill install --global
+    /// ```
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Skill(skill::Platform),
+
+    /// Set up GitButler for AI coding agents.
+    ///
+    /// Runs a guided setup wizard for installing GitButler agent skills and
+    /// writing workflow steering instructions into supported agent instruction
+    /// files.
+    ///
+    /// ## Examples
+    ///
+    /// Start the interactive setup wizard (`but agent setup` is equivalent):
+    ///
+    /// ```text
+    /// but agent
+    /// ```
+    ///
+    /// Print the default generated steering text:
+    ///
+    /// ```text
+    /// but agent setup --print
+    /// ```
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Agent(agent::Platform),
+
+    /// Open a file in the built-in text editor.
+    ///
+    /// A simple terminal-based text editor for quick edits. This is the same
+    /// editor used as the fallback when no external editor is configured.
+    ///
+    /// ## Examples
+    ///
+    /// Edit a file:
+    ///
+    /// ```text
+    /// but edit README.md
+    /// ```
+    ///
+    #[clap(hide = true)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Edit {
+        /// Path to the file to edit (created if it doesn't exist)
+        file: String,
+    },
+
+    /// Commands for managing worktrees.
+    ///
+    /// GitButler worktrees allow you to have multiple working directories
+    /// associated with a single Git repository, each tied to a specific
+    /// GitButler branch.
+    ///
+    /// This can be useful for working on multiple versions of a branch at
+    /// the same time, or for isolating changes in different workspaces.
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(hide = true)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Worktree(worktree::Platform),
+
+    /// Trigger a refresh of remote data fetching from the remote, Pull Requests, and CI status.
+    ///
+    /// This is a hidden command primarily used for background sync operations.
+    #[cfg(feature = "legacy")]
+    #[clap(hide = true)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    RefreshRemoteData {
+        /// Whether to also refresh git fetch from the remote.
+        #[clap(long, default_value_t = false)]
+        fetch: bool,
+        /// Whether to also refresh Pull Requests from the forge.
+        #[clap(long, default_value_t = false)]
+        pr: bool,
+        /// Whether to also refresh CI status from the forge.
+        #[clap(long, default_value_t = false)]
+        ci: bool,
+        /// Whether to also check for application updates.
+        #[clap(long, default_value_t = false)]
+        updates: bool,
+    },
+
+    /// AI: Starts up the MCP server.
+    ///
+    /// This is the local MCP server that can be used by coding agents to invoke
+    /// automatic GitButler commits after code generation or edits.
+    ///
+    /// By default, there is only one tool exposed, which is to simply commit changes
+    /// and generate a commit message based on the provided prompt.
+    ///
+    /// If you invoke with `--internal`, it starts the internal MCP server with
+    /// more granular tools, allowing you to ask your agent to do more specific
+    /// tasks.
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(hide = true)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Mcp,
+
+    /// INTERNAL: GitButler Actions are automated tasks (like macros) that can be performed on a repository.
+    #[cfg(feature = "legacy")]
+    #[clap(hide = true)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Actions(actions::Platform),
+
+    /// INTERNAL: If metrics are permitted, this subcommand handles posthog event creation.
+    #[clap(hide = true)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Metrics {
+        #[clap(long, value_enum)]
+        command_name: metrics::CommandName,
+        #[clap(long)]
+        props: String,
+    },
+
+    /// Generate `but` shell completions.
+    ///
+    /// ## Examples
+    ///
+    /// ```bash
+    /// # bash, put in .bashrc or .bash_profile depending on system setup
+    /// eval "$(but completions bash)"
+    ///
+    /// # zsh, put in .zshrc
+    /// eval "$(but completions zsh)"
+    ///
+    /// # fish, put in config.fish
+    /// but completions fish | source
+    /// ```
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Completions {
+        /// The shell to generate completions for, or the one extracted from the `SHELL` environment variable.
+        #[clap(value_enum)]
+        shell: Option<clap_complete::Shell>,
+    },
+
+    /// Hidden command that redirects to `but pull --check`
+    #[cfg(feature = "legacy")]
+    #[clap(hide = true)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Fetch,
+
+    /// Unstages a file or hunk from a branch.
+    ///
+    /// Wrapper for `but rub <file-or-hunk> zz`.
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true)]
+    Unstage {
+        /// File or hunk ID to unstage
+        file_or_hunk: String,
+        /// Branch ID to unstage from (optional, for validation)
+        #[clap(required = false)]
+        branch: Option<String>,
+    },
+
+    /// AI: capture agent logs into GitMeta.
+    #[clap(name = "agentlog", hide = true)]
+    AgentLog {
+        #[clap(subcommand)]
+        cmd: but_agentlog::Command,
+    },
+
+    /// Show help information grouped by category.
+    ///
+    /// Displays all available commands organized into functional categories
+    /// such as Inspection, Branching and Committing, Server Interactions, etc.
+    ///
+    /// This is equivalent to running `but -h` to see the command overview.
+    #[clap(hide = true)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Help,
+
+    /// INTERNAL: First-run onboarding that shows metrics info and marks onboarding complete.
+    ///
+    /// This command is silent if onboarding has already been completed.
+    /// It is designed to be called by the installer after installation.
+    #[clap(hide = true)]
+    Onboarding,
+
+    /// AI: Claude Code hook for workspace awareness and skill activation.
+    ///
+    /// Outputs workspace status as JSON and a skill-loading nudge.
+    /// Intended to fire on the Stop hook.
+    #[clap(hide = true)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    EvalHook,
+
+    /// External commands and aliases are resolved to this variant.
+    ///
+    /// External commands are currently only supported on UNIX platforms, but this is available on
+    /// Windows for alias resolution.
+    #[strum(disabled)]
+    #[clap(hide = true, external_subcommand)]
+    External(Vec<OsString>),
+}
+
+pub mod agent;
+pub mod alias;
+#[cfg(feature = "legacy")]
+pub mod commit;
+#[cfg(feature = "legacy")]
+pub mod commit2;
+pub mod config;
+#[cfg(feature = "legacy")]
+pub mod move2;
+pub mod skill;
+#[cfg(feature = "legacy")]
+pub mod squash2;
+pub mod update;
+
+pub mod actions {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Option<Subcommands>,
+    }
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommands {
+        /// Automatically handles the changes in the repository, creating a commit with the provided context.
+        HandleChanges {
+            /// A context describing the changes that are currently uncommitted
+            #[clap(long, short = 'd', alias = "desc", visible_alias = "description")]
+            description: String,
+            /// Which handler is to be used for the operation. Different handles would have different behavior.
+            #[clap(long, value_enum, default_value = "simple")]
+            handler: Handler,
+        },
+    }
+
+    #[derive(Debug, Clone, Copy, clap::ValueEnum)]
+    pub enum Handler {
+        /// Handles changes in a simple way.
+        Simple,
+    }
+}
+
+pub mod forge;
+pub mod metrics;
+#[cfg(feature = "legacy")]
+pub mod oplog;
+pub mod push;
+#[cfg(feature = "legacy")]
+pub mod resolve;
+
+pub mod worktree {
+    #[derive(Debug, clap::Parser)]
+    pub struct Platform {
+        #[clap(subcommand)]
+        pub cmd: Subcommands,
+    }
+
+    #[derive(Debug, clap::Subcommand)]
+    pub enum Subcommands {
+        /// Create a new worktree from a reference
+        New {
+            /// The reference (branch, commit, etc.) to create the worktree from
+            reference: String,
+        },
+        /// List all worktrees
+        List,
+        /// Integrate a worktree
+        Integrate {
+            /// The path or name of the worktree to integrate
+            path: String,
+            /// The target reference to integrate into (defaults to the reference the worktree was created from)
+            #[clap(long)]
+            target: Option<String>,
+            /// Perform a dry run without making changes
+            #[clap(long)]
+            dry: bool,
+        },
+        /// Destroy worktree(s)
+        Destroy {
+            /// The path to the worktree to destroy, or a reference to destroy all worktrees created from it
+            target: String,
+            /// Treat the target as a reference instead of a path
+            #[clap(long)]
+            reference: bool,
+        },
+    }
+}
+
+pub mod branch;
+
+#[cfg(test)]
+mod tests;

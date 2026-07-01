@@ -1,0 +1,20 @@
+[package]
+name = "but-api-macros"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+proc-macro = true
+doctest = false
+
+[dependencies]
+syn = { version = "2", features = ["full", "extra-traits"] }
+quote = "1"
+proc-macro2 = "1"
+convert_case = "0.10.0"
+
+[lints]
+workspace = true

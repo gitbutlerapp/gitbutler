@@ -1,0 +1,126 @@
+use crate::args::atoms::CliIdArg;
+
+#[derive(Debug, clap::Parser)]
+pub struct Platform {
+    /// Commit message
+    #[clap(short = 'm', long = "message", conflicts_with = "message_file")]
+    pub message: Option<String>,
+    /// Read commit message from file
+    #[clap(long = "message-file", value_name = "FILE", conflicts_with = "message")]
+    pub message_file: Option<std::path::PathBuf>,
+    /// Branch CLI ID or name to derive the stack to commit to
+    pub branch: Option<CliIdArg>,
+    /// Whether to create a new branch for this commit.
+    /// If the branch name given matches an existing branch, that branch will be used instead.
+    /// If no branch name is given, a new branch with a generated name will be created.
+    #[clap(short = 'c', long = "create")]
+    pub create: bool,
+    /// Insert the commit before this commit or branch.
+    #[clap(long, conflicts_with = "after")]
+    pub before: Option<CliIdArg>,
+    /// Insert the commit after this commit or branch.
+    #[clap(long, conflicts_with = "before")]
+    pub after: Option<CliIdArg>,
+    /// Only commit staged files, not unstaged files
+    #[clap(short = 'o', long = "only")]
+    pub only: bool,
+    /// No-op compatibility flag for `git commit -a`.
+    #[clap(short = 'a', long = "all")]
+    pub all: bool,
+    /// Bypass pre-commit hooks
+    #[clap(short = 'n', long = "no-hooks", alias = "no-verify")]
+    pub no_hooks: bool,
+    /// Generate commit message using AI with optional user summary.
+    /// Use --ai by itself or --ai="your instructions" (equals sign required for value)
+    #[clap(
+        short = 'i',
+        long = "ai",
+        conflicts_with = "message",
+        conflicts_with = "message_file",
+        num_args = 0..=1,
+        require_equals = true
+    )]
+    pub ai: Option<Option<String>>,
+    /// Uncommitted file or hunk CLI IDs to include in the commit.
+    /// Can be specified multiple times or as comma-separated values.
+    /// If not specified, all uncommitted changes (or changes staged to the target branch) are committed.
+    #[clap(
+        long = "changes",
+        short = 'p',
+        value_delimiter = ',',
+        conflicts_with = "only"
+    )]
+    pub changes: Vec<String>,
+    /// Always show diff inside the editor.
+    ///
+    /// By default the diff will be shown unless it's large. The diff will always be shown if
+    /// `--diff` is passed, regardless of the size of the diff.
+    #[clap(long = "diff", default_value_t, conflicts_with_all = &["no_diff", "message", "message_file", "ai"])]
+    pub diff: bool,
+    /// Never show the diff inside the editor.
+    #[clap(long = "no-diff", default_value_t, conflicts_with_all = &["diff", "message", "message_file", "ai"])]
+    pub no_diff: bool,
+    #[clap(subcommand)]
+    pub cmd: Option<Subcommands>,
+}
+
+#[derive(Debug, clap::Subcommand)]
+pub enum Subcommands {
+    /// Insert a blank commit before or after the specified commit.
+    ///
+    /// This is useful for creating a placeholder commit that you can
+    /// then amend changes into later using `but rub` or `but absorb`.
+    ///
+    /// You can provide a message with `-m` or modify it later using `but reword`.
+    ///
+    /// This allows for a more Jujutsu style workflow where you create commits
+    /// first and then fill them in as you work. Create an empty commit and
+    /// then rub or absorb changes into it whenever you prefer.
+    ///
+    /// ## Examples
+    ///
+    /// Insert at the top of the first branch (no arguments):
+    ///
+    /// ```text
+    /// but commit empty
+    /// ```
+    ///
+    /// Insert before a commit:
+    ///
+    /// ```text
+    /// but commit empty ab
+    /// ```
+    ///
+    /// Explicitly insert before a commit:
+    ///
+    /// ```text
+    /// but commit empty --before ab
+    /// ```
+    ///
+    /// Insert after a commit (at the top of the stack if target is a branch):
+    ///
+    /// ```text
+    /// but commit empty --after ab
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[command(group = clap::ArgGroup::new("position"))]
+    Empty {
+        /// The target commit or branch to insert relative to.
+        ///
+        /// If a target is provided without --before or --after, defaults to --before behavior.
+        /// If no arguments are provided at all, inserts at the top of the first branch.
+        #[arg(group = "position")]
+        target: Option<CliIdArg>,
+        /// Insert the blank commit before this commit or branch
+        #[arg(long, group = "position")]
+        before: Option<CliIdArg>,
+        /// Insert the blank commit after this commit or branch
+        #[arg(long, group = "position")]
+        after: Option<CliIdArg>,
+        /// Commit message for the inserted blank commit
+        #[arg(short = 'm', long = "message")]
+        message: Option<String>,
+    },
+}

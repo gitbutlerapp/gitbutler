@@ -1,0 +1,28 @@
+[package]
+name = "but-feedback"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+test = false
+doctest = false
+
+[dependencies]
+but-core.workspace = true
+but-graph.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
+
+anyhow.workspace = true
+gix.workspace = true
+zip.workspace = true
+walkdir = "2.5.0"
+chrono.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,3 @@
+ancestorEntries = []
+ourEntries = ["apps/lite/ui/src/routes/project/$id/workspace/OutlineTree.module.css"]
+theirEntries = ["apps/lite/ui/src/routes/project/$id/workspace/OutlineTree.module.css"]

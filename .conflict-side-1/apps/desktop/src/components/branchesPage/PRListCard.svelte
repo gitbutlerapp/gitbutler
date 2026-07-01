@@ -1,0 +1,127 @@
+<script lang="ts">
+	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
+	import { getPrStatus } from "$lib/forge/interface/prUtils";
+	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from "@gitbutler/ui";
+	import type { ForgeUnitInfo } from "@gitbutler/but-sdk";
+	type basePrData = {
+		number: number;
+		isDraft: boolean;
+		title: string;
+		sourceBranch?: string;
+		author?: {
+			name?: string;
+			email?: string;
+			gravatarUrl?: string;
+		};
+
+		modifiedAt?: string;
+		mergedAt?: string;
+		closedAt?: string;
+	};
+
+	interface Props extends basePrData {
+		reviewUnit: ForgeUnitInfo | undefined;
+		onclick?: (prData: basePrData) => void;
+		selected?: boolean;
+		noRemote?: boolean;
+	}
+
+	const {
+		reviewUnit,
+		selected,
+		noRemote,
+		isDraft,
+		number,
+		title,
+		sourceBranch,
+		author,
+		modifiedAt,
+		mergedAt,
+		closedAt,
+		onclick,
+	}: Props = $props();
+
+	const unknownName = "Unknown Author";
+
+	const prStatus = $derived(getPrStatus({ mergedAt, closedAt, draft: isDraft }));
+</script>
+
+<BranchesCardLayout
+	testId={TestId.PRListCard}
+	{selected}
+	onclick={() =>
+		onclick?.({
+			number,
+			isDraft,
+			title,
+			sourceBranch,
+			author,
+			modifiedAt,
+			mergedAt,
+			closedAt,
+		})}
+>
+	{#snippet content()}
+		<div class="sidebar-entry__header">
+			<h4 class="text-13 text-semibold">
+				<span class="clr-text-2">#{number}:</span>
+				{title}
+			</h4>
+		</div>
+
+		<div class="text-12 sidebar-entry__about">
+			<ReviewBadge type={reviewUnit?.abbr} status={prStatus} {title} {number} />
+			<span class="sidebar-entry__divider">•</span>
+
+			{#if noRemote || !sourceBranch}
+				<span>No remote</span>
+			{:else}
+				<div class="sidebar-entry__branch truncate">
+					<SeriesIcon single size={12} />
+					<span class="text-semibold truncate">{sourceBranch}</span>
+				</div>
+			{/if}
+		</div>
+	{/snippet}
+	{#snippet details()}
+		{#if author && modifiedAt}
+			<Avatar srcUrl={author.gravatarUrl || ""} username={author.name || unknownName} />
+			<TimeAgo date={new Date(modifiedAt)} addSuffix /> by
+			{author.name || unknownName}
+		{/if}
+	{/snippet}
+</BranchesCardLayout>
+
+<style lang="postcss">
+	.sidebar-entry__about {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		color: var(--text-2);
+	}
+
+	.sidebar-entry__header {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+
+		& h4 {
+			line-height: 1.4;
+		}
+	}
+
+	.sidebar-entry__divider {
+		color: var(--text-3);
+
+		&:last-child {
+			display: none;
+		}
+	}
+
+	.sidebar-entry__branch {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		color: var(--text-2);
+	}
+</style>

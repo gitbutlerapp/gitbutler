@@ -1,0 +1,19 @@
+[package]
+name = "gitbutler-cherry-pick"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+gitbutler-commit.workspace = true
+
+gix.workspace = true
+anyhow.workspace = true
+
+[lints]
+workspace = true

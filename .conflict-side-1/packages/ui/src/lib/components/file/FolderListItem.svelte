@@ -1,0 +1,220 @@
+<script lang="ts">
+	import Checkbox from "$components/Checkbox.svelte";
+	import Icon from "$components/Icon.svelte";
+	import FileIcon from "$components/file/FileIcon.svelte";
+	import FileIndent from "$components/file/FileIndent.svelte";
+	import { type FocusableOptions } from "$lib/focus/focusTypes";
+	import { focusable } from "$lib/focus/focusable";
+
+	interface Props {
+		name: string;
+		showCheckbox?: boolean;
+		checked?: boolean;
+		indeterminate?: boolean;
+		isExpanded?: boolean;
+		depth?: number;
+		transparent?: boolean;
+		draggable?: boolean;
+		selected?: boolean;
+		active?: boolean;
+		actionOpts?: FocusableOptions;
+		oncheck?: (
+			e: Event & {
+				currentTarget: EventTarget & HTMLInputElement;
+			},
+		) => void;
+		ontoggle?: (expanded: boolean) => void;
+		onclick?: (e: MouseEvent) => void;
+		onkeydown?: (e: KeyboardEvent) => void;
+		onmousedown?: (e: MouseEvent) => void;
+		oncontextmenu?: (e: MouseEvent) => void;
+		testId?: string;
+	}
+
+	let {
+		name,
+		showCheckbox,
+		checked = $bindable(),
+		indeterminate,
+		isExpanded = $bindable(true),
+		depth,
+		transparent,
+		draggable = false,
+		selected = false,
+		active = false,
+		actionOpts,
+		oncheck,
+		ontoggle,
+		onclick,
+		onkeydown,
+		onmousedown,
+		oncontextmenu,
+		testId,
+	}: Props = $props();
+</script>
+
+<div
+	data-testid={testId}
+	class="folder-list-item"
+	role="option"
+	aria-selected={selected}
+	tabindex="0"
+	class:transparent
+	class:draggable
+	class:selected
+	class:active
+	use:focusable={actionOpts}
+	{onmousedown}
+	onclick={(e) => {
+		e.stopPropagation();
+		onclick?.(e);
+	}}
+	{onkeydown}
+	oncontextmenu={(e) => {
+		if (oncontextmenu) {
+			e.preventDefault();
+			e.stopPropagation();
+			oncontextmenu(e);
+		}
+	}}
+>
+	{#if draggable && !showCheckbox}
+		<div class="draggable-handle">
+			<Icon name="drag-vertical" />
+		</div>
+	{/if}
+
+	<div class="folder-list-item__indicators">
+		<FileIndent {depth} />
+
+		<button
+			type="button"
+			aria-label="Toggle folder"
+			class="folder-list-item__arrow"
+			class:expanded={isExpanded}
+			onclick={(e) => {
+				e.stopPropagation();
+				isExpanded = !isExpanded;
+				ontoggle?.(isExpanded);
+			}}
+		>
+			<svg
+				width="10"
+				height="6"
+				viewBox="0 0 10 6"
+				fill="currentColor"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<path
+					fill-rule="evenodd"
+					clip-rule="evenodd"
+					d="M5.17683 3.76259C5.0792 3.86022 4.92091 3.86022 4.82328 3.76259L1.53039 0.469698L0.469727 1.53036L3.76262 4.82325C4.44604 5.50667 5.55408 5.50667 6.23749 4.82325L9.53039 1.53036L8.46973 0.469698L5.17683 3.76259Z"
+				/>
+			</svg>
+		</button>
+
+		{#if showCheckbox}
+			<Checkbox small bind:checked {indeterminate} onchange={oncheck} />
+		{/if}
+
+		<div class="folder-list-item__icon">
+			<FileIcon fileName={isExpanded ? "folder-open" : "folder-close"} />
+		</div>
+	</div>
+	<p class="text-12 text-semibold truncate">{name}</p>
+</div>
+
+<style lang="postcss">
+	.folder-list-item {
+		display: flex;
+		position: relative;
+		align-items: center;
+		height: 30px;
+		padding: 0 8px 0 14px;
+		gap: 8px;
+		background-color: var(--bg-1);
+		cursor: pointer;
+
+		&:not(.selected):hover {
+			background-color: var(--hover-bg-1);
+		}
+		&.transparent {
+			background-color: transparent;
+		}
+		&.selected {
+			background-color: var(--focus-bg-mute);
+
+			&:hover {
+				background-color: color-mix(in srgb, var(--focus-bg-mute) 96%, var(--fill-gray-bg));
+			}
+		}
+		&.active.selected {
+			background-color: var(--focus-bg);
+
+			&:hover {
+				background-color: color-mix(in srgb, var(--focus-bg) 95%, var(--fill-pop-bg));
+			}
+		}
+
+		&:focus-visible {
+			outline: none;
+			background-color: var(--focus-bg);
+		}
+
+		.draggable-handle {
+			display: none;
+			position: absolute;
+			left: 4px;
+			align-items: center;
+			justify-content: center;
+			width: 6px;
+			color: var(--text-2);
+			opacity: 0.6;
+		}
+
+		&.draggable {
+			&:hover {
+				& .draggable-handle {
+					display: flex;
+				}
+			}
+		}
+	}
+
+	.folder-list-item__indicators {
+		display: flex;
+		align-items: center;
+		height: 100%;
+		gap: 6px;
+		color: var(--text-2);
+	}
+
+	.folder-list-item__arrow {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 14px;
+		height: 14px;
+		margin: 0 -2px;
+
+		transform: rotate(-90deg);
+		border-radius: var(--radius-s);
+
+		&:hover {
+			color: var(--text-1);
+		}
+
+		&.expanded {
+			transform: rotate(0);
+			transition: transform var(--transition-fast);
+		}
+	}
+
+	.folder-list-item__icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-left: 2px;
+		color: var(--text-2);
+	}
+</style>

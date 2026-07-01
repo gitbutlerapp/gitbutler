@@ -1,0 +1,84 @@
+.fieldRoot {
+	display: flex;
+	row-gap: 6px;
+	flex-direction: column;
+}
+
+.fieldLabel {
+	color: var(--text-2);
+}
+
+.fieldControl {
+	height: 28px;
+	padding-inline: 8px;
+	border-radius: var(--radius-ml);
+	outline: 1px solid var(--border-2);
+	background-color: var(--bg-1);
+	color: var(--text-1);
+	transition: outline-color var(--transition-fast);
+
+	&::placeholder {
+		color: var(--text-3);
+	}
+
+	&:hover:not(:focus, :disabled, [data-disabled]) {
+		outline-color: var(--border-1);
+	}
+
+	&:focus {
+		outline: var(--focus-ring);
+	}
+
+	&:disabled,
+	&[data-disabled] {
+		cursor: not-allowed;
+		opacity: 0.5;
+	}
+}
+
+.fieldControlTextarea {
+	height: auto;
+	padding-block: 6px;
+	field-sizing: content;
+	min-height: 6lh;
+	max-height: 20lh;
+	resize: none;
+}
+
+.fieldControlWrap {
+	display: flex;
+	position: relative;
+	align-items: center;
+
+	& .fieldControl {
+		flex: 1;
+	}
+
+	& .fieldIcon {
+		display: flex;
+		position: absolute;
+		align-items: center;
+		color: var(--text-3);
+		pointer-events: none;
+	}
+
+	&.fieldIconLeading {
+		& .fieldIcon {
+			left: 8px;
+		}
+
+		& .fieldControl {
+			padding-inline-start: 26px;
+		}
+	}
+
+	&.fieldIconTrailing {
+		& .fieldIcon {
+			right: 8px;
+		}
+
+		& .fieldControl {
+			padding-inline-end: 26px;
+		}
+	}
+}

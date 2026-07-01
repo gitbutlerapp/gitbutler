@@ -1,0 +1,53 @@
+<svg width="740px" height="254px" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .fg { fill: #AAAAAA }
+    .bg { fill: #000000 }
+    .fg-blue { fill: #0000AA }
+    .fg-cyan { fill: #00AAAA }
+    .fg-green { fill: #00AA00 }
+    .fg-red { fill: #AA0000 }
+    .container {
+      padding: 0 10px;
+      line-height: 18px;
+    }
+    .bold { font-weight: bold; }
+    .dimmed { opacity: 0.7; }
+    tspan {
+      font: 14px SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
+      white-space: pre;
+      line-height: 18px;
+    }
+  </style>
+
+  <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
+
+  <text xml:space="preserve" class="container fg">
+    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="fg-blue bold">zz</tspan><tspan> [</tspan><tspan class="fg-cyan">uncommitted</tspan><tspan>] </tspan><tspan class="dimmed">(no changes)</tspan>
+</tspan>
+    <tspan x="10px" y="46px"><tspan>┊</tspan>
+</tspan>
+    <tspan x="10px" y="64px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green">A</tspan><tspan>]</tspan><tspan class="fg-red"> [⚠ upstream conflicts]</tspan>
+</tspan>
+    <tspan x="10px" y="82px"><tspan>┊●   </tspan><tspan class="fg-blue bold">92</tspan><tspan class="dimmed">83fc1</tspan><tspan> A-change</tspan>
+</tspan>
+    <tspan x="10px" y="100px"><tspan>├╯</tspan>
+</tspan>
+    <tspan x="10px" y="118px"><tspan>┊</tspan>
+</tspan>
+    <tspan x="10px" y="136px"><tspan>┊╭┄(upstream) ⏫ 1 commit</tspan>
+</tspan>
+    <tspan x="10px" y="154px"><tspan>┊</tspan><tspan class="fg-green">●</tspan><tspan> </tspan><tspan class="fg-cyan">bdfcf28</tspan><tspan> </tspan><tspan class="dimmed">main-change</tspan>
+</tspan>
+    <tspan x="10px" y="172px"><tspan>┊┊</tspan>
+</tspan>
+    <tspan x="10px" y="190px"><tspan>├╯ </tspan><tspan class="dimmed">efc9211</tspan><tspan> (common base) </tspan><tspan class="dimmed">2000-01-02</tspan><tspan> base</tspan>
+</tspan>
+    <tspan x="10px" y="208px">
+</tspan>
+    <tspan x="10px" y="226px"><tspan class="dimmed">Hint: run `but help` for all commands</tspan>
+</tspan>
+    <tspan x="10px" y="244px">
+</tspan>
+  </text>
+
+</svg>

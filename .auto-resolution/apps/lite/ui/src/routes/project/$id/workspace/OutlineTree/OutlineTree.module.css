@@ -1,0 +1,56 @@
+.section {
+	padding: 6px;
+	border-radius: var(--radius-l);
+	background-color: var(--bg-2);
+}
+
+.tree {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr);
+	gap: 12px;
+
+	&:focus {
+		/* The focus state is displayed on the item row instead. */
+		outline: none;
+	}
+}
+
+.uncommittedChangesContainer {
+	padding-inline: var(--panel-padding);
+}
+
+.stacksScroller {
+	padding-inline: var(--panel-padding);
+	padding-bottom: var(--panel-padding);
+	scroll-padding: var(--panel-padding);
+}
+
+.stacks {
+	display: flex;
+	row-gap: 12px;
+	flex-direction: column;
+}
+
+.segments {
+	display: flex;
+	flex-direction: column;
+}
+
+.segmentParentItemRow:last-child {
+	height: 8px;
+	min-height: auto;
+	overflow: hidden;
+}
+
+.stack {
+	display: flex;
+	flex-direction: column;
+	padding-bottom: 0;
+}
+
+.uncommittedChanges {
+	display: flex;
+	row-gap: 4px;
+	flex-direction: column;
+}

@@ -1,0 +1,166 @@
+.container {
+	--single-line-row-height: 28px;
+	--single-line-row-label-line-height: 16px;
+
+	display: flex;
+	column-gap: 8px;
+	min-height: var(--single-line-row-height);
+	padding-inline: 8px;
+
+	&[inert] {
+		opacity: 0.5;
+	}
+}
+
+.containerInteractive {
+	border-radius: var(--radius-m);
+
+	&:where(:hover) {
+		background-color: var(--list-item-hover-bg);
+	}
+}
+
+.containerSelected {
+	background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
+
+	&:has(:is(textarea, input):focus),
+	[data-selection-scope]:focus & {
+		background-color: var(--fill-gray-bg);
+		color: var(--fill-gray-fg);
+	}
+}
+
+.containerHighlighted {
+	background-color: #63cdc7;
+	color: var(--text-1);
+}
+
+.toolbar {
+	display: none;
+
+	.container:hover &,
+	.container:focus-within &,
+	.containerSelected &,
+	&.toolbarForceVisible {
+		display: flex;
+		column-gap: 8px;
+		padding-block: 4px;
+	}
+
+	button {
+		margin-inline: -4px;
+	}
+}
+
+.labelContainer {
+	display: flex;
+	column-gap: 6px;
+	flex-grow: 1;
+	min-width: 0;
+	margin-right: 2px;
+	padding-block: calc(
+		(var(--single-line-row-height) - var(--single-line-row-label-line-height)) / 2
+	);
+}
+
+.label {
+	line-height: var(--single-line-row-label-line-height);
+}
+
+.labelSingleLine {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.fadedText {
+	color: var(--text-2);
+
+	[data-selection-scope]:focus .containerSelected & {
+		color: var(--text-2-invert);
+	}
+}
+
+.buttonGhost {
+	[data-selection-scope]:focus .containerSelected &,
+	.containerSelected:has(:is(textarea, input):focus) & {
+		/* Duplicated styles for ghost-inverted button variant. This is necessary to
+		make the variant responsive to selection/focus changes purely with CSS. */
+
+		--button-border: none;
+		--button-bg: transparent;
+		--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
+		--button-hover-fg: var(--text-1-invert);
+		--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
+	}
+}
+
+.buttonOutline {
+	[data-selection-scope]:focus .containerSelected &,
+	.containerSelected:has(:is(textarea, input):focus) & {
+		/* Duplicated styles for outline-inverted button variant. This is necessary to
+		make the variant responsive to selection/focus changes purely with CSS. */
+
+		--button-border: 1px solid color-mix(in srgb, var(--fill-gray-fg) 30%, transparent);
+		--button-bg: transparent;
+		--button-fg: color-mix(in srgb, var(--text-1-invert) 90%, transparent);
+		--button-hover-fg: var(--text-1-invert);
+		--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
+	}
+}
+
+.bubble {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 20px;
+	height: 16px;
+	padding-inline: 5px;
+	border-radius: 10px;
+}
+
+.bubbleGroup {
+	display: inline-flex;
+
+	& > :not(:first-child) {
+		border-start-start-radius: 0;
+		border-end-start-radius: 0;
+	}
+
+	& > :not(:last-child) {
+		border-start-end-radius: 0;
+		border-end-end-radius: 0;
+	}
+}
+
+.bubbleFillGray {
+	background-color: var(--fill-gray-bg);
+	color: var(--fill-gray-fg);
+
+	[data-selection-scope]:focus .containerSelected & {
+		background-color: var(--fill-gray-fg);
+		color: var(--fill-gray-bg);
+	}
+}
+
+.bubbleClrSafe {
+	--background-color: light-dark(var(--clr-safe-50), var(--clr-safe-30));
+	background-color: color-mix(in srgb, var(--background-color) 25%, var(--bg-1));
+	color: light-dark(var(--text-safe), var(--clr-safe-60));
+
+	[data-selection-scope]:focus .containerSelected & {
+		background-color: color-mix(in srgb, var(--background-color) 37%, transparent);
+		color: light-dark(var(--clr-safe-70), var(--clr-safe-30));
+	}
+}
+
+.bubbleClrDanger {
+	--background-color: light-dark(var(--clr-danger-50), var(--clr-danger-30));
+	background-color: color-mix(in srgb, var(--background-color) 22%, var(--bg-1));
+	color: light-dark(var(--text-danger), var(--clr-danger-60));
+
+	[data-selection-scope]:focus .containerSelected & {
+		background-color: color-mix(in srgb, var(--background-color) 40%, transparent);
+		color: light-dark(var(--clr-danger-70), var(--clr-danger-30));
+	}
+}

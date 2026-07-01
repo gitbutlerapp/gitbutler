@@ -1,0 +1,380 @@
+[workspace]
+members = [
+    # What follows is an attempt at crate classification.
+    # Moving them up is the goal here.
+    # And of course, this classification isn't truly objective,
+    # and you should feel free to make adjustments.
+    ##
+    ### ✅Exemplary 🏆
+    ##
+    # Exhaustive documentation (via `#![deny(missing_docs)]`)
+    # Exhaustive tests
+    # No or minimal 'legacy' support
+    # No `but-ctx` dependency
+    # ideally: idiomatic Rust
+    "crates/but-core",           # 📄Core types and capabilities, a catch all that could be split into smaller crates.
+    "crates/but-graph",          # 📄The world of GitButler, classification and analysis of commit-graphs.
+    "crates/but-ctx",            # 📄Re-use of caches and db-connections, access to all data one would need to be GitButler.
+    "crates/but-db",             # 📄Abstractions over Sqlite databases and Caches, with transaction and synchronization support.
+    "crates/but-error",          # 📄Error codes to communicate specific failures; JSON Error for frontends.
+    "crates/but-testsupport",    # 📄Despite lacking tests, it is the foundation for all tests.
+    "crates/but-feedback",       # 📄It's very small and very special, but documented and well-enough tested.
+    "crates/but-askpass",        # 📄Broker prompts from Git back to the application.
+    "crates/but-project-handle", # 📄Temporary home of ProjectHandle until `gitbutler-project` is gone and it can merge back into `but-ctx`.
+
+    ##
+    ### 👷Needs work
+    ##
+    # Shows many or all traits of Exemplary
+    # Substantial legacy code or legacy dependencies
+    # Partial or incomplete documentation.
+    # Tests for core capabilities.
+    # 👉Could be exemplary once older supporting code is removed, and it was actually reviewed.
+    "crates/but-rebase", # 📄Alter commit-graphs in various ways
+    # 👉needs impl based on `but_core::snapshot`; shouldn't use `but-ctx`.
+    "crates/but-oplog", # 📄A sketch of a modern `gitbutler-oplog`
+    # 👉mostly powered by legacy, but will help to transition to `but-db` backing.
+    "crates/but-meta", # 📄An interface to support Git-entity metadata;
+    # 👉lacks tests
+    "crates/but-hunk-assignment", # 📄Assign uncommitted changes to stacks/lanes.
+    # 👉uses `but-ctx`.
+    "crates/but-hunk-dependency", # 📄Assuming it works, it feels close to 'Exemplary',
+    # 👉Too much legacy code.
+    "crates/but-workspace", # 📄Workspace abstractions on top of `but-graph`; workspace manipulation.
+    # 👉lacks tests, overview in docs, seems hacky. Uses `but-ctx`.
+    "crates/but-path", # 📄Provide paths interesting to the application, with global redirects for testing.
+    # 👉Lacks tests, and overview, but still useful and simple enough to 'just works'
+    "crates/but-serde", # 📄Serde attributes for serialisation and deserialisation of custom datatypes.
+    # 👉Lacks tests. Centralized simple utility schema generation modules.
+    "crates/but-schemars", # 📄`schemars` json schema generation utilities.
+    # 👉Feels overengingeered, uses `but-ctx` and legacy crates.
+    "crates/but-worktrees", # 📄Worktree creation and removal;
+    # 👉Could be exemplary after review.
+    "crates/but-update", # 📄Retrieve information about available program versions to guide updates.
+    # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
+    "crates/but-action", # 📄TBD
+    # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
+    "crates/but-tools", # 📄TBD
+    # 👉No tests, lacks top-level docs, purpose somewhat unclear.
+    "crates/but-llm", # 📄TBD
+    # 👉lacks top-level docs and docs.
+    "crates/but-github", # 📄A thin wrapper of the GitHub API, for authentication and resource access.
+    # 👉lacks top-level docs and docs.
+    "crates/but-gitlab", # 📄A thin wrapper of the GitLab API, for authentication and resource access.
+    # 👉No tests, lacks top-level docs, purpose somewhat unclear.
+    # 👉Kind of no docs, no tests, and unclear purpose.
+    "crates/but-forge", # 📄A generalised interface to communicate with forges.
+    # 👉Kind of no docs, no tests, and unclear purpose. Does this need to be its own crate?
+    "crates/but-forge-storage", # 📄TBD
+    # 👉No documentation; some tests. Uses one legacy crate.
+    "crates/but-gerrit", # 📄Interaction with Gerrit
+    # 👉Might be exemplary if it was fully documented.
+    "crates/but-secret", # 📄Retrieve and store secrets in the platform keychain.
+    # 👉Might be exemplary if it was fully documented.
+    "crates/but-settings", # 📄Store and retrieve layered application settings, react to changes in realtime.
+    # 👉Has tests, but leans heavily on legacy crates.
+    "crates/but-cherry-apply", # 📄Apply commits to different stacks.
+    # 👉Experimental IRC support
+    "crates/but-irc", # 📄IRC client with WebSocket transport and GitButler protocol support.
+    # 👉Experimental; needs docs, it's used from `but` CLI and not a library
+    "crates/but-agentlog",       # 📄Capture coding-agent logs into Git metadata.
+    "crates/but-transaction", # 📄TBD
+
+    ##
+    ### Soon obsolete
+    ##
+    # Mostly supporting legacy code.
+    # In big parts replaced by other crates.
+    "crates/but-utils",   # 📄filesystem and general utilities; formerly `but-fs`.
+    "crates/but-oxidize", # 📄Utilities to help translate between `git2` and `gix`. 👉Shouldn't be needed once `git2` is gone.
+
+    ##
+    ### but-api - it's very own thing
+    ##
+    # Has no tests (yet)
+    # A lot of legacy functions that need porting
+    # the non-legacy code should be matching Exemplary standards of documentation
+    "crates/but-api",              # 📄A project-based API to used by all clients (CLI, GUI, etc)
+    "crates/but-api-macros",       # 📄A utility to generate exactly the code we need in the `but-api`.
+    "crates/but-api-macros/tests", # 📄Compile-time coverage for all `#[but_api]` macro features.
+
+    ##
+    ### Binaries
+    ##
+    # Strive for testing main functionality and journeys where applicable.
+    "crates/but-debug",
+    "crates/but",
+    # Should be functionally equivalent to `gitbutler-tauri`
+    "crates/but-server",
+    # Should be reviewed to mostly use `but-api`, to be renamed to `but-tauri` or something.
+    "crates/gitbutler-tauri",
+    # GitButler installation binary
+    "crates/but-installer",
+    # Documentation binary
+    "crates/but-clap",
+
+    ##
+    ### Utilities
+    ##
+    # Generate TypeScript types out of JSON schemas.
+    "crates/but-ts",
+    # Node.js SDK via napi-rs
+    "crates/but-napi",
+    "crates/but-debugging",
+
+
+    ##
+    ### Legacy
+    ##
+    # Crates that are from the first version of GitButler, using old data structures.
+    # To be removed and ported.
+    "crates/gitbutler-*",
+]
+resolver = "2"
+
+[workspace.package]
+repository = "https://github.com/gitbutlerapp/gitbutler"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition = "2024"
+rust-version = "1.95"
+
+[workspace.dependencies]
+but-debug = { path = "crates/but-debug" }
+but = { path = "crates/but" }
+but-debugging = { path = "crates/but-debugging" }
+but-testsupport = { path = "crates/but-testsupport" }
+but-rebase = { path = "crates/but-rebase" }
+but-core = { path = "crates/but-core" }
+but-ctx = { path = "crates/but-ctx" }
+but-workspace = { path = "crates/but-workspace" }
+but-hunk-assignment = { path = "crates/but-hunk-assignment" }
+but-hunk-dependency = { path = "crates/but-hunk-dependency" }
+but-worktrees = { path = "crates/but-worktrees" }
+but-db = { path = "crates/but-db" }
+but-path = { path = "crates/but-path" }
+but-graph = { path = "crates/but-graph" }
+but-meta = { path = "crates/but-meta" }
+but-action = { path = "crates/but-action" }
+but-bot = { path = "crates/but-bot" }
+but-tools = { path = "crates/but-tools" }
+but-api = { path = "crates/but-api" }
+but-api-macros = { path = "crates/but-api-macros" }
+but-gerrit = { path = "crates/but-gerrit" }
+but-cherry-apply = { path = "crates/but-cherry-apply" }
+but-irc = { path = "crates/but-irc" }
+but-github = { path = "crates/but-github" }
+but-gitlab = { path = "crates/but-gitlab" }
+but-error = { path = "crates/but-error" }
+but-serde = { path = "crates/but-serde" }
+but-schemars = { path = "crates/but-schemars" }
+but-update = { path = "crates/but-update" }
+but-installer = { path = "crates/but-installer" }
+but-secret = { path = "crates/but-secret" }
+but-feedback = { path = "crates/but-feedback" }
+but-askpass = { path = "crates/but-askpass" }
+but-project-handle = { path = "crates/but-project-handle" }
+but-forge-storage = { path = "crates/but-forge-storage" }
+but-settings = { path = "crates/but-settings" }
+but-oxidize = { path = "crates/but-oxidize" }
+but-utils = { path = "crates/but-utils" }
+but-forge = { path = "crates/but-forge" }
+but-oplog = { path = "crates/but-oplog" }
+but-llm = { path = "crates/but-llm" }
+but-server = { path = "crates/but-server" }
+but-agentlog = { path = "crates/but-agentlog" }
+but-transaction = { path = "crates/but-transaction" }
+
+gitbutler-git = { path = "crates/gitbutler-git" }
+gitbutler-watcher = { path = "crates/gitbutler-watcher" }
+gitbutler-filemonitor = { path = "crates/gitbutler-filemonitor" }
+gitbutler-branch-actions = { path = "crates/gitbutler-branch-actions" }
+gitbutler-oplog = { path = "crates/gitbutler-oplog" }
+gitbutler-repo = { path = "crates/gitbutler-repo" }
+gitbutler-repo-actions = { path = "crates/gitbutler-repo-actions" }
+gitbutler-project = { path = "crates/gitbutler-project" }
+gitbutler-user = { path = "crates/gitbutler-user" }
+gitbutler-branch = { path = "crates/gitbutler-branch" }
+gitbutler-reference = { path = "crates/gitbutler-reference" }
+gitbutler-commit = { path = "crates/gitbutler-commit" }
+gitbutler-url = { path = "crates/gitbutler-url" }
+gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
+gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
+gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }
+gitbutler-stack = { path = "crates/gitbutler-stack" }
+gitbutler-workspace = { path = "crates/gitbutler-workspace" }
+
+# Bundled to ensure a consistent SQLite version across all platforms.
+rusqlite = { version = "0.39.0", features = ["bundled"] }
+backoff = "0.4.0"
+bstr = "1.12.1"
+# Version must match the one in `tauri plugin updater` to avoid duplication.
+zip = { version = "4", default-features = false, features = ["bzip2"] }
+# Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
+# When adjusting this, update `gix-testtools` as well!
+gix = { version = "0.84.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "66f70f3063724b4145b21c6691c4f57892c7a74e", default-features = false, features = [
+    "sha1", "sha256"
+] }
+gix-testtools = { version = "0.19.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "66f70f3063724b4145b21c6691c4f57892c7a74e" }
+
+
+insta = { version = "1.47.2", features = ["json"] }
+git2 = { version = "0.21.0", features = [
+    "vendored-openssl",
+    "vendored-libgit2",
+] }
+uuid = { version = "1.23", features = ["v4", "serde"] }
+serde = { version = "1.0", features = ["derive", "std"] }
+serde_json = "1.0.148"
+thiserror = "2.0.17"
+tokio = { version = "1.50.0", default-features = false }
+keyring = { version = "3.6.3", features = [
+    "apple-native",
+    "windows-native",
+    "linux-native-sync-persistent",
+    "crypto-rust",
+] }
+anyhow = "1.0.100"
+parking_lot = "0.12.4"
+boolean-enums = { version = "0.4.1", features = ["serde"] }
+futures = "0.3.31"
+toml = "0.9.10"
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+tempfile = "3.24"
+rand = "0.9.3"
+notify-rust = "4.16.0"
+git2-hooks = { version = "0.7.0" }
+itertools = "0.14.0"
+dirs = "6.0.0"
+rmcp = { version = "0.16.0", default-features = false, features = [
+    "base64",
+    "server",
+    "macros",
+] }
+serde_json_lenient = "0.2.3"
+reqwest = { version = "0.13.3", default-features = false, features = [
+    "rustls",
+    "json",
+    "multipart",
+    "query",
+    "stream",
+] }
+rust-embed = { version = "8", features = ["axum"] }
+mime_guess = "2"
+chrono = { version = "0.4.42", default-features = false, features = ["std"] }
+hex = "0.4.3"
+indexmap = "2"
+md5 = "0.8.0"
+sha2 = "0.10"
+base64 = "0.22"
+bitflags = "2.11.1"
+notify = "8.2.0"
+snapbox = { version = "0.6.23", features = ["json"] }
+url = "2.5.7"
+petgraph = { version = "0.8.3", default-features = false, features = [
+    "stable_graph",
+    "std",
+] }
+
+schemars = { version = "1.2.0", default-features = false, features = [
+    "std",
+    "derive",
+    "uuid1",
+    "preserve_order",
+] }
+async-openai = { version = "0.38.2", default-features = false, features = [
+    "rustls",
+    "chat-completion",
+] }
+open = "5.3.4"
+regex = { version = "1.11.3", default-features = false, features = [
+    "std",
+    "unicode",
+] }
+clap = { version = "4.6.1", default-features = false, features = [
+    "derive",
+    "std",
+    "help",
+    "unstable-markdown",
+] }
+tracing-forest = { version = "0.3.0" }
+sysinfo = { version = "0.37.2", default-features = false }
+shell-words = "1.1.1"
+nonempty = "0.12.0"
+ratatui = "0.30"
+crossterm = "0.29"
+self_cell = "1.2.2"
+unicode-segmentation = "1.13.2"
+urlencoding = "2.1"
+inventory = "0.3"
+git-meta-lib = { git = "https://github.com/git-meta/git-meta", rev = "b40c108514a992abea2f739889376334481af1a3" }
+smallvec = "1.15.1"
+
+[patch.crates-io]
+# Keep workspace crates that use the `gix 0.84` line on the same git revision.
+gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "66f70f3063724b4145b21c6691c4f57892c7a74e" }
+
+[workspace.lints.clippy]
+# Note that `all` doesn't include everything, so extra lints should be added here.
+# You can try `pedantic = deny` to see those extra lints (alongside `all`).
+all = { level = "deny", priority = -1 }
+# This comes mostly from `thiserror` in `gix`, and it's going to be converted
+# to `Exn`, which will box erorrs and keep them small (much like `anyhow`).
+result_large_err = "allow"
+# These being `deny` is overly strict
+unnecessary_mut_passed = "warn"
+needless_borrow = "warn"
+explicit_auto_deref = "warn"
+uninlined_format_args = "warn"
+
+[profile.release]
+# There are no overrides here as we optimise for fast release builds,
+# which are used when building locally and when making Nightly builds.
+# The Stable release builds override the relevant settings at release time
+# to optimise for size.
+
+[profile.bench]
+codegen-units = 256
+lto = false
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.dev]
+incremental = false
+debug = "line-tables-only"
+
+[profile.test]
+incremental = false
+
+# Assure that `gix` is always fast so debug builds aren't unnecessarily slow.
+[profile.dev.package]
+foldhash = { opt-level = 3 }
+gix-imara-diff = { opt-level = 3 }
+but-graph = { opt-level = 3 }
+gix = { opt-level = 3 }
+gix-diff = { opt-level = 3 }
+gix-glob = { opt-level = 3 }
+gix-attributes = { opt-level = 3 }
+gix-ignore = { opt-level = 3 }
+chardetng = { opt-level = 3 }
+gix-index = { opt-level = 3 }
+gix-odb = { opt-level = 3 }
+gix-object = { opt-level = 3 }
+gix-ref = { opt-level = 3 }
+gix-pack = { opt-level = 3 }
+gix-features = { opt-level = 3 }
+gix-hash = { opt-level = 3 }
+gix-actor = { opt-level = 3 }
+gix-config = { opt-level = 3 }
+gix-worktree = { opt-level = 3 }
+sha1-checked = { opt-level = 3 }
+zlib-rs = { opt-level = 3 }
+serde = { opt-level = 3 }
+serde_json = { opt-level = 3 }
+# This one is special as we can run into debug assertions otherwise.
+# They have a time, but let's chose the time instead of always being hit by it.
+gix-merge = { opt-level = 3, debug-assertions = false }
+
+[profile.release.package.but-installer]
+opt-level = "z" # Optimize for size instead of speed
+strip = true    # Strip symbols from binary

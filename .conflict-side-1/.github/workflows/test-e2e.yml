@@ -1,0 +1,196 @@
+name: E2E Tests
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      sha:
+        type: string
+        required: false
+        description: Target SHA
+
+jobs:
+  changes:
+    uses: ./.github/workflows/check-e2e-changes.yml
+    permissions:
+      contents: read
+      pull-requests: read
+
+  blackbox:
+    name: e2e-blackbox
+    needs: changes
+    if: ${{ needs.changes.outputs.should_run == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:c0ab58bb5f1cd99beb36861f460895be77515f4dd252df736c27c117a8e04a92
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        name: Checkout
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        name: Checkout (specific commit from manual dispatch)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.inputs.sha }}
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: e2e-blackbox-rust-binaries
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Setup node environment
+        uses: ./.github/actions/init-env-node
+        if: ${{ github.ref != 'refs/heads/master' }}
+      - name: Build CLI, SvelteKit, and tauri-driver
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: |
+          cargo build -p but &
+          cargo_pid=$!
+          pnpm build:desktop -- --mode development &
+          pnpm_pid=$!
+          td_pid=""
+          if [ ! -e "$HOME/.cargo/bin/tauri-driver" ]; then
+            cargo install tauri-driver &
+            td_pid=$!
+          fi
+          status=0
+          wait "$cargo_pid" || status=1
+          wait "$pnpm_pid" || status=1
+          [ -n "$td_pid" ] && { wait "$td_pid" || status=1; }
+          exit "$status"
+      - name: Build Tauri
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: pnpm build:test
+      - name: Build CLI (cache warming)
+        if: ${{ github.ref == 'refs/heads/master' }}
+        run: cargo build -p but
+
+      # Run it through `xvfb-run` to have a fake display server which allows our
+      # application to run headless without any changes to the code
+      - name: WebdriverIO
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: xvfb-run pnpm test:e2e:blackbox
+
+      - name: Upload results to Buildkite Test Engine
+        if: ${{ github.ref != 'refs/heads/master' && always() && !cancelled() }}
+        continue-on-error: true
+        env:
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_SUITE_TOKEN_BLACKBOX }}
+          RUN_BRANCH: ${{ github.head_ref || github.ref_name }}
+          RUN_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl --fail-with-body -X POST \
+            -H "Authorization: Token $BUILDKITE_ANALYTICS_TOKEN" \
+            -F "data=@e2e/blackbox/test-results/results.xml" \
+            -F "format=junit" \
+            -F "run_env[CI]=github_actions" \
+            -F "run_env[key]=$RUN_KEY" \
+            -F "run_env[number]=$RUN_NUMBER" \
+            -F "run_env[branch]=$RUN_BRANCH" \
+            -F "run_env[commit_sha]=$RUN_COMMIT_SHA" \
+            -F "run_env[url]=$RUN_URL" \
+            -F "tags[framework]=webdriverio" \
+            -F "tags[language]=typescript" \
+            -F "tags[type]=e2e" \
+            https://analytics-api.buildkite.com/v1/uploads
+      - name: Flatten test results
+        if: failure()
+        run: |
+          mkdir -p ./e2e-output
+          find ./e2e/blackbox/videos -type f -exec cp {} ./e2e-output/ \; 2>/dev/null || true
+          find ~/.local/share/com.gitbutler.app*/logs -type f -exec cp {} ./e2e-output/ \; 2>/dev/null || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: e2e-blackbox-output
+          overwrite: true
+          path: ./e2e-output/
+
+  playwright:
+    name: e2e-playwright
+    needs: changes
+    if: ${{ needs.changes.outputs.should_run == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:c0ab58bb5f1cd99beb36861f460895be77515f4dd252df736c27c117a8e04a92
+    timeout-minutes: 60
+    env:
+      DESKTOP_PORT: 3000
+      BUTLER_PORT: 6978
+      VITE_E2E: "true"
+      VITE_BUTLER_PORT: 6978
+      VITE_BUTLER_HOST: "localhost"
+      VITE_BUILD_TARGET: "web"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.inputs.sha }}
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: e2e-playwright-rust-binaries
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Preset Git Configuration and but location
+        run: |
+          echo "GIT_CONFIG_GLOBAL=$PWD/e2e/playwright/fixtures/.gitconfig" >> $GITHUB_ENV
+          echo BUT=$PWD/target/debug/but >> $GITHUB_ENV
+      - name: Setup node environment
+        uses: ./.github/actions/init-env-node
+      - id: get_playwright_version
+        uses: eviden-actions/get-playwright-version@ab1672f30689371f9179a844399c7ef97c7d6914 # v1
+      - name: Cache playwright binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v5
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
+      - name: Build Rust binaries, SvelteKit, and install Playwright
+        env:
+          PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
+        run: |
+          cargo build -p gitbutler-git -p but-server -p but &
+          cargo_pid=$!
+          pnpm build:desktop &
+          pnpm_pid=$!
+          pw_pid=""
+          if [ "$PLAYWRIGHT_CACHE_HIT" != "true" ]; then
+            (apt-get update && cd e2e && pnpm exec playwright install chromium webkit) &
+            pw_pid=$!
+          fi
+          status=0
+          wait "$cargo_pid" || status=1
+          wait "$pnpm_pid" || status=1
+          [ -n "$pw_pid" ] && { wait "$pw_pid" || status=1; }
+          exit "$status"
+      - name: Run Playwright tests
+        run: pnpm exec turbo run test:e2e:playwright
+        env:
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_SUITE_TOKEN_PLAYWRIGHT }}
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: playwright-report
+          path: ./e2e/playwright/test-results-flat/
+          retention-days: 30

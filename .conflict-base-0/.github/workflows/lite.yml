@@ -1,0 +1,80 @@
+name: "Lite"
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+
+env:
+  RUST_BACKTRACE: full
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-26 # [macOs, ARM64]
+          - platform: ubuntu-22.04 # [linux, x64]
+          - platform: windows-latest # [windows, x64]
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Install system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install pkg-config libxss-dev libdbus-1-dev
+      - uses: ./.github/actions/init-env-node
+      - name: Set version
+        working-directory: apps/lite
+        run: pnpm version "0.0.${{ github.run_number }}" --no-git-tag-version
+      - name: Build
+        shell: bash
+        env:
+          CHANNEL: nightly
+          VERSION: "0.0.${{ github.run_number }}"
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.APPLE_CERTIFICATE || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_PROVIDER_SHORT_NAME || '' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          CARGO_PROFILE_RELEASE_LTO: fat
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: 3
+        run: |
+          cargo build --release -p but --features "packaged-but-distribution"
+
+          but_path=`find ./target/release -name but | head -n 1`
+          if [ -z "$but_path" ]; then
+            but_path=`find ./target/release -name but.exe | head -n 1`
+          fi
+
+          if [ -z "$but_path" ]; then
+            echo "Failed to find but binary in ./target/release"
+            exit 1
+          fi
+
+          mkdir ./apps/lite/resources/bin
+          cp "$but_path" ./apps/lite/resources/bin/
+
+          pnpm --filter @gitbutler/but-sdk build:release
+          pnpm --filter @gitbutler/lite bundle --publish always
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        name: Upload artifacts
+        with:
+          name: gitbutler-lite-${{ github.run_number }}-${{ matrix.platform }}
+          path: apps/lite/release/
+          if-no-files-found: error
+          retention-days: 7

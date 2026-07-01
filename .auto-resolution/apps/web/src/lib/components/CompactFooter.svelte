@@ -1,0 +1,52 @@
+<footer class="footer text-12">
+	<span>GitButler © 2025</span>
+
+	<div class="footer-links">
+		<a class="footer-link" target="_blank" href="https://docs.gitbutler.com/"> Docs ↗ </a>
+		<a class="footer-link" target="_blank" href="https://discord.com/invite/MmFkmaJ42D">
+			Discord ↗
+		</a>
+		<a class="footer-link" href="/downloads">Downloads</a>
+	</div>
+
+	<div class="footer-links">
+		<a class="footer-link underline" href="https://gitbutler.com/privacy" target="_blank">
+			Privacy Policy
+		</a>
+		<span> | </span>
+		<a class="footer-link underline" href="https://gitbutler.com/terms" target="_blank">
+			Terms of Service
+		</a>
+	</div>
+</footer>
+
+<style lang="postcss">
+	.footer {
+		display: flex;
+		grid-column: full-start / full-end;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: flex-end;
+		padding: 20px 0 24px;
+		gap: 12px 24px;
+		color: var(--text-2);
+	}
+
+	.footer-links {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.footer-link {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+		color: var(--text-2);
+		transition: color var(--transition-fast);
+
+		&:hover {
+			color: var(--text-1);
+		}
+	}
+</style>

@@ -1,0 +1,36 @@
+[package]
+name = "gitbutler-operating-modes"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
+[lib]
+doctest = false
+
+[dependencies]
+but-serde = { workspace = true, features = ["legacy"] }
+but-workspace = { workspace = true, features = ["legacy"] }
+but-core.workspace = true
+but-utils.workspace = true
+but-ctx.workspace = true
+but-schemars = { workspace = true, optional = true }
+
+serde.workspace = true
+tracing.workspace = true
+gix.workspace = true
+anyhow.workspace = true
+toml.workspace = true
+bstr.workspace = true
+uuid.workspace = true
+schemars = { workspace = true, optional = true }
+
+[dev-dependencies]
+but-testsupport.workspace = true
+
+[lints]
+workspace = true

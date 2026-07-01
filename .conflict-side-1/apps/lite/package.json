@@ -1,0 +1,168 @@
+{
+	"name": "@gitbutler/lite",
+	"description": "A Git-compatible version control client - now with fewer calories.",
+	"productName": "GitButler Lite",
+	"author": "GitButler Inc. <gitbutler@gitbutler.com> (https://gitbutler.com)",
+	"license": "FSL-1.1-MIT",
+	"homepage": "https://gitbutler.com",
+	"private": true,
+	"version": "0.0.0-dev",
+	"type": "module",
+	"main": "dist/electron/main.js",
+	"copyright": "Copyright 2026 GitButler Inc",
+	"imports": {
+		"#ui/*": "./ui/src/*",
+		"#electron/*": "./electron/src/*",
+		"#storybook/*": "./.storybook/*.ts"
+	},
+	"scripts": {
+		"dev": "concurrently -k \"pnpm dev:ui\" \"pnpm dev:electron\"",
+		"dev:ui": "vite dev --config ui/vite.config.ts --host 0.0.0.0",
+		"dev:electron": "pnpm prepare-askpass && pnpm build:electron && wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist/electron/main.js --inspect=9229 --remote-debugging-port=9222",
+		"build": "pnpm build:ui && pnpm build:electron",
+		"build:ui": "vite build --config ui/vite.config.ts",
+		"build:electron": "tsgo -p electron/tsconfig.json",
+		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit",
+		"test": "vitest run --config ui/vite.config.ts --passWithNoTests",
+		"bundle": "pnpm build && pnpm prepare-askpass && electron-builder",
+		"bundle-local": "CHANNEL=${CHANNEL:-} pnpm -F @gitbutler/but-sdk build && CHANNEL=${CHANNEL:-} pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
+		"bundle-local-nightly": "CHANNEL=nightly pnpm -F @gitbutler/but-sdk build:release && CHANNEL=nightly pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
+		"demos": "storybook dev --no-open -p 6007",
+		"optimize-icons": "node scripts/optimize-icons.mjs",
+		"prepare-askpass": "node scripts/prepare-askpass.mjs"
+	},
+	"build": {
+		"appId": "com.gitbutler.lite",
+		"electronFuses": {
+			"runAsNode": false,
+			"enableCookieEncryption": true,
+			"enableNodeOptionsEnvironmentVariable": false,
+			"enableNodeCliInspectArguments": false,
+			"enableEmbeddedAsarIntegrityValidation": true,
+			"onlyLoadAppFromAsar": true,
+			"loadBrowserProcessSpecificV8Snapshot": false,
+			"grantFileProtocolExtraPrivileges": false
+		},
+		"publish": {
+			"provider": "s3",
+			"region": "us-east-1",
+			"bucket": "releases.gitbutler.com",
+			"path": "lite/${os}/${arch}",
+			"channel": "${env.CHANNEL}"
+		},
+		"extraResources": [
+			{
+				"from": "resources/bin",
+				"to": "bin",
+				"filter": [
+					"but",
+					"but.exe",
+					"gitbutler-git-askpass",
+					"gitbutler-git-askpass.exe"
+				]
+			}
+		],
+		"directories": {
+			"output": "release"
+		},
+		"files": [
+			"dist/ui/**/*",
+			"dist/electron/**/*",
+			"package.json"
+		],
+		"mac": {
+			"icon": "resources/icons/macos/icon.icon",
+			"category": "public.app-category.developer-tools",
+			"darkModeSupport": true,
+			"hardenedRuntime": true,
+			"gatekeeperAssess": false,
+			"entitlements": "resources/entitlements.mac.plist",
+			"entitlementsInherit": "resources/entitlements.mac.inherit.plist",
+			"target": [
+				"dmg",
+				"zip"
+			]
+		},
+		"linux": {
+			"icon": "resources/icons/linux/icons",
+			"category": "Development",
+			"target": [
+				"deb",
+				"appimage"
+			],
+			"desktop": {
+				"entry": {
+					"Name": "GitButler Lite",
+					"Type": "Application",
+					"GenericName": "Version Control System"
+				}
+			},
+			"executableName": "gitbutler-lite"
+		},
+		"win": {
+			"icon": "resources/icons/windows/icon.ico",
+			"target": [
+				"portable"
+			],
+			"publish": []
+		},
+		"deb": {
+			"packageName": "gitbutler-lite",
+			"artifactName": "${productName}-${version}-${arch}.${ext}",
+			"depends": [
+				"libnotify4",
+				"libxtst6",
+				"libnss3",
+				"libxss1"
+			]
+		},
+		"appImage": {
+			"artifactName": "${productName}-${version}-${arch}.${ext}"
+		}
+	},
+	"dependencies": {
+		"@atlaskit/pragmatic-drag-and-drop": "^1.7.9",
+		"@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
+		"@base-ui/react": "^1.6.0",
+		"@base-ui/utils": "^0.3.1",
+		"@gitbutler/but-sdk": "workspace:*",
+		"@gitbutler/design-core": "3.6.1",
+		"@pierre/diffs": "^1.2.4",
+		"@reduxjs/toolkit": "catalog:redux",
+		"@suspensive/react-query": "npm:@suspensive/react-query-5@^3.21.2",
+		"@tanstack/react-hotkeys": "^0.10.0",
+		"@tanstack/react-query": "^5.90.21",
+		"@tanstack/react-query-devtools": "^5.91.3",
+		"@tanstack/react-router": "^1.167.4",
+		"effect": "^3.20.0",
+		"electron-devtools-installer": "^4.0.0",
+		"electron-updater": "^6.8.4",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"react-redux": "^9.2.0",
+		"react-resizable-panels": "^4.11.2"
+	},
+	"devDependencies": {
+		"@storybook/addon-designs": "^11.1.3",
+		"@storybook/addon-docs": "^10.3.3",
+		"@storybook/react-vite": "^10.3.6",
+		"@tanstack/eslint-plugin-query": "^5.91.4",
+		"@types/node": "^22.19.15",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@types/semver": "^7.7.1",
+		"@typescript/native-preview": "7.0.0-dev.20260421.1",
+		"@vitejs/plugin-react": "^5.2.0",
+		"babel-plugin-react-compiler": "^1.0.0",
+		"concurrently": "^9.2.1",
+		"cross-env": "^10.1.0",
+		"electron": "^41.1.0",
+		"electron-builder": "^26.9.0",
+		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
+		"jsdom": "28.1.0",
+		"storybook": "^10.3.3",
+		"vite": "catalog:",
+		"vitest": "catalog:",
+		"wait-on": "^9.0.4"
+	}
+}

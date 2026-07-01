@@ -1,0 +1,67 @@
+[package]
+name = "but-core"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+description = "A leaf-crate with core algorithms and types"
+
+[lib]
+doctest = false
+
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+## Make legacy functionality available.
+legacy = []
+
+[dependencies]
+but-error.workspace = true
+but-project-handle.workspace = true
+but-serde.workspace = true
+
+# for safe-checkout
+git2.workspace = true
+but-oxidize.workspace = true
+
+serde.workspace = true
+bstr.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+unicode-segmentation.workspace = true
+tempfile.workspace = true
+gix = { workspace = true, features = [
+    "dirwalk",
+    "credentials",
+    "parallel",
+    "serde",
+    "status",
+    "merge",
+] }
+smallvec.workspace = true
+# for V1 conflict commits
+toml.workspace = true
+chardetng = "0.1.17"
+
+# for `id`
+uuid.workspace = true
+
+boolean-enums.workspace = true
+
+# for `sync`
+fslock = "0.2.1"
+parking_lot = { workspace = true, features = ["arc_lock"] }
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
+
+# For generating change-ids
+rand.workspace = true
+
+[dev-dependencies]
+but-testsupport.workspace = true
+gix = { workspace = true, features = ["revision"] }
+serde_json = "1.0"
+insta.workspace = true
+
+[lints]
+workspace = true

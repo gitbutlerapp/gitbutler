@@ -1,0 +1,448 @@
+use std::{
+    path::{Path, PathBuf},
+    time,
+};
+
+use anyhow::Context as _;
+use but_core::RepositoryExt;
+use serde::{Deserialize, Serialize};
+
+use crate::{ProjectHandle, ProjectHandleOrLegacyProjectId, default_true::DefaultTrue};
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub struct ApiProject {
+    pub name: String,
+    pub description: Option<String>,
+    pub repository_id: String,
+    /// The "gitbuler data, i.e. oplog" URL
+    pub git_url: String,
+    /// The "project" git URL
+    pub code_git_url: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    /// Determines if the project Operations log will be synched with the GitButHub
+    pub sync: bool,
+    /// Determines if the project code will be synched with the GitButHub
+    #[serde(default)]
+    pub sync_code: bool,
+    // if this project is using gitbutler reviews
+    #[serde(default)]
+    pub reviews: bool,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ApiProject);
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub enum FetchResult {
+    Fetched {
+        timestamp: time::SystemTime,
+    },
+    Error {
+        timestamp: time::SystemTime,
+        error: String,
+    },
+}
+
+impl FetchResult {
+    pub fn timestamp(&self) -> time::SystemTime {
+        match self {
+            FetchResult::Fetched { timestamp } | FetchResult::Error { timestamp, .. } => *timestamp,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub struct CodePushState {
+    #[serde(with = "but_serde::object_id")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::object_id")
+    )]
+    pub id: gix::ObjectId,
+    pub timestamp: time::SystemTime,
+}
+
+/// Not registered for the frontend types because it is consumed flattened
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub struct Project {
+    // TODO: We shouldn't need these IDs and most definitely shouldn't persist them.
+    //       A project is a `git_dir`, and from there all other project data can be derived.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::project_id")
+    )]
+    pub id: ProjectHandleOrLegacyProjectId,
+    pub title: String,
+    pub description: Option<String>,
+    /// The worktree directory of the project's repository.
+    // TODO: Make it optional for bare repo support!
+    // TODO: Do not actually store it, but obtain it on the fly by using a repository!
+    #[serde(rename = "path")]
+    // TODO(1.0): enable the line below to clear the value from storage - we only want the git dir,
+    //       but need to remain compatible. The frontend shouldn't care, so we may need a specific type for that
+    //       which already exists, but… needs cleanup.
+    //       However, this field SHOULD STAY to present better errors when the path isn't there anymore.
+    //       But it must still be optional.
+    // #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) worktree_dir: PathBuf,
+    /// The storage location of the Git repository itself.
+    /// This is the only value we need to access everything related to the Git repository.
+    ///
+    // TODO(1.0): remove the `default` which is just needed while there is project files without it.
+    #[serde(default)]
+    pub(crate) git_dir: PathBuf,
+    /// if ok_with_force_push is true, we'll not try to avoid force pushing
+    /// for example, when updating base branch
+    #[serde(default)]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::default_true")
+    )]
+    pub ok_with_force_push: DefaultTrue,
+    /// Force push protection uses safer force push flags instead of doing straight force pushes
+    #[serde(default)]
+    pub force_push_protection: bool,
+    /// Enables running Husky hooks from `../.husky`.
+    /// Does not affect hooks in `.git/hooks`.
+    #[serde(default)]
+    pub husky_hooks_enabled: bool,
+    pub api: Option<ApiProject>,
+    #[serde(default)]
+    #[cfg_attr(feature = "export-schema", schemars(skip))]
+    pub gitbutler_data_last_fetch: Option<FetchResult>,
+    #[serde(default)]
+    #[cfg_attr(feature = "export-schema", schemars(skip))]
+    pub gitbutler_code_push_state: Option<CodePushState>,
+    #[serde(default)]
+    #[cfg_attr(feature = "export-schema", schemars(skip))]
+    pub project_data_last_fetch: Option<FetchResult>,
+    #[serde(default)]
+    pub omit_certificate_check: Option<bool>,
+    // The number of changed lines that will trigger a snapshot
+    pub snapshot_lines_threshold: Option<usize>,
+    #[serde(default)]
+    pub forge_override: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "but_forge::deserialize_preferred_forge_user_opt"
+    )]
+    pub preferred_forge_user: Option<but_forge::ForgeUser>,
+}
+
+impl Project {
+    /// Return a new instance with `id` and all other fields defaulted.
+    pub fn default_with_id(id: ProjectHandleOrLegacyProjectId) -> Self {
+        Project {
+            id,
+            title: "".to_string(),
+            description: None,
+            worktree_dir: Default::default(),
+            git_dir: Default::default(),
+            ok_with_force_push: Default::default(),
+            force_push_protection: false,
+            husky_hooks_enabled: false,
+            api: None,
+            gitbutler_data_last_fetch: None,
+            gitbutler_code_push_state: None,
+            project_data_last_fetch: None,
+            omit_certificate_check: None,
+            snapshot_lines_threshold: None,
+            forge_override: None,
+            preferred_forge_user: None,
+        }
+    }
+
+    /// A utility to support old code for basic path needs, but without actually needing full
+    /// or meaningful metadata.
+    pub fn with_paths_for_testing(
+        mut self,
+        git_dir: PathBuf,
+        worktree_dir: Option<PathBuf>,
+    ) -> Self {
+        self.git_dir = git_dir;
+        if let Some(worktree_dir) = worktree_dir {
+            self.worktree_dir = worktree_dir;
+        }
+        self
+    }
+}
+
+/// Testing
+// TODO: remove once the remaining legacy testsupport constructor isn't needed anymore, and `gitbutler-repo`
+impl Project {
+    /// A special constructor needed as `worktree_dir` isn't accessible anymore.
+    pub fn new_for_but_testsupport(title: String, worktree_dir: PathBuf) -> Self {
+        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(
+            ProjectHandle::from_path(&worktree_dir)
+                .expect("testsupport projects require a valid path for ProjectHandle"),
+        );
+        Project {
+            title,
+            worktree_dir,
+            ..Project::default_with_id(project_id)
+        }
+        .migrated()
+        .unwrap()
+    }
+
+    /// A special constructor needed as `worktree_dir` isn't accessible anymore.
+    pub fn new_for_gitbutler_repo(worktree_dir: PathBuf) -> Self {
+        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(
+            ProjectHandle::from_path(&worktree_dir)
+                .expect("repo projects require a valid path for ProjectHandle"),
+        );
+        Project {
+            worktree_dir,
+            ..Project::default_with_id(project_id)
+        }
+        .migrated()
+        .unwrap()
+    }
+
+    /// Call this after each invocation of `list()` with manual filtering to get fields filled in.
+    pub fn migrated(mut self) -> anyhow::Result<Self> {
+        self.migrate()?;
+        Ok(self)
+    }
+}
+
+impl Project {
+    /// Return `true` if the project was migrated, and thus is changed, or `false` otherwise.
+    pub fn migrate(&mut self) -> anyhow::Result<bool> {
+        if !self.git_dir.as_os_str().is_empty() {
+            return Ok(false);
+        }
+        let repo = gix::open_opts(&self.worktree_dir, gix::open::Options::isolated()).inspect_err(
+            |err| {
+                tracing::error!(
+                    "failed to open worktree at {} for migration: {err}",
+                    self.worktree_dir.display()
+                )
+            },
+        )?;
+        self.git_dir = repo.git_dir().to_owned();
+        // NOTE: we set the worktree so the frontend is happier until this usage can be reviewed,
+        // probably for supporting bare repositories.
+        self.worktree_dir = repo
+            .workdir()
+            .context("BUG: we currently only support non-bare repos, yet this one didn't have a worktree dir")?
+            .to_owned();
+        Ok(true)
+    }
+}
+
+/// Instantiation
+impl Project {
+    /// Search upwards from `path` to discover a Git worktree.
+    pub fn from_path(path: &Path) -> anyhow::Result<Project> {
+        let repo = gix::discover(path)?;
+        let worktree_dir = repo
+            .workdir()
+            .context("Bare repositories aren't supported")?
+            .to_owned();
+        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(
+            repo.git_dir(),
+        )?);
+        Project {
+            worktree_dir,
+            ..Project::default_with_id(project_id)
+        }
+        .migrated()
+    }
+    /// Finds an existing project by its path. Errors out if not found.
+    pub fn find_by_worktree_dir(worktree_dir: &Path) -> anyhow::Result<Project> {
+        Self::find_by_worktree_dir_opt(worktree_dir)?
+            .context("No project found with the given path")
+    }
+
+    /// Finds an existing project by its path or return `None` if there was none. Errors out if not found.
+    // TODO: find by git-dir instead!
+    pub fn find_by_worktree_dir_opt(worktree_dir: &Path) -> anyhow::Result<Option<Project>> {
+        let mut projects = crate::dangerously_list_projects_without_migration()?;
+        // Sort projects by longest pathname to shortest.
+        // We need to do this because users might have one gitbutler project
+        // nested inside another via a gitignored folder.
+        // We want to match on the longest project path.
+        projects.sort_by(|a, b| {
+            a.worktree_dir
+                .as_os_str()
+                .len()
+                .cmp(&b.worktree_dir.as_os_str().len())
+                // longest first
+                .reverse()
+        });
+
+        let resolved_path = worktree_dir
+            .canonicalize()
+            .with_context(|| format!("Failed to canonicalize path '{}'", worktree_dir.display()))?;
+        let Some(project) = projects.into_iter().find(|p| {
+            // Canonicalize project path for comparison
+            match p.worktree_dir.canonicalize() {
+                Ok(proj_canon) => resolved_path.starts_with(proj_canon),
+                Err(_) => false,
+            }
+        }) else {
+            return Ok(None);
+        };
+        project.migrated().map(Some)
+    }
+}
+
+/// Repository helpers.
+impl Project {
+    /// Open an isolated repository, one that didn't read options beyond `.git/config` and
+    /// knows no environment variables.
+    ///
+    /// Use it for fastest-possible access, when incomplete configuration is acceptable.
+    pub fn open_isolated_repo(&self) -> anyhow::Result<gix::Repository> {
+        Ok(gix::open_opts(
+            self.git_dir(),
+            gix::open::Options::isolated(),
+        )?)
+    }
+}
+
+impl Project {
+    /// Set the worktree directory to `repo_path`, the worktree or git dir.
+    pub fn set_worktree_dir(&mut self, repo_path: PathBuf) -> anyhow::Result<()> {
+        let repo = gix::open_opts(&repo_path, gix::open::Options::isolated())?;
+        self.worktree_dir = repo
+            .workdir()
+            .context("BUG: we currently only support non-bare repos, yet this one didn't have a worktree dir")?
+            .to_owned();
+        self.git_dir = repo.git_dir().to_owned();
+        Ok(())
+    }
+
+    /// Return the path to the directory that holds the repository data and that is associated with the current worktree.
+    pub fn git_dir(&self) -> &Path {
+        assert!(
+            !self.git_dir.as_os_str().is_empty(),
+            "BUG: must call `project.migrated()` before using the git_dir to have it initialised."
+        );
+        &self.git_dir
+    }
+
+    pub(crate) fn git_dir_opt(&self) -> Option<&Path> {
+        (!self.git_dir.as_os_str().is_empty()).then_some(&self.git_dir)
+    }
+
+    /// Returns the path to the directory containing the `GitButler` state for this project.
+    ///
+    /// By default this is `.git/gitbutler` on all channels. It can be overridden by setting
+    /// `gitbutler.storagePath` on release, or `gitbutler.<channel>.storagePath` on non-release
+    /// builds. Relative configured values are resolved against `.git`; if they stay inside `.git`,
+    /// they must live under a top-level directory whose name starts with `gitbutler`. Any
+    /// resolved path outside `.git` gets a project-handle suffix to keep different projects
+    /// isolated.
+    pub(crate) fn gb_dir(&self) -> anyhow::Result<PathBuf> {
+        gix::open(self.git_dir())?.gitbutler_storage_path()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, strum::Display)]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum AddProjectOutcome {
+    Added(Project),
+    AlreadyExists(Project),
+    PathNotFound,
+    NotADirectory,
+    BareRepository,
+    NonMainWorktree,
+    NoWorkdir,
+    NoDotGitDirectory,
+    ReftableRefFormatUnsupported,
+    NotAGitRepository(String),
+}
+
+impl AddProjectOutcome {
+    /// This is for tests only.
+    ///
+    /// Unwraps the `Project` if the project was actually added.
+    /// Panics if it was not.
+    pub fn unwrap_project(self) -> Project {
+        match self {
+            AddProjectOutcome::Added(p) => p,
+            _ => panic!("called `AddProjectOutcome::unwrap_project()` on a non-project outcome"),
+        }
+    }
+
+    /// Try to get the `Project`, returning an error if it was not added.
+    pub fn try_project(self) -> anyhow::Result<Project> {
+        match self {
+            AddProjectOutcome::Added(p) => Ok(p),
+            AddProjectOutcome::AlreadyExists(_) => Err(anyhow::anyhow!("project already exists")),
+            AddProjectOutcome::PathNotFound => Err(anyhow::anyhow!("project path not found")),
+            AddProjectOutcome::NotADirectory => {
+                Err(anyhow::anyhow!("project path is not a directory"))
+            }
+            AddProjectOutcome::BareRepository => {
+                Err(anyhow::anyhow!("bare repositories are not supported"))
+            }
+            AddProjectOutcome::NonMainWorktree => {
+                Err(anyhow::anyhow!("non-main worktrees are not supported"))
+            }
+            AddProjectOutcome::NoWorkdir => Err(anyhow::anyhow!("no workdir found for repository")),
+            AddProjectOutcome::NoDotGitDirectory => {
+                Err(anyhow::anyhow!("no .git directory found in repository"))
+            }
+            AddProjectOutcome::ReftableRefFormatUnsupported => Err(anyhow::anyhow!(
+                "unsupported repository reference format: reftable"
+            )),
+            AddProjectOutcome::NotAGitRepository(msg) => {
+                Err(anyhow::anyhow!("not a git repository: {msg}"))
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, UNIX_EPOCH};
+
+    use serde_json::json;
+
+    use super::CodePushState;
+
+    #[test]
+    fn code_push_state_json_roundtrip() {
+        let state = CodePushState {
+            id: "0123456789abcdef0123456789abcdef01234567"
+                .parse()
+                .expect("valid object id"),
+            timestamp: UNIX_EPOCH + Duration::from_secs(123),
+        };
+
+        let value = serde_json::to_value(state).expect("serializes");
+
+        assert_eq!(
+            value,
+            json!({
+                "id": "0123456789abcdef0123456789abcdef01234567",
+                "timestamp": {
+                    "secs_since_epoch": 123,
+                    "nanos_since_epoch": 0
+                }
+            })
+        );
+
+        let state: CodePushState = serde_json::from_value(value).expect("deserializes");
+
+        assert_eq!(
+            state.id.to_string(),
+            "0123456789abcdef0123456789abcdef01234567"
+        );
+        assert_eq!(
+            state
+                .timestamp
+                .duration_since(UNIX_EPOCH)
+                .expect("after epoch"),
+            Duration::from_secs(123)
+        );
+    }
+}

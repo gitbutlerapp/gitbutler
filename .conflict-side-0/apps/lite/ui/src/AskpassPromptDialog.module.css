@@ -1,0 +1,46 @@
+.popup {
+	width: min(420px, calc(100vw - 32px));
+}
+
+.form {
+	display: flex;
+	row-gap: 12px;
+	flex-direction: column;
+}
+
+.prompt {
+	color: var(--text-2);
+	font-size: 13px;
+	line-height: 1.4;
+	overflow-wrap: anywhere;
+}
+
+.input {
+	width: 100%;
+	height: 32px;
+	padding-inline: 8px;
+	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 34%, transparent);
+	border-radius: 6px;
+	background: var(--bg-2);
+	color: var(--text-1);
+	font: inherit;
+}
+
+.input:focus {
+	outline: 2px solid color-mix(in srgb, var(--scale-pop-50) 55%, transparent);
+	outline-offset: 1px;
+}
+
+.error {
+	margin: 0;
+	color: var(--text-danger);
+	font-size: 12px;
+	line-height: 1.4;
+	overflow-wrap: anywhere;
+}
+
+.actions {
+	display: flex;
+	column-gap: 8px;
+	justify-content: flex-end;
+}

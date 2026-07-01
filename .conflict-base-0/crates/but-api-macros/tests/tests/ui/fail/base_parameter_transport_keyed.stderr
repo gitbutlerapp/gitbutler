@@ -1,0 +1,5 @@
+error: Expected `Type`; use `#[but_api(Type)]` instead of `#[but_api(transport = Type)]` for parameter attributes
+ --> tests/ui/fail/base_parameter_transport_keyed.rs:7:15
+  |
+7 |     #[but_api(transport = UiRelativeTo)] relative_to: String,
+  |               ^^^^^^^^^

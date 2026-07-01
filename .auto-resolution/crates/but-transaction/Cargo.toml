@@ -1,0 +1,32 @@
+[package]
+name = "but-transaction"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = true
+
+[dependencies]
+but-api.workspace = true
+but-ctx.workspace = true
+but-oplog.workspace = true
+but-core.workspace = true
+but-workspace.workspace = true
+but-rebase.workspace = true
+but-db.workspace = true
+
+gix.workspace = true
+anyhow.workspace = true
+bstr.workspace = true
+
+[dev-dependencies]
+but-api = { workspace = true, features = ["legacy"] }
+but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
+
+snapbox = { workspace = true }
+
+[lints]
+workspace = true

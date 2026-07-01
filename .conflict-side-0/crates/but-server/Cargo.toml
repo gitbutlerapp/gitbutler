@@ -1,0 +1,51 @@
+[package]
+name = "but-server"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE.md"
+description = "A GitButler CLI tool"
+authors.workspace = true
+readme = "../../README.md"
+publish = false
+rust-version.workspace = true
+
+[[bin]]
+name = "but-server"
+path = "src/main.rs"
+doctest = false
+
+[features]
+irc = ["dep:but-irc"]
+
+[dependencies]
+but-api = { workspace = true, features = ["path-bytes", "legacy"] }
+but-askpass.workspace = true
+but-irc = { workspace = true, optional = true }
+but-path.workspace = true
+but-settings.workspace = true
+but-feedback.workspace = true
+but-secret.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
+gitbutler-watcher.workspace = true
+
+serde.workspace = true
+axum = { version = "0.8.9", features = ["ws"] }
+futures-util = { version = "0.3", default-features = false, features = [
+    "sink",
+    "std",
+] }
+tower-http = { version = "0.6.8", features = ["cors"] }
+tower = { version = "0.5.3" }
+tokio = { workspace = true, features = ["full"] }
+clap.workspace = true
+colored = "3.0.0"
+anyhow.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-forest.workspace = true
+[lints]
+workspace = true

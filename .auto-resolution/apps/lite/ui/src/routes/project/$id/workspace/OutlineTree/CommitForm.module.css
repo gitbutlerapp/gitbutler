@@ -1,0 +1,138 @@
+.form {
+	display: flex;
+	row-gap: 10px;
+	flex-direction: column;
+	padding: 8px;
+	border-radius: var(--radius-m);
+	outline: 1px solid var(--border-2);
+	background: var(--bg-1);
+
+	&:not(:has(.textarea[disabled])) {
+		&:hover {
+			outline-color: var(--border-1);
+		}
+		&:focus-within {
+			outline: var(--focus-ring);
+		}
+	}
+}
+
+.textarea {
+	padding: 4px;
+	resize: none;
+	field-sizing: content;
+	box-sizing: content-box;
+	min-height: calc(1lh);
+	max-height: calc(10lh);
+
+	&:focus {
+		outline: none;
+	}
+
+	&::placeholder {
+		color: var(--text-3);
+	}
+}
+
+.footer {
+	display: flex;
+	column-gap: 4px;
+	justify-content: space-between;
+}
+
+.dropdownButton {
+	display: flex;
+
+	& > * {
+		overflow: hidden;
+	}
+
+	& > :first-child {
+		border-right: 0;
+		border-start-end-radius: 0;
+		border-end-end-radius: 0;
+	}
+
+	& > :last-child {
+		border-start-start-radius: 0;
+		border-end-start-radius: 0;
+	}
+}
+
+.dropdownButtonSeparator {
+	display: grid;
+	width: 1px;
+	background-color: color-mix(in srgb, var(--scale-pop-60) 50%, transparent);
+
+	&:after {
+		background-color: color-mix(in srgb, var(--scale-pop-40) 20%, transparent);
+		content: "";
+	}
+}
+
+.targetTrigger {
+	display: flex;
+	column-gap: 6px;
+	align-items: center;
+	min-width: 0;
+	padding-inline: 8px;
+	border-radius: var(--radius-m);
+	color: color-mix(in srgb, var(--text-1) 60%, transparent);
+	white-space: nowrap;
+
+	&:not([data-disabled]):hover,
+	&:not([data-disabled])[aria-expanded="true"] {
+		background-color: color-mix(in srgb, var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
+	}
+}
+
+.targetTriggerLabel {
+	overflow: hidden;
+	line-height: 1;
+	text-overflow: ellipsis;
+}
+
+.targetPopup {
+	display: flex;
+	flex-direction: column;
+	width: max(var(--anchor-width), 200px);
+}
+
+.targetInput {
+	padding-inline: 10px;
+	padding-block: 4px;
+	border-bottom: 1px solid var(--border-2);
+
+	&:focus {
+		outline: none;
+	}
+}
+
+.targetList {
+	--approx-input-height: 50px;
+	max-height: min(300px, calc(var(--available-height) - var(--approx-input-height)));
+	overflow: auto;
+
+	&:not(:empty) {
+		padding-block: 4px;
+	}
+}
+
+.targetItem {
+	padding-inline: 10px;
+	padding-block: 4px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: default;
+
+	&[data-highlighted] {
+		background-color: var(--bg-2);
+	}
+}
+
+.targetEmpty {
+	padding-inline: 10px;
+	padding-block: 4px;
+	color: var(--color-text-secondary);
+}

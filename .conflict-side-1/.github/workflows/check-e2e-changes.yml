@@ -1,0 +1,42 @@
+name: Check E2E-relevant changes
+on:
+  workflow_call:
+    outputs:
+      should_run:
+        description: "Whether the e2e job should run"
+        value: ${{ jobs.changes.outputs.should_run }}
+
+jobs:
+  changes:
+    name: Check for relevant changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      should_run: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.e2e == 'true' }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        id: filter
+        with:
+          filters: |
+            e2e:
+              - '**'
+              - '!**/*.md'
+              - '!.cargo/**'
+              - '!.claude/**'
+              - '!.vscode/**'
+              - '!.oxlintrc.json'
+              - '!deny.toml'
+              - '!scripts/**'
+              - '!apps/web/**'
+              - '!apps/lite/**'
+              - '!crates/but/**'
+              - '!crates/but-clap/**'
+              - '!crates/but-debugging/**'
+              - '!crates/but-installer/**'

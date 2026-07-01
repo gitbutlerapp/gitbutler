@@ -1,0 +1,4 @@
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
+# This is the Rust default as well.
+max_width = 100

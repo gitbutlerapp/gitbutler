@@ -1,0 +1,867 @@
+import { checkForUpdates, registerUpdater } from "./updater.js";
+import WatcherManager from "./watcher.js";
+import {
+	liteIpcChannels,
+	type AbsorbParams,
+	type AbsorptionPlanParams,
+	type ApplyBranchIntegrationParams,
+	type AssignHunkParams,
+	type BranchCheckoutParams,
+	type BranchCheckoutNewParams,
+	type BranchCreateParams,
+	type BranchDetailsParams,
+	type BranchDiffParams,
+	type CommitAmendParams,
+	type CommitCreateParams,
+	type CommitDiscardChangesParams,
+	type CommitDiscardParams,
+	type CommitDetailsWithLineStatsParams,
+	type DiscardWorktreeChangesParams,
+	type CommitInsertBlankParams,
+	type CommitMoveParams,
+	type CommitSquashParams,
+	type CommitRewordParams,
+	type CommitMoveChangesBetweenParams,
+	type CommitUncommitChangesParams,
+	type ForgeCompareBranchUrlParams,
+	type GetInitialBranchIntegrationParams,
+	type GetReviewBaseRepoUrlParams,
+	type GetReviewParams,
+	type ListCiChecksParams,
+	type ListReviewsParams,
+	type MoveBranchParams,
+	type MergeReviewParams,
+	type ListReviewsForBranchParams,
+	type OpenInEditorParams,
+	type PublishReviewParams,
+	type WorkspaceBranchAndAncestorsPushParams,
+	type RemoveBranchParams,
+	type TearOffBranchParams,
+	type TreeChangeDiffParams,
+	type UpdateBranchNameParams,
+	type UpdateReviewParams,
+	type ApplyParams,
+	type AskpassSubmitPromptResponseParams,
+	type ShowNativeMenuParams,
+	type UnapplyStackParams,
+	type WatcherSubscribeParams,
+	type WatcherUnsubscribeParams,
+	type NativeMenuPopupItem,
+	type CommitUncommitParams,
+	type RestoreSnapshotWithKindParams,
+	type SetReviewAutoMergeParams,
+	type SetReviewDraftinessParams,
+	type SetReviewTemplateParams,
+	type PeelRestoreSnapshotParams,
+	type WorkspaceIntegrateUpstreamParams,
+	type UpdateReviewFootersParams,
+} from "./ipc.js";
+import {
+	absorb,
+	absorptionPlan,
+	apply,
+	applyBranchIntegration,
+	assignHunk,
+	branchCheckout,
+	branchCheckoutNew,
+	branchCreate,
+	branchDetails,
+	branchDiff,
+	changesInWorktree,
+	commitAmend,
+	commitCreate,
+	commitDiscard,
+	commitDiscardChanges,
+	discardWorktreeChanges,
+	commitInsertBlank,
+	commitSquash,
+	commitReword,
+	commitUncommitChanges,
+	headInfo,
+	commitMove,
+	commitDetailsWithLineStats,
+	commitMoveChangesBetween,
+	forgeCompareBranchUrl,
+	forgeInfo,
+	forgeProvider,
+	getInitialBranchIntegration,
+	getRepoInfo,
+	getReview,
+	getReviewBaseRepoUrl,
+	getReviewMergeStatus,
+	listAvailableReviewTemplates,
+	listBranches,
+	listCiChecks,
+	listEditors,
+	listProjectsStateless,
+	listReviews,
+	listReviewsForBranch,
+	mergeReview,
+	moveBranch,
+	openInEditor,
+	publishReview,
+	removeBranch,
+	tearOffBranch,
+	treeChangeDiffs,
+	unapplyStack,
+	updateBranchName,
+	updateReview,
+	workspaceBranchAndAncestorsPush,
+	BranchListingFilter,
+	commitUncommit,
+	reviewTemplate,
+	restoreSnapshotWithKind,
+	setReviewAutoMerge,
+	setReviewDraftiness,
+	setReviewTemplate,
+	getUndoTargetSnapshot,
+	getRedoTargetSnapshot,
+	peelRestoreSnapshot,
+	updateReviewFooters,
+	warmCiChecksCache,
+	workspaceIntegrateUpstream,
+	askpassInit,
+	askpassSubmitPromptResponse,
+	initApplicationNamespace,
+} from "@gitbutler/but-sdk";
+import {
+	app,
+	BrowserWindow,
+	clipboard,
+	ipcMain,
+	Menu,
+	net,
+	protocol,
+	session,
+	shell,
+	type MenuItemConstructorOptions,
+} from "electron";
+import {
+	REACT_DEVELOPER_TOOLS,
+	REDUX_DEVTOOLS,
+	installExtension,
+} from "electron-devtools-installer";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const currentFilePath = fileURLToPath(import.meta.url);
+const currentDirPath = path.dirname(currentFilePath);
+
+// Permissions in this array are allowed by default for trusted origins, without prompting the user for input.
+const trustedOriginDefaultPermissions: Array<
+	| "clipboard-read"
+	| "clipboard-sanitized-write"
+	| "display-capture"
+	| "fullscreen"
+	| "geolocation"
+	| "idle-detection"
+	| "media"
+	| "mediaKeySystem"
+	| "midi"
+	| "midiSysex"
+	| "notifications"
+	| "pointerLock"
+	| "keyboardLock"
+	| "openExternal"
+	| "speaker-selection"
+	| "storage-access"
+	| "top-level-storage-access"
+	| "window-management"
+	| "unknown"
+	| "fileSystem"
+> = ["clipboard-sanitized-write"] as const;
+
+const liteProtocolScheme = "lite";
+const liteProtocolHost = "app";
+const contentRootURL = pathToFileURL(path.join(currentDirPath, "../ui"));
+const askpassExecutableName =
+	process.platform === "win32" ? "gitbutler-git-askpass.exe" : "gitbutler-git-askpass";
+
+// Custom scheme to serve files. This is necessary for two reasons:
+//
+// 1. Security, as serving via file:// opens up a wider attack surface than is desirable (see https://www.electronjs.org/docs/latest/tutorial/security#18-avoid-usage-of-the-file-protocol-and-prefer-usage-of-custom-protocols)
+// 2. The ability to reload the page when we've set a route that does not correspond to a file we can actually serve
+protocol.registerSchemesAsPrivileged([
+	{
+		scheme: liteProtocolScheme,
+		privileges: {
+			standard: true,
+			secure: true,
+			supportFetchAPI: true,
+		},
+	},
+]);
+
+const registerLiteProtocolHandler = () => {
+	// Handler based on the examples in https://www.electronjs.org/docs/latest/api/protocol#protocolhandlescheme-handler
+	protocol.handle(liteProtocolScheme, async (req) => {
+		const { host, pathname } = new URL(req.url);
+
+		// Our bundle is served with a primary index.html and a flat assets directory, so there's
+		// no need for relative directory traversal to serve our content at this time. We can
+		// therefore trivially prevent path traversal by simply disallowing any ..
+		//
+		// Don't name files with any intermediate .. and we don't need to make this check account for that :)
+		//
+		// In addition, we only have the single host to serve from for now.
+		if (pathname.includes("..") || host !== liteProtocolHost)
+			return new Response("Not found", {
+				status: 404,
+				headers: { "content-type": "text/html" },
+			});
+
+		// We default to serving the index file unless the pathname indicates it's an asset. This is
+		// important to be compatible with React Router's "soft navigation" where it changes the
+		// location to track where you are in the app, but it's still an SPA with only an index file
+		// to actually serve from the backend. For example, if the user navigates somewhere and then
+		// reloads the page, we should still serve up the index file, and React Router will handle the
+		// rest by reading the pathname.
+		const urlToServe = new URL(contentRootURL);
+		urlToServe.pathname += pathname.startsWith("/assets/") ? pathname : "/index.html";
+
+		return net.fetch(urlToServe.toString());
+	});
+};
+
+const askpassBinDir = (): string =>
+	app.isPackaged
+		? path.join(process.resourcesPath, "bin")
+		: path.join(currentDirPath, "../../resources/bin");
+
+const configureAskpass = (): void => {
+	if (app.isPackaged)
+		process.env.GITBUTLER_ASKPASS_BIN = path.join(askpassBinDir(), askpassExecutableName);
+	else process.env.GITBUTLER_ASKPASS_BIN ??= path.join(askpassBinDir(), askpassExecutableName);
+
+	try {
+		askpassInit((err, event) => {
+			if (err) {
+				// oxlint-disable-next-line no-console
+				console.error(`Error encountered while initializing askpass:\n${err}`);
+				return;
+			}
+
+			// Send the prompt to all windows.
+			// TODO: Probably not what we want if we have multiple windows. We should
+			// figure out how to send it to the right one.
+			for (const window of BrowserWindow.getAllWindows())
+				window.webContents.send(liteIpcChannels.askpassPrompt, event);
+		});
+	} catch (err) {
+		// oxlint-disable-next-line no-console
+		console.error(`Error encountered while configuring askpass:\n${String(err)}`);
+	}
+};
+
+// Dev-only runtime icons path (packaged builds rely on electron-builder icons).
+const iconsPath = path.join(currentDirPath, "../../resources/icons");
+
+function getWindowIcon(): string | undefined {
+	if (app.isPackaged) return undefined;
+
+	let iconPath: string;
+
+	switch (os.platform()) {
+		case "win32":
+			iconPath = path.join(iconsPath, "windows/icon.ico");
+			break;
+		case "darwin":
+			return undefined;
+		default:
+			iconPath = path.join(iconsPath, "linux/icons/256x256.png");
+			break;
+	}
+
+	return fs.existsSync(iconPath) ? iconPath : undefined;
+}
+
+function getMacDockIcon(): string | undefined {
+	const candidates = [
+		path.join(iconsPath, "macos/1024x1024.png"),
+		path.join(iconsPath, "macos/512x512.png"),
+		path.join(iconsPath, "macos/256x256.png"),
+	];
+
+	return candidates.find((c) => fs.existsSync(c));
+}
+
+const buildNativeMenuTemplate = (
+	items: Array<NativeMenuPopupItem>,
+	onItem: (itemId: string) => void,
+): Array<MenuItemConstructorOptions> =>
+	items.map((item): MenuItemConstructorOptions => {
+		if (item._tag === "Separator") return { type: "separator" };
+		const itemId = item.itemId;
+
+		return {
+			label: item.label,
+			accelerator: item.accelerator,
+			enabled: item.enabled,
+			click: itemId !== undefined ? () => onItem(itemId) : undefined,
+			submenu: item.submenu ? buildNativeMenuTemplate(item.submenu, onItem) : undefined,
+		};
+	});
+
+// Returns true if the `url` is from an origin we trust to perform privileged actions such as executing IPC commands.
+const isTrustedLocalOrigin = (url: URL | null) =>
+	url !== null &&
+	(app.isPackaged
+		? url.protocol === `${liteProtocolScheme}:` && url.host === liteProtocolHost
+		: url.protocol === "http:" && url.host === "127.0.0.1:5173");
+
+const newUrlOrNull = (url: string): URL | null => {
+	try {
+		return new URL(url);
+	} catch {
+		return null;
+	}
+};
+
+const registerIpcHandlers = (): void => {
+	const senderValidatingHandle: typeof ipcMain.handle = (channel, listener) => {
+		const senderValidatingListener: typeof listener = (event, ...args) => {
+			// Validate that the frame is from a trusted origin. This is crucial to prevent unauthorized
+			// access to the IPC bridge if we ever render non-local content.
+			//
+			// See https://www.electronjs.org/docs/latest/tutorial/security#17-validate-the-sender-of-all-ipc-messages
+			const isSenderFrameTrusted =
+				event.senderFrame !== null && isTrustedLocalOrigin(newUrlOrNull(event.senderFrame.url));
+			if (isSenderFrameTrusted)
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument @typescript-eslint/no-unsafe-return
+				return listener(event, ...args);
+
+			// oxlint-disable-next-line no-console
+			console.error(`Rejecting untrusted sender frame ${event.senderFrame?.url ?? "<unknown>"}`);
+			return null;
+		};
+
+		ipcMain.handle(channel, senderValidatingListener);
+	};
+
+	senderValidatingHandle(
+		liteIpcChannels.absorptionPlan,
+		(_e, { projectId, target }: AbsorptionPlanParams) => absorptionPlan(projectId, target),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.absorb,
+		(_e, { projectId, absorptionPlan }: AbsorbParams) => absorb(projectId, absorptionPlan),
+	);
+	senderValidatingHandle(liteIpcChannels.apply, (_e, { projectId, existingBranch }: ApplyParams) =>
+		apply(projectId, existingBranch),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.applyBranchIntegration,
+		(_e, { projectId, branch, integration, dryRun }: ApplyBranchIntegrationParams) =>
+			applyBranchIntegration(projectId, branch, integration, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.askpassSubmitPromptResponse,
+		(_e, { id, response }: AskpassSubmitPromptResponseParams) =>
+			askpassSubmitPromptResponse(id, response),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.assignHunk,
+		(_e, { projectId, assignments }: AssignHunkParams) => assignHunk(projectId, assignments),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.branchCheckout,
+		(_e, { projectId, branch }: BranchCheckoutParams) => branchCheckout(projectId, branch),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.branchCheckoutNew,
+		(_e, { projectId, name }: BranchCheckoutNewParams) => branchCheckoutNew(projectId, name),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.branchCreate,
+		(_e, { projectId, newRef, placement }: BranchCreateParams) =>
+			branchCreate(projectId, newRef, placement),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.branchDetails,
+		(_e, { projectId, branchName, remote }: BranchDetailsParams) =>
+			branchDetails(projectId, branchName, remote),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.branchDiff,
+		(_e, { projectId, branch }: BranchDiffParams) => branchDiff(projectId, branch),
+	);
+	senderValidatingHandle(liteIpcChannels.changesInWorktree, (_e, projectId: string) =>
+		changesInWorktree(projectId),
+	);
+	senderValidatingHandle(liteIpcChannels.clipboardWriteText, (_e, text: string) => {
+		clipboard.writeText(text, "clipboard");
+	});
+	senderValidatingHandle(
+		liteIpcChannels.commitAmend,
+		(_e, { projectId, commitId, changes, dryRun }: CommitAmendParams) =>
+			commitAmend(projectId, commitId, changes, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commitCreate,
+		(_e, { projectId, relativeTo, side, changes, message, dryRun }: CommitCreateParams) =>
+			commitCreate(projectId, relativeTo, side, changes, message, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commitDiscard,
+		(_e, { projectId, subjectCommitId, dryRun }: CommitDiscardParams) =>
+			commitDiscard(projectId, subjectCommitId, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commitDiscardChanges,
+		(_e, { projectId, commitId, changes, dryRun }: CommitDiscardChangesParams) =>
+			commitDiscardChanges(projectId, commitId, changes, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commitDetailsWithLineStats,
+		(_e, { projectId, commitId }: CommitDetailsWithLineStatsParams) =>
+			commitDetailsWithLineStats(projectId, commitId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.discardWorktreeChanges,
+		(_e, { projectId, changes }: DiscardWorktreeChangesParams) =>
+			discardWorktreeChanges(projectId, changes),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commitInsertBlank,
+		(_e, { projectId, relativeTo, side, dryRun }: CommitInsertBlankParams) =>
+			commitInsertBlank(projectId, relativeTo, side, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commitMove,
+		(_e, { projectId, subjectCommitIds, relativeTo, side, dryRun }: CommitMoveParams) =>
+			commitMove(projectId, subjectCommitIds, relativeTo, side, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commitSquash,
+		(
+			_e,
+			{
+				projectId,
+				sourceCommitIds,
+				destinationCommitId,
+				howToCombineMessages,
+				dryRun,
+			}: CommitSquashParams,
+		) =>
+			commitSquash(
+				projectId,
+				sourceCommitIds,
+				destinationCommitId,
+				howToCombineMessages ?? "KeepBoth",
+				dryRun,
+			),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commitReword,
+		(_e, { projectId, commitId, message, dryRun }: CommitRewordParams) =>
+			commitReword(projectId, commitId, message, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commitMoveChangesBetween,
+		(
+			_e,
+			{
+				projectId,
+				sourceCommitId,
+				destinationCommitId,
+				changes,
+				dryRun,
+			}: CommitMoveChangesBetweenParams,
+		) => commitMoveChangesBetween(projectId, sourceCommitId, destinationCommitId, changes, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commitUncommit,
+		(_e, { projectId, subjectCommitIds: commitIds, assignTo, dryRun }: CommitUncommitParams) =>
+			commitUncommit(projectId, commitIds, assignTo, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.commitUncommitChanges,
+		(_e, { projectId, commitId, changes, assignTo, dryRun }: CommitUncommitChangesParams) =>
+			commitUncommitChanges(projectId, commitId, changes, assignTo, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.forgeCompareBranchUrl,
+		(_e, { projectId, base, branch, fork }: ForgeCompareBranchUrlParams) =>
+			forgeCompareBranchUrl(projectId, base, branch, fork),
+	);
+	senderValidatingHandle(liteIpcChannels.forgeInfo, (_e, projectId: string) =>
+		forgeInfo(projectId),
+	);
+	senderValidatingHandle(liteIpcChannels.forgeProvider, (_e, projectId: string) =>
+		forgeProvider(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.getInitialBranchIntegration,
+		(_e, { projectId, branch, strategy }: GetInitialBranchIntegrationParams) =>
+			getInitialBranchIntegration(projectId, branch, strategy),
+	);
+	senderValidatingHandle(liteIpcChannels.getRepoInfo, (_e, projectId: string) =>
+		getRepoInfo(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.getReviewBaseRepoUrl,
+		(_e, { projectId, reviewId }: GetReviewBaseRepoUrlParams) =>
+			getReviewBaseRepoUrl(projectId, reviewId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.getReviewMergeStatus,
+		(_e, { projectId, reviewId }: GetReviewParams) => getReviewMergeStatus(projectId, reviewId),
+	);
+	senderValidatingHandle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
+	senderValidatingHandle(liteIpcChannels.getRedoTargetSnapshot, async (_e, projectId: string) =>
+		getRedoTargetSnapshot(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.getReview,
+		(_e, { projectId, reviewId }: GetReviewParams) => getReview(projectId, reviewId),
+	);
+	senderValidatingHandle(liteIpcChannels.getUndoTargetSnapshot, async (_e, projectId: string) =>
+		getUndoTargetSnapshot(projectId),
+	);
+	senderValidatingHandle(liteIpcChannels.headInfo, (_e, projectId: string) => headInfo(projectId));
+	senderValidatingHandle(
+		liteIpcChannels.listBranches,
+		(_e, projectId: string, filter: BranchListingFilter | null) => listBranches(projectId, filter),
+	);
+	senderValidatingHandle(liteIpcChannels.listAvailableReviewTemplates, (_e, projectId: string) =>
+		listAvailableReviewTemplates(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.listCiChecks,
+		(_e, { projectId, reference, cacheConfig }: ListCiChecksParams) =>
+			listCiChecks(projectId, reference, cacheConfig),
+	);
+	senderValidatingHandle(liteIpcChannels.listEditors, () => listEditors());
+	senderValidatingHandle(liteIpcChannels.listProjectsStateless, () => listProjectsStateless());
+	senderValidatingHandle(
+		liteIpcChannels.listReviews,
+		(_e, { projectId, cacheConfig }: ListReviewsParams) => listReviews(projectId, cacheConfig),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.listReviewsForBranch,
+		(_e, { projectId, branch, filter }: ListReviewsForBranchParams) =>
+			listReviewsForBranch(projectId, branch, filter),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.mergeReview,
+		(_e, { projectId, reviewId, mergeMethod }: MergeReviewParams) =>
+			mergeReview(projectId, reviewId, mergeMethod),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.moveBranch,
+		(_e, { projectId, subjectBranch, targetBranch, dryRun }: MoveBranchParams) =>
+			moveBranch(projectId, subjectBranch, targetBranch, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.openInEditor,
+		(_e, { projectId, editorId, path, lineNr }: OpenInEditorParams) =>
+			openInEditor(projectId, editorId, path, lineNr),
+	);
+	senderValidatingHandle(liteIpcChannels.openInWebBrowser, (_e, url: string) => {
+		// shell.openExternal() is powerful and dangerous. For example, on macOS you can launch a
+		// program with shell.openExternal("file:///Applications/Numbers.app"). Similarly bad
+		// things are possible on Windows and Linux.
+		//
+		// We need to be able to open relatively arbitrary URLs so we can't lock this down too much,
+		// but we can at least make sure the URL is a reasonable protocol so we don't allow e.g.
+		// "file:///Applications/Numbers.app" to pass through.
+		//
+		// https://www.electronjs.org/docs/latest/tutorial/security#15-do-not-use-shellopenexternal-with-untrusted-content
+		const protocol = newUrlOrNull(url)?.protocol ?? "";
+		if (!["https:", "http:"].includes(protocol))
+			throw new Error(`URL ${url} with unsupported protocol ${protocol}`);
+
+		return shell.openExternal(url);
+	});
+	senderValidatingHandle(liteIpcChannels.pathJoin, (_e, ...paths: Array<string>) =>
+		path.join(...paths),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.publishReview,
+		(_e, { projectId, params }: PublishReviewParams) => publishReview(projectId, params),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.updateBranchName,
+		(_e, { projectId, stackId, branchName, newName }: UpdateBranchNameParams) =>
+			updateBranchName(projectId, stackId, branchName, newName),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.updateReview,
+		(_e, { projectId, reviewId, title, body, state, targetBase }: UpdateReviewParams) =>
+			updateReview(projectId, reviewId, title, body, state, targetBase),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.tearOffBranch,
+		(_e, { projectId, subjectBranch, dryRun }: TearOffBranchParams) =>
+			tearOffBranch(projectId, subjectBranch, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.peelRestoreSnapshot,
+		(_e, { projectId, sha }: PeelRestoreSnapshotParams) => peelRestoreSnapshot(projectId, sha),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.workspaceBranchAndAncestorsPush,
+		(
+			_e,
+			{
+				projectId,
+				branch,
+				withForce,
+				skipForcePushProtection,
+				runHooks,
+				pushOpts,
+			}: WorkspaceBranchAndAncestorsPushParams,
+		) =>
+			workspaceBranchAndAncestorsPush(
+				projectId,
+				withForce,
+				skipForcePushProtection,
+				branch,
+				runHooks,
+				pushOpts,
+			),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.removeBranch,
+		(_e, { projectId, stackId, branchName }: RemoveBranchParams) =>
+			removeBranch(projectId, stackId, branchName),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.restoreSnapshotWithKind,
+		(_e, { projectId, restoreKind, sha }: RestoreSnapshotWithKindParams) =>
+			restoreSnapshotWithKind(projectId, restoreKind, sha),
+	);
+	senderValidatingHandle(liteIpcChannels.reviewTemplate, (_e, projectId: string) =>
+		reviewTemplate(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.setReviewAutoMerge,
+		(_e, { projectId, reviewId, enable }: SetReviewAutoMergeParams) =>
+			setReviewAutoMerge(projectId, reviewId, enable),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.setReviewDraftiness,
+		(_e, { projectId, reviewId, draft }: SetReviewDraftinessParams) =>
+			setReviewDraftiness(projectId, reviewId, draft),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.setReviewTemplate,
+		(_e, { projectId, templatePath }: SetReviewTemplateParams) =>
+			setReviewTemplate(projectId, templatePath),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.showNativeMenu,
+		async (event, { items, position }: ShowNativeMenuParams) => {
+			const window = BrowserWindow.fromWebContents(event.sender);
+			if (!window) return null;
+
+			let selectedItemId: string | null = null;
+			const menu = Menu.buildFromTemplate(
+				buildNativeMenuTemplate(items, (itemId) => {
+					selectedItemId = itemId;
+				}),
+			);
+
+			await new Promise<void>((resolve) => {
+				menu.popup({
+					window,
+					x: Math.round(position.x),
+					y: Math.round(position.y),
+					callback: () => resolve(),
+				});
+			});
+
+			return selectedItemId;
+		},
+	);
+	senderValidatingHandle(
+		liteIpcChannels.treeChangeDiffs,
+		(_e, { projectId, change }: TreeChangeDiffParams) => treeChangeDiffs(projectId, change),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.unapplyStack,
+		(_e, { projectId, stackId }: UnapplyStackParams) => unapplyStack(projectId, stackId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.workspaceIntegrateUpstream,
+		(_e, { projectId, updates, dryRun }: WorkspaceIntegrateUpstreamParams) =>
+			workspaceIntegrateUpstream(projectId, updates, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.updateReviewFooters,
+		(_e, { projectId, reviews }: UpdateReviewFootersParams) =>
+			updateReviewFooters(projectId, reviews),
+	);
+	senderValidatingHandle(liteIpcChannels.warmCiChecksCache, (_e, projectId: string) =>
+		warmCiChecksCache(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.watcherSubscribe,
+		async (event, { projectId }: WatcherSubscribeParams) =>
+			WatcherManager.getInstance().subscribeToProject(projectId, event),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.watcherUnsubscribe,
+		(_e, { subscriptionId }: WatcherUnsubscribeParams) =>
+			WatcherManager.getInstance().removeSubscription(subscriptionId),
+	);
+	senderValidatingHandle(liteIpcChannels.watcherStopAll, () =>
+		WatcherManager.getInstance().stopAllWatchersForShutdown(),
+	);
+};
+
+const createMainWindow = async (): Promise<void> => {
+	const icon = getWindowIcon();
+	const mainWindow = new BrowserWindow({
+		width: 1024,
+		height: 768,
+		minWidth: 545,
+		minHeight: 400,
+		icon,
+		titleBarStyle: process.platform === "darwin" ? "hidden" : "default",
+		trafficLightPosition: process.platform === "darwin" ? { x: 16, y: 23 } : undefined,
+		webPreferences: {
+			contextIsolation: true,
+			nodeIntegration: false,
+			preload: path.join(currentDirPath, "preload.cjs"),
+		},
+	});
+
+	const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+	if (devServerUrl !== undefined) {
+		await mainWindow.loadURL(devServerUrl);
+		return;
+	}
+
+	const rootUrl = `${liteProtocolScheme}://${liteProtocolHost}/`;
+	await mainWindow.loadURL(rootUrl);
+	registerUpdater(mainWindow);
+	checkForUpdates();
+};
+
+app.enableSandbox(); // forces sandboxing for all renderers, even if they try to launch without
+void app.whenReady().then(async () => {
+	await initApplicationNamespace(null);
+	configureAskpass();
+
+	if (app.isPackaged) {
+		registerLiteProtocolHandler();
+
+		// Basic non-Strict CSP based on https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html#basic-non-strict-csp-policy
+		const productionCsp =
+			"default-src 'none';" +
+			"script-src 'self' 'wasm-unsafe-eval';" +
+			"style-src 'self' 'unsafe-inline';" +
+			"font-src 'self';" +
+			"connect-src 'self';" +
+			"object-src 'none';" +
+			"base-uri 'none';" +
+			"frame-ancestors 'none';" +
+			"form-action 'none';" +
+			"img-src 'self' data: https://*.gravatar.com;" +
+			"worker-src 'self';";
+
+		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+			callback({
+				responseHeaders: {
+					...details.responseHeaders,
+					"Content-Security-Policy": [productionCsp],
+				},
+			});
+		});
+	} else {
+		await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]);
+
+		if (process.platform === "darwin") {
+			const dockIcon = getMacDockIcon();
+			if (dockIcon !== undefined && app.dock) app.dock.setIcon(dockIcon);
+		}
+
+		// Loose dev CSP to allow for hot reload and development tools. This could be tightened with
+		// nonce-based CSP instead of using unsafe-inline, but it's just not worth the hassle right now.
+		const developmentCsp =
+			"default-src 'none';" +
+			// unsafe-inline necessary for HMR. Potentially fixable with nonce-based Strict CSP.
+			"script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval';" +
+			// unsafe-inline necessary for HMR. Potentially fixable with nonce-based Strict CSP.
+			"style-src 'self' 'unsafe-inline';" +
+			"font-src 'self';" +
+			// ws source for HMR
+			"connect-src 'self' ws://127.0.0.1:5173;" +
+			"object-src 'none';" +
+			"base-uri 'none';" +
+			"frame-ancestors 'none';" +
+			"form-action 'none';" +
+			"img-src 'self' data: https://*.gravatar.com;" +
+			"worker-src 'self';";
+
+		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+			// Skip extensions, or React dev tools don't work
+			if (details.url.startsWith("chrome-extension://")) {
+				callback({ responseHeaders: details.responseHeaders });
+				return;
+			}
+
+			callback({
+				responseHeaders: {
+					...details.responseHeaders,
+					"Content-Security-Policy": [developmentCsp],
+				},
+			});
+		});
+	}
+
+	session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+		const url = newUrlOrNull(webContents.getURL());
+		if (isTrustedLocalOrigin(url) && trustedOriginDefaultPermissions.includes(permission))
+			return callback(true);
+
+		// oxlint-disable-next-line no-console
+		console.error(`Blocked permission request for ${permission} from ${url?.href ?? "<unknown>"}`);
+		return callback(false);
+	});
+
+	registerIpcHandlers();
+	await createMainWindow();
+
+	app.on("activate", () => {
+		if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
+	});
+});
+
+app.on("before-quit", () => {
+	WatcherManager.getInstance().destroy();
+});
+
+app.on("window-all-closed", () => {
+	WatcherManager.getInstance().destroy();
+	if (process.platform !== "darwin") app.quit();
+});
+
+app.on("web-contents-created", (_, contents) => {
+	contents.on("will-navigate", (event, navigationUrl) => {
+		const currentUrl = newUrlOrNull(contents.getURL());
+		const targetUrl = newUrlOrNull(navigationUrl);
+		// Allow HMR page reloads.
+		if (!app.isPackaged && currentUrl?.href === targetUrl?.href && isTrustedLocalOrigin(targetUrl))
+			return;
+
+		// oxlint-disable-next-line no-console
+		console.error(`Blocked navigation to ${navigationUrl}`);
+		event.preventDefault();
+	});
+
+	contents.setWindowOpenHandler(({ url }) => {
+		// oxlint-disable-next-line no-console
+		console.error(`Blocked opening new window for ${url}`);
+		return { action: "deny" };
+	});
+
+	contents.on("will-attach-webview", (event, webPreferences, _) => {
+		// oxlint-disable-next-line no-console
+		console.error(`Blocked attaching webview ${JSON.stringify(webPreferences)}`);
+		event.preventDefault();
+	});
+});

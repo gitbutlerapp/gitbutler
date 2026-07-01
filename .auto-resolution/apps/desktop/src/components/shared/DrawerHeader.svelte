@@ -1,0 +1,177 @@
+<script lang="ts">
+	import { Button } from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { onMount } from "svelte";
+	import type { Snippet } from "svelte";
+
+	interface Props {
+		content: Snippet;
+		actions?: Snippet<[element: HTMLElement]>;
+		closeActions?: Snippet;
+		headerHeight?: number;
+		transparent?: boolean;
+		sticky?: boolean;
+		reserveSpaceOnStuck?: boolean;
+		closeButtonPlaceholder?: boolean;
+		closeButtonPlaceholderWidth?: string;
+		scrollRoot?: HTMLElement | null;
+		onclose?: () => void;
+		/**
+		 * Called when the header is double-clicked.
+		 * Typically used to toggle the drawer's collapsed state.
+		 */
+		ondblclick?: () => void;
+	}
+
+	let {
+		content,
+		actions,
+		closeActions,
+		headerHeight = $bindable(),
+		transparent,
+		sticky,
+		reserveSpaceOnStuck,
+		closeButtonPlaceholder,
+		closeButtonPlaceholderWidth = "3rem",
+		scrollRoot,
+		onclose,
+		ondblclick,
+	}: Props = $props();
+
+	let headerDiv = $state<HTMLDivElement>();
+	let sentinelDiv = $state<HTMLDivElement>();
+	let isStuck = $state(false);
+
+	onMount(() => {
+		if (!reserveSpaceOnStuck || !sentinelDiv) return;
+
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (entry) {
+					isStuck = !entry.isIntersecting;
+				}
+			},
+			{
+				threshold: 1,
+				root: scrollRoot || null,
+			},
+		);
+
+		observer.observe(sentinelDiv);
+
+		return () => {
+			observer.disconnect();
+		};
+	});
+</script>
+
+{#if sticky && reserveSpaceOnStuck}
+	<div bind:this={sentinelDiv} class="sticky-sentinel"></div>
+{/if}
+
+<div
+	role="presentation"
+	bind:this={headerDiv}
+	class="drawer-header"
+	class:sticky
+	class:stuck={isStuck}
+	bind:clientHeight={headerHeight}
+	use:focusable
+	{ondblclick}
+	style:background={transparent ? "transparent" : undefined}
+>
+	<div class="drawer-header__title">
+		{@render content()}
+	</div>
+
+	{#if actions || onclose || closeButtonPlaceholder || closeActions}
+		<div class="drawer-header__actions">
+			{#if actions}
+				<div class="flex items-center gap-4">
+					{@render actions(headerDiv)}
+				</div>
+			{/if}
+
+			{#if ((onclose || closeActions) && actions) || (closeButtonPlaceholder && isStuck)}
+				<div class="divider"></div>
+			{/if}
+
+			{#if closeActions || (closeButtonPlaceholder && !actions) || isStuck || onclose}
+				<div class="flex items-center gap-4">
+					{#if closeActions}
+						{@render closeActions()}
+					{/if}
+
+					{#if (closeButtonPlaceholder && !actions) || isStuck}
+						<div class="close-button-placeholder" style:width={closeButtonPlaceholderWidth}></div>
+					{/if}
+
+					{#if onclose}
+						<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
+</div>
+
+<style lang="postcss">
+	.sticky-sentinel {
+		visibility: hidden;
+		position: absolute;
+		top: -26px;
+		width: 1px;
+		height: 1px;
+		pointer-events: none;
+	}
+
+	.drawer-header {
+		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: space-between;
+		height: 42px;
+		padding: 0 12px 0 14px;
+		gap: 8px;
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-2);
+		transition: box-shadow var(--transition-medium);
+
+		&.sticky {
+			z-index: var(--z-ground);
+			position: sticky;
+			top: 0;
+		}
+
+		&.stuck {
+			box-shadow: 0 4px 8px rgba(0, 0, 0, 0.06);
+		}
+	}
+
+	.drawer-header__title {
+		display: flex;
+		flex-grow: 1;
+		align-items: center;
+		height: 100%;
+		overflow: hidden;
+		gap: 6px;
+	}
+
+	.drawer-header__actions {
+		display: flex;
+		flex-shrink: 0;
+		align-items: center;
+		margin-right: -2px; /* buttons have some paddings that look not aligned. With this we "remove" them */
+		gap: 10px;
+	}
+
+	.drawer-header__actions :global(.divider) {
+		width: 1px;
+		height: 18px;
+		background-color: var(--border-2);
+	}
+
+	.close-button-placeholder {
+		height: var(--size-button);
+	}
+</style>

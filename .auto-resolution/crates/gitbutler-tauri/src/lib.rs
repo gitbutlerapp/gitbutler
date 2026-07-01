@@ -1,0 +1,41 @@
+//! # Feature Flags
+#![cfg_attr(
+    not(feature = "document-features"),
+    doc = "Activate the `document-features` cargo feature to see feature docs here, i.e. `cargo doc -p gitbutler-tauri --features document-features`"
+)]
+#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
+#![cfg_attr(
+    all(windows, not(test), not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
+// FIXME(qix-): Stuff we want to fix but don't have a lot of time for.
+// FIXME(qix-): PRs welcome!
+#![allow(
+    clippy::used_underscore_binding,
+    clippy::module_name_repetitions,
+    clippy::struct_field_names,
+    clippy::too_many_lines
+)]
+
+pub mod broadcaster;
+#[cfg(feature = "irc")]
+pub mod irc;
+#[cfg(feature = "irc")]
+pub mod irc_lifecycle;
+
+pub mod logs;
+pub mod menu;
+pub mod window;
+pub use window::state::{WindowState, event::ChangeForFrontend};
+
+pub mod action;
+pub mod askpass;
+pub mod debug;
+pub mod projects;
+
+pub mod settings;
+pub mod zip;
+
+pub mod env;
+
+pub mod csp;

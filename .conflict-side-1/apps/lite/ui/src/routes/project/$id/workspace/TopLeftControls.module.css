@@ -1,0 +1,17 @@
+.container {
+	display: flex;
+	column-gap: 12px;
+
+	&:after {
+		align-self: center;
+		width: 1px;
+		height: 18px;
+		background-color: var(--border-2);
+		content: "";
+	}
+}
+
+.macSpacer {
+	flex-shrink: 0;
+	width: 60px;
+}

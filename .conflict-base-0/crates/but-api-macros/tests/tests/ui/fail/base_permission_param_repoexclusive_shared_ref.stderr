@@ -1,0 +1,5 @@
+error: Explicit repository permission parameters must use `&mut RepoExclusive` for exclusive access
+ --> tests/ui/fail/base_permission_param_repoexclusive_shared_ref.rs:8:12
+  |
+8 |     _perm: &but_ctx::access::RepoExclusive,
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

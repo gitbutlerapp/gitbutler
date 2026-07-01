@@ -1,0 +1,1195 @@
+#![expect(
+    deprecated,
+    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
+)]
+
+use std::{fs, path::Path, thread, time::Duration};
+
+use anyhow::{Context as _, Result, bail};
+use but_core::{
+    RefMetadata, Reference, RepositoryExt,
+    ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
+};
+use but_ctx::Context;
+use but_db::DbHandle;
+use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types as legacy_types};
+use but_testsupport::{gix_testtools, open_repo};
+use filetime::{FileTime, set_file_mtime};
+use gitbutler_git::GitContextExt as _;
+use gitbutler_reference::RemoteRefname;
+use gitbutler_stack::{PatchReferenceUpdate, Stack, StackBranch, Target, VirtualBranchesHandle};
+use gix::refs::transaction::PreviousValue;
+use itertools::Itertools;
+use tempfile::TempDir;
+
+#[ctor::ctor]
+fn init() {
+    // These tests do not function with the askpass broker enabled
+    but_askpass::disable();
+}
+
+#[test]
+fn add_series_success() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let reference = StackBranch::new(test_ctx.commits[1].id(), "asdf".into(), &*ctx.repo.get()?)?;
+    let result = test_ctx.stack.add_series(&ctx, reference, None);
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.stack.heads.len(), 2);
+    assert_eq!(test_ctx.stack.heads[0].name(), "asdf");
+    // Assert persisted
+    assert_eq!(
+        test_ctx.stack,
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn add_series_top_of_stack() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let result = test_ctx.stack.add_series_top_of_stack(&ctx, "asdf".into());
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.stack.heads.len(), 2);
+    assert_eq!(test_ctx.stack.heads[1].name(), "asdf");
+    // Assert persisted
+    assert_eq!(
+        test_ctx.stack,
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn add_series_top_base() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let merge_base = ctx
+        .repo
+        .get()?
+        .merge_base(test_ctx.stack.head_oid(&ctx)?, test_ctx.default_target.sha)?
+        .detach();
+    let reference = StackBranch::new(merge_base, "asdf".into(), &*ctx.repo.get()?)?;
+    let result = test_ctx.stack.add_series(&ctx, reference, None);
+    println!("{result:?}");
+    // Assert persisted
+    assert_eq!(
+        test_ctx.stack,
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn add_multiple_series() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+
+    assert_eq!(test_ctx.stack.heads.len(), 1);
+    assert_eq!(head_names(&test_ctx), vec!["virtual"]); // defaults to stack name
+    let default_head = test_ctx.stack.heads[0].clone();
+
+    let head_4 = StackBranch::new(
+        test_ctx.commits.last().unwrap().id(),
+        "head_4".into(),
+        &*ctx.repo.get()?,
+    )?;
+    let result = test_ctx
+        .stack
+        .add_series(&ctx, head_4, Some(default_head.name().clone()));
+    assert!(result.is_ok());
+    assert_eq!(head_names(&test_ctx), vec!["virtual", "head_4"]);
+
+    let head_2 = StackBranch::new(
+        test_ctx.commits.last().unwrap().id(),
+        "head_2".into(),
+        &*ctx.repo.get()?,
+    )?;
+    let result = test_ctx.stack.add_series(&ctx, head_2, None);
+    assert!(result.is_ok());
+    assert_eq!(head_names(&test_ctx), vec!["head_2", "virtual", "head_4"]);
+
+    let head_1 = StackBranch::new(
+        test_ctx.commits.first().unwrap().id(),
+        "head_1".into(),
+        &*ctx.repo.get()?,
+    )?;
+
+    let result = test_ctx.stack.add_series(&ctx, head_1, None);
+    assert!(result.is_ok());
+    assert_eq!(
+        head_names(&test_ctx),
+        vec!["head_1", "head_2", "virtual", "head_4"]
+    );
+
+    // archive is noop
+    let before_prune = test_ctx.stack.heads.clone();
+    test_ctx
+        .stack
+        .archive_integrated_heads(&ctx, &*ctx.repo.get()?, &[], false)?;
+    assert_eq!(before_prune, test_ctx.stack.heads);
+    Ok(())
+}
+
+#[test]
+fn add_series_invalid_name_fails() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let result = StackBranch::new(
+        test_ctx.commits[0].id(),
+        "name with spaces".into(),
+        &*ctx.repo.get()?,
+    );
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "Reference name contains invalid byte: \" \""
+    );
+    Ok(())
+}
+
+#[test]
+fn add_series_duplicate_name_fails() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let reference = StackBranch::new(test_ctx.commits[1].id(), "asdf".into(), &*ctx.repo.get()?)?;
+    let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
+    assert!(result.is_ok());
+    let result = test_ctx.stack.add_series(&ctx, reference, None);
+    snapbox::assert_data_eq!(
+        format!("{:#?}", result.unwrap_err()),
+        snapbox::str![[r#"
+Context {
+    code: PreconditionFailed,
+    message: Some(
+        "A patch reference with the name asdf exists",
+    ),
+}
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn add_series_matching_git_ref_is_ok() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let reference = StackBranch::new(
+        test_ctx.commits[0].parent(0)?,
+        "existing-branch".into(),
+        &*ctx.repo.get()?,
+    )?;
+    let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
+    assert!(result.is_ok()); // allow this
+    Ok(())
+}
+
+#[test]
+fn add_series_including_refs_head_fails() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let reference = StackBranch::new(
+        test_ctx.commits[0].id(),
+        "refs/heads/my-branch".into(),
+        &*ctx.repo.get()?,
+    )?;
+    let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "Stack head name cannot start with 'refs/heads'"
+    );
+    Ok(())
+}
+
+#[test]
+fn add_series_target_commit_doesnt_exist() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let reference = StackBranch::new(
+        gix::ObjectId::from_hex(b"30696678319e0fa3a20e54f22d47fc8cf1ceaade")?, // does not exist
+        "my-branch".into(),
+        &*ctx.repo.get()?,
+    )?;
+    let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "An object with id 30696678319e0fa3a20e54f22d47fc8cf1ceaade could not be found",
+    );
+    Ok(())
+}
+
+#[test]
+fn add_series_target_change_id_doesnt_exist() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let reference = StackBranch::new(
+        gix::ObjectId::from_hex(b"10696678319e0fa3a20e54f22d47fc8cf1ceaade")?, // does not exist
+        "my-branch".into(),
+        &*ctx.repo.get()?,
+    )?;
+    let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "An object with id 10696678319e0fa3a20e54f22d47fc8cf1ceaade could not be found",
+    );
+    Ok(())
+}
+
+#[test]
+fn add_series_target_commit_not_in_stack() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let other_commit_id = test_ctx.other_commits.last().unwrap().id();
+    let reference = StackBranch::new(
+        other_commit_id, // does not exist
+        "my-branch".into(),
+        &*ctx.repo.get()?,
+    )?;
+    let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        format!("The commit {other_commit_id} is not between the stack head and the stack base")
+    );
+    Ok(())
+}
+
+#[test]
+fn remove_branch_last_fails() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let branch_name = test_ctx.stack.heads[0].name().to_owned();
+    let result = test_ctx.stack.remove_branch(&ctx, &branch_name);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "Cannot remove the last branch from the stack"
+    );
+    Ok(())
+}
+
+#[test]
+fn remove_branch_nonexistent_fails() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let result = test_ctx.stack.remove_branch(&ctx, "does-not-exist");
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "Series with name does-not-exist not found"
+    );
+    Ok(())
+}
+
+#[test]
+fn remove_branch_with_multiple_last_heads() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+
+    assert_eq!(test_ctx.stack.heads.len(), 1);
+    assert_eq!(head_names(&test_ctx), vec!["virtual"]); // defaults to stack name
+    let default_head = test_ctx.stack.heads[0].clone();
+    let repo = &*ctx.repo.get()?;
+    let to_stay = StackBranch::new(
+        test_ctx.commits.last().unwrap().id(),
+        "to_stay".into(),
+        repo,
+    )?;
+    let result = test_ctx.stack.add_series(&ctx, to_stay.clone(), None);
+    assert!(result.is_ok());
+    assert_eq!(head_names(&test_ctx), vec!["to_stay", "virtual"]);
+
+    let result = test_ctx.stack.remove_branch(&ctx, default_head.name());
+    assert!(result.is_ok());
+    assert_eq!(head_names(&test_ctx), vec!["to_stay"]);
+    assert_eq!(
+        test_ctx.commits.last().unwrap().id(),
+        test_ctx.stack.heads[0].head_oid(repo)?,
+    ); // it references the newest commit
+    Ok(())
+}
+
+#[test]
+fn remove_branch_no_orphan_commits() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+
+    assert_eq!(test_ctx.stack.heads.len(), 1);
+    assert_eq!(head_names(&test_ctx), vec!["virtual"]); // defaults to stack name
+    let default_head = test_ctx.stack.heads[0].clone(); // references the newest commit
+
+    let repo = &*ctx.repo.get()?;
+    let to_stay = StackBranch::new(
+        test_ctx.commits.first().unwrap().id(),
+        "to_stay".into(),
+        repo,
+    )?; // references the oldest commit
+    let result = test_ctx.stack.add_series(&ctx, to_stay.clone(), None);
+    assert!(result.is_ok());
+    assert_eq!(head_names(&test_ctx), vec!["to_stay", "virtual"]);
+
+    let result = test_ctx.stack.remove_branch(&ctx, default_head.name());
+    assert!(result.is_ok());
+    assert_eq!(head_names(&test_ctx), vec!["to_stay"]);
+    assert_eq!(
+        test_ctx.commits.last().unwrap().id(),
+        test_ctx.stack.heads[0].head_oid(repo)?
+    ); // it was updated to reference the newest commit
+    Ok(())
+}
+
+#[test]
+fn update_series_noop_does_nothing() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let heads_before = test_ctx.stack.heads.clone();
+    let noop_update = PatchReferenceUpdate::default();
+    let result = test_ctx
+        .stack
+        .update_branch(&ctx, "virtual".into(), &noop_update);
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.stack.heads, heads_before);
+    Ok(())
+}
+
+#[test]
+fn update_branch_name_fails_validation() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let update = PatchReferenceUpdate {
+        name: Some("invalid name".into()),
+    };
+    let result = test_ctx
+        .stack
+        .update_branch(&ctx, "virtual".into(), &update);
+    assert_eq!(result.err().unwrap().to_string(), "Invalid branch name");
+    Ok(())
+}
+
+#[test]
+fn update_branch_name_to_same_name_is_noop() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let branch_name = String::from("virtual");
+
+    let update = PatchReferenceUpdate {
+        name: Some(branch_name.clone()),
+    };
+    let result = test_ctx
+        .stack
+        .update_branch(&ctx, branch_name.clone(), &update);
+
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.stack.heads[0].name(), &branch_name);
+
+    Ok(())
+}
+
+#[test]
+fn update_branch_name_success() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let update = PatchReferenceUpdate {
+        name: Some("new-name".into()),
+    };
+    let result = test_ctx
+        .stack
+        .update_branch(&ctx, "virtual".into(), &update);
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.stack.heads[0].name(), "new-name");
+    // Assert persisted
+    assert_eq!(
+        test_ctx.stack,
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn update_branch_name_resets_pr_number() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let pr_number = 123;
+    test_ctx
+        .stack
+        .set_pr_number(&ctx, "virtual", Some(pr_number))?;
+    assert_eq!(test_ctx.stack.heads[0].pr_number, Some(pr_number));
+    let update = PatchReferenceUpdate {
+        name: Some("new-name".into()),
+    };
+    test_ctx
+        .stack
+        .update_branch(&ctx, "virtual".into(), &update)?;
+    assert_eq!(test_ctx.stack.heads[0].pr_number, None);
+    assert_eq!(
+        test_ctx.stack,
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn push_series_success() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+
+    let state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut target = default_target(&state)?;
+    target.push_remote_name = Some("origin".into());
+    write_default_target(ctx.project_data_dir(), target)?;
+
+    let result = test_ctx.stack.push_details(&ctx, "virtual".into());
+    assert!(result.is_ok());
+    Ok(())
+}
+
+#[test]
+fn update_name_after_push() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+
+    let state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut target = default_target(&state)?;
+    target.push_remote_name = Some("origin".into());
+    write_default_target(ctx.project_data_dir(), target)?;
+
+    let push_details = test_ctx.stack.push_details(&ctx, "virtual".into())?;
+    let result = ctx.push(
+        push_details.head,
+        &push_details.remote_refname,
+        false,
+        false,
+        None,
+        Some(Some(test_ctx.stack.id)),
+        vec![],
+    );
+    assert!(result.is_ok());
+    let result = test_ctx.stack.update_branch(
+        &ctx,
+        "virtual".into(),
+        &PatchReferenceUpdate {
+            name: Some("new-name".into()),
+        },
+    );
+    assert!(result.is_ok());
+    Ok(())
+}
+
+#[test]
+fn list_series_default_head() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let branches = test_ctx.stack.branches();
+    // the number of series matches the number of heads
+    assert_eq!(branches.len(), test_ctx.stack.heads.len());
+    assert_eq!(branches[0].name(), "virtual");
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        branches[0]
+            .commit_ids(&repo, &ctx, &test_ctx.stack)?
+            .local_commits,
+        test_ctx.commits.iter().map(|c| c.id()).collect_vec()
+    );
+    Ok(())
+}
+
+#[test]
+fn list_series_two_heads_same_commit() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let head_before = StackBranch::new(
+        test_ctx.commits.last().unwrap().id(),
+        "head_before".into(),
+        &*ctx.repo.get()?,
+    )?;
+    // add `head_before` before the initial head
+    let result = test_ctx.stack.add_series(&ctx, head_before, None);
+    assert!(result.is_ok());
+
+    let branches = test_ctx.stack.branches();
+
+    // the number of series matches the number of heads
+    assert_eq!(branches.len(), test_ctx.stack.heads.len());
+
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        branches[0]
+            .commit_ids(&repo, &ctx, &test_ctx.stack)?
+            .local_commits,
+        test_ctx.commits.iter().map(|c| c.id()).collect_vec()
+    );
+    assert_eq!(branches[0].name(), "head_before");
+    assert_eq!(
+        branches[1]
+            .commit_ids(&repo, &ctx, &test_ctx.stack)?
+            .local_commits,
+        Vec::<gix::ObjectId>::new()
+    );
+    assert_eq!(branches[1].name(), "virtual");
+    Ok(())
+}
+
+#[test]
+fn list_series_two_heads_different_commit() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let head_before = StackBranch::new(
+        test_ctx.commits.first().unwrap().id(),
+        "head_before".into(),
+        &*ctx.repo.get()?,
+    )?;
+
+    // add `head_before` before the initial head
+    let result = test_ctx.stack.add_series(&ctx, head_before, None);
+    assert!(result.is_ok());
+    let branches = test_ctx.stack.branches();
+    // the number of series matches the number of heads
+    assert_eq!(branches.len(), test_ctx.stack.heads.len());
+    let mut expected_patches = test_ctx.commits.iter().map(|c| c.id()).collect_vec();
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        branches[0]
+            .commit_ids(&repo, &ctx, &test_ctx.stack)?
+            .local_commits,
+        vec![expected_patches.remove(0)]
+    );
+    assert_eq!(branches[0].name(), "head_before");
+    assert_eq!(expected_patches.len(), 2);
+    assert_eq!(
+        branches[1]
+            .commit_ids(&repo, &ctx, &test_ctx.stack)?
+            .local_commits,
+        expected_patches
+    ); // the other two patches are in the second series
+    assert_eq!(branches[1].name(), "virtual");
+
+    Ok(())
+}
+
+#[test]
+fn set_stack_head_commit_invalid() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let repo = ctx.repo.get()?;
+    let result = test_ctx
+        .stack
+        .set_stack_head(&mut vb_state, &repo, repo.object_hash().null());
+    assert!(result.is_err());
+    Ok(())
+}
+
+#[test]
+fn set_stack_head() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let commit = test_ctx.other_commits.last().unwrap();
+    let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let repo = ctx.repo.get()?;
+    let result = test_ctx
+        .stack
+        .set_stack_head(&mut vb_state, &repo, commit.id());
+    assert!(result.is_ok());
+    let branches = test_ctx.stack.branches();
+    assert_eq!(
+        commit.id(),
+        branches.first().unwrap().head_oid(&*ctx.repo.get()?)?
+    );
+    assert_eq!(
+        test_ctx.stack.head_oid(&ctx)?,
+        test_ctx.other_commits.last().unwrap().id()
+    );
+    Ok(())
+}
+
+#[test]
+fn archive_heads_noop() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let initial_state = test_ctx.stack.heads.clone();
+    test_ctx
+        .stack
+        .archive_integrated_heads(&ctx, &*ctx.repo.get()?, &[], false)?;
+    assert_eq!(initial_state, test_ctx.stack.heads);
+    // Assert persisted
+    assert_eq!(
+        test_ctx.stack,
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn archive_heads_success() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    // adding a commit that is not in the stack
+    test_ctx.stack.heads.insert(
+        0,
+        StackBranch::new(
+            test_ctx.other_commits.first().unwrap().id,
+            "foo".to_string(),
+            &*ctx.repo.get()?,
+        )?,
+    );
+    assert_eq!(test_ctx.stack.heads.len(), 2);
+    test_ctx.stack.archive_integrated_heads(
+        &ctx,
+        &*ctx.repo.get()?,
+        &[Reference::Virtual("foo".to_string())],
+        false,
+    )?;
+    assert_eq!(test_ctx.stack.heads.len(), 2);
+    assert!(test_ctx.stack.heads[0].archived);
+    assert!(!test_ctx.stack.heads[1].archived);
+    // Assert persisted
+    assert_eq!(
+        test_ctx.stack,
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
+    );
+    Ok(())
+}
+
+// #[test]
+// fn does_not_archive_head_on_merge_base() -> Result<()> {
+//     let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
+//     let mut test_ctx = test_ctx(&ctx)?;
+//     let merge_base = ctx.repository().find_commit(
+//         ctx.repository()
+//             .merge_base(test_ctx.stack.head(), test_ctx.default_target.sha)?,
+//     )?;
+//     test_ctx.stack.add_series(
+//         &ctx,
+//         StackBranch {
+//             head: merge_base.into(),
+//             name: "bottom".to_string(),
+//             description: None,
+//             pr_number: Default::default(),
+//             archived: Default::default(),
+//         },
+//         None,
+//     )?;
+//     let initial_state = test_ctx.stack.heads.clone();
+//     test_ctx.stack.archive_integrated_heads(&ctx)?;
+//     assert_eq!(initial_state, test_ctx.stack.heads);
+//     // Assert persisted
+//     assert_eq!(
+//         test_ctx.stack,
+//         test_ctx.handle.get_stack(test_ctx.stack.id)?
+//     );
+//     Ok(())
+// }
+
+#[test]
+fn set_pr_numberentifiers_success() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let result = test_ctx.stack.set_pr_number(&ctx, "virtual", Some(123));
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.stack.heads[0].pr_number, Some(123));
+    // Assert persisted
+    assert_eq!(
+        test_ctx.stack,
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn set_pr_numberentifiers_series_not_found_fails() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let result = test_ctx
+        .stack
+        .set_pr_number(&ctx, "does-not-exist", Some(123));
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        format!(
+            "Series does-not-exist does not exist on stack {}",
+            test_ctx.stack.name()
+        )
+    );
+    Ok(())
+}
+
+#[test]
+fn add_head_with_archived_bottom_head() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let mut head_1_archived = StackBranch::new(
+        test_ctx.commits[0].id,
+        "kv-branch-3".to_string(),
+        &*ctx.repo.get()?,
+    )?;
+    head_1_archived.archived = true;
+    let head_2 = StackBranch::new(
+        test_ctx.commits[1].id,
+        "more-on-top".to_string(),
+        &*ctx.repo.get()?,
+    )?;
+    let existing_heads = vec![head_1_archived.clone(), head_2.clone()];
+    let new_head = StackBranch::new(
+        test_ctx.commits[1].id, // same as head_2
+        "abcd".to_string(),
+        &*ctx.repo.get()?,
+    )?;
+    let patches = vec![test_ctx.commits[0].id, test_ctx.commits[1].id];
+
+    let updated_heads = gitbutler_stack::add_head(
+        existing_heads,
+        new_head.clone(),
+        Some(head_2.clone()),
+        patches,
+        &*ctx.repo.get()?,
+    )?;
+    assert_eq!(updated_heads, vec![head_1_archived, head_2, new_head]);
+    Ok(())
+}
+
+fn command_ctx(name: &str) -> Result<(Context, TempDir)> {
+    let name = name.to_owned();
+    let name_for_post = name.clone();
+    let (tmp, _) = gix_testtools::scripted_fixture_writable_with_args_with_post(
+        "stacking.sh",
+        None::<String>,
+        gix_testtools::Creation::CopyFromReadOnly,
+        2,
+        move |fixture| {
+            if fixture.is_uninitialized() {
+                let repo = open_repo(&fixture.path().join(&name_for_post))?;
+                seed_metadata(&repo, &name_for_post)?;
+            }
+            Ok(())
+        },
+    )
+    .map_err(anyhow::Error::from_boxed)?;
+    let repo = open_repo(tmp.path().join(name).as_path())?;
+    Ok((Context::from_repo(repo)?, tmp))
+}
+
+fn seed_metadata(repo: &gix::Repository, name: &str) -> Result<()> {
+    if name != "multiple-commits" {
+        bail!("unsupported driverless stacking fixture: {name}");
+    }
+
+    let mut meta = VirtualBranchesTomlMetadata::from_path(
+        repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
+    )?;
+    let mut ws = meta.workspace("refs/heads/gitbutler/workspace".try_into()?)?;
+    ws.stacks.clear();
+    ws.stacks.push(WorkspaceStack {
+        id: StackId::from_number_for_testing(1),
+        branches: vec![WorkspaceStackBranch {
+            ref_name: "refs/heads/first_branch".try_into()?,
+            archived: false,
+        }],
+        workspacecommit_relation: WorkspaceCommitRelation::Merged,
+    });
+    ws.stacks.push(WorkspaceStack {
+        id: StackId::from_number_for_testing(2),
+        branches: vec![WorkspaceStackBranch {
+            ref_name: "refs/heads/virtual".try_into()?,
+            archived: false,
+        }],
+        workspacecommit_relation: WorkspaceCommitRelation::Merged,
+    });
+    meta.set_workspace(&ws)?;
+    meta.set_changed_to_necessitate_write();
+    meta.write_unreconciled()?;
+
+    let target = Target {
+        branch: "refs/remotes/origin/main".parse()?,
+        remote_url: ".".to_owned(),
+        sha: repo.rev_parse_single("refs/remotes/origin/main")?.detach(),
+        push_remote_name: Some("origin".to_owned()),
+    };
+    write_default_target(repo.gitbutler_storage_path()?, target)?;
+    Ok(())
+}
+
+fn head_names(test_ctx: &TestContext) -> Vec<String> {
+    test_ctx
+        .stack
+        .heads
+        .iter()
+        .map(|h| h.name().clone())
+        .collect_vec()
+}
+
+fn default_target(handle: &VirtualBranchesHandle) -> Result<Target> {
+    handle
+        .read_file()?
+        .default_target
+        .context("expected default target")
+}
+
+fn write_default_target(
+    base_path: impl AsRef<Path>,
+    target: impl Into<legacy_types::Target>,
+) -> Result<()> {
+    let mut meta =
+        VirtualBranchesTomlMetadata::from_path(base_path.as_ref().join("virtual_branches.toml"))?;
+    meta.set_default_target(target)?;
+    Ok(())
+}
+
+fn test_ctx(ctx: &Context) -> Result<TestContext> {
+    let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let stacks = handle.list_all_stacks()?;
+    let stack = stacks.iter().find(|b| b.name() == "virtual").unwrap();
+    let other_stack = stacks.iter().find(|b| b.name() != "virtual").unwrap();
+    let target = default_target(&handle)?;
+    let repo = ctx.repo.get()?;
+    let mut branch_commits = stack
+        .commits(ctx)?
+        .into_iter()
+        .map(|id| bake_commit(&repo, id))
+        .collect::<Result<Vec<_>>>()?;
+    branch_commits.reverse();
+    let mut other_commits = other_stack
+        .commits(ctx)?
+        .into_iter()
+        .map(|id| bake_commit(&repo, id))
+        .collect::<Result<Vec<_>>>()?;
+    other_commits.reverse();
+    Ok(TestContext {
+        stack: stack.clone(),
+        commits: branch_commits,
+        // other_branch: other_branch.clone(),
+        other_commits,
+        handle,
+        default_target: target,
+    })
+}
+struct TestContext {
+    stack: gitbutler_stack::Stack,
+    /// Oldest commit first
+    commits: Vec<BakedCommit>,
+    /// Oldest commit first
+    other_commits: Vec<BakedCommit>,
+    handle: VirtualBranchesHandle,
+    default_target: gitbutler_stack::Target,
+}
+
+struct BakedCommit {
+    id: gix::ObjectId,
+    parents: Vec<gix::ObjectId>,
+}
+
+fn bake_commit(repo: &gix::Repository, id: gix::ObjectId) -> Result<BakedCommit> {
+    let commit = repo.find_commit(id)?;
+    Ok(BakedCommit {
+        id,
+        parents: commit.parent_ids().map(Into::into).collect(),
+    })
+}
+
+impl BakedCommit {
+    pub fn id(&self) -> gix::ObjectId {
+        self.id
+    }
+    pub fn parent(&self, index: usize) -> anyhow::Result<gix::ObjectId> {
+        Ok(self.parents[index])
+    }
+}
+
+#[test]
+fn next_available_name_avoids_remote_tracking_branches() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let repo = ctx.repo.get()?;
+
+    // Create a remote tracking branch (simulating a branch that exists on the remote)
+    // The fixture already has origin as a remote
+    let id = repo.object_hash().null();
+    let remote_branch = "refs/remotes/origin/my-test-branch";
+    repo.reference(remote_branch, id, PreviousValue::Any, "test")?;
+
+    // Request a unique name starting from my-test-branch
+    let unique = Stack::next_available_name(
+        &repo,
+        &test_ctx.handle,
+        "origin",
+        "my-test-branch".to_string(),
+        false,
+    )?;
+
+    assert_eq!(
+        unique, "my-test-branch-1",
+        "it should skip my-test-branch because it exists as a remote tracking branch"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn storage_sync_bootstraps_db_from_existing_toml() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    let expected = legacy_with_target("main", "1111111111111111111111111111111111111111")?;
+    write_legacy_toml(&toml_path, &expected)?;
+
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let state = handle.read_file()?;
+    let target = state
+        .default_target
+        .context("expected default target from TOML bootstrap")?;
+    assert_eq!(target.branch.branch(), "main");
+    assert_eq!(
+        target.sha.to_string(),
+        "1111111111111111111111111111111111111111"
+    );
+
+    let db = DbHandle::new_in_directory(tmp.path())?;
+    let snapshot = db
+        .virtual_branches()
+        .get_snapshot()?
+        .context("expected DB snapshot after bootstrap")?;
+    assert!(snapshot.state.initialized);
+    assert_eq!(
+        snapshot.state.default_target_branch_name.as_deref(),
+        Some("main")
+    );
+
+    Ok(())
+}
+
+#[test]
+fn storage_sync_recreates_toml_when_missing() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    assert!(toml_path.exists(), "initial sync creates TOML");
+
+    fs::remove_file(&toml_path)?;
+    assert!(!toml_path.exists(), "sanity check");
+
+    let _ = handle.read_file()?;
+    assert!(toml_path.exists(), "TOML should be recreated from DB");
+    Ok(())
+}
+
+#[test]
+fn storage_sync_db_mutation_always_updates_toml_mirror() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    fs::remove_file(&toml_path)?;
+    assert!(!toml_path.exists(), "sanity check");
+
+    write_default_target(
+        tmp.path(),
+        stack_target("mirror", "5555555555555555555555555555555555555555")?,
+    )?;
+
+    assert!(
+        toml_path.exists(),
+        "DB mutation should recreate TOML mirror"
+    );
+    let mirror: legacy_types::VirtualBranches = toml::from_str(&fs::read_to_string(&toml_path)?)?;
+    let mirror_target = mirror
+        .default_target
+        .context("mirror TOML should include the mutated default target")?;
+    assert_eq!(mirror_target.branch.branch(), "mirror");
+    assert_eq!(
+        mirror_target.sha.to_string(),
+        "5555555555555555555555555555555555555555"
+    );
+    Ok(())
+}
+
+#[test]
+fn storage_sync_newer_toml_overwrites_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    write_default_target(
+        tmp.path(),
+        stack_target("main", "1111111111111111111111111111111111111111")?,
+    )?;
+
+    thread::sleep(Duration::from_millis(5));
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    write_legacy_toml(
+        &toml_path,
+        &legacy_with_target("next", "2222222222222222222222222222222222222222")?,
+    )?;
+
+    let target = default_target(&handle)?;
+    assert_eq!(target.branch.branch(), "next");
+    assert_eq!(
+        target.sha.to_string(),
+        "2222222222222222222222222222222222222222"
+    );
+    Ok(())
+}
+
+#[test]
+fn storage_sync_equal_mtime_and_changed_hash_overwrites_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    write_default_target(
+        tmp.path(),
+        stack_target("main", "1111111111111111111111111111111111111111")?,
+    )?;
+
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    let mtime_before = fs::metadata(&toml_path)?.modified()?;
+    write_legacy_toml(
+        &toml_path,
+        &legacy_with_target("equal", "3333333333333333333333333333333333333333")?,
+    )?;
+    let duration = mtime_before
+        .duration_since(std::time::UNIX_EPOCH)
+        .or_else(|_| std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH))?;
+    set_file_mtime(
+        &toml_path,
+        FileTime::from_unix_time(duration.as_secs() as i64, duration.subsec_nanos()),
+    )?;
+
+    let target = default_target(&handle)?;
+    assert_eq!(target.branch.branch(), "equal");
+    assert_eq!(
+        target.sha.to_string(),
+        "3333333333333333333333333333333333333333"
+    );
+    Ok(())
+}
+
+#[test]
+fn storage_sync_older_toml_does_not_overwrite_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    write_default_target(
+        tmp.path(),
+        stack_target("main", "1111111111111111111111111111111111111111")?,
+    )?;
+
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    let mtime_before = fs::metadata(&toml_path)?.modified()?;
+    write_legacy_toml(
+        &toml_path,
+        &legacy_with_target("stale", "9999999999999999999999999999999999999999")?,
+    )?;
+    let duration = mtime_before
+        .duration_since(std::time::UNIX_EPOCH)
+        .or_else(|_| std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH))?;
+    let secs = i64::try_from(duration.as_secs()).context("mtime seconds exceed i64 range")?;
+    set_file_mtime(
+        &toml_path,
+        FileTime::from_unix_time(secs.saturating_sub(1), duration.subsec_nanos()),
+    )?;
+
+    let target = default_target(&handle)?;
+    assert_eq!(target.branch.branch(), "main");
+    assert_eq!(
+        target.sha.to_string(),
+        "1111111111111111111111111111111111111111"
+    );
+
+    let mirrored: legacy_types::VirtualBranches = toml::from_str(&fs::read_to_string(&toml_path)?)?;
+    let mirrored_target = mirrored
+        .default_target
+        .context("older TOML should be rewritten from DB state")?;
+    assert_eq!(mirrored_target.branch.branch(), "main");
+    assert_eq!(
+        mirrored_target.sha.to_string(),
+        "1111111111111111111111111111111111111111"
+    );
+    Ok(())
+}
+
+#[test]
+fn storage_sync_invalid_newer_toml_is_rewritten_from_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    write_default_target(
+        tmp.path(),
+        stack_target("main", "1111111111111111111111111111111111111111")?,
+    )?;
+
+    thread::sleep(Duration::from_millis(5));
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    fs::write(&toml_path, "this is not valid toml = [")?;
+
+    let target = default_target(&handle)?;
+    assert_eq!(target.branch.branch(), "main");
+    assert_eq!(
+        target.sha.to_string(),
+        "1111111111111111111111111111111111111111"
+    );
+
+    let rewritten: legacy_types::VirtualBranches =
+        toml::from_str(&fs::read_to_string(&toml_path)?)?;
+    let rewritten_target = rewritten
+        .default_target
+        .context("rewritten TOML should contain default target from DB")?;
+    assert_eq!(rewritten_target.branch.branch(), "main");
+    assert_eq!(
+        rewritten_target.sha.to_string(),
+        "1111111111111111111111111111111111111111"
+    );
+    Ok(())
+}
+
+#[test]
+fn storage_sync_restore_import_helper_imports_toml_into_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let mut handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    write_default_target(
+        tmp.path(),
+        stack_target("db-main", "1111111111111111111111111111111111111111")?,
+    )?;
+
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    write_legacy_toml(
+        &toml_path,
+        &legacy_with_target("restored", "4444444444444444444444444444444444444444")?,
+    )?;
+
+    handle.import_toml_into_db_for_restore()?;
+    let target = default_target(&handle)?;
+    assert_eq!(target.branch.branch(), "restored");
+    assert_eq!(
+        target.sha.to_string(),
+        "4444444444444444444444444444444444444444"
+    );
+    Ok(())
+}
+
+fn write_legacy_toml(path: &Path, data: &legacy_types::VirtualBranches) -> Result<()> {
+    let content = toml::to_string(data)?;
+    fs::write(path, content)?;
+    Ok(())
+}
+
+fn legacy_with_target(branch: &str, sha: &str) -> Result<legacy_types::VirtualBranches> {
+    Ok(legacy_types::VirtualBranches {
+        default_target: Some(legacy_types::Target {
+            branch: RemoteRefname::new("origin", branch),
+            remote_url: "https://example.invalid/repo".into(),
+            sha: gix::ObjectId::from_hex(sha.as_bytes())?,
+            push_remote_name: Some("origin".into()),
+        }),
+        branch_targets: Default::default(),
+        branches: Default::default(),
+        last_pushed_base: None,
+    })
+}
+
+fn stack_target(branch: &str, sha: &str) -> Result<gitbutler_stack::Target> {
+    let oid = gix::ObjectId::from_hex(sha.as_bytes())?;
+    if oid.is_null() {
+        bail!("test target oid must not be zero");
+    }
+    Ok(gitbutler_stack::Target {
+        branch: RemoteRefname::new("origin", branch),
+        remote_url: "https://example.invalid/repo".into(),
+        sha: oid,
+        push_remote_name: Some("origin".into()),
+    })
+}

@@ -1,0 +1,25 @@
+[package]
+name = "gitbutler-workspace"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+but-oxidize.workspace = true
+but-core.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
+but-meta = { workspace = true, features = ["legacy"] }
+
+gitbutler-cherry-pick.workspace = true
+
+anyhow.workspace = true
+gix.workspace = true
+git2.workspace = true
+
+[lints]
+workspace = true

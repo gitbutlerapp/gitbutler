@@ -1,0 +1,432 @@
+//! Schemars utilities for JSON schema generation.
+//!
+//! Each helper in this crate is meant to be used from
+//! `#[schemars(schema_with = "...")]` on the field whose runtime type should be
+//! exported as a simpler JSON shape.
+//!
+//! Put the annotation on the field itself, next to the matching `serde`
+//! override when there is one:
+//!
+//! ```rust,ignore
+//! #[derive(serde::Serialize, schemars::JsonSchema)]
+//! struct Example {
+//!     #[serde(with = "but_serde::object_id")]
+//!     #[schemars(schema_with = "but_schemars::object_id")]
+//!     id: gix::ObjectId,
+//! }
+//! ```
+//!
+//! The examples below intentionally show the concrete field type that should
+//! carry each annotation.
+
+/// Use on `Option<StackId>` fields that should appear as `string | null`.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::stack_id_opt")]
+///     id: Option<but_core::ref_metadata::StackId>,
+/// }
+/// ```
+pub fn stack_id_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Option<String>>()
+}
+
+/// Use on `StackId` fields that should appear as `string`.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::stack_id")]
+///     id: but_core::ref_metadata::StackId,
+/// }
+/// ```
+pub fn stack_id(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<String>()
+}
+
+/// Use on string-like fields that serialize lossily as plain strings.
+///
+/// This applies to:
+/// - `BString` fields serialized with `but_serde::bstring_lossy`
+/// - `BStringForFrontend` fields serialized as strings
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[serde(with = "but_serde::bstring_lossy")]
+///     #[schemars(schema_with = "but_schemars::bstring_lossy")]
+///     name: bstr::BString,
+/// }
+/// ```
+pub fn bstring_lossy(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<String>()
+}
+
+/// Use on optional *lossy* `BString` fields serialized with
+/// `but_serde::bstring_lossy_opt`.
+///
+/// This applies to:
+/// - `BString` fields serialized with `but_serde::bstring_lossy`
+/// - `BStringForFrontend` fields serialized as strings
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[serde(with = "but_serde::bstring_lossy_opt")]
+///     #[schemars(schema_with = "but_schemars::bstring_lossy_opt")]
+///     linked_worktree_id: Option<bstr::BString>,
+/// }
+/// ```
+pub fn bstring_lossy_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Option<String>>()
+}
+
+/// Use on `gix::ObjectId` fields serialized with `but_serde::object_id`.
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[serde(with = "but_serde::object_id")]
+///     #[schemars(schema_with = "but_schemars::object_id")]
+///     id: gix::ObjectId,
+/// }
+/// ```
+pub fn object_id(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<String>()
+}
+
+/// Use on `Vec<gix::ObjectId>` fields serialized with `but_serde::object_id_vec`.
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[serde(with = "but_serde::object_id_vec")]
+///     #[schemars(schema_with = "but_schemars::object_id_vec")]
+///     parent_ids: Vec<gix::ObjectId>,
+/// }
+/// ```
+pub fn object_id_vec(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Vec<String>>()
+}
+
+/// Use on `gix::refs::FullName` fields serialized with
+/// `but_serde::fullname_lossy`.
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[serde(with = "but_serde::fullname_lossy")]
+///     #[schemars(schema_with = "but_schemars::fullname_lossy")]
+///     reference: gix::refs::FullName,
+/// }
+/// ```
+pub fn fullname_lossy(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<String>()
+}
+
+/// Like [`fullname_lossy`], but for `Option<gix::refs::FullName>` fields.
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[serde(with = "but_serde::fullname_lossy_opt")]
+///     #[schemars(schema_with = "but_schemars::fullname_lossy_opt")]
+///     reference: Option<gix::refs::FullName>,
+/// }
+/// ```
+pub fn fullname_lossy_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Option<String>>()
+}
+
+/// Use on `gix::refs::FullName` fields serialized to bytes
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::fullname_bytes")]
+///     reference: gix::refs::FullName,
+/// }
+/// ```
+pub fn fullname_bytes(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Vec<u8>>()
+}
+
+/// Like [`fullname_bytes`], but for `Option<gix::refs::FullName>` fields.
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[serde(with = "but_serde::fullname_bytes_opt")]
+///     #[schemars(schema_with = "but_schemars::fullname_bytes_opt")]
+///     reference: Option<gix::refs::FullName>,
+/// }
+/// ```
+pub fn fullname_bytes_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Option<Vec<u8>>>()
+}
+
+/// Use on `url::Url` fields that should appear as strings in schema output.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::url")]
+///     gravatar_url: url::Url,
+/// }
+/// ```
+pub fn url(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<String>()
+}
+
+/// Use on project identifier fields that serialize as strings.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::project_id")]
+///     id: gitbutler_project::ProjectId,
+/// }
+/// ```
+pub fn project_id(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<String>()
+}
+
+/// Use on `DefaultTrue` wrapper fields that should appear as booleans.
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[serde(default)]
+///     #[schemars(schema_with = "but_schemars::default_true")]
+///     ok_with_force_push: DefaultTrue,
+/// }
+/// ```
+pub fn default_true(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<bool>()
+}
+
+/// Use on legacy `git2::Oid` fields serialized with `but_serde::oid`.
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[serde(with = "but_serde::oid")]
+///     #[schemars(schema_with = "but_schemars::oid")]
+///     id: git2::Oid,
+/// }
+/// ```
+pub fn oid(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<String>()
+}
+
+/// Use on `Option<gix::ObjectId>` fields serialized with `but_serde::object_id_opt`.
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[serde(with = "but_serde::object_id_opt")]
+///     #[schemars(schema_with = "but_schemars::object_id_opt")]
+///     base: Option<gix::ObjectId>,
+/// }
+/// ```
+pub fn object_id_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Option<String>>()
+}
+
+/// Use on raw `BString` byte payloads that should appear as `number[]`.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::bstring_bytes")]
+///     path_bytes: bstr::BString,
+/// }
+/// ```
+pub fn bstring_bytes(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Vec<u8>>()
+}
+
+/// Use on optional raw `BString` byte payloads that should appear as
+/// `number[] | null`.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::bstring_bytes_opt")]
+///     previous_path: Option<bstr::BString>,
+/// }
+/// ```
+pub fn bstring_bytes_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Option<Vec<u8>>>()
+}
+
+#[derive(schemars::JsonSchema)]
+#[expect(dead_code)]
+struct GixTime {
+    seconds: i64,
+    offset: i32,
+}
+register_sdk_type!(GixTime);
+
+/// Use on optional `gix::date::Time` fields that should keep the same
+/// `{ seconds, offset }` shape as the serialized value.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::gix_time_opt")]
+///     created_at: Option<gix::date::Time>,
+/// }
+/// ```
+pub fn gix_time_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Option<GixTime>>()
+}
+
+/// Use on `gix::date::Time` fields that should keep the same
+/// `{ seconds, offset }` shape as the serialized value.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::gix_time")]
+///     created_at: gix::date::Time,
+/// }
+/// ```
+pub fn gix_time(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<GixTime>()
+}
+
+#[derive(schemars::JsonSchema)]
+#[schemars(rename = "EntryKind")]
+#[expect(dead_code)]
+enum EntryKindSchema {
+    Tree,
+    Blob,
+    BlobExecutable,
+    Link,
+    Commit,
+}
+register_sdk_type!(EntryKindSchema);
+
+/// Use on `gix::object::tree::EntryKind` fields that should export the stable
+/// enum used by the frontend.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::entry_kind")]
+///     kind: gix::object::tree::EntryKind,
+/// }
+/// ```
+pub fn entry_kind(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<EntryKindSchema>()
+}
+
+/// Schema for `serde_error::Error` which serializes as `{description: string, source?: Error | null}`.
+#[derive(schemars::JsonSchema)]
+#[schemars(rename = "SerdeError")]
+#[expect(dead_code)]
+struct SerdeErrorSchema {
+    description: String,
+    source: Option<Box<SerdeErrorSchema>>,
+}
+register_sdk_type!(SerdeErrorSchema);
+
+/// Use on `serde_error::Error` fields.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::serde_error")]
+///     error: serde_error::Error,
+/// }
+/// ```
+pub fn serde_error(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<SerdeErrorSchema>()
+}
+
+/// Use on `Option<serde_error::Error>` fields.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::serde_error_opt")]
+///     error: Option<serde_error::Error>,
+/// }
+/// ```
+pub fn serde_error_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Option<SerdeErrorSchema>>()
+}
+
+/// A Schema registered from around the codebase
+///
+/// This is used internally for the but-ts schema registration. You probably
+/// never need to use this struct directly or indirectly.
+///
+/// If you want to register a `JsonSchema`, use the [`register_sdk_type!`]
+/// macro.
+#[derive(Debug)]
+pub struct SchemarEntry {
+    /// The name of the schema getting registered
+    pub name: fn() -> Cow<'static, str>,
+    /// The qualified type that was registered
+    pub type_name: &'static str,
+    /// The location of the register call
+    pub registration_location: &'static str,
+    /// The actual schema of the type getting registered
+    pub schema: fn() -> schemars::Schema,
+}
+
+inventory::collect!(SchemarEntry);
+
+use std::borrow::Cow;
+
+#[doc(hidden)]
+pub use inventory::submit as internal_submit;
+#[doc(hidden)]
+pub use schemars::JsonSchema as InternalJsonSchema;
+#[doc(hidden)]
+pub use schemars::schema_for as internal_schema_for;
+
+/// Register a type deriving `JsonSchema` to be included as a type in the
+/// packages/but-sdk.
+///
+/// This can be used across crates. Any crate that is linked into the `but-ts`
+/// crate will have its [`register_sdk_type!`] calls picked up.
+///
+/// Currently we explicitly link the `but-api` crate in the `but-ts` crate which
+/// also includes the dependencies of `but-api`.
+///
+/// If the type being registered has a schema name collision with another
+/// registered type, when type but-sdk types are generated at runtime an error
+/// will be thrown.
+///
+/// If the type being registered references types that are not also registered
+/// for the but-sdk, when type but-sdk types are generated at runtime an error
+/// will be thrown.
+///
+/// ```rust
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     foo: i64
+/// }
+///
+/// but_schemars::register_sdk_type!(Example);
+/// ```
+#[macro_export]
+macro_rules! register_sdk_type {
+    ($ty:ty) => {
+        const _: () = {
+            use $crate::InternalJsonSchema as _;
+            $crate::internal_submit! {
+                $crate::SchemarEntry {
+                    name: <$ty>::schema_name,
+                    type_name: concat!(module_path!(), "::", stringify!($ty)),
+                    registration_location: concat!(file!(), ":", line!()),
+                    schema: || $crate::internal_schema_for!($ty)
+                }
+            }
+        };
+    };
+}

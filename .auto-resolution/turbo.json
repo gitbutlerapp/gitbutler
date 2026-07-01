@@ -1,0 +1,60 @@
+{
+	"$schema": "https://turborepo.org/schema.json",
+	"tasks": {
+		"package": {
+			"dependsOn": ["^package"],
+			"outputs": ["dist/**", ".svelte-kit/**"]
+		},
+		"build": {
+			"dependsOn": ["package"],
+			"passThroughEnv": [
+				"SENTRY_AUTH_TOKEN",
+				"GITHUB_TOKEN",
+				"SVELTEKIT_OUT_DIR",
+				"VITE_BUILD_TARGET",
+				"VITE_BUTLER_API_BASE_URL",
+				"VITE_EMBEDDED_BUILD"
+			],
+			"env": ["SENTRY_RELEASE"],
+			"outputs": [
+				".svelte-kit/**",
+				"!.sveltekit/types",
+				"!.sveltekit/*.d.ts",
+				"dist/**",
+				".vercel/**"
+			]
+		},
+		"dev": {
+			"dependsOn": ["package"],
+			"cache": false,
+			"persistent": true,
+			"passThroughEnv": ["SSH_AUTH_SOCK"]
+		},
+		"check": {
+			"dependsOn": ["package"]
+		},
+		"playwright:install:unit": {},
+		"playwright:install:ct": {},
+		"test": {
+			"dependsOn": ["package", "playwright:install:unit"],
+			"passThroughEnv": ["BUILDKITE_ANALYTICS_TOKEN"]
+		},
+		"test:e2e:playwright": {
+			"env": ["PLAYWRIGHT_BROWSERS_PATH"],
+			"passThroughEnv": ["BUILDKITE_ANALYTICS_TOKEN"],
+			"dependsOn": ["package"]
+		},
+		"test:ct": {
+			"env": ["PLAYWRIGHT_BROWSERS_PATH"],
+			"dependsOn": ["package", "playwright:install:ct"]
+		},
+		"//#globallint": {
+			"dependsOn": [
+				"@gitbutler/ui#package",
+				"@gitbutler/shared#package",
+				"@gitbutler/no-relative-imports#package",
+				"@gitbutler/no-cross-domain-imports#package"
+			]
+		}
+	}
+}

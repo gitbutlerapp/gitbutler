@@ -1,0 +1,56 @@
+[package]
+name = "but-debug"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE.md"
+description = "A GitButler debugging CLI"
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[[bin]]
+name = "but-debug"
+path = "src/main.rs"
+doctest = false
+
+[dependencies]
+but-api = { workspace = true, features = ["legacy"] }
+but-core.workspace = true
+but-ctx.workspace = true
+but-graph.workspace = true
+but-workspace.workspace = true
+
+gitbutler-reference.workspace = true
+
+anyhow.workspace = true
+clap = { workspace = true, features = [
+    "env",
+    "wrap_help",
+    "color",
+    "error-context",
+    "usage",
+    "suggestions",
+] }
+gix = { workspace = true, features = ["excludes", "interrupt"] }
+open.workspace = true
+prodash = { version = "31.0.0", default-features = false, features = [
+    "progress-tree",
+    "render-line",
+    "render-line-autoconfigure",
+    "render-line-crossterm",
+    "unit-bytes",
+] }
+tracing.workspace = true
+tracing-forest.workspace = true
+tracing-subscriber = { workspace = true, features = ["std", "fmt"] }
+zip.workspace = true
+
+[dev-dependencies]
+but-testsupport.workspace = true
+snapbox.workspace = true
+termtree = "0.5.1"
+tempfile.workspace = true
+
+[lints]
+workspace = true

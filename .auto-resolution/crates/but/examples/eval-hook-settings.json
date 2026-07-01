@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "but eval-hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,135 @@
+<script lang="ts">
+	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { commitCommittedAtDate } from "$lib/branches/v3";
+	import { splitMessage } from "$lib/commits/commitMessage";
+	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { useUserAvatarUrl } from "$lib/user/userAvatar.svelte";
+	import { rejoinParagraphs, truncate } from "$lib/utils/string";
+	import { inject } from "@gitbutler/core/context";
+
+	import { Avatar, CopyButton, TestId, TimeAgo, Tooltip } from "@gitbutler/ui";
+	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import type { Commit, UpstreamCommit } from "@gitbutler/but-sdk";
+
+	type Props = {
+		commit: UpstreamCommit | Commit;
+		rewrap?: boolean;
+		includeTitle?: boolean;
+	};
+
+	const { commit, rewrap, includeTitle }: Props = $props();
+
+	const uiState = inject(UI_STATE);
+	const clipboardService = inject(CLIPBOARD_SERVICE);
+	const userAvatarUrl = useUserAvatarUrl();
+	const zoom = $derived(uiState.global.zoom.current);
+
+	let messageWidth = $state(0);
+	const messageWidthRem = $derived(pxToRem(messageWidth, zoom));
+
+	// Calculate approximately how many characters fit on one line, as a
+	// function of container width as well as zoom level.
+	// TODO: Turn this magic formula into something meaningful.
+	const fontFactor = $derived($rewrapCommitMessage ? 2.3 : 1.99);
+	const maxLength = $derived((messageWidthRem - 2) * fontFactor - (Math.pow(zoom, 2) - 1));
+
+	const message = $derived(commit.message);
+	const raw = $derived(includeTitle ? message : splitMessage(message).description);
+	const description = $derived(rewrap ? rejoinParagraphs(raw) : raw);
+	const abbreviated = $derived(truncate(description, includeTitle ? 200 : maxLength, 1));
+	const isAbbrev = $derived(abbreviated !== description);
+
+	let expanded = $state(false);
+</script>
+
+<div class="commit">
+	<div class="metadata text-12">
+		<span>Author:</span>
+		<Avatar
+			size="medium"
+			username={commit.author.name}
+			srcUrl={userAvatarUrl(commit.author.email) ?? commit.author.gravatarUrl}
+		/>
+		<span class="divider">•</span>
+		<TimeAgo date={commitCommittedAtDate(commit)} />
+		<span class="divider">•</span>
+		<Tooltip text="Copy commit SHA">
+			<CopyButton
+				class="copy-sha"
+				text={commit.id}
+				onclick={() => {
+					clipboardService.write(commit.id, {
+						message: "Commit SHA copied",
+					});
+				}}
+			/>
+		</Tooltip>
+	</div>
+
+	{#if description && description.trim()}
+		<p
+			class="description"
+			class:expanded
+			style:--commit-message-font={$rewrapCommitMessage
+				? "var(--font-default)"
+				: "var(--font-mono)"}
+			bind:clientWidth={messageWidth}
+			data-testid={TestId.CommitDrawerDescription}
+			data-remove-from-panning
+		>
+			{#if expanded}
+				{description}
+			{:else}
+				{abbreviated}
+			{/if}
+			{#if isAbbrev}
+				<button
+					onclick={() => (expanded = !expanded)}
+					type="button"
+					class="readmore underline-dotted text-bold"
+				>
+					{#if expanded}
+						less
+					{:else}
+						more
+					{/if}
+				</button>
+			{/if}
+		</p>
+	{/if}
+</div>
+
+<style>
+	.commit {
+		display: flex;
+		flex-direction: column;
+		padding: 14px;
+		gap: 12px;
+	}
+
+	.metadata {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		color: var(--text-2);
+
+		& .divider {
+			font-size: 12px;
+			opacity: 0.4;
+		}
+	}
+
+	.description {
+		font-size: 13px;
+		line-height: var(--text-lineheight-body);
+		font-family: var(--commit-message-font);
+		white-space: pre-line;
+		user-select: text;
+	}
+
+	.readmore {
+		display: inline;
+		position: relative;
+	}
+</style>
