@@ -258,6 +258,12 @@ pub struct Graph {
     /// reconnect segments, so consumers re-resolve each tip by commit id against
     /// the final graph shape and filter for the roles they need.
     traversal_tips: Vec<init::Tip>,
+    /// Ad-hoc/single-branch local branch orders read from metadata while post-processing.
+    ///
+    /// These are kept on the graph so projection can tell the difference between
+    /// an ordinary ad-hoc lower-bound branch and the bottom branch of a
+    /// GitButler-created dependent branch chain.
+    ad_hoc_branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
     /// It's `true` only if we have stopped the traversal due to a hard limit.
     hard_limit_hit: bool,
     /// The options used to create the graph, which allows it to regenerate itself after something

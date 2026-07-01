@@ -71,6 +71,7 @@ pub mod migration;
 #[rustfmt::skip]
 pub use table::{
     hunk_assignments::{HunkAssignmentsHandleMut, HunkAssignmentsHandle, HunkAssignment},
+    branch_order::{BranchOrderHandle, BranchOrderHandleMut},
     butler_actions::ButlerAction,
     workflows::Workflow,
     claude::{ClaudeMessage, ClaudePermissionRequest, ClaudeSession},
@@ -128,6 +129,7 @@ pub fn map_err(err: rusqlite::Error) -> ::backoff::Error<rusqlite::Error> {
 pub const MIGRATIONS: &[&[M<'static>]] = &[
     table::M_FULLY_REMOVED,
     table::hunk_assignments::M,
+    table::branch_order::M,
     table::butler_actions::M,
     table::workflows::M,
     table::claude::M,

@@ -971,6 +971,155 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
     }
 }
 
+/// Ref metadata backed by legacy TOML for historical workspace metadata and by
+/// the project database for ad-hoc branch order metadata.
+pub struct BranchOrderMetadata {
+    legacy: VirtualBranchesTomlMetadata,
+    db: Option<but_db::DbHandle>,
+    read_only: bool,
+}
+
+impl BranchOrderMetadata {
+    /// Open metadata from a legacy TOML path and a project database directory.
+    pub fn from_paths(
+        toml_path: impl AsRef<Path>,
+        db_dir: impl AsRef<Path>,
+    ) -> anyhow::Result<Self> {
+        Ok(Self {
+            legacy: VirtualBranchesTomlMetadata::from_path(toml_path.as_ref().to_owned())?,
+            db: Some(but_db::DbHandle::new_in_directory(db_dir)?),
+            read_only: false,
+        })
+    }
+
+    /// Open metadata for read-only projections.
+    ///
+    /// This observes existing branch-order data when the project database already
+    /// exists, but it never creates the database or runs migrations.
+    pub fn from_paths_read_only(
+        toml_path: impl AsRef<Path>,
+        db_dir: impl AsRef<Path>,
+    ) -> anyhow::Result<Self> {
+        Ok(Self {
+            legacy: VirtualBranchesTomlMetadata::from_path_read_only(
+                toml_path.as_ref().to_owned(),
+            )?,
+            db: but_db::DbHandle::open_existing_read_only_in_directory(db_dir)?,
+            read_only: true,
+        })
+    }
+}
+
+impl RefMetadata for BranchOrderMetadata {
+    type Handle<T> = VBTomlMetadataHandle<T>;
+
+    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>> {
+        self.legacy.iter()
+    }
+
+    fn workspace(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Workspace>> {
+        self.legacy.workspace(ref_name)
+    }
+
+    fn branch(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<Branch>> {
+        self.legacy.branch(ref_name)
+    }
+
+    fn set_workspace(&mut self, value: &Self::Handle<Workspace>) -> anyhow::Result<()> {
+        self.legacy.set_workspace(value)
+    }
+
+    fn set_branch(&mut self, value: &Self::Handle<Branch>) -> anyhow::Result<()> {
+        self.legacy.set_branch(value)
+    }
+
+    fn branch_stack_order(&self, ref_name: &FullNameRef) -> anyhow::Result<Option<Vec<FullName>>> {
+        let Some(db) = self.db.as_ref() else {
+            return Ok(None);
+        };
+        let refs = db
+            .branch_order()
+            .order_for_reference(ref_name.as_bstr().to_str()?)?;
+        match refs {
+            Some(refs) => refs
+                .into_iter()
+                .map(|ref_name| FullName::try_from(ref_name.as_str()).map_err(Into::into))
+                .collect::<anyhow::Result<Vec<_>>>()
+                .map(Some),
+            None => Ok(None),
+        }
+    }
+
+    fn set_branch_stack_order(&mut self, branches: &[FullName]) -> anyhow::Result<()> {
+        if self.read_only {
+            bail!("Read-only metadata can't persist branch stack order");
+        }
+        let db = self
+            .db
+            .as_mut()
+            .context("BUG: writable branch-order metadata should have a database handle")?;
+        let branches = branches
+            .iter()
+            .map(|branch| branch.as_bstr().to_str().map(ToOwned::to_owned))
+            .collect::<Result<Vec<_>, _>>()?;
+        db.branch_order_mut()?.set_order(&branches)?;
+        Ok(())
+    }
+
+    fn can_persist_branch_stack_order(&self) -> bool {
+        self.db.is_some() && !self.read_only
+    }
+
+    fn rename_branch_stack_order_reference(
+        &mut self,
+        old_ref_name: &FullNameRef,
+        new_ref_name: &FullNameRef,
+    ) -> anyhow::Result<()> {
+        if self.read_only {
+            bail!("Read-only metadata can't rename branch stack order references");
+        }
+        let Some(db) = self.db.as_mut() else {
+            return Ok(());
+        };
+        db.branch_order_mut()?.rename_reference(
+            old_ref_name.as_bstr().to_str()?,
+            new_ref_name.as_bstr().to_str()?,
+        )?;
+        Ok(())
+    }
+
+    fn remove_missing_branch_stack_order_references(
+        &mut self,
+        existing_ref_names: &[FullName],
+    ) -> anyhow::Result<()> {
+        if self.read_only {
+            bail!("Read-only metadata can't prune branch stack order references");
+        }
+        let Some(db) = self.db.as_mut() else {
+            return Ok(());
+        };
+        let existing_ref_names = existing_ref_names
+            .iter()
+            .map(|ref_name| ref_name.as_bstr().to_str().map(ToOwned::to_owned))
+            .collect::<Result<Vec<_>, _>>()?;
+        db.branch_order_mut()?
+            .remove_missing_references(&existing_ref_names)?;
+        Ok(())
+    }
+
+    fn remove(&mut self, ref_name: &FullNameRef) -> anyhow::Result<bool> {
+        let removed_branch_order =
+            !self.read_only && self.db.is_some() && self.branch_stack_order(ref_name)?.is_some();
+        if !self.read_only
+            && let Some(db) = self.db.as_mut()
+        {
+            db.branch_order_mut()?
+                .remove_reference(ref_name.as_bstr().to_str()?)?;
+        }
+        Ok(self.legacy.remove(ref_name)? || removed_branch_order)
+    }
+}
+
 fn branch_from_ref_name(ref_name: &FullNameRef) -> anyhow::Result<RemoteRefname> {
     let (category, short_name) = ref_name
         .category_and_short_name()

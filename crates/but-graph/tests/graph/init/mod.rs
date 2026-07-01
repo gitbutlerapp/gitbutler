@@ -1,8 +1,12 @@
-use but_graph::{CommitFlags, Graph, StopCondition, init::Tip};
+use but_graph::{
+    CommitFlags, Graph, StopCondition,
+    init::{Overlay, Tip},
+};
 use but_testsupport::{
     gix_testtools::{self, Creation, rust_fixture_writable},
     graph_tree, graph_workspace, visualize_commit_graph_all,
 };
+use gix::prelude::ObjectIdExt;
 
 #[test]
 fn unborn() -> anyhow::Result<()> {
@@ -48,6 +52,7 @@ fn unborn() -> anyhow::Result<()> {
         ),
         entrypoint_ref: None,
         traversal_tips: [],
+        ad_hoc_branch_stack_orders: [],
         hard_limit_hit: false,
         options: Options {
             collect_tags: false,
@@ -174,6 +179,7 @@ fn detached() -> anyhow::Result<()> {
                 is_detached: false,
             },
         ],
+        ad_hoc_branch_stack_orders: [],
         hard_limit_hit: false,
         options: Options {
             collect_tags: true,
@@ -1564,7 +1570,7 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
     * 86719d5 base
     ");
 
-    let meta = in_memory_meta(tmp.path())?;
+    let meta = in_memory_meta(tmp.as_ref())?;
     let graph = Graph::from_head(
         &repo,
         &*meta,
@@ -1584,6 +1590,216 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
+    let (tmp, repo) = empty_repo()?;
+    let tip = commit(&repo, "same tip")?;
+    create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
+    let meta = in_memory_meta(tmp.as_ref())?;
+
+    let graph = graph_with_branch_order(
+        &repo,
+        &*meta,
+        "refs/heads/top",
+        ["refs/heads/top", "refs/heads/bottom"],
+    )?
+    .validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    └── 👉►:1[0]:top
+        └── ►:0[1]:bottom
+            └── 🏁·960152d (⌂|1) ►main[🌳]
+    ");
+    assert_eq!(
+        graph.entrypoint()?.commit().map(|commit| commit.id),
+        Some(tip),
+        "a checked-out empty ordered branch still points at the bottom commit"
+    );
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    ⌂:1:top <> ✓!
+    └── ≡:1:top {1}
+        ├── :1:top
+        └── :0:bottom
+            └── ·960152d ►main[🌳]
+    ");
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Result<()> {
+    let (tmp, repo) = empty_repo()?;
+    let tip = commit(&repo, "same tip")?;
+    create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
+    let meta = in_memory_meta(tmp.as_ref())?;
+
+    let graph = graph_with_branch_order(
+        &repo,
+        &*meta,
+        "refs/heads/bottom",
+        ["refs/heads/top", "refs/heads/bottom"],
+    )?
+    .validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    └── ►:1[0]:top
+        └── 👉►:0[1]:bottom
+            └── 🏁·960152d (⌂|1) ►main[🌳]
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    ⌂:0:bottom <> ✓!
+    └── ≡:0:bottom {1}
+        └── :0:bottom
+            └── ·960152d ►main[🌳]
+    ");
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<()> {
+    let (tmp, repo) = empty_repo()?;
+    let tip = commit(&repo, "same tip")?;
+    create_branches(
+        &repo,
+        tip,
+        ["refs/heads/top", "refs/heads/middle", "refs/heads/bottom"],
+    )?;
+    let meta = in_memory_meta(tmp.as_ref())?;
+
+    let graph = graph_with_branch_order(
+        &repo,
+        &*meta,
+        "refs/heads/top",
+        ["refs/heads/top", "refs/heads/middle", "refs/heads/bottom"],
+    )?
+    .validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    └── 👉►:1[0]:top
+        └── ►:2[1]:middle
+            └── ►:0[2]:bottom
+                └── 🏁·960152d (⌂|1) ►main[🌳]
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    ⌂:1:top <> ✓!
+    └── ≡:1:top {1}
+        ├── :1:top
+        ├── :2:middle
+        └── :0:bottom
+            └── ·960152d ►main[🌳]
+    ");
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Result<()> {
+    let (tmp, repo) = empty_repo()?;
+    let tip = commit(&repo, "same tip")?;
+    create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
+    let meta = in_memory_meta(tmp.as_ref())?;
+
+    let graph = graph_with_branch_order(
+        &repo,
+        &*meta,
+        "refs/heads/top",
+        ["refs/heads/top", "refs/heads/missing", "refs/heads/bottom"],
+    )?
+    .validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    └── 👉►:1[0]:top
+        └── ►:0[1]:bottom
+            └── 🏁·960152d (⌂|1) ►main[🌳]
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    ⌂:1:top <> ✓!
+    └── ≡:1:top {1}
+        ├── :1:top
+        └── :0:bottom
+            └── ·960152d ►main[🌳]
+    ");
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Result<()> {
+    let (tmp, repo) = empty_repo()?;
+    let bottom_tip = commit(&repo, "bottom")?;
+    let top_tip = commit_with_parent(&repo, "top", bottom_tip)?;
+    create_branches(&repo, bottom_tip, ["refs/heads/bottom", "refs/heads/main"])?;
+    create_branches(&repo, top_tip, ["refs/heads/top"])?;
+    let meta = in_memory_meta(tmp.as_ref())?;
+
+    let graph = graph_with_branch_order(
+        &repo,
+        &*meta,
+        "refs/heads/top",
+        ["refs/heads/top", "refs/heads/bottom"],
+    )?
+    .validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    └── 👉►:0[0]:top
+        ├── ·5cd63e5 (⌂|1)
+        └── 🏁·fa91c94 (⌂|1) ►bottom, ►main[🌳]
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    ⌂:0:top <> ✓!
+    └── ≡:0:top {1}
+        └── :0:top
+            ├── ·5cd63e5
+            └── ·fa91c94 ►bottom, ►main[🌳]
+    ");
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
+    let (tmp, repo) = empty_repo()?;
+    let tip = commit(&repo, "same tip")?;
+    create_branches(
+        &repo,
+        tip,
+        [
+            "refs/heads/top",
+            "refs/heads/bottom",
+            "refs/heads/other-top",
+            "refs/heads/other-bottom",
+        ],
+    )?;
+    let meta = in_memory_meta(tmp.as_ref())?;
+
+    let graph = graph_with_branch_orders(
+        &repo,
+        &*meta,
+        "refs/heads/top",
+        &[
+            &["refs/heads/top", "refs/heads/bottom"],
+            &["refs/heads/other-top", "refs/heads/other-bottom"],
+        ],
+    )?
+    .validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    └── 👉►:1[0]:top
+        └── ►:0[1]:bottom
+            └── 🏁·960152d (⌂|1) ►main[🌳], ►other-bottom, ►other-top
+    ");
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    ⌂:1:top <> ✓!
+    └── ≡:1:top {1}
+        ├── :1:top
+        └── :0:bottom
+            └── ·960152d ►main[🌳], ►other-bottom, ►other-top
+    ");
+    Ok(())
+}
+
 mod overlay;
 mod with_workspace;
 
@@ -1598,4 +1814,97 @@ use crate::init::utils::{in_memory_meta, standard_options_with_extra_target};
 
 fn ref_name(name: &str) -> gix::refs::FullName {
     name.try_into().expect("valid full ref name")
+}
+
+fn empty_repo() -> anyhow::Result<(impl AsRef<std::path::Path>, gix::Repository)> {
+    rust_fixture_writable("empty", 1, Creation::Execute, |fixture| {
+        let open_opts = but_testsupport::open_repo_config()?;
+        Ok(match fixture {
+            FixtureState::Uninitialized(path) => gix::ThreadSafeRepository::init_opts(
+                path,
+                gix::create::Kind::WithWorktree,
+                gix::create::Options::default(),
+                open_opts,
+            )?
+            .to_thread_local(),
+            FixtureState::Fresh(path) => gix::open_opts(path, open_opts)?,
+        })
+    })
+    .map_err(anyhow::Error::from_boxed)
+}
+
+fn commit(repo: &gix::Repository, message: &str) -> anyhow::Result<gix::ObjectId> {
+    Ok(repo
+        .commit(
+            "HEAD",
+            message,
+            repo.object_hash().empty_tree(),
+            None::<gix::ObjectId>,
+        )?
+        .detach())
+}
+
+fn commit_with_parent(
+    repo: &gix::Repository,
+    message: &str,
+    parent: gix::ObjectId,
+) -> anyhow::Result<gix::ObjectId> {
+    Ok(repo
+        .commit(
+            "HEAD",
+            message,
+            repo.object_hash().empty_tree(),
+            Some(parent),
+        )?
+        .detach())
+}
+
+fn create_branches<const N: usize>(
+    repo: &gix::Repository,
+    target: gix::ObjectId,
+    branches: [&str; N],
+) -> anyhow::Result<()> {
+    for branch in branches {
+        repo.reference(
+            ref_name(branch),
+            target,
+            gix::refs::transaction::PreviousValue::Any,
+            "test branch order",
+        )?;
+    }
+    Ok(())
+}
+
+fn graph_with_branch_order<const N: usize>(
+    repo: &gix::Repository,
+    meta: &impl but_core::RefMetadata,
+    entrypoint_ref: &str,
+    order: [&str; N],
+) -> anyhow::Result<Graph> {
+    graph_with_branch_orders(repo, meta, entrypoint_ref, &[&order])
+}
+
+fn graph_with_branch_orders(
+    repo: &gix::Repository,
+    meta: &impl but_core::RefMetadata,
+    entrypoint_ref: &str,
+    orders: &[&[&str]],
+) -> anyhow::Result<Graph> {
+    let entrypoint_ref = ref_name(entrypoint_ref);
+    let tip = repo
+        .find_reference(entrypoint_ref.as_ref())?
+        .peel_to_id()?
+        .detach();
+    let mut overlay = Overlay::default();
+    for order in orders {
+        overlay = overlay.with_branch_stack_order_override(order.iter().copied().map(ref_name));
+    }
+    Graph::from_commit_traversal(
+        tip.attach(repo),
+        Some(entrypoint_ref),
+        meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .redo_traversal_with_overlay(repo, meta, overlay)
 }

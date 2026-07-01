@@ -430,6 +430,7 @@ pub struct Overlay {
     /// would list the particular reference as a dropped reference.
     dropped_references: Vec<gix::refs::FullName>,
     meta_branches: Vec<(gix::refs::FullName, ref_metadata::Branch)>,
+    branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
     workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }
 
