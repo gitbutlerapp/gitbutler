@@ -571,36 +571,132 @@ fn add_remote_segments(
             continue;
         }
 
-        // The remote is AHEAD: walk its first-parent spine, collecting the commits it is ahead by until
-        // it rejoins the local graph.
-        let mut ahead: Vec<Commit> = Vec::new();
-        let mut c = Some(remote_tip);
-        while let Some(id) = c {
-            if in_set.contains(&id) {
-                break;
-            }
-            if let Some(node) = cg.node(id) {
-                ahead.push(node.commit.clone());
-            }
-            c = cg.first_parent(id);
+        // The remote is AHEAD: segment its ahead region like the local graph (split at merges and
+        // second-parent branches), not as one flat first-parent run.
+        segment_ahead_region(
+            cg,
+            sg,
+            &remote_ref,
+            remote_tip,
+            in_set,
+            seg_of_tip,
+            owner_of,
+            local_sidx,
+        );
+    }
+}
+
+/// Segment a remote's AHEAD region (commits reachable from `remote_tip` that are not in-set) the same
+/// way the local graph is segmented — splitting at merges and their second-parent branches — instead
+/// of collapsing it into one flat first-parent run. The tip segment is named `remote_ref` (sibling
+/// `local_sidx`); interior merges and second-parent branches become their own anonymous remote
+/// segments. Bottom-of-segment parents connect to the owning ahead segment, or to the local segment
+/// where the region rejoins the graph.
+#[allow(clippy::too_many_arguments)]
+fn segment_ahead_region(
+    cg: &CommitGraph,
+    sg: &mut SegmentGraph,
+    remote_ref: &gix::refs::FullName,
+    remote_tip: gix::ObjectId,
+    in_set: &HashSet<gix::ObjectId>,
+    seg_of_tip: &HashMap<gix::ObjectId, SegmentIndex>,
+    owner_of: &HashMap<gix::ObjectId, gix::ObjectId>,
+    local_sidx: SegmentIndex,
+) {
+    // Commits the remote is ahead by: ancestors of the tip that stop at the in-set boundary.
+    let mut ahead_set: HashSet<gix::ObjectId> = HashSet::new();
+    let mut stack = vec![remote_tip];
+    while let Some(id) = stack.pop() {
+        if in_set.contains(&id) || !ahead_set.insert(id) {
+            continue;
         }
-        let remote_sidx = add_empty_remote_root(sg, &remote_ref, remote_tip, local_sidx);
-        sg.node_mut(remote_sidx).expect("present").commits = ahead;
-        // The remote's bottom commit connects to the owner of each of its (in-set) parents — including
-        // a merge's second parent, so an integrated merge remote points at both trunk and stack.
-        if let Some(bottom) = sg
-            .node(remote_sidx)
+        stack.extend(cg.all_parent_ids(id));
+    }
+
+    let mut children: HashMap<gix::ObjectId, Vec<gix::ObjectId>> = HashMap::new();
+    for &c in &ahead_set {
+        for p in cg.all_parent_ids(c) {
+            if ahead_set.contains(&p) {
+                children.entry(p).or_default().push(c);
+            }
+        }
+    }
+    let merge_first_parents: HashSet<gix::ObjectId> = ahead_set
+        .iter()
+        .filter(|&&c| cg.all_parent_ids(c).len() > 1)
+        .filter_map(|&c| cg.first_parent(c))
+        .filter(|p| ahead_set.contains(p))
+        .collect();
+    let is_boundary = |c: gix::ObjectId| -> bool {
+        c == remote_tip || cg.all_parent_ids(c).len() > 1 || merge_first_parents.contains(&c) || {
+            let kids = children.get(&c).map(Vec::as_slice).unwrap_or_default();
+            kids.len() > 1
+                || kids
+                    .iter()
+                    .any(|&k| cg.first_parent(k) != Some(c) && ahead_set.contains(&k))
+        }
+    };
+
+    let tips: Vec<gix::ObjectId> = ahead_set
+        .iter()
+        .copied()
+        .filter(|&c| is_boundary(c))
+        .collect();
+    let mut ahead_owner: HashMap<gix::ObjectId, gix::ObjectId> = HashMap::new();
+    let mut ahead_seg: HashMap<gix::ObjectId, SegmentIndex> = HashMap::new();
+    for &tip in &tips {
+        let commits = commit_run(cg, tip, &ahead_set, &is_boundary);
+        for c in &commits {
+            ahead_owner.insert(c.id, tip);
+        }
+        let is_root = tip == remote_tip;
+        let sidx = sg.add_node(Segment {
+            id: 0,
+            generation: 0,
+            ref_info: is_root.then(|| RefInfo {
+                ref_name: remote_ref.clone(),
+                commit_id: Some(remote_tip),
+                worktree: None,
+            }),
+            remote_tracking_ref_name: None,
+            sibling_segment_id: is_root.then_some(local_sidx),
+            remote_tracking_branch_segment_id: None,
+            commits,
+            metadata: None,
+            connections: Vec::new(),
+        });
+        sg.node_mut(sidx).expect("just added").id = sidx;
+        ahead_seg.insert(tip, sidx);
+        if is_root {
+            sg.node_mut(local_sidx)
+                .expect("present")
+                .remote_tracking_branch_segment_id = Some(sidx);
+        }
+    }
+
+    for &tip in &tips {
+        let src = ahead_seg[&tip];
+        let bottom = sg
+            .node(src)
             .and_then(|s| s.commits.last().map(|c| c.id))
-        {
-            for parent in cg.all_parent_ids(bottom) {
-                if let Some(&owner) = owner_of.get(&parent)
-                    && let Some(&dst) = seg_of_tip.get(&owner)
-                {
-                    sg.add_edge(
-                        remote_sidx,
-                        Connection::new(dst, None, Some(bottom), None, Some(parent)),
-                    );
-                }
+            .unwrap_or(tip);
+        for parent in cg.all_parent_ids(bottom) {
+            let dst = if ahead_set.contains(&parent) {
+                ahead_owner
+                    .get(&parent)
+                    .and_then(|o| ahead_seg.get(o))
+                    .copied()
+            } else {
+                owner_of
+                    .get(&parent)
+                    .and_then(|o| seg_of_tip.get(o))
+                    .copied()
+            };
+            if let Some(dst) = dst {
+                sg.add_edge(
+                    src,
+                    Connection::new(dst, None, Some(bottom), None, Some(parent)),
+                );
             }
         }
     }
