@@ -71,7 +71,7 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         )
     });
     cg.mark_integrated(target);
-    let remote_tracking =
+    let (remote_tracking, symbolic_remotes) =
         crate::commit_graph_projection::remote_tracking_from_repository(repo, &effective_pm)?;
     let worktree_by_branch = {
         let (overlay_repo, _om, _ep) = crate::init::Overlay::default().into_parts(repo, meta);
@@ -86,6 +86,7 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         entrypoint_ref,
         target,
         &remote_tracking,
+        &symbolic_remotes,
         Some(&stack_branches),
         true,
         true,
@@ -115,7 +116,7 @@ pub fn graph_from_repository_unmanaged<T: but_core::RefMetadata>(
     options: crate::init::Options,
 ) -> anyhow::Result<crate::Graph> {
     let cg = CommitGraph::from_repository_unmanaged(repo, Some(head_tip))?;
-    let remote_tracking =
+    let (remote_tracking, symbolic_remotes) =
         crate::commit_graph_projection::remote_tracking_from_repository(repo, &project_meta)?;
     let worktree_by_branch = {
         let (overlay_repo, _om, _ep) = crate::init::Overlay::default().into_parts(repo, meta);
@@ -128,6 +129,7 @@ pub fn graph_from_repository_unmanaged<T: but_core::RefMetadata>(
         entrypoint_ref,
         None,
         &remote_tracking,
+        &symbolic_remotes,
         None,
         false,
         head_symbolic,
@@ -150,6 +152,10 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     entrypoint_ref: Option<gix::refs::FullName>,
     target: Option<gix::ObjectId>,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
+    // Remote names implied by the workspace configuration (push remote, target's remote). Only these
+    // remotes' AHEAD regions are traversed; a config-only tracking link keeps its name but its remote's
+    // own commits stay out of the graph, matching the walk's traversal reach.
+    symbolic_remotes: &[String],
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
     // A managed workspace (`workspace_commit` is the gitbutler/workspace octopus merge). When false,
     // `workspace_commit` is just the checked-out tip: no stack/ws-ref/anonymize passes.
@@ -363,7 +369,14 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // Remote segments: for each local segment with a remote-tracking ref whose remote tip is present,
     // create a remote root segment (holding the remote-ahead commits) that connects into the local
     // segment, doubly-linked via siblings.
-    add_remote_segments(cg, &mut sg, &seg_of_tip, &in_set, &owner_of);
+    add_remote_segments(
+        cg,
+        &mut sg,
+        &seg_of_tip,
+        &in_set,
+        &owner_of,
+        symbolic_remotes,
+    );
     add_untracked_remote_segments(
         cg,
         &mut sg,
@@ -688,6 +701,7 @@ fn add_remote_segments(
     seg_of_tip: &HashMap<gix::ObjectId, SegmentIndex>,
     in_set: &HashSet<gix::ObjectId>,
     owner_of: &HashMap<gix::ObjectId, gix::ObjectId>,
+    symbolic_remotes: &[String],
 ) {
     let locals: Vec<(SegmentIndex, gix::refs::FullName, gix::ObjectId)> = seg_of_tip
         .iter()
@@ -731,7 +745,21 @@ fn add_remote_segments(
         }
 
         // The remote is AHEAD: segment its ahead region like the local graph (split at merges and
-        // second-parent branches), not as one flat first-parent run.
+        // second-parent branches), not as one flat first-parent run. Only for remotes the workspace
+        // configuration implies — the walk never traverses a config-only tracking remote's own
+        // commits, so the link keeps its name but the ahead region stays out.
+        let remote_name_in_play = remote_ref
+            .as_bstr()
+            .strip_prefix(b"refs/remotes/")
+            .is_some_and(|rest| {
+                symbolic_remotes.iter().any(|r| {
+                    rest.strip_prefix(r.as_bytes())
+                        .is_some_and(|s| s.first() == Some(&b'/'))
+                })
+            });
+        if !remote_name_in_play {
+            continue;
+        }
         segment_ahead_region(
             cg,
             sg,

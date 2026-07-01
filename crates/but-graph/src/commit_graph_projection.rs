@@ -286,7 +286,8 @@ pub fn project_from_repository<T: but_core::RefMetadata>(
                     .detach(),
             )
         });
-    let remote_tracking = remote_tracking_from_repository(repo, &ws_meta.project_meta())?;
+    let (remote_tracking, _symbolic_remotes) =
+        remote_tracking_from_repository(repo, &ws_meta.project_meta())?;
 
     Ok(project(
         &cg,
@@ -298,17 +299,24 @@ pub fn project_from_repository<T: but_core::RefMetadata>(
 }
 
 /// Local branch -> its remote-tracking branch, mirroring the walk's
-/// `lookup_remote_tracking_branch_or_deduce_it`:
+/// `lookup_remote_tracking_branch_or_deduce_it`, plus the SYMBOLIC remote names in play:
 /// 1. A branch CONFIGURED in git (`branch.<name>.remote`/`merge`) tracks that remote branch.
 /// 2. Otherwise the relationship is deduced by name (`refs/remotes/<remote>/<X>` for `refs/heads/<X>`),
 ///    but ONLY against remotes the workspace configuration implies — the `push_remote` (highest
 ///    priority: "the push-remote overrides the remote we use for listing, even if a fetch remote is
 ///    available"), then the remote of the configured `target_ref`. A workspace with neither deduces
 ///    NO name-based relationships at all.
+///
+/// The returned symbolic names also gate which remotes' AHEAD regions the graph traverses — a
+/// config-only tracking link keeps its name, but its remote's own commits stay out of the graph,
+/// matching what the walk's traversal reaches.
 pub(crate) fn remote_tracking_from_repository(
     repo: &gix::Repository,
     project_meta: &but_core::ref_metadata::ProjectMeta,
-) -> anyhow::Result<HashMap<gix::refs::FullName, gix::refs::FullName>> {
+) -> anyhow::Result<(
+    HashMap<gix::refs::FullName, gix::refs::FullName>,
+    Vec<String>,
+)> {
     let mut remotes: Vec<String> = Vec::new();
     if let Some(push_remote) = project_meta.push_remote.as_deref() {
         remotes.push(push_remote.to_string());
@@ -330,7 +338,7 @@ pub(crate) fn remote_tracking_from_repository(
         .collect();
     let mut map = HashMap::new();
     // Name-deduction against the symbolic remotes.
-    for remote in remotes {
+    for remote in &remotes {
         let prefix = format!("refs/remotes/{remote}/");
         for name in &remote_refs {
             if let Some(short) = name.as_bstr().strip_prefix(prefix.as_bytes()) {
@@ -352,7 +360,7 @@ pub(crate) fn remote_tracking_from_repository(
             map.insert(local, rt.into_owned());
         }
     }
-    Ok(map)
+    Ok((map, remotes))
 }
 
 /// Match each stack top to the branch list one of its spine commits carries, returning the lists in
