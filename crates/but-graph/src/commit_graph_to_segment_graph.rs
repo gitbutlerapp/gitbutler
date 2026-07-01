@@ -1188,6 +1188,26 @@ fn insert_empty_branches(
                     worktree: None,
                 });
             }
+            // Metadata order wins over build-time disambiguation: when the anchor is named by a
+            // NON-bottom group member (e.g. the remote-tracked `advanced-lane` named the segment, but
+            // metadata stacks it ABOVE `dependent`), the bottom-most branch takes over the commit's
+            // segment and the previous namer floats above as an empty. Its remote links are cleared
+            // here and re-established on the floated segment by `reconcile_remote_siblings`.
+            if let Some(namer) = group.last()
+                && sg
+                    .node(anchor)
+                    .and_then(|s| s.ref_info.as_ref())
+                    .is_some_and(|ri| ri.ref_name != *namer && group.contains(&ri.ref_name))
+                && let Some(s) = sg.node_mut(anchor)
+            {
+                s.ref_info = Some(RefInfo {
+                    ref_name: namer.clone(),
+                    commit_id: Some(commit),
+                    worktree: None,
+                });
+                s.remote_tracking_ref_name = None;
+                s.remote_tracking_branch_segment_id = None;
+            }
             // Only branches without any segment yet become empties — one that already names a segment
             // (its own materialised segment, the anchor just named above, or a placeholder floated by
             // `anonymize_shared_stack_tips`) is already placed.
