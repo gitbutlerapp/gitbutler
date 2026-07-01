@@ -1040,12 +1040,12 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         }
         let outcome = but_workspace::branch::apply(
             branch.as_ref(),
-            materialized.workspace,
+            materialized.workspace.clone(),
             repo,
             materialized.meta,
             Default::default(),
         )?;
-        *materialized.workspace = outcome.workspace.into_owned();
+        *materialized.workspace = outcome.workspace;
     }
     for update in pending_metadata_updates {
         match update {

@@ -169,8 +169,8 @@ pub mod json {
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(ApplyOutcome);
 
-    impl<'a> From<but_workspace::branch::apply::Outcome<'a>> for ApplyOutcome {
-        fn from(value: but_workspace::branch::apply::Outcome<'a>) -> Self {
+    impl From<but_workspace::branch::apply::Outcome> for ApplyOutcome {
+        fn from(value: but_workspace::branch::apply::Outcome) -> Self {
             let workspace_changed = value.workspace_changed();
             let but_workspace::branch::apply::Outcome {
                 workspace: _,
@@ -620,7 +620,7 @@ pub mod json {
 pub fn apply_only(
     ctx: &mut but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,
-) -> anyhow::Result<but_workspace::branch::apply::Outcome<'static>> {
+) -> anyhow::Result<but_workspace::branch::apply::Outcome> {
     let mut guard = ctx.exclusive_worktree_access();
     apply_only_with_perm(ctx, existing_branch, guard.write_permission())
 }
@@ -637,12 +637,12 @@ pub fn apply_only_with_perm(
     ctx: &mut but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,
     perm: &mut RepoExclusive,
-) -> anyhow::Result<but_workspace::branch::apply::Outcome<'static>> {
+) -> anyhow::Result<but_workspace::branch::apply::Outcome> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let out = but_workspace::branch::apply(
         existing_branch,
-        &ws,
+        ws.clone(),
         &repo,
         &mut meta,
         // NOTE: Options can later be passed as parameter, or we have a separate function for that.
@@ -654,11 +654,10 @@ pub fn apply_only_with_perm(
             order: None,
             new_stack_id: None,
         },
-    )?
-    .into_owned();
+    )?;
 
     if out.status.persisted_mutation() {
-        *ws = out.workspace.clone().into_owned();
+        *ws = out.workspace.clone();
     }
     Ok(out)
 }
@@ -673,7 +672,7 @@ pub fn apply_only_with_perm(
 pub fn apply(
     ctx: &mut but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,
-) -> anyhow::Result<but_workspace::branch::apply::Outcome<'static>> {
+) -> anyhow::Result<but_workspace::branch::apply::Outcome> {
     let mut guard = ctx.exclusive_worktree_access();
     apply_with_perm(ctx, existing_branch, guard.write_permission())
 }
@@ -689,7 +688,7 @@ pub fn apply_with_perm(
     ctx: &mut but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,
     perm: &mut RepoExclusive,
-) -> anyhow::Result<but_workspace::branch::apply::Outcome<'static>> {
+) -> anyhow::Result<but_workspace::branch::apply::Outcome> {
     // NOTE: since this is optional by nature, the same would be true if snapshotting/undo would be disabled via `ctx` app settings, for instance.
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
