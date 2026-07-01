@@ -819,8 +819,8 @@ export const OutlineTree: FC<
 						)}
 						ref={useMergedRefs(refProp, ref)}
 					>
-						<div className={styles.changesContainer}>
-							<Changes
+						<div className={styles.uncommittedChangesContainer}>
+							<UncommittedChanges
 								projectId={projectId}
 								commitTarget={commitTarget}
 								targetComboboxItems={targetComboboxItems}
@@ -1488,7 +1488,7 @@ const CommitC: FC<{
 	);
 };
 
-const ChangesSectionRow: FC<{
+const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
 	lineStats: LineStats | null;
 	projectId: string;
@@ -1592,11 +1592,11 @@ const ChangesSectionRow: FC<{
 
 			{isDefaultMode && (
 				<Toolbar.Root
-					aria-label="Changes actions"
+					aria-label="Uncommitted changes actions"
 					render={<WorkspaceItemRowToolbar forceVisible />}
 				>
 					<Toolbar.Button
-						aria-label="Changes menu"
+						aria-label="Uncommitted changes menu"
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
@@ -1727,7 +1727,7 @@ const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats 
 	return stats;
 };
 
-const Changes: FC<{
+const UncommittedChanges: FC<{
 	projectId: string;
 	commitTarget: CommitTargetComboboxItem | null;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
@@ -1873,12 +1873,12 @@ const Changes: FC<{
 			projectId={projectId}
 			operand={operand}
 			aria-label={`Changes (${worktreeChanges?.changes.length ?? 0})`}
-			className={classes(styles.section, styles.changesSection)}
+			className={classes(styles.section, styles.uncommittedChanges)}
 			render={
 				<OperandC projectId={projectId} operand={operand} render={<form onSubmit={submit} />} />
 			}
 		>
-			<ChangesSectionRow
+			<UncommittedChangesRow
 				changes={worktreeChanges?.changes ?? []}
 				lineStats={lineStats}
 				projectId={projectId}

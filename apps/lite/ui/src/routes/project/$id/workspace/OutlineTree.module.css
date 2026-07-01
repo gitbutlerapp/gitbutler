@@ -16,7 +16,7 @@
 	}
 }
 
-.changesContainer {
+.uncommittedChangesContainer {
 	padding-inline: var(--panel-padding);
 }
 
@@ -83,7 +83,7 @@
 	opacity: 0.6;
 }
 
-.changesSection {
+.uncommittedChanges {
 	display: flex;
 	row-gap: 4px;
 	flex-direction: column;
