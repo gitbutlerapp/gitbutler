@@ -20,11 +20,12 @@ struct Args {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     trace::init()?;
-    // On macOS, in dev mode with debug assertions, we encounter popups each time
-    // the binary is rebuilt. To counter that, use a git-credential based implementation.
-    // This isn't an issue for actual release build (i.e. nightly, production),
-    // hence the specific condition.
-    if cfg!(debug_assertions) && cfg!(target_os = "macos") {
+    // In debug builds, prefer git-credential-backed secret storage when platform keychains are
+    // either noisy (macOS rebuild prompts) or unavailable (headless e2e Linux containers).
+    // Release builds keep using the platform keychain.
+    if cfg!(debug_assertions)
+        && (cfg!(target_os = "macos") || std::env::var_os("E2E_TEST_APP_DATA_DIR").is_some())
+    {
         but_secret::secret::git_credentials::setup().ok();
     }
 
