@@ -40,6 +40,9 @@ pub struct SegmentRun {
 pub struct StackView {
     /// The stack's segments, tip-first.
     pub segments: Vec<SegmentRun>,
+    /// Where the stack rests — its own target-relative base (the commit below its last segment).
+    /// Matches the segment graph's `Stack::base()`.
+    pub base: Option<gix::ObjectId>,
 }
 
 /// Immutable facts gathered from the commit graph in phase 1, before any output is built.
@@ -51,8 +54,8 @@ pub struct ProjectionData {
     pub stack_tops: Vec<gix::ObjectId>,
     /// Where the stacks converge — the merge base of the tops. Segments stop here.
     pub base: Option<gix::ObjectId>,
-    /// Per stack top, its first-parent spine sliced into segments at local-branch refs.
-    pub stacks: Vec<Vec<SegmentRun>>,
+    /// Per stack top, its target-relative base and first-parent spine sliced into segments.
+    pub stacks: Vec<(Option<gix::ObjectId>, Vec<SegmentRun>)>,
 }
 
 /// Phase 1 — GATHER: read the commit graph (and, if given, each stack's ordered branch names) and
@@ -92,12 +95,13 @@ pub fn gather(
                 Some(t) => merge_base(cg, &[top, t]),
                 None => global_base,
             };
-            match &aligned[i] {
+            let segments = match &aligned[i] {
                 // Metadata-driven: the stack's branch list defines the segments and their names.
                 Some(branches) => segment_by_branches(cg, top, stack_base, branches),
                 // No metadata: fall back to slicing at each disambiguated local-branch ref on the spine.
                 None => segment_runs(cg, top, stack_base, &meta_branches),
-            }
+            };
+            (stack_base, segments)
         })
         .collect();
     ProjectionData {
@@ -115,8 +119,8 @@ pub fn build(data: ProjectionData) -> Vec<StackView> {
         // Drop a stack with no commits at all: its tip is at/below its base, i.e. fully integrated
         // into the target (all its commits are shared with, or reachable from, the target). Empty
         // *branches* within an otherwise non-empty stack are kept.
-        .filter(|segments| segments.iter().any(|s| !s.commits.is_empty()))
-        .map(|segments| StackView { segments })
+        .filter(|(_, segments)| segments.iter().any(|s| !s.commits.is_empty()))
+        .map(|(base, segments)| StackView { segments, base })
         .collect()
 }
 

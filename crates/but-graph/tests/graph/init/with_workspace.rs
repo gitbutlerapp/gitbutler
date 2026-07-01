@@ -7734,32 +7734,50 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
 }
 
 /// Comparable `[(ref_name, [commit ids])]` from a commit-graph projection.
+/// Per stack: its base, then each segment's (ref name, commits).
+type StackShape = (
+    Option<gix::ObjectId>,
+    Vec<(Option<String>, Vec<gix::ObjectId>)>,
+);
+
 fn cg_projection_shape(
     stacks: &[but_graph::commit_graph_projection::StackView],
-) -> Vec<(Option<String>, Vec<gix::ObjectId>)> {
+) -> Vec<StackShape> {
     stacks
         .iter()
-        .flat_map(|s| s.segments.iter())
-        .map(|seg| {
+        .map(|s| {
             (
-                seg.ref_name.as_ref().map(|r| r.as_bstr().to_string()),
-                seg.commits.clone(),
+                s.base,
+                s.segments
+                    .iter()
+                    .map(|seg| {
+                        (
+                            seg.ref_name.as_ref().map(|r| r.as_bstr().to_string()),
+                            seg.commits.clone(),
+                        )
+                    })
+                    .collect(),
             )
         })
         .collect()
 }
 
 /// The same shape from the segment-based `Workspace`.
-fn segment_projection_shape(
-    ws: &but_graph::Workspace,
-) -> Vec<(Option<String>, Vec<gix::ObjectId>)> {
+fn segment_projection_shape(ws: &but_graph::Workspace) -> Vec<StackShape> {
     ws.stacks
         .iter()
-        .flat_map(|s| s.segments.iter())
-        .map(|seg| {
+        .map(|s| {
             (
-                seg.ref_name().map(|r| r.as_bstr().to_string()),
-                seg.commits.iter().map(|c| c.id).collect(),
+                s.base(),
+                s.segments
+                    .iter()
+                    .map(|seg| {
+                        (
+                            seg.ref_name().map(|r| r.as_bstr().to_string()),
+                            seg.commits.iter().map(|c| c.id).collect(),
+                        )
+                    })
+                    .collect(),
             )
         })
         .collect()
