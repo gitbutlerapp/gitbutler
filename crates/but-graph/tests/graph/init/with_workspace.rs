@@ -8178,7 +8178,6 @@ fn cg_to_sg_reproduce_11459() -> anyhow::Result<()> {
     assert_cg_to_sg_parity(&repo, &*meta)
 }
 
-#[ignore = "frontier: stack tip outside workspace"]
 #[test]
 fn cg_to_sg_advanced_tip_outside() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/advanced-stack-tip-outside-workspace")?;
