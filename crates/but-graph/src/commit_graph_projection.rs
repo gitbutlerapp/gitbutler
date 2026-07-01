@@ -194,10 +194,13 @@ fn segment_by_branches(
                 .unwrap_or(spine.len())
                 .max(start);
             let commits = spine.get(start..end).unwrap_or(&[]).to_vec();
-            let ref_name = if commits.first().is_none_or(|&c| commit_has_ref(cg, c, b)) {
-                Some(b.clone())
-            } else {
-                None
+            // Name the segment after its branch when the branch's ref is on the tip, or the tip has no
+            // competing refs (e.g. the branch's ref is on a commit outside the workspace). If the tip
+            // carries *other* refs, the segment is ambiguous and shown anonymously.
+            let ref_name = match commits.first() {
+                None => Some(b.clone()),
+                Some(&c) if commit_has_ref(cg, c, b) || cg.refs_at(c).is_empty() => Some(b.clone()),
+                Some(_) => None,
             };
             SegmentRun { ref_name, commits }
         })
