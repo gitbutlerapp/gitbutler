@@ -182,6 +182,98 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         in_set.extend(ancestors(cg, t));
     }
 
+    // The walk stops traversing integrated history "once there is nothing interesting left". The
+    // clearest such situation: the workspace position ITSELF is integrated (e.g. the ws ref sits
+    // directly on the target's commit with no dedicated workspace merge) — then nothing below the
+    // goal commits is ever walked, and empty stacks resting on the tip have no base. Clip only in
+    // that situation; everywhere else the walk's reach is effectively unbounded.
+    if managed
+        && cg
+            .node(workspace_commit)
+            .is_some_and(|n| n.commit.flags.contains(crate::CommitFlags::Integrated))
+    {
+        let mut goals: HashSet<gix::ObjectId> = HashSet::new();
+        goals.insert(workspace_commit);
+        goals.extend(target);
+        goals.extend(options.extra_target_commit_id);
+        // Every ref-carrying commit anchors traversal — the walk keeps descending while named
+        // positions (branches, tags) remain below.
+        for c in cg.commit_ids() {
+            if !cg.refs_at(c).is_empty() {
+                goals.insert(c);
+            }
+        }
+        for b in stack_branches.into_iter().flatten().flatten() {
+            if let Some(c) = cg.commit_by_ref(b.as_ref()) {
+                goals.insert(c);
+            }
+        }
+        for (local, remote) in remote_tracking {
+            if let Some(c) = cg.commit_by_ref(local.as_ref()) {
+                goals.insert(c);
+            }
+            // The remote's rejoin point: the first in-set commit along its first-parent spine.
+            let mut c = cg.commit_by_ref(remote.as_ref());
+            while let Some(id) = c {
+                if in_set.contains(&id) {
+                    goals.insert(id);
+                    break;
+                }
+                c = cg.first_parent(id);
+            }
+        }
+        // Goal-descendants: goals plus everything above them (any commit with a kept parent).
+        let mut above_goal: HashSet<gix::ObjectId> = goals.intersection(&in_set).copied().collect();
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for &c in &in_set {
+                if !above_goal.contains(&c)
+                    && cg.all_parent_ids(c).iter().any(|p| above_goal.contains(p))
+                {
+                    above_goal.insert(c);
+                    changed = true;
+                }
+            }
+        }
+        // The meeting point survives too: the first integrated commit reached from a non-integrated
+        // line (the merge-base a stack rests on) is included, only history BELOW it is cut.
+        let integrated = |c: gix::ObjectId| {
+            cg.node(c)
+                .is_some_and(|n| n.commit.flags.contains(crate::CommitFlags::Integrated))
+        };
+        let mut has_non_integrated_child: HashSet<gix::ObjectId> = HashSet::new();
+        for &c in &in_set {
+            if !integrated(c) {
+                for p in cg.all_parent_ids(c) {
+                    has_non_integrated_child.insert(p);
+                }
+            }
+        }
+        let mut keep: HashSet<gix::ObjectId> = in_set
+            .iter()
+            .copied()
+            .filter(|&c| {
+                !integrated(c) || above_goal.contains(&c) || has_non_integrated_child.contains(&c)
+            })
+            .collect();
+        // Merge-parent resolution: a kept merge's parent lines are fully walked (the walk descends
+        // them to their meeting point, and on to the root when that's where they converge).
+        let mut stack: Vec<gix::ObjectId> = keep
+            .iter()
+            .filter(|&&c| cg.all_parent_ids(c).len() > 1)
+            .flat_map(|&c| cg.all_parent_ids(c))
+            .collect();
+        let mut visited: HashSet<gix::ObjectId> = HashSet::new();
+        while let Some(p) = stack.pop() {
+            if in_set.contains(&p) && visited.insert(p) {
+                keep.insert(p);
+                stack.extend(cg.all_parent_ids(p));
+            }
+        }
+        in_set = keep;
+    }
+
     // In-set children per commit, to detect branch points (a commit reached by >1 child).
     let mut children: HashMap<gix::ObjectId, Vec<gix::ObjectId>> = HashMap::new();
     for &c in &in_set {
