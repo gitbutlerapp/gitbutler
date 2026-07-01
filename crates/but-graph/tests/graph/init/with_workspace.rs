@@ -8084,6 +8084,35 @@ fn graph_structure(graph: &but_graph::Graph) -> Vec<String> {
 }
 
 #[test]
+fn cg_to_sg_single_stack() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack")?;
+    add_workspace(&mut meta);
+    let real =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+
+    let mut cg = but_graph::CommitGraph::from_repository(&repo)?;
+    let target = target_commit(&repo, &*meta);
+    cg.mark_integrated(target);
+    let ws_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
+    let ws_commit = repo
+        .find_reference(&ws_ref)?
+        .peel_to_commit()?
+        .id()
+        .detach();
+    let remote_tracking = remote_tracking_map(&repo)?;
+    let built = but_graph::graph_from_commit_graph(
+        &cg,
+        ws_commit,
+        target,
+        &remote_tracking,
+        project_meta(&*meta),
+        standard_options(),
+    );
+    assert_eq!(graph_structure(&built), graph_structure(&real));
+    Ok(())
+}
+
+#[test]
 fn graph_structure_is_stable_and_discriminating() -> anyhow::Result<()> {
     // The fingerprint equals itself and distinguishes structurally different workspaces — the property
     // a CommitGraph-built graph will be verified against.

@@ -227,6 +227,9 @@ pub use commit_graph::{CommitGraph, CommitNode};
 /// pure gather phase + a single build pass — no segment-graph mutation passes.
 pub mod commit_graph_projection;
 
+mod commit_graph_to_segment_graph;
+pub use commit_graph_to_segment_graph::graph_from_commit_graph;
+
 mod statistics;
 pub use statistics::Statistics;
 
