@@ -28,6 +28,7 @@ import {
 import { ItemRow } from "./ItemRow.tsx";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { changesInWorktreeQueryOptions, treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
+import { commitMessageInputId } from "./CommitForm.tsx";
 
 type LineStats = {
 	linesAdded: number;
@@ -44,11 +45,14 @@ const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats 
 	return stats;
 };
 
+const focusCommitMessageInput = () => {
+	document.getElementById(commitMessageInputId)?.focus();
+};
+
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
 	projectId: string;
-	focusCommitMessageInput: () => void;
-}> = ({ changes, projectId, focusCommitMessageInput }) => {
+}> = ({ changes, projectId }) => {
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const treeChangeDiffs = useQueries({
 		queries:

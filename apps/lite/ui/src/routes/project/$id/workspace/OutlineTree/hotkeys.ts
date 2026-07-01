@@ -46,6 +46,7 @@ import { UseHotkeyDefinition, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { type RefObject } from "react";
+import { commitMessageInputId } from "./CommitForm.tsx";
 import { partialStackPushDisabled, partialStackStateFromSegments } from "./partialStackState.ts";
 import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
 
@@ -72,16 +73,18 @@ const pushContextForSegment = ({
 	};
 };
 
+const focusCommitMessageInput = () => {
+	document.getElementById(commitMessageInputId)?.focus();
+};
+
 export const useOutlineTreeHotkeys = ({
 	navigationIndex,
 	projectId,
 	ref,
-	focusCommitMessageInput,
 }: {
 	navigationIndex: NavigationIndex<Operand>;
 	projectId: string;
 	ref: RefObject<HTMLElement | null>;
-	focusCommitMessageInput: () => void;
 }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),

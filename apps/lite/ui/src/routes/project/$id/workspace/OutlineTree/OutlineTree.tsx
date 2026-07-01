@@ -111,7 +111,6 @@ export const OutlineTree: FC<
 		navigationIndex,
 		projectId,
 		ref,
-		focusCommitMessageInput,
 	});
 
 	return (
@@ -236,18 +235,12 @@ const CommitC: FC<{
 							stackId={stackId}
 							isCommitTarget={isCommitTarget}
 							dryRunCommit={dryRunCommit}
-							focusCommitMessageInput={focusCommitMessageInput}
 						/>
 					}
 				/>
 			}
 		/>
 	);
-};
-
-const commitMessageInputId = "commit-message-input";
-const focusCommitMessageInput = () => {
-	document.getElementById(commitMessageInputId)?.focus();
 };
 
 const UncommittedChanges: FC<{
@@ -267,17 +260,12 @@ const UncommittedChanges: FC<{
 			className={classes(styles.section, styles.uncommittedChanges)}
 			render={<OperandC projectId={projectId} operand={operand} />}
 		>
-			<UncommittedChangesRow
-				changes={worktreeChanges?.changes ?? []}
-				projectId={projectId}
-				focusCommitMessageInput={focusCommitMessageInput}
-			/>
+			<UncommittedChangesRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
 
 			<CommitForm
 				projectId={projectId}
 				commitTarget={commitTarget}
 				targetComboboxItems={targetComboboxItems}
-				commitMessageInputId={commitMessageInputId}
 			/>
 		</TreeItem>
 	);
@@ -348,7 +336,6 @@ const BranchSegment: FC<{
 				pullRequest={segment.metadata?.review.pullRequest ?? null}
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				isTopSegment={isTopSegment}
-				focusCommitMessageInput={focusCommitMessageInput}
 			/>
 
 			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation. */}

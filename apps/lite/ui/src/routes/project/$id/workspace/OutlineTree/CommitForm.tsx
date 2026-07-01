@@ -32,6 +32,9 @@ export type CommitTargetComboboxItem = {
 	relativeTo: RelativeTo;
 };
 
+// oxlint-disable-next-line react/only-export-components -- TODO: move
+export const commitMessageInputId = "commit-message-input";
+
 const CommitTargetComboboxPopup: FC = () => (
 	<Combobox.Popup className={classes(uiStyles.popup, "text-13", styles.targetPopup)}>
 		<Combobox.Input
@@ -60,8 +63,7 @@ export const CommitForm: FC<{
 	projectId: string;
 	commitTarget: CommitTargetComboboxItem | null;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
-	commitMessageInputId: string;
-}> = ({ projectId, commitTarget, targetComboboxItems, commitMessageInputId }) => {
+}> = ({ projectId, commitTarget, targetComboboxItems }) => {
 	const dispatch = useAppDispatch();
 	const commitCreateMutation = useCommitCreate({ projectId });
 	const commitAmendMutation = useCommitAmend({ projectId });

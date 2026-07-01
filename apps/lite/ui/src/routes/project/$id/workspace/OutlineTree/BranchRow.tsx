@@ -42,10 +42,15 @@ import {
 } from "../WorkspaceItemRow.tsx";
 import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
+import { commitMessageInputId } from "./CommitForm.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import { type PartialStackState, partialStackPushDisabled } from "./partialStackState.ts";
 import styles from "./BranchRow.module.css";
+
+const focusCommitMessageInput = () => {
+	document.getElementById(commitMessageInputId)?.focus();
+};
 
 export const BranchRow: FC<
 	{
@@ -61,7 +66,6 @@ export const BranchRow: FC<
 		pullRequest: number | null;
 		bottomRelativeTo: RelativeTo | null;
 		isTopSegment: boolean;
-		focusCommitMessageInput: () => void;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -76,7 +80,6 @@ export const BranchRow: FC<
 	pullRequest,
 	bottomRelativeTo,
 	isTopSegment,
-	focusCommitMessageInput,
 	...restProps
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
