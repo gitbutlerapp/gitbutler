@@ -197,11 +197,6 @@
 
 .filePath {
 	overflow: hidden;
-	color: var(--text-3);
-
-	/* Overflow ellipsis on the left, pioritising filename. */
-	direction: rtl;
-	text-align: left;
 	text-overflow: ellipsis;
 }
 
@@ -213,8 +208,9 @@
 	color: #d34832;
 }
 
-.pathLast {
-	color: var(--text-1);
+.pathInit {
+	margin-inline-start: 6px;
+	color: var(--text-2);
 }
 
 .hunkHeaderRow {

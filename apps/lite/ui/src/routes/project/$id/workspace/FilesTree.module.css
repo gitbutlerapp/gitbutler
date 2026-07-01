@@ -14,10 +14,8 @@
 	}
 }
 
-.filePath {
-	/* Overflow ellipsis on the left, pioritising filename. */
-	direction: rtl;
-	text-align: left;
+.pathInit {
+	margin-inline-start: 6px;
 }
 
 .fileStatusBadge {
