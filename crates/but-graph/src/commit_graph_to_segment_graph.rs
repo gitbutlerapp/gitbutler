@@ -24,12 +24,13 @@ use crate::{
 ///
 /// Inputs mirror the projection's enrichment: the workspace commit, the target that bounds/integrates,
 /// and the local→remote tracking map. `project_meta`/`options` are carried onto the `Graph`.
-pub fn graph_from_commit_graph(
+pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     cg: &CommitGraph,
     workspace_commit: gix::ObjectId,
     target: Option<gix::ObjectId>,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+    meta: &T,
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
 ) -> crate::Graph {
@@ -210,6 +211,21 @@ pub fn graph_from_commit_graph(
     // Empty metadata branches (no commits) are spliced in as empty segments at their place in the
     // stack's branch order.
     insert_empty_branches(&mut sg, stack_branches);
+
+    // Classify each named segment by its ref's metadata: the workspace ref → Workspace, a tracked
+    // branch → Branch, others → None. Matches the walk's `extract_local_branch_metadata`.
+    for sidx in sg.node_indices().collect::<Vec<_>>() {
+        let ref_name = sg
+            .node(sidx)
+            .and_then(|s| s.ref_info.as_ref())
+            .map(|ri| ri.ref_name.clone());
+        if let Some(ref_name) = ref_name {
+            let md = segment_metadata(ref_name.as_ref(), meta);
+            if let Some(s) = sg.node_mut(sidx) {
+                s.metadata = md;
+            }
+        }
+    }
 
     // Generations: longest path from a root (a segment with no incoming connections).
     assign_generations(&mut sg);
@@ -635,4 +651,22 @@ fn is_plain_local_branch(rn: &gix::refs::FullName) -> bool {
     let rn = rn.as_ref();
     rn.category() == Some(Category::LocalBranch)
         && !rn.as_bstr().starts_with_str("refs/heads/gitbutler/")
+}
+
+/// The segment metadata for a ref: `Branch` for a tracked branch, `Workspace` for the workspace ref,
+/// `None` otherwise (mirrors `extract_local_branch_metadata`).
+fn segment_metadata<T: but_core::RefMetadata>(
+    ref_name: &gix::refs::FullNameRef,
+    meta: &T,
+) -> Option<crate::SegmentMetadata> {
+    if ref_name.category() != Some(Category::LocalBranch) {
+        return None;
+    }
+    if let Ok(Some(branch)) = meta.branch_opt(ref_name) {
+        return Some(crate::SegmentMetadata::Branch((*branch).clone()));
+    }
+    if let Ok(Some(ws)) = meta.workspace_opt(ref_name) {
+        return Some(crate::SegmentMetadata::Workspace((*ws).clone()));
+    }
+    None
 }

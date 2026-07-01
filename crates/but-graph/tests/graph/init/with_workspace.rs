@@ -8071,8 +8071,13 @@ fn graph_structure(graph: &but_graph::Graph) -> Vec<String> {
                 .collect();
             conns.sort();
             let sibling = s.sibling_segment_id.map_or("∅".to_string(), seg_key);
+            let meta = match &s.metadata {
+                None => "∅",
+                Some(but_graph::SegmentMetadata::Branch(_)) => "B",
+                Some(but_graph::SegmentMetadata::Workspace(_)) => "W",
+            };
             format!(
-                "{name}|rt={remote}|gen={}|commits=[{}]|conn=[{}]|sib={sibling}",
+                "{name}|rt={remote}|gen={}|meta={meta}|commits=[{}]|conn=[{}]|sib={sibling}",
                 s.generation,
                 commits.join(","),
                 conns.join(","),
@@ -8104,6 +8109,7 @@ fn assert_cg_to_sg_parity(repo: &gix::Repository, meta: &impl RefMetadata) -> an
         target,
         &remote_tracking,
         Some(&stack_branches),
+        meta,
         project_meta(meta),
         standard_options(),
     );
