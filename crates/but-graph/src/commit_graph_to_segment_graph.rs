@@ -48,21 +48,10 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         .iter()
         .map(|s| s.branches.iter().map(|b| b.ref_name.clone()).collect())
         .collect();
-    // REMOTE deduction sees the caller's project meta with a fallback to the workspace metadata's own
-    // target/push remote (the walk discovers those remotes through its workspace-metadata tips even
-    // when the caller passes a default `ProjectMeta`).
-    let effective_pm = {
-        let ws_pm = ws_meta.project_meta();
-        but_core::ref_metadata::ProjectMeta {
-            target_ref: project_meta.target_ref.clone().or(ws_pm.target_ref),
-            push_remote: project_meta.push_remote.clone().or(ws_pm.push_remote),
-            ..project_meta.clone()
-        }
-    };
-    // INTEGRATION however is marked ONLY from the caller's target ref — the walk resolves the target
-    // tip from the passed project meta alone, so a default `ProjectMeta` means nothing is integrated
-    // (and the projection won't downgrade an entrypoint as "at/below the base"). No hard-coded
-    // `origin/main` fallback either.
+    // Everything target-derived — integration marks AND remote deduction — comes from the CALLER's
+    // project meta alone, like the walk: a default `ProjectMeta` means nothing is integrated (no
+    // at/below-base downgrade) and no target-implied remote. No hard-coded `origin/main` fallback.
+    // Git-configured tracking branches still link independently.
     let target = project_meta.target_ref.clone().and_then(|tr| {
         Some(
             repo.find_reference(&tr)
@@ -75,7 +64,7 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     });
     cg.mark_integrated(target);
     let (remote_tracking, symbolic_remotes) =
-        crate::commit_graph_projection::remote_tracking_from_repository(repo, &effective_pm)?;
+        crate::commit_graph_projection::remote_tracking_from_repository(repo, &project_meta)?;
     let worktree_by_branch = {
         let (overlay_repo, _om, _ep) = crate::init::Overlay::default().into_parts(repo, meta);
         overlay_repo.worktree_branches(entrypoint_ref.as_ref().map(|r| r.as_ref()))?
@@ -483,6 +472,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         &in_set,
         &owner_of,
         symbolic_remotes,
+        stack_branches,
     );
     add_untracked_remote_segments(
         cg,
@@ -875,6 +865,7 @@ fn add_remote_segments(
     in_set: &HashSet<gix::ObjectId>,
     owner_of: &HashMap<gix::ObjectId, gix::ObjectId>,
     symbolic_remotes: &[String],
+    stack_branches: Option<&[Vec<gix::refs::FullName>]>,
 ) {
     let locals: Vec<(SegmentIndex, gix::refs::FullName, gix::ObjectId)> = seg_of_tip
         .iter()
@@ -919,8 +910,9 @@ fn add_remote_segments(
 
         // The remote is AHEAD: segment its ahead region like the local graph (split at merges and
         // second-parent branches), not as one flat first-parent run. Only for remotes the workspace
-        // configuration implies — the walk never traverses a config-only tracking remote's own
-        // commits, so the link keeps its name but the ahead region stays out.
+        // configuration implies (target/push remote, or a git-configured tracking branch) — and never
+        // when the remote ref is ITSELF a workspace-metadata stack branch: then it lives in the
+        // workspace as a stack, its commits are the user's own, not an upstream.
         let remote_name_in_play = remote_ref
             .as_bstr()
             .strip_prefix(b"refs/remotes/")
@@ -930,7 +922,12 @@ fn add_remote_segments(
                         .is_some_and(|s| s.first() == Some(&b'/'))
                 })
             });
-        if !remote_name_in_play {
+        let is_metadata_stack_branch = stack_branches
+            .into_iter()
+            .flatten()
+            .flatten()
+            .any(|b| *b == remote_ref);
+        if !remote_name_in_play || is_metadata_stack_branch {
             continue;
         }
         segment_ahead_region(

@@ -357,7 +357,17 @@ pub(crate) fn remote_tracking_from_repository(
             repo.branch_remote_tracking_ref_name(local.as_ref(), gix::remote::Direction::Fetch)
             && remote_refs.iter().any(|r| r.as_ref() == rt.as_ref())
         {
-            map.insert(local, rt.into_owned());
+            let rt = rt.into_owned();
+            // The walk also traverses the remotes of git-configured tracking branches — their remote
+            // names join the eligibility set.
+            let rest = &rt.as_bstr()[b"refs/remotes/".len()..];
+            if let Some(slash) = rest.iter().position(|&b| b == b'/') {
+                let remote = String::from_utf8_lossy(&rest[..slash]).into_owned();
+                if !remotes.contains(&remote) {
+                    remotes.push(remote);
+                }
+            }
+            map.insert(local, rt);
         }
     }
     Ok((map, remotes))
