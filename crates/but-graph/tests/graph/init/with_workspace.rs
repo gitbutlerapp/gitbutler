@@ -7888,6 +7888,57 @@ fn assert_commit_graph_projection_parity(
     Ok(())
 }
 
+/// SPIKE: the SELF-CONTAINED entry — `project_from_repository(repo, meta)` derives its own inputs
+/// (stack branch lists, target, remote-tracking map) and must reproduce the segment-based stacks. This
+/// is the interface in which the projection can replace the segment graph.
+fn assert_self_contained_projection_parity(
+    repo: &gix::Repository,
+    meta: &impl RefMetadata,
+) -> anyhow::Result<()> {
+    let self_contained = but_graph::commit_graph_projection::project_from_repository(repo, meta)?;
+    let graph =
+        Graph::from_head(repo, meta, project_meta(meta), standard_options())?.validated()?;
+    let ws = graph.into_workspace()?;
+    assert_eq!(
+        cg_projection_shape(&self_contained),
+        segment_projection_shape(&ws),
+        "project_from_repository should reproduce the segment-based stacks from (repo, meta) alone"
+    );
+    Ok(())
+}
+
+#[test]
+fn cg_proj_self_contained_multiple_stacks_shared_remote() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/multiple-stacks-with-shared-segment-and-remote")?;
+    add_stack_with_segments(&mut meta, 1, "C-on-A", StackState::InWorkspace, &[]);
+    assert_self_contained_projection_parity(&repo, &*meta)
+}
+
+#[test]
+fn cg_proj_self_contained_two_stacks_with_empty_branch() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &["below"]);
+    assert_self_contained_projection_parity(&repo, &*meta)
+}
+
+#[test]
+fn cg_proj_self_contained_integrated_merge_at_bottom() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/integrated-merge-at-bottom")?;
+    add_stack_with_segments(&mut meta, 0, "local-stack", StackState::InWorkspace, &[]);
+    assert_self_contained_projection_parity(&repo, &*meta)
+}
+
+#[test]
+fn cg_proj_self_contained_single_stack_fallback() -> anyhow::Result<()> {
+    // No explicit stack metadata (add_workspace) — the derived branch lists are empty, so the
+    // self-contained path exercises the ref-driven fallback segmentation end to end.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack")?;
+    add_workspace(&mut meta);
+    assert_self_contained_projection_parity(&repo, &*meta)
+}
+
 #[test]
 fn commit_graph_projection_parity_two_stacks_with_empty_branch() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;

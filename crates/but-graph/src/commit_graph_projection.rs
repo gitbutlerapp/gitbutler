@@ -203,6 +203,75 @@ pub fn project(
     ))
 }
 
+/// Self-contained entry: build a [`CommitGraph`] straight from `repo` and project it, deriving the
+/// enrichment inputs (each in-workspace stack's branch list, the target, and the remote-tracking map)
+/// from the repository and its ref metadata — the same inputs the segment-graph path takes. This is
+/// the shape in which the projection can replace the segment graph: given only `(repo, meta)`, produce
+/// the display stacks.
+pub fn project_from_repository<T: but_core::RefMetadata>(
+    repo: &gix::Repository,
+    meta: &T,
+) -> anyhow::Result<Vec<StackView>> {
+    let cg = CommitGraph::from_repository(repo)?;
+    let ws_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
+    let ws_commit = repo
+        .find_reference(&ws_ref)?
+        .peel_to_commit()?
+        .id()
+        .detach();
+
+    let ws_meta = meta.workspace(ws_ref.as_ref())?;
+    // Each in-workspace stack's ordered branch refs.
+    let stack_branches: Vec<Vec<gix::refs::FullName>> = ws_meta
+        .stacks
+        .iter()
+        .filter(|s| s.is_in_workspace())
+        .map(|s| s.branches.iter().map(|b| b.ref_name.clone()).collect())
+        .collect();
+    // The target that bounds each stack's base: the metadata target ref, else `origin/main`.
+    let target = ws_meta
+        .project_meta()
+        .target_ref
+        .or_else(|| "refs/remotes/origin/main".try_into().ok())
+        .and_then(|tr| {
+            Some(
+                repo.find_reference(&tr)
+                    .ok()?
+                    .peel_to_commit()
+                    .ok()?
+                    .id()
+                    .detach(),
+            )
+        });
+    let remote_tracking = remote_tracking_from_repository(repo)?;
+
+    Ok(project(
+        &cg,
+        ws_commit,
+        Some(&stack_branches),
+        target,
+        &remote_tracking,
+    ))
+}
+
+/// Local branch -> its remote-tracking branch, deduced by name (`refs/remotes/origin/<X>` for
+/// `refs/heads/<X>`) for every `origin` remote branch that exists.
+fn remote_tracking_from_repository(
+    repo: &gix::Repository,
+) -> anyhow::Result<HashMap<gix::refs::FullName, gix::refs::FullName>> {
+    let mut map = HashMap::new();
+    for reference in repo.references()?.all()?.filter_map(Result::ok) {
+        let full = reference.name().as_bstr();
+        if let Some(short) = full.strip_prefix(b"refs/remotes/origin/") {
+            let local = format!("refs/heads/{}", String::from_utf8_lossy(short));
+            if let Ok(local_ref) = gix::refs::FullName::try_from(local) {
+                map.insert(local_ref, reference.name().to_owned());
+            }
+        }
+    }
+    Ok(map)
+}
+
 /// Match each stack top to the branch list one of its spine commits carries, returning the lists in
 /// stack-top order. A top whose spine carries none of any list's branches (e.g. an anonymous top)
 /// takes a leftover list, in order. Returns all-`None` when there is no metadata.
