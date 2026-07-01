@@ -104,32 +104,14 @@ impl TestRepo {
         let repo = self.open();
         let current_head = repo.head_id().expect("HEAD peels").detach();
         let target = oid.unwrap_or(current_head);
-        but_core::worktree::safe_checkout(
-            current_head,
-            target,
-            &repo,
-            but_core::worktree::checkout::Options {
-                skip_head_update: true,
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        but_core::worktree::checkout_tree(&repo, target, Some(current_head)).unwrap();
         update_current_head(&repo, target, "reset hard");
     }
 
     pub fn checkout_commit(&self, commit_oid: gix::ObjectId) {
         let repo = self.open();
         let current_head = repo.head_id().expect("HEAD peels").detach();
-        but_core::worktree::safe_checkout(
-            current_head,
-            commit_oid,
-            &repo,
-            but_core::worktree::checkout::Options {
-                skip_head_update: true,
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        but_core::worktree::checkout_tree(&repo, commit_oid, Some(current_head)).unwrap();
         set_head_detached(&repo, commit_oid);
     }
 
@@ -151,16 +133,7 @@ impl TestRepo {
                 current_head
             }
         };
-        but_core::worktree::safe_checkout(
-            current_head,
-            target,
-            &repo,
-            but_core::worktree::checkout::Options {
-                skip_head_update: true,
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        but_core::worktree::checkout_tree(&repo, target, Some(current_head)).unwrap();
         set_head_symbolic(&repo, branch_name.as_str());
     }
 
@@ -183,16 +156,7 @@ impl TestRepo {
             None,
         )
         .expect("failed to commit");
-        but_core::worktree::safe_checkout(
-            parent,
-            commit_id,
-            &repo,
-            but_core::worktree::checkout::Options {
-                skip_head_update: true,
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        but_core::worktree::checkout_tree(&repo, commit_id, Some(tree_id)).unwrap();
         update_current_head(&repo, commit_id, "commit");
         commit_id
     }

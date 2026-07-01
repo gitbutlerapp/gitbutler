@@ -275,14 +275,10 @@ pub fn apply(
         let current_head_commit = ws.graph.entrypoint()?.commit().context(
             "The entrypoint must have a commit - it's equal to HEAD, and we skipped unborn earlier",
         )?;
-        but_core::worktree::safe_checkout(
-            current_head_commit.id,
-            commit_to_checkout,
+        but_core::worktree::checkout_commit(
             repo,
-            but_core::worktree::checkout::Options {
-                skip_head_update: false,
-                ..Default::default()
-            },
+            commit_to_checkout,
+            Some(current_head_commit.id),
         )?;
         let applied_branches = vec![branch.to_owned()];
         if !branch_has_applied_workspace_metadata(branch.as_ref(), &ws, meta)? {
@@ -751,15 +747,7 @@ pub fn apply(
         storage.persist(repo)?;
         drop(in_memory_repo);
     }
-    but_core::worktree::safe_checkout(
-        prev_head_id,
-        new_head_id,
-        repo,
-        but_core::worktree::checkout::Options {
-            skip_head_update: true,
-            ..Default::default()
-        },
-    )?;
+    but_core::worktree::checkout_tree(repo, new_head_id, Some(prev_head_id))?;
     persist_metadata_and_gitconfig(
         meta,
         &branches_to_apply,
