@@ -591,6 +591,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 				<Tooltip.Root>
 					<Tooltip.Trigger
 						aria-label={collapseLabel}
+						aria-expanded={!p.collapsed}
 						className={styles.fileHeaderCollapseButton}
 						onClick={() => p.setCollapsed(!p.collapsed)}
 					>
