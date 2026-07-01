@@ -71,6 +71,24 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     };
 
     let ep = entrypoint.unwrap_or(ws_commit);
+    // `NotInRemote` comes from the walk's traversal TIPS, not every local branch: a stray local that is
+    // only reachable inside a remote's ahead region must not turn those commits local (they'd otherwise
+    // vanish from the remote-side display).
+    let local_seeds: Vec<gix::ObjectId> = [ws_commit, ep]
+        .into_iter()
+        .chain(
+            stack_branches
+                .iter()
+                .flatten()
+                .filter_map(|b| cg.commit_by_ref(b.as_ref())),
+        )
+        .chain(
+            remote_tracking
+                .keys()
+                .filter_map(|local| cg.commit_by_ref(local.as_ref())),
+        )
+        .collect();
+    cg.remark_not_in_remote(local_seeds);
     let graph = graph_from_commit_graph(
         &cg,
         ws_commit,

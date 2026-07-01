@@ -323,6 +323,16 @@ impl CommitGraph {
         }
     }
 
+    /// Recompute `NotInRemote` from the given seeds only. The walk seeds it from its traversal TIPS
+    /// (workspace commit, metadata stack branches, tracked locals, the entrypoint) — a stray local
+    /// branch that is only reachable inside a remote's ahead region does NOT make those commits local.
+    pub fn remark_not_in_remote(&mut self, seeds: impl IntoIterator<Item = gix::ObjectId>) {
+        for node in &mut self.nodes {
+            node.commit.flags.remove(crate::CommitFlags::NotInRemote);
+        }
+        self.mark_ancestors(seeds, crate::CommitFlags::NotInRemote);
+    }
+
     /// Where traversal/HEAD started (a checkout inside a stack), if any. The projection forces a
     /// segment boundary here — there is always a segment starting at the entrypoint.
     pub fn entrypoint(&self) -> Option<gix::ObjectId> {
