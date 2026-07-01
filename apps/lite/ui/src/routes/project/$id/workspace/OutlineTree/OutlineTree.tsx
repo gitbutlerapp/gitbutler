@@ -1,12 +1,8 @@
 import workspaceItemRowStyles from "../WorkspaceItemRow.module.css";
 import uiStyles from "#ui/components/ui.module.css";
-import {
-	changesInWorktreeQueryOptions,
-	headInfoQueryOptions,
-	listProjectsQueryOptions,
-} from "#ui/api/queries.ts";
+import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import { relativeToEquals } from "#ui/api/relative-to.ts";
-import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	branchOperand,
@@ -18,7 +14,6 @@ import {
 } from "#ui/operands.ts";
 import { useOutlineSelection } from "#ui/selection-scopes.ts";
 import {
-	selectProjectCommitTarget,
 	selectProjectHasCheckedCommits,
 	selectProjectOutlineModeState,
 } from "#ui/projects/state.ts";
@@ -39,8 +34,7 @@ import {
 	PushStatus,
 	WorkspaceState,
 } from "@gitbutler/but-sdk";
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { ComponentProps, createContext, FC, Fragment, use, useRef } from "react";
 import styles from "./OutlineTree.module.css";
@@ -71,12 +65,23 @@ const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(nu
 
 export const OutlineTree: FC<
 	{
+		projectId: string;
+		headInfo: RefInfo | undefined;
+		commitTarget: CommitTargetComboboxItem | null;
+		targetComboboxItems: Array<CommitTargetComboboxItem>;
 		navigationIndex: NavigationIndex<Operand>;
 		absorptionTargetKeys: ReadonlySet<string>;
 	} & ComponentProps<"div">
-> = ({ navigationIndex, absorptionTargetKeys, ref: refProp, ...props }) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-
+> = ({
+	projectId,
+	headInfo,
+	commitTarget,
+	targetComboboxItems,
+	navigationIndex,
+	absorptionTargetKeys,
+	ref: refProp,
+	...props
+}) => {
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const hasCheckedCommits = useAppSelector((state) =>
@@ -100,9 +105,6 @@ export const OutlineTree: FC<
 	const dryRunOperationQuery = useDryRunOperation({ projectId, operation: dryRunOperation });
 	const dryRunWorkspace = dryRunOperationQuery.data?.workspace ?? null;
 
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
-
 	const ref = useRef<HTMLDivElement>(null);
 
 	useOutlineTreeHotkeys({
@@ -111,21 +113,6 @@ export const OutlineTree: FC<
 		ref,
 		onComposeCommitMessage: focusCommitMessageInput,
 	});
-
-	const commitTargetState = useAppSelector((state) => selectProjectCommitTarget(state, projectId));
-	const targetComboboxItems = buildCommitTargetComboboxItems({
-		headInfo,
-		headInfoIndex,
-		commitTargetState,
-	});
-	const commitTarget = selectCommitTargetComboboxItem({
-		items: targetComboboxItems,
-		commitTargetState,
-	});
-
-	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
-	const selectedProject = projects.find((project) => project.id === projectId);
-	if (!selectedProject) throw new Error("Could not find selected project");
 
 	return (
 		<NavigationIndexContext value={navigationIndex}>
@@ -257,60 +244,6 @@ const CommitC: FC<{
 		/>
 	);
 };
-
-const buildCommitTargetComboboxItems = ({
-	headInfo,
-	headInfoIndex,
-	commitTargetState,
-}: {
-	headInfo: RefInfo | undefined;
-	headInfoIndex: HeadInfoIndex | undefined;
-	commitTargetState: RelativeTo | null;
-}): Array<CommitTargetComboboxItem> => {
-	const commitTarget =
-		commitTargetState?.type === "commit"
-			? headInfoIndex?.commitContextById(commitTargetState.subject)?.commit
-			: null;
-
-	return [
-		...(commitTarget
-			? ([
-					{
-						label: `Commit: ${commitTitle(commitTarget.message) ?? "(no message)"}`,
-						relativeTo: { type: "commit", subject: commitTarget.id },
-					},
-				] satisfies Array<CommitTargetComboboxItem>)
-			: []),
-		...(headInfo
-			? reverse(headInfo.stacks).flatMap(
-					(stack): Array<CommitTargetComboboxItem> =>
-						stack.segments.flatMap((segment): Array<CommitTargetComboboxItem> => {
-							const refName = segment.refName;
-							if (!refName) return [];
-
-							return [
-								{
-									label: refName.displayName,
-									relativeTo: { type: "referenceBytes", subject: refName.fullNameBytes },
-								},
-							];
-						}),
-				)
-			: []),
-	];
-};
-
-const selectCommitTargetComboboxItem = ({
-	items,
-	commitTargetState,
-}: {
-	items: Array<CommitTargetComboboxItem>;
-	commitTargetState: RelativeTo | null;
-}): CommitTargetComboboxItem | null =>
-	(commitTargetState &&
-		items.find((item) => relativeToEquals(item.relativeTo, commitTargetState))) ??
-	items[0] ??
-	null;
 
 const commitMessageInputId = "commit-message-input";
 const focusCommitMessageInput = () => {
