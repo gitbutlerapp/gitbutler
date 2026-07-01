@@ -29,6 +29,7 @@ pub fn graph_from_commit_graph(
     workspace_commit: gix::ObjectId,
     target: Option<gix::ObjectId>,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
+    stack_branches: Option<&[Vec<gix::refs::FullName>]>,
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
 ) -> crate::Graph {
@@ -158,6 +159,10 @@ pub fn graph_from_commit_graph(
     // segment, doubly-linked via siblings.
     add_remote_segments(cg, &mut sg, &seg_of_tip, &in_set, &owner_of);
 
+    // Empty metadata branches (no commits) are spliced in as empty segments at their place in the
+    // stack's branch order.
+    insert_empty_branches(&mut sg, stack_branches);
+
     // Generations: longest path from a root (a segment with no incoming connections).
     assign_generations(&mut sg);
 
@@ -253,6 +258,61 @@ fn add_remote_segments(
             Connection::new(local_sidx, None, src_last, None, Some(dst_first)),
         );
         let _ = owner_of;
+    }
+}
+
+/// Find the segment named exactly `ref_name`, if any.
+fn segment_by_ref(sg: &SegmentGraph, ref_name: &gix::refs::FullName) -> Option<SegmentIndex> {
+    sg.node_indices().find(|&sidx| {
+        sg.node(sidx)
+            .and_then(|s| s.ref_info.as_ref())
+            .is_some_and(|ri| &ri.ref_name == ref_name)
+    })
+}
+
+/// Splice each stack's empty metadata branches (those with no commits, hence no ref on a commit) into
+/// the segment chain at their position in the branch list: an empty branch sits between the segment
+/// above it and that segment's base.
+fn insert_empty_branches(
+    sg: &mut SegmentGraph,
+    stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+) {
+    let Some(lists) = stack_branches else {
+        return;
+    };
+    for list in lists {
+        let Some(first) = list.first() else {
+            continue;
+        };
+        let mut current = segment_by_ref(sg, first);
+        for b in &list[1..] {
+            if let Some(existing) = segment_by_ref(sg, b) {
+                current = Some(existing);
+            } else if let Some(cur) = current {
+                // Insert an empty segment `b` between `cur` and its base: `cur`'s outgoing connections
+                // move to the new empty segment, and `cur` connects into it.
+                let moved = std::mem::take(&mut sg.node_mut(cur).expect("present").connections);
+                let src_last = sg.node(cur).and_then(|s| s.commits.last().map(|c| c.id));
+                let new = sg.add_node(Segment {
+                    id: 0,
+                    generation: 0,
+                    ref_info: Some(RefInfo {
+                        ref_name: b.clone(),
+                        commit_id: None,
+                        worktree: None,
+                    }),
+                    remote_tracking_ref_name: None,
+                    sibling_segment_id: None,
+                    remote_tracking_branch_segment_id: None,
+                    commits: Vec::new(),
+                    metadata: None,
+                    connections: moved,
+                });
+                sg.node_mut(new).expect("just added").id = new;
+                sg.add_edge(cur, Connection::new(new, None, src_last, None, None));
+                current = Some(new);
+            }
+        }
     }
 }
 
