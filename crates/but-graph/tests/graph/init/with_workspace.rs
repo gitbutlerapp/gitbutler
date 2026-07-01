@@ -8142,6 +8142,20 @@ fn cg_to_sg_remote_ahead() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_to_sg_ambiguous() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[test]
+fn cg_to_sg_shared_segment() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[test]
 fn graph_structure_is_stable_and_discriminating() -> anyhow::Result<()> {
     // The fingerprint equals itself and distinguishes structurally different workspaces — the property
     // a CommitGraph-built graph will be verified against.

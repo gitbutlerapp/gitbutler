@@ -240,8 +240,37 @@ fn add_remote_segments(
         let Some(remote_tip) = cg.commit_by_ref(remote_ref.as_ref()) else {
             continue;
         };
-        // Walk the remote tip's first-parent spine, collecting the commits it is ahead by (not in the
-        // local set) until it rejoins the local graph. `rejoin` is where the remote reconnects.
+        // The remote points BEHIND/at an in-set commit: it names that commit's segment rather than
+        // forming its own root. If the segment is anonymous, the remote ref names it directly; if it is
+        // already named (e.g. the target `main`), a separate empty remote root points into it.
+        if in_set.contains(&remote_tip) {
+            let owner = owner_of.get(&remote_tip).copied().unwrap_or(remote_tip);
+            let owner_sidx = seg_of_tip[&owner];
+            let owner_is_anon = sg.node(owner_sidx).is_some_and(|s| s.ref_info.is_none());
+            if owner_is_anon {
+                if let Some(s) = sg.node_mut(owner_sidx) {
+                    s.ref_info = Some(RefInfo {
+                        ref_name: remote_ref.clone(),
+                        commit_id: Some(remote_tip),
+                        worktree: None,
+                    });
+                    s.sibling_segment_id = Some(local_sidx);
+                }
+                sg.node_mut(local_sidx)
+                    .expect("present")
+                    .remote_tracking_branch_segment_id = Some(owner_sidx);
+            } else {
+                let remote_sidx = add_empty_remote_root(sg, &remote_ref, remote_tip, local_sidx);
+                sg.add_edge(
+                    remote_sidx,
+                    Connection::new(owner_sidx, None, None, None, Some(remote_tip)),
+                );
+            }
+            continue;
+        }
+
+        // The remote is AHEAD: walk its first-parent spine, collecting the commits it is ahead by until
+        // it rejoins the local graph, and connect the remote root at that rejoin commit.
         let mut ahead: Vec<Commit> = Vec::new();
         let mut rejoin = None;
         let mut c = Some(remote_tip);
@@ -255,26 +284,8 @@ fn add_remote_segments(
             }
             c = cg.first_parent(id);
         }
-        let remote_sidx = sg.add_node(Segment {
-            id: 0,
-            generation: 0,
-            ref_info: Some(RefInfo {
-                ref_name: remote_ref.clone(),
-                commit_id: Some(remote_tip),
-                worktree: None,
-            }),
-            remote_tracking_ref_name: None,
-            sibling_segment_id: Some(local_sidx),
-            remote_tracking_branch_segment_id: None,
-            commits: ahead,
-            metadata: None,
-            connections: Vec::new(),
-        });
-        sg.node_mut(remote_sidx).expect("just added").id = remote_sidx;
-        sg.node_mut(local_sidx)
-            .expect("present")
-            .remote_tracking_branch_segment_id = Some(remote_sidx);
-        // Connect the remote segment to the segment owning the rejoin commit.
+        let remote_sidx = add_empty_remote_root(sg, &remote_ref, remote_tip, local_sidx);
+        sg.node_mut(remote_sidx).expect("present").commits = ahead;
         if let Some(rejoin) = rejoin
             && let Some(&owner) = owner_of.get(&rejoin)
             && let Some(&dst) = seg_of_tip.get(&owner)
@@ -288,6 +299,36 @@ fn add_remote_segments(
             );
         }
     }
+}
+
+/// Create an empty remote root segment named `remote_ref`, sibling-linked to `local_sidx` (and set the
+/// local's `remote_tracking_branch_segment_id`).
+fn add_empty_remote_root(
+    sg: &mut SegmentGraph,
+    remote_ref: &gix::refs::FullName,
+    remote_tip: gix::ObjectId,
+    local_sidx: SegmentIndex,
+) -> SegmentIndex {
+    let remote_sidx = sg.add_node(Segment {
+        id: 0,
+        generation: 0,
+        ref_info: Some(RefInfo {
+            ref_name: remote_ref.clone(),
+            commit_id: Some(remote_tip),
+            worktree: None,
+        }),
+        remote_tracking_ref_name: None,
+        sibling_segment_id: Some(local_sidx),
+        remote_tracking_branch_segment_id: None,
+        commits: Vec::new(),
+        metadata: None,
+        connections: Vec::new(),
+    });
+    sg.node_mut(remote_sidx).expect("just added").id = remote_sidx;
+    sg.node_mut(local_sidx)
+        .expect("present")
+        .remote_tracking_branch_segment_id = Some(remote_sidx);
+    remote_sidx
 }
 
 /// For each workspace-stack tip that another stack flows into via first-parent, anonymize the tip
