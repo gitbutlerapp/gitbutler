@@ -592,8 +592,8 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					onClick={() => p.setCollapsed(!p.collapsed)}
 				/>
 				<h4 className={classes("text-13", styles.filePath)}>
-					{mpathInit}
-					<span className={styles.pathLast}>{pathLast}</span>
+					{pathLast}
+					{mpathInit !== null && <span className={styles.pathInit}>{mpathInit}</span>}
 				</h4>
 				<span>{changeType}</span>
 				<span>
