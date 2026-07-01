@@ -58,6 +58,32 @@ mod add {
     }
 
     #[test]
+    fn worktree_directory_ending_in_dot_git_is_added_and_loadable() -> anyhow::Result<()> {
+        let data_dir = support::data_dir();
+        let repo_root = tempfile::tempdir()?;
+        let repo_dir = repo_root.path().join("non-bare.git");
+        let repo = gix::init(&repo_dir)?;
+        let expected_worktree_dir = repo.workdir().unwrap().canonicalize()?;
+        let expected_git_dir = repo.git_dir().canonicalize()?;
+
+        let project =
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), &repo_dir)?.unwrap_project();
+        let loaded_project = gitbutler_project::get_with_path(data_dir.path(), project.id.clone())?;
+        assert_eq!(project.title, "non-bare.git");
+        assert_eq!(project.git_dir(), expected_git_dir.as_path());
+        assert_eq!(
+            serde_json::to_value(&project)?["path"],
+            serde_json::Value::String(expected_worktree_dir.display().to_string())
+        );
+        assert_eq!(loaded_project.git_dir(), expected_git_dir.as_path());
+        assert_eq!(
+            loaded_project.open_isolated_repo()?.workdir(),
+            Some(expected_worktree_dir.as_path())
+        );
+        Ok(())
+    }
+
+    #[test]
     fn creates_configured_storage_dir() -> anyhow::Result<()> {
         let data_dir = support::data_dir();
         let repo = support::TestProject::default();
