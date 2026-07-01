@@ -75,7 +75,8 @@ impl AgentTarget {
             | detect_agent::Agent::Augment
             | detect_agent::Agent::Antigravity
             | detect_agent::Agent::Replit
-            | detect_agent::Agent::V0 => None,
+            | detect_agent::Agent::V0
+            | detect_agent::Agent::Unknown => None,
         }
     }
 

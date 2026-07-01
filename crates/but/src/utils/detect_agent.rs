@@ -23,6 +23,7 @@ pub enum Agent {
     Antigravity,
     Replit,
     V0,
+    Unknown,
 }
 
 impl Agent {
@@ -42,6 +43,7 @@ impl Agent {
             Self::Antigravity => "antigravity",
             Self::Replit => "replit",
             Self::V0 => "v0",
+            Self::Unknown => "unknown",
         }
     }
 }
@@ -95,7 +97,7 @@ fn detect_with(lookup: impl Fn(&str) -> Option<OsString>) -> Option<Agent> {
     if is_set("GEMINI_CLI") {
         return Some(Agent::GeminiCli);
     }
-    if is_set("COPILOT_MODEL") || is_set("COPILOT_ALLOW_ALL") || is_set("COPILOT_GITHUB_TOKEN") {
+    if is_set("COPILOT_AGENT") {
         return Some(Agent::GitHubCopilot);
     }
     if is_set("OPENCODE_CLIENT") {
@@ -114,10 +116,15 @@ fn detect_with(lookup: impl Fn(&str) -> Option<OsString>) -> Option<Agent> {
     None
 }
 
-/// Parse the generic `AI_AGENT` env var into a known agent, if possible.
+/// Parse the generic `AI_AGENT` env var into an agent detection.
 fn parse_ai_agent_var(lookup: &impl Fn(&str) -> Option<OsString>) -> Option<Agent> {
     let val = lookup("AI_AGENT")?;
-    let val = val.to_str()?.trim().to_ascii_lowercase();
+    let val = val.to_string_lossy();
+    let val = val.trim().to_ascii_lowercase().replace('_', "-");
+    if val.is_empty() {
+        return None;
+    }
+
     match val.as_str() {
         "claude" | "claude-code" => Some(Agent::ClaudeCode),
         "cowork" | "claude-code-cowork" => Some(Agent::ClaudeCodeCowork),
@@ -126,13 +133,15 @@ fn parse_ai_agent_var(lookup: &impl Fn(&str) -> Option<OsString>) -> Option<Agen
         "codex" => Some(Agent::Codex),
         "devin" => Some(Agent::Devin),
         "gemini" | "gemini-cli" => Some(Agent::GeminiCli),
-        "github-copilot" | "github-copilot-cli" => Some(Agent::GitHubCopilot),
+        "copilot" | "github-copilot" | "github-copilot-cli" | "github-copilot-vscode-agent" => {
+            Some(Agent::GitHubCopilot)
+        }
         "opencode" => Some(Agent::OpenCode),
         "augment" | "augment-cli" => Some(Agent::Augment),
         "antigravity" => Some(Agent::Antigravity),
         "replit" => Some(Agent::Replit),
         "v0" => Some(Agent::V0),
-        _ => None,
+        _ => Some(Agent::Unknown),
     }
 }
 
@@ -236,11 +245,22 @@ mod tests {
     }
 
     #[test]
-    fn detect_copilot() {
+    fn detect_copilot_agent() {
         assert_eq!(
-            detect_with(env_from(&[("COPILOT_MODEL", "gpt-4")])),
+            detect_with(env_from(&[("COPILOT_AGENT", "1")])),
             Some(Agent::GitHubCopilot),
         );
+    }
+
+    #[test]
+    fn copilot_config_vars_are_not_agent_signals() {
+        for var in ["COPILOT_MODEL", "COPILOT_ALLOW_ALL", "COPILOT_GITHUB_TOKEN"] {
+            assert_eq!(
+                detect_with(env_from(&[(var, "1")])),
+                None,
+                "{var} should not be treated as an agent marker",
+            );
+        }
     }
 
     #[test]
@@ -295,6 +315,12 @@ mod tests {
     }
 
     #[test]
+    fn empty_ai_agent_var_is_not_detected() {
+        assert_eq!(detect_with(env_from(&[("AI_AGENT", "")])), None);
+        assert_eq!(detect_with(env_from(&[("AI_AGENT", "  ")])), None);
+    }
+
+    #[test]
     fn ai_agent_case_insensitive() {
         assert_eq!(
             detect_with(env_from(&[("AI_AGENT", "Claude-Code")])),
@@ -310,6 +336,7 @@ mod tests {
             ("gemini", Agent::GeminiCli),
             ("augment-cli", Agent::Augment),
             ("github-copilot-cli", Agent::GitHubCopilot),
+            ("github_copilot_vscode_agent", Agent::GitHubCopilot),
             ("devin", Agent::Devin),
             ("v0", Agent::V0),
         ];
@@ -322,6 +349,14 @@ mod tests {
                 agent.name(),
             );
         }
+    }
+
+    #[test]
+    fn ai_agent_unknown_value_still_detects_agent() {
+        assert_eq!(
+            detect_with(env_from(&[("AI_AGENT", "some-new-agent")])),
+            Some(Agent::Unknown),
+        );
     }
 
     #[test]
@@ -340,6 +375,7 @@ mod tests {
             Agent::Antigravity,
             Agent::Replit,
             Agent::V0,
+            Agent::Unknown,
         ];
         for agent in agents {
             let lookup = env_from(&[("AI_AGENT", agent.name())]);
