@@ -8207,7 +8207,6 @@ fn cg_to_sg_multiple_stacks_shared_remote() -> anyhow::Result<()> {
     assert_cg_to_sg_parity(&repo, &*meta)
 }
 
-#[ignore = "frontier: remote/target segment subsystem (untracked remotes, target outside workspace, condition-d rename gating)"]
 #[test]
 fn cg_to_sg_disambiguate_by_remote() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/disambiguate-by-remote")?;

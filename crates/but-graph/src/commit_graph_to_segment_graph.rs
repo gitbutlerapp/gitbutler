@@ -197,6 +197,7 @@ pub fn graph_from_commit_graph(
     // create a remote root segment (holding the remote-ahead commits) that connects into the local
     // segment, doubly-linked via siblings.
     add_remote_segments(cg, &mut sg, &seg_of_tip, &in_set, &owner_of);
+    add_untracked_remote_segments(cg, &mut sg, &seg_of_tip, &in_set, &owner_of);
 
     // A workspace-stack tip that another stack flows into (via first-parent) is a SHARED commit: it is
     // anonymized into its own segment and its ref floats up as an empty placeholder that the workspace
@@ -322,6 +323,61 @@ fn add_remote_segments(
                     );
                 }
             }
+        }
+    }
+}
+
+/// Create segments for remote-tracking refs that no local segment claimed (untracked/orphan remotes,
+/// e.g. `origin/C` pointing at an anonymous commit). Each becomes an empty root connecting to the
+/// segment owning its tip, with no sibling.
+fn add_untracked_remote_segments(
+    cg: &CommitGraph,
+    sg: &mut SegmentGraph,
+    seg_of_tip: &HashMap<gix::ObjectId, SegmentIndex>,
+    in_set: &HashSet<gix::ObjectId>,
+    owner_of: &HashMap<gix::ObjectId, gix::ObjectId>,
+) {
+    let mut remote_refs: std::collections::BTreeSet<gix::refs::FullName> =
+        std::collections::BTreeSet::new();
+    for c in cg.commit_ids() {
+        for r in cg.refs_at(c) {
+            if r.as_ref().category() == Some(Category::RemoteBranch) {
+                remote_refs.insert(r);
+            }
+        }
+    }
+    for r in remote_refs {
+        if segment_by_ref(sg, &r).is_some() {
+            continue;
+        }
+        let Some(tip) = cg.commit_by_ref(r.as_ref()) else {
+            continue;
+        };
+        // Only the behind/in-set case for now: an empty root into the segment owning the tip.
+        if in_set.contains(&tip)
+            && let Some(&owner) = owner_of.get(&tip)
+            && let Some(&owner_sidx) = seg_of_tip.get(&owner)
+        {
+            let remote_sidx = sg.add_node(Segment {
+                id: 0,
+                generation: 0,
+                ref_info: Some(RefInfo {
+                    ref_name: r.clone(),
+                    commit_id: Some(tip),
+                    worktree: None,
+                }),
+                remote_tracking_ref_name: None,
+                sibling_segment_id: None,
+                remote_tracking_branch_segment_id: None,
+                commits: Vec::new(),
+                metadata: None,
+                connections: Vec::new(),
+            });
+            sg.node_mut(remote_sidx).expect("just added").id = remote_sidx;
+            sg.add_edge(
+                remote_sidx,
+                Connection::new(owner_sidx, None, None, None, Some(tip)),
+            );
         }
     }
 }
