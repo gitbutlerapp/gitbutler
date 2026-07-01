@@ -1223,6 +1223,29 @@ fn insert_empty_branches(
             }
         }
     }
+    // A commit pointed at by branches of SEVERAL metadata stacks is a shared base: its segment stays
+    // anonymous and every stack's branches float above as their own lane. Build-time disambiguation
+    // may have named it after one of those branches (e.g. the remote-tracked `main`) — demote that
+    // name so it floats like its peers; its remote links are re-established on the floated segment
+    // by `reconcile_remote_siblings`.
+    for (&commit, &count) in &lists_per_commit {
+        if count <= 1 {
+            continue;
+        }
+        let Some(anchor) = segment_by_commit(sg, commit) else {
+            continue;
+        };
+        if sg
+            .node(anchor)
+            .and_then(|s| s.ref_info.as_ref())
+            .is_some_and(|ri| lists.iter().flatten().any(|b| *b == ri.ref_name))
+            && let Some(s) = sg.node_mut(anchor)
+        {
+            s.ref_info = None;
+            s.remote_tracking_ref_name = None;
+            s.remote_tracking_branch_segment_id = None;
+        }
+    }
     for list in lists {
         // `from_sidx` feeds the top of the stack: the workspace segment for the first group, then each
         // group's anchor for the next (so its empties splice into the edge coming from above).
