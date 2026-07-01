@@ -214,27 +214,3 @@
 	padding-block: 4px;
 	color: var(--color-text-secondary);
 }
-
-.graphSegmentWithCheckbox {
-	display: grid;
-	justify-items: center;
-
-	& > * {
-		grid-area: 1 / 1;
-	}
-}
-
-.commitCheckbox {
-	margin-block-start: 7px;
-	opacity: 0;
-
-	.treeWithCheckedCommits &,
-	.commitRow:hover &,
-	&:focus {
-		opacity: 1;
-	}
-
-	.tree:not(.treeWithCheckedCommits) &[data-disabled] {
-		display: none;
-	}
-}
