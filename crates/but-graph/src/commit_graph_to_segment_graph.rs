@@ -230,8 +230,15 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // Generations: longest path from a root (a segment with no incoming connections).
     assign_generations(&mut sg);
 
+    // The entrypoint is the workspace segment at the workspace commit (a managed workspace); needed by
+    // the projection (`into_workspace`).
+    let entrypoint = seg_of_tip
+        .get(&workspace_commit)
+        .map(|&sidx| (sidx, crate::EntryPointCommit::AtCommit(workspace_commit)));
+
     crate::Graph {
         inner: sg,
+        entrypoint,
         project_meta,
         options,
         ..crate::Graph::default()

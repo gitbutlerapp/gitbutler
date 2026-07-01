@@ -8088,10 +8088,11 @@ fn graph_structure(graph: &but_graph::Graph) -> Vec<String> {
     lines
 }
 
-/// Build the segment `Graph` from a straight-from-git `CommitGraph` and assert it is STRUCTURALLY
-/// identical (commit-id fingerprint, id-numbering-independent) to the walk-built graph.
-fn assert_cg_to_sg_parity(repo: &gix::Repository, meta: &impl RefMetadata) -> anyhow::Result<()> {
-    let real = Graph::from_head(repo, meta, project_meta(meta), standard_options())?.validated()?;
+/// Build the segment `Graph` straight from a git `CommitGraph` via `graph_from_commit_graph`.
+fn build_cg_graph(
+    repo: &gix::Repository,
+    meta: &impl RefMetadata,
+) -> anyhow::Result<but_graph::Graph> {
     let mut cg = but_graph::CommitGraph::from_repository(repo)?;
     let target = target_commit(repo, meta);
     cg.mark_integrated(target);
@@ -8103,7 +8104,7 @@ fn assert_cg_to_sg_parity(repo: &gix::Repository, meta: &impl RefMetadata) -> an
         .detach();
     let remote_tracking = remote_tracking_map(repo)?;
     let stack_branches = stack_branches_from_meta(meta)?;
-    let built = but_graph::graph_from_commit_graph(
+    Ok(but_graph::graph_from_commit_graph(
         &cg,
         ws_commit,
         target,
@@ -8112,9 +8113,53 @@ fn assert_cg_to_sg_parity(repo: &gix::Repository, meta: &impl RefMetadata) -> an
         meta,
         project_meta(meta),
         standard_options(),
-    );
+    ))
+}
+
+/// Assert the CommitGraph-built segment `Graph` is STRUCTURALLY identical (commit-id fingerprint,
+/// id-numbering-independent) to the walk-built graph.
+fn assert_cg_to_sg_parity(repo: &gix::Repository, meta: &impl RefMetadata) -> anyhow::Result<()> {
+    let real = Graph::from_head(repo, meta, project_meta(meta), standard_options())?.validated()?;
+    let built = build_cg_graph(repo, meta)?;
     assert_eq!(graph_structure(&built), graph_structure(&real));
     Ok(())
+}
+
+/// Assert the CommitGraph-built graph, run through the REAL `into_workspace()` projection, produces the
+/// same display stacks (name + commits per segment, commit-id keyed) as the walk-built graph. This is
+/// the projection-level parity that the eventual flip depends on.
+fn assert_cg_to_sg_projects(repo: &gix::Repository, meta: &impl RefMetadata) -> anyhow::Result<()> {
+    let real = Graph::from_head(repo, meta, project_meta(meta), standard_options())?.validated()?;
+    let built = build_cg_graph(repo, meta)?;
+    let real_ws = real.into_workspace()?;
+    let built_ws = built.into_workspace()?;
+    assert_eq!(
+        segment_projection_shape(&built_ws),
+        segment_projection_shape(&real_ws),
+    );
+    Ok(())
+}
+
+#[test]
+fn cg_to_sg_projects_single_stack() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_projects(&repo, &*meta)
+}
+
+#[test]
+fn cg_to_sg_projects_two_stacks_empty_branch() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &["below"]);
+    assert_cg_to_sg_projects(&repo, &*meta)
+}
+
+#[test]
+fn cg_to_sg_projects_remote_ahead() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_projects(&repo, &*meta)
 }
 
 #[test]
