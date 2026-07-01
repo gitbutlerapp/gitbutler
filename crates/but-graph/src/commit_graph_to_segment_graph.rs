@@ -163,9 +163,16 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
 
     // Where each remote-tracking branch rejoins the local graph: the first in-set commit along the
     // remote tip's first-parent spine. These are segment boundaries (the remote connects INTO them).
+    // Only remotes whose LOCAL counterpart is itself in the graph count — a remote for a branch that
+    // lives outside the workspace (e.g. `origin/A-middle` on an outside `A-middle`) is never surfaced,
+    // so its spine crossing an in-set commit must not carve a spurious boundary there.
     let remote_rejoins: HashSet<gix::ObjectId> = remote_tracking
-        .values()
-        .filter_map(|r| cg.commit_by_ref(r.as_ref()))
+        .iter()
+        .filter(|(local, _)| {
+            cg.commit_by_ref(local.as_ref())
+                .is_some_and(|c| in_set.contains(&c))
+        })
+        .filter_map(|(_, r)| cg.commit_by_ref(r.as_ref()))
         .filter_map(|tip| {
             let mut c = Some(tip);
             while let Some(id) = c {
