@@ -2,7 +2,7 @@
 	display: flex;
 	align-items: center;
 	padding: 6px 8px;
-	gap: 8px;
+	gap: 6px;
 	border-radius: var(--radius-m);
 	outline: 1px solid color-mix(var(--scale-gray-0) 10%, transparent);
 	background-color: var(--bg-1);
