@@ -178,10 +178,21 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         })
         .collect();
 
+    // When the workspace ref peels straight to a stack tip (no dedicated octopus-merge commit), that
+    // commit carries a stack branch ref — `disambiguated_ref` finds it (a real merge carries only the
+    // workspace ref, so this is `None`). In that co-located case the "workspace commit" is just the
+    // stack tip: it keeps its stack chain, and an empty workspace segment is spliced in above later.
+    let ws_colocated_ref = if managed {
+        disambiguated_ref(cg, workspace_commit, remote_tracking)
+    } else {
+        None
+    };
+
     // The workspace commit's parents are stack tips — always segment boundaries (so the workspace
     // segment holds only the workspace commit, even when a parent is anonymous, e.g. an advanced tip).
-    // Only in a managed workspace; a plain checked-out tip has no stack parents.
-    let ws_parents: HashSet<gix::ObjectId> = if managed {
+    // Only in a managed workspace with a real merge commit; a plain checked-out tip or a co-located
+    // stack tip has no stack parents to split on.
+    let ws_parents: HashSet<gix::ObjectId> = if managed && ws_colocated_ref.is_none() {
         cg.parents(workspace_commit).collect()
     } else {
         HashSet::new()
@@ -248,9 +259,13 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // detached — then it is forced anonymous. Every other tip: disambiguated.
         let ref_name = if tip == workspace_commit {
             if managed {
-                cg.refs_at(tip)
-                    .into_iter()
-                    .find(|r| r.as_bstr().starts_with_str("refs/heads/gitbutler/"))
+                // Co-located: the ws commit is a stack tip — name its segment by the stack branch (the
+                // empty workspace segment is spliced in above it afterward).
+                ws_colocated_ref.clone().or_else(|| {
+                    cg.refs_at(tip)
+                        .into_iter()
+                        .find(|r| r.as_bstr().starts_with_str("refs/heads/gitbutler/"))
+                })
             } else if head_symbolic {
                 disambiguated_ref(cg, tip, remote_tracking)
             } else {
@@ -314,6 +329,8 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // connects into it, rather than absorbing the lower remote's commits.
     split_stacked_remotes(&mut sg);
 
+    // When the workspace ref is co-located with a stack tip, an empty workspace segment sits above it.
+    let mut ws_empty_sidx = None;
     if managed {
         // A workspace-stack tip that another stack flows into (via first-parent) is a SHARED commit: it
         // is anonymized into its own segment and its ref floats up as an empty placeholder that the
@@ -321,17 +338,26 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         anonymize_shared_stack_tips(cg, &mut sg, workspace_commit, &seg_of_tip, &in_set);
         // Empty metadata branches (no commits) are spliced in at their place in the stack's branch order.
         insert_empty_branches(&mut sg, stack_branches);
+        if ws_colocated_ref.is_some() {
+            ws_empty_sidx =
+                insert_empty_workspace_segment(&mut sg, &seg_of_tip, cg, workspace_commit);
+        }
     }
 
     // A checkout inside a stack (from_commit_traversal) splits the enclosing segment so the entrypoint
     // begins its own segment — there is always a segment starting at the entrypoint.
-    let entrypoint_sidx = split_at_entrypoint_segment(
-        &mut sg,
-        cg,
-        entrypoint,
-        entrypoint_ref.as_ref(),
-        remote_tracking,
-    );
+    let entrypoint_sidx = if let (Some(ws_seg), None) = (ws_empty_sidx, entrypoint_ref.as_ref()) {
+        // from_head into a co-located workspace: the entrypoint is the empty workspace segment.
+        Some(ws_seg)
+    } else {
+        split_at_entrypoint_segment(
+            &mut sg,
+            cg,
+            entrypoint,
+            entrypoint_ref.as_ref(),
+            remote_tracking,
+        )
+    };
 
     // Classify each named segment by its ref's metadata: the workspace ref → Workspace, a tracked
     // branch → Branch, others → None. Matches the walk's `extract_local_branch_metadata`.
@@ -376,8 +402,10 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         }
     }
 
-    // The ref HEAD points at is checked out in the main worktree (unless HEAD is detached).
+    // The ref HEAD points at is checked out in the main worktree (unless HEAD is detached). In the
+    // co-located case the worktree lives on the spliced-in empty workspace segment (set at creation).
     if head_symbolic
+        && ws_empty_sidx.is_none()
         && let Some(&ws_sidx) = seg_of_tip.get(&workspace_commit)
         && let Some(ri) = sg.node_mut(ws_sidx).and_then(|s| s.ref_info.as_mut())
     {
@@ -797,6 +825,46 @@ fn anonymize_shared_stack_tips(
             Connection::new(p_sidx, None, None, None, Some(parent)),
         );
     }
+}
+
+/// Splice an empty `gitbutler/workspace` segment above the stack tip the workspace ref is co-located
+/// with (no dedicated merge commit). It holds no commits, carries the main worktree, and connects into
+/// the stack segment that owns `workspace_commit`.
+fn insert_empty_workspace_segment(
+    sg: &mut SegmentGraph,
+    seg_of_tip: &HashMap<gix::ObjectId, SegmentIndex>,
+    cg: &CommitGraph,
+    workspace_commit: gix::ObjectId,
+) -> Option<SegmentIndex> {
+    let stack_sidx = *seg_of_tip.get(&workspace_commit)?;
+    let ws_ref = cg
+        .refs_at(workspace_commit)
+        .into_iter()
+        .find(|r| but_core::is_workspace_ref_name(r.as_ref()))?;
+    let ws_seg = sg.add_node(Segment {
+        id: 0,
+        generation: 0,
+        ref_info: Some(RefInfo {
+            ref_name: ws_ref,
+            commit_id: None,
+            worktree: Some(crate::Worktree {
+                kind: crate::WorktreeKind::Main,
+                owned_by_repo: true,
+            }),
+        }),
+        remote_tracking_ref_name: None,
+        sibling_segment_id: None,
+        remote_tracking_branch_segment_id: None,
+        commits: Vec::new(),
+        metadata: None,
+        connections: Vec::new(),
+    });
+    sg.node_mut(ws_seg).expect("just added").id = ws_seg;
+    sg.add_edge(
+        ws_seg,
+        Connection::new(stack_sidx, None, None, None, Some(workspace_commit)),
+    );
+    Some(ws_seg)
 }
 
 /// Find the segment named exactly `ref_name`, if any.
