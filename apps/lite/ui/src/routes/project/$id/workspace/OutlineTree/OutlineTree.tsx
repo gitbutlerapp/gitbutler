@@ -7,6 +7,7 @@ import {
 	listProjectsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
+import { relativeToEquals, relativeToKey } from "#ui/api/relative-to.ts";
 import { getHeadInfoIndex, resolveRelativeTo, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
@@ -281,20 +282,6 @@ const CommitC: FC<{
 		/>
 	);
 };
-
-const relativeToKey = (relativeTo: RelativeTo): string => {
-	switch (relativeTo.type) {
-		case "reference":
-			return JSON.stringify(["reference", relativeTo.subject]);
-		case "referenceBytes":
-			return JSON.stringify(["referenceBytes", relativeTo.subject]);
-		case "commit":
-			return JSON.stringify(["commit", relativeTo.subject]);
-	}
-};
-
-const relativeToEquals = (a: RelativeTo, b: RelativeTo): boolean =>
-	relativeToKey(a) === relativeToKey(b);
 
 type CommitTargetComboboxItem = {
 	label: string;
