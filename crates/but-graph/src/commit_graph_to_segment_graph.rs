@@ -321,7 +321,14 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // create a remote root segment (holding the remote-ahead commits) that connects into the local
     // segment, doubly-linked via siblings.
     add_remote_segments(cg, &mut sg, &seg_of_tip, &in_set, &owner_of);
-    add_untracked_remote_segments(cg, &mut sg, &seg_of_tip, &in_set, &owner_of);
+    add_untracked_remote_segments(
+        cg,
+        &mut sg,
+        remote_tracking,
+        &seg_of_tip,
+        &in_set,
+        &owner_of,
+    );
     // A remote's ahead-run may absorb a lower remote's ref (e.g. `origin/split-segment` sitting inside
     // `origin/main`'s ahead commits): split it out into its own named segment first.
     split_remote_interior_refs(&mut sg);
@@ -396,9 +403,12 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     for sidx in sg.node_indices().collect::<Vec<_>>() {
         if let Some(s) = sg.node_mut(sidx) {
             for commit in &mut s.commits {
-                commit
-                    .refs
-                    .retain(|ri| !segment_names.contains(&ri.ref_name));
+                // Also drop remote-tracking refs: a remote is only ever shown as its own segment, never
+                // annotated on a commit.
+                commit.refs.retain(|ri| {
+                    !segment_names.contains(&ri.ref_name)
+                        && ri.ref_name.as_ref().category() != Some(Category::RemoteBranch)
+                });
             }
         }
     }
@@ -595,6 +605,7 @@ fn add_remote_segments(
 fn add_untracked_remote_segments(
     cg: &CommitGraph,
     sg: &mut SegmentGraph,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
     seg_of_tip: &HashMap<gix::ObjectId, SegmentIndex>,
     in_set: &HashSet<gix::ObjectId>,
     owner_of: &HashMap<gix::ObjectId, gix::ObjectId>,
@@ -615,6 +626,17 @@ fn add_untracked_remote_segments(
         let Some(tip) = cg.commit_by_ref(r.as_ref()) else {
             continue;
         };
+        // Only surface a remote whose LOCAL counterpart actually sits on the same commit (e.g.
+        // `C`/`origin/C` on an ambiguous tip). A remote alone (`origin/A` with no local `A`) is just
+        // where the remote is — the walk drops it. `remote_tracking` maps every remote to a local name,
+        // so the discriminator is whether that local ref really exists here.
+        let has_local_counterpart = cg
+            .refs_at(tip)
+            .iter()
+            .any(|l| remote_tracking.get(l) == Some(&r));
+        if !has_local_counterpart {
+            continue;
+        }
         // Only the behind/in-set case for now: an empty root into the segment owning the tip.
         if in_set.contains(&tip)
             && let Some(&owner) = owner_of.get(&tip)
