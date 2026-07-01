@@ -49,40 +49,6 @@
 	padding-bottom: 0;
 }
 
-.inlineEditorForm {
-	display: flex;
-	flex-grow: 1;
-	flex-direction: column;
-	min-width: 0;
-}
-
-.inlineEditorInput {
-	flex-grow: 1;
-
-	textarea& {
-		resize: none;
-		field-sizing: content;
-	}
-
-	&:focus {
-		outline: none;
-	}
-}
-
-.inlineEditorHelp {
-	display: flex;
-	margin-left: -6px;
-	padding-block-end: 6px;
-
-	& > button {
-		text-transform: lowercase;
-	}
-}
-
-.inlineEditorShortcutLabel {
-	opacity: 0.6;
-}
-
 .uncommittedChanges {
 	display: flex;
 	row-gap: 4px;

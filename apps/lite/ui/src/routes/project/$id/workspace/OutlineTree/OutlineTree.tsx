@@ -98,7 +98,6 @@ import {
 	Fragment,
 	SubmitEventHandler,
 	use,
-	useId,
 	useOptimistic,
 	useRef,
 	useState,
@@ -136,6 +135,7 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { prForgeUrl } from "#ui/pr.ts";
 import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
+import { InlineEditor } from "./InlineEditor.tsx";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -945,71 +945,6 @@ const OperandC: FC<
 		defaultTagName: "div",
 		props,
 	});
-};
-
-const InlineEditor: FC<{
-	value: string;
-	label: string;
-	onMount?: (el: HTMLTextAreaElement | HTMLInputElement) => void;
-	onSubmit: (value: string) => void;
-	onExit: () => void;
-	multiline: boolean;
-	heading?: boolean;
-}> = ({ value, label, onMount, onSubmit, onExit, multiline, heading }) => {
-	const name = useId();
-	const formRef = useRef<HTMLFormElement | null>(null);
-	const textFieldRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
-	const submitAction = (formData: FormData) => {
-		onExit();
-		onSubmit(formData.get(name) as string);
-	};
-
-	useHotkey("Enter", () => formRef.current?.requestSubmit(), {
-		conflictBehavior: "allow",
-		ignoreInputs: false,
-		target: textFieldRef,
-	});
-
-	useHotkey("Escape", onExit, {
-		conflictBehavior: "allow",
-		ignoreInputs: false,
-		target: textFieldRef,
-	});
-
-	const allTextFieldRefs = useMergedRefs(textFieldRef, (el) => {
-		if (!el) return;
-		el.focus();
-		onMount?.(el);
-	});
-
-	return (
-		<form ref={formRef} className={styles.inlineEditorForm} action={submitAction}>
-			<WorkspaceItemRowLabelContainer>
-				<WorkspaceItemRowLabel
-					heading={heading}
-					aria-label={label}
-					className={styles.inlineEditorInput}
-					render={
-						multiline ? (
-							<textarea ref={allTextFieldRefs} name={name} defaultValue={value} />
-						) : (
-							<input ref={allTextFieldRefs} name={name} defaultValue={value} />
-						)
-					}
-				/>
-			</WorkspaceItemRowLabelContainer>
-			<div className={styles.inlineEditorHelp}>
-				<button type="submit" className={getWorkspaceItemRowButtonClassName({})}>
-					<kbd>{formatForDisplaySorted("Enter")}</kbd>
-					<span className={styles.inlineEditorShortcutLabel}> to Save</span>
-				</button>
-				<button type="button" className={getWorkspaceItemRowButtonClassName({})} onClick={onExit}>
-					<kbd>{formatForDisplaySorted("Escape")}</kbd>
-					<span className={styles.inlineEditorShortcutLabel}> to Cancel</span>
-				</button>
-			</div>
-		</form>
-	);
 };
 
 const insertBlankCommitMenuItem = (
