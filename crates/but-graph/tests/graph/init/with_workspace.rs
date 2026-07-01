@@ -8030,6 +8030,17 @@ fn cg_proj_parity_diverged_disjoint_target() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_proj_parity_remote_includes_another_remote() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-includes-another-remote")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
 fn cg_proj_parity_deduced_remote_ahead() -> anyhow::Result<()> {
     // Single stack A with NO target, and origin/A ahead by a merge: commits_on_remote must include the
     // merge's second-parent commit (full reachability, generation-ordered), and the base walks to the

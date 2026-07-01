@@ -148,17 +148,32 @@ pub fn gather(
                 // No metadata: fall back to slicing at each disambiguated local-branch ref on the spine.
                 None => segment_runs(cg, top, stack_base, &meta_branches, &all_tops),
             };
-            // Enrichment: attach each named segment's remote-tracking branch (a pure lookup by ref) and
-            // the commits that remote is ahead by (only on the remote, not reachable locally).
+            // Enrichment: attach each named segment's remote-tracking branch (a pure lookup by ref).
             for seg in &mut segments {
                 seg.remote_tracking_ref_name = seg
                     .ref_name
                     .as_ref()
                     .and_then(|rn| remote_tracking.get(rn).cloned());
+            }
+            // Each segment's remote tip (tip-first, so index order = stack depth).
+            let remote_tips: Vec<Option<gix::ObjectId>> = segments
+                .iter()
+                .map(|s| {
+                    s.remote_tracking_ref_name
+                        .as_ref()
+                        .and_then(|rn| cg.commit_by_ref(rn.as_ref()))
+                })
+                .collect();
+            for (i, seg) in segments.iter_mut().enumerate() {
                 if let Some(remote_ref) = &seg.remote_tracking_ref_name
                     && let Some(local_tip) = seg.commits.first().copied()
                 {
-                    seg.commits_on_remote = commits_on_remote(cg, remote_ref, local_tip);
+                    // Exclude commits owned by remotes of segments BELOW this one (deeper in the stack):
+                    // a shared remote commit belongs to the lowest segment that reaches it, so a higher
+                    // segment must not double-list it.
+                    let below: Vec<gix::ObjectId> =
+                        remote_tips[i + 1..].iter().flatten().copied().collect();
+                    seg.commits_on_remote = commits_on_remote(cg, remote_ref, local_tip, &below);
                 }
             }
             GatheredStack {
@@ -503,18 +518,23 @@ fn commits_on_remote(
     cg: &CommitGraph,
     remote_ref: &gix::refs::FullName,
     local_tip: gix::ObjectId,
+    other_remote_tips: &[gix::ObjectId],
 ) -> Vec<gix::ObjectId> {
     let Some(remote_tip) = cg.commit_by_ref(remote_ref.as_ref()) else {
         return Vec::new();
     };
     // Every commit reachable from the remote tip but NOT locally — a full reachability difference, so
     // commits on a merge's second parent (only on the remote) are included, not just the first-parent
-    // spine. Order newest-first by generation (the segment graph's gen-then-time; we lack commit time,
-    // so tie-break by id for determinism).
-    let local_ancestors = ancestors(cg, local_tip);
+    // spine. Commits owned by ANOTHER remote segment (reachable from its tip) are excluded so a shared
+    // remote commit isn't double-listed. Order newest-first by generation (the segment graph's
+    // gen-then-time; we lack commit time, so tie-break by id for determinism).
+    let mut excluded = ancestors(cg, local_tip);
+    for &other in other_remote_tips {
+        excluded.extend(ancestors(cg, other));
+    }
     let mut out: Vec<gix::ObjectId> = ancestors(cg, remote_tip)
         .into_iter()
-        .filter(|c| !local_ancestors.contains(c))
+        .filter(|c| !excluded.contains(c))
         .collect();
     out.sort_by_key(|&c| {
         (
