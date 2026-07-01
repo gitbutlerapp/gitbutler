@@ -89,7 +89,6 @@ impl Graph {
         // because it can't reorder existing empty segments (which are not natural).
         self.improve_remote_segments(
             repo,
-            meta,
             symbolic_remote_names,
             configured_remote_tracking_branches,
             &worktree_by_branch,
@@ -1155,7 +1154,6 @@ impl Graph {
     fn improve_remote_segments(
         &mut self,
         repo: &OverlayRepo<'_>,
-        meta: &OverlayMetadata<'_, impl RefMetadata>,
         symbolic_remote_names: &[String],
         configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
         worktree_by_branch: &WorktreeByBranch,
@@ -1294,13 +1292,8 @@ impl Graph {
             if !workspace_target_refs.contains(&remote_ref_name) {
                 continue;
             }
-            let Some(local_sidx) = self.ensure_local_tracking_segment_for_remote(
-                repo,
-                meta,
-                remote_ref_name,
-                remote_sidx,
-                worktree_by_branch,
-            )?
+            let Some(local_sidx) =
+                self.local_tracking_owner_for_target_remote(repo, remote_ref_name.as_ref())?
             else {
                 continue;
             };
@@ -1371,16 +1364,21 @@ impl Graph {
     /// the first commit of the segment that owns it. The last case keeps this
     /// synthetic empty segment from pointing into the middle of an existing
     /// segment.
-    fn ensure_local_tracking_segment_for_remote<T: RefMetadata>(
-        &mut self,
+    /// The segment that is the local-tracking counterpart of the target `remote_ref_name`, for
+    /// sibling-linking. It's either the segment already NAMED after the local branch, or the segment
+    /// that OWNS the local branch's tip commit.
+    ///
+    /// Intentional simplification (#3/#4): this no longer materialises a separate empty segment for the
+    /// target's local branch. The remote is just a sibling of the segment that already owns the commit,
+    /// and the local branch (`main`) stays as a plain ref on that commit — the target gets no naming
+    /// priority over the stack branch that owns the segment.
+    fn local_tracking_owner_for_target_remote(
+        &self,
         repo: &OverlayRepo<'_>,
-        meta: &OverlayMetadata<'_, T>,
-        remote_ref_name: gix::refs::FullName,
-        remote_sidx: SegmentIndex,
-        worktree_by_branch: &WorktreeByBranch,
+        remote_ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<SegmentIndex>> {
         let Some((local_ref_name, _remote)) =
-            repo.upstream_branch_and_remote_for_tracking_branch(remote_ref_name.as_ref())?
+            repo.upstream_branch_and_remote_for_tracking_branch(remote_ref_name)?
         else {
             return Ok(None);
         };
@@ -1398,39 +1396,10 @@ impl Graph {
         if let Some(local_sidx) = sidx_with_local_ref_name {
             return Ok(Some(local_sidx));
         }
-        let Some((owner_sidx, owner_cidx)) = commit_owner else {
-            return Ok(None);
-        };
-        if owner_cidx != 0 {
-            return Ok(None);
+        match commit_owner {
+            Some((owner_sidx, 0)) => Ok(Some(owner_sidx)),
+            _ => Ok(None),
         }
-
-        let local_segment = crate::Segment {
-            metadata: meta
-                .branch_opt(local_ref_name.as_ref())?
-                .map(SegmentMetadata::Branch),
-            ref_info: Some(crate::RefInfo::from_ref(
-                local_ref_name.clone(),
-                local_tip,
-                worktree_by_branch,
-            )),
-            remote_tracking_ref_name: Some(remote_ref_name),
-            remote_tracking_branch_segment_id: Some(remote_sidx),
-            ..Default::default()
-        };
-        let local_sidx = self.insert_segment(local_segment);
-        self.connect_segments_with_ids(
-            local_sidx,
-            None,
-            None,
-            owner_sidx,
-            Some(owner_cidx),
-            Some(local_tip),
-        );
-        self[owner_sidx].commits[owner_cidx]
-            .refs
-            .retain(|ri| ri.ref_name != local_ref_name);
-        Ok(Some(local_sidx))
     }
 
     fn segment_by_ref_name_or_commit_id(

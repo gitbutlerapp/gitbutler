@@ -1,0 +1,54 @@
+# Intentional graph-behavior changes (CommitGraph flip)
+
+As part of replacing the SegmentGraph walk with the CommitGraph-derived build, we
+are **deliberately simplifying** several graph-shaping behaviors. These are not
+bugs in the flip — they are decisions to drop walk behaviors that add complexity
+without clear value. Recorded here for the eventual commit message / PR body.
+
+## 1. No duplicate parents in workspace merge commits
+The GitButler workspace merge previously encoded empty lanes as **repeated
+parents** (e.g. `[base, base]`). We abandon that: merge commits carry only
+distinct parents. The builder already collapses exact duplicate parents at
+read time, so lanes are derived from workspace metadata, not the parent array.
+- **Effect:** no visible change to the rendered graph.
+- **Tests:** `duplicate_parent_connection_from_ws_commit_to_ambiguous_branch`
+  tests the abandoned scenario — dropped/rewritten.
+
+## 2. The entrypoint segment is named, not forced anonymous
+When checked out *into* a stack (e.g. on branch `lane`), the walk forced the
+entrypoint segment **anonymous** and floated the branch as a separate empty
+segment above it. We drop that: the checked-out branch simply names the segment
+it sits on.
+- **Before:** `anon:` holding the commit + a floating empty `👉lane` above it.
+- **After:** `👉lane` names the commit's segment directly.
+- Note: a *truly detached* HEAD (no ref) stays anonymous — there is no branch to
+  name it. Only the "checked-out branch" case changes.
+
+## 3. No separate empty segment for the target's local branch
+The walk emitted a floating empty segment for the target's local branch (`main`)
+purely to mark where the target rests (`ensure_local_tracking_segment_for_remote`).
+We drop it: `main` is a plain ref on the commit, and the remote attaches as a
+normal sibling of the real segment.
+- **Before:** a standalone `main <> origin/main` segment with no commits.
+- **After:** `main` is a ref on the commit; `origin/main` is the sibling of the
+  segment that owns the commit.
+
+## 4. The target does not get naming priority; it is treated as a remote/sibling
+At a commit shared by the target's local branch and a workspace stack branch,
+the walk named the segment after the **target** (`main`) and floated the stack
+branch empty. We drop the special case: naming is uniform — a workspace stack
+branch (metadata) names the segment; the target is just a ref + remote sibling.
+- Disambiguation becomes a single uniform rule with no target exception:
+  **workspace-metadata branch → remote-tracked branch → single branch → anonymous.**
+
+## 6. Worktrees are KEPT (CLI supports them)
+Not a simplification — the flip must reproduce the walk's worktree annotations:
+the main worktree `[🌳]`, linked worktrees `[📁]`, and the `@repo` ownership
+marker (which worktree the building repo owns). This is a feature the flip needs
+to add, not remove.
+
+## Deferred (no decision yet)
+- **#5 inactive/outside stacks as empty segments** — kept as-is for now (the
+  metadata is retained for PR/branch-info survival; the projection filters them).
+- **#7 shared remote-ahead ownership** — when one commit carries two remote refs,
+  how they stack. Deferred.

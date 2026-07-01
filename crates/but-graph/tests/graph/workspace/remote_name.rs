@@ -70,11 +70,10 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     insta::assert_snapshot!(graph_tree(&ws.graph), "the target remote and its local tracking branch get sibling links even when another branch owns the shared commit", @"
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── 📙►:2[2]:A
-    │       └── ✂·bce0c5e (⌂|🏘|✓|1) ►B
-    └── ►:1[0]:origin/main →:3:
-        └── ►:3[1]:main <> origin/main →:1:
-            └── →:2: (A)
+    │   └── 📙►:2[1]:A
+    │       └── ✂·bce0c5e (⌂|🏘|✓|1) ►B, ►main
+    └── ►:1[0]:origin/main →:2:
+        └── →:2: (A)
     ");
 
     assert_eq!(

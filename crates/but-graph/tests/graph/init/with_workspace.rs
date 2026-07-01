@@ -2389,14 +2389,12 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
-    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── ·dd0cca8 (⌂|🏘|01)
-    │       └── 📙►:2[1]:A
-    │           └── ·e255adc (⌂|🏘|11)
-    │               └── ►:1[2]:origin/main →:3:
-    │                   └── 🏁·fafd9d0 (⌂|🏘|✓|11)
-    └── ►:3[0]:main <> origin/main →:1:
-        └── →:2: (A)
+    └── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+        └── ·dd0cca8 (⌂|🏘|01)
+            └── 📙►:2[1]:A
+                └── ·e255adc (⌂|🏘|11) ►main
+                    └── ►:1[2]:origin/main →:2:
+                        └── 🏁·fafd9d0 (⌂|🏘|✓|11)
     ");
 
     // The main branch is not present, as it's the target.
@@ -2404,7 +2402,7 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
     └── ≡📙:2:A on fafd9d0 {1}
         └── 📙:2:A
-            └── ·e255adc (🏘️)
+            └── ·e255adc (🏘️) ►main
     ");
 
     // But mention it if it's in the workspace. It should retain order.
@@ -6681,11 +6679,10 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
     │           ├── ·4ca0966 (⌂|🏘|01)
     │           └── ·a3b180e (⌂|🏘|01)
     │               └── 📙►:2[2]:unapplied
-    │                   ├── ·ce09734 (⌂|🏘|✓|11) ►base-peer, ►base-peer-1, ►base-peer-2, ►base-peer-3, ►base-peer-4, ►base-peer-5, ►base-peer-6, ►base-peer-7, ►base-peer-8
+    │                   ├── ·ce09734 (⌂|🏘|✓|11) ►base-peer, ►base-peer-1, ►base-peer-2, ►base-peer-3, ►base-peer-4, ►base-peer-5, ►base-peer-6, ►base-peer-7, ►base-peer-8, ►main
     │                   └── 🏁·fafd9d0 (⌂|🏘|✓|11)
-    └── ►:1[0]:origin/main →:4:
-        └── ►:4[1]:main <> origin/main →:1:
-            └── →:2: (unapplied)
+    └── ►:1[0]:origin/main →:2:
+        └── →:2: (unapplied)
     ");
     let debug_graph = graph_tree(&graph);
     let target_segment = graph
