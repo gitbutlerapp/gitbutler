@@ -13,11 +13,6 @@
 	padding-inline: var(--panel-padding);
 }
 
-.navContainer {
-	display: grid;
-	padding-inline: var(--panel-padding);
-}
-
 .workspaceControlsLeft {
 	display: flex;
 	align-items: center;
@@ -51,4 +46,9 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.navContainer {
+	display: grid;
+	padding-inline: var(--panel-padding);
 }
