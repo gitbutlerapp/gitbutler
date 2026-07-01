@@ -8115,6 +8115,9 @@ fn build_cg_graph(
         .detach();
     let remote_tracking = remote_tracking_map(repo)?;
     let stack_branches = stack_branches_from_meta(meta)?;
+    // Worktree annotation is exercised via the `graph_from_repository` wrapper (see
+    // `assert_cg_to_sg_parity_via_wrapper`); this direct builder passes an empty map.
+    let worktree_by_branch = std::collections::BTreeMap::new();
     Ok(but_graph::graph_from_commit_graph(
         &cg,
         ws_commit,
@@ -8125,10 +8128,62 @@ fn build_cg_graph(
         Some(&stack_branches),
         true,
         true,
+        &worktree_by_branch,
         meta,
         project_meta(meta),
         standard_options(),
     ))
+}
+
+/// Every `(ref_name, worktree)` pairing in the graph — both segment names and per-commit refs — for
+/// refs that a worktree checks out. Structure-independent, so it isolates worktree annotation from
+/// other graph-shaping differences.
+fn worktree_annotations(graph: &but_graph::Graph) -> Vec<String> {
+    let mut out: Vec<String> = graph
+        .segments()
+        .map(|sidx| &graph[sidx])
+        .flat_map(|s| {
+            s.ref_info
+                .iter()
+                .chain(s.commits.iter().flat_map(|c| c.refs.iter()))
+                .filter_map(|ri| {
+                    ri.worktree
+                        .as_ref()
+                        .map(|wt| format!("{}|{wt:?}", ri.ref_name))
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// Assert the `graph_from_repository` wrapper annotates worktrees (main `[🌳]` and linked `[📁]`)
+/// identically to the walk. Focused on worktrees so it is immune to unrelated structural gaps.
+fn assert_cg_to_sg_worktree_parity(
+    repo: &gix::Repository,
+    meta: &impl RefMetadata,
+) -> anyhow::Result<()> {
+    let real = Graph::from_head(repo, meta, project_meta(meta), standard_options())?.validated()?;
+    let built = but_graph::graph_from_repository(
+        repo,
+        meta,
+        None,
+        None,
+        project_meta(meta),
+        standard_options(),
+    )?
+    .expect("managed workspace");
+    assert_eq!(worktree_annotations(&built), worktree_annotations(&real));
+    Ok(())
+}
+
+#[test]
+fn cg_to_sg_linked_worktrees() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/ambiguous-worktrees")?;
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+    assert_cg_to_sg_worktree_parity(&repo, &*meta)
 }
 
 /// Assert the CommitGraph-built segment `Graph` is STRUCTURALLY identical (commit-id fingerprint,

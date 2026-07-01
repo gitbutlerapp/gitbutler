@@ -150,9 +150,7 @@ impl Workspace {
 
 /// Map a remote-tracking ref (`refs/remotes/<remote>/<branch>`) to its local branch
 /// (`refs/heads/<branch>`), without touching the repository.
-fn local_tracking_ref_of_remote(
-    remote: &gix::refs::FullNameRef,
-) -> Option<gix::refs::FullName> {
+fn local_tracking_ref_of_remote(remote: &gix::refs::FullNameRef) -> Option<gix::refs::FullName> {
     use bstr::ByteSlice;
     let rest = remote.as_bstr().strip_prefix(b"refs/remotes/")?;
     let slash = rest.find_byte(b'/')?;

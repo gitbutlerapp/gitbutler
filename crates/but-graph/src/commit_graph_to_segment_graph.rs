@@ -10,7 +10,7 @@
 
 #![allow(dead_code)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use bstr::ByteSlice;
 use gix::reference::Category;
@@ -64,6 +64,10 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         });
     cg.mark_integrated(target);
     let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(repo)?;
+    let worktree_by_branch = {
+        let (overlay_repo, _om, _ep) = crate::init::Overlay::default().into_parts(repo, meta);
+        overlay_repo.worktree_branches(entrypoint_ref.as_ref().map(|r| r.as_ref()))?
+    };
 
     let ep = entrypoint.unwrap_or(ws_commit);
     let graph = graph_from_commit_graph(
@@ -76,6 +80,7 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         Some(&stack_branches),
         true,
         true,
+        &worktree_by_branch,
         meta,
         project_meta,
         options,
@@ -102,6 +107,10 @@ pub fn graph_from_repository_unmanaged<T: but_core::RefMetadata>(
 ) -> anyhow::Result<crate::Graph> {
     let cg = CommitGraph::from_repository_unmanaged(repo, Some(head_tip))?;
     let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(repo)?;
+    let worktree_by_branch = {
+        let (overlay_repo, _om, _ep) = crate::init::Overlay::default().into_parts(repo, meta);
+        overlay_repo.worktree_branches(entrypoint_ref.as_ref().map(|r| r.as_ref()))?
+    };
     Ok(graph_from_commit_graph(
         &cg,
         head_tip,
@@ -112,6 +121,7 @@ pub fn graph_from_repository_unmanaged<T: but_core::RefMetadata>(
         None,
         false,
         head_symbolic,
+        &worktree_by_branch,
         meta,
         project_meta,
         options,
@@ -136,6 +146,9 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     managed: bool,
     // Whether HEAD points at a ref (vs detached) — controls the worktree marker and the tip's naming.
     head_symbolic: bool,
+    // Which worktree (if any) checks out each ref, keyed by ref name — the main worktree `[🌳]` and any
+    // linked worktrees `[📁]`. Mirrors the walk's `RefInfo::from_ref` lookup.
+    worktree_by_branch: &BTreeMap<gix::refs::FullName, Vec<crate::Worktree>>,
     meta: &T,
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
@@ -448,6 +461,28 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             kind: crate::WorktreeKind::Main,
             owned_by_repo: true,
         });
+    }
+
+    // Annotate every remaining ref with the worktree that checks it out — the linked worktrees `[📁]`
+    // and any main worktree the HEAD block above didn't already set. Keyed by ref name, mirroring the
+    // walk's `RefInfo::from_ref`. The `is_none()` guard preserves the HEAD annotation set above.
+    let annotate = |ri: &mut RefInfo| {
+        if ri.worktree.is_none()
+            && let Some(wt) = worktree_by_branch.get(&ri.ref_name).and_then(|w| w.first())
+        {
+            ri.worktree = Some(wt.clone());
+        }
+    };
+    for sidx in sg.node_indices().collect::<Vec<_>>() {
+        let Some(s) = sg.node_mut(sidx) else { continue };
+        if let Some(ri) = s.ref_info.as_mut() {
+            annotate(ri);
+        }
+        for commit in &mut s.commits {
+            for ri in &mut commit.refs {
+                annotate(ri);
+            }
+        }
     }
 
     // Normalize every connection's endpoints (src = source's last commit, dst = target's first) so the
