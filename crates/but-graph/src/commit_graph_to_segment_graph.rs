@@ -350,6 +350,16 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         })
         .collect();
 
+    // Stored/extra target positions must start their own segment: the projection's
+    // `TargetCommit::from_commit` ignores a stored target commit that sits mid-segment, losing the
+    // remembered base (and with it the workspace lower bound).
+    let pinned_commits: HashSet<gix::ObjectId> = project_meta
+        .target_commit_id
+        .into_iter()
+        .chain(options.extra_target_commit_id)
+        .filter(|c| in_set.contains(c))
+        .collect();
+
     // A commit starts a new segment when it carries a disambiguated ref, is the workspace tip, is a
     // merge, or is a convergence/branch point (reached by other than a single first-parent child).
     let is_boundary = |c: gix::ObjectId| -> bool {
@@ -358,6 +368,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             || merge_first_parents.contains(&c)
             || remote_rejoins.contains(&c)
             || metadata_commits.contains(&c)
+            || pinned_commits.contains(&c)
             || disambiguated_ref(cg, c, remote_tracking, meta).is_some()
             || cg.all_parent_ids(c).len() > 1
             || {
