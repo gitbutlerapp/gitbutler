@@ -8162,7 +8162,6 @@ fn cg_to_sg_merge_into_main() -> anyhow::Result<()> {
     assert_cg_to_sg_parity(&repo, &*meta)
 }
 
-#[ignore = "frontier: integration pruning"]
 #[test]
 fn cg_to_sg_one_integrated() -> anyhow::Result<()> {
     let (repo, mut meta) =

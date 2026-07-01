@@ -270,13 +270,11 @@ fn add_remote_segments(
         }
 
         // The remote is AHEAD: walk its first-parent spine, collecting the commits it is ahead by until
-        // it rejoins the local graph, and connect the remote root at that rejoin commit.
+        // it rejoins the local graph.
         let mut ahead: Vec<Commit> = Vec::new();
-        let mut rejoin = None;
         let mut c = Some(remote_tip);
         while let Some(id) = c {
             if in_set.contains(&id) {
-                rejoin = Some(id);
                 break;
             }
             if let Some(node) = cg.node(id) {
@@ -286,17 +284,22 @@ fn add_remote_segments(
         }
         let remote_sidx = add_empty_remote_root(sg, &remote_ref, remote_tip, local_sidx);
         sg.node_mut(remote_sidx).expect("present").commits = ahead;
-        if let Some(rejoin) = rejoin
-            && let Some(&owner) = owner_of.get(&rejoin)
-            && let Some(&dst) = seg_of_tip.get(&owner)
+        // The remote's bottom commit connects to the owner of each of its (in-set) parents — including
+        // a merge's second parent, so an integrated merge remote points at both trunk and stack.
+        if let Some(bottom) = sg
+            .node(remote_sidx)
+            .and_then(|s| s.commits.last().map(|c| c.id))
         {
-            let src_last = sg
-                .node(remote_sidx)
-                .and_then(|s| s.commits.last().map(|c| c.id));
-            sg.add_edge(
-                remote_sidx,
-                Connection::new(dst, None, src_last, None, Some(rejoin)),
-            );
+            for parent in cg.all_parent_ids(bottom) {
+                if let Some(&owner) = owner_of.get(&parent)
+                    && let Some(&dst) = seg_of_tip.get(&owner)
+                {
+                    sg.add_edge(
+                        remote_sidx,
+                        Connection::new(dst, None, Some(bottom), None, Some(parent)),
+                    );
+                }
+            }
         }
     }
 }
