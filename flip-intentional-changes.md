@@ -44,8 +44,13 @@ At a commit shared by the target's local branch and a workspace stack branch,
 the walk named the segment after the **target** (`main`) and floated the stack
 branch empty. We drop the special case: naming is uniform — a workspace stack
 branch (metadata) names the segment; the target is just a ref + remote sibling.
-- Disambiguation becomes a single uniform rule with no target exception:
-  **workspace-metadata branch → remote-tracked branch → single branch → anonymous.**
+- Disambiguation of *which local branch names a shared commit's segment* is
+  **remote-tracked branch → the only branch → anonymous** (the flip's
+  `disambiguated_ref`). This is NOT a simplification — it reproduces the walk's
+  remote-local-tracking naming (the walk names a segment after the local branch
+  whose remote points at that commit, e.g. `main` for `origin/main`). An earlier
+  note here claimed a "metadata → remote → single" rule; that was wrong — there
+  is no metadata tier, and switching to one regresses parity.
 
 ## 8. `InWorkspace` is message-driven, not metadata-driven (KEEP FLIP)
 A `gitbutler/workspace` checkout whose merge commit has the managed-workspace

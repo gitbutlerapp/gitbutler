@@ -499,12 +499,22 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     let entrypoint =
         entrypoint_sidx.map(|sidx| (sidx, crate::EntryPointCommit::AtCommit(entrypoint)));
 
+    // Surface the extra target (an older target position) as an integrated traversal tip. The projection
+    // derives `target_commit` from the deepest integrated tip and uses it to extend the workspace base
+    // down to it — showing the commits integrated since then, exactly as the walk does.
+    let mut traversal_tips = Vec::new();
+    if let Some(extra) = options.extra_target_commit_id {
+        traversal_tips
+            .push(crate::init::Tip::new(extra).with_role(crate::init::TipRole::TargetRemote));
+    }
+
     crate::Graph {
         inner: sg,
         entrypoint,
         entrypoint_ref,
         project_meta,
         options,
+        traversal_tips,
         ..crate::Graph::default()
     }
 }
