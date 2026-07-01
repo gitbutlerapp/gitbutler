@@ -578,6 +578,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 		Match.when("deleted", () => "Deleted"),
 		Match.exhaustive,
 	);
+	const collapseLabel = p.collapsed ? "Expand file diff" : "Collapse file diff";
 
 	return (
 		<OperationSourceC projectId={p.projectId} source={fileOperand(p.operand)}>
@@ -587,15 +588,20 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 				}}
 				className={classes(styles.fileHeader, (p.collapsed || !p.hasDiff) && styles.lone)}
 			>
-				<button
-					type="button"
-					aria-label="Toggle file diff"
-					aria-expanded={!p.collapsed}
-					className={styles.fileHeaderCollapseButton}
-					onClick={() => p.setCollapsed(!p.collapsed)}
-				>
-					<Icon name={p.collapsed ? "chevron-right" : "chevron-down"} />
-				</button>
+				<Tooltip.Root>
+					<Tooltip.Trigger
+						aria-label={collapseLabel}
+						className={styles.fileHeaderCollapseButton}
+						onClick={() => p.setCollapsed(!p.collapsed)}
+					>
+						<Icon name={p.collapsed ? "chevron-right" : "chevron-down"} />
+					</Tooltip.Trigger>
+					<Tooltip.Portal>
+						<Tooltip.Positioner sideOffset={4}>
+							<Tooltip.Popup render={<TooltipPopup />}>{collapseLabel}</Tooltip.Popup>
+						</Tooltip.Positioner>
+					</Tooltip.Portal>
+				</Tooltip.Root>
 				<h4 className={classes("text-13", styles.filePath)}>
 					{mpathInit}
 					<span className={styles.pathLast}>{pathLast}</span>

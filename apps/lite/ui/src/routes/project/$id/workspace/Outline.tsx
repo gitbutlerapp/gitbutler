@@ -6,7 +6,7 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { workspaceHotkeys } from "#ui/hotkeys.ts";
+import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { branchOperand, type BranchOperand, type Operand } from "#ui/operands.ts";
 import {
 	projectActions,
@@ -170,14 +170,23 @@ export const Outline: FC<
 				<TopLeftControls />
 
 				<div className={styles.workspaceControlsLeft}>
-					<button
-						type="button"
-						className={classes("text-15", "text-bold", styles.workspaceName)}
-						onClick={openProjectPicker}
-					>
-						<span className={styles.workspaceNameLabel}>{project.title}</span>
-						<Icon name="chevron-down" className={styles.workspaceNameChevron} />
-					</button>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							aria-label={globalHotkeys.selectProject.meta.name}
+							className={classes("text-15", "text-bold", styles.workspaceName)}
+							onClick={openProjectPicker}
+						>
+							<span className={styles.workspaceNameLabel}>{project.title}</span>
+							<Icon name="chevron-down" className={styles.workspaceNameChevron} />
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup kbd={globalHotkeys.selectProject.hotkey} />}>
+									{globalHotkeys.selectProject.meta.name}
+								</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
 					<ActivitySpinner />
 				</div>
 
