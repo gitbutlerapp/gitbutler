@@ -8121,6 +8121,8 @@ fn build_cg_graph(
     Ok(but_graph::graph_from_commit_graph(
         &cg,
         ws_commit,
+        ws_commit,
+        None,
         target,
         &remote_tracking,
         Some(&stack_branches),
@@ -8137,6 +8139,53 @@ fn assert_cg_to_sg_parity(repo: &gix::Repository, meta: &impl RefMetadata) -> an
     let built = build_cg_graph(repo, meta)?;
     assert_eq!(graph_structure(&built), graph_structure(&real));
     Ok(())
+}
+
+/// Like [`assert_cg_to_sg_parity`], but the graph is built from a checkout INSIDE the workspace
+/// (`from_commit_traversal`) — exercising the entrypoint segment split.
+fn assert_cg_to_sg_parity_at(
+    repo: &gix::Repository,
+    meta: &impl RefMetadata,
+    tip: gix::ObjectId,
+    ref_name: Option<gix::refs::FullName>,
+) -> anyhow::Result<()> {
+    let real = Graph::from_commit_traversal(
+        gix::prelude::ObjectIdExt::attach(tip, repo),
+        ref_name.clone(),
+        meta,
+        project_meta(meta),
+        standard_options(),
+    )?
+    .validated()?;
+    let built = but_graph::graph_from_repository(
+        repo,
+        meta,
+        Some(tip),
+        ref_name,
+        project_meta(meta),
+        standard_options(),
+    )?
+    .expect("entrypoint inside the managed workspace");
+    assert_eq!(graph_structure(&built), graph_structure(&real));
+    Ok(())
+}
+
+#[test]
+fn cg_to_sg_entrypoint_split() -> anyhow::Result<()> {
+    // Check out S2 (b448757) mid-way through the 3-commit `shared` segment: it splits there.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
+    add_workspace(&mut meta);
+    let ep = id_by_rev(&repo, ":/S2").detach();
+    assert_cg_to_sg_parity_at(&repo, &*meta, ep, None)
+}
+
+#[test]
+fn cg_to_sg_entrypoint_at_tip() -> anyhow::Result<()> {
+    // Check out B (a stack tip): entrypoint is already a segment boundary, no split.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    add_workspace(&mut meta);
+    let (ep, ep_ref) = id_at(&repo, "B");
+    assert_cg_to_sg_parity_at(&repo, &*meta, ep.detach(), Some(ep_ref))
 }
 
 /// Assert the CommitGraph-built graph, run through the REAL `into_workspace()` projection, produces the

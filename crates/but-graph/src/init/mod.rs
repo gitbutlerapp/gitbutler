@@ -564,7 +564,16 @@ impl Graph {
                 gix::head::Kind::Symbolic(r) if r.name.as_bstr() == but_core::WORKSPACE_REF_NAME.as_bytes()
             )
         {
-            return crate::graph_from_repository(repo, meta, project_meta, options);
+            if let Some(graph) = crate::graph_from_repository(
+                repo,
+                meta,
+                None,
+                None,
+                project_meta.clone(),
+                options.clone(),
+            )? {
+                return Ok(graph);
+            }
         }
         let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {
@@ -689,8 +698,22 @@ impl Graph {
     ) -> anyhow::Result<Self> {
         let repo = tip.repo;
         let tip = tip.detach();
-        let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
         let ref_name = ref_name.into();
+        // SPIKE flip: if the entrypoint is inside a managed workspace, build from a CommitGraph (with an
+        // entrypoint split). Falls through to the walk for adhoc / outside entrypoints.
+        if std::env::var_os("BUT_GRAPH_FLIP").is_some()
+            && let Some(graph) = crate::graph_from_repository(
+                repo,
+                meta,
+                Some(tip),
+                ref_name.clone(),
+                project_meta.clone(),
+                options.clone(),
+            )?
+        {
+            return Ok(graph);
+        }
+        let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
         let tips = initial_tips_from_workspace_metadata(
             &overlay_repo,
             &overlay_meta,

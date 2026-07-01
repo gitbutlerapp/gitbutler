@@ -26,9 +26,11 @@ use crate::{
 pub fn graph_from_repository<T: but_core::RefMetadata>(
     repo: &gix::Repository,
     meta: &T,
+    entrypoint: Option<gix::ObjectId>,
+    entrypoint_ref: Option<gix::refs::FullName>,
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
-) -> anyhow::Result<crate::Graph> {
+) -> anyhow::Result<Option<crate::Graph>> {
     let mut cg = CommitGraph::from_repository(repo)?;
     let ws_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
     let ws_commit = repo
@@ -61,25 +63,37 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     cg.mark_integrated(target);
     let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(repo)?;
 
-    Ok(graph_from_commit_graph(
+    let ep = entrypoint.unwrap_or(ws_commit);
+    let graph = graph_from_commit_graph(
         &cg,
         ws_commit,
+        ep,
+        entrypoint_ref,
         target,
         &remote_tracking,
         Some(&stack_branches),
         meta,
         project_meta,
         options,
-    ))
+    );
+    // The entrypoint wasn't part of the managed workspace (an adhoc / outside checkout) — this builder
+    // doesn't cover that yet, so signal a fall-through to the walk.
+    if graph.entrypoint.is_none() {
+        return Ok(None);
+    }
+    Ok(Some(graph))
 }
 
 /// Build a segment [`Graph`](crate::Graph) from `cg`.
 ///
 /// Inputs mirror the projection's enrichment: the workspace commit, the target that bounds/integrates,
 /// and the local→remote tracking map. `project_meta`/`options` are carried onto the `Graph`.
+#[allow(clippy::too_many_arguments)]
 pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     cg: &CommitGraph,
     workspace_commit: gix::ObjectId,
+    entrypoint: gix::ObjectId,
+    entrypoint_ref: Option<gix::refs::FullName>,
     target: Option<gix::ObjectId>,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
@@ -265,6 +279,16 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // stack's branch order.
     insert_empty_branches(&mut sg, stack_branches);
 
+    // A checkout inside a stack (from_commit_traversal) splits the enclosing segment so the entrypoint
+    // begins its own segment — there is always a segment starting at the entrypoint.
+    let entrypoint_sidx = split_at_entrypoint_segment(
+        &mut sg,
+        cg,
+        entrypoint,
+        entrypoint_ref.as_ref(),
+        remote_tracking,
+    );
+
     // Classify each named segment by its ref's metadata: the workspace ref → Workspace, a tracked
     // branch → Branch, others → None. Matches the walk's `extract_local_branch_metadata`.
     for sidx in sg.node_indices().collect::<Vec<_>>() {
@@ -325,19 +349,62 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // Generations: longest path from a root (a segment with no incoming connections).
     assign_generations(&mut sg);
 
-    // The entrypoint is the workspace segment at the workspace commit (a managed workspace); needed by
-    // the projection (`into_workspace`).
-    let entrypoint = seg_of_tip
-        .get(&workspace_commit)
-        .map(|&sidx| (sidx, crate::EntryPointCommit::AtCommit(workspace_commit)));
+    let entrypoint =
+        entrypoint_sidx.map(|sidx| (sidx, crate::EntryPointCommit::AtCommit(entrypoint)));
 
     crate::Graph {
         inner: sg,
         entrypoint,
+        entrypoint_ref,
         project_meta,
         options,
         ..crate::Graph::default()
     }
+}
+
+/// Force a segment boundary at the `entrypoint` commit: the enclosing segment is split so the
+/// entrypoint begins its own segment (unless it already starts one). Returns the entrypoint segment.
+/// A checked-out `entrypoint_ref` names it; else it is disambiguated (anonymous when ambiguous).
+fn split_at_entrypoint_segment(
+    sg: &mut SegmentGraph,
+    cg: &CommitGraph,
+    entrypoint: gix::ObjectId,
+    entrypoint_ref: Option<&gix::refs::FullName>,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
+) -> Option<SegmentIndex> {
+    let (sidx, pos) = sg.node_indices().find_map(|sidx| {
+        sg.node(sidx)
+            .and_then(|s| s.commits.iter().position(|c| c.id == entrypoint))
+            .map(|pos| (sidx, pos))
+    })?;
+    if pos == 0 {
+        return Some(sidx);
+    }
+    let lower_commits = sg.node_mut(sidx).expect("present").commits.split_off(pos);
+    let moved_conns = std::mem::take(&mut sg.node_mut(sidx).expect("present").connections);
+    let name = entrypoint_ref
+        .cloned()
+        .or_else(|| disambiguated_ref(cg, entrypoint, remote_tracking));
+    let ref_info = name.clone().map(|ref_name| RefInfo {
+        ref_name,
+        commit_id: Some(entrypoint),
+        worktree: None,
+    });
+    let remote_tracking_ref_name = name.and_then(|n| remote_tracking.get(&n).cloned());
+    let new = sg.add_node(Segment {
+        id: 0,
+        generation: 0,
+        ref_info,
+        remote_tracking_ref_name,
+        sibling_segment_id: None,
+        remote_tracking_branch_segment_id: None,
+        commits: lower_commits,
+        metadata: None,
+        connections: moved_conns,
+    });
+    sg.node_mut(new).expect("just added").id = new;
+    sg.add_edge(sidx, Connection::new(new, None, None, None, None));
+    Some(new)
 }
 
 /// The first-parent commit run owned by `tip`: `tip` and each first-parent descendant-in-history until
