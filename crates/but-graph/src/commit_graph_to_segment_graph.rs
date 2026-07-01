@@ -256,7 +256,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             || merge_first_parents.contains(&c)
             || remote_rejoins.contains(&c)
             || metadata_commits.contains(&c)
-            || disambiguated_ref(cg, c, remote_tracking).is_some()
+            || disambiguated_ref(cg, c, remote_tracking, meta).is_some()
             || cg.all_parent_ids(c).len() > 1
             || {
                 let kids = children.get(&c).map(Vec::as_slice).unwrap_or_default();
@@ -310,12 +310,12 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
                 // Co-located stack tip / advanced ref (managed) or a non-managed symbolic tip: name by
                 // disambiguation — a stack branch when present, else anonymous. For the managed cases the
                 // empty workspace segment is spliced in above afterward.
-                disambiguated_ref(cg, tip, remote_tracking)
+                disambiguated_ref(cg, tip, remote_tracking, meta)
             } else {
                 None
             }
         } else {
-            disambiguated_ref(cg, tip, remote_tracking)
+            disambiguated_ref(cg, tip, remote_tracking, meta)
         };
         let ref_info = ref_name.map(|ref_name| RefInfo {
             ref_name,
@@ -372,6 +372,45 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         &in_set,
         &owner_of,
     );
+    // The TARGET remote must surface as a segment even when no local segment tracks it — its local
+    // ref may be a mere commit-ref on a stack commit (e.g. `main` on a stack tip the metadata branch
+    // names). The walk names the target's rejoin segment after the target and links it as sibling of
+    // the segment owning the local tracking ref's position.
+    if let Some(tr) = project_meta.target_ref.as_ref()
+        && tr.as_ref().category() == Some(Category::RemoteBranch)
+        && segment_by_ref(&sg, tr).is_none()
+        && let Some(tip) = cg.commit_by_ref(tr.as_ref())
+        && in_set.contains(&tip)
+        && let Some(owner_sidx) = segment_by_commit(&sg, tip)
+        && sg.node(owner_sidx).is_some_and(|s| s.ref_info.is_none())
+    {
+        if let Some(s) = sg.node_mut(owner_sidx) {
+            s.ref_info = Some(RefInfo {
+                ref_name: tr.clone(),
+                commit_id: Some(tip),
+                worktree: None,
+            });
+        }
+        // Sibling: the segment whose FIRST commit is the local tracking ref's position.
+        let local_sidx = remote_tracking
+            .iter()
+            .find(|(_, r)| *r == tr)
+            .and_then(|(local, _)| cg.commit_by_ref(local.as_ref()))
+            .and_then(|lc| {
+                segment_by_commit(&sg, lc).filter(|&sidx| {
+                    sidx != owner_sidx
+                        && sg
+                            .node(sidx)
+                            .is_some_and(|s| s.commits.first().is_some_and(|c| c.id == lc))
+                })
+            });
+        if let Some(local_sidx) = local_sidx
+            && let Some(s) = sg.node_mut(owner_sidx)
+        {
+            s.sibling_segment_id = Some(local_sidx);
+        }
+    }
+
     // A remote's ahead-run may absorb a lower remote's ref (e.g. `origin/split-segment` sitting inside
     // `origin/main`'s ahead commits): split it out into its own named segment first.
     split_remote_interior_refs(&mut sg);
@@ -416,6 +455,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             entrypoint,
             entrypoint_ref.as_ref(),
             remote_tracking,
+            meta,
         )
     };
 
@@ -533,12 +573,13 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
 /// Force a segment boundary at the `entrypoint` commit: the enclosing segment is split so the
 /// entrypoint begins its own segment (unless it already starts one). Returns the entrypoint segment.
 /// A checked-out `entrypoint_ref` names it; else it is disambiguated (anonymous when ambiguous).
-fn split_at_entrypoint_segment(
+fn split_at_entrypoint_segment<T: but_core::RefMetadata>(
     sg: &mut SegmentGraph,
     cg: &CommitGraph,
     entrypoint: gix::ObjectId,
     entrypoint_ref: Option<&gix::refs::FullName>,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
+    meta: &T,
 ) -> Option<SegmentIndex> {
     let (sidx, pos) = sg.node_indices().find_map(|sidx| {
         sg.node(sidx)
@@ -552,7 +593,7 @@ fn split_at_entrypoint_segment(
     let moved_conns = std::mem::take(&mut sg.node_mut(sidx).expect("present").connections);
     let name = entrypoint_ref
         .cloned()
-        .or_else(|| disambiguated_ref(cg, entrypoint, remote_tracking));
+        .or_else(|| disambiguated_ref(cg, entrypoint, remote_tracking, meta));
     let ref_info = name.clone().map(|ref_name| RefInfo {
         ref_name,
         commit_id: Some(entrypoint),
@@ -1407,10 +1448,17 @@ fn ancestors(cg: &CommitGraph, start: gix::ObjectId) -> HashSet<gix::ObjectId> {
 
 /// The unambiguous local-branch at `c`: prefer the single branch with a remote-tracking branch, else
 /// the single branch overall (mirrors the projection's remote-tiered disambiguation).
-fn disambiguated_ref(
+/// Pick the local branch that names the segment at `c`, mirroring the walk's tiers: ABOVE the base the
+/// unique branch with GitButler METADATA wins (`disambiguate_refs_by_branch_metadata` — a stack branch
+/// beats the target's local ref, e.g. `A` over `main`); at/below the base (Integrated) the target's
+/// local position wins instead (e.g. `main` over the stack's empty `below`, which floats above). Then
+/// the unique REMOTE-TRACKED branch (the walk's remote-local-tracking naming, e.g. `main` over a plain
+/// `new-A`), then the only branch, else anonymous.
+fn disambiguated_ref<T: but_core::RefMetadata>(
     cg: &CommitGraph,
     c: gix::ObjectId,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
+    meta: &T,
 ) -> Option<gix::refs::FullName> {
     let branches: Vec<gix::refs::FullName> = cg
         .refs_at(c)
@@ -1421,7 +1469,14 @@ fn disambiguated_ref(
         let mut it = branches.iter().filter(|r| pred(r));
         it.next().filter(|_| it.next().is_none()).cloned()
     };
-    unique(&|r| remote_tracking.contains_key(r)).or_else(|| unique(&|_| true))
+    let integrated = cg
+        .node(c)
+        .is_some_and(|n| n.commit.flags.contains(crate::CommitFlags::Integrated));
+    (!integrated)
+        .then(|| unique(&|r| segment_metadata(r.as_ref(), meta).is_some()))
+        .flatten()
+        .or_else(|| unique(&|r| remote_tracking.contains_key(r)))
+        .or_else(|| unique(&|_| true))
 }
 
 fn is_plain_local_branch(rn: &gix::refs::FullName) -> bool {
