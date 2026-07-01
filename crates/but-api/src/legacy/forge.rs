@@ -1,11 +1,17 @@
 //! In place of commands.rs
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
+use bstr::ByteSlice;
 use but_api_macros::but_api;
-use but_core::{RepositoryExt, ref_metadata::ProjectMeta};
+use but_core::{
+    RefMetadata as _, RepositoryExt,
+    git_config::{edit_repo_config, ensure_config_value},
+    ref_metadata::ProjectMeta,
+};
 use but_ctx::{Context, ThreadSafeContext};
 use but_forge::{
     ForgeName, ReviewTemplateFunctions, available_review_templates, get_review_template_functions,
 };
+use gitbutler_git::GitContextExt;
 use gitbutler_repo::{FileInfo, RepoCommands};
 use tracing::instrument;
 
@@ -236,9 +242,191 @@ pub fn list_reviews(
     )
 }
 
+/// Applies a forge review by resolving it to its source branch.
+///
+/// This fetches the review's head repository through a configured or newly
+/// created remote, applies the fetched remote-tracking branch, and records the
+/// review number on the applied branch metadata.
+#[but_api(napi, crate::branch::json::ApplyOutcome)]
+#[instrument(err(Debug))]
+pub fn review_apply(
+    ctx: &mut but_ctx::Context,
+    review_id: usize,
+) -> Result<but_workspace::branch::apply::Outcome> {
+    let (forge_repo_info, preferred_forge_user, target_protocol) = {
+        let project_meta = ctx.project_meta()?;
+        let repo = ctx.repo.get()?;
+        let remote_url = project_meta.remote_url_with_fallback(&repo)?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url)
+            .context("No supported forge could be determined for this repository")?;
+        let target_protocol = forge_repo_info.protocol.clone();
+        (
+            forge_repo_info,
+            ctx.legacy_project.preferred_forge_user.clone(),
+            target_protocol,
+        )
+    };
+
+    if forge_repo_info.forge != but_forge::ForgeName::GitHub {
+        bail!("Applying reviews is currently only supported for GitHub pull requests");
+    }
+
+    let review = {
+        let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+        let db = &mut *ctx.db.get_cache_mut()?;
+        but_forge::get_forge_review(
+            &preferred_forge_user,
+            &forge_repo_info,
+            review_id,
+            db,
+            &storage,
+        )?
+    };
+
+    let head_url = review_head_url(&review, &target_protocol)
+        .with_context(|| format!("Review #{review_id} does not include a source repository URL"))?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let remote_name = ensure_review_remote(ctx, &head_url, &review, review_id)?;
+    ctx.fetch(&remote_name, Some("apply review".into()))
+        .with_context(|| format!("Failed to fetch review remote '{remote_name}'"))?;
+    ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
+
+    let remote_ref: gix::refs::FullName =
+        format!("refs/remotes/{remote_name}/{}", review.source_branch)
+            .try_into()
+            .with_context(|| {
+                format!(
+                    "Review #{} source branch '{}' is not a valid remote-tracking reference",
+                    review_id, review.source_branch
+                )
+            })?;
+
+    let out = crate::branch::apply_with_perm(ctx, remote_ref.as_ref(), guard.write_permission())?;
+    if out.status.persisted_mutation()
+        && let Some(applied_branch_ref) = out.applied_branches.last()
+    {
+        let mut meta = ctx.meta()?;
+        let mut branch = meta.branch(applied_branch_ref.as_ref())?;
+        branch.review.pull_request = Some(review_id);
+        meta.set_branch(&branch)?;
+        ctx.invalidate_workspace_cache()?;
+    }
+    Ok(out)
+}
+
+fn review_head_url(review: &but_forge::ForgeReview, target_protocol: &str) -> Option<String> {
+    let prefers_ssh = target_protocol.eq_ignore_ascii_case("ssh")
+        || target_protocol.to_ascii_lowercase().contains("ssh");
+    if prefers_ssh {
+        review
+            .repository_ssh_url
+            .clone()
+            .or_else(|| review.repository_https_url.clone())
+    } else {
+        review
+            .repository_https_url
+            .clone()
+            .or_else(|| review.repository_ssh_url.clone())
+    }
+}
+
+fn ensure_review_remote(
+    ctx: &but_ctx::Context,
+    remote_url: &str,
+    review: &but_forge::ForgeReview,
+    review_id: usize,
+) -> Result<String> {
+    let repo = ctx.open_isolated_repo()?;
+    if let Some(existing) = find_remote_by_url(&repo, remote_url)? {
+        return Ok(existing);
+    }
+
+    let owner_hint = review
+        .repo_owner
+        .as_deref()
+        .or_else(|| review.author.as_ref().map(|author| author.login.as_str()));
+    let base_name = sanitize_remote_name(owner_hint.unwrap_or(""), review_id);
+    let remote_name = unique_remote_name(&repo, &base_name)?;
+    add_remote_to_config(&repo, &remote_name, remote_url)?;
+    Ok(remote_name)
+}
+
+fn find_remote_by_url(repo: &gix::Repository, remote_url: &str) -> Result<Option<String>> {
+    for name in repo.remote_names().iter() {
+        let remote = repo.find_remote(name.as_ref())?;
+        let Some(url) = remote.url(gix::remote::Direction::Fetch) else {
+            continue;
+        };
+        let configured = url.to_bstring().to_str_lossy().into_owned();
+        if remote_urls_match(&configured, remote_url) {
+            return Ok(Some(name.to_string()));
+        }
+    }
+    Ok(None)
+}
+
+fn remote_urls_match(configured: &str, candidate: &str) -> bool {
+    if configured == candidate {
+        return true;
+    }
+    let configured_info = but_forge::derive_forge_repo_info(configured);
+    let candidate_info = but_forge::derive_forge_repo_info(candidate);
+    configured_info.is_some() && configured_info == candidate_info
+}
+
+fn sanitize_remote_name(input: &str, review_id: usize) -> String {
+    let mut out = String::new();
+    let mut last_was_dash = false;
+    for ch in input.chars().flat_map(char::to_lowercase) {
+        let safe = ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-');
+        let next = if safe { ch } else { '-' };
+        if next == '-' {
+            if !last_was_dash {
+                out.push(next);
+            }
+            last_was_dash = true;
+        } else {
+            out.push(next);
+            last_was_dash = false;
+        }
+    }
+    let out = out.trim_matches(|ch| matches!(ch, '.' | '_' | '-'));
+    if out.is_empty() || out == "head" {
+        format!("pr-{review_id}")
+    } else {
+        out.to_owned()
+    }
+}
+
+fn unique_remote_name(repo: &gix::Repository, base: &str) -> Result<String> {
+    let mut candidate = base.to_owned();
+    let mut suffix = 2;
+    while repo.find_remote(candidate.as_str()).is_ok() {
+        candidate = format!("{base}-{suffix}");
+        suffix += 1;
+    }
+    Ok(candidate)
+}
+
+fn add_remote_to_config(repo: &gix::Repository, name: &str, remote_url: &str) -> Result<()> {
+    edit_repo_config(repo, gix::config::Source::Local, |config| {
+        let mut section = config.section_mut_or_create_new("remote", Some(name.into()))?;
+        section.push("url".try_into()?, Some(remote_url.into()));
+        ensure_config_value(
+            config,
+            &format!("remote.{name}.fetch"),
+            &format!("+refs/heads/*:refs/remotes/{name}/*"),
+        )?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use but_testsupport::{CommandExt, git_at_dir, open_repo};
 
     #[test]
     fn missing_review_template_returns_empty_content() {
@@ -257,6 +445,109 @@ mod tests {
             err.to_string(),
             "PR template exists but must be valid UTF-8 text or markdown"
         );
+    }
+
+    #[test]
+    fn review_remote_name_is_sanitized() {
+        assert_eq!(
+            sanitize_remote_name("Alice Cooper!", 42),
+            "alice-cooper",
+            "forge owner names become git remote-safe names"
+        );
+        assert_eq!(
+            sanitize_remote_name("...", 42),
+            "pr-42",
+            "empty sanitized names fall back to the review number"
+        );
+    }
+
+    #[test]
+    fn review_without_head_repository_url_has_no_applyable_source() {
+        let review = but_forge::ForgeReview {
+            html_url: "https://github.com/acme/widgets/pull/42".into(),
+            number: 42,
+            title: "Fork PR".into(),
+            body: None,
+            author: None,
+            labels: Vec::new(),
+            draft: false,
+            source_branch: "fork-feature".into(),
+            target_branch: "main".into(),
+            sha: "0000000000000000000000000000000000000000".into(),
+            integration_commit_shas: Vec::new(),
+            created_at: None,
+            modified_at: None,
+            merged_at: None,
+            closed_at: None,
+            repository_ssh_url: None,
+            repository_https_url: None,
+            repo_owner: Some("alice".into()),
+            head_repo_is_fork: true,
+            reviewers: Vec::new(),
+            unit_symbol: "#".into(),
+            last_sync_at: Default::default(),
+        };
+
+        assert!(
+            review_head_url(&review, "https").is_none(),
+            "reviews without a head repository URL cannot be fetched for apply"
+        );
+    }
+
+    #[test]
+    fn review_remote_name_collision_gets_suffix() -> Result<()> {
+        let tmp = tempfile::tempdir()?;
+        git_at_dir(tmp.path()).args(["init"]).run();
+        git_at_dir(tmp.path())
+            .args([
+                "remote",
+                "add",
+                "alice",
+                "https://github.com/elsewhere/widgets.git",
+            ])
+            .run();
+        let repo = open_repo(tmp.path())?;
+
+        assert_eq!(
+            unique_remote_name(&repo, "alice")?,
+            "alice-2",
+            "new fork remotes should not overwrite an existing remote"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn review_remote_reuses_matching_remote_by_exact_url() -> Result<()> {
+        let tmp = tempfile::tempdir()?;
+        git_at_dir(tmp.path()).args(["init"]).run();
+        git_at_dir(tmp.path())
+            .args(["remote", "add", "alice", "/tmp/alice/widgets.git"])
+            .run();
+        let repo = open_repo(tmp.path())?;
+
+        assert_eq!(
+            find_remote_by_url(&repo, "/tmp/alice/widgets.git")?,
+            Some("alice".to_string()),
+            "existing exact-url fork remotes should be reused"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn review_remote_reuses_matching_remote_by_forge_identity() -> Result<()> {
+        let tmp = tempfile::tempdir()?;
+        git_at_dir(tmp.path()).args(["init"]).run();
+        git_at_dir(tmp.path())
+            .args(["remote", "add", "alice", "git@github.com:alice/widgets.git"])
+            .run();
+        let repo = open_repo(tmp.path())?;
+
+        assert_eq!(
+            find_remote_by_url(&repo, "https://github.com/alice/widgets.git")?,
+            Some("alice".to_string()),
+            "matching GitHub remotes should be reused across SSH/HTTPS URL forms"
+        );
+        Ok(())
     }
 }
 

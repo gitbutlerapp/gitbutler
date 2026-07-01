@@ -397,6 +397,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::forge::tauri_forge_info::forge_info,
                 legacy::forge::tauri_forge_compare_branch_url::forge_compare_branch_url,
                 legacy::forge::tauri_list_reviews::list_reviews,
+                legacy::forge::tauri_review_apply::review_apply,
                 legacy::forge::tauri_get_review::get_review,
                 legacy::forge::tauri_get_review_merge_status::get_review_merge_status,
                 legacy::forge::tauri_get_review_base_repo_url::get_review_base_repo_url,
