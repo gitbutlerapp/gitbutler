@@ -211,10 +211,10 @@ bstr = "1.12.1"
 zip = { version = "4", default-features = false, features = ["bzip2"] }
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 # When adjusting this, update `gix-testtools` as well!
-gix = { version = "0.84.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "66f70f3063724b4145b21c6691c4f57892c7a74e", default-features = false, features = [
+gix = { version = "0.85.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "09642c6c0aab915a4f67a69848d10a225cce1405", default-features = false, features = [
     "sha1", "sha256"
 ] }
-gix-testtools = { version = "0.19.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "66f70f3063724b4145b21c6691c4f57892c7a74e" }
+gix-testtools = { version = "0.20.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "09642c6c0aab915a4f67a69848d10a225cce1405" }
 
 
 insta = { version = "1.47.2", features = ["json"] }
@@ -307,12 +307,12 @@ self_cell = "1.2.2"
 unicode-segmentation = "1.13.2"
 urlencoding = "2.1"
 inventory = "0.3"
-git-meta-lib = { git = "https://github.com/git-meta/git-meta", rev = "b40c108514a992abea2f739889376334481af1a3" }
+git-meta-lib = { git = "https://github.com/git-meta/git-meta", rev = "5ba15a99d53dcee5b4daa294010f285f41fedc92" }
 smallvec = "1.15.1"
 
 [patch.crates-io]
 # Keep workspace crates that use the `gix 0.84` line on the same git revision.
-gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "66f70f3063724b4145b21c6691c4f57892c7a74e" }
+gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "09642c6c0aab915a4f67a69848d10a225cce1405" }
 
 [workspace.lints.clippy]
 # Note that `all` doesn't include everything, so extra lints should be added here.
