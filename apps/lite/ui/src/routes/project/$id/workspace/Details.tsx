@@ -587,10 +587,15 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 				}}
 				className={classes(styles.fileHeader, (p.collapsed || !p.hasDiff) && styles.lone)}
 			>
-				<Icon
-					name={p.collapsed ? "chevron-right" : "chevron-down"}
+				<button
+					type="button"
+					aria-label="Toggle file diff"
+					aria-expanded={!p.collapsed}
+					className={styles.fileHeaderCollapseButton}
 					onClick={() => p.setCollapsed(!p.collapsed)}
-				/>
+				>
+					<Icon name={p.collapsed ? "chevron-right" : "chevron-down"} />
+				</button>
 				<h4 className={classes("text-13", styles.filePath)}>
 					{mpathInit}
 					<span className={styles.pathLast}>{pathLast}</span>
