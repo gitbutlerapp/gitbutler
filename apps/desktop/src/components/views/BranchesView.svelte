@@ -18,12 +18,13 @@
 	import TargetCommitList from "$components/views/TargetCommitList.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
+	import { newBranchApplyFeature } from "$lib/config/uiFeatureFlags";
 	import { isNormalizedError } from "$lib/error/normalizedError";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
 	import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
 	import { workspacePath } from "$lib/routes/routes.svelte";
-	import { handleApplyOutcome } from "$lib/stacks/stack";
+	import { handleApplyOutcome, handleCreateBranchFromBranchOutcome } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
 	import { inject } from "@gitbutler/core/context";
@@ -101,17 +102,27 @@
 	async function applyBranchToWorkspace(args: {
 		branchName: string;
 		remote?: string;
+		prNumber?: number;
 		hasLocal: boolean;
 	}) {
-		const { remote, hasLocal, branchName } = args;
+		const { remote, hasLocal, branchName, prNumber } = args;
 		const remoteRef = remote ? `refs/remotes/${remote}/${branchName}` : undefined;
 		const branchRef = hasLocal ? `refs/heads/${branchName}` : remoteRef;
 		if (branchRef) {
-			const outcome = await stackService.branchApply({
-				projectId,
-				existingBranch: branchRef,
-			});
-			handleApplyOutcome(outcome);
+			if ($newBranchApplyFeature) {
+				const outcome = await stackService.branchApply({
+					projectId,
+					existingBranch: branchRef,
+				});
+				handleApplyOutcome(outcome);
+			} else {
+				const outcome = await stackService.createVirtualBranchFromBranch({
+					projectId,
+					branch: branchRef,
+					prNumber,
+				});
+				handleCreateBranchFromBranchOutcome(outcome);
+			}
 			await baseBranchService.refreshBaseBranch(projectId);
 		}
 		goto(workspacePath(projectId));
@@ -315,6 +326,7 @@
 									result={combineResults(selectedBranch.result, listing.result)}
 								>
 									{#snippet children([branch, listing])}
+										{@const prNumber = branch.stack?.pullRequests[branchName]}
 										{@const inWorkspace = branch.stack?.inWorkspace}
 										{@const hasLocal = listing.hasLocal}
 										<!-- Apply branch -->
@@ -326,7 +338,12 @@
 													icon="workbench"
 													shrinkable
 													action={async () => {
-														await applyBranchToWorkspace({ remote, branchName, hasLocal });
+														await applyBranchToWorkspace({
+															remote,
+															branchName,
+															hasLocal,
+															prNumber,
+														});
 													}}
 												>
 													Apply to workspace
