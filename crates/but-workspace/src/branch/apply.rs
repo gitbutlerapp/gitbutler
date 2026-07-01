@@ -917,7 +917,7 @@ fn find_superseded_stacks(
         let mut superseded = Vec::new();
         graph.visit_all_segments_excluding_start_until(
             branch_segment.id,
-            petgraph::Direction::Outgoing,
+            Direction::Outgoing,
             |segment| {
                 let prune = _tip_commit_ids_and_sidx.iter().any(|(cid, sidx)| {
                     segment.id == *sidx || segment.commits.first().is_some_and(|c| c.id == *cid)
