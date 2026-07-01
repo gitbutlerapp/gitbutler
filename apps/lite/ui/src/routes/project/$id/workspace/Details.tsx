@@ -373,29 +373,23 @@ const DiffContents: FC<{
 
 	useHotkeys([
 		{
-			hotkey: "Mod+Alt+[",
+			hotkey: diffHotkeys.foldFile.hotkey,
 			callback: () => !!diffSelectionFile && handleSetCollapsed(diffSelectionFile.item.id)(true),
 			options: {
 				enabled: !!diffSelectionFile && !collapsedItems.has(diffSelectionFile.item.id),
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
-				meta: {
-					group: "Diff",
-					name: "Fold",
-				},
+				meta: diffHotkeys.foldFile.meta,
 			},
 		},
 		{
-			hotkey: "Mod+Alt+]",
+			hotkey: diffHotkeys.unfoldFile.hotkey,
 			callback: () => !!diffSelectionFile && handleSetCollapsed(diffSelectionFile.item.id)(false),
 			options: {
 				enabled: !!diffSelectionFile && collapsedItems.has(diffSelectionFile.item.id),
 				conflictBehavior: "allow",
 				target: selectionScopeRef,
-				meta: {
-					group: "Diff",
-					name: "Unfold",
-				},
+				meta: diffHotkeys.unfoldFile.meta,
 			},
 		},
 	]);
