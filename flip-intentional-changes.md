@@ -7,12 +7,18 @@ without clear value. Recorded here for the eventual commit message / PR body.
 
 ## 1. No duplicate parents in workspace merge commits
 The GitButler workspace merge previously encoded empty lanes as **repeated
-parents** (e.g. `[base, base]`). We abandon that: merge commits carry only
-distinct parents. The builder already collapses exact duplicate parents at
-read time, so lanes are derived from workspace metadata, not the parent array.
+parents** (e.g. `[base, base]`). We abandon that as a *design* idea: lanes are
+derived from workspace metadata, not the parent array. Both the walk and the
+flip collapse exact duplicate parents at read time
+(`CommitGraph::from_repository_seeded`: `[X,X]→[X]`, keeping `[X,Y]` and
+`[X,Y,X]→[X,Y]`), so a merge with repeated parents renders as if it had the
+distinct set.
 - **Effect:** no visible change to the rendered graph.
 - **Tests:** `duplicate_parent_connection_from_ws_commit_to_ambiguous_branch`
-  tests the abandoned scenario — dropped/rewritten.
+  and its `_no_advanced_target` sibling KEEP their fixtures with duplicated
+  parents and now assert the *deduped* outcome (the branch is visible once).
+  They stay as defensive coverage that dup-parent commits in the wild are
+  handled — they are not the abandoned "two lanes from dup parents" behavior.
 
 ## 2. The entrypoint segment is named, not forced anonymous
 When checked out *into* a stack (e.g. on branch `lane`), the walk forced the

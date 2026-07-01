@@ -387,6 +387,11 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // routing from the workspace segment (the empty one when present, else the ws-commit's segment).
         let ws_sidx = ws_empty_sidx.or_else(|| seg_of_tip.get(&workspace_commit).copied());
         insert_empty_branches(&mut sg, cg, ws_sidx, stack_branches);
+        // `add_remote_segments` linked each remote to the local that named its commit's segment. When a
+        // later pass (anonymize / empty-branch splicing) floats that local up into its own empty segment,
+        // the remote's sibling is left pointing at the now-anonymous segment below. Re-establish the
+        // walk's invariant — a remote `origin/X` is the sibling of the local segment named `X`.
+        reconcile_remote_siblings(&mut sg, remote_tracking);
     }
 
     // A checkout inside a stack (from_commit_traversal) splits the enclosing segment so the entrypoint
@@ -573,6 +578,47 @@ fn commit_run(
         id = cg.first_parent(c).filter(|p| in_set.contains(p));
     }
     out
+}
+
+/// Enforce the walk's remote↔local invariant after floats: a named remote segment `origin/X` is the
+/// sibling of the local segment named `X`, and that local carries `origin/X` as its remote-tracking ref
+/// + segment. Only repoints when such a distinct local segment exists, so a target ref that lives only
+/// as a commit ref (no local segment of its own) keeps the owning-segment sibling set for it elsewhere.
+fn reconcile_remote_siblings(
+    sg: &mut SegmentGraph,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
+) {
+    let local_of_remote: HashMap<&gix::refs::FullName, &gix::refs::FullName> =
+        remote_tracking.iter().map(|(l, r)| (r, l)).collect();
+    let mut fixes: Vec<(SegmentIndex, gix::refs::FullName, SegmentIndex)> = Vec::new();
+    for remote_sidx in sg.node_indices().collect::<Vec<_>>() {
+        let Some(remote_ref) = sg
+            .node(remote_sidx)
+            .and_then(|s| s.ref_info.as_ref())
+            .map(|ri| ri.ref_name.clone())
+        else {
+            continue;
+        };
+        if remote_ref.as_ref().category() != Some(Category::RemoteBranch) {
+            continue;
+        }
+        let Some(&local_name) = local_of_remote.get(&remote_ref) else {
+            continue;
+        };
+        let Some(local_sidx) = segment_by_ref(sg, local_name) else {
+            continue;
+        };
+        fixes.push((remote_sidx, remote_ref, local_sidx));
+    }
+    for (remote_sidx, remote_ref, local_sidx) in fixes {
+        if let Some(s) = sg.node_mut(remote_sidx) {
+            s.sibling_segment_id = Some(local_sidx);
+        }
+        if let Some(s) = sg.node_mut(local_sidx) {
+            s.remote_tracking_ref_name = Some(remote_ref);
+            s.remote_tracking_branch_segment_id = Some(remote_sidx);
+        }
+    }
 }
 
 fn add_remote_segments(

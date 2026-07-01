@@ -8183,7 +8183,21 @@ fn assert_cg_to_sg_worktree_parity(
 fn cg_to_sg_linked_worktrees() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/ambiguous-worktrees")?;
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
-    assert_cg_to_sg_worktree_parity(&repo, &*meta)
+    assert_cg_to_sg_worktree_parity(&repo, &*meta)?;
+    // The flip reaches full structural parity here too (worktrees + remote/local sibling links).
+    let real =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let built = but_graph::graph_from_repository(
+        &repo,
+        &*meta,
+        None,
+        None,
+        project_meta(&*meta),
+        standard_options(),
+    )?
+    .expect("managed workspace");
+    assert_eq!(graph_structure(&built), graph_structure(&real));
+    Ok(())
 }
 
 /// Assert the CommitGraph-built segment `Graph` is STRUCTURALLY identical (commit-id fingerprint,
