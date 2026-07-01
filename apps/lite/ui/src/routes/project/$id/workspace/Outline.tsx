@@ -19,7 +19,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Match } from "effect";
 import { type ComponentProps, type FC } from "react";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
-import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree.tsx";
+import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree/OutlineTree.tsx";
 import styles from "./Outline.module.css";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 

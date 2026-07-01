@@ -1,4 +1,4 @@
-import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
+import workspaceItemRowStyles from "../WorkspaceItemRow.module.css";
 import uiStyles from "#ui/components/ui.module.css";
 import {
 	useBranchCreate,
@@ -113,8 +113,8 @@ import {
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowLabelContainer,
 	WorkspaceItemRowToolbar,
-} from "./WorkspaceItemRow.tsx";
-import { getWorkspaceItemRowButtonClassName } from "./WorkspaceItemRow-utils.ts";
+} from "../WorkspaceItemRow.tsx";
+import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
 import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { initNonEmpty, reverse, scanRight } from "effect/Array";
