@@ -572,7 +572,8 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 		Match.when("deleted", () => "Deleted"),
 		Match.exhaustive,
 	);
-	const collapseLabel = p.collapsed ? "Expand file diff" : "Collapse file diff";
+	const collapseHotkey = p.collapsed ? diffHotkeys.unfoldFile : diffHotkeys.foldFile;
+	const collapseLabel = collapseHotkey.meta.name;
 
 	return (
 		<OperationSourceC projectId={p.projectId} source={fileOperand(p.operand)}>
@@ -593,13 +594,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					</Tooltip.Trigger>
 					<Tooltip.Portal>
 						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup
-								render={
-									<TooltipPopup
-										kbd={p.collapsed ? diffHotkeys.unfoldFile.hotkey : diffHotkeys.foldFile.hotkey}
-									/>
-								}
-							>
+							<Tooltip.Popup render={<TooltipPopup kbd={collapseHotkey.hotkey} />}>
 								{collapseLabel}
 							</Tooltip.Popup>
 						</Tooltip.Positioner>
