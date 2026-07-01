@@ -7925,6 +7925,40 @@ fn cg_proj_parity_advanced_stack_tip_outside() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_proj_parity_integrated_below_target_upstream_ahead() -> anyhow::Result<()> {
+    // Two stacks whose trunk below their fork points ('target', 'base') is integrated: the fork-point
+    // base floors each stack at its own divergence (my-branch on 2121f9c, old-branch on 322cb14),
+    // pruning the integrated trunk even though origin/main has advanced past the stored target.
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/integrated-below-target-upstream-ahead")?;
+    let target_id = repo.rev_parse_single("main~1")?.detach();
+    add_workspace_with_target(&mut meta, target_id);
+    add_stack_with_segments(&mut meta, 0, "my-branch", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 1, "old-branch", StackState::InWorkspace, &[]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
+fn cg_proj_parity_catchup_merge_below_target() -> anyhow::Result<()> {
+    // X forks below the target and catches up via `merge origin/main`, so the target enters X only
+    // through the merge's SECOND parent (off X's first-parent spine). The fork-point base floors X at
+    // its own divergence b4bd43f, keeping X's commits and pruning the trunk below.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/catchup-merge-leak")?;
+    let target_id = repo.rev_parse_single("main~2")?.detach();
+    add_workspace_with_target(&mut meta, target_id);
+    add_stack_with_segments(&mut meta, 0, "X", StackState::InWorkspace, &[]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
 fn cg_proj_parity_integrated_empty_tracked_stack_kept() -> anyhow::Result<()> {
     // With the target advanced to origin/main, my-branch's commits are all at/below its base (fully
     // integrated) so the stack is empty — but because it is metadata-tracked it is KEPT as an empty
