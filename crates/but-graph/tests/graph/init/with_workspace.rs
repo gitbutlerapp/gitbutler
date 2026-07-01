@@ -7734,10 +7734,16 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
 }
 
 /// Comparable `[(ref_name, [commit ids])]` from a commit-graph projection.
-/// Per stack: its base, then each segment's (ref name, remote-tracking ref, commits).
+/// Per stack: its base, then each segment's (ref name, remote-tracking ref, commits, remote-ahead
+/// commits).
 type StackShape = (
     Option<gix::ObjectId>,
-    Vec<(Option<String>, Option<String>, Vec<gix::ObjectId>)>,
+    Vec<(
+        Option<String>,
+        Option<String>,
+        Vec<gix::ObjectId>,
+        Vec<gix::ObjectId>,
+    )>,
 );
 
 fn cg_projection_shape(
@@ -7757,6 +7763,7 @@ fn cg_projection_shape(
                                 .as_ref()
                                 .map(|r| r.as_bstr().to_string()),
                             seg.commits.clone(),
+                            seg.commits_on_remote.clone(),
                         )
                     })
                     .collect(),
@@ -7781,6 +7788,7 @@ fn segment_projection_shape(ws: &but_graph::Workspace) -> Vec<StackShape> {
                                 .as_ref()
                                 .map(|r| r.as_bstr().to_string()),
                             seg.commits.iter().map(|c| c.id).collect(),
+                            seg.commits_on_remote.iter().map(|c| c.id).collect(),
                         )
                     })
                     .collect(),

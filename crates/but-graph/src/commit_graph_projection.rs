@@ -35,6 +35,21 @@ pub struct SegmentRun {
     pub commits: Vec<gix::ObjectId>,
     /// The remote-tracking branch ref for this segment's branch, if any (e.g. `refs/remotes/origin/A`).
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
+    /// Commits the remote-tracking branch is ahead by (only on the remote, not locally), tip-first.
+    pub commits_on_remote: Vec<gix::ObjectId>,
+}
+
+impl SegmentRun {
+    /// A run with the given name and commits; enrichment fields (remote tracking, remote-ahead commits)
+    /// are filled later from gathered data.
+    fn new(ref_name: Option<gix::refs::FullName>, commits: Vec<gix::ObjectId>) -> Self {
+        SegmentRun {
+            ref_name,
+            commits,
+            remote_tracking_ref_name: None,
+            commits_on_remote: Vec::new(),
+        }
+    }
 }
 
 /// A stack: its segments, tip-first.
@@ -128,12 +143,18 @@ pub fn gather(
                 // No metadata: fall back to slicing at each disambiguated local-branch ref on the spine.
                 None => segment_runs(cg, top, stack_base, &meta_branches, &all_tops),
             };
-            // Enrichment: attach each named segment's remote-tracking branch (a pure lookup by ref).
+            // Enrichment: attach each named segment's remote-tracking branch (a pure lookup by ref) and
+            // the commits that remote is ahead by (only on the remote, not reachable locally).
             for seg in &mut segments {
                 seg.remote_tracking_ref_name = seg
                     .ref_name
                     .as_ref()
                     .and_then(|rn| remote_tracking.get(rn).cloned());
+                if let Some(remote_ref) = &seg.remote_tracking_ref_name
+                    && let Some(local_tip) = seg.commits.first().copied()
+                {
+                    seg.commits_on_remote = commits_on_remote(cg, remote_ref, local_tip);
+                }
             }
             GatheredStack {
                 base: stack_base,
@@ -269,11 +290,7 @@ fn segment_by_branches(
                 Some(&c) if commit_has_ref(cg, c, b) || cg.refs_at(c).is_empty() => Some(b.clone()),
                 Some(_) => None,
             };
-            SegmentRun {
-                ref_name,
-                commits,
-                remote_tracking_ref_name: None,
-            }
+            SegmentRun::new(ref_name, commits)
         })
         // A metadata segment may still enclose a SHARED segment below it — a commit carrying a
         // (non-sibling-top) branch ref that another stack also passes through, e.g. a shared base
@@ -292,11 +309,7 @@ fn split_run_at_shared_refs(
     sibling_tops: &HashSet<gix::ObjectId>,
 ) -> Vec<SegmentRun> {
     let mut runs = Vec::new();
-    let mut current = SegmentRun {
-        ref_name: run.ref_name,
-        commits: Vec::new(),
-        remote_tracking_ref_name: None,
-    };
+    let mut current = SegmentRun::new(run.ref_name, Vec::new());
     for (i, &c) in run.commits.iter().enumerate() {
         if i > 0
             && !sibling_tops.contains(&c)
@@ -304,11 +317,7 @@ fn split_run_at_shared_refs(
         {
             runs.push(std::mem::replace(
                 &mut current,
-                SegmentRun {
-                    ref_name: Some(rn),
-                    commits: Vec::new(),
-                    remote_tracking_ref_name: None,
-                },
+                SegmentRun::new(Some(rn), Vec::new()),
             ));
         }
         current.commits.push(c);
@@ -350,11 +359,7 @@ fn segment_runs(
     sibling_tops: &HashSet<gix::ObjectId>,
 ) -> Vec<SegmentRun> {
     let mut runs = Vec::new();
-    let mut current = SegmentRun {
-        ref_name: disambiguated_branch_ref(cg, top, meta_branches),
-        commits: Vec::new(),
-        remote_tracking_ref_name: None,
-    };
+    let mut current = SegmentRun::new(disambiguated_branch_ref(cg, top, meta_branches), Vec::new());
     let mut id = Some(top);
     while let Some(c) = id {
         if Some(c) == base {
@@ -367,11 +372,7 @@ fn segment_runs(
             // `c` is the tip of a new segment.
             runs.push(std::mem::replace(
                 &mut current,
-                SegmentRun {
-                    ref_name: Some(rn),
-                    commits: Vec::new(),
-                    remote_tracking_ref_name: None,
-                },
+                SegmentRun::new(Some(rn), Vec::new()),
             ));
         }
         current.commits.push(c);
@@ -419,6 +420,30 @@ fn is_plain_local_branch(rn: &gix::refs::FullName) -> bool {
     let rn = rn.as_ref();
     rn.category() == Some(Category::LocalBranch)
         && !rn.as_bstr().starts_with_str("refs/heads/gitbutler/")
+}
+
+/// The commits a segment's remote-tracking branch is ahead by: walking the remote tip's first-parent
+/// spine and collecting commits until one is reachable from the segment's local tip. Empty when the
+/// remote ref is absent from the graph or the remote is not ahead.
+fn commits_on_remote(
+    cg: &CommitGraph,
+    remote_ref: &gix::refs::FullName,
+    local_tip: gix::ObjectId,
+) -> Vec<gix::ObjectId> {
+    let Some(remote_tip) = cg.commit_by_ref(remote_ref.as_ref()) else {
+        return Vec::new();
+    };
+    let local_ancestors = ancestors(cg, local_tip);
+    let mut out = Vec::new();
+    let mut id = Some(remote_tip);
+    while let Some(c) = id {
+        if local_ancestors.contains(&c) {
+            break;
+        }
+        out.push(c);
+        id = cg.first_parent(c);
+    }
+    out
 }
 
 /// The first-parent fork point of `top` against `target`: walking `top`'s first-parent spine, the
