@@ -381,7 +381,7 @@ const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats 
 	return stats;
 };
 
-const CommitControls: FC<{
+const CommitForm: FC<{
 	projectId: string;
 	commitTarget: CommitTargetComboboxItem | null;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
@@ -516,7 +516,7 @@ const CommitControls: FC<{
 	)}`;
 
 	return (
-		<form onSubmit={submit} className={styles.commitControls}>
+		<form onSubmit={submit} className={styles.commitForm}>
 			<textarea
 				id={commitMessageInputId}
 				ref={commitTextareaRef}
@@ -528,7 +528,7 @@ const CommitControls: FC<{
 				onFocus={selectChanges}
 			/>
 
-			<div className={styles.commitControlsFooter}>
+			<div className={styles.commitFormFooter}>
 				<Combobox.Root<CommitTargetComboboxItem>
 					items={targetComboboxItems}
 					open={open}
@@ -641,7 +641,7 @@ const UncommittedChanges: FC<{
 				onComposeCommitMessage={focusCommitMessageInput}
 			/>
 
-			<CommitControls
+			<CommitForm
 				projectId={projectId}
 				commitTarget={commitTarget}
 				targetComboboxItems={targetComboboxItems}

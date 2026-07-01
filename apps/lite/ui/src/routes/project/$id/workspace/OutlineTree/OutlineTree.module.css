@@ -55,7 +55,7 @@
 	flex-direction: column;
 }
 
-.commitControls {
+.commitForm {
 	display: flex;
 	row-gap: 10px;
 	flex-direction: column;
@@ -91,7 +91,7 @@
 	}
 }
 
-.commitControlsFooter {
+.commitFormFooter {
 	display: flex;
 	column-gap: 4px;
 	justify-content: space-between;
