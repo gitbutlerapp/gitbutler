@@ -731,13 +731,12 @@ fn restore_snapshot(
     let workdir_tree_id = get_workdir_tree(None, snapshot_commit_id, &gix_repo, ctx)?;
 
     // Check out the snapshot's worktree while HEAD still points at the pre-restore commit:
-    // safe_checkout diffs from `before_restore_snapshot_workdir_tree_id`, so
+    // checkout_tree diffs from `before_restore_snapshot_workdir_tree_id`, so
     // the workspace ref is repointed only afterwards (below).
-    but_core::worktree::safe_checkout(
-        before_restore_snapshot_workdir_tree_id,
-        workdir_tree_id,
+    but_core::worktree::checkout_tree(
         &gix_repo,
-        but_core::worktree::checkout::Options::default(),
+        workdir_tree_id,
+        Some(before_restore_snapshot_workdir_tree_id),
     )?;
 
     // Tracked content now matches the snapshot (untracked files outside the restored diff are

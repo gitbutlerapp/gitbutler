@@ -4,7 +4,10 @@ pub mod checkout;
 use std::{io::Read, path::Path};
 
 use bstr::BStr;
-pub use checkout::function::{safe_checkout, safe_checkout_from_head};
+pub use checkout::function::{
+    checkout_commit, checkout_tree, checkout_unconflicted_commit, safe_checkout,
+    safe_checkout_from_head,
+};
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 
 /// Read a worktree file into `buf` after converting it to what Git *would* store.

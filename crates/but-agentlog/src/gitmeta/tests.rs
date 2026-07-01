@@ -10,7 +10,7 @@ use crate::projection::{
     project_pr,
 };
 use crate::transcript::TranscriptBatch;
-use but_core::worktree::safe_checkout;
+use but_core::worktree::checkout_commit;
 use git_meta_lib::{MetaEdit, MetaValue, Session, Target};
 use gix::object::tree::EntryKind;
 use std::{fs, path::Path};
@@ -88,8 +88,7 @@ fn commit_file(repo: &Path, path: &str, body: &str) {
     let commit = repo
         .new_commit("test commit", tree_id, parents)
         .expect("write test commit");
-    safe_checkout(current_tree_id, commit.id, &repo, Default::default())
-        .expect("checkout test commit");
+    checkout_commit(&repo, commit.id, Some(current_tree_id)).expect("checkout test commit");
 }
 
 fn write_transcript(repo: &Path, body: &str) -> std::path::PathBuf {

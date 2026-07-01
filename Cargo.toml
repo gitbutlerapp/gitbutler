@@ -219,6 +219,7 @@ gix-testtools = { version = "0.19.0", git = "https://github.com/GitoxideLabs/git
 
 insta = { version = "1.47.2", features = ["json"] }
 git2 = { version = "0.21.0", features = [
+    "unstable-sha256",
     "vendored-openssl",
     "vendored-libgit2",
 ] }
@@ -313,6 +314,7 @@ smallvec = "1.15.1"
 [patch.crates-io]
 # Keep workspace crates that use the `gix 0.84` line on the same git revision.
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "66f70f3063724b4145b21c6691c4f57892c7a74e" }
+git2 = { git = "https://github.com/jonathantanmy2/git2-rs", rev = "9e2ec81c8d37ba5142e5fb97c5afbc2f43c6d7eb" }
 
 [workspace.lints.clippy]
 # Note that `all` doesn't include everything, so extra lints should be added here.

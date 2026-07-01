@@ -13,6 +13,83 @@ use crate::update_head_reference;
 
 use super::{Options, Outcome, utils::merge_worktree_changes_into_destination_or_keep_snapshot};
 
+/// Update the index and working directory (but not any refs). If
+/// `baseline_treeish` is None, `HEAD^{tree}` is used instead.
+pub fn checkout_tree(
+    repo: &gix::Repository,
+    treeish: gix::ObjectId,
+    baseline_treeish: Option<gix::ObjectId>,
+) -> anyhow::Result<()> {
+    let git2_repo = git2::Repository::open(repo.git_dir())?;
+    let baseline = if let Some(baseline_treeish) = baseline_treeish {
+        let baseline = git2_repo
+            .find_object(baseline_treeish.to_git2(), None)?
+            .peel_to_tree()?;
+        // libgit2 only pretends that HEAD's tree (and not the index) is the
+        // given baseline. We also need it to pretend that the index is the
+        // given baseline. That is not possible with the current API, so for
+        // now, write to the index to make it the given baseline.
+        git2_repo.index()?.read_tree(&baseline)?;
+        Some(baseline)
+    } else {
+        None
+    };
+
+    let mut opts = git2::build::CheckoutBuilder::new();
+    if let Some(ref baseline) = baseline {
+        opts.baseline(baseline);
+    }
+    git2_repo.checkout_tree(
+        &git2_repo.find_object(treeish.to_git2(), None)?,
+        Some(&mut opts),
+    )?;
+    Ok(())
+}
+
+/// Same as [checkout_tree()], except that HEAD is updated as well.
+pub fn checkout_commit(
+    repo: &gix::Repository,
+    commit: gix::ObjectId,
+    baseline_treeish: Option<gix::ObjectId>,
+) -> anyhow::Result<()> {
+    checkout_tree(repo, commit, baseline_treeish)?;
+    let needs_update = repo
+        .head()?
+        .id()
+        .is_none_or(|actual_head_id| actual_head_id != commit);
+    if needs_update {
+        // We play it loose here, as we assume a repository lock so we won't interfere with ourselves.
+        // Git itself enforces no lock either, so we rely on basic locking ref-locking here. Good enough.
+        let new_object = commit.attach(repo).object()?;
+        update_head_reference(
+            repo,
+            Target::Object(commit),
+            true,
+            "safe checkout",
+            "GitButler".into(),
+            new_object.into_commit().parent_ids().count(),
+        )?;
+    }
+    Ok(())
+}
+
+/// Same as [checkout_commit()], except that only unconflicted commits are allowed.
+///
+/// This function exists to preserve the behavior of existing code paths
+/// that require unconflicted commits, especially when checking out workspace
+/// commits. This should be removed once we support conflicted workspace
+/// commits.
+pub fn checkout_unconflicted_commit(
+    repo: &gix::Repository,
+    commit: gix::ObjectId,
+    baseline_treeish: Option<gix::ObjectId>,
+) -> anyhow::Result<()> {
+    if crate::Commit::from_id(commit.attach(repo))?.is_conflicted() {
+        bail!("Refusing to check out conflicted commit {commit}");
+    }
+    checkout_commit(repo, commit, baseline_treeish)
+}
+
 /// Like [`safe_checkout()`], but the current tree will always be fetched from
 pub fn safe_checkout_from_head(
     new_head_id: gix::ObjectId,

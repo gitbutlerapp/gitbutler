@@ -1,9 +1,6 @@
 //! Functions for materializing a rebase
 use anyhow::{Context, Result, bail};
-use but_core::{
-    ObjectStorageExt as _, RefMetadata,
-    worktree::{checkout::Options, safe_checkout_from_head},
-};
+use but_core::{ObjectStorageExt as _, RefMetadata, worktree::checkout_tree};
 use gix::refs::{
     Target,
     transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
@@ -48,15 +45,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
                     // If the head has changed (which means it's in the
                     // commit mapping), perform a safe checkout.
-                    safe_checkout_from_head(
-                        new_head,
-                        &repo,
-                        Options {
-                            skip_head_update: true,
-                            merge_base_override,
-                            allow_conflicted_commit_checkout: true,
-                        },
-                    )?;
+                    checkout_tree(&repo, new_head, merge_base_override)?;
                 }
             }
         }

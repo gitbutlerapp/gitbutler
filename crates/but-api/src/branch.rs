@@ -11,7 +11,7 @@ use but_core::{
     sync::RepoExclusive,
     ui::TreeChanges,
     update_head_reference,
-    worktree::{checkout, safe_checkout},
+    worktree::checkout_tree,
 };
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
@@ -929,16 +929,7 @@ fn checkout_ref_with_perm(
             )
         })?;
 
-        safe_checkout(
-            current_head,
-            target,
-            &repo,
-            checkout::Options {
-                skip_head_update: true,
-                ..Default::default()
-            },
-        )
-        .with_context(|| {
+        checkout_tree(&repo, target, Some(current_head)).with_context(|| {
             format!(
                 "Could not safely check out '{}' from {current_head} to {target}",
                 reference_name.as_bstr()
