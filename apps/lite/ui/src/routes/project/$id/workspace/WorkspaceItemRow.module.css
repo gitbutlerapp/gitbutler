@@ -57,6 +57,7 @@
 	column-gap: 6px;
 	flex-grow: 1;
 	min-width: 0;
+	margin-right: 2px;
 	padding-block: calc(
 		(var(--single-line-row-height) - var(--single-line-row-label-line-height)) / 2
 	);
