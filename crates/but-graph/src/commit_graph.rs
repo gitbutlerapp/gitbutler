@@ -194,6 +194,12 @@ impl CommitGraph {
         Ok(CommitGraph::from_commits(commits, Some(ws_commit)))
     }
 
+    /// Where traversal/HEAD started (a checkout inside a stack), if any. The projection forces a
+    /// segment boundary here — there is always a segment starting at the entrypoint.
+    pub fn entrypoint(&self) -> Option<gix::ObjectId> {
+        self.entrypoint
+    }
+
     /// The node at `id`, if present.
     pub fn node(&self, id: gix::ObjectId) -> Option<&CommitNode> {
         self.by_id.get(&id).map(|&idx| &self.nodes[idx])

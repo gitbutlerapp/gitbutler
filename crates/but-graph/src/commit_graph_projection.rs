@@ -161,6 +161,15 @@ pub fn gather(
                     remote_tracking,
                 ),
             };
+            // A checkout inside a stack forces a segment boundary at the entrypoint commit — there is
+            // always a segment starting there, even where nothing would otherwise split.
+            segments = split_at_entrypoint(
+                cg,
+                segments,
+                cg.entrypoint(),
+                &meta_branches,
+                remote_tracking,
+            );
             // Enrichment: attach each named segment's remote-tracking branch (a pure lookup by ref).
             for seg in &mut segments {
                 seg.remote_tracking_ref_name = seg
@@ -402,6 +411,38 @@ fn segment_by_branches(
             split_run_at_shared_refs(cg, run, meta_branches, sibling_tops, remote_tracking)
         })
         .collect()
+}
+
+/// Force a segment boundary at the `entrypoint` commit: the segment enclosing it is split so the
+/// entrypoint begins its own segment (unless it already starts one). The upper part keeps the original
+/// name; the lower part is named by normal disambiguation of the entrypoint commit (anonymous if
+/// ambiguous). Mirrors "there is always a segment starting at the entrypoint".
+fn split_at_entrypoint(
+    cg: &CommitGraph,
+    segments: Vec<SegmentRun>,
+    entrypoint: Option<gix::ObjectId>,
+    meta_branches: &HashSet<gix::refs::FullName>,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
+) -> Vec<SegmentRun> {
+    let Some(ep) = entrypoint else {
+        return segments;
+    };
+    let mut out = Vec::with_capacity(segments.len() + 1);
+    for seg in segments {
+        match seg.commits.iter().position(|&c| c == ep) {
+            // Split only when the entrypoint sits BELOW the segment's tip (pos 0 is already a boundary).
+            Some(pos) if pos > 0 => {
+                let (above, below) = seg.commits.split_at(pos);
+                out.push(SegmentRun::new(seg.ref_name, above.to_vec()));
+                out.push(SegmentRun::new(
+                    disambiguated_branch_ref(cg, ep, meta_branches, remote_tracking),
+                    below.to_vec(),
+                ));
+            }
+            _ => out.push(seg),
+        }
+    }
+    out
 }
 
 /// Split one segment run wherever a commit below its first carries a disambiguated local-branch ref

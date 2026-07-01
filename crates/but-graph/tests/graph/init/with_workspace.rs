@@ -8029,6 +8029,59 @@ fn cg_proj_parity_diverged_disjoint_target() -> anyhow::Result<()> {
     assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
 }
 
+/// Bridge-only parity (the entrypoint can't be replicated by `from_repository`, which pins it to the
+/// workspace commit): project the `from_segment_graph` CommitGraph and compare to the segment-based
+/// stacks.
+fn assert_bridge_projection_parity(
+    repo: &gix::Repository,
+    graph: but_graph::Graph,
+    stack_branches: &[Vec<gix::refs::FullName>],
+    target: Option<gix::ObjectId>,
+) -> anyhow::Result<()> {
+    let ws_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
+    let ws_commit = repo
+        .find_reference(&ws_ref)?
+        .peel_to_commit()?
+        .id()
+        .detach();
+    let remote_tracking = remote_tracking_map(repo)?;
+    let bridge = but_graph::commit_graph_projection::project(
+        &but_graph::CommitGraph::from_segment_graph(&graph),
+        ws_commit,
+        Some(stack_branches),
+        target,
+        &remote_tracking,
+    );
+    let ws = graph.into_workspace()?;
+    assert_eq!(
+        cg_projection_shape(&bridge),
+        segment_projection_shape(&ws),
+        "commit-graph projection (bridge) with an entrypoint should reproduce the segment-based stacks"
+    );
+    Ok(())
+}
+
+#[test]
+fn cg_proj_parity_entrypoint_splits_segment() -> anyhow::Result<()> {
+    // Checking out B-empty (2a31450) inside the single ambiguous B segment forces a boundary there: B
+    // keeps its upper commits, and the entrypoint starts a new anonymous segment (B-empty/ambiguous-01
+    // are ambiguous), matching the segment graph's 👉 split.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    add_workspace(&mut meta);
+    let (ep_id, _ref) = id_at(&repo, "B-empty");
+    let graph = Graph::from_commit_traversal(
+        ep_id,
+        None,
+        &*meta,
+        project_meta(&*meta),
+        standard_options(),
+    )?
+    .validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_bridge_projection_parity(&repo, graph, &stack_branches, target)
+}
+
 #[test]
 fn cg_proj_parity_disambiguate_by_remote() -> anyhow::Result<()> {
     // Each commit carries competing local branches; the one with a remote-tracking branch wins (A over
