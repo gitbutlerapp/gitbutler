@@ -494,40 +494,87 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     );
     // The TARGET remote must surface as a segment even when no local segment tracks it — its local
     // ref may be a mere commit-ref on a stack commit (e.g. `main` on a stack tip the metadata branch
-    // names). The walk names the target's rejoin segment after the target and links it as sibling of
-    // the segment owning the local tracking ref's position.
+    // names), or absent entirely. In the workspace, the walk names the target's rejoin segment after
+    // the target and links it as sibling of the segment owning the local tracking ref's position.
+    // Outside it (ahead or fully disjoint history), the target's own commits become a standalone
+    // remote segment.
     if let Some(tr) = project_meta.target_ref.as_ref()
         && tr.as_ref().category() == Some(Category::RemoteBranch)
         && segment_by_ref(&sg, tr).is_none()
         && let Some(tip) = cg.commit_by_ref(tr.as_ref())
-        && in_set.contains(&tip)
-        && let Some(owner_sidx) = segment_by_commit(&sg, tip)
-        && sg.node(owner_sidx).is_some_and(|s| s.ref_info.is_none())
     {
-        if let Some(s) = sg.node_mut(owner_sidx) {
-            s.ref_info = Some(RefInfo {
-                ref_name: tr.clone(),
-                commit_id: Some(tip),
-                worktree: None,
-            });
-        }
-        // Sibling: the segment whose FIRST commit is the local tracking ref's position.
-        let local_sidx = remote_tracking
-            .iter()
-            .find(|(_, r)| *r == tr)
-            .and_then(|(local, _)| cg.commit_by_ref(local.as_ref()))
-            .and_then(|lc| {
-                segment_by_commit(&sg, lc).filter(|&sidx| {
-                    sidx != owner_sidx
-                        && sg
-                            .node(sidx)
-                            .is_some_and(|s| s.commits.first().is_some_and(|c| c.id == lc))
-                })
-            });
-        if let Some(local_sidx) = local_sidx
-            && let Some(s) = sg.node_mut(owner_sidx)
-        {
-            s.sibling_segment_id = Some(local_sidx);
+        if in_set.contains(&tip) {
+            if let Some(owner_sidx) = segment_by_commit(&sg, tip)
+                && sg.node(owner_sidx).is_some_and(|s| s.ref_info.is_none())
+            {
+                if let Some(s) = sg.node_mut(owner_sidx) {
+                    s.ref_info = Some(RefInfo {
+                        ref_name: tr.clone(),
+                        commit_id: Some(tip),
+                        worktree: None,
+                    });
+                }
+                // Sibling: the segment whose FIRST commit is the local tracking ref's position.
+                let local_sidx = remote_tracking
+                    .iter()
+                    .find(|(_, r)| *r == tr)
+                    .and_then(|(local, _)| cg.commit_by_ref(local.as_ref()))
+                    .and_then(|lc| {
+                        segment_by_commit(&sg, lc).filter(|&sidx| {
+                            sidx != owner_sidx
+                                && sg
+                                    .node(sidx)
+                                    .is_some_and(|s| s.commits.first().is_some_and(|c| c.id == lc))
+                        })
+                    });
+                if let Some(local_sidx) = local_sidx
+                    && let Some(s) = sg.node_mut(owner_sidx)
+                {
+                    s.sibling_segment_id = Some(local_sidx);
+                }
+            }
+        } else {
+            // The target's own (remote) commits: its first-parent run until it rejoins the workspace,
+            // or all of them for a disjoint history.
+            let mut commits: Vec<Commit> = Vec::new();
+            let mut cursor = Some(tip);
+            let mut rejoin = None;
+            while let Some(id) = cursor {
+                if in_set.contains(&id) {
+                    rejoin = Some(id);
+                    break;
+                }
+                if let Some(node) = cg.node(id) {
+                    commits.push(node.commit.clone());
+                }
+                cursor = cg.first_parent(id);
+            }
+            if !commits.is_empty() {
+                let seg = sg.add_node(Segment {
+                    id: 0,
+                    generation: 0,
+                    ref_info: Some(RefInfo {
+                        ref_name: tr.clone(),
+                        commit_id: Some(tip),
+                        worktree: None,
+                    }),
+                    remote_tracking_ref_name: None,
+                    sibling_segment_id: None,
+                    remote_tracking_branch_segment_id: None,
+                    commits,
+                    metadata: None,
+                    connections: Vec::new(),
+                });
+                sg.node_mut(seg).expect("just added").id = seg;
+                if let Some(rejoin) = rejoin
+                    && let Some(owner_sidx) = segment_by_commit(&sg, rejoin)
+                {
+                    sg.add_edge(
+                        seg,
+                        Connection::new(owner_sidx, None, None, None, Some(rejoin)),
+                    );
+                }
+            }
         }
     }
 
