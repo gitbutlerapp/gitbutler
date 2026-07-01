@@ -54,8 +54,21 @@ pub struct ProjectionData {
     pub stack_tops: Vec<gix::ObjectId>,
     /// Where the stacks converge — the merge base of the tops. Segments stop here.
     pub base: Option<gix::ObjectId>,
-    /// Per stack top, its target-relative base and first-parent spine sliced into segments.
-    pub stacks: Vec<(Option<gix::ObjectId>, Vec<SegmentRun>)>,
+    /// One per stack top, in order.
+    pub stacks: Vec<GatheredStack>,
+}
+
+/// A single stack's gathered facts: its target-relative base, whether it is metadata-tracked, and its
+/// first-parent spine sliced into segments.
+#[derive(Debug, Clone)]
+pub struct GatheredStack {
+    /// The stack's target-relative base (the commit below its last segment).
+    pub base: Option<gix::ObjectId>,
+    /// Whether the stack has a metadata branch list (an in-workspace tracked branch). A tracked stack
+    /// is kept even when empty (a placeholder); an untracked, fully-integrated stack is dropped.
+    pub tracked: bool,
+    /// The stack's segments, tip-first.
+    pub segments: Vec<SegmentRun>,
 }
 
 /// Phase 1 — GATHER: read the commit graph (and, if given, each stack's ordered branch names) and
@@ -105,7 +118,11 @@ pub fn gather(
                 // No metadata: fall back to slicing at each disambiguated local-branch ref on the spine.
                 None => segment_runs(cg, top, stack_base, &meta_branches),
             };
-            (stack_base, segments)
+            GatheredStack {
+                base: stack_base,
+                tracked: aligned[i].is_some(),
+                segments,
+            }
         })
         .collect();
     ProjectionData {
@@ -120,11 +137,14 @@ pub fn gather(
 pub fn build(data: ProjectionData) -> Vec<StackView> {
     data.stacks
         .into_iter()
-        // Drop a stack with no commits at all: its tip is at/below its base, i.e. fully integrated
-        // into the target (all its commits are shared with, or reachable from, the target). Empty
-        // *branches* within an otherwise non-empty stack are kept.
-        .filter(|(_, segments)| segments.iter().any(|s| !s.commits.is_empty()))
-        .map(|(base, segments)| StackView { segments, base })
+        // Drop an UNTRACKED stack with no commits: its tip is at/below its base, i.e. fully integrated
+        // into the target (an integrated sibling). A metadata-tracked stack is kept even when empty (a
+        // placeholder branch), and empty *branches* within an otherwise non-empty stack are kept.
+        .filter(|s| s.tracked || s.segments.iter().any(|seg| !seg.commits.is_empty()))
+        .map(|s| StackView {
+            segments: s.segments,
+            base: s.base,
+        })
         .collect()
 }
 

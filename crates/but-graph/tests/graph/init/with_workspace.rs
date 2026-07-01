@@ -7925,6 +7925,36 @@ fn cg_proj_parity_advanced_stack_tip_outside() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_proj_parity_integrated_empty_tracked_stack_kept() -> anyhow::Result<()> {
+    // With the target advanced to origin/main, my-branch's commits are all at/below its base (fully
+    // integrated) so the stack is empty — but because it is metadata-tracked it is KEPT as an empty
+    // placeholder, not dropped like an untracked integrated sibling.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/integrated-above-target")?;
+    let main_id = repo.rev_parse_single("main")?.detach();
+    add_workspace_with_target(&mut meta, main_id);
+    add_stack_with_segments(&mut meta, 0, "my-branch", StackState::InWorkspace, &[]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
+fn cg_proj_parity_merge_from_main_in_branch() -> anyhow::Result<()> {
+    // The branch merges main into itself, then commits again. The fork point is the original
+    // divergence (fafd9d0), not the merged-in main tip (ef56fab, reachable only via the merge's second
+    // parent), so all three branch commits stay visible.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/merge-from-main-in-branch")?;
+    add_stack_with_segments(&mut meta, 0, "my-branch", StackState::InWorkspace, &[]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
 fn cg_proj_parity_integrated_merge_at_bottom() -> anyhow::Result<()> {
     // The stack's base is the first-parent fork point (fafd9d0), not the general merge-base with the
     // target (which reaches f5f42e0 via the merge's second parent, off the first-parent spine). The
