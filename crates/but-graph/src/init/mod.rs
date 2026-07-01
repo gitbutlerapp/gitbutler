@@ -556,23 +556,43 @@ impl Graph {
         options: Options,
     ) -> anyhow::Result<Self> {
         let head = repo.head()?;
-        // SPIKE flip (BUT_GRAPH_FLIP): for a managed workspace (HEAD on the workspace ref), build the
-        // segment graph from a CommitGraph instead of walking. Falls through to the walk otherwise.
-        if std::env::var_os("BUT_GRAPH_FLIP").is_some()
-            && matches!(
-                &head.kind,
-                gix::head::Kind::Symbolic(r) if r.name.as_bstr() == but_core::WORKSPACE_REF_NAME.as_bytes()
-            )
-        {
-            if let Some(graph) = crate::graph_from_repository(
-                repo,
-                meta,
-                None,
-                None,
-                project_meta.clone(),
-                options.clone(),
-            )? {
-                return Ok(graph);
+        // SPIKE flip (BUT_GRAPH_FLIP): build the segment graph from a CommitGraph instead of walking.
+        if std::env::var_os("BUT_GRAPH_FLIP").is_some() {
+            match &head.kind {
+                // Managed workspace: HEAD on the workspace ref.
+                gix::head::Kind::Symbolic(r)
+                    if r.name.as_bstr() == but_core::WORKSPACE_REF_NAME.as_bytes() =>
+                {
+                    if let Some(graph) = crate::graph_from_repository(
+                        repo,
+                        meta,
+                        None,
+                        None,
+                        project_meta.clone(),
+                        options.clone(),
+                    )? {
+                        return Ok(graph);
+                    }
+                }
+                // Non-managed: a plain branch checkout.
+                gix::head::Kind::Symbolic(r) => {
+                    let ref_name = r.name.clone();
+                    let tip = repo
+                        .find_reference(ref_name.as_ref())?
+                        .peel_to_id()?
+                        .detach();
+                    return crate::graph_from_repository_unmanaged(
+                        repo,
+                        meta,
+                        tip,
+                        Some(ref_name),
+                        true,
+                        project_meta.clone(),
+                        options.clone(),
+                    );
+                }
+                // Detached / unborn: fall through to the walk for now.
+                _ => {}
             }
         }
         let mut is_detached = false;

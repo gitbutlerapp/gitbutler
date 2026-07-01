@@ -86,6 +86,36 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     Ok(Some(graph))
 }
 
+/// Build a segment [`Graph`](crate::Graph) for a NON-managed checkout — a plain branch or detached
+/// HEAD, with no `gitbutler/workspace` merge. `head_tip` is the checked-out commit (the graph's tip);
+/// `head_symbolic` is false for a detached HEAD (forces the tip anonymous, no worktree marker).
+pub fn graph_from_repository_unmanaged<T: but_core::RefMetadata>(
+    repo: &gix::Repository,
+    meta: &T,
+    head_tip: gix::ObjectId,
+    entrypoint_ref: Option<gix::refs::FullName>,
+    head_symbolic: bool,
+    project_meta: but_core::ref_metadata::ProjectMeta,
+    options: crate::init::Options,
+) -> anyhow::Result<crate::Graph> {
+    let cg = CommitGraph::from_repository_unmanaged(repo, Some(head_tip))?;
+    let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(repo)?;
+    Ok(graph_from_commit_graph(
+        &cg,
+        head_tip,
+        head_tip,
+        entrypoint_ref,
+        None,
+        &remote_tracking,
+        None,
+        false,
+        head_symbolic,
+        meta,
+        project_meta,
+        options,
+    ))
+}
+
 /// Build a segment [`Graph`](crate::Graph) from `cg`.
 ///
 /// Inputs mirror the projection's enrichment: the workspace commit, the target that bounds/integrates,
@@ -185,28 +215,20 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             }
     };
 
-    // Assign each in-set commit to the segment tip that owns it: walk UP first-parents to the nearest
-    // boundary. The owner's commit run is [boundary .. next boundary) along first parents.
+    // Every boundary in the set starts a segment; each segment's commit run is the boundary plus its
+    // first-parent tail up to (excluding) the next boundary. These runs partition the set, so assigning
+    // each commit in a run to its boundary gives the owner directly — no reverse walk (a run's oldest
+    // commit, e.g. a root, has no first-parent path back up to its own boundary).
     let mut owner_of: HashMap<gix::ObjectId, gix::ObjectId> = HashMap::new();
-    for &c in &in_set {
-        let mut tip = c;
-        while !is_boundary(tip) {
-            match cg.first_parent(tip) {
-                Some(p) if in_set.contains(&p) => tip = p,
-                _ => break,
-            }
+    let mut tips: Vec<gix::ObjectId> = in_set.iter().copied().filter(|&c| is_boundary(c)).collect();
+    for &tip in &tips {
+        for c in commit_run(cg, tip, &in_set, &is_boundary) {
+            owner_of.insert(c.id, tip);
         }
-        owner_of.insert(c, tip);
     }
 
     // Segment tips in a stable order (workspace first, then by descending generation, then id) so the
     // numbering is deterministic even though it need not match the walk's.
-    let mut tips: Vec<gix::ObjectId> = owner_of
-        .values()
-        .copied()
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect();
     tips.sort_by_key(|&t| {
         (
             t != workspace_commit,

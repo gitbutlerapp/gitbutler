@@ -174,7 +174,27 @@ impl CommitGraph {
             .peel_to_commit()?
             .id()
             .detach();
+        Self::from_repository_seeded(repo, Some(ws_commit), Some(ws_commit))
+    }
 
+    /// Like [`Self::from_repository`], but for a non-managed checkout: there is no workspace ref, so no
+    /// commit carries [`InWorkspace`](crate::CommitFlags::InWorkspace). `head_tip` seeds the walk (and
+    /// `NotInRemote`) so the checked-out history is included even if no local branch names it.
+    pub fn from_repository_unmanaged(
+        repo: &gix::Repository,
+        head_tip: Option<gix::ObjectId>,
+    ) -> anyhow::Result<Self> {
+        Self::from_repository_seeded(repo, head_tip, None)
+    }
+
+    /// Shared builder. `head_seed` roots the walk / `NotInRemote` / entrypoint (the workspace octopus
+    /// merge when managed, else the checked-out tip). `ws_commit` marks
+    /// [`InWorkspace`](crate::CommitFlags::InWorkspace) — `None` for a non-managed checkout.
+    fn from_repository_seeded(
+        repo: &gix::Repository,
+        head_seed: Option<gix::ObjectId>,
+        ws_commit: Option<gix::ObjectId>,
+    ) -> anyhow::Result<Self> {
         // Refs pointing at each commit (heads + remotes, peeled).
         let mut refs_by_commit: HashMap<gix::ObjectId, Vec<gix::refs::FullName>> = HashMap::new();
         for mut reference in repo.references()?.all()?.filter_map(Result::ok) {
@@ -186,9 +206,10 @@ impl CommitGraph {
             }
         }
 
-        // Walk from the workspace commit AND every ref tip, so commits a remote-tracking branch is
+        // Walk from the workspace/head commit AND every ref tip, so commits a remote-tracking branch is
         // ahead by (not reachable from the workspace commit) are included too.
-        let seeds: Vec<gix::ObjectId> = std::iter::once(ws_commit)
+        let seeds: Vec<gix::ObjectId> = head_seed
+            .into_iter()
             .chain(refs_by_commit.keys().copied())
             .collect();
         let mut commits = Vec::new();
@@ -213,21 +234,23 @@ impl CommitGraph {
                 refs,
             });
         }
-        let mut cg = CommitGraph::from_commits(commits, Some(ws_commit));
+        let mut cg = CommitGraph::from_commits(commits, head_seed);
 
         // Reachability flags (each seeded on a tip, propagated to its ancestors — a commit carries a
         // flag iff it is an ancestor-or-self of a seed of that kind). See `CommitFlags`.
-        // InWorkspace: reachable from the workspace tip.
-        cg.mark_ancestors([ws_commit], crate::CommitFlags::InWorkspace);
-        // NotInRemote (negative): reachable from any NON-remote tip — the workspace commit and every
-        // local branch. A commit reachable only from remote-tracking tips stays remote-only.
+        // InWorkspace: reachable from the workspace tip (managed checkout only).
+        if let Some(ws_commit) = ws_commit {
+            cg.mark_ancestors([ws_commit], crate::CommitFlags::InWorkspace);
+        }
+        // NotInRemote (negative): reachable from any NON-remote tip — the workspace/head commit and
+        // every local branch. A commit reachable only from remote-tracking tips stays remote-only.
         let local_tips: Vec<gix::ObjectId> = refs_by_commit
             .iter()
             .filter(|(_, refs)| refs.iter().any(|r| is_plain_local_branch(r)))
             .map(|(id, _)| *id)
             .collect();
         cg.mark_ancestors(
-            std::iter::once(ws_commit).chain(local_tips),
+            head_seed.into_iter().chain(local_tips),
             crate::CommitFlags::NotInRemote,
         );
         // ShallowBoundary: the repository's shallow (grafted) commits.
