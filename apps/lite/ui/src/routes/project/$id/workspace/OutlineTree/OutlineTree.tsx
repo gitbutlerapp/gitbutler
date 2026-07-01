@@ -10,10 +10,7 @@ import {
 	useCommitMove,
 	useWorkspaceBranchAndAncestorsPush,
 	useWorkspaceIntegrateUpstream,
-	useRemoveBranch,
-	useTearOffBranch,
 	useUnapplyStack,
-	useUpdateBranchName,
 } from "#ui/api/mutations.ts";
 import {
 	changesInWorktreeQueryOptions,
@@ -36,10 +33,8 @@ import {
 	branchOperand,
 	uncommittedChangesOperand,
 	commitOperand,
-	operandEquals,
 	operandIdentityKey,
 	stackOperand,
-	type BranchOperand,
 	type Operand,
 } from "#ui/operands.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -63,7 +58,7 @@ import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/Outline
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import { Button, mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
+import { Button, mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -92,10 +87,8 @@ import {
 	Fragment,
 	SubmitEventHandler,
 	use,
-	useOptimistic,
 	useRef,
 	useState,
-	useTransition,
 } from "react";
 import styles from "./OutlineTree.module.css";
 import {
@@ -109,7 +102,7 @@ import {
 import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
 import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import { initNonEmpty, reverse, scanRight } from "effect/Array";
+import { reverse } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { GraphSegment, Status } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -123,16 +116,20 @@ import {
 } from "#ui/hotkeys.ts";
 import { segmentBottomRelativeTo, stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { prForgeUrl } from "#ui/pr.ts";
 import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
-import { InlineEditor } from "./InlineEditor.tsx";
 import { ItemRow } from "./ItemRow.tsx";
 import { useIsSelected } from "./useIsSelected.ts";
-import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { CommitRow } from "./CommitRow.tsx";
+import { BranchRow } from "./BranchRow.tsx";
+import {
+	partialStackPushDisabled,
+	partialStackStateFromSegments,
+	partialStackStatesFromSegments,
+	type PartialStackState,
+} from "./partialStackState.ts";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -1392,44 +1389,6 @@ const UncommittedChanges: FC<{
 	);
 };
 
-const pushStatusRequiresPush = (pushStatus: PushStatus): boolean =>
-	pushStatus === "unpushedCommits" ||
-	pushStatus === "unpushedCommitsRequiringForce" ||
-	pushStatus === "completelyUnpushed";
-
-type PartialStackState = {
-	requiresPush: boolean;
-	pushWithForce: boolean;
-	hasConflicts: boolean;
-	branchCount: number;
-};
-
-const emptyPartialStackState: PartialStackState = {
-	requiresPush: false,
-	pushWithForce: false,
-	hasConflicts: false,
-	branchCount: 0,
-};
-
-const addSegmentToPartialStackState = (
-	state: PartialStackState,
-	segment: Segment,
-): PartialStackState => ({
-	requiresPush: state.requiresPush || pushStatusRequiresPush(segment.pushStatus),
-	pushWithForce: state.pushWithForce || segment.pushStatus === "unpushedCommitsRequiringForce",
-	hasConflicts: state.hasConflicts || segment.commits.some((commit) => commit.hasConflicts),
-	branchCount: segment.refName ? state.branchCount + 1 : state.branchCount,
-});
-
-const partialStackPushDisabled = (partialStackState: PartialStackState): boolean =>
-	!partialStackState.requiresPush || partialStackState.hasConflicts;
-
-const partialStackStateFromSegments = (segments: Array<Segment>): PartialStackState =>
-	segments.reduce(addSegmentToPartialStackState, emptyPartialStackState);
-
-const partialStackStatesFromSegments = (segments: Array<Segment>): Array<PartialStackState> =>
-	initNonEmpty(scanRight(segments, emptyPartialStackState, addSegmentToPartialStackState));
-
 type PushContext = {
 	refName: BranchReference;
 	partialStackSegments: Array<Segment>;
@@ -1465,428 +1424,6 @@ const segmentPushStatusToStatus = (pushStatus: PushStatus): Status => {
 		case "integrated":
 			return "Integrated";
 	}
-};
-
-const BranchRow: FC<
-	{
-		projectId: string;
-		refName: BranchReference;
-		stackId: string;
-		isCommitTarget: boolean;
-		canTearOffBranch: boolean;
-		canRemoveBranch: boolean;
-		partialStackState: PartialStackState;
-		pushStatus: PushStatus;
-		pullRequest: number | null;
-		bottomRelativeTo: RelativeTo | null;
-		isTopSegment: boolean;
-	} & ComponentProps<"div">
-> = ({
-	projectId,
-	refName,
-	stackId,
-	isCommitTarget,
-	canTearOffBranch,
-	canRemoveBranch,
-	partialStackState,
-	pushStatus,
-	pullRequest,
-	bottomRelativeTo,
-	isTopSegment,
-	...restProps
-}) => {
-	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
-	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
-
-	const dispatch = useAppDispatch();
-	const branchOperandV: BranchOperand = {
-		stackId,
-		branchRef: refName.fullNameBytes,
-	};
-	const operand = branchOperand(branchOperandV);
-	const isDefaultMode = useAppSelector(
-		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
-	);
-	const isRenaming = useAppSelector((state) => {
-		const outlineMode = selectProjectOutlineModeState(state, projectId);
-		return (
-			outlineMode._tag === "RenameBranch" &&
-			operandEquals(operand, branchOperand(outlineMode.operand))
-		);
-	});
-	const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
-		refName.displayName,
-		(_currentBranchName, nextBranchName: string) => nextBranchName,
-	);
-	const [isRenamePending, startRenameTransition] = useTransition();
-
-	const updateBranchNameMutation = useUpdateBranchName({
-		projectId,
-		stackId,
-		branchRef: refName.fullNameBytes,
-		oldBranch: branchOperandV,
-	});
-
-	const startEditing = () => {
-		dispatch(projectActions.startRenameBranch({ projectId, branch: branchOperandV }));
-	};
-
-	const endEditing = () => {
-		dispatch(projectActions.exitMode({ projectId }));
-		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
-		focusSelectionScope("outline");
-	};
-
-	const toastManager = Toast.useToastManager();
-
-	const workspaceBranchAndAncestorsPushMutation = useWorkspaceBranchAndAncestorsPush();
-	const commitInsertBlankMutation = useCommitInsertBlank();
-	const tearOffBranchMutation = useTearOffBranch();
-	const removeBranchMutation = useRemoveBranch();
-	const branchCreateMutation = useBranchCreate();
-
-	const pushesMultipleBranches = partialStackState.branchCount > 1;
-
-	const saveBranchName = (newBranchName: string) => {
-		const trimmed = newBranchName.trim();
-		if (trimmed === "" || trimmed === refName.displayName) return;
-		startRenameTransition(async () => {
-			setOptimisticBranchDisplayName(trimmed);
-			try {
-				await updateBranchNameMutation.mutateAsync({
-					projectId,
-					stackId,
-					branchName: refName.displayName,
-					newName: trimmed,
-				});
-			} catch (error) {
-				// oxlint-disable-next-line no-console
-				console.error(error);
-
-				toastManager.add({
-					type: "error",
-					title: "Failed to rename branch",
-					description: errorMessageForToast(error),
-					priority: "high",
-				});
-			}
-		});
-	};
-
-	const relativeTo: RelativeTo = { type: "referenceBytes", subject: refName.fullNameBytes };
-	const bucketRelativeTo = (side: InsertSide): RelativeTo =>
-		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
-
-	const setCommitTarget = () => {
-		dispatch(projectActions.setCommitTarget({ projectId, commitTarget: relativeTo }));
-	};
-
-	const composeCommitHere = () => {
-		setCommitTarget();
-		focusCommitMessageInput();
-	};
-
-	const cutBranch = () => {
-		dispatch(
-			projectActions.enterTransferMode({
-				projectId,
-				mode: keyboardTransferOperationMode({
-					source: operand,
-					operationType: "into",
-				}),
-			}),
-		);
-		focusSelectionScope("outline");
-	};
-
-	const insertBlankCommit = (side: "above" | "below") => {
-		commitInsertBlankMutation.mutate({
-			projectId,
-			relativeTo,
-			side,
-			dryRun: false,
-		});
-	};
-
-	const createDependentBranch = (side: "above" | "below") => {
-		branchCreateMutation.mutate(
-			{
-				projectId,
-				newRef: null,
-				placement: {
-					type: "dependent",
-					subject: {
-						relativeTo: bucketRelativeTo(side),
-						side,
-					},
-				},
-			},
-			{
-				onSuccess: (response) => {
-					const newBranchStack = getHeadInfoIndex(
-						response.workspace.headInfo,
-					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
-
-					if (newBranchStack && newBranchStack.id !== null)
-						dispatch(
-							projectActions.selectOutline({
-								projectId,
-								selection: branchOperand({
-									stackId: newBranchStack.id,
-									branchRef: response.newRef.fullNameBytes,
-								}),
-							}),
-						);
-				},
-			},
-		);
-	};
-
-	const tearOffBranch = () => {
-		tearOffBranchMutation.mutate({
-			projectId,
-			subjectBranch: decodeBytes(refName.fullNameBytes),
-			dryRun: false,
-		});
-	};
-
-	const workspaceBranchAndAncestorsPush = () => {
-		workspaceBranchAndAncestorsPushMutation.mutate({
-			projectId,
-			branch: decodeBytes(refName.fullNameBytes),
-			withForce: partialStackState.pushWithForce,
-			skipForcePushProtection: false,
-			runHooks: true,
-			pushOpts: [],
-		});
-	};
-
-	const openPRInBrowser = async (): Promise<void> => {
-		if (mforgeUrl == null) return;
-
-		await window.lite.openInWebBrowser(mforgeUrl);
-	};
-
-	const workspaceBranchAndAncestorsPushDisabled =
-		workspaceBranchAndAncestorsPushMutation.isPending ||
-		partialStackPushDisabled(partialStackState);
-
-	const pushMenuLabel = pushesMultipleBranches
-		? partialStackState.pushWithForce
-			? "Force Push With Branches Below"
-			: "Push With Branches Below"
-		: partialStackState.pushWithForce
-			? "Force Push Branch"
-			: "Push Branch";
-
-	const menuItems: Array<NativeMenuItem> = [
-		nativeMenuItem({
-			label: pushMenuLabel,
-			enabled: !workspaceBranchAndAncestorsPushDisabled,
-			accelerator: toElectronAccelerator(outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey),
-			onSelect: workspaceBranchAndAncestorsPush,
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Rename Branch",
-			enabled: !isRenamePending,
-			accelerator: toElectronAccelerator(outlineHotkeys.renameBranch.hotkey),
-			onSelect: startEditing,
-		}),
-		nativeMenuItem({
-			label: "Cut Branch",
-			onSelect: cutBranch,
-			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
-		}),
-		nativeMenuItem({
-			label: "Copy Branch Name",
-			onSelect: () => window.lite.clipboardWriteText(optimisticBranchDisplayName),
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Compose Commit Here",
-			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
-			onSelect: composeCommitHere,
-			enabled: isDefaultMode,
-		}),
-		nativeMenuItem({
-			label: "Set Commit Target",
-			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
-			onSelect: setCommitTarget,
-			enabled: isDefaultMode,
-		}),
-		nativeMenuItem({
-			label: "Open In Browser",
-			enabled: mforgeUrl !== null,
-			accelerator: toElectronAccelerator(outlineHotkeys.openPRInBrowser.hotkey),
-			onSelect: openPRInBrowser,
-		}),
-		insertBlankCommitMenuItem(insertBlankCommit, "below"),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Create Branch",
-			submenu: [
-				nativeMenuItem({
-					label: "Above",
-					accelerator: toElectronAccelerator(outlineHotkeys.createDependentBranchAbove.hotkey),
-					onSelect: () => createDependentBranch("above"),
-				}),
-				nativeMenuItem({
-					label: "Below",
-					onSelect: () => createDependentBranch("below"),
-				}),
-			],
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Tear Off Branch",
-			enabled: canTearOffBranch && !tearOffBranchMutation.isPending,
-			onSelect: tearOffBranch,
-		}),
-		nativeMenuItem({
-			label: "Delete Branch Reference",
-			enabled: canRemoveBranch,
-			onSelect: () =>
-				removeBranchMutation.mutate({
-					projectId,
-					stackId,
-					branchName: decodeBytes(refName.fullNameBytes),
-				}),
-		}),
-	];
-
-	return (
-		<ItemRow
-			{...restProps}
-			projectId={projectId}
-			operand={operand}
-			onContextMenu={(event) => {
-				void showNativeContextMenu(event, menuItems);
-			}}
-			isCommitTarget={isCommitTarget}
-		>
-			<GraphSegment
-				glyph={isTopSegment ? "forkRight" : "joinRight"}
-				status={segmentPushStatusToStatus(pushStatus)}
-			/>
-
-			{isRenaming ? (
-				<InlineEditor
-					multiline={false}
-					heading
-					value={optimisticBranchDisplayName}
-					label="Branch name"
-					onMount={(el) => {
-						el.select();
-					}}
-					onSubmit={saveBranchName}
-					onExit={endEditing}
-				/>
-			) : (
-				<div className={styles.branchLabel}>
-					<WorkspaceItemRowLabelContainer>
-						<WorkspaceItemRowLabel heading>{optimisticBranchDisplayName}</WorkspaceItemRowLabel>
-					</WorkspaceItemRowLabelContainer>
-
-					<div className={classes("text-13", styles.branchLabelMeta)}>
-						<span className={classes(workspaceItemRowStyles.fadedText, styles.branchLabelMetaItem)}>
-							{Match.value(pushStatus).pipe(
-								Match.when("nothingToPush", () => "Nothing to push"),
-								Match.when("unpushedCommits", () => "Some unpushed"),
-								Match.when("completelyUnpushed", () => "Unpushed branch"),
-								Match.when("unpushedCommitsRequiringForce", () => "Some unpushed"),
-								Match.when("integrated", () => "Integrated"),
-								Match.exhaustive,
-							)}
-						</span>
-
-						{pullRequest !== null && (
-							<span
-								className={classes(workspaceItemRowStyles.fadedText, styles.branchLabelMetaItem)}
-							>
-								<Icon name="pr" />
-								PR
-							</span>
-						)}
-
-						{partialStackState.requiresPush &&
-							(() => {
-								const workspaceBranchAndAncestorsPushDisabledReason =
-									workspaceBranchAndAncestorsPushMutation.isPending
-										? "pushing"
-										: partialStackState.hasConflicts
-											? "disabled due to conflicts"
-											: null;
-
-								const pushButtonLabel = `${
-									pushesMultipleBranches
-										? partialStackState.pushWithForce
-											? "Force push this and all branches below"
-											: "Push this and all branches below"
-										: partialStackState.pushWithForce
-											? "Force push branch"
-											: "Push branch"
-								}${workspaceBranchAndAncestorsPushDisabledReason !== null ? ` (${workspaceBranchAndAncestorsPushDisabledReason})` : ""}`;
-
-								return (
-									<Tooltip.Root>
-										<Tooltip.Trigger
-											aria-label={pushButtonLabel}
-											onClick={workspaceBranchAndAncestorsPush}
-											className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
-											// We pass `disabled` here because we want to disable the button, not
-											// the tooltip. Other props should be passed above.
-											render={
-												<Button
-													focusableWhenDisabled
-													disabled={workspaceBranchAndAncestorsPushDisabled}
-												/>
-											}
-										>
-											Push
-											{workspaceBranchAndAncestorsPushMutation.isPending ? (
-												<Icon name="spinner" />
-											) : pushesMultipleBranches ? (
-												<Icon size={12} name="arrow-double-up" />
-											) : (
-												<Icon size={12} name="arrow-up" />
-											)}
-										</Tooltip.Trigger>
-										<Tooltip.Portal>
-											<Tooltip.Positioner sideOffset={4}>
-												<Tooltip.Popup
-													render={
-														<TooltipPopup
-															kbd={outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey}
-														/>
-													}
-												>
-													{pushButtonLabel}
-												</Tooltip.Popup>
-											</Tooltip.Positioner>
-										</Tooltip.Portal>
-									</Tooltip.Root>
-								);
-							})()}
-					</div>
-				</div>
-			)}
-
-			{isDefaultMode && (
-				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
-					<Toolbar.Button
-						aria-label="Branch menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-						}}
-						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
-			)}
-		</ItemRow>
-	);
 };
 
 const StackRow: FC<
@@ -2010,9 +1547,11 @@ const BranchSegment: FC<{
 						: false
 				}
 				pushStatus={segment.pushStatus}
+				graphStatus={segmentPushStatusToStatus(segment.pushStatus)}
 				pullRequest={segment.metadata?.review.pullRequest ?? null}
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				isTopSegment={isTopSegment}
+				onComposeCommitHere={focusCommitMessageInput}
 			/>
 
 			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation. */}

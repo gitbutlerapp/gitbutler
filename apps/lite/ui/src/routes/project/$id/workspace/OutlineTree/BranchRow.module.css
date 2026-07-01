@@ -1,0 +1,20 @@
+.label {
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+}
+
+.labelMeta {
+	display: flex;
+	align-items: center;
+	padding-block-end: 6px;
+	gap: 8px;
+}
+
+.labelMetaItem {
+	display: flex;
+	align-items: center;
+	/* Match small button height to prevent layout shift when buttons appear/disappear. */
+	height: 20px;
+	gap: 4px;
+}
