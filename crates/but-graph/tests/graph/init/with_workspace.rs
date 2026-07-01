@@ -8029,6 +8029,91 @@ fn cg_proj_parity_diverged_disjoint_target() -> anyhow::Result<()> {
     assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
 }
 
+/// The straight-from-git CommitGraph must compute the same per-commit `CommitFlags` (the standard
+/// four: NotInRemote/InWorkspace/Integrated/ShallowBoundary, ignoring goal bits) as the segment graph,
+/// whose flags the `from_segment_graph` bridge carries over. Compared on the segment graph's commits.
+fn assert_commit_flags_parity(
+    repo: &gix::Repository,
+    graph: &but_graph::Graph,
+    target: Option<gix::ObjectId>,
+) -> anyhow::Result<()> {
+    let oracle = but_graph::CommitGraph::from_segment_graph(graph);
+    let mut from_git = but_graph::CommitGraph::from_repository(repo)?;
+    from_git.mark_integrated(target);
+    let mask = but_graph::CommitFlags::all();
+    for id in oracle.commit_ids() {
+        let want = oracle.node(id).expect("present").commit.flags & mask;
+        let got = from_git.node(id).map(|n| n.commit.flags & mask);
+        assert_eq!(got, Some(want), "CommitFlags mismatch for {id}");
+    }
+    Ok(())
+}
+
+#[test]
+fn cg_flags_parity_single_stack_ambiguous() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/single-stack-ambiguous")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    assert_commit_flags_parity(&repo, &graph, target_commit(&repo, &*meta))
+}
+
+#[test]
+fn cg_flags_parity_two_stacks_empty_branch() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11483")?;
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &["below"]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    assert_commit_flags_parity(&repo, &graph, target_commit(&repo, &*meta))
+}
+
+#[test]
+fn cg_flags_parity_remote_ahead() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    assert_commit_flags_parity(&repo, &graph, target_commit(&repo, &*meta))
+}
+
+#[test]
+fn cg_flags_parity_deduced_remote_ahead() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/deduced-remote-ahead")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    assert_commit_flags_parity(&repo, &graph, target_commit(&repo, &*meta))
+}
+
+#[test]
+fn cg_flags_parity_advanced_stack_tip_outside() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/advanced-stack-tip-outside-workspace")?;
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    assert_commit_flags_parity(&repo, &graph, target_commit(&repo, &*meta))
+}
+
+#[test]
+fn cg_flags_parity_multi_lane_one_integrated() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/multi-lane-with-shared-segment-one-integrated")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    assert_commit_flags_parity(&repo, &graph, target_commit(&repo, &*meta))
+}
+
+#[test]
+fn cg_flags_parity_remote_includes_another_remote() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-includes-another-remote")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    assert_commit_flags_parity(&repo, &graph, target_commit(&repo, &*meta))
+}
+
 /// Bridge-only parity (the entrypoint can't be replicated by `from_repository`, which pins it to the
 /// workspace commit): project the `from_segment_graph` CommitGraph and compare to the segment-based
 /// stacks.

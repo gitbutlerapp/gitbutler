@@ -41,10 +41,20 @@
 
 use std::collections::HashMap;
 
+use bstr::ByteSlice;
+use gix::reference::Category;
+
 use crate::{Commit, CommitFlags};
 
 /// An index into a [`CommitGraph`]'s node arena.
 pub type CommitIdx = usize;
+
+/// A plain (non-`gitbutler/*`) local branch ref — a "non-remote" tip for flag seeding.
+fn is_plain_local_branch(rn: &gix::refs::FullName) -> bool {
+    let rn = rn.as_ref();
+    rn.category() == Some(Category::LocalBranch)
+        && !rn.as_bstr().starts_with_str("refs/heads/gitbutler/")
+}
 
 /// A node in the commit graph: a commit, plus where it sits topologically.
 #[derive(Debug, Clone)]
@@ -203,7 +213,67 @@ impl CommitGraph {
                 refs,
             });
         }
-        Ok(CommitGraph::from_commits(commits, Some(ws_commit)))
+        let mut cg = CommitGraph::from_commits(commits, Some(ws_commit));
+
+        // Reachability flags (each seeded on a tip, propagated to its ancestors — a commit carries a
+        // flag iff it is an ancestor-or-self of a seed of that kind). See `CommitFlags`.
+        // InWorkspace: reachable from the workspace tip.
+        cg.mark_ancestors([ws_commit], crate::CommitFlags::InWorkspace);
+        // NotInRemote (negative): reachable from any NON-remote tip — the workspace commit and every
+        // local branch. A commit reachable only from remote-tracking tips stays remote-only.
+        let local_tips: Vec<gix::ObjectId> = refs_by_commit
+            .iter()
+            .filter(|(_, refs)| refs.iter().any(|r| is_plain_local_branch(r)))
+            .map(|(id, _)| *id)
+            .collect();
+        cg.mark_ancestors(
+            std::iter::once(ws_commit).chain(local_tips),
+            crate::CommitFlags::NotInRemote,
+        );
+        // ShallowBoundary: the repository's shallow (grafted) commits.
+        if let Ok(shallow) = repo.shallow_commits()
+            && let Some(shallow) = shallow
+        {
+            for id in shallow.iter() {
+                cg.set_flag(*id, crate::CommitFlags::ShallowBoundary);
+            }
+        }
+        Ok(cg)
+    }
+
+    /// Set `flag` on every ancestor (inclusive) of any present `seed`, walking `parent_ids`.
+    fn mark_ancestors(
+        &mut self,
+        seeds: impl IntoIterator<Item = gix::ObjectId>,
+        flag: crate::CommitFlags,
+    ) {
+        let mut seen = std::collections::HashSet::new();
+        let mut stack: Vec<gix::ObjectId> = seeds.into_iter().collect();
+        while let Some(id) = stack.pop() {
+            let Some(&idx) = self.by_id.get(&id) else {
+                continue;
+            };
+            if !seen.insert(id) {
+                continue;
+            }
+            self.nodes[idx].commit.flags |= flag;
+            stack.extend(self.nodes[idx].commit.parent_ids.iter().copied());
+        }
+    }
+
+    /// Set `flag` on a single commit, if present.
+    fn set_flag(&mut self, id: gix::ObjectId, flag: crate::CommitFlags) {
+        if let Some(&idx) = self.by_id.get(&id) {
+            self.nodes[idx].commit.flags |= flag;
+        }
+    }
+
+    /// Mark commits `Integrated` — reachable from the target (e.g. `origin/main`). Separate from
+    /// [`Self::from_repository`] because the target comes from workspace metadata, not the repo alone.
+    pub fn mark_integrated(&mut self, target: Option<gix::ObjectId>) {
+        if let Some(target) = target {
+            self.mark_ancestors([target], crate::CommitFlags::Integrated);
+        }
     }
 
     /// Where traversal/HEAD started (a checkout inside a stack), if any. The projection forces a
