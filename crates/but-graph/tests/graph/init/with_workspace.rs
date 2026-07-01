@@ -8170,7 +8170,7 @@ fn cg_to_sg_one_integrated() -> anyhow::Result<()> {
     assert_cg_to_sg_parity(&repo, &*meta)
 }
 
-#[ignore = "frontier: anon segments + stack alignment"]
+#[ignore = "frontier: remote/target segment subsystem (untracked remotes, target outside workspace, condition-d rename gating)"]
 #[test]
 fn cg_to_sg_reproduce_11459() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-11459")?;
@@ -8181,6 +8181,45 @@ fn cg_to_sg_reproduce_11459() -> anyhow::Result<()> {
 #[test]
 fn cg_to_sg_advanced_tip_outside() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/advanced-stack-tip-outside-workspace")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[ignore = "frontier: remote/target segment subsystem (untracked remotes, target outside workspace, condition-d rename gating)"]
+#[test]
+fn cg_to_sg_integrated_merge_at_bottom() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/integrated-merge-at-bottom")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[test]
+fn cg_to_sg_merge_from_main() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/merge-from-main-in-branch")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[test]
+fn cg_to_sg_multiple_stacks_shared_remote() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/multiple-stacks-with-shared-segment-and-remote")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[ignore = "frontier: remote/target segment subsystem (untracked remotes, target outside workspace, condition-d rename gating)"]
+#[test]
+fn cg_to_sg_disambiguate_by_remote() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/disambiguate-by-remote")?;
+    add_workspace(&mut meta);
+    assert_cg_to_sg_parity(&repo, &*meta)
+}
+
+#[ignore = "frontier: remote/target segment subsystem (untracked remotes, target outside workspace, condition-d rename gating)"]
+#[test]
+fn cg_to_sg_remote_includes_another_remote() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/remote-includes-another-remote")?;
     add_workspace(&mut meta);
     assert_cg_to_sg_parity(&repo, &*meta)
 }

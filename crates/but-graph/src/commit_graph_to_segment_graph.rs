@@ -70,11 +70,21 @@ pub fn graph_from_commit_graph(
     // segment holds only the workspace commit, even when a parent is anonymous, e.g. an advanced tip).
     let ws_parents: HashSet<gix::ObjectId> = cg.parents(workspace_commit).collect();
 
+    // A merge commit's segment holds only the merge, so its FIRST parent starts its own segment (the
+    // second parent is already a boundary — reached by a non-first-parent edge).
+    let merge_first_parents: HashSet<gix::ObjectId> = in_set
+        .iter()
+        .filter(|&&c| cg.all_parent_ids(c).len() > 1)
+        .filter_map(|&c| cg.first_parent(c))
+        .filter(|p| in_set.contains(p))
+        .collect();
+
     // A commit starts a new segment when it carries a disambiguated ref, is the workspace tip, is a
     // merge, or is a convergence/branch point (reached by other than a single first-parent child).
     let is_boundary = |c: gix::ObjectId| -> bool {
         c == workspace_commit
             || ws_parents.contains(&c)
+            || merge_first_parents.contains(&c)
             || remote_rejoins.contains(&c)
             || disambiguated_ref(cg, c, remote_tracking).is_some()
             || cg.all_parent_ids(c).len() > 1
