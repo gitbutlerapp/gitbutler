@@ -540,6 +540,10 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             ws_empty_sidx =
                 insert_empty_workspace_segment(&mut sg, &seg_of_tip, cg, workspace_commit);
         }
+        // A metadata stack branch that ADVANCED past the workspace points at commits outside it —
+        // surface those as the branch's own segment above, sibling-linked from the in-workspace
+        // segment so the projection shows that segment under the advanced branch's name.
+        add_advanced_outside_branches(&mut sg, cg, &in_set, stack_branches);
         // Empty metadata branches (no commits) are spliced in at their place in the stack's branch order,
         // routing from the workspace segment (the empty one when present, else the ws-commit's segment).
         let ws_sidx = ws_empty_sidx.or_else(|| seg_of_tip.get(&workspace_commit).copied());
@@ -1287,6 +1291,76 @@ fn segment_by_ref(sg: &SegmentGraph, ref_name: &gix::refs::FullName) -> Option<S
             .and_then(|s| s.ref_info.as_ref())
             .is_some_and(|ri| &ri.ref_name == ref_name)
     })
+}
+
+/// A metadata stack branch pointing at a commit OUTSIDE the workspace has advanced past it. Surface
+/// its outside commits as a segment named after the branch: the first-parent run from its tip down to
+/// the first in-workspace commit, connected into the segment owning that commit. That owning segment
+/// gets a sibling link so the projection can display it under the advanced branch's name.
+fn add_advanced_outside_branches(
+    sg: &mut SegmentGraph,
+    cg: &CommitGraph,
+    in_set: &HashSet<gix::ObjectId>,
+    stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+) {
+    for b in stack_branches.into_iter().flatten().flatten() {
+        // Only LOCAL branches advance past a workspace; metadata can also list remote refs as stack
+        // branches, and those are handled by the remote passes.
+        if !is_plain_local_branch(b) || segment_by_ref(sg, b).is_some() {
+            continue;
+        }
+        let Some(tip) = cg.commit_by_ref(b.as_ref()) else {
+            continue;
+        };
+        if in_set.contains(&tip) {
+            continue;
+        }
+        // The branch's outside commits, down to where it rejoins the workspace.
+        let mut commits: Vec<Commit> = Vec::new();
+        let mut cursor = Some(tip);
+        let mut rejoin = None;
+        while let Some(id) = cursor {
+            if in_set.contains(&id) {
+                rejoin = Some(id);
+                break;
+            }
+            if let Some(node) = cg.node(id) {
+                commits.push(node.commit.clone());
+            }
+            cursor = cg.first_parent(id);
+        }
+        let (Some(rejoin), false) = (rejoin, commits.is_empty()) else {
+            continue;
+        };
+        let Some(owner_sidx) = segment_by_commit(sg, rejoin) else {
+            continue;
+        };
+        let seg = sg.add_node(Segment {
+            id: 0,
+            generation: 0,
+            ref_info: Some(RefInfo {
+                ref_name: b.clone(),
+                commit_id: Some(tip),
+                worktree: None,
+            }),
+            remote_tracking_ref_name: None,
+            sibling_segment_id: None,
+            remote_tracking_branch_segment_id: None,
+            commits,
+            metadata: None,
+            connections: Vec::new(),
+        });
+        sg.node_mut(seg).expect("just added").id = seg;
+        sg.add_edge(
+            seg,
+            Connection::new(owner_sidx, None, None, None, Some(rejoin)),
+        );
+        if let Some(owner) = sg.node_mut(owner_sidx)
+            && owner.sibling_segment_id.is_none()
+        {
+            owner.sibling_segment_id = Some(seg);
+        }
+    }
 }
 
 /// Splice each stack's empty metadata branches (no commits of their own) into the segment chain at
