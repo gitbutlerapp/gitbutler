@@ -33,11 +33,18 @@ pub fn graph_from_commit_graph(
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
 ) -> crate::Graph {
-    // The commit set the LOCAL segments span: everything reachable from the workspace commit. The
-    // integrated trunk below the base is reachable through it; remote-ahead commits are NOT (they hang
-    // off remote tips only) and become their own remote segments.
-    let _ = target;
-    let in_set: HashSet<gix::ObjectId> = ancestors(cg, workspace_commit);
+    // The commit set the LOCAL segments span: everything reachable from the workspace commit, plus the
+    // target's own history WHEN the target has a local branch (it is `NotInRemote`) — e.g. an
+    // integrated `main` that sits outside the workspace. A remote-only target (ahead of its local, not
+    // `NotInRemote`) is NOT added: it becomes a remote segment instead.
+    let mut in_set: HashSet<gix::ObjectId> = ancestors(cg, workspace_commit);
+    if let Some(t) = target
+        && cg
+            .node(t)
+            .is_some_and(|n| n.commit.flags.contains(crate::CommitFlags::NotInRemote))
+    {
+        in_set.extend(ancestors(cg, t));
+    }
 
     // In-set children per commit, to detect branch points (a commit reached by >1 child).
     let mut children: HashMap<gix::ObjectId, Vec<gix::ObjectId>> = HashMap::new();

@@ -8185,7 +8185,6 @@ fn cg_to_sg_advanced_tip_outside() -> anyhow::Result<()> {
     assert_cg_to_sg_parity(&repo, &*meta)
 }
 
-#[ignore = "frontier: remote/target segment subsystem (untracked remotes, target outside workspace, condition-d rename gating)"]
 #[test]
 fn cg_to_sg_integrated_merge_at_bottom() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/integrated-merge-at-bottom")?;
