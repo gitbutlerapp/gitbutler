@@ -579,7 +579,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { absorb, absorptionPlan, apply, applyBranchIntegration, assignHunk, branchCheckout, branchCheckoutNew, branchCreate, branchDetails, branchDiff, branchLand, changesInWorktree, changesInWorktreeWithPerm, commitAmend, commitCreate, commitDetailsWithLineStats, commitDiscard, commitDiscardChanges, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, discardWorktreeChanges, forgeCompareBranchUrl, forgeInfo, forgeProvider, getInitialBranchIntegration, getRedoTargetSnapshot, getRepoInfo, getReview, getReviewBaseRepoUrl, getReviewMergeStatus, getUndoTargetSnapshot, headInfo, initApplicationNamespace, listAvailableReviewTemplates, listBranches, listCiChecks, listEditors, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, openInEditor, peelRestoreSnapshot, publishReview, pushStack, removeBranch, restoreSnapshotWithKind, reviewApply, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateBranchName, updateReview, updateReviewFooters, warmCiChecksCache, workspaceBranchAndAncestorsPush, workspaceCheckout, workspaceIntegrateUpstream, WatcherHandle, askpassInit, askpassSubmitPromptResponse, watcherStart } = nativeBinding
+const { absorb, absorptionPlan, apply, applyBranchIntegration, assignHunk, branchCheckout, branchCheckoutNew, branchCreate, branchDetails, branchDiff, branchLand, changesInWorktree, changesInWorktreeWithPerm, commitAmend, commitCreate, commitDetailsWithLineStats, commitDiscard, commitDiscardChanges, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, discardWorktreeChanges, forgeCompareBranchUrl, forgeInfo, forgeProvider, getInitialBranchIntegration, getRedoTargetSnapshot, getRepoInfo, getReview, getReviewBaseRepoUrl, getReviewMergeStatus, getUndoTargetSnapshot, getWorkspace, headInfo, initApplicationNamespace, listAvailableReviewTemplates, listBranches, listCiChecks, listEditors, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, openInEditor, peelRestoreSnapshot, publishReview, pushStack, removeBranch, restoreSnapshotWithKind, reviewApply, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateBranchName, updateReview, updateReviewFooters, warmCiChecksCache, workspaceBranchAndAncestorsPush, workspaceCheckout, workspaceIntegrateUpstream, WatcherHandle, ANY_FORK, ANY_FORK_OR_MERGE, ANY_MERGE, askpassInit, askpassSubmitPromptResponse, CHILD, HORIZ_ANCESTOR, HORIZ_PARENT, HORIZONTAL, LEFT_FORK, LEFT_FORK_ANCESTOR, LEFT_FORK_PARENT, LEFT_MERGE, LEFT_MERGE_ANCESTOR, LEFT_MERGE_PARENT, RIGHT_FORK, RIGHT_FORK_ANCESTOR, RIGHT_FORK_PARENT, RIGHT_MERGE, RIGHT_MERGE_ANCESTOR, RIGHT_MERGE_PARENT, VERT_ANCESTOR, VERT_PARENT, VERTICAL, watcherStart } = nativeBinding
 export { absorb }
 export { absorptionPlan }
 export { apply }
@@ -616,6 +616,7 @@ export { getReview }
 export { getReviewBaseRepoUrl }
 export { getReviewMergeStatus }
 export { getUndoTargetSnapshot }
+export { getWorkspace }
 export { headInfo }
 export { initApplicationNamespace }
 export { listAvailableReviewTemplates }
@@ -649,6 +650,28 @@ export { workspaceBranchAndAncestorsPush }
 export { workspaceCheckout }
 export { workspaceIntegrateUpstream }
 export { WatcherHandle }
+export { ANY_FORK }
+export { ANY_FORK_OR_MERGE }
+export { ANY_MERGE }
 export { askpassInit }
 export { askpassSubmitPromptResponse }
+export { CHILD }
+export { HORIZ_ANCESTOR }
+export { HORIZ_PARENT }
+export { HORIZONTAL }
+export { LEFT_FORK }
+export { LEFT_FORK_ANCESTOR }
+export { LEFT_FORK_PARENT }
+export { LEFT_MERGE }
+export { LEFT_MERGE_ANCESTOR }
+export { LEFT_MERGE_PARENT }
+export { RIGHT_FORK }
+export { RIGHT_FORK_ANCESTOR }
+export { RIGHT_FORK_PARENT }
+export { RIGHT_MERGE }
+export { RIGHT_MERGE_ANCESTOR }
+export { RIGHT_MERGE_PARENT }
+export { VERT_ANCESTOR }
+export { VERT_PARENT }
+export { VERTICAL }
 export { watcherStart }

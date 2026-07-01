@@ -6,6 +6,8 @@ use serde::Serialize;
 pub mod diff;
 /// RefInfo types for the UI.
 pub mod ref_info;
+/// Detailed graph workspace types for the UI.
+pub mod workspace;
 
 pub use ref_info::inner::RefInfo;
 

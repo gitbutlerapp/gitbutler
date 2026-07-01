@@ -6,13 +6,30 @@ use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{
     DryRun, RefMetadata, extract_remote_name_and_short_name, is_workspace_ref_name,
-    sync::RepoExclusive,
+    sync::{RepoExclusive, RepoShared},
 };
 use but_forge::ForgeReview;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_serde::BStringForFrontend;
 use but_workspace::{IntegrateUpstreamOutcome, ReviewIntegrationHint};
 use tracing::{instrument, warn};
+
+/// Return the current detailed graph workspace for the frontend.
+///
+/// This is a read-only projection of the current workspace graph. It does not
+/// mutate the cached [`WorkspaceState`] returned by mutation APIs.
+#[but_api(napi)]
+#[instrument(skip_all, err(Debug))]
+pub fn get_workspace(
+    ctx: &but_ctx::Context,
+    perm: &RepoShared,
+) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
+    let mut meta = ctx.meta()?;
+    let (repo, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
+    let mut workspace = workspace.clone();
+    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo)
+        .map(Into::into)
+}
 
 /// Result of integrating upstream changes into the current workspace.
 #[derive(Debug, Clone)]
