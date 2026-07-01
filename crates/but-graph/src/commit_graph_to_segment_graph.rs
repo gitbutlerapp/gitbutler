@@ -198,6 +198,9 @@ pub fn graph_from_commit_graph(
     // segment, doubly-linked via siblings.
     add_remote_segments(cg, &mut sg, &seg_of_tip, &in_set, &owner_of);
     add_untracked_remote_segments(cg, &mut sg, &seg_of_tip, &in_set, &owner_of);
+    // Stacked remotes: a remote whose spine passes through another remote's tip stops there and
+    // connects into it, rather than absorbing the lower remote's commits.
+    split_stacked_remotes(&mut sg);
 
     // A workspace-stack tip that another stack flows into (via first-parent) is a SHARED commit: it is
     // anonymized into its own segment and its ref floats up as an empty placeholder that the workspace
@@ -377,6 +380,46 @@ fn add_untracked_remote_segments(
             sg.add_edge(
                 remote_sidx,
                 Connection::new(owner_sidx, None, None, None, Some(tip)),
+            );
+        }
+    }
+}
+
+/// Truncate any remote segment whose commit run passes through ANOTHER remote segment's tip, and
+/// re-point it there (stacked remotes: `origin/B` on top of `origin/A`).
+fn split_stacked_remotes(sg: &mut SegmentGraph) {
+    let is_remote = |sg: &SegmentGraph, sidx: SegmentIndex| {
+        sg.node(sidx)
+            .and_then(|s| s.ref_info.as_ref())
+            .is_some_and(|ri| ri.ref_name.as_ref().category() == Some(Category::RemoteBranch))
+    };
+    let mut remote_tip_sidx: HashMap<gix::ObjectId, SegmentIndex> = HashMap::new();
+    for sidx in sg.node_indices() {
+        if is_remote(sg, sidx)
+            && let Some(first) = sg.node(sidx).and_then(|s| s.commits.first())
+        {
+            remote_tip_sidx.insert(first.id, sidx);
+        }
+    }
+    for sidx in sg.node_indices().collect::<Vec<_>>() {
+        if !is_remote(sg, sidx) {
+            continue;
+        }
+        let commits = sg.node(sidx).map(|s| s.commits.clone()).unwrap_or_default();
+        let cut = commits.iter().enumerate().skip(1).find_map(|(i, c)| {
+            remote_tip_sidx
+                .get(&c.id)
+                .filter(|&&t| t != sidx)
+                .map(|&t| (i, c.id, t))
+        });
+        if let Some((i, cut_id, target_sidx)) = cut {
+            let s = sg.node_mut(sidx).expect("present");
+            s.commits.truncate(i);
+            s.connections.clear();
+            let src_last = s.commits.last().map(|c| c.id);
+            sg.add_edge(
+                sidx,
+                Connection::new(target_sidx, None, src_last, None, Some(cut_id)),
             );
         }
     }
