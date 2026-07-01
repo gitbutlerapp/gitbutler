@@ -9,7 +9,6 @@ import {
 	useCommitMove,
 	useWorkspaceBranchAndAncestorsPush,
 	useWorkspaceIntegrateUpstream,
-	useUnapplyStack,
 } from "#ui/api/mutations.ts";
 import {
 	changesInWorktreeQueryOptions,
@@ -21,13 +20,7 @@ import {
 import { getHeadInfoIndex, resolveRelativeTo, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
-import {
-	nativeMenuItem,
-	nativeMenuSeparator,
-	showNativeContextMenu,
-	showNativeMenuFromTrigger,
-	type NativeMenuItem,
-} from "#ui/native-menu.ts";
+import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
 import {
 	branchOperand,
 	uncommittedChangesOperand,
@@ -58,7 +51,6 @@ import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { Button, mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
-import { Toolbar } from "@base-ui/react/toolbar";
 import {
 	AbsorptionTarget,
 	BranchReference,
@@ -92,9 +84,7 @@ import {
 	WorkspaceItemRow,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowLabelContainer,
-	WorkspaceItemRowToolbar,
 } from "../WorkspaceItemRow.tsx";
-import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
 import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
 import { reverse } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -116,6 +106,7 @@ import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
 import { useIsSelected } from "./useIsSelected.ts";
 import { CommitRow } from "./CommitRow.tsx";
 import { BranchRow } from "./BranchRow.tsx";
+import { StackRow } from "./StackRow.tsx";
 import {
 	partialStackPushDisabled,
 	partialStackStateFromSegments,
@@ -1291,80 +1282,6 @@ const segmentPushStatusToStatus = (pushStatus: PushStatus): Status => {
 		case "integrated":
 			return "Integrated";
 	}
-};
-
-const StackRow: FC<
-	{
-		projectId: string;
-		stack: Stack;
-	} & Omit<ComponentProps<"div">, "onSelect">
-> = ({ projectId, stack, ...restProps }) => {
-	const relativeTo = stackBottomRelativeTo(stack);
-	const rebaseUpdate: BottomUpdate | null = relativeTo
-		? { kind: "rebase", selector: relativeTo }
-		: null;
-	const isDefaultMode = useAppSelector(
-		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
-	);
-
-	const unapplyStackMutation = useUnapplyStack();
-	const unapply = () => {
-		// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-		unapplyStackMutation.mutate({ projectId, stackId: stack.id! });
-	};
-
-	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream();
-	const updateStack = () => {
-		if (rebaseUpdate)
-			workspaceIntegrateUpstreamMutation.mutate({
-				projectId,
-				updates: [rebaseUpdate],
-				dryRun: false,
-			});
-	};
-
-	const menuItems: Array<NativeMenuItem> = [
-		nativeMenuItem({ label: "Move Up", enabled: false }),
-		nativeMenuItem({ label: "Move Down", enabled: false }),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Update Stack (Rebases)",
-			enabled: !!rebaseUpdate,
-			accelerator: toElectronAccelerator(outlineHotkeys.updateStack.hotkey),
-			onSelect: updateStack,
-		}),
-		nativeMenuItem({
-			label: "Unapply Stack",
-			enabled: !unapplyStackMutation.isPending,
-			onSelect: unapply,
-		}),
-	];
-
-	return (
-		<WorkspaceItemRow
-			{...restProps}
-			interactive={false}
-			onContextMenu={(event) => {
-				void showNativeContextMenu(event, menuItems);
-			}}
-		>
-			<WorkspaceItemRowLabelContainer />
-
-			{isDefaultMode && (
-				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar forceVisible />}>
-					<Toolbar.Button
-						aria-label="Stack menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-						}}
-						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
-			)}
-		</WorkspaceItemRow>
-	);
 };
 
 const BranchSegment: FC<{
