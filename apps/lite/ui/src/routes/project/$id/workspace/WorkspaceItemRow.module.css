@@ -74,10 +74,12 @@
 }
 
 .fadedText {
-	color: var(--text-2);
+	color: var(--text-1);
+	opacity: 0.4;
 
 	[data-selection-scope]:focus .containerSelected & {
-		color: var(--text-2-invert);
+		color: var(--text-1-invert);
+		opacity: 0.5;
 	}
 }
 
