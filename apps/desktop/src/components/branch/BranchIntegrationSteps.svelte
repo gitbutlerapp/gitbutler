@@ -215,16 +215,16 @@
 
 	.branch-integration__steps {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
 		overflow: auto;
 	}
 
 	.branch-integration__step {
 		display: flex;
-		flex-direction: column;
 		flex-shrink: 0;
+		flex-direction: column;
 		padding: 12px 14px;
 		gap: 10px;
 		border-bottom: 1px solid var(--border-2);
