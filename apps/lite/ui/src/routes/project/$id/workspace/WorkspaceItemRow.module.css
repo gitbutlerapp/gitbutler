@@ -47,7 +47,7 @@
 		padding-block: 4px;
 	}
 
-	button {
+	button:has([data-icon]) {
 		margin-inline: -4px;
 	}
 }

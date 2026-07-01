@@ -46,6 +46,7 @@ import { UseHotkeyDefinition, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { type RefObject } from "react";
+import { commitMessageInputId } from "./CommitForm.tsx";
 import { partialStackPushDisabled, partialStackStateFromSegments } from "./partialStackState.ts";
 import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
 
@@ -72,16 +73,18 @@ const pushContextForSegment = ({
 	};
 };
 
+const focusCommitMessageInput = () => {
+	document.getElementById(commitMessageInputId)?.focus();
+};
+
 export const useOutlineTreeHotkeys = ({
 	navigationIndex,
 	projectId,
 	ref,
-	onComposeCommitMessage,
 }: {
 	navigationIndex: NavigationIndex<Operand>;
 	projectId: string;
 	ref: RefObject<HTMLElement | null>;
-	onComposeCommitMessage: () => void;
 }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
@@ -156,7 +159,7 @@ export const useOutlineTreeHotkeys = ({
 
 	const composeCommitHere = (relativeTo: RelativeTo) => {
 		setCommitTarget(relativeTo);
-		onComposeCommitMessage();
+		focusCommitMessageInput();
 	};
 
 	const insertEmptyCommit = () => {
@@ -413,7 +416,7 @@ export const useOutlineTreeHotkeys = ({
 			hotkey: outlineHotkeys.composeCommitMessage.hotkey,
 			callback: () => {
 				dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
-				onComposeCommitMessage();
+				focusCommitMessageInput();
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -460,7 +463,7 @@ export const useOutlineTreeHotkeys = ({
 				(): Array<UseHotkeyDefinition> => [
 					{
 						hotkey: outlineHotkeys.composeCommitMessageFromChanges.hotkey,
-						callback: onComposeCommitMessage,
+						callback: focusCommitMessageInput,
 						options: {
 							conflictBehavior: "allow",
 							enabled: defaultOutlineHotkeysEnabled,
