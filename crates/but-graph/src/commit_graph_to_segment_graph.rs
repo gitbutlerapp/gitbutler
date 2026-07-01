@@ -176,6 +176,11 @@ pub fn graph_from_commit_graph(
     // segment, doubly-linked via siblings.
     add_remote_segments(cg, &mut sg, &seg_of_tip, &in_set, &owner_of);
 
+    // A workspace-stack tip that another stack flows into (via first-parent) is a SHARED commit: it is
+    // anonymized into its own segment and its ref floats up as an empty placeholder that the workspace
+    // connects to (the dependent-branch pattern).
+    anonymize_shared_stack_tips(cg, &mut sg, workspace_commit, &seg_of_tip, &in_set);
+
     // Empty metadata branches (no commits) are spliced in as empty segments at their place in the
     // stack's branch order.
     insert_empty_branches(&mut sg, stack_branches);
@@ -282,6 +287,66 @@ fn add_remote_segments(
                 Connection::new(dst, None, src_last, None, Some(rejoin)),
             );
         }
+    }
+}
+
+/// For each workspace-stack tip that another stack flows into via first-parent, anonymize the tip
+/// segment (drop its ref) and insert an empty segment carrying that ref between the workspace and the
+/// now-anonymous segment. This reproduces the dependent-branch shape (empty A → anon(shared) ← B).
+fn anonymize_shared_stack_tips(
+    cg: &CommitGraph,
+    sg: &mut SegmentGraph,
+    workspace_commit: gix::ObjectId,
+    seg_of_tip: &HashMap<gix::ObjectId, SegmentIndex>,
+    in_set: &HashSet<gix::ObjectId>,
+) {
+    let Some(&ws_sidx) = seg_of_tip.get(&workspace_commit) else {
+        return;
+    };
+    for parent in cg.parents(workspace_commit) {
+        let Some(&p_sidx) = seg_of_tip.get(&parent) else {
+            continue;
+        };
+        let has_ref = sg.node(p_sidx).is_some_and(|s| s.ref_info.is_some());
+        // Shared iff some other in-set commit's first parent is this tip (another stack depends on it).
+        let shared = in_set
+            .iter()
+            .any(|&c| c != workspace_commit && cg.first_parent(c) == Some(parent));
+        if !has_ref || !shared {
+            continue;
+        }
+        // Float the ref onto a new empty placeholder segment.
+        let ref_info = sg.node_mut(p_sidx).expect("present").ref_info.take();
+        if let Some(s) = sg.node_mut(p_sidx) {
+            s.remote_tracking_ref_name = None;
+            s.remote_tracking_branch_segment_id = None;
+        }
+        let placeholder = sg.add_node(Segment {
+            id: 0,
+            generation: 0,
+            ref_info,
+            remote_tracking_ref_name: None,
+            sibling_segment_id: None,
+            remote_tracking_branch_segment_id: None,
+            commits: Vec::new(),
+            metadata: None,
+            connections: Vec::new(),
+        });
+        sg.node_mut(placeholder).expect("just added").id = placeholder;
+        // Workspace now connects to the placeholder instead of directly to the shared segment.
+        if let Some(ws) = sg.node_mut(ws_sidx) {
+            for conn in &mut ws.connections {
+                if conn.target == p_sidx {
+                    conn.target = placeholder;
+                    conn.dst_id = None;
+                }
+            }
+        }
+        // Placeholder → the anonymized shared segment.
+        sg.add_edge(
+            placeholder,
+            Connection::new(p_sidx, None, None, None, Some(parent)),
+        );
     }
 }
 

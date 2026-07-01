@@ -8127,7 +8127,6 @@ fn cg_to_sg_two_stacks_empty_branch() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "frontier: shared commit between dependent branches → anon segment + empty ref placeholder"]
 fn cg_to_sg_dependent_branches() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-12146")?;
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
