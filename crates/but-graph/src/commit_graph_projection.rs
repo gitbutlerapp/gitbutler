@@ -104,8 +104,13 @@ pub fn gather(
     // Each stack's base is its OWN merge base with the target (origin/main): a stack's commits stop
     // where it forks from the target, so commits shared with the target/remote are excluded (they
     // belong to `commits_on_remote`/outside, not the segment). Without a target, fall back to the
-    // global merge base of all tops (which also fixes a single top being its own merge base).
-    let global_base = merge_base(cg, &stack_tops);
+    // global merge base — where the stacks converge. A lone stack has no convergence, so its base is
+    // the root (`None`); `merge_base` of one top would degenerately return the top itself.
+    let global_base = if stack_tops.len() >= 2 {
+        merge_base(cg, &stack_tops)
+    } else {
+        None
+    };
     // Metadata stacks aren't necessarily in the same order as the stack tops (the ws-commit parent
     // array), so match each top to the branch list one of its commits carries before zipping.
     let aligned = align_branches_to_tops(cg, &stack_tops, global_base, stack_branches);
@@ -502,16 +507,21 @@ fn commits_on_remote(
     let Some(remote_tip) = cg.commit_by_ref(remote_ref.as_ref()) else {
         return Vec::new();
     };
+    // Every commit reachable from the remote tip but NOT locally — a full reachability difference, so
+    // commits on a merge's second parent (only on the remote) are included, not just the first-parent
+    // spine. Order newest-first by generation (the segment graph's gen-then-time; we lack commit time,
+    // so tie-break by id for determinism).
     let local_ancestors = ancestors(cg, local_tip);
-    let mut out = Vec::new();
-    let mut id = Some(remote_tip);
-    while let Some(c) = id {
-        if local_ancestors.contains(&c) {
-            break;
-        }
-        out.push(c);
-        id = cg.first_parent(c);
-    }
+    let mut out: Vec<gix::ObjectId> = ancestors(cg, remote_tip)
+        .into_iter()
+        .filter(|c| !local_ancestors.contains(c))
+        .collect();
+    out.sort_by_key(|&c| {
+        (
+            std::cmp::Reverse(cg.node(c).map(|n| n.generation).unwrap_or(0)),
+            c,
+        )
+    });
     out
 }
 

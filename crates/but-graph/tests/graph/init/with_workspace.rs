@@ -8030,6 +8030,20 @@ fn cg_proj_parity_diverged_disjoint_target() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_proj_parity_deduced_remote_ahead() -> anyhow::Result<()> {
+    // Single stack A with NO target, and origin/A ahead by a merge: commits_on_remote must include the
+    // merge's second-parent commit (full reachability, generation-ordered), and the base walks to the
+    // root (no convergence for a lone stack without a target).
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/deduced-remote-ahead")?;
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
 fn cg_proj_parity_multiple_stacks_shared_remote() -> anyhow::Result<()> {
     // Two stacks B-on-A and C-on-A share the base segment A (which has a remote origin/A ahead). A is
     // NOT itself a stack top, so it forms a shared segment inside each stack — unlike a sibling stack
