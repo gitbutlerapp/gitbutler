@@ -11,6 +11,7 @@ import {
 } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
+import { FileIcon } from "#ui/components/FileIcon.tsx";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
@@ -304,7 +305,7 @@ const FileRow: FC<
 				}
 			>
 				<div className={styles.fileIconWithCheckbox}>
-					<Icon name="file" />
+					<FileIcon fileName={fileName} />
 					<Tooltip.Root
 						// This gets in the way when the user tries to move their hover to a
 						// sibling row.
