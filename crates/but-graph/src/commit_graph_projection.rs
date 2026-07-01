@@ -92,7 +92,11 @@ pub fn gather(
         .enumerate()
         .map(|(i, &top)| {
             let stack_base = match target {
-                Some(t) => merge_base(cg, &[top, t]),
+                // The base is the first-parent FORK POINT — the first commit on the stack's
+                // first-parent spine that is contained in the target. The general merge-base can sit
+                // off the first-parent line (reached via a merge's second parent), which would let the
+                // spine overshoot past its real base.
+                Some(t) => fork_point(cg, top, t).or(global_base),
                 None => global_base,
             };
             let segments = match &aligned[i] {
@@ -322,6 +326,26 @@ fn is_plain_local_branch(rn: &gix::refs::FullName) -> bool {
     let rn = rn.as_ref();
     rn.category() == Some(Category::LocalBranch)
         && !rn.as_bstr().starts_with_str("refs/heads/gitbutler/")
+}
+
+/// The first-parent fork point of `top` against `target`: walking `top`'s first-parent spine, the
+/// first commit that is contained in the target's history (an ancestor of, or equal to, `target`).
+/// This is where the stack's first-parent line rejoins the target — its base. Unlike the general
+/// merge-base it never lands off the first-parent spine (which would let the spine overshoot).
+fn fork_point(
+    cg: &CommitGraph,
+    top: gix::ObjectId,
+    target: gix::ObjectId,
+) -> Option<gix::ObjectId> {
+    let target_ancestors = ancestors(cg, target);
+    let mut id = Some(top);
+    while let Some(c) = id {
+        if target_ancestors.contains(&c) {
+            return Some(c);
+        }
+        id = cg.first_parent(c);
+    }
+    None
 }
 
 /// The merge base of `tops` — the highest-generation commit that is an ancestor of all of them.

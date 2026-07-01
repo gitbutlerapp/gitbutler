@@ -7925,6 +7925,35 @@ fn cg_proj_parity_advanced_stack_tip_outside() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_proj_parity_integrated_merge_at_bottom() -> anyhow::Result<()> {
+    // The stack's base is the first-parent fork point (fafd9d0), not the general merge-base with the
+    // target (which reaches f5f42e0 via the merge's second parent, off the first-parent spine). The
+    // integrated merge commit 0b3ccaf is kept because it is above the target.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/integrated-merge-at-bottom")?;
+    add_stack_with_segments(&mut meta, 0, "local-stack", StackState::InWorkspace, &[]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
+fn cg_proj_parity_reproduce_12146() -> anyhow::Result<()> {
+    // Dependent branches: B is stacked on A, and both are workspace stacks (ws-commit parents). A owns
+    // only the shared commit 81d4e38; B owns its own commit plus 81d4e38 — the shared commit appears in
+    // both stacks, and B does not carve out a nested "A" segment.
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-12146")?;
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
 fn cg_proj_parity_multi_lane_shared_segment() -> anyhow::Result<()> {
     // Three stacks (A, B, D) sharing an S1..S3 "shared" segment, with D stacked on the non-workspace
     // C. The shared segment repeats in every stack — the per-stack spine walk reproduces that.
