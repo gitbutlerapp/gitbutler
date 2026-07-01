@@ -140,8 +140,8 @@
 
 	let prBranch = $state<BranchesViewPr>();
 
-	function applyFromFork() {
-		prBranch?.applyPr();
+	async function applyFromFork() {
+		await prBranch?.applyPr();
 	}
 
 	let deleteLocalBranchModal = $state<Modal>();
@@ -405,13 +405,13 @@
 							{:else if selection.type === "pr"}
 								{@const prNumber = selection.prNumber}
 								<div class="branch-actions">
-									<Button
+									<AsyncButton
 										testId={TestId.BranchesViewApplyFromForkButton}
 										icon="workbench"
-										onclick={applyFromFork}
+										action={applyFromFork}
 									>
 										Apply {reviewUnitAbbr} to workspace
-									</Button>
+									</AsyncButton>
 								</div>
 								<BranchesViewPr bind:this={prBranch} {projectId} {prNumber} {onerror} />
 							{/if}

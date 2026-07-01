@@ -886,6 +886,23 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 			],
 		}),
+		reviewApply: build.mutation<ApplyOutcome, { projectId: string; reviewId: number }>({
+			extraOptions: {
+				command: "review_apply",
+				actionName: "Apply Review",
+			},
+			query: (args) => args,
+			invalidatesTags: [
+				invalidatesList(ReduxTag.HeadMetadata),
+				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.WorktreeChanges),
+				invalidatesList(ReduxTag.Stacks),
+				invalidatesList(ReduxTag.StackDetails),
+				invalidatesList(ReduxTag.BranchListing),
+				invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+				invalidatesList(ReduxTag.PullRequests),
+			],
+		}),
 		createVirtualBranchFromBranch: build.mutation<
 			CreateBranchFromBranchOutcome,
 			{ projectId: string; branch: string; prNumber?: number }

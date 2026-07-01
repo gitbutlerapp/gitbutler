@@ -3,12 +3,13 @@
 	import PRListCard from "$components/branchesPage/PRListCard.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { newBranchApplyFeature } from "$lib/config/uiFeatureFlags";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { REMOTES_SERVICE } from "$lib/git/remotesService";
 	import { showWarning } from "$lib/notifications/toasts";
 	import { workspacePath } from "$lib/routes/routes.svelte";
-	import { handleCreateBranchFromBranchOutcome } from "$lib/stacks/stack";
+	import { handleApplyOutcome, handleCreateBranchFromBranchOutcome } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 
 	import { inject } from "@gitbutler/core/context";
@@ -81,8 +82,23 @@
 		}
 	}
 
-	export function applyPr() {
-		createRemoteModal?.show();
+	export async function applyPr() {
+		if (!$newBranchApplyFeature) {
+			createRemoteModal?.show();
+			return;
+		}
+
+		loading = true;
+		try {
+			const outcome = await stackService.reviewApply({
+				projectId,
+				reviewId: prNumber,
+			});
+			handleApplyOutcome(outcome);
+			goto(workspacePath(projectId));
+		} finally {
+			loading = false;
+		}
 	}
 </script>
 

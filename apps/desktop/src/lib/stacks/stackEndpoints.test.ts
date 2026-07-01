@@ -261,6 +261,36 @@ describe("buildStackEndpoints", () => {
 		]);
 	});
 
+	test("uses review_apply for review application", () => {
+		const endpoints = buildStackEndpoints(createEndpointBuilder());
+		const query = endpoints.reviewApply.query;
+
+		expect(endpoints.reviewApply.extraOptions).toEqual({
+			command: "review_apply",
+			actionName: "Apply Review",
+		});
+		expect(query).toBeDefined();
+		expect(
+			query?.({
+				projectId: "project-1",
+				reviewId: 42,
+			}),
+		).toEqual({
+			projectId: "project-1",
+			reviewId: 42,
+		});
+		expect(endpoints.reviewApply.invalidatesTags).toEqual([
+			invalidatesList(ReduxTag.HeadMetadata),
+			invalidatesList(ReduxTag.HeadSha),
+			invalidatesList(ReduxTag.WorktreeChanges),
+			invalidatesList(ReduxTag.Stacks),
+			invalidatesList(ReduxTag.StackDetails),
+			invalidatesList(ReduxTag.BranchListing),
+			invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+			invalidatesList(ReduxTag.PullRequests),
+		]);
+	});
+
 	test("uses workspace_integrate_upstream for dry-run previews and execution", () => {
 		const endpoints = buildStackEndpoints(createEndpointBuilder());
 		const query = endpoints.workspaceIntegrateUpstream.query;
