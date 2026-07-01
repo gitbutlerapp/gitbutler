@@ -1266,7 +1266,7 @@ impl From<GitHubPullRequest> for PullRequest {
             modified_at: pr.updated_at,
             merged_at: pr.merged_at,
             closed_at: pr.closed_at,
-            repository_ssh_url: pr.base.repo.as_ref().and_then(|r| r.ssh_url.clone()),
+            repository_ssh_url: pr.head.repo.as_ref().and_then(|r| r.ssh_url.clone()),
             repository_https_url: pr.head.repo.as_ref().and_then(|r| r.clone_url.clone()),
             repo_owner: pr
                 .head
@@ -1491,6 +1491,83 @@ mod tests {
             pull.merged_at.as_deref(),
             Some("2026-06-24T12:00:00Z"),
             "associated-commit lookup must preserve merge state for filtering"
+        );
+    }
+
+    #[test]
+    fn fork_pull_request_urls_are_taken_from_head_repo() {
+        let payload = json!({
+            "html_url": "https://github.com/upstream/widgets/pull/42",
+            "number": 42,
+            "title": "Integrate fork feature",
+            "body": null,
+            "user": null,
+            "labels": [],
+            "draft": false,
+            "merge_commit_sha": null,
+            "head": {
+                "ref": "feature",
+                "sha": "1234567890abcdef1234567890abcdef12345678",
+                "repo": {
+                    "ssh_url": "git@github.com:alice/widgets.git",
+                    "clone_url": "https://github.com/alice/widgets.git",
+                    "owner": {
+                        "id": 1,
+                        "login": "alice",
+                        "name": "Alice",
+                        "email": null,
+                        "avatar_url": null,
+                        "type": "User"
+                    },
+                    "fork": true
+                }
+            },
+            "base": {
+                "ref": "main",
+                "sha": "abcdef1234567890abcdef1234567890abcdef12",
+                "repo": {
+                    "ssh_url": "git@github.com:upstream/widgets.git",
+                    "clone_url": "https://github.com/upstream/widgets.git",
+                    "owner": {
+                        "id": 2,
+                        "login": "upstream",
+                        "name": "Upstream",
+                        "email": null,
+                        "avatar_url": null,
+                        "type": "Organization"
+                    },
+                    "fork": false
+                }
+            },
+            "created_at": null,
+            "updated_at": null,
+            "merged_at": null,
+            "closed_at": null,
+            "requested_reviewers": []
+        });
+
+        let pull: PullRequest = serde_json::from_value::<GitHubPullRequest>(payload)
+            .unwrap()
+            .into();
+
+        assert_eq!(
+            pull.repository_ssh_url.as_deref(),
+            Some("git@github.com:alice/widgets.git"),
+            "fork PR SSH remotes must fetch from the head repository"
+        );
+        assert_eq!(
+            pull.repository_https_url.as_deref(),
+            Some("https://github.com/alice/widgets.git"),
+            "fork PR HTTPS remotes must fetch from the head repository"
+        );
+        assert_eq!(
+            pull.repo_owner.as_deref(),
+            Some("alice"),
+            "remote naming should use the source repository owner"
+        );
+        assert!(
+            pull.head_repo_is_fork,
+            "fork PR metadata should preserve the head repository fork flag"
         );
     }
 }
