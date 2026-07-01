@@ -1,8 +1,8 @@
-import { showToast } from "$lib/notifications/toasts";
+import { showToast, showWarning } from "$lib/notifications/toasts";
 import { TestId } from "@gitbutler/ui";
 import type { BranchIconName } from "$lib/branches/branchIcon";
 import type { DropResult } from "$lib/dragging/dropResult";
-import type { PushStatus, Segment, Stack as RefInfoStack } from "@gitbutler/but-sdk";
+import type { ApplyOutcome, PushStatus, Segment, Stack as RefInfoStack } from "@gitbutler/but-sdk";
 
 export type CreateBranchFromBranchOutcome = {
 	stackId: string;
@@ -47,6 +47,18 @@ export function handleCreateBranchFromBranchOutcome(outcome: CreateBranchFromBra
 You can always re-apply them later from the branches page.`,
 		});
 	}
+}
+
+export function handleApplyOutcome(outcome: ApplyOutcome) {
+	if (outcome.status !== "conflictAborted") return;
+	const names = outcome.conflictingStacks.map((stack) => stack.shortName);
+	const single = names.length === 1;
+	showWarning(
+		"Couldn't apply branch due to conflicts",
+		`It conflicts with ${prettyNamedListIfPossible(names.length, names) || "another applied stack"}. Unapply ${single ? "it" : "them"} first, then try applying again.`,
+		undefined,
+		TestId.BranchApplyConflictToast,
+	);
 }
 
 export type Stack = RefInfoStack;

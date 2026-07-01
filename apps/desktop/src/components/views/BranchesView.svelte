@@ -18,12 +18,13 @@
 	import TargetCommitList from "$components/views/TargetCommitList.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
+	import { newBranchApplyFeature } from "$lib/config/uiFeatureFlags";
 	import { isNormalizedError } from "$lib/error/normalizedError";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
 	import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
 	import { workspacePath } from "$lib/routes/routes.svelte";
-	import { handleCreateBranchFromBranchOutcome } from "$lib/stacks/stack";
+	import { handleApplyOutcome, handleCreateBranchFromBranchOutcome } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
 	import { inject } from "@gitbutler/core/context";
@@ -98,7 +99,7 @@
 		defaultValue: 20,
 	};
 
-	async function checkoutBranch(args: {
+	async function applyBranchToWorkspace(args: {
 		branchName: string;
 		remote?: string;
 		prNumber?: number;
@@ -108,12 +109,20 @@
 		const remoteRef = remote ? `refs/remotes/${remote}/${branchName}` : undefined;
 		const branchRef = hasLocal ? `refs/heads/${branchName}` : remoteRef;
 		if (branchRef) {
-			const outcome = await stackService.createVirtualBranchFromBranch({
-				projectId,
-				branch: branchRef,
-				prNumber,
-			});
-			handleCreateBranchFromBranchOutcome(outcome);
+			if ($newBranchApplyFeature) {
+				const outcome = await stackService.branchApply({
+					projectId,
+					existingBranch: branchRef,
+				});
+				handleApplyOutcome(outcome);
+			} else {
+				const outcome = await stackService.createVirtualBranchFromBranch({
+					projectId,
+					branch: branchRef,
+					prNumber,
+				});
+				handleCreateBranchFromBranchOutcome(outcome);
+			}
 			await baseBranchService.refreshBaseBranch(projectId);
 		}
 		goto(workspacePath(projectId));
@@ -131,8 +140,8 @@
 
 	let prBranch = $state<BranchesViewPr>();
 
-	function applyFromFork() {
-		prBranch?.applyPr();
+	async function applyFromFork() {
+		await prBranch?.applyPr();
 	}
 
 	let deleteLocalBranchModal = $state<Modal>();
@@ -329,7 +338,12 @@
 													icon="workbench"
 													shrinkable
 													action={async () => {
-														await checkoutBranch({ remote, branchName, hasLocal, prNumber });
+														await applyBranchToWorkspace({
+															remote,
+															branchName,
+															hasLocal,
+															prNumber,
+														});
 													}}
 												>
 													Apply to workspace
@@ -391,13 +405,13 @@
 							{:else if selection.type === "pr"}
 								{@const prNumber = selection.prNumber}
 								<div class="branch-actions">
-									<Button
+									<AsyncButton
 										testId={TestId.BranchesViewApplyFromForkButton}
 										icon="workbench"
-										onclick={applyFromFork}
+										action={applyFromFork}
 									>
 										Apply {reviewUnitAbbr} to workspace
-									</Button>
+									</AsyncButton>
 								</div>
 								<BranchesViewPr bind:this={prBranch} {projectId} {prNumber} {onerror} />
 							{/if}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		fModeEnabled,
+		newBranchApplyFeature,
 		newIntegrateUpstreamModalFeature,
 		newPushFeature,
 	} from "$lib/config/uiFeatureFlags";
@@ -71,6 +72,22 @@
 				id="new-push"
 				checked={$newPushFeature}
 				onclick={() => newPushFeature.set(!$newPushFeature)}
+			/>
+		{/snippet}
+	</CardGroup.Item>
+
+	<CardGroup.Item labelFor="new-branch-apply">
+		{#snippet title()}
+			New branch apply
+		{/snippet}
+		{#snippet caption()}
+			Use the newer branch apply implementation from the branches view.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="new-branch-apply"
+				checked={$newBranchApplyFeature}
+				onclick={() => newBranchApplyFeature.set(!$newBranchApplyFeature)}
 			/>
 		{/snippet}
 	</CardGroup.Item>

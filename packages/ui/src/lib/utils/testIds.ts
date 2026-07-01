@@ -167,6 +167,7 @@ export enum TestId {
 	EditMode = "edit-mode",
 	EditModeSaveAndExitButton = "edit-mode-save-and-exit-button",
 	StacksUnappliedToast = "stacks-unapplied-toast",
+	BranchApplyConflictToast = "branch-apply-conflict-toast",
 	CreateSnapshotModal = "create-snapshot-modal",
 	CreateSnapshotModal_ActionButton = "create-snapshot-modal-action-button",
 	FileListItemContextMenu_Absorb = "file-list-item-context-menu__absorb",

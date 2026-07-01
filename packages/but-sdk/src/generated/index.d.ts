@@ -411,6 +411,15 @@ export declare function removeBranch(projectId: string, stackId: string, branchN
 export declare function restoreSnapshotWithKind(projectId: string, restoreKind: RestoreKind, sha: string): Promise<void>
 
 /**
+ * Applies a forge review by resolving it to its source branch.
+ *
+ * This fetches the review's head repository through a configured or newly
+ * created remote, applies the fetched remote-tracking branch, and records the
+ * review number on the applied branch metadata.
+ */
+export declare function reviewApply(projectId: string, reviewId: number): Promise<ApplyOutcome>
+
+/**
  * Get the review template content for the given project and relative path.
  *
  * This function determines the forge of a project and retrieves the review template

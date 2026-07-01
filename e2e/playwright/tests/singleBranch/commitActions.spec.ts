@@ -1,9 +1,15 @@
-import { setupSingleBranchProject, SINGLE_BRANCH_NAME } from "./helpers.ts";
+import {
+	applyBranchFromBranchesView,
+	openSingleBranchWorkspace,
+	setupSingleBranchProject,
+	SINGLE_BRANCH_NAME,
+} from "./helpers.ts";
 import {
 	assertBranch,
 	assertCleanWorktree,
 	assertCommitSubjects,
 	assertDirtyWorktree,
+	assertSymbolicHead,
 } from "../../src/branch.ts";
 import {
 	openCommitDrawer,
@@ -15,7 +21,13 @@ import {
 } from "../../src/commit.ts";
 import { assertFileContent, unstageAllFiles, writeToFile } from "../../src/file.ts";
 import { test } from "../../src/test.ts";
-import { clickByTestId, commitRow, dragAndDropByLocator, getByTestId } from "../../src/util.ts";
+import {
+	clickByTestId,
+	commitRow,
+	dragAndDropByLocator,
+	getByTestId,
+	stack,
+} from "../../src/util.ts";
 import { expect } from "@playwright/test";
 
 test.use({
@@ -110,4 +122,61 @@ test("can amend file changes into an existing commit", async ({ page, gitbutler 
 		["single-branch: add file", "single-branch: second commit", "single-branch: first commit"],
 		localClone,
 	);
+});
+
+test("can apply another branch after leaving a managed workspace", async ({ page, gitbutler }) => {
+	await gitbutler.runScript("project-in-single-branch-apply-transition.sh");
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	await openSingleBranchWorkspace(page);
+
+	await assertBranch(SINGLE_BRANCH_NAME, localClone);
+	await applyBranchFromBranchesView(page, "branch-to-apply");
+
+	await assertBranch("gitbutler/workspace", localClone);
+	await expect(getByTestId(page, "chrome-header-current-branch")).toContainText(
+		"gitbutler/workspace",
+	);
+	await expect(getByTestId(page, "chrome-header-current-branch")).not.toContainText("read-only");
+	await expect(getByTestId(page, "chrome-header-switch-back-to-workspace-button")).toHaveCount(0);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(2);
+	await expect(
+		getByTestId(page, "branch-card").filter({ hasText: SINGLE_BRANCH_NAME }),
+	).toBeVisible();
+	await expect(
+		getByTestId(page, "branch-card").filter({ hasText: "branch-to-apply" }),
+	).toBeVisible();
+	await expect(
+		getByTestId(page, "branch-card").filter({ hasText: "stale-workspace-branch" }),
+	).toHaveCount(0);
+	await assertCleanWorktree(localClone);
+});
+
+test("rebuilds an enclosed ad-hoc workspace around the current and applied branches", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-in-single-branch-enclosed-apply.sh");
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	await openSingleBranchWorkspace(page);
+
+	await assertBranch("B", localClone);
+	await assertSymbolicHead("B", localClone);
+	await expect(getByTestId(page, "chrome-header-current-branch")).toContainText("B");
+	await expect(getByTestId(page, "chrome-header-current-branch")).toContainText("read-only");
+	await expect(getByTestId(page, "chrome-header-switch-back-to-workspace-button")).toBeVisible();
+
+	await applyBranchFromBranchesView(page, "C");
+
+	await assertBranch("gitbutler/workspace", localClone);
+	await assertSymbolicHead("gitbutler/workspace", localClone);
+	await expect(getByTestId(page, "chrome-header-current-branch")).toContainText(
+		"gitbutler/workspace",
+	);
+	await expect(getByTestId(page, "chrome-header-current-branch")).not.toContainText("read-only");
+	await expect(getByTestId(page, "chrome-header-switch-back-to-workspace-button")).toHaveCount(0);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(2);
+	await expect(stack(page, "A")).toHaveCount(0);
+	await expect(stack(page, "B")).toBeVisible();
+	await expect(stack(page, "C")).toBeVisible();
+	await assertCleanWorktree(localClone);
 });

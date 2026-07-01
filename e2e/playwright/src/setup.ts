@@ -4,7 +4,7 @@ import { serverLogSink } from "./serverLog.ts";
 import { waitForTestId } from "./util.ts";
 import { type BrowserContext, type Page } from "@playwright/test";
 import { ChildProcess, spawn } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
 
@@ -59,6 +59,7 @@ class GitButlerManager implements GitButler {
 	private scriptsDir: string;
 	private butServerProcess: ChildProcess;
 	private env: Record<string, string> | undefined;
+	private gitConfigGlobal: string;
 
 	constructor(
 		workdir: string,
@@ -82,11 +83,13 @@ class GitButlerManager implements GitButler {
 				setConfig(config, this.configDir);
 			}
 		}
+		this.gitConfigGlobal =
+			env?.GIT_CONFIG_GLOBAL ?? createIsolatedGitConfig(this.configDir, GIT_CONFIG_GLOBAL);
 
 		const serverEnv = {
 			E2E_TEST_APP_DATA_DIR: this.configDir,
 			BUTLER_PORT: getButlerPort(),
-			GIT_CONFIG_GLOBAL,
+			GIT_CONFIG_GLOBAL: this.gitConfigGlobal,
 			RUST_LOG: "info",
 			...this.env,
 		};
@@ -172,13 +175,27 @@ class GitButlerManager implements GitButler {
 
 		const envVars = {
 			E2E_TEST_APP_DATA_DIR: this.configDir,
-			GIT_CONFIG_GLOBAL,
+			GIT_CONFIG_GLOBAL: this.gitConfigGlobal,
 			...this.env,
 			...env,
 		};
 
 		await runCommand("bash", [scriptPath, ...scriptArgs], this.workdir, envVars);
 	}
+}
+
+function createIsolatedGitConfig(configDir: string, baseGitConfig: string): string {
+	const gitConfig = path.join(configDir, "gitconfig");
+	const credentialStore = path.join(configDir, "git-credentials");
+	const base = readFileSync(baseGitConfig, "utf8").trimEnd();
+	writeFileSync(
+		gitConfig,
+		`${base}
+[credential]
+	helper = store --file ${credentialStore}
+`,
+	);
+	return gitConfig;
 }
 
 function createButServerProcess(rootDir: string, serverEnv: Record<string, string>): ChildProcess {
