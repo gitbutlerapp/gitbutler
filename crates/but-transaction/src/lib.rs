@@ -309,6 +309,13 @@ where
         })
     }
 
+    pub fn tear_off_branch(&mut self, source_branch: &FullNameRef) -> anyhow::Result<()> {
+        self.rebase(|editor, _, _| {
+            let outcome = but_workspace::branch::tear_off_branch(editor, source_branch, None)?;
+            Ok(((), outcome.rebase))
+        })
+    }
+
     pub fn create_reference<'name>(
         &mut self,
         ref_name: &FullNameRef,

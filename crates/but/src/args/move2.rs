@@ -4,7 +4,7 @@ use crate::args::atoms::CliIdArg;
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 #[clap(group(
     clap::ArgGroup::new("targeting")
-        .args(["above", "below", "branch"])
+        .args(["above", "below", "branch", "unstack"])
         .required(true)
 ))]
 pub struct Platform {
@@ -36,6 +36,8 @@ pub struct Platform {
     /// as below the oldest ancestor on that branch.
     #[clap(short = 'B', long, value_name = "BRANCH_OR_COMMIT")]
     pub below: Option<CliIdArg>,
+    #[clap(long)]
+    pub unstack: bool,
     /// One or more sources to move.
     ///
     /// Providing any of the sources as an argument for `--above` or `--below` is an error.

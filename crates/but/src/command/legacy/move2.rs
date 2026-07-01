@@ -42,6 +42,9 @@ pub enum MoveOutcome {
         source_branch: FullName,
         target_branch: FullName,
     },
+    UnstackBranch {
+        source_branch: FullName,
+    },
 }
 
 impl CliOutputHuman for MoveOutcome {
@@ -96,6 +99,9 @@ impl CliOutputHuman for MoveOutcome {
                     theme::Branch(target_branch),
                 )?;
             }
+            Self::UnstackBranch { source_branch } => {
+                write!(out, "Unstacked branch {}", theme::Branch(source_branch))?;
+            }
         }
 
         writeln!(out)?;
@@ -125,6 +131,7 @@ enum MoveOperation {
     ChangesRelativeTo(MoveChangesRelativeToOperation),
     ChangesToNewBranch(MoveChangesToNewBranchOperation),
     StackBranch(StackBranchOnOperation),
+    UnstackBranch(UnstackBranchOperation),
 }
 
 #[derive(Clone)]
@@ -294,14 +301,18 @@ struct StackBranchOnOperation {
 
 impl StackBranchOnOperation {
     fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
-        let Self {
-            source_branch,
-            target_branch,
-        } = self;
+        tx.stack_branch_on(self.source_branch.as_ref(), self.target_branch.as_ref())
+    }
+}
 
-        tx.stack_branch_on(source_branch.as_ref(), target_branch.as_ref())?;
+#[derive(Clone)]
+struct UnstackBranchOperation {
+    source_branch: FullName,
+}
 
-        Ok(())
+impl UnstackBranchOperation {
+    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
+        tx.tear_off_branch(self.source_branch.as_ref())
     }
 }
 
@@ -348,6 +359,7 @@ fn resolve(
         below,
         sources,
         branch,
+        unstack,
     } = args;
 
     let context_lines = ctx.settings.context_lines;
@@ -355,8 +367,8 @@ fn resolve(
 
     let resolved_sources = resolve_sources(&repo, &ws, &mut db, context_lines, id_map, sources)?;
 
-    match (branch, above, below) {
-        (Some(Some(branch)), None, None) => {
+    match (branch, above, below, unstack) {
+        (Some(Some(branch)), None, None, false) => {
             match (branch.try_resolve_branch(&repo, id_map)?, resolved_sources) {
                 (_, ResolvedSources::Branch(_)) => {
                     Err(bad_input("Cannot combine `--branch` with a branch source").into())
@@ -415,7 +427,7 @@ fn resolve(
                 }
             }
         }
-        (Some(None), None, None) => match resolved_sources {
+        (Some(None), None, None, false) => match resolved_sources {
             ResolvedSources::Branch(branch) => Err(bad_input("Invalid target for branch source")
                 .arg_name("--branch")
                 .hint(format!(
@@ -441,12 +453,26 @@ fn resolve(
                 }),
             ),
         },
-        (None, Some(above), None) => {
+        (None, Some(above), None, false) => {
             create_move_above_or_below_op(&repo, id_map, resolved_sources, above, Side::Above)
         }
-        (None, None, Some(below)) => {
+        (None, None, Some(below), false) => {
             create_move_above_or_below_op(&repo, id_map, resolved_sources, below, Side::Below)
         }
+        (None, None, None, true) => match resolved_sources {
+            ResolvedSources::Branch(source_branch) => {
+                Ok(MoveOperation::UnstackBranch(UnstackBranchOperation {
+                    source_branch,
+                }))
+            }
+            other => Err(bad_input(format!(
+                "Cannot unstack {}, only a branch source is allowed with `--unstack`",
+                other.display_kind()
+            ))
+            .arg_name("<SOURCES>")
+            .hint("Trying to move stuff to a new branch? Use the `--branch` argument instead!")
+            .into()),
+        },
         _ => unreachable!("BUG: Targeting group is required"),
     }
 }
@@ -546,6 +572,16 @@ enum ResolvedSources {
     },
     CommittedChanges((gix::ObjectId, NonEmpty<DiffSpec>)),
     Branch(FullName),
+}
+
+impl ResolvedSources {
+    fn display_kind(&self) -> String {
+        match self {
+            Self::Commits { .. } => String::from("commits"),
+            Self::CommittedChanges(_) => String::from("committed changes"),
+            Self::Branch(_) => String::from("a branch"),
+        }
+    }
 }
 
 fn resolve_sources(
@@ -658,6 +694,7 @@ fn run(
             SnapshotDetails::new(OperationKind::MoveCommitFile)
         }
         MoveOperation::StackBranch(_) => SnapshotDetails::new(OperationKind::MoveBranch),
+        MoveOperation::UnstackBranch(_) => SnapshotDetails::new(OperationKind::TearOffBranch),
     };
     let (outcome, _ws) = but_transaction::with_transaction_with_perm(
         ctx,
@@ -710,6 +747,11 @@ fn run(
                         source_branch,
                         target_branch,
                     }
+                }
+                MoveOperation::UnstackBranch(op) => {
+                    let source_branch = op.source_branch.clone();
+                    op.execute(&mut tx)?;
+                    MoveOutcome::UnstackBranch { source_branch }
                 }
             };
 

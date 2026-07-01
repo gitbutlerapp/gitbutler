@@ -1692,12 +1692,231 @@ Hint: run `but help` for all commands
 
 #[test]
 fn unstack_tip_branch() {
-    todo!()
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [C]
+┊●   aebb090 add C
+┊│
+┊├┄h0 [B]
+┊●   582f37b add B
+┊│
+┊├┄i0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 C --unstack")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Unstacked branch 'C'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [B]
+┊●   582f37b add B
+┊│
+┊├┄h0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄i0 [C]
+┊●   db21ee2 add C
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 #[test]
-fn unstack_non_tip_branch() {
-    todo!()
+fn unstack_middle_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [C]
+┊●   aebb090 add C
+┊│
+┊├┄h0 [B]
+┊●   582f37b add B
+┊│
+┊├┄i0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 B --unstack")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Unstacked branch 'B'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [B]
+┊●   05d3df1 add B
+├╯
+┊
+┊╭┄h0 [C]
+┊●   983f317 add C
+┊│
+┊├┄i0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn unstack_bottom_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [C]
+┊●   aebb090 add C
+┊│
+┊├┄h0 [B]
+┊●   582f37b add B
+┊│
+┊├┄i0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 A --unstack")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Unstacked branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [C]
+┊●   ec33a86 add C
+┊│
+┊├┄i0 [B]
+┊●   05d3df1 add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn cannot_unstack_non_branch_sources() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 94 --unstack")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<SOURCES>'
+
+Cannot unstack commits, only a branch source is allowed with `--unstack`
+
+Hint: Trying to move stuff to a new branch? Use the `--branch` argument instead!
+
+"#]]);
+    env.but("_move2 94:tm --unstack")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<SOURCES>'
+
+Cannot unstack committed changes, only a branch source is allowed with `--unstack`
+
+Hint: Trying to move stuff to a new branch? Use the `--branch` argument instead!
+
+"#]]);
 }
 
 /// This is an API limitation and not a desirable behavior, but moving multiple branches at the same
@@ -1990,7 +2209,7 @@ Hint: run `but help` for all commands
         .stderr_eq(snapbox::str![[r#"
 error: the argument '--below <BRANCH_OR_COMMIT>' cannot be used with '--above <BRANCH_OR_COMMIT>'
 
-Usage: but _move2 <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]> <SOURCES>...
+Usage: but _move2 <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack> <SOURCES>...
 
 For more information, try '--help'.
 
@@ -2007,9 +2226,9 @@ fn must_specify_target() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 error: the following required arguments were not provided:
-  <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]>
+  <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack>
 
-Usage: but _move2 <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]> <SOURCES>...
+Usage: but _move2 <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack> <SOURCES>...
 
 For more information, try '--help'.
 
@@ -2028,7 +2247,7 @@ fn must_specify_source() {
 error: the following required arguments were not provided:
   <SOURCES>...
 
-Usage: but _move2 <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]> <SOURCES>...
+Usage: but _move2 <--above <BRANCH_OR_COMMIT>|--below <BRANCH_OR_COMMIT>|--branch [<BRANCH>]|--unstack> <SOURCES>...
 
 For more information, try '--help'.
 
@@ -2126,7 +2345,7 @@ Hint: Sources must be commits or committed files
 #[test]
 fn cannot_move_to_uncommitted() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&[]);
+    env.setup_metadata(&["A"]);
 
     env.but("status")
         .assert()
