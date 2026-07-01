@@ -8099,40 +8099,21 @@ fn graph_structure(graph: &but_graph::Graph) -> Vec<String> {
     lines
 }
 
-/// Build the segment `Graph` straight from a git `CommitGraph` via `graph_from_commit_graph`.
+/// Build the segment `Graph` via the PRODUCTION flip entry `graph_from_repository`, so the parity
+/// tests validate the real path (target/stack/worktree derivation included), not a test-only shortcut.
 fn build_cg_graph(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
 ) -> anyhow::Result<but_graph::Graph> {
-    let mut cg = but_graph::CommitGraph::from_repository(repo)?;
-    let target = target_commit(repo, meta);
-    cg.mark_integrated(target);
-    let ws_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-    let ws_commit = repo
-        .find_reference(&ws_ref)?
-        .peel_to_commit()?
-        .id()
-        .detach();
-    let remote_tracking = remote_tracking_map(repo)?;
-    let stack_branches = stack_branches_from_meta(meta)?;
-    // Worktree annotation is exercised via the `graph_from_repository` wrapper (see
-    // `assert_cg_to_sg_parity_via_wrapper`); this direct builder passes an empty map.
-    let worktree_by_branch = std::collections::BTreeMap::new();
-    Ok(but_graph::graph_from_commit_graph(
-        &cg,
-        ws_commit,
-        ws_commit,
-        None,
-        target,
-        &remote_tracking,
-        Some(&stack_branches),
-        true,
-        true,
-        &worktree_by_branch,
+    but_graph::graph_from_repository(
+        repo,
         meta,
+        None,
+        None,
         project_meta(meta),
         standard_options(),
-    ))
+    )?
+    .ok_or_else(|| anyhow::anyhow!("entrypoint not in a managed workspace"))
 }
 
 /// Every `(ref_name, worktree)` pairing in the graph — both segment names and per-commit refs — for

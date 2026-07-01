@@ -48,20 +48,19 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         .iter()
         .map(|s| s.branches.iter().map(|b| b.ref_name.clone()).collect())
         .collect();
-    let target = project_meta
-        .target_ref
-        .clone()
-        .or_else(|| "refs/remotes/origin/main".try_into().ok())
-        .and_then(|tr| {
-            Some(
-                repo.find_reference(&tr)
-                    .ok()?
-                    .peel_to_commit()
-                    .ok()?
-                    .id()
-                    .detach(),
-            )
-        });
+    // Use ONLY the configured target ref — the walk never falls back to a hard-coded `origin/main`, so
+    // fabricating one here invents a phantom target (and spurious `Integrated` marks) on no-target
+    // workspaces, diverging from the walk.
+    let target = project_meta.target_ref.clone().and_then(|tr| {
+        Some(
+            repo.find_reference(&tr)
+                .ok()?
+                .peel_to_commit()
+                .ok()?
+                .id()
+                .detach(),
+        )
+    });
     cg.mark_integrated(target);
     let remote_tracking = crate::commit_graph_projection::remote_tracking_from_repository(repo)?;
     let worktree_by_branch = {

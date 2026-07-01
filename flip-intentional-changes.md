@@ -47,6 +47,18 @@ branch (metadata) names the segment; the target is just a ref + remote sibling.
 - Disambiguation becomes a single uniform rule with no target exception:
   **workspace-metadata branch → remote-tracked branch → single branch → anonymous.**
 
+## 8. `InWorkspace` is message-driven, not metadata-driven (KEEP FLIP)
+A `gitbutler/workspace` checkout whose merge commit has the managed-workspace
+message marks its reachable commits `InWorkspace` (`🏘`) even when there is **no
+workspace metadata**. The walk instead treats a no-metadata workspace checkout as
+a normal branch (no `🏘`) — see `minimal_merge`'s "the branch is normal!" comment.
+Decision (Mattias): **keep the flip** — the message is the more robust signal in
+production where metadata can lag. The walk is NOT retrofitted (reclassifying a
+no-metadata checkout as a `TipRole::Workspace` tip would reshape target
+resolution + stack materialization in a soon-to-be-deleted codebase); the
+affected walk snapshots (`minimal_merge*`, `without_target_ref_*managed_commit*`,
+…) are re-accepted to the flip's output when the flip becomes the default.
+
 ## 6. Worktrees are KEPT (CLI supports them)
 Not a simplification — the flip must reproduce the walk's worktree annotations:
 the main worktree `[🌳]`, linked worktrees `[📁]`, and the `@repo` ownership
