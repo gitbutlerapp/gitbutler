@@ -100,6 +100,11 @@ pub fn gather(
         .flatten()
         .cloned()
         .collect();
+    // The other stacks' tops. A commit that is a sibling stack's top is absorbed (that stack owns it),
+    // rather than starting a nested segment inside this stack. A non-top ref, by contrast, forms a
+    // shared segment. (Passing all tops is fine: this stack's own top sits at spine index 0, which is
+    // never a mid-spine split candidate.)
+    let all_tops: HashSet<gix::ObjectId> = stack_tops.iter().copied().collect();
     let stacks = stack_tops
         .iter()
         .enumerate()
@@ -114,9 +119,11 @@ pub fn gather(
             };
             let segments = match &aligned[i] {
                 // Metadata-driven: the stack's branch list defines the segments and their names.
-                Some(branches) => segment_by_branches(cg, top, stack_base, branches),
+                Some(branches) => {
+                    segment_by_branches(cg, top, stack_base, branches, &meta_branches, &all_tops)
+                }
                 // No metadata: fall back to slicing at each disambiguated local-branch ref on the spine.
-                None => segment_runs(cg, top, stack_base, &meta_branches),
+                None => segment_runs(cg, top, stack_base, &meta_branches, &all_tops),
             };
             GatheredStack {
                 base: stack_base,
@@ -206,6 +213,8 @@ fn segment_by_branches(
     top: gix::ObjectId,
     base: Option<gix::ObjectId>,
     branches: &[gix::refs::FullName],
+    meta_branches: &HashSet<gix::refs::FullName>,
+    sibling_tops: &HashSet<gix::ObjectId>,
 ) -> Vec<SegmentRun> {
     let spine = first_parent_spine(cg, top, base);
     // Where each branch begins on the spine: the top branch at 0, each later branch at its ref (or
@@ -245,7 +254,44 @@ fn segment_by_branches(
             };
             SegmentRun { ref_name, commits }
         })
+        // A metadata segment may still enclose a SHARED segment below it — a commit carrying a
+        // (non-sibling-top) branch ref that another stack also passes through, e.g. a shared base
+        // branch. Split those out; a sibling stack's own top is left absorbed.
+        .flat_map(|run| split_run_at_shared_refs(cg, run, meta_branches, sibling_tops))
         .collect()
+}
+
+/// Split one segment run wherever a commit below its first carries a disambiguated local-branch ref
+/// that is not a sibling stack top — a shared segment. The first sub-run keeps the run's own name;
+/// each split sub-run takes the disambiguated ref's name.
+fn split_run_at_shared_refs(
+    cg: &CommitGraph,
+    run: SegmentRun,
+    meta_branches: &HashSet<gix::refs::FullName>,
+    sibling_tops: &HashSet<gix::ObjectId>,
+) -> Vec<SegmentRun> {
+    let mut runs = Vec::new();
+    let mut current = SegmentRun {
+        ref_name: run.ref_name,
+        commits: Vec::new(),
+    };
+    for (i, &c) in run.commits.iter().enumerate() {
+        if i > 0
+            && !sibling_tops.contains(&c)
+            && let Some(rn) = disambiguated_branch_ref(cg, c, meta_branches)
+        {
+            runs.push(std::mem::replace(
+                &mut current,
+                SegmentRun {
+                    ref_name: Some(rn),
+                    commits: Vec::new(),
+                },
+            ));
+        }
+        current.commits.push(c);
+    }
+    runs.push(current);
+    runs
 }
 
 /// `top`'s first-parent commits down to (excluding) `base`.
@@ -278,6 +324,7 @@ fn segment_runs(
     top: gix::ObjectId,
     base: Option<gix::ObjectId>,
     meta_branches: &HashSet<gix::refs::FullName>,
+    sibling_tops: &HashSet<gix::ObjectId>,
 ) -> Vec<SegmentRun> {
     let mut runs = Vec::new();
     let mut current = SegmentRun {
@@ -290,6 +337,7 @@ fn segment_runs(
             break;
         }
         if c != top
+            && !sibling_tops.contains(&c)
             && let Some(rn) = disambiguated_branch_ref(cg, c, meta_branches)
         {
             // `c` is the tip of a new segment.

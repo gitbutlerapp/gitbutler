@@ -7925,6 +7925,21 @@ fn cg_proj_parity_advanced_stack_tip_outside() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_proj_parity_multiple_stacks_shared_remote() -> anyhow::Result<()> {
+    // Two stacks B-on-A and C-on-A share the base segment A (which has a remote origin/A ahead). A is
+    // NOT itself a stack top, so it forms a shared segment inside each stack — unlike a sibling stack
+    // top, which is absorbed (reproduce-12146).
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/multiple-stacks-with-shared-segment-and-remote")?;
+    add_stack_with_segments(&mut meta, 1, "C-on-A", StackState::InWorkspace, &[]);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let stack_branches = stack_branches_from_meta(&*meta)?;
+    let target = target_commit(&repo, &*meta);
+    assert_commit_graph_projection_parity(&repo, graph, &stack_branches, target)
+}
+
+#[test]
 fn cg_proj_parity_integrated_below_target_upstream_ahead() -> anyhow::Result<()> {
     // Two stacks whose trunk below their fork points ('target', 'base') is integrated: the fork-point
     // base floors each stack at its own divergence (my-branch on 2121f9c, old-branch on 322cb14),
