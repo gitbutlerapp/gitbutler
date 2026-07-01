@@ -322,7 +322,7 @@ export const CommitRow: FC<
 		}),
 		nativeMenuItem({
 			label: mforgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
-			enabled: mforgeUrl !== null,
+			enabled: mforgeUrl != null,
 			accelerator: toElectronAccelerator(outlineHotkeys.openCommitInBrowser.hotkey),
 			onSelect: openCommitInBrowser,
 		}),

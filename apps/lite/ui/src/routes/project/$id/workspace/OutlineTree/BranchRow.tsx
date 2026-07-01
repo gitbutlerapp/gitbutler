@@ -301,7 +301,7 @@ export const BranchRow: FC<
 		}),
 		nativeMenuItem({
 			label: "Open In Browser",
-			enabled: mforgeUrl !== null,
+			enabled: mforgeUrl != null,
 			accelerator: toElectronAccelerator(outlineHotkeys.openPRInBrowser.hotkey),
 			onSelect: openPRInBrowser,
 		}),
