@@ -72,6 +72,8 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         target,
         &remote_tracking,
         Some(&stack_branches),
+        true,
+        true,
         meta,
         project_meta,
         options,
@@ -97,6 +99,11 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     target: Option<gix::ObjectId>,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+    // A managed workspace (`workspace_commit` is the gitbutler/workspace octopus merge). When false,
+    // `workspace_commit` is just the checked-out tip: no stack/ws-ref/anonymize passes.
+    managed: bool,
+    // Whether HEAD points at a ref (vs detached) — controls the worktree marker and the tip's naming.
+    head_symbolic: bool,
     meta: &T,
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
@@ -143,7 +150,12 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
 
     // The workspace commit's parents are stack tips — always segment boundaries (so the workspace
     // segment holds only the workspace commit, even when a parent is anonymous, e.g. an advanced tip).
-    let ws_parents: HashSet<gix::ObjectId> = cg.parents(workspace_commit).collect();
+    // Only in a managed workspace; a plain checked-out tip has no stack parents.
+    let ws_parents: HashSet<gix::ObjectId> = if managed {
+        cg.parents(workspace_commit).collect()
+    } else {
+        HashSet::new()
+    };
 
     // A merge commit's segment holds only the merge, so its FIRST parent starts its own segment (the
     // second parent is already a boundary — reached by a non-first-parent edge).
@@ -209,12 +221,19 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // Create a local segment per tip, holding its first-parent commit run.
     for &tip in &tips {
         let commits = commit_run(cg, tip, &in_set, &is_boundary);
-        // The workspace tip is named by the workspace ref itself (a `gitbutler/*` ref, which normal
-        // disambiguation skips); every other tip by its disambiguated branch.
+        // The managed workspace tip is named by the workspace ref itself (a `gitbutler/*` ref that
+        // normal disambiguation skips). A non-managed tip is named by disambiguation, unless HEAD is
+        // detached — then it is forced anonymous. Every other tip: disambiguated.
         let ref_name = if tip == workspace_commit {
-            cg.refs_at(tip)
-                .into_iter()
-                .find(|r| r.as_bstr().starts_with_str("refs/heads/gitbutler/"))
+            if managed {
+                cg.refs_at(tip)
+                    .into_iter()
+                    .find(|r| r.as_bstr().starts_with_str("refs/heads/gitbutler/"))
+            } else if head_symbolic {
+                disambiguated_ref(cg, tip, remote_tracking)
+            } else {
+                None
+            }
         } else {
             disambiguated_ref(cg, tip, remote_tracking)
         };
@@ -270,14 +289,14 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // connects into it, rather than absorbing the lower remote's commits.
     split_stacked_remotes(&mut sg);
 
-    // A workspace-stack tip that another stack flows into (via first-parent) is a SHARED commit: it is
-    // anonymized into its own segment and its ref floats up as an empty placeholder that the workspace
-    // connects to (the dependent-branch pattern).
-    anonymize_shared_stack_tips(cg, &mut sg, workspace_commit, &seg_of_tip, &in_set);
-
-    // Empty metadata branches (no commits) are spliced in as empty segments at their place in the
-    // stack's branch order.
-    insert_empty_branches(&mut sg, stack_branches);
+    if managed {
+        // A workspace-stack tip that another stack flows into (via first-parent) is a SHARED commit: it
+        // is anonymized into its own segment and its ref floats up as an empty placeholder that the
+        // workspace connects to (the dependent-branch pattern).
+        anonymize_shared_stack_tips(cg, &mut sg, workspace_commit, &seg_of_tip, &in_set);
+        // Empty metadata branches (no commits) are spliced in at their place in the stack's branch order.
+        insert_empty_branches(&mut sg, stack_branches);
+    }
 
     // A checkout inside a stack (from_commit_traversal) splits the enclosing segment so the entrypoint
     // begins its own segment — there is always a segment starting at the entrypoint.
@@ -332,8 +351,9 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         }
     }
 
-    // The workspace ref is checked out in the main worktree (HEAD points at it).
-    if let Some(&ws_sidx) = seg_of_tip.get(&workspace_commit)
+    // The ref HEAD points at is checked out in the main worktree (unless HEAD is detached).
+    if head_symbolic
+        && let Some(&ws_sidx) = seg_of_tip.get(&workspace_commit)
         && let Some(ri) = sg.node_mut(ws_sidx).and_then(|s| s.ref_info.as_mut())
     {
         ri.worktree = Some(crate::Worktree {

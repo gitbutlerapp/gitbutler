@@ -8126,6 +8126,8 @@ fn build_cg_graph(
         target,
         &remote_tracking,
         Some(&stack_branches),
+        true,
+        true,
         meta,
         project_meta(meta),
         standard_options(),
