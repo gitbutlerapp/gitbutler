@@ -335,7 +335,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // A workspace-stack tip that another stack flows into (via first-parent) is a SHARED commit: it
         // is anonymized into its own segment and its ref floats up as an empty placeholder that the
         // workspace connects to (the dependent-branch pattern).
-        anonymize_shared_stack_tips(cg, &mut sg, workspace_commit, &seg_of_tip, &in_set);
+        anonymize_shared_stack_tips(cg, &mut sg, workspace_commit, target, &seg_of_tip, &in_set);
         // Empty metadata branches (no commits) are spliced in at their place in the stack's branch order.
         insert_empty_branches(&mut sg, stack_branches);
         if ws_colocated_ref.is_some() {
@@ -774,6 +774,7 @@ fn anonymize_shared_stack_tips(
     cg: &CommitGraph,
     sg: &mut SegmentGraph,
     workspace_commit: gix::ObjectId,
+    target: Option<gix::ObjectId>,
     seg_of_tip: &HashMap<gix::ObjectId, SegmentIndex>,
     in_set: &HashSet<gix::ObjectId>,
 ) {
@@ -781,6 +782,10 @@ fn anonymize_shared_stack_tips(
         return;
     };
     for parent in cg.parents(workspace_commit) {
+        // The target/base lane keeps its name even when other stacks depend on it — don't anonymize it.
+        if Some(parent) == target {
+            continue;
+        }
         let Some(&p_sidx) = seg_of_tip.get(&parent) else {
             continue;
         };
@@ -887,11 +892,24 @@ fn insert_empty_branches(
         return;
     };
     for list in lists {
-        let Some(first) = list.first() else {
+        if list.is_empty() {
             continue;
+        }
+        // The anchor is the first branch that already has a materialised segment. Empty branches BEFORE
+        // it are spliced in as a chain ABOVE it (the leading-empty-branch case: an empty branch at the
+        // stack top). Empty branches after it are inserted below, as the loop already handles.
+        let anchor_pos = list.iter().position(|b| segment_by_ref(sg, b).is_some());
+        let (mut current, rest_start) = match anchor_pos {
+            Some(pos) => {
+                let anchor = segment_by_ref(sg, &list[pos]).expect("just checked");
+                if pos > 0 {
+                    insert_empty_chain_above(sg, anchor, &list[..pos]);
+                }
+                (Some(anchor), pos + 1)
+            }
+            None => (None, 1),
         };
-        let mut current = segment_by_ref(sg, first);
-        for b in &list[1..] {
+        for b in &list[rest_start..] {
             if let Some(existing) = segment_by_ref(sg, b) {
                 current = Some(existing);
             } else if let Some(cur) = current {
@@ -919,6 +937,66 @@ fn insert_empty_branches(
                 current = Some(new);
             }
         }
+    }
+}
+
+/// Does the segment name a remote-tracking branch?
+fn is_remote_segment(sg: &SegmentGraph, sidx: SegmentIndex) -> bool {
+    sg.node(sidx)
+        .and_then(|s| s.ref_info.as_ref())
+        .is_some_and(|ri| ri.ref_name.as_ref().category() == Some(Category::RemoteBranch))
+}
+
+/// Splice `empties` as a chain of empty segments ABOVE `anchor`, redirecting the anchor's incoming
+/// stack edges (from non-remote sources) through the chain. Remote sibling edges keep pointing at the
+/// anchor. Produces `top_empty → … → anchor`.
+fn insert_empty_chain_above(
+    sg: &mut SegmentGraph,
+    anchor: SegmentIndex,
+    empties: &[gix::refs::FullName],
+) {
+    let seg_ids: Vec<SegmentIndex> = empties
+        .iter()
+        .map(|b| {
+            let s = sg.add_node(Segment {
+                id: 0,
+                generation: 0,
+                ref_info: Some(RefInfo {
+                    ref_name: b.clone(),
+                    commit_id: None,
+                    worktree: None,
+                }),
+                remote_tracking_ref_name: None,
+                sibling_segment_id: None,
+                remote_tracking_branch_segment_id: None,
+                commits: Vec::new(),
+                metadata: None,
+                connections: Vec::new(),
+            });
+            sg.node_mut(s).expect("just added").id = s;
+            s
+        })
+        .collect();
+    let Some(&top) = seg_ids.first() else {
+        return;
+    };
+    let chain: HashSet<SegmentIndex> = seg_ids.iter().copied().collect();
+    for src in sg.node_indices().collect::<Vec<_>>() {
+        if chain.contains(&src) || is_remote_segment(sg, src) {
+            continue;
+        }
+        if let Some(s) = sg.node_mut(src) {
+            for conn in &mut s.connections {
+                if conn.target == anchor {
+                    conn.target = top;
+                    conn.dst_id = None;
+                }
+            }
+        }
+    }
+    for i in 0..seg_ids.len() {
+        let next = seg_ids.get(i + 1).copied().unwrap_or(anchor);
+        sg.add_edge(seg_ids[i], Connection::new(next, None, None, None, None));
     }
 }
 
