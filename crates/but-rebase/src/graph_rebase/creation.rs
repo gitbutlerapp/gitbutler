@@ -227,25 +227,22 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             };
         }
 
+        // Rebase edge order = the destination's position in the source commit's parent list.
+        let parents_by_commit: HashMap<gix::ObjectId, &[gix::ObjectId]> = commits
+            .iter()
+            .map(|c| (c.id, c.parent_ids.as_slice()))
+            .collect();
+
         for sidx in segments.keys() {
             let Some(source) = segments.get(sidx).and_then(|n| n.nodes.last()) else {
                 continue;
             };
 
-            let edges = {
-                let mut v = workspace
-                    .graph
-                    .edges_directed(*sidx, Direction::Outgoing)
-                    .collect::<Vec<_>>();
-                // TODO: the code below relies on edges being in reversed order,
-                //       but that changed now and they are in commit-graph order.
-                //       This is the minimal change to make this work,
-                //       even though a second step should be the cleanup of the
-                //       whole ordering business which also compensated for out-of-order
-                //       edges (which is also fixed).
-                v.reverse();
-                v
-            };
+            // but-graph yields outgoing edges in parent order, so iterate as-is. The counter below
+            // gives commit-less empty branches distinct, increasing orders — so the StepGraph never
+            // has tied parent orders and needs no insertion-order tie-break.
+            let edges = workspace.graph.edges_directed(*sidx, Direction::Outgoing);
+            let mut empty_branch_count = 0usize;
             'inner: for edge in edges {
                 let Some(target) = segments.get(&edge.target()).and_then(|n| n.nodes.first())
                 else {
@@ -256,8 +253,24 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     continue 'inner;
                 };
 
-                // TODO: does it have relevance when `parent_order()` is `None` for edges to virtual segments?
-                let order = edge.weight().parent_order().unwrap_or(0) as usize;
+                // A real parent gets its index in the source commit's parent array. A dst with no
+                // commit id (a commit-less empty branch) can't be indexed, so it's placed after the
+                // real parents — and each one bumps the counter so siblings get distinct orders.
+                let parents = edge
+                    .weight()
+                    .src_id()
+                    .and_then(|src| parents_by_commit.get(&src).copied());
+                let real_parent_index = parents
+                    .zip(edge.weight().dst_id())
+                    .and_then(|(parents, dst)| parents.iter().position(|p| *p == dst));
+                let order = match real_parent_index {
+                    Some(idx) => idx,
+                    None => {
+                        let o = parents.map_or(0, |p| p.len()) + empty_branch_count;
+                        empty_branch_count += 1;
+                        o
+                    }
+                };
                 graph.add_edge(*source, *target, Edge { order });
             }
         }

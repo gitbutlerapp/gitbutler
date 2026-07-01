@@ -201,10 +201,10 @@ no need for -a here my friend...
 fn commit_with_branch_hint() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     insta::assert_snapshot!(env.git_log(), @r"
-    *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   8e93f22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 9477ae7 (A) add A
-    * | d3e2ba3 (B) add B
+    | * d3e2ba3 (B) add B
+    * | 9477ae7 (A) add A
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
@@ -231,10 +231,10 @@ fn commit_with_branch_hint() {
 fn commit_with_nonexistent_branch_fails() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     insta::assert_snapshot!(env.git_log(), @r"
-    *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   8e93f22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 9477ae7 (A) add A
-    * | d3e2ba3 (B) add B
+    | * d3e2ba3 (B) add B
+    * | 9477ae7 (A) add A
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
@@ -256,10 +256,10 @@ Error: Branch 'nonexistent' not found
 fn commit_with_create_flag_creates_new_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     insta::assert_snapshot!(env.git_log(), @r"
-    *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   8e93f22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 9477ae7 (A) add A
-    * | d3e2ba3 (B) add B
+    | * d3e2ba3 (B) add B
+    * | 9477ae7 (A) add A
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");

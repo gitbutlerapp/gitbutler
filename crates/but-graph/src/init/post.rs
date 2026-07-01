@@ -57,9 +57,6 @@ impl Graph {
     ) -> anyhow::Result<Self> {
         self.hard_limit_hit = hard_limit;
 
-        // Make sure edge order matches the git commit graph when traversed.
-        self.rebuild_edges_in_parent_order();
-
         // Keep the original traversal tip available even if post-processing moves the
         // entrypoint to a segment that doesn't contain it.
         self.update_entrypoint_commit_id(tip);
@@ -102,6 +99,11 @@ impl Graph {
         self.compute_generation_numbers();
 
         self.symbolic_remote_names = symbolic_remote_names.to_vec();
+
+        debug_assert!(
+            self.first_parent_edges_well_ordered(),
+            "a segment's first outgoing edge is not its first-parent edge; first-parent traversal would follow the wrong parent"
+        );
         self.finish_post_processing(detach_entrypoint)
     }
 
@@ -110,36 +112,6 @@ impl Graph {
             self.detach_entrypoint_segment()?;
         }
         Ok(self)
-    }
-
-    /// Rebuild outgoing edges so petgraph traversal follows the source commit's
-    /// `parent_order`. Petgraph traverses edges in reverse creation order, so
-    /// edges are re-added from last parent to first parent.
-    fn rebuild_edges_in_parent_order(&mut self) {
-        let mut outgoing_edges = Vec::with_capacity(2);
-        for sidx in self.segments().collect::<Vec<_>>() {
-            let mut edges = self.inner.edges_directed(sidx, Direction::Outgoing);
-            let Some(first_edge) = edges.next() else {
-                continue;
-            };
-            let Some(second_edge) = edges.next() else {
-                continue;
-            };
-
-            outgoing_edges.clear();
-            outgoing_edges.push(EdgeOwned::from(first_edge));
-            outgoing_edges.push(EdgeOwned::from(second_edge));
-            outgoing_edges.extend(edges.map(EdgeOwned::from));
-
-            outgoing_edges.sort_by_key(|e| std::cmp::Reverse(e.weight.parent_order));
-
-            for edge in &outgoing_edges {
-                self.inner.remove_edge(edge.id);
-            }
-            for edge in &outgoing_edges {
-                self.inner.add_edge(edge.source, edge.target, edge.weight);
-            }
-        }
     }
 
     /// Ensure the entrypoint commit-id is updated to match the actual tip commit.
@@ -251,7 +223,6 @@ impl Graph {
                             src_id: edge.weight.src_id,
                             dst: None,
                             dst_id: None,
-                            parent_order: edge.weight.parent_order,
                         },
                     );
                     self.inner.remove_edge(edge.id);
@@ -395,7 +366,6 @@ impl Graph {
                     owner_sidx,
                     0,
                     Some(owner_tip),
-                    0,
                 );
             }
         }
@@ -475,7 +445,6 @@ impl Graph {
             new_segment,
             0,
             tip_of_new_segment,
-            0,
         );
 
         let (src, src_id) = {
@@ -494,7 +463,6 @@ impl Graph {
                     src_id,
                     dst: edge.weight.dst,
                     dst_id: edge.weight.dst_id,
-                    parent_order: edge.weight.parent_order,
                 },
             );
             self.inner.remove_edge(edge.id);
@@ -700,11 +668,56 @@ impl Graph {
         Ok(out)
     }
 
+    /// The commit identifying `stack_top`'s position in the workspace commit's parent array:
+    /// the first commit reachable by walking first-parent from `stack_top`, skipping empty
+    /// segments. For a fully empty lane this is its base, which is itself a parent of the
+    /// workspace commit. Returns `None` only if no commit is reachable at all.
+    fn stack_entry_commit(&self, stack_top: SegmentIndex) -> Option<gix::ObjectId> {
+        let mut cur = stack_top;
+        loop {
+            if let Some(commit) = self[cur].commits.first() {
+                return Some(commit.id);
+            }
+            cur = self
+                .inner
+                .neighbors_directed(cur, Direction::Outgoing)
+                .next()?;
+        }
+    }
+
+    /// Debug-only invariant: a segment's first outgoing edge must be its first-parent edge — the
+    /// property that first-parent traversal (`parent_segments_for_reachable_difference`'s `take(1)`)
+    /// and the projection's `next_segment_downward` fallback rely on. Edges are kept in this order
+    /// incrementally by `rebuild_outgoing_edges_for_traversal_order`; this guards any raw `add_edge`
+    /// path that bypasses it. Conservatively accepts a commit-less first-parent target (an empty
+    /// branch), which carries no destination id to check against.
+    fn first_parent_edges_well_ordered(&self) -> bool {
+        for sidx in self.inner.node_indices() {
+            let Some(last) = self[sidx].commits.last() else {
+                continue;
+            };
+            if last.parent_ids.len() < 2 {
+                continue;
+            }
+            // Check the *literal* first outgoing edge — exactly what `take(1)` first-parent
+            // traversal follows, not the first edge that happens to come from the last commit.
+            let Some(first) = self.inner.edges_directed(sidx, Direction::Outgoing).next() else {
+                continue;
+            };
+            match first.weight().dst_id() {
+                None => {}
+                Some(dst) if dst == last.parent_ids[0] => {}
+                Some(_) => return false,
+            }
+        }
+        true
+    }
+
     /// Perform operations on the current workspace, or do nothing if there is `None`.
     ///
     /// * workspace segments are either empty, or have just one managed commit.
     /// * insert empty segments as defined by the workspace that affects its downstream.
-    /// * put workspace connection into the order defined in the workspace metadata.
+    /// * order workspace connections by the workspace commit's real parent array.
     /// * set sibling segment IDs for unnamed segments that are descendants of an out-of-workspace but known segment.
     fn workspace_upgrades<T: RefMetadata>(
         &mut self,
@@ -934,7 +947,11 @@ impl Graph {
             delete_anon_if_empty_and_reconnect(self, sidx);
         }
 
-        // Redo workspace outgoing connections according to desired stack order.
+        // Redo workspace outgoing connections in the order of the workspace commit's real parent
+        // array — the source of truth for stack order. A stack's entry is its top commit; an empty
+        // lane resolves to its base (a first-parent walk down), itself a parent of the workspace
+        // commit. Stacks the parent array can't tell apart (e.g. two branches on one base) tie-break
+        // by workspace-metadata order, then by their original relative order.
         let mut edges_pointing_to_named_segment = self
             .inner
             .edges_directed(ws_sidx, Direction::Outgoing)
@@ -948,21 +965,33 @@ impl Graph {
             .iter()
             .map(|(_e, sidx, _rn)| *sidx)
             .collect();
-        edges_pointing_to_named_segment.sort_by_key(|(_e, sidx, ri)| {
-            let res = ws_data.stacks.iter().position(|s| {
-                s.is_in_workspace()
-                    && s.branches
-                        .first()
-                        .is_some_and(|b| Some(&b.ref_name) == ri.as_ref().map(|ri| &ri.ref_name))
-            });
-            // This makes it so that edges that weren't mentioned in workspace metadata
-            // retain their relative order, with first-come-first-serve semantics.
-            // The expected case is that each segment is defined.
-            res.or_else(|| {
-                edges_original_order
-                    .iter()
-                    .position(|sidx_for_order| sidx_for_order == sidx)
-            })
+        let ws_parent_ids: Vec<gix::ObjectId> = self[ws_sidx]
+            .commits
+            .first()
+            .map(|c| c.parent_ids.clone())
+            .unwrap_or_default();
+        // Cached: the key walks the graph (`stack_entry_commit`) and scans, so compute it once per
+        // edge rather than on every comparison.
+        edges_pointing_to_named_segment.sort_by_cached_key(|(_e, sidx, ri)| {
+            let by_parent = self
+                .stack_entry_commit(*sidx)
+                .and_then(|id| ws_parent_ids.iter().position(|p| *p == id))
+                .unwrap_or(usize::MAX);
+            let by_metadata = ws_data
+                .stacks
+                .iter()
+                .position(|s| {
+                    s.is_in_workspace()
+                        && s.branches.first().is_some_and(|b| {
+                            Some(&b.ref_name) == ri.as_ref().map(|ri| &ri.ref_name)
+                        })
+                })
+                .or_else(|| {
+                    edges_original_order
+                        .iter()
+                        .position(|sidx_for_order| sidx_for_order == sidx)
+                });
+            (by_parent, by_metadata)
         });
 
         // Re-add in reverse because petgraph traverses newest edges first.
@@ -1402,7 +1431,6 @@ impl Graph {
             owner_sidx,
             Some(owner_cidx),
             Some(local_tip),
-            0,
         );
         self[owner_sidx].commits[owner_cidx]
             .refs
@@ -1581,7 +1609,6 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
                 src_id: edge.weight.src_id,
                 dst: target_commit_idx,
                 dst_id: target_commit_id,
-                parent_order: edge.weight.parent_order,
             },
         );
     }
@@ -1624,7 +1651,6 @@ fn create_independent_segments<T: RefMetadata>(
             new_segment,
             None,
             None,
-            0,
         );
         above = new_segment_sidx;
 
@@ -1733,7 +1759,6 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
             new_segment,
             (is_last && commit.is_some()).then_some(0),
             is_last.then_some(commit.as_ref().map(|c| c.id)).flatten(),
-            0,
         );
         above_idx = new_segment;
         if is_first {
@@ -1766,7 +1791,6 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
                         src_id: edge.weight.src_id,
                         dst: target_cidx,
                         dst_id: target_cidx.and_then(|_| commit.as_ref().map(|c| c.id)),
-                        parent_order: edge.weight.parent_order,
                     },
                 );
             }
@@ -1826,7 +1850,6 @@ fn reconnect_outgoing_edges(
                 src_id: target_first_commit_id,
                 dst: edge.weight.dst,
                 dst_id: edge.weight.dst_id,
-                parent_order: edge.weight.parent_order,
             },
         );
     }

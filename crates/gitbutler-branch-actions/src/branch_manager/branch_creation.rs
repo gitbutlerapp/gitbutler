@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::{Context as _, Result};
 use but_core::{RefMetadata, ref_metadata::StackId};
 use but_ctx::access::RepoExclusive;
@@ -54,6 +56,33 @@ impl BranchManager<'_> {
             .list_stacks_in_workspace()
             .context("failed to read virtual branches")?;
 
+        // Empties must sit on distinct commits so they map to distinct workspace-commit parents —
+        // sharing one collapses them into a single lane. Collect the commits already taken as
+        // workspace-commit parents (each stack's head). If the target base is already one of them,
+        // walk back through its ancestry to the first commit still free. The new branch then sits
+        // on an older base; we only log a warning about it (not yet surfaced to the client).
+        let repo = self.ctx.repo.get()?;
+        // Best-effort: a stack whose head can't be resolved just doesn't reserve a commit here.
+        let used_parent_commits: HashSet<gix::ObjectId> = all_stacks
+            .iter()
+            .filter_map(|s| s.head_oid(self.ctx).ok())
+            .collect();
+        let mut base_oid = target_base_oid;
+        while used_parent_commits.contains(&base_oid) {
+            base_oid = repo
+                .find_commit(base_oid)?
+                .parent_ids()
+                .next()
+                .context("Not enough commits to create a new branch")?
+                .detach();
+        }
+        if base_oid != target_base_oid {
+            tracing::warn!(
+                %base_oid,
+                "target base commit is already a workspace-commit parent; placing the new branch on an older base"
+            );
+        }
+
         let stack_names: Vec<String> = all_stacks.iter().map(|b| b.name()).collect();
         let stack_name_refs: Vec<&str> = stack_names.iter().map(|s| s.as_str()).collect();
         let name = dedup(
@@ -77,7 +106,7 @@ impl BranchManager<'_> {
             }
         }
 
-        let branch = Stack::new_empty(self.ctx, name, target_base_oid, order)?;
+        let branch = Stack::new_empty(self.ctx, name, base_oid, order)?;
 
         vb_state.set_stack(branch.clone())?;
         self.ctx.add_branch_reference(&branch)?;

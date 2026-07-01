@@ -74,11 +74,17 @@ function create_workspace_commit_once() {
     fi
   fi
 
-  git checkout -b gitbutler/workspace
-  if [ $# == 1 ] || [ $# == 0 ]; then
-    git commit --allow-empty -m "$workspace_commit_subject"
+  if [ $# -gt 1 ]; then
+    # First arg becomes the workspace commit's first parent; the rest merge in order.
+    # NB: `git merge` reports "Already up to date" and makes no commit when an argument is
+    # an ancestor of HEAD, so an empty branch (sitting on the base) must be the FIRST arg —
+    # checked out here — or it is silently dropped from the workspace commit's parents.
+    git checkout "$1"
+    git checkout -b gitbutler/workspace
+    git merge --no-ff -m "$workspace_commit_subject" "${@:2}"
   else
-    git merge --no-ff -m "$workspace_commit_subject" "${@}"
+    git checkout -b gitbutler/workspace
+    git commit --allow-empty -m "$workspace_commit_subject"
   fi
 }
 

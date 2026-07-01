@@ -29,14 +29,14 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -55,12 +55,12 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *-.   efd284c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *-.   16e2eb1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\ \  
-    | | * 09d8e52 (A) A
+    | | * 8e00332 (C) C
     | * | c813d8d (B) B
     | |/  
-    * / 8e00332 (C) C
+    * / 09d8e52 (A) A
     |/  
     * 85efbe4 (origin/main, main) M
     ");
@@ -104,14 +104,14 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -130,24 +130,24 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *-.   a3c9e85 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *-.   7e46497 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\ \  
-    | | * 09d8e52 (A) A
-    | * | 8e00332 (C) C
+    | | * c813d8d (B) B
+    | * | 09d8e52 (A) A
     | |/  
-    * / c813d8d (B) B
+    * / 8e00332 (C) C
     |/  
     * 85efbe4 (origin/main, main) M
     ");
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
     ├── ≡📙:4:C on 85efbe4 {2}
     │   └── 📙:4:C
     │       └── ·8e00332 (🏘️)
+    ├── ≡📙:3:A on 85efbe4 {1}
+    │   └── 📙:3:A
+    │       └── ·09d8e52 (🏘️)
     └── ≡📙:5:B on 85efbe4 {3}
         └── 📙:5:B
             └── ·c813d8d (🏘️)
@@ -179,14 +179,14 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -216,14 +216,14 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     Ok(())
@@ -269,10 +269,10 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   e2d89a5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   828af37 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 09d8e52 (A) A
-    * | 1273ba9 (B) B
+    | * 1273ba9 (B) B
+    * | 09d8e52 (A) A
     |/  
     * 85efbe4 (origin/main, main) M
     ");
@@ -330,10 +330,10 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   828af37 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   e2d89a5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 1273ba9 (B) B
-    * | 09d8e52 (A) A
+    | * 09d8e52 (A) A
+    * | 1273ba9 (B) B
     |/  
     * 85efbe4 (origin/main, main) M
     ");
@@ -391,9 +391,9 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   d744692 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   b1314f4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * 09d8e52 (A) A
+    * | 09d8e52 (A) A
     |/  
     * 85efbe4 (origin/main, main, B) M
     ");
@@ -450,9 +450,9 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   b1314f4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   d744692 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    * | 09d8e52 (A) A
+    | * 09d8e52 (A) A
     |/  
     * 85efbe4 (origin/main, main, B) M
     ");

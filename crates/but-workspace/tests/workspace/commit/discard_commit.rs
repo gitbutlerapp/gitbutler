@@ -89,14 +89,14 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = discard_commits(editor, [c.detach()])?;
@@ -104,13 +104,13 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     let outcome = outcome.materialize()?;
     insta::assert_snapshot!(graph_workspace(outcome.workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:5:C on 85efbe4 {2}
-        ├── 📙:5:C
-        └── 📙:6:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:5:C on 85efbe4 {2}
+    │   ├── 📙:5:C
+    │   └── 📙:6:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let tip_of_c = repo.rev_parse_single("C")?;
@@ -156,14 +156,14 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
-            └── ·c813d8d (🏘️)
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·09bc93e (🏘️)
+    │   └── 📙:5:B
+    │       └── ·c813d8d (🏘️)
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = discard_commits(editor, [b.detach()])?;
@@ -171,13 +171,13 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     let outcome = outcome.materialize()?;
     insta::assert_snapshot!(graph_workspace(outcome.workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
-    │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
-        │   └── ·8e00332 (🏘️)
-        └── 📙:5:B
+    ├── ≡📙:4:C on 85efbe4 {2}
+    │   ├── 📙:4:C
+    │   │   └── ·8e00332 (🏘️)
+    │   └── 📙:5:B
+    └── ≡📙:3:A on 85efbe4 {1}
+        └── 📙:3:A
+            └── ·09d8e52 (🏘️)
     ");
 
     let tip_of_b = repo.rev_parse_single("B")?;
