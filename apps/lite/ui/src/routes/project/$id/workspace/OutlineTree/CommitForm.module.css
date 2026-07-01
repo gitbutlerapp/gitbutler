@@ -1,4 +1,4 @@
-.commitForm {
+.form {
 	display: flex;
 	row-gap: 10px;
 	flex-direction: column;
@@ -7,7 +7,7 @@
 	outline: 1px solid var(--border-2);
 	background: var(--bg-1);
 
-	&:not(:has(.commitTextarea[disabled])) {
+	&:not(:has(.textarea[disabled])) {
 		&:hover {
 			outline-color: var(--border-1);
 		}
@@ -17,7 +17,7 @@
 	}
 }
 
-.commitTextarea {
+.textarea {
 	padding: 4px;
 	resize: none;
 	field-sizing: content;
@@ -34,13 +34,13 @@
 	}
 }
 
-.commitFormFooter {
+.footer {
 	display: flex;
 	column-gap: 4px;
 	justify-content: space-between;
 }
 
-.commitDropdownButton {
+.dropdownButton {
 	display: flex;
 
 	& > * {
@@ -59,7 +59,7 @@
 	}
 }
 
-.commitDropdownButtonSeparator {
+.dropdownButtonSeparator {
 	display: grid;
 	width: 1px;
 	background-color: color-mix(in srgb, var(--scale-pop-60) 50%, transparent);
@@ -70,7 +70,7 @@
 	}
 }
 
-.commitTargetComboboxTrigger {
+.targetTrigger {
 	display: flex;
 	column-gap: 6px;
 	align-items: center;
@@ -86,19 +86,19 @@
 	}
 }
 
-.commitTargetComboboxTriggerLabel {
+.targetTriggerLabel {
 	overflow: hidden;
 	line-height: 1;
 	text-overflow: ellipsis;
 }
 
-.commitTargetComboboxPopup {
+.targetPopup {
 	display: flex;
 	flex-direction: column;
 	width: max(var(--anchor-width), 200px);
 }
 
-.commitTargetComboboxInput {
+.targetInput {
 	padding-inline: 10px;
 	padding-block: 4px;
 	border-bottom: 1px solid var(--border-2);
@@ -108,7 +108,7 @@
 	}
 }
 
-.commitTargetComboboxList {
+.targetList {
 	--approx-input-height: 50px;
 	max-height: min(300px, calc(var(--available-height) - var(--approx-input-height)));
 	overflow: auto;
@@ -118,7 +118,7 @@
 	}
 }
 
-.commitTargetComboboxItem {
+.targetItem {
 	padding-inline: 10px;
 	padding-block: 4px;
 	overflow: hidden;
@@ -131,7 +131,7 @@
 	}
 }
 
-.commitTargetComboboxEmpty {
+.targetEmpty {
 	padding-inline: 10px;
 	padding-block: 4px;
 	color: var(--color-text-secondary);

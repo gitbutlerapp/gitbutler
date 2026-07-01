@@ -33,21 +33,21 @@ export type CommitTargetComboboxItem = {
 };
 
 const CommitTargetComboboxPopup: FC = () => (
-	<Combobox.Popup className={classes(uiStyles.popup, "text-13", styles.commitTargetComboboxPopup)}>
+	<Combobox.Popup className={classes(uiStyles.popup, "text-13", styles.targetPopup)}>
 		<Combobox.Input
 			aria-label="Search targets"
 			placeholder="Search targets..."
-			className={styles.commitTargetComboboxInput}
+			className={styles.targetInput}
 		/>
 		<Combobox.Empty>
-			<div className={styles.commitTargetComboboxEmpty}>No targets found.</div>
+			<div className={styles.targetEmpty}>No targets found.</div>
 		</Combobox.Empty>
-		<Combobox.List className={styles.commitTargetComboboxList}>
+		<Combobox.List className={styles.targetList}>
 			{(item: CommitTargetComboboxItem) => (
 				<Combobox.Item
 					key={relativeToKey(item.relativeTo)}
 					value={item}
-					className={styles.commitTargetComboboxItem}
+					className={styles.targetItem}
 				>
 					{item.label}
 				</Combobox.Item>
@@ -192,7 +192,7 @@ export const CommitForm: FC<{
 	)}`;
 
 	return (
-		<form onSubmit={submit} className={styles.commitForm}>
+		<form onSubmit={submit} className={styles.form}>
 			<textarea
 				id={commitMessageInputId}
 				ref={commitTextareaRef}
@@ -200,11 +200,11 @@ export const CommitForm: FC<{
 				disabled={!isDefaultMode}
 				readOnly={isCommitOrAmendPending}
 				placeholder={commitTextareaLabel}
-				className={classes("text-13", "text-body", styles.commitTextarea)}
+				className={classes("text-13", "text-body", styles.textarea)}
 				onFocus={selectChanges}
 			/>
 
-			<div className={styles.commitFormFooter}>
+			<div className={styles.footer}>
 				<Combobox.Root<CommitTargetComboboxItem>
 					items={targetComboboxItems}
 					open={open}
@@ -220,14 +220,14 @@ export const CommitForm: FC<{
 				>
 					<Tooltip.Root>
 						<Combobox.Trigger
-							className={classes("text-13 text-semibold", styles.commitTargetComboboxTrigger)}
+							className={classes("text-13 text-semibold", styles.targetTrigger)}
 							aria-label="Select commit target"
 							// We pass `disabled` here because we want to disable the button, not
 							// the tooltip. Other props should be passed above.
 							render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 						>
 							<Icon name="bullseye" size={14} />
-							<span className={styles.commitTargetComboboxTriggerLabel}>
+							<span className={styles.targetTriggerLabel}>
 								<Combobox.Value placeholder="Select commit target" />
 							</span>
 						</Combobox.Trigger>
@@ -249,7 +249,7 @@ export const CommitForm: FC<{
 				</Combobox.Root>
 
 				{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation. */}
-				<div role="group" className={styles.commitDropdownButton}>
+				<div role="group" className={styles.dropdownButton}>
 					<Tooltip.Root>
 						<Tooltip.Trigger
 							className={getButtonClassName({ variant: "pop" })}
@@ -268,7 +268,7 @@ export const CommitForm: FC<{
 							</Tooltip.Positioner>
 						</Tooltip.Portal>
 					</Tooltip.Root>
-					<div aria-hidden className={styles.commitDropdownButtonSeparator} />
+					<div aria-hidden className={styles.dropdownButtonSeparator} />
 					<Button
 						focusableWhenDisabled
 						disabled={!(canAmend || canCommit)}
