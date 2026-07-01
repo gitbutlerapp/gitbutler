@@ -48,10 +48,9 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         .iter()
         .map(|s| s.branches.iter().map(|b| b.ref_name.clone()).collect())
         .collect();
-    // The effective target/push-remote configuration: the caller's project meta, falling back to the
-    // workspace metadata's own (the walk reads the target from workspace metadata even when the caller
-    // passes a default `ProjectMeta`). No hard-coded `origin/main` fallback — a workspace with neither
-    // configured has NO target, matching the walk.
+    // REMOTE deduction sees the caller's project meta with a fallback to the workspace metadata's own
+    // target/push remote (the walk discovers those remotes through its workspace-metadata tips even
+    // when the caller passes a default `ProjectMeta`).
     let effective_pm = {
         let ws_pm = ws_meta.project_meta();
         but_core::ref_metadata::ProjectMeta {
@@ -60,7 +59,11 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
             ..project_meta.clone()
         }
     };
-    let target = effective_pm.target_ref.clone().and_then(|tr| {
+    // INTEGRATION however is marked ONLY from the caller's target ref — the walk resolves the target
+    // tip from the passed project meta alone, so a default `ProjectMeta` means nothing is integrated
+    // (and the projection won't downgrade an entrypoint as "at/below the base"). No hard-coded
+    // `origin/main` fallback either.
+    let target = project_meta.target_ref.clone().and_then(|tr| {
         Some(
             repo.find_reference(&tr)
                 .ok()?
