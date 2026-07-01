@@ -26,8 +26,8 @@ import {
 	WorkspaceItemRowToolbar,
 } from "../WorkspaceItemRow.tsx";
 import { ItemRow } from "./ItemRow.tsx";
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { changesInWorktreeQueryOptions, treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
+import { useQueries } from "@tanstack/react-query";
+import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
 import { commitMessageInputId } from "./CommitForm.tsx";
 
 type LineStats = {
@@ -53,12 +53,8 @@ export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
 	projectId: string;
 }> = ({ changes, projectId }) => {
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const treeChangeDiffs = useQueries({
-		queries:
-			worktreeChanges?.changes.map((change) =>
-				treeChangeDiffsQueryOptions({ projectId, change }),
-			) ?? [],
+		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	});
 	const lineStats = getLineStats(treeChangeDiffs.map((result) => result.data));
 
