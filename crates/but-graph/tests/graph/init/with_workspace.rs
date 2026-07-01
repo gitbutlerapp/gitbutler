@@ -8059,8 +8059,22 @@ fn graph_structure(graph: &but_graph::Graph) -> Vec<String> {
             let commits: Vec<String> = s
                 .commits
                 .iter()
-                .map(|c| format!("{}:{:?}", c.id.to_hex_with_len(7), c.flags & mask))
+                .map(|c| {
+                    let mut refs: Vec<String> =
+                        c.refs.iter().map(|r| r.ref_name.to_string()).collect();
+                    refs.sort();
+                    format!(
+                        "{}:{:?}:refs[{}]",
+                        c.id.to_hex_with_len(7),
+                        c.flags & mask,
+                        refs.join(",")
+                    )
+                })
                 .collect();
+            let worktree = s
+                .ref_info
+                .as_ref()
+                .map_or("∅".to_string(), |ri| format!("{:?}", ri.worktree));
             let mut conns: Vec<String> = s
                 .connections
                 .iter()
@@ -8077,7 +8091,7 @@ fn graph_structure(graph: &but_graph::Graph) -> Vec<String> {
                 Some(but_graph::SegmentMetadata::Workspace(_)) => "W",
             };
             format!(
-                "{name}|rt={remote}|gen={}|meta={meta}|commits=[{}]|conn=[{}]|sib={sibling}",
+                "{name}|rt={remote}|gen={}|meta={meta}|wt={worktree}|commits=[{}]|conn=[{}]|sib={sibling}",
                 s.generation,
                 commits.join(","),
                 conns.join(","),

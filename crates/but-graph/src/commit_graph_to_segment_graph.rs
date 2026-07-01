@@ -280,6 +280,44 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         }
     }
 
+    // A ref that NAMES a segment (or is a segment's remote-tracking ref) lives on that segment, so it is
+    // removed from every commit's own ref list — including an empty branch's ref that sits on another
+    // segment's commit (the walk does the same, avoiding showing it twice).
+    let segment_names: HashSet<gix::refs::FullName> = sg
+        .node_indices()
+        .flat_map(|sidx| {
+            sg.node(sidx)
+                .map(|s| {
+                    s.ref_info
+                        .as_ref()
+                        .map(|ri| ri.ref_name.clone())
+                        .into_iter()
+                        .chain(s.remote_tracking_ref_name.clone())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        })
+        .collect();
+    for sidx in sg.node_indices().collect::<Vec<_>>() {
+        if let Some(s) = sg.node_mut(sidx) {
+            for commit in &mut s.commits {
+                commit
+                    .refs
+                    .retain(|ri| !segment_names.contains(&ri.ref_name));
+            }
+        }
+    }
+
+    // The workspace ref is checked out in the main worktree (HEAD points at it).
+    if let Some(&ws_sidx) = seg_of_tip.get(&workspace_commit)
+        && let Some(ri) = sg.node_mut(ws_sidx).and_then(|s| s.ref_info.as_mut())
+    {
+        ri.worktree = Some(crate::Worktree {
+            kind: crate::WorktreeKind::Main,
+            owned_by_repo: true,
+        });
+    }
+
     // Normalize every connection's endpoints (src = source's last commit, dst = target's first) so the
     // graph passes `check_edge` validation — we only set the ids while building, not the indices.
     normalize_connections(&mut sg);
