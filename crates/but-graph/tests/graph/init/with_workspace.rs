@@ -7734,10 +7734,10 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
 }
 
 /// Comparable `[(ref_name, [commit ids])]` from a commit-graph projection.
-/// Per stack: its base, then each segment's (ref name, commits).
+/// Per stack: its base, then each segment's (ref name, remote-tracking ref, commits).
 type StackShape = (
     Option<gix::ObjectId>,
-    Vec<(Option<String>, Vec<gix::ObjectId>)>,
+    Vec<(Option<String>, Option<String>, Vec<gix::ObjectId>)>,
 );
 
 fn cg_projection_shape(
@@ -7753,6 +7753,9 @@ fn cg_projection_shape(
                     .map(|seg| {
                         (
                             seg.ref_name.as_ref().map(|r| r.as_bstr().to_string()),
+                            seg.remote_tracking_ref_name
+                                .as_ref()
+                                .map(|r| r.as_bstr().to_string()),
                             seg.commits.clone(),
                         )
                     })
@@ -7774,6 +7777,9 @@ fn segment_projection_shape(ws: &but_graph::Workspace) -> Vec<StackShape> {
                     .map(|seg| {
                         (
                             seg.ref_name().map(|r| r.as_bstr().to_string()),
+                            seg.remote_tracking_ref_name
+                                .as_ref()
+                                .map(|r| r.as_bstr().to_string()),
                             seg.commits.iter().map(|c| c.id).collect(),
                         )
                     })
@@ -7812,6 +7818,25 @@ fn target_commit(repo: &gix::Repository, meta: &impl RefMetadata) -> Option<gix:
     )
 }
 
+/// Enrichment data for the projection: local branch -> its remote-tracking branch, deduced by name
+/// (`refs/remotes/origin/<X>` for `refs/heads/<X>`) for every origin remote branch that exists. This
+/// mirrors the segment graph's name-based deduction for these fixtures (all use the `origin` remote).
+fn remote_tracking_map(
+    repo: &gix::Repository,
+) -> anyhow::Result<std::collections::HashMap<gix::refs::FullName, gix::refs::FullName>> {
+    let mut map = std::collections::HashMap::new();
+    for reference in repo.references()?.all()?.filter_map(Result::ok) {
+        let full = reference.name().as_bstr();
+        if let Some(short) = full.strip_prefix(b"refs/remotes/origin/") {
+            let local = format!("refs/heads/{}", String::from_utf8_lossy(short));
+            if let Ok(local_ref) = gix::refs::FullName::try_from(local) {
+                map.insert(local_ref, reference.name().to_owned());
+            }
+        }
+    }
+    Ok(map)
+}
+
 /// SPIKE (commit-graph-experiment): assert the gather-then-build commit-graph projection — built from
 /// BOTH a `from_segment_graph` bridge and a straight-from-git `from_repository` CommitGraph — exactly
 /// reproduces the segment-based `Workspace.stacks` (ref names + commits, including empty branches).
@@ -7826,17 +7851,20 @@ fn assert_commit_graph_projection_parity(
         .managed_entrypoint_commit(repo)?
         .expect("managed workspace commit")
         .id;
+    let remote_tracking = remote_tracking_map(repo)?;
     let bridge = but_graph::commit_graph_projection::project(
         &but_graph::CommitGraph::from_segment_graph(&graph),
         ws_commit,
         Some(stack_branches),
         target,
+        &remote_tracking,
     );
     let from_git = but_graph::commit_graph_projection::project(
         &but_graph::CommitGraph::from_repository(repo)?,
         ws_commit,
         Some(stack_branches),
         target,
+        &remote_tracking,
     );
     assert_eq!(
         cg_projection_shape(&from_git),

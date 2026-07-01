@@ -19,7 +19,7 @@
 
 #![allow(dead_code)]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use bstr::ByteSlice;
 use gix::reference::Category;
@@ -33,6 +33,8 @@ pub struct SegmentRun {
     pub ref_name: Option<gix::refs::FullName>,
     /// The segment's commits, tip-first.
     pub commits: Vec<gix::ObjectId>,
+    /// The remote-tracking branch ref for this segment's branch, if any (e.g. `refs/remotes/origin/A`).
+    pub remote_tracking_ref_name: Option<gix::refs::FullName>,
 }
 
 /// A stack: its segments, tip-first.
@@ -81,6 +83,7 @@ pub fn gather(
     workspace_commit: gix::ObjectId,
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
     target: Option<gix::ObjectId>,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) -> ProjectionData {
     let stack_tops: Vec<_> = cg.parents(workspace_commit).collect();
     // Each stack's base is its OWN merge base with the target (origin/main): a stack's commits stop
@@ -117,7 +120,7 @@ pub fn gather(
                 Some(t) => fork_point(cg, top, t).or(global_base),
                 None => global_base,
             };
-            let segments = match &aligned[i] {
+            let mut segments = match &aligned[i] {
                 // Metadata-driven: the stack's branch list defines the segments and their names.
                 Some(branches) => {
                     segment_by_branches(cg, top, stack_base, branches, &meta_branches, &all_tops)
@@ -125,6 +128,13 @@ pub fn gather(
                 // No metadata: fall back to slicing at each disambiguated local-branch ref on the spine.
                 None => segment_runs(cg, top, stack_base, &meta_branches, &all_tops),
             };
+            // Enrichment: attach each named segment's remote-tracking branch (a pure lookup by ref).
+            for seg in &mut segments {
+                seg.remote_tracking_ref_name = seg
+                    .ref_name
+                    .as_ref()
+                    .and_then(|rn| remote_tracking.get(rn).cloned());
+            }
             GatheredStack {
                 base: stack_base,
                 tracked: aligned[i].is_some(),
@@ -161,8 +171,15 @@ pub fn project(
     workspace_commit: gix::ObjectId,
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
     target: Option<gix::ObjectId>,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) -> Vec<StackView> {
-    build(gather(cg, workspace_commit, stack_branches, target))
+    build(gather(
+        cg,
+        workspace_commit,
+        stack_branches,
+        target,
+        remote_tracking,
+    ))
 }
 
 /// Match each stack top to the branch list one of its spine commits carries, returning the lists in
@@ -252,7 +269,11 @@ fn segment_by_branches(
                 Some(&c) if commit_has_ref(cg, c, b) || cg.refs_at(c).is_empty() => Some(b.clone()),
                 Some(_) => None,
             };
-            SegmentRun { ref_name, commits }
+            SegmentRun {
+                ref_name,
+                commits,
+                remote_tracking_ref_name: None,
+            }
         })
         // A metadata segment may still enclose a SHARED segment below it — a commit carrying a
         // (non-sibling-top) branch ref that another stack also passes through, e.g. a shared base
@@ -274,6 +295,7 @@ fn split_run_at_shared_refs(
     let mut current = SegmentRun {
         ref_name: run.ref_name,
         commits: Vec::new(),
+        remote_tracking_ref_name: None,
     };
     for (i, &c) in run.commits.iter().enumerate() {
         if i > 0
@@ -285,6 +307,7 @@ fn split_run_at_shared_refs(
                 SegmentRun {
                     ref_name: Some(rn),
                     commits: Vec::new(),
+                    remote_tracking_ref_name: None,
                 },
             ));
         }
@@ -330,6 +353,7 @@ fn segment_runs(
     let mut current = SegmentRun {
         ref_name: disambiguated_branch_ref(cg, top, meta_branches),
         commits: Vec::new(),
+        remote_tracking_ref_name: None,
     };
     let mut id = Some(top);
     while let Some(c) = id {
@@ -346,6 +370,7 @@ fn segment_runs(
                 SegmentRun {
                     ref_name: Some(rn),
                     commits: Vec::new(),
+                    remote_tracking_ref_name: None,
                 },
             ));
         }
@@ -503,7 +528,7 @@ mod tests {
             Some(oid(0xff)),
         );
 
-        let stacks = project(&cg, oid(0xff), None, None);
+        let stacks = project(&cg, oid(0xff), None, None, &Default::default());
         assert_eq!(
             shape(&stacks),
             vec![
@@ -531,7 +556,7 @@ mod tests {
             ],
             Some(oid(0xff)),
         );
-        let stacks = project(&cg, oid(0xff), None, None);
+        let stacks = project(&cg, oid(0xff), None, None, &Default::default());
         // Stack A stays one segment spanning a2 and a1 (the special ref didn't split it).
         assert_eq!(
             shape(&stacks)[0],
@@ -558,7 +583,7 @@ mod tests {
                 "refs/heads/below".try_into().expect("valid"),
             ],
         ];
-        let stacks = project(&cg, oid(0xff), Some(&branches), None);
+        let stacks = project(&cg, oid(0xff), Some(&branches), None, &Default::default());
         assert_eq!(
             shape(&stacks),
             vec![
