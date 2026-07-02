@@ -55,6 +55,7 @@ import { Outline } from "./Outline.tsx";
 import { getOperations } from "#ui/operations/operation.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { reverse } from "effect/Array";
+import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -412,6 +413,8 @@ const WorkspacePage: FC = () => {
 					/>
 				</Panel>
 			</Group>
+
+			<OperationControls outlineNavigationIndex={outlineNavigationIndex} />
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({

@@ -45,7 +45,6 @@ import { GraphSegment, GraphSegmentStatus } from "#ui/components/GraphSegment.ts
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { CommitForm, type CommitTargetComboboxItem } from "./CommitForm.tsx";
 import { useIsSelected } from "./useIsSelected.ts";
 import { CommitRow } from "./CommitRow.tsx";
@@ -142,8 +141,6 @@ export const OutlineTree: FC<
 								))}
 							</div>
 						</div>
-
-						<OperationControls />
 					</div>
 				</DryRunWorkspaceContext>
 			</AbsorptionTargetKeysContext>
