@@ -38,6 +38,13 @@ pub enum MoveOutcome {
         new_branch_name: Option<FullName>,
         new_commit_id: gix::ObjectId,
     },
+    StackBranch {
+        source_branch: FullName,
+        target_branch: FullName,
+    },
+    UnstackBranch {
+        source_branch: FullName,
+    },
 }
 
 impl CliOutputHuman for MoveOutcome {
@@ -81,6 +88,20 @@ impl CliOutputHuman for MoveOutcome {
                     write!(out, " {target}")?;
                 }
             }
+            Self::StackBranch {
+                source_branch,
+                target_branch,
+            } => {
+                write!(
+                    out,
+                    "Stacked branch {} on top of branch {}",
+                    theme::Branch(source_branch),
+                    theme::Branch(target_branch),
+                )?;
+            }
+            Self::UnstackBranch { source_branch } => {
+                write!(out, "Unstacked branch {}", theme::Branch(source_branch))?;
+            }
         }
 
         writeln!(out)?;
@@ -109,6 +130,8 @@ enum MoveOperation {
     CommitsToNewBranch(MoveCommitsToNewBranchOperation),
     ChangesRelativeTo(MoveChangesRelativeToOperation),
     ChangesToNewBranch(MoveChangesToNewBranchOperation),
+    StackBranch(StackBranchOnOperation),
+    UnstackBranch(UnstackBranchOperation),
 }
 
 #[derive(Clone)]
@@ -271,6 +294,29 @@ impl MoveChangesToNewBranchOperation {
 }
 
 #[derive(Clone)]
+struct StackBranchOnOperation {
+    source_branch: FullName,
+    target_branch: FullName,
+}
+
+impl StackBranchOnOperation {
+    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
+        tx.stack_branch_on(self.source_branch.as_ref(), self.target_branch.as_ref())
+    }
+}
+
+#[derive(Clone)]
+struct UnstackBranchOperation {
+    source_branch: FullName,
+}
+
+impl UnstackBranchOperation {
+    fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
+        tx.tear_off_branch(self.source_branch.as_ref())
+    }
+}
+
+#[derive(Clone)]
 pub enum MoveTarget {
     /// Place the commit relative to this commit, within the same branch.
     Commit {
@@ -313,6 +359,7 @@ fn resolve(
         below,
         sources,
         branch,
+        unstack,
     } = args;
 
     let context_lines = ctx.settings.context_lines;
@@ -320,9 +367,12 @@ fn resolve(
 
     let resolved_sources = resolve_sources(&repo, &ws, &mut db, context_lines, id_map, sources)?;
 
-    match (branch, above, below) {
-        (Some(Some(branch)), None, None) => {
+    match (branch, above, below, unstack) {
+        (Some(Some(branch)), None, None, false) => {
             match (branch.try_resolve_branch(&repo, id_map)?, resolved_sources) {
+                (_, ResolvedSources::Branch(_)) => {
+                    Err(bad_input("Cannot combine `--branch` with a branch source").into())
+                }
                 (
                     Some(branch),
                     ResolvedSources::Commits {
@@ -377,7 +427,15 @@ fn resolve(
                 }
             }
         }
-        (Some(None), None, None) => match resolved_sources {
+        (Some(None), None, None, false) => match resolved_sources {
+            ResolvedSources::Branch(branch) => Err(bad_input("Invalid target for branch source")
+                .arg_name("--branch")
+                .hint(format!(
+                    "Trying to unstack {}? Use `--unstack '{}'` instead!",
+                    branch.shorten(),
+                    branch.shorten()
+                ))
+                .into()),
             ResolvedSources::Commits {
                 resolved_commits: sources,
                 ..
@@ -395,12 +453,26 @@ fn resolve(
                 }),
             ),
         },
-        (None, Some(above), None) => {
+        (None, Some(above), None, false) => {
             create_move_above_or_below_op(&repo, id_map, resolved_sources, above, Side::Above)
         }
-        (None, None, Some(below)) => {
+        (None, None, Some(below), false) => {
             create_move_above_or_below_op(&repo, id_map, resolved_sources, below, Side::Below)
         }
+        (None, None, None, true) => match resolved_sources {
+            ResolvedSources::Branch(source_branch) => {
+                Ok(MoveOperation::UnstackBranch(UnstackBranchOperation {
+                    source_branch,
+                }))
+            }
+            other => Err(bad_input(format!(
+                "Cannot unstack {}, only a branch source is allowed with `--unstack`",
+                other.display_kind()
+            ))
+            .arg_name("<SOURCES>")
+            .hint("Trying to move stuff to a new branch? Use the `--branch` argument instead!")
+            .into()),
+        },
         _ => unreachable!("BUG: Targeting group is required"),
     }
 }
@@ -426,6 +498,31 @@ fn create_move_above_or_below_op(
     };
 
     match resolved_sources {
+        ResolvedSources::Branch(source_branch) => {
+            let MoveTarget::BranchBucket {
+                name: target_branch,
+                side: Side::Above,
+            } = target
+            else {
+                return Err(bad_input("Invalid target for branch source")
+                    .arg_name(format!("--{side}"))
+                    .arg_value(unresolved_target.to_string())
+                    .hint("Branches can only be moved with `--above <branch>` to stack or `--unstack` to unstack")
+                    .into());
+            };
+
+            if source_branch == target_branch {
+                return Err(bad_input("Source cannot also be target")
+                    .arg_name(format!("--{side}"))
+                    .arg_value(unresolved_target.to_string())
+                    .into());
+            }
+
+            Ok(MoveOperation::StackBranch(StackBranchOnOperation {
+                source_branch,
+                target_branch,
+            }))
+        }
         ResolvedSources::Commits {
             resolved_commits,
             args,
@@ -474,22 +571,15 @@ enum ResolvedSources {
         args: NonEmpty<CliIdArg>,
     },
     CommittedChanges((gix::ObjectId, NonEmpty<DiffSpec>)),
+    Branch(FullName),
 }
 
-impl Display for ResolvedSources {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl ResolvedSources {
+    fn display_kind(&self) -> String {
         match self {
-            Self::Commits {
-                resolved_commits,
-                args: _,
-            } => {
-                let sources = resolved_commits
-                    .iter()
-                    .map(|commit| theme::Commit(*commit).to_string())
-                    .join(", ");
-                write!(f, "{sources}")
-            }
-            Self::CommittedChanges(_) => Ok(()),
+            Self::Commits { .. } => String::from("commits"),
+            Self::CommittedChanges(_) => String::from("committed changes"),
+            Self::Branch(_) => String::from("a branch"),
         }
     }
 }
@@ -504,6 +594,7 @@ fn resolve_sources(
 ) -> CliResult<ResolvedSources> {
     let mut commit_sources: Vec<gix::ObjectId> = vec![];
     let mut file_sources: Vec<(gix::ObjectId, BString)> = vec![];
+    let mut branch_sources: Vec<FullName> = vec![];
     let mut args: Vec<CliIdArg> = vec![];
 
     for unresolved_source in sources {
@@ -519,11 +610,14 @@ fn resolve_sources(
             } => {
                 file_sources.push((commit_id, path));
             }
+            ResolvedCliIdArg::Branch(branch) => {
+                branch_sources.push(branch.resolve_local_branch_name()?);
+            }
             resolved => {
                 return Err(bad_input(format!("Cannot pass {resolved} as source"))
                     .arg_value(source_str)
                     .arg_name("<SOURCES>")
-                    .hint("Sources must be commits or committed files")
+                    .hint("A source must be commit, committed file or branch")
                     .into());
             }
         }
@@ -532,8 +626,9 @@ fn resolve_sources(
     match (
         NonEmpty::from_vec(commit_sources),
         NonEmpty::from_vec(file_sources),
+        NonEmpty::from_vec(branch_sources),
     ) {
-        (Some(resolved_commits), None) => {
+        (Some(resolved_commits), None, None) => {
             let args = NonEmpty::from_vec(args).expect(
                 "BUG: Source arguments cannot be empty if resolved arguments are non-empty",
             );
@@ -543,7 +638,7 @@ fn resolve_sources(
                 args,
             })
         }
-        (None, Some(files)) => {
+        (None, Some(files), None) => {
             let mut builder = DiffSpecBuilder::new(db, repo, ws, context_lines);
             let source_commit_id = files.first().0;
             for (commit_id, path) in files.into_iter() {
@@ -568,11 +663,20 @@ fn resolve_sources(
                 changes,
             )))
         }
-        (Some(_), Some(_)) => Err(bad_input("Mixing source types is not allowed")
+        (None, None, Some(branches)) => {
+            if !branches.tail.is_empty() {
+                Err(bad_input("Branches can only be moved one at a time")
+                    .arg_name("<SOURCES>")
+                    .into())
+            } else {
+                Ok(ResolvedSources::Branch(branches.head))
+            }
+        }
+        (None, None, None) => panic!("BUG: It should not be possible to omit sources"),
+        (_, _, _) => Err(bad_input("Mixing source types is not allowed")
             .hint("You can only move one kind of source (e.g. commits) at a time")
             .arg_name("<SOURCES>")
             .into()),
-        (None, None) => panic!("BUG: It should not be possible to omit sources"),
     }
 }
 
@@ -589,6 +693,8 @@ fn run(
         MoveOperation::ChangesRelativeTo(_) | MoveOperation::ChangesToNewBranch(_) => {
             SnapshotDetails::new(OperationKind::MoveCommitFile)
         }
+        MoveOperation::StackBranch(_) => SnapshotDetails::new(OperationKind::MoveBranch),
+        MoveOperation::UnstackBranch(_) => SnapshotDetails::new(OperationKind::TearOffBranch),
     };
     let (outcome, _ws) = but_transaction::with_transaction_with_perm(
         ctx,
@@ -632,6 +738,20 @@ fn run(
                         new_branch_name: Some(new_branch_name),
                         new_commit_id,
                     }
+                }
+                MoveOperation::StackBranch(op) => {
+                    let source_branch = op.source_branch.clone();
+                    let target_branch = op.target_branch.clone();
+                    op.execute(&mut tx)?;
+                    MoveOutcome::StackBranch {
+                        source_branch,
+                        target_branch,
+                    }
+                }
+                MoveOperation::UnstackBranch(op) => {
+                    let source_branch = op.source_branch.clone();
+                    op.execute(&mut tx)?;
+                    MoveOutcome::UnstackBranch { source_branch }
                 }
             };
 
