@@ -167,7 +167,7 @@ export const FilesTree: FC<
 							</WorkspaceItemRowLabelContainer>
 						</WorkspaceItemRow>
 					) : (
-						// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation.
+						// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics.
 						<div role="group">
 							{items.map((item) => (
 								<TreeItem
