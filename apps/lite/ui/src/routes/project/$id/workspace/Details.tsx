@@ -1051,8 +1051,7 @@ const Diff: FC<{
 							groupResizeBehavior="preserve-pixel-size"
 						>
 							<FilesTree
-								id={"files" satisfies SelectionScope}
-								data-selection-scope
+								data-selection-scope={"files" satisfies SelectionScope}
 								tabIndex={0}
 								className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
 								onFileSelection={selectFileAndNavigateDiff}
@@ -1068,8 +1067,7 @@ const Diff: FC<{
 
 				<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
 					<div
-						id={"diff" satisfies SelectionScope}
-						data-selection-scope
+						data-selection-scope={"diff" satisfies SelectionScope}
 						// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 						tabIndex={0}
 						className={styles.diffContentsContainer}

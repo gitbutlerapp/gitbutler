@@ -25,15 +25,17 @@ const isSelectionScope = (id: string): id is SelectionScope =>
 	allSelectionScopes.includes(id as SelectionScope);
 
 export const getFocusedSelectionScope = (activeElement: Element | null): SelectionScope | null => {
-	const selectionScopeId = activeElement?.matches("[data-selection-scope]")
-		? activeElement.id
+	const selectionScope = activeElement?.matches("[data-selection-scope]")
+		? activeElement.getAttribute("data-selection-scope")
 		: undefined;
-	if (selectionScopeId === undefined) return null;
-	return isSelectionScope(selectionScopeId) ? selectionScopeId : null;
+	if (selectionScope == undefined) return null;
+	return isSelectionScope(selectionScope) ? selectionScope : null;
 };
 
 export const focusSelectionScope = (selectionScope: SelectionScope) => {
-	document.getElementById(selectionScope)?.focus({ focusVisible: false });
+	document
+		.querySelector<HTMLElement>(`[data-selection-scope="${selectionScope}"]`)
+		?.focus({ focusVisible: false });
 };
 
 export const focusAdjacentSelectionScope = ({
