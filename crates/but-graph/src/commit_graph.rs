@@ -85,6 +85,11 @@ pub struct CommitGraph {
     /// [`CommitFlags`](crate::CommitFlags) so it neither perturbs the walk's goal bits nor the
     /// segment fingerprint; used to tell a real managed merge from a ws ref advanced past it.
     managed_ws_commits: HashSet<gix::ObjectId>,
+    /// `(child, parent)` pairs the traversal actually CONNECTED, when built
+    /// [from the walk](Self::from_walk). A commit's raw `parent_ids` can point past a traversal
+    /// cut (limit, integrated stop-early); connectivity accessors must not rejoin what the walk
+    /// severed. `None` for graphs built directly from commits (all raw parents count).
+    connected: Option<HashSet<(gix::ObjectId, gix::ObjectId)>>,
     /// When built [from the walk](Self::from_walk): the name the raw traversal gave the segment
     /// STARTING at each commit. The walk's naming is traversal-order dependent (which tip reached a
     /// commit first) and cannot be reproduced statically — carrying it over makes the derived
@@ -130,6 +135,7 @@ impl CommitGraph {
             entrypoint,
             entrypoint_ref: None,
             managed_ws_commits: HashSet::new(),
+            connected: None,
             walk_names: HashMap::new(),
         };
         graph.recompute_generations();
@@ -171,10 +177,77 @@ impl CommitGraph {
                 commits.push(c);
             }
         }
+        // The traversal's ACTUAL connectivity: consecutive commits within a segment, plus each
+        // connection's `src → dst` commits (resolved through empty segments). Raw `parent_ids`
+        // reach past traversal cuts (limits, integrated stop-early) — those stay severed.
+        let mut connected: HashSet<(gix::ObjectId, gix::ObjectId)> = HashSet::new();
+        for s in graph.node_weights() {
+            for w in s.commits.windows(2) {
+                connected.insert((w[0].id, w[1].id));
+            }
+            let Some(last) = s.commits.last().map(|c| c.id) else {
+                continue;
+            };
+            for conn in &s.connections {
+                let src = conn.src_id.unwrap_or(last);
+                // Resolve the target commit through empty segments (e.g. an empty named segment
+                // spliced between commit-carrying ones).
+                let mut target = conn.target;
+                let mut dst = conn.dst_id;
+                for _ in 0..graph.num_segments() {
+                    if dst.is_some() {
+                        break;
+                    }
+                    let t = &graph[target];
+                    match t.commits.first() {
+                        Some(c) => dst = Some(c.id),
+                        None => {
+                            let Some(next) = t.connections.first() else {
+                                break;
+                            };
+                            dst = next.dst_id;
+                            target = next.target;
+                        }
+                    }
+                }
+                if let Some(dst) = dst {
+                    connected.insert((src, dst));
+                }
+            }
+        }
         let mut cg = CommitGraph::from_commits(commits, entrypoint);
         cg.entrypoint_ref = entrypoint_ref;
         cg.walk_names = walk_names;
+        cg.set_connected(connected);
         cg
+    }
+
+    /// Restrict connectivity to the given `(child, parent)` pairs and rebuild the child adjacency
+    /// accordingly. See the `connected` field.
+    fn set_connected(&mut self, connected: HashSet<(gix::ObjectId, gix::ObjectId)>) {
+        for children in &mut self.children {
+            children.clear();
+        }
+        for idx in 0..self.nodes.len() {
+            let id = self.nodes[idx].commit.id;
+            for pos in 0..self.nodes[idx].commit.parent_ids.len() {
+                let parent = self.nodes[idx].commit.parent_ids[pos];
+                if connected.contains(&(id, parent))
+                    && let Some(&pidx) = self.by_id.get(&parent)
+                {
+                    self.children[pidx].push(idx);
+                }
+            }
+        }
+        self.connected = Some(connected);
+        self.recompute_generations();
+    }
+
+    /// Is the `child → parent` link one the traversal actually followed?
+    fn is_connected(&self, child: gix::ObjectId, parent: gix::ObjectId) -> bool {
+        self.connected
+            .as_ref()
+            .is_none_or(|c| c.contains(&(child, parent)))
     }
 
     /// The name the raw walk gave the segment starting at `c`, when built
@@ -487,7 +560,14 @@ impl CommitGraph {
     /// graph (a partial traversal) — callers preserve those rather than re-pointing them.
     pub fn all_parent_ids(&self, id: gix::ObjectId) -> Vec<gix::ObjectId> {
         self.node(id)
-            .map(|n| n.commit.parent_ids.clone())
+            .map(|n| {
+                n.commit
+                    .parent_ids
+                    .iter()
+                    .copied()
+                    .filter(|p| self.is_connected(id, *p))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -526,7 +606,7 @@ impl CommitGraph {
             .parent_ids
             .first()
             .copied()
-            .filter(|p| self.by_id.contains_key(p))
+            .filter(|p| self.by_id.contains_key(p) && self.is_connected(id, *p))
     }
 
     /// The children of `id` (commits that list `id` as a parent). More than one means a branch point.
