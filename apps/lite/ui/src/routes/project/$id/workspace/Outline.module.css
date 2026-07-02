@@ -9,8 +9,8 @@
 	display: flex;
 	column-gap: 12px;
 	align-items: center;
-	padding-top: var(--panel-padding);
-	padding-inline: var(--panel-padding);
+	padding-inline: var(--panel-padding-inline);
+	padding-block-start: var(--panel-padding-block);
 }
 
 .workspaceControlsLeft {
@@ -50,5 +50,5 @@
 
 .navContainer {
 	display: grid;
-	padding-inline: var(--panel-padding);
+	padding-inline: var(--panel-padding-inline);
 }

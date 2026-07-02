@@ -506,8 +506,8 @@ const DiffContents: FC<{
 				enableLineSelection: true,
 				layout: {
 					paddingTop: 0,
-					// Match --panel-padding.
-					paddingBottom: 16,
+					// Match --panel-padding-block.
+					paddingBottom: 12,
 					gap: 10,
 				},
 				// This appears to validate before our custom header has been slotted, in which case - if

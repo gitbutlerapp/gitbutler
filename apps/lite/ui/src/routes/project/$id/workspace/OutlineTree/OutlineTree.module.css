@@ -17,13 +17,20 @@
 }
 
 .uncommittedChangesContainer {
-	padding-inline: var(--panel-padding);
+	padding-inline: var(--panel-padding-inline);
+}
+
+.uncommittedChanges {
+	display: flex;
+	row-gap: 4px;
+	flex-direction: column;
 }
 
 .stacksScroller {
-	padding-inline: var(--panel-padding);
-	padding-bottom: var(--panel-padding);
-	scroll-padding: var(--panel-padding);
+	padding-inline: var(--panel-padding-inline);
+	padding-block-end: var(--panel-padding-block);
+	scroll-padding-block: var(--panel-padding-block);
+	scroll-padding-inline: var(--panel-padding-inline);
 }
 
 .stacks {
@@ -47,10 +54,4 @@
 	display: flex;
 	flex-direction: column;
 	padding-bottom: 0;
-}
-
-.uncommittedChanges {
-	display: flex;
-	row-gap: 4px;
-	flex-direction: column;
 }

@@ -8,8 +8,8 @@
 	display: flex;
 	row-gap: 12px;
 	flex-direction: column;
-	padding-inline: var(--panel-padding);
-	padding-top: var(--panel-padding);
+	padding-inline: var(--panel-padding-inline);
+	padding-block-start: var(--panel-padding-block);
 }
 
 .titleRow {
@@ -73,19 +73,19 @@
 }
 
 .loadingTab {
-	padding-inline: var(--panel-padding);
-	padding-block-end: var(--panel-padding);
+	padding-inline: var(--panel-padding-inline);
+	padding-block-end: var(--panel-padding-block);
 }
 
 .diffTab {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
 	row-gap: 12px;
-	padding-inline: var(--panel-padding);
+	padding-inline: var(--panel-padding-inline);
 }
 
 .diffFiles {
-	padding-bottom: var(--panel-padding);
+	padding-block-end: var(--panel-padding-block);
 }
 
 .diffContentsContainer {
@@ -158,8 +158,8 @@
 }
 
 .prTab {
-	padding-inline: var(--panel-padding);
-	padding-block-end: var(--panel-padding);
+	padding-inline: var(--panel-padding-inline);
+	padding-block-end: var(--panel-padding-block);
 }
 
 .prForm {
