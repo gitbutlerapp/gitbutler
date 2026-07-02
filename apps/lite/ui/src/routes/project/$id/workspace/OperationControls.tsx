@@ -1,7 +1,6 @@
 import { useAbsorb } from "#ui/api/mutations.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
-import { assert } from "#ui/assert.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -20,7 +19,6 @@ import {
 	selectProjectCheckedCommitCount,
 	selectProjectOutlineModeState,
 } from "#ui/projects/state.ts";
-import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
 import { operandLabel } from "#ui/routes/project/$id/workspace/operandLabel.ts";
 import { focusSelectionScope, useOutlineSelection } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -31,9 +29,10 @@ import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { FC, type ReactNode, use } from "react";
+import { FC, type ReactNode } from "react";
 import styles from "./OperationControls.module.css";
 import { AbsorbMode, KeyboardTransferOperationMode } from "#ui/outline/mode.ts";
+import { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes("text-14", styles.container)}>{children}</div>
@@ -342,10 +341,11 @@ const TransferKeyboardOperationControls: FC<{
 	);
 };
 
-export const OperationControls: FC = () => {
+export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Operand> }> = ({
+	outlineNavigationIndex,
+}) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const navigationIndex = assert(use(NavigationIndexContext));
-	const selection = useOutlineSelection({ projectId, navigationIndex });
+	const selection = useOutlineSelection({ projectId, navigationIndex: outlineNavigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),

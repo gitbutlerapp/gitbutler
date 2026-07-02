@@ -275,8 +275,7 @@ export const Outline: FC<
 			</div>
 
 			<OutlineTree
-				id={"outline" satisfies SelectionScope}
-				data-selection-scope
+				data-selection-scope={"outline" satisfies SelectionScope}
 				tabIndex={0}
 				navigationIndex={navigationIndex}
 				absorptionTargetKeys={absorptionTargetKeys}
