@@ -303,10 +303,14 @@ where
         source_branch: &FullNameRef,
         target_branch: &FullNameRef,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, _, _| {
+        let ws_meta = self.rebase(|editor, _, _| {
             let outcome = but_workspace::branch::move_branch(editor, source_branch, target_branch)?;
-            Ok(((), outcome.rebase))
-        })
+            Ok((outcome.ws_meta, outcome.rebase))
+        })?;
+
+        self.record_workspace_metadata_update(ws_meta)?;
+
+        Ok(())
     }
 
     pub fn tear_off_branch(&mut self, source_branch: &FullNameRef) -> anyhow::Result<()> {

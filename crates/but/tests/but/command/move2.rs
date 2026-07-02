@@ -1637,6 +1637,57 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn move_empty_branch_above_other_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
+    env.setup_metadata(&["A", "B"]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 B --above A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'B' on top of branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [B] (no commits)
+┊│
+┊├┄h0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 #[ignore = "We can't move branches below other branches right now :("]
 fn move_branch_below_to_other_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
