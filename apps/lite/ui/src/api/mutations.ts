@@ -631,12 +631,8 @@ export const useWorkspaceIntegrateUpstream = () => {
 export const useRemoveBranch = () => {
 	const toastManager = Toast.useToastManager();
 
-	// TODO: This mutation doesn't trigger any watcher events, hence the manual invalidation.
 	return useMutation({
 		mutationFn: window.lite.removeBranch,
-		onSuccess: async (_response, _input, _context, mutation) => {
-			await mutation.client.invalidateQueries();
-		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
