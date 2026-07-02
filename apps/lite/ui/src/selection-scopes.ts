@@ -109,7 +109,6 @@ export const useNavigationIndexHotkeys = <T>({
 	navigationIndex,
 	projectId,
 	group,
-	selectionScope,
 	select,
 	selection,
 	ref,
@@ -120,7 +119,6 @@ export const useNavigationIndexHotkeys = <T>({
 	navigationIndex: NavigationIndex<T>;
 	projectId: string;
 	group: CommandGroup;
-	selectionScope: SelectionScope;
 	select: (newItem: T) => void;
 	selection: T | null;
 	ref: React.RefObject<HTMLElement | null>;
@@ -130,18 +128,13 @@ export const useNavigationIndexHotkeys = <T>({
 }) => {
 	const dispatch = useAppDispatch();
 
-	const selectAndFocus = (newItem: T) => {
-		select(newItem);
-		focusSelectionScope(selectionScope);
-	};
-
 	const moveSelection = (offset: -1 | 1) => {
 		const newItem =
 			selection === null
 				? navigationIndex.items.at(offset === 1 ? 0 : -1)
 				: getAdjacent({ navigationIndex, selection, offset, getKey });
 		if (newItem === null || newItem === undefined) return;
-		selectAndFocus(newItem);
+		select(newItem);
 	};
 
 	const selectPreviousItem = () => {
@@ -165,7 +158,7 @@ export const useNavigationIndexHotkeys = <T>({
 		while (itemIndex >= 0 && itemIndex < navigationIndex.items.length) {
 			const item = navigationIndex.items[itemIndex];
 			if (item !== undefined && predicate(item)) {
-				selectAndFocus(item);
+				select(item);
 				return;
 			}
 			itemIndex += offset;
@@ -185,13 +178,13 @@ export const useNavigationIndexHotkeys = <T>({
 	const selectFirstItem = () => {
 		const newItem = navigationIndex.items[0];
 		if (newItem === undefined) return;
-		selectAndFocus(newItem);
+		select(newItem);
 	};
 
 	const selectLastItem = () => {
 		const newItem = navigationIndex.items.at(-1);
 		if (newItem === undefined) return;
-		selectAndFocus(newItem);
+		select(newItem);
 	};
 
 	useHotkeys([

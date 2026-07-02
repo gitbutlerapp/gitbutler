@@ -358,7 +358,6 @@ const DiffContents: FC<{
 		navigationIndex,
 		projectId,
 		group: "Diff",
-		selectionScope: "diff",
 		select: selectDiff,
 		selection: diffSelection,
 		selectSectionPredicate: (hunk) => {
