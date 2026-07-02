@@ -176,6 +176,42 @@ impl CommitGraph {
         Self::from_repository_with_limit(repo, None)
     }
 
+    /// Build by running the WALK's real traversal (queue, goals, limits, flag propagation) with
+    /// post-processing skipped, flattening the raw traversal segments into commits. This keeps the
+    /// battle-tested traversal semantics — extents (limit cuts, integrated stop-early) and flags are
+    /// exactly the walk's — while segments remain a derived view built on top.
+    pub fn from_walk<T: but_core::RefMetadata>(
+        repo: &gix::Repository,
+        meta: &T,
+        tip: gix::ObjectId,
+        ref_name: Option<gix::refs::FullName>,
+        project_meta: but_core::ref_metadata::ProjectMeta,
+        options: crate::init::Options,
+    ) -> anyhow::Result<Self> {
+        use gix::prelude::ObjectIdExt;
+        let raw = crate::Graph::from_commit_traversal(
+            tip.attach(repo),
+            ref_name,
+            meta,
+            project_meta,
+            crate::init::Options {
+                dangerously_skip_postprocessing_for_debugging: true,
+                ..options
+            },
+        )?;
+        Ok(Self::from_segment_graph(&raw))
+    }
+
+    /// Mark `id` as a GitButler-managed workspace commit when its message says so.
+    pub fn mark_managed_ws_commit_by_message(&mut self, repo: &gix::Repository, id: gix::ObjectId) {
+        if let Ok(commit) = repo.find_commit(id)
+            && let Ok(message) = commit.message_raw()
+            && crate::workspace::commit::is_managed_workspace_by_message(message)
+        {
+            self.managed_ws_commits.insert(id);
+        }
+    }
+
     /// Like [`Self::from_repository`], but bounding the LOCAL walk to about `commits_limit_hint`
     /// commits below each local tip. Remote tips stay unbounded — they must be able to find their
     /// local counterparts independently of the limit, exactly like the walk.

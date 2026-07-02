@@ -31,24 +31,29 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
 ) -> anyhow::Result<Option<crate::Graph>> {
-    // Workspaces with a RESOLVABLE target branch automatically have unlimited traversals — they rely
-    // on the target to bound the walk. Otherwise the commits limit applies to the local side.
-    let target_resolves = project_meta
-        .target_ref
-        .as_ref()
-        .is_some_and(|tr| repo.find_reference(tr).is_ok());
-    let effective_limit = if target_resolves {
-        None
-    } else {
-        options.commits_limit_hint
-    };
-    let mut cg = CommitGraph::from_repository_with_limit(repo, effective_limit)?;
     let ws_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
     let ws_commit = repo
         .find_reference(&ws_ref)?
         .peel_to_commit()?
         .id()
         .detach();
+    // Run the WALK's real traversal (queue, goals, limits, flag propagation) to collect the commits:
+    // extents and flags are exactly the walk's, and segments are the derived view built on top.
+    let walk_tip = entrypoint.unwrap_or(ws_commit);
+    let walk_ref = if entrypoint.is_none() || entrypoint == Some(ws_commit) {
+        entrypoint_ref.clone().or(Some(ws_ref.clone()))
+    } else {
+        entrypoint_ref.clone()
+    };
+    let mut cg = CommitGraph::from_walk(
+        repo,
+        meta,
+        walk_tip,
+        walk_ref,
+        project_meta.clone(),
+        options.clone(),
+    )?;
+    cg.mark_managed_ws_commit_by_message(repo, ws_commit);
 
     let ws_meta = meta.workspace(ws_ref.as_ref())?;
     // Include inactive/outside stacks too: their branches are still spliced as empty segments where
@@ -59,10 +64,9 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         .iter()
         .map(|s| s.branches.iter().map(|b| b.ref_name.clone()).collect())
         .collect();
-    // Everything target-derived — integration marks AND remote deduction — comes from the CALLER's
-    // project meta alone, like the walk: a default `ProjectMeta` means nothing is integrated (no
-    // at/below-base downgrade) and no target-implied remote. No hard-coded `origin/main` fallback.
-    // Git-configured tracking branches still link independently.
+    // Integration marks and `NotInRemote` come from the walk's traversal — no re-flagging needed. The
+    // target commit is still resolved from the CALLER's project meta for the builder's boundaries; a
+    // default `ProjectMeta` means no target (no hard-coded `origin/main` fallback), like the walk.
     let target = project_meta.target_ref.clone().and_then(|tr| {
         Some(
             repo.find_reference(&tr)
@@ -73,7 +77,6 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
                 .detach(),
         )
     });
-    cg.mark_integrated(target);
     let (remote_tracking, symbolic_remotes) =
         crate::commit_graph_projection::remote_tracking_from_repository(repo, &project_meta)?;
     let worktree_by_branch = {
@@ -82,24 +85,6 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     };
 
     let ep = entrypoint.unwrap_or(ws_commit);
-    // `NotInRemote` comes from the walk's traversal TIPS, not every local branch: a stray local that is
-    // only reachable inside a remote's ahead region must not turn those commits local (they'd otherwise
-    // vanish from the remote-side display).
-    let local_seeds: Vec<gix::ObjectId> = [ws_commit, ep]
-        .into_iter()
-        .chain(
-            stack_branches
-                .iter()
-                .flatten()
-                .filter_map(|b| cg.commit_by_ref(b.as_ref())),
-        )
-        .chain(
-            remote_tracking
-                .keys()
-                .filter_map(|local| cg.commit_by_ref(local.as_ref())),
-        )
-        .collect();
-    cg.remark_not_in_remote(local_seeds);
     let graph = graph_from_commit_graph(
         &cg,
         ws_commit,
