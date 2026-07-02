@@ -230,10 +230,23 @@ pub fn apply_worktree_changes<'repo>(
                 Some((id, kind, _fs_metadata)) => {
                     base_tree_editor.upsert(rela_path, kind, id)?;
                 }
-                None => into_err_spec(
-                    possible_change,
-                    RejectionReason::WorktreeFileMissingForObjectConversion,
-                ),
+                // A submodule gitlink is a directory, not a worktree file, so `worktree_file_to_object`
+                // returns `None` whenever it can't open the submodule's repository - which is the case
+                // with the isolated open-options the CLI uses, so `but commit`/`amend` silently dropped
+                // staged submodules (#14507). The pinned commit is authoritative in the index, so record
+                // it directly from the `160000` entry rather than rejecting the change.
+                None => match index
+                    .entry_by_path(rela_path)
+                    .filter(|entry| entry.mode == gix::index::entry::Mode::COMMIT)
+                {
+                    Some(entry) => {
+                        base_tree_editor.upsert(rela_path, EntryKind::Commit, entry.id)?;
+                    }
+                    None => into_err_spec(
+                        possible_change,
+                        RejectionReason::WorktreeFileMissingForObjectConversion,
+                    ),
+                },
             }
         } else if let Some(worktree_changes) = &worktree_changes {
             let Some(worktree_change) = worktree_changes.iter().find(|c| {
