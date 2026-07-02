@@ -7,7 +7,7 @@ import {
 	useUpdateBranchName,
 	useWorkspaceBranchAndAncestorsPush,
 } from "#ui/api/mutations.ts";
-import { forgeInfoOptions } from "#ui/api/queries.ts";
+import { forgeInfoOptions, listCIChecksQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { Button, Toast, Tooltip } from "@base-ui/react";
@@ -35,7 +35,7 @@ import { projectActions, selectProjectOutlineModeState } from "#ui/projects/stat
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { prForgeUrl } from "#ui/pr.ts";
-import { RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
+import { RowBubble, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { commitMessageInputId } from "./CommitForm.tsx";
@@ -43,9 +43,42 @@ import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import { type PartialStackState, partialStackPushDisabled } from "./partialStackState.ts";
 import styles from "./BranchRow.module.css";
+import { ciChecksSummaryUrl, type AggregateCIStatus } from "#ui/ci.ts";
 
 const focusCommitMessageInput = () => {
 	document.getElementById(commitMessageInputId)?.focus();
+};
+
+const CIBubble: FC<{ status: AggregateCIStatus }> = (p) => {
+	switch (p.status) {
+		case "success":
+			return (
+				<RowBubble variant="safe">
+					<Icon name="tick" size={12} />
+				</RowBubble>
+			);
+		case "failure":
+			return (
+				<RowBubble variant="danger">
+					<Icon name="cross" size={12} />
+				</RowBubble>
+			);
+		case "in_progress":
+			return (
+				<RowBubble variant="fillGray">
+					<Icon name="spinner" size={12} />
+				</RowBubble>
+			);
+		// TODO: Add a distinct bubble colour for these?
+		case "cancelled":
+		case "action_required":
+		case "unknown":
+			return (
+				<RowBubble variant="fillGray">
+					<Icon name="warning" size={12} />
+				</RowBubble>
+			);
+	}
 };
 
 export const BranchRow: FC<
@@ -80,6 +113,19 @@ export const BranchRow: FC<
 }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
+
+	// TODO: Should we extract opinionated hooks for cases like this?
+	// TODO: What if there are checks w/o a PR? And what about checks on commits themselves?
+	const { data: ciChecks } = useQuery({
+		...listCIChecksQueryOptions({
+			projectId,
+			reference: refName.displayName,
+			cacheConfig: "noCache",
+		}),
+		enabled: pullRequest !== null && forgeInfo?.capabilities.checks,
+	});
+	const ciURL =
+		pullRequest !== null ? forgeInfo && ciChecksSummaryUrl(pullRequest, forgeInfo) : null;
 
 	const dispatch = useAppDispatch();
 	const branchOperandV: BranchOperand = {
@@ -250,6 +296,12 @@ export const BranchRow: FC<
 		if (mforgeUrl != null) await window.lite.openInWebBrowser(mforgeUrl);
 	};
 
+	const openCIChecksInBrowser = async (evt?: MouseEvent<HTMLAnchorElement>): Promise<void> => {
+		evt?.preventDefault();
+
+		if (ciURL != null) await window.lite.openInWebBrowser(ciURL);
+	};
+
 	const workspaceBranchAndAncestorsPushDisabled =
 		workspaceBranchAndAncestorsPushMutation.isPending ||
 		partialStackPushDisabled(partialStackState);
@@ -390,6 +442,15 @@ export const BranchRow: FC<
 								PR
 							</a>
 						)}
+
+						{ciChecks?.aggregate &&
+							(ciURL != null ? (
+								<a href={ciURL} onClick={(evt) => void openCIChecksInBrowser(evt)}>
+									<CIBubble status={ciChecks.aggregate.status} />
+								</a>
+							) : (
+								<CIBubble status={ciChecks.aggregate.status} />
+							))}
 
 						{partialStackState.requiresPush &&
 							(() => {
