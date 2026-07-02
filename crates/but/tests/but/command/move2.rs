@@ -2039,8 +2039,8 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-fn cannot_unstack_non_branch_sources() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+fn unstack_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
     env.setup_metadata(&["A"]);
 
     env.but("status -f")
@@ -2050,36 +2050,56 @@ fn cannot_unstack_non_branch_sources() {
 ╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
-┊●   9477ae7 add A
-┊│     94:tm A A
+┊●   9ac4652 add second
+┊│     9a:wu A second
+┊●   fe12bcd add first
+┊│     fe:lz A first
 ├╯
 ┊
-┴ 0dc3733 (common base) 2000-01-02 add M
+┴ 1bbc04b (common base) 2000-01-02 add Base
 
 Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("_move2 94 --unstack")
+    env.but("_move2 fe --unstack")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Bad input for '<SOURCES>'
-
-Cannot unstack commits, only a branch source is allowed with `--unstack`
-
-Hint: Trying to move stuff to a new branch? Use the `--branch` argument instead!
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved fe12bcd to new branch 'a-branch-1'
 
 "#]]);
-    env.but("_move2 94:tm --unstack")
+}
+
+#[test]
+fn unstack_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
+
+    env.but("status -f")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Bad input for '<SOURCES>'
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊│     9a:wu A second
+┊●   fe12bcd add first
+┊│     fe:lz A first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
 
-Cannot unstack committed changes, only a branch source is allowed with `--unstack`
+Hint: run `but help` for all commands
 
-Hint: Trying to move stuff to a new branch? Use the `--branch` argument instead!
+"#]]);
+
+    env.but("_move2 fe:lz --unstack")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved 1 changes from fe12bcd to new commit d2fbd7a on new branch 'a-branch-1'
 
 "#]]);
 }
