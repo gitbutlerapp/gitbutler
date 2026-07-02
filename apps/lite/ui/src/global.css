@@ -21,3 +21,12 @@ button {
 		outline: var(--focus-ring);
 	}
 }
+
+a {
+	text-decoration: unset;
+	cursor: default;
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+	}
+}

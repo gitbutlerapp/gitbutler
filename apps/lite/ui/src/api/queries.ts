@@ -5,14 +5,17 @@ import type {
 	CommitDetailsWithLineStatsParams,
 	GetReviewParams,
 	ListBranchesParams,
+	ListCiChecksParams,
 	TreeChangeDiffParams,
 } from "#electron/ipc.ts";
+import { aggregateCIChecks } from "#ui/ci.ts";
 import { queryOptions } from "@tanstack/react-query";
 
 export enum QueryKey {
 	BranchDetails = "branchDetails",
 	BranchDiff = "branchDiff",
 	ChangesInWorktree = "changesInWorktree",
+	CIChecks = "ciChecks",
 	CommitDetailsWithLineStats = "commitDetailsWithLineStats",
 	ForgeInfo = "forgeInfo",
 	HeadInfo = "headInfo",
@@ -93,6 +96,47 @@ export const listEditorsQueryOptions = queryOptions({
 	queryKey: [QueryKey.Editors],
 	queryFn: () => window.lite.listEditors(),
 });
+
+/** There is no watcher event that could invalidate this query. */
+export const listCIChecksQueryOptions = ({ projectId, ...params }: ListCiChecksParams) =>
+	queryOptions({
+		queryKey: [QueryKey.CIChecks, projectId, params],
+		queryFn: async () => {
+			const data = await window.lite.listCiChecks({ projectId, ...params });
+			// This is needed in queryFn to adjust refetching behaviour.
+			return { data, aggregate: aggregateCIChecks(data) };
+		},
+		// Refetch periodically, being mindful of rate limiting. Similarly tweak stale time so that
+		// fresh data is likely fetched when the user would see/expect it e.g. window refocus.
+		refetchInterval: ({ state: { data: checks } }): number => {
+			switch (checks?.aggregate?.status) {
+				case "in_progress":
+					return 10_000;
+				case "action_required":
+					return 60_000;
+				case "success":
+				case "cancelled":
+				case "failure":
+				case "unknown":
+				case undefined:
+					return 120_000;
+			}
+		},
+		staleTime: ({ state: { data: checks } }): number => {
+			switch (checks?.aggregate?.status) {
+				case "in_progress":
+					return 5_000;
+				case "action_required":
+					return 10_000;
+				case "success":
+				case "cancelled":
+				case "failure":
+				case "unknown":
+				case undefined:
+					return 30_000;
+			}
+		},
+	});
 
 export const treeChangeDiffsQueryOptions = ({ projectId, change }: TreeChangeDiffParams) =>
 	queryOptions({
