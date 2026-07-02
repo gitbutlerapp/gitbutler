@@ -138,6 +138,60 @@ impl WorkspaceReconciliationInput {
 }
 
 impl Workspace {
+    /// TEMPORARY (flip projection-parity sweep — REMOVE before finalizing): commit-id-keyed fingerprint
+    /// of the app-visible projection: per stack (base + each segment's ref, remote ref, local + remote
+    /// commits), plus target ref/commits-ahead and lower bound. Index/order independent.
+    pub fn projection_fingerprint(&self) -> Vec<String> {
+        let mut lines: Vec<String> = self
+            .stacks
+            .iter()
+            .map(|s| {
+                let base = s
+                    .base()
+                    .map_or("∅".to_string(), |b| b.to_hex_with_len(7).to_string());
+                let segs: Vec<String> = s
+                    .segments
+                    .iter()
+                    .map(|seg| {
+                        let name = seg
+                            .ref_name()
+                            .map_or("∅".to_string(), |r| r.as_bstr().to_string());
+                        let rt = seg
+                            .remote_tracking_ref_name
+                            .as_ref()
+                            .map_or("∅".to_string(), |r| r.as_bstr().to_string());
+                        let c: Vec<String> = seg
+                            .commits
+                            .iter()
+                            .map(|c| c.id.to_hex_with_len(7).to_string())
+                            .collect();
+                        let rc: Vec<String> = seg
+                            .commits_on_remote
+                            .iter()
+                            .map(|c| c.id.to_hex_with_len(7).to_string())
+                            .collect();
+                        format!("{name}|rt={rt}|c=[{}]|rc=[{}]", c.join(","), rc.join(","))
+                    })
+                    .collect();
+                format!("stack base={base} :: {}", segs.join(" ; "))
+            })
+            .collect();
+        lines.push(format!(
+            "target={}⇣{}",
+            self.target_ref
+                .as_ref()
+                .map_or("∅".to_string(), |t| t.ref_name.as_bstr().to_string()),
+            self.target_ref.as_ref().map_or(0, |t| t.commits_ahead),
+        ));
+        lines.push(format!(
+            "lower_bound={}",
+            self.lower_bound
+                .map_or("∅".to_string(), |b| b.to_hex_with_len(7).to_string())
+        ));
+        lines.sort();
+        lines
+    }
+
     fn from_state(
         graph: Graph,
         WorkspaceState {

@@ -712,15 +712,59 @@ impl Graph {
                 return Ok(graph);
             }
         }
-        Self::from_commit_traversal_with_overlay(
+        let sweep_ref_name = ref_name.clone();
+        let walk = Self::from_commit_traversal_with_overlay(
             repo,
             tip,
             ref_name,
             meta,
-            project_meta,
-            options,
+            project_meta.clone(),
+            options.clone(),
             Overlay::default(),
-        )
+        )?;
+        // TEMPORARY (flip PROJECTION-parity sweep — REMOVE before finalizing): panic on projection
+        // divergence so cargo names the test. Dormant unless BUT_GRAPH_PARITY is set.
+        // Mirror the production flip dispatch: a workspace-ref tip is the plain from_head case
+        // (no explicit entrypoint); anything else is a checkout inside the workspace whose
+        // entrypoint must be forwarded for a like-for-like comparison.
+        let is_ws_tip = sweep_ref_name
+            .as_ref()
+            .is_some_and(|r| but_core::is_workspace_ref_name(r.as_ref()));
+        let (sweep_ep, sweep_ep_ref) = if is_ws_tip {
+            (None, None)
+        } else {
+            (Some(tip), sweep_ref_name.clone())
+        };
+        if std::env::var_os("BUT_GRAPH_PARITY").is_some()
+            // A debugging graph without post-processing is not an app-visible shape — skip it.
+            && !options.dangerously_skip_postprocessing_for_debugging
+            && let Ok(Some(flip)) = crate::graph_from_repository(
+                repo,
+                meta,
+                sweep_ep,
+                sweep_ep_ref.clone(),
+                project_meta.clone(),
+                options.clone(),
+            )
+            && let (Ok(wp), Ok(fp)) = (
+                walk.clone().validated().and_then(|g| g.into_workspace()),
+                flip.validated().and_then(|g| g.into_workspace()),
+            )
+        {
+            let (w, f) = (wp.projection_fingerprint(), fp.projection_fingerprint());
+            if w != f {
+                let ow: Vec<_> = w.iter().filter(|l| !f.contains(l)).cloned().collect();
+                let of: Vec<_> = f.iter().filter(|l| !w.contains(l)).cloned().collect();
+                panic!(
+                    "FLIP_PROJECTION_DIVERGENCE tip={tip} ep={sweep_ep:?} ep_ref={ep_ref:?} extra={extra:?}\n  WALK-only:\n    {}\n  FLIP-only:\n    {}",
+                    ow.join("\n    "),
+                    of.join("\n    "),
+                    ep_ref = sweep_ep_ref.as_ref().map(|r| r.as_bstr()),
+                    extra = options.extra_target_commit_id,
+                );
+            }
+        }
+        Ok(walk)
     }
 
     /// Like [`Self::from_commit_traversal()`], but with in-memory `overlay` refs and metadata, and
