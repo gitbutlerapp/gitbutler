@@ -10,6 +10,7 @@ import {
 } from "#ui/operations/operation.ts";
 import { classes } from "#ui/components/classes.ts";
 import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
+import { focusSelectionScope, getFocusedSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import {
@@ -88,6 +89,9 @@ const useOperationDropTarget = ({
 				if (!isActiveDropTarget) return;
 
 				const operationType = getOperationTypeFromData(args.self.data);
+
+				if (getFocusedSelectionScope(document.activeElement) !== "outline")
+					focusSelectionScope("outline");
 
 				dispatch(
 					projectActions.updatePointerTransfer({

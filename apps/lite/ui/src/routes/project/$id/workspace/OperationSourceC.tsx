@@ -78,11 +78,6 @@ export const OperationSourceC: FC<
 			getInitialData,
 			onGenerateDragPreview,
 			onDragStart,
-			onDrop: ({ location }) => {
-				if (location.current.dropTargets.length > 0) return;
-
-				dispatch(projectActions.cancelMode({ projectId }));
-			},
 		});
 	}, [dispatch, projectId]);
 
