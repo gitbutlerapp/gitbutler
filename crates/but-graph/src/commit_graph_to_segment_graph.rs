@@ -63,11 +63,21 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     // Include inactive/outside stacks too: their branches are still spliced as empty segments where
     // they sit on an in-graph commit (e.g. an inactive `unapplied` branch on the shared base). Stacks
     // whose branches resolve below the base are skipped naturally when their commit isn't in the graph.
-    let stack_branches: Vec<Vec<gix::refs::FullName>> = ws_meta
-        .stacks
-        .iter()
-        .map(|s| s.branches.iter().map(|b| b.ref_name.clone()).collect())
-        .collect();
+    // A branch listed in SEVERAL stacks counts once — in-workspace occurrence first — like the walk,
+    // which ignores duplicate stack branch tips (a stale inactive stack must not demote the active
+    // stack's branch into a lane of its own).
+    let mut seen_branches = HashSet::new();
+    let mut stack_branches: Vec<Vec<gix::refs::FullName>> = vec![Vec::new(); ws_meta.stacks.len()];
+    let mut order: Vec<usize> = (0..ws_meta.stacks.len()).collect();
+    order.sort_by_key(|&i| !ws_meta.stacks[i].is_in_workspace());
+    for i in order {
+        stack_branches[i] = ws_meta.stacks[i]
+            .branches
+            .iter()
+            .map(|b| b.ref_name.clone())
+            .filter(|b| seen_branches.insert(b.clone()))
+            .collect();
+    }
     // Integration marks and `NotInRemote` come from the walk's traversal — no re-flagging needed. The
     // target commit is still resolved from the CALLER's project meta for the builder's boundaries; a
     // default `ProjectMeta` means no target (no hard-coded `origin/main` fallback), like the walk.
@@ -948,7 +958,7 @@ fn add_remote_segments(
     symbolic_remotes: &[String],
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
 ) {
-    let locals: Vec<(SegmentIndex, gix::refs::FullName, gix::ObjectId)> = seg_of_tip
+    let mut locals: Vec<(SegmentIndex, gix::refs::FullName, gix::ObjectId)> = seg_of_tip
         .iter()
         .filter_map(|(&tip, &sidx)| {
             sg.node(sidx)
@@ -956,6 +966,8 @@ fn add_remote_segments(
                 .map(|rt| (sidx, rt, tip))
         })
         .collect();
+    // Deterministic remote-segment ids: `seg_of_tip` is a HashMap, its order varies per process.
+    locals.sort_by_key(|&(sidx, ..)| sidx);
     for (local_sidx, remote_ref, _local_tip) in locals {
         let Some(remote_tip) = cg.commit_by_ref(remote_ref.as_ref()) else {
             continue;

@@ -8346,6 +8346,38 @@ fn cg_to_sg_two_stacks_empty_branch() -> anyhow::Result<()> {
 }
 
 #[test]
+fn cg_to_sg_duplicate_branch_in_inactive_stack_is_ignored() -> anyhow::Result<()> {
+    // `A` is a branch of the ACTIVE stack `[B, A]` AND the sole branch of a stale INACTIVE stack
+    // (as `but apply base` followed by `but apply top` leaves behind). The duplicate must count
+    // once: the inactive copy used to demote `A` off its commit as a "shared base", minting a
+    // phantom second lane while the active stack absorbed both commits.
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/two-dependent-branches-first-rebased-and-merged")?;
+    add_stack_with_segments(&mut meta, 0, "A", StackState::Inactive, &[]);
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+    let (id, ref_name) = id_at(&repo, "B");
+    let flip = but_graph::graph_from_repository(
+        &repo,
+        &*meta,
+        Some(id.detach()),
+        Some(ref_name),
+        project_meta(&*meta),
+        standard_options(),
+    )?
+    .expect("managed");
+    insta::assert_snapshot!(graph_workspace(&flip.into_workspace()?), @r#"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 281456a
+    └── ≡👉📙:1:B on 281456a {1}
+        ├── 👉📙:1:B
+        │   └── ·da597e8 (🏘️)
+        └── 📙:2:A <> origin/A →:4:⇡1⇣1
+            ├── 🟣0b6b861 (✓)
+            └── ·1818c17 (🏘️)
+    "#);
+    Ok(())
+}
+
+#[test]
 fn cg_to_sg_dependent_branches() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-12146")?;
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
