@@ -1874,6 +1874,24 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn cannot_unstack_multiple_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("_move2 A B --unstack")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<SOURCES>'
+
+Branches can only be moved one at a time
+
+"#]]);
+}
+
+#[test]
 fn cannot_unstack_non_branch_sources() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
