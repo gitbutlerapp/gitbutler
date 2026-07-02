@@ -85,6 +85,11 @@ pub struct CommitGraph {
     /// [`CommitFlags`](crate::CommitFlags) so it neither perturbs the walk's goal bits nor the
     /// segment fingerprint; used to tell a real managed merge from a ws ref advanced past it.
     managed_ws_commits: HashSet<gix::ObjectId>,
+    /// When built [from the walk](Self::from_walk): the name the raw traversal gave the segment
+    /// STARTING at each commit. The walk's naming is traversal-order dependent (which tip reached a
+    /// commit first) and cannot be reproduced statically — carrying it over makes the derived
+    /// segmentation name commits exactly like the walk.
+    walk_names: HashMap<gix::ObjectId, gix::refs::FullName>,
 }
 
 impl CommitGraph {
@@ -125,6 +130,7 @@ impl CommitGraph {
             entrypoint,
             entrypoint_ref: None,
             managed_ws_commits: HashSet::new(),
+            walk_names: HashMap::new(),
         };
         graph.recompute_generations();
         graph
@@ -146,6 +152,7 @@ impl CommitGraph {
             .and_then(|ep| ep.commit_and_owner)
             .and_then(|(_, owner)| owner.ref_info.as_ref().map(|ri| ri.ref_name.clone()));
         let mut commits = Vec::new();
+        let mut walk_names = HashMap::new();
         for s in graph.node_weights() {
             for (i, c) in s.commits.iter().enumerate() {
                 let mut c = c.clone();
@@ -153,16 +160,27 @@ impl CommitGraph {
                 // ref belongs on the commit it points at — the segment's first (tip) commit.
                 if i == 0
                     && let Some(ri) = &s.ref_info
-                    && !c.refs.iter().any(|r| r.ref_name == ri.ref_name)
                 {
-                    c.refs.insert(0, ri.clone());
+                    // Remember which ref the traversal chose to NAME the segment — its naming is
+                    // traversal-order dependent and cannot be reproduced statically.
+                    walk_names.insert(c.id, ri.ref_name.clone());
+                    if !c.refs.iter().any(|r| r.ref_name == ri.ref_name) {
+                        c.refs.insert(0, ri.clone());
+                    }
                 }
                 commits.push(c);
             }
         }
         let mut cg = CommitGraph::from_commits(commits, entrypoint);
         cg.entrypoint_ref = entrypoint_ref;
+        cg.walk_names = walk_names;
         cg
+    }
+
+    /// The name the raw walk gave the segment starting at `c`, when built
+    /// [from the walk](Self::from_walk).
+    pub fn walk_name_of(&self, c: gix::ObjectId) -> Option<&gix::refs::FullName> {
+        self.walk_names.get(&c)
     }
 
     /// KEYSTONE SPIKE: build a commit graph straight from git — no segment graph at all. Resolves the

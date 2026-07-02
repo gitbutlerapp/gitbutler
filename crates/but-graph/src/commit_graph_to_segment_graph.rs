@@ -549,47 +549,10 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
                 }
             }
         } else {
-            // The target's own (remote) commits: its first-parent run until it rejoins the workspace,
-            // or all of them for a disjoint history.
-            let mut commits: Vec<Commit> = Vec::new();
-            let mut cursor = Some(tip);
-            let mut rejoin = None;
-            while let Some(id) = cursor {
-                if in_set.contains(&id) {
-                    rejoin = Some(id);
-                    break;
-                }
-                if let Some(node) = cg.node(id) {
-                    commits.push(node.commit.clone());
-                }
-                cursor = cg.first_parent(id);
-            }
-            if !commits.is_empty() {
-                let seg = sg.add_node(Segment {
-                    id: 0,
-                    generation: 0,
-                    ref_info: Some(RefInfo {
-                        ref_name: tr.clone(),
-                        commit_id: Some(tip),
-                        worktree: None,
-                    }),
-                    remote_tracking_ref_name: None,
-                    sibling_segment_id: None,
-                    remote_tracking_branch_segment_id: None,
-                    commits,
-                    metadata: None,
-                    connections: Vec::new(),
-                });
-                sg.node_mut(seg).expect("just added").id = seg;
-                if let Some(rejoin) = rejoin
-                    && let Some(owner_sidx) = segment_by_commit(&sg, rejoin)
-                {
-                    sg.add_edge(
-                        seg,
-                        Connection::new(owner_sidx, None, None, None, Some(rejoin)),
-                    );
-                }
-            }
+            // The target's own (remote) commits: segment its region like any remote's — split at
+            // merges, connect every rejoin (including a merge's second parent) back into the
+            // workspace — so the projection can find the common base. No tracking local, no links.
+            segment_ahead_region(cg, &mut sg, tr, tip, &in_set, &seg_of_tip, &owner_of, None);
         }
     }
 
@@ -963,7 +926,7 @@ fn add_remote_segments(
             in_set,
             seg_of_tip,
             owner_of,
-            local_sidx,
+            Some(local_sidx),
         );
     }
 }
@@ -983,7 +946,9 @@ fn segment_ahead_region(
     in_set: &HashSet<gix::ObjectId>,
     seg_of_tip: &HashMap<gix::ObjectId, SegmentIndex>,
     owner_of: &HashMap<gix::ObjectId, gix::ObjectId>,
-    local_sidx: SegmentIndex,
+    // The local segment tracking this remote, if any — a TARGET without a tracking local segment
+    // builds the same region without the sibling/remote-tracking links.
+    local_sidx: Option<SegmentIndex>,
 ) {
     // Commits the remote is ahead by: ancestors of the tip that stop at the in-set boundary.
     let mut ahead_set: HashSet<gix::ObjectId> = HashSet::new();
@@ -1041,7 +1006,7 @@ fn segment_ahead_region(
                 worktree: None,
             }),
             remote_tracking_ref_name: None,
-            sibling_segment_id: is_root.then_some(local_sidx),
+            sibling_segment_id: if is_root { local_sidx } else { None },
             remote_tracking_branch_segment_id: None,
             commits,
             metadata: None,
@@ -1049,7 +1014,7 @@ fn segment_ahead_region(
         });
         sg.node_mut(sidx).expect("just added").id = sidx;
         ahead_seg.insert(tip, sidx);
-        if is_root {
+        if is_root && let Some(local_sidx) = local_sidx {
             sg.node_mut(local_sidx)
                 .expect("present")
                 .remote_tracking_branch_segment_id = Some(sidx);
