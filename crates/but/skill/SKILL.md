@@ -33,7 +33,7 @@ but commit <branch> -c -m "<msg>" --changes <id>,<id>
 
 `but commit <branch> -c ... --changes ...` creates the branch and prints the resulting workspace state. Do not run a separate `but branch new`, staging command, status command, or verification diff unless the returned output lacks information you need.
 
-`--changes` (or `-p`) takes comma-separated file or hunk IDs from `but diff` / `but status -fv`; do not invent flags like `--hunk` / `--hunks` or pass change IDs as positional arguments.
+`--changes` (or `-p`) takes comma-separated file or hunk IDs from `but diff` / `but status -fv`. A hunk ID is written `<file-id>:<hunk-id>` (e.g. `qs:5`, copied from `but diff`) — the part after the colon is the hunk's ID, **not** a line range (`qs:16-40` is invalid). Do not invent flags like `--hunk` / `--hunks` / `--ids`, pass a line range, or pass change IDs as positional arguments.
 
 ## Non-Negotiable Rules
 
@@ -111,7 +111,7 @@ For "get latest from main", "update/sync this workspace", or "pull main":
 ### Commit selected files or hunks
 
 1. `but diff` — use this first for selective dirty commits. It shows file and hunk IDs for uncommitted changes.
-2. Use file IDs when whole files belong in the commit. Use hunk IDs when only part of a file belongs. Do not run plain `but status` first.
+2. Use file IDs when whole files belong in the commit. When only part of a file belongs, commit its hunks by ID — `<file-id>:<hunk-id>` from `but diff` (e.g. `qs:5`), not the whole file ID and not a line range. Do not run plain `but status` first.
 3. For a new branch, use one command: `but commit <branch> -c -m "<msg>" --changes <id1>,<id2>`.
    For an existing branch, omit `-c`: `but commit <branch> -m "<msg>" --changes <id1>,<id2>`.
    Omit IDs you don't want committed.
