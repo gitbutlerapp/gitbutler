@@ -161,6 +161,43 @@
 	let multiDiffView = $state<MultiDiffView>();
 </script>
 
+{#snippet branchActions(
+	branchName: string,
+	remote: string | undefined,
+	hasLocal: boolean,
+	prNumber: number | undefined,
+)}
+	<div class="branch-actions">
+		<AsyncButton
+			testId={TestId.BranchesViewApplyBranchButton}
+			icon="workbench"
+			shrinkable
+			action={async () => {
+				await applyBranchToWorkspace({
+					remote,
+					branchName,
+					hasLocal,
+					prNumber,
+				});
+			}}
+		>
+			Apply to workspace
+		</AsyncButton>
+		<Button
+			testId={TestId.BranchesViewDeleteLocalBranchButton}
+			kind="outline"
+			icon="bin"
+			onclick={() => {
+				handleDeleteLocalBranch(branchName);
+			}}
+			disabled={!hasLocal}
+			tooltip={hasLocal ? undefined : "No local branch to delete"}
+		>
+			Delete local
+		</Button>
+	</div>
+{/snippet}
+
 <Modal
 	testId={TestId.DeleteLocalBranchConfirmationModal}
 	bind:this={deleteLocalBranchModal}
@@ -237,15 +274,13 @@
 										branchListing={sidebarEntrySubject.subject}
 										prs={sidebarEntrySubject.prs}
 										selected={selection.type === "branch"
-											? sidebarEntrySubject.subject.stack
-												? selection.branchName === sidebarEntrySubject.subject.stack.branches.at(0)
-												: selection.branchName === sidebarEntrySubject.subject.name
+											? selection.branchName === sidebarEntrySubject.subject.name
 											: false}
 										onclick={({ listing }) => {
 											if (listing.stack) {
 												selection = {
 													type: "branch",
-													branchName: listing.stack.branches[0]!,
+													branchName: listing.name,
 													stackId: listing.stack.id,
 												};
 											} else {
@@ -329,60 +364,70 @@
 										{@const prNumber = branch.stack?.pullRequests[branchName]}
 										{@const inWorkspace = branch.stack?.inWorkspace}
 										{@const hasLocal = listing.hasLocal}
-										<!-- Apply branch -->
-
-										{#if branchName && inWorkspace !== true}
-											<div class="branch-actions">
-												<AsyncButton
-													testId={TestId.BranchesViewApplyBranchButton}
-													icon="workbench"
-													shrinkable
-													action={async () => {
-														await applyBranchToWorkspace({
-															remote,
-															branchName,
-															hasLocal,
-															prNumber,
-														});
-													}}
-												>
-													Apply to workspace
-												</AsyncButton>
-												<Button
-													testId={TestId.BranchesViewDeleteLocalBranchButton}
-													kind="outline"
-													icon="bin"
-													onclick={() => {
-														if (branchName) {
-															handleDeleteLocalBranch(branchName);
-														}
-													}}
-													disabled={!hasLocal || !branchName}
-													tooltip={listing.hasLocal ? undefined : "No local branch to delete"}
-												>
-													Delete local
-												</Button>
-											</div>
-										{/if}
 
 										{#if stackId}
-											<BranchesViewStack
-												{projectId}
-												{stackId}
-												isTarget={false}
-												inWorkspace={inWorkspace ?? false}
-												selectedCommitId={selection.type === "branch"
-													? selection.commitId
-													: undefined}
-												onCommitClick={(commitId) => {
-													selection = { type: "branch", branchName, remote, stackId, commitId };
-												}}
-												onFileClick={(index) => {
-													multiDiffView?.jumpToIndex(index);
-												}}
-												{onerror}
-											/>
+											{@const selectedStack = stackService.stackById(projectId, stackId)}
+											<ReduxResult result={selectedStack.result} {projectId} {stackId} {onerror}>
+												{#snippet children(liveStack)}
+													{@const stackIsLive = liveStack !== null}
+													{@const isAppliedInCurrentWorkspace = inWorkspace === true && stackIsLive}
+													{#if branchName && !isAppliedInCurrentWorkspace}
+														{@render branchActions(branchName, remote, hasLocal, prNumber)}
+													{/if}
+
+													{#if stackIsLive}
+														<BranchesViewStack
+															{projectId}
+															{stackId}
+															isTarget={false}
+															inWorkspace={inWorkspace ?? false}
+															selectedCommitId={selection.type === "branch"
+																? selection.commitId
+																: undefined}
+															onCommitClick={(commitId) => {
+																selection = {
+																	type: "branch",
+																	branchName,
+																	remote,
+																	stackId,
+																	commitId,
+																};
+															}}
+															onFileClick={(index) => {
+																multiDiffView?.jumpToIndex(index);
+															}}
+															{onerror}
+														/>
+													{:else if branchName}
+														<BranchesViewBranch
+															{projectId}
+															{branchName}
+															{remote}
+															inWorkspace={false}
+															selectedCommitId={selection.type === "branch"
+																? selection.commitId
+																: undefined}
+															onCommitClick={(commitId) => {
+																selection = {
+																	type: "branch",
+																	branchName,
+																	remote,
+																	stackId,
+																	commitId,
+																};
+															}}
+															onFileClick={(index) => {
+																multiDiffView?.jumpToIndex(index);
+															}}
+															{onerror}
+														/>
+													{/if}
+												{/snippet}
+											</ReduxResult>
 										{:else if branchName}
+											{#if inWorkspace !== true}
+												{@render branchActions(branchName, remote, hasLocal, prNumber)}
+											{/if}
 											<BranchesViewBranch
 												{projectId}
 												{branchName}
