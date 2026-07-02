@@ -221,6 +221,22 @@ fn generate_unified_diff(
     Ok(diff_output)
 }
 
+/// If `id` looks like `<file>:<line-range>` (e.g. `qt:16-40`), returns a message
+/// explaining that a hunk ID is expected, not a line range. `None` otherwise, so
+/// real hunk IDs like `qt:9` are left alone.
+fn line_range_hunk_hint(id: &str) -> Option<String> {
+    let (file, hunk) = id.split_once(':')?;
+    let (start, end) = hunk.split_once('-')?;
+    let is_line_range = [start, end]
+        .iter()
+        .all(|s| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()));
+    is_line_range.then(|| {
+        format!(
+            "'{id}' looks like a line range. Select a hunk by its id from 'but diff', e.g. '{file}:<hunk-id>', not a line range."
+        )
+    })
+}
+
 /// Resolves file CliIDs to their corresponding FileAssignments.
 /// Returns an error if any ID is invalid, ambiguous, or assigned to a different stack.
 /// Deduplicates by file path to handle cases where the same file is passed multiple times.
@@ -243,9 +259,9 @@ fn resolve_file_ids(
         };
 
         if cli_ids.is_empty() {
-            errors.push(format!(
-                "'{file_id}' not found. Run 'but status' to see available file IDs."
-            ));
+            errors.push(line_range_hunk_hint(file_id).unwrap_or_else(|| {
+                format!("'{file_id}' not found. Run 'but status' to see available file IDs.")
+            }));
             continue;
         }
 
@@ -896,4 +912,27 @@ fn get_status_char(path: &BString, changes: &[TreeChange]) -> &'static str {
         }
     }
     "modified:" // fallback
+}
+
+#[cfg(test)]
+mod tests {
+    use super::line_range_hunk_hint;
+
+    #[test]
+    fn hints_line_ranges_but_not_hunk_ids() {
+        assert!(line_range_hunk_hint("qt:16-40").is_some());
+        // real hunk ids and non-range colon forms are left alone
+        for id in [
+            "qt:9",
+            "qt:e8",
+            "qt:e",
+            "qt",
+            "qt:16-",
+            "qt:-40",
+            "a:b:16-40",
+            "qt:16-40-50",
+        ] {
+            assert!(line_range_hunk_hint(id).is_none(), "{id} should not hint");
+        }
+    }
 }
