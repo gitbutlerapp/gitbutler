@@ -1977,19 +1977,63 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-fn cannot_unstack_multiple_branches() {
+fn unstack_branch_using_branch_arg() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "one-stack-three-dependent-branches",
     );
     env.setup_metadata(&["A", "B", "C"]);
 
-    env.but("_move2 A B --unstack")
+    env.but("status")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Bad input for '<SOURCES>'
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [C]
+┊●   aebb090 add C
+┊│
+┊├┄h0 [B]
+┊●   582f37b add B
+┊│
+┊├┄i0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
 
-Branches can only be moved one at a time
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // `--branch` used synonumously with `--unstack`
+    env.but("_move2 A --branch")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Unstacked branch 'A'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [C]
+┊●   ec33a86 add C
+┊│
+┊├┄i0 [B]
+┊●   05d3df1 add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
 
 "#]]);
 }
@@ -2036,6 +2080,24 @@ Error: Bad input for '<SOURCES>'
 Cannot unstack committed changes, only a branch source is allowed with `--unstack`
 
 Hint: Trying to move stuff to a new branch? Use the `--branch` argument instead!
+
+"#]]);
+}
+
+#[test]
+fn cannot_unstack_multiple_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("_move2 A B --unstack")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input for '<SOURCES>'
+
+Branches can only be moved one at a time
 
 "#]]);
 }
@@ -2158,48 +2220,6 @@ Hint: run `but help` for all commands
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Cannot combine `--branch` with a branch source
-
-"#]]);
-}
-
-#[test]
-fn cannot_move_branch_to_unnamed_branch_tip() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings(
-        "one-stack-three-dependent-branches",
-    );
-    env.setup_metadata(&["A", "B", "C"]);
-
-    env.but("status")
-        .assert()
-        .success()
-        .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted] (no changes)
-┊
-┊╭┄g0 [C]
-┊●   aebb090 add C
-┊│
-┊├┄h0 [B]
-┊●   582f37b add B
-┊│
-┊├┄i0 [A]
-┊●   9477ae7 add A
-├╯
-┊
-┴ 0dc3733 (common base) 2000-01-02 add M
-
-Hint: run `but help` for all commands
-
-"#]]);
-
-    env.but("_move2 C -b")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Bad input for '--branch'
-
-Invalid target for branch source
-
-Hint: Trying to unstack C? Use `--unstack 'C'` instead!
 
 "#]]);
 }

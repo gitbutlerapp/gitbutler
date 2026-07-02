@@ -428,14 +428,11 @@ fn resolve(
             }
         }
         (Some(None), None, None, false) => match resolved_sources {
-            ResolvedSources::Branch(branch) => Err(bad_input("Invalid target for branch source")
-                .arg_name("--branch")
-                .hint(format!(
-                    "Trying to unstack {}? Use `--unstack '{}'` instead!",
-                    branch.shorten(),
-                    branch.shorten()
-                ))
-                .into()),
+            ResolvedSources::Branch(source_branch) => {
+                Ok(MoveOperation::UnstackBranch(UnstackBranchOperation {
+                    source_branch,
+                }))
+            }
             ResolvedSources::Commits {
                 resolved_commits: sources,
                 ..
