@@ -15,7 +15,7 @@ import { Toolbar } from "@base-ui/react/toolbar";
 import { BranchReference, InsertSide, PushStatus, RelativeTo } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { ComponentProps, FC, useOptimistic, useTransition } from "react";
+import { type ComponentProps, type FC, type MouseEvent, useOptimistic, useTransition } from "react";
 import { classes } from "#ui/components/classes.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -244,10 +244,10 @@ export const BranchRow: FC<
 		});
 	};
 
-	const openPRInBrowser = async (): Promise<void> => {
-		if (mforgeUrl == null) return;
+	const openPRInBrowser = async (evt?: MouseEvent<HTMLAnchorElement>): Promise<void> => {
+		evt?.preventDefault();
 
-		await window.lite.openInWebBrowser(mforgeUrl);
+		if (mforgeUrl != null) await window.lite.openInWebBrowser(mforgeUrl);
 	};
 
 	const workspaceBranchAndAncestorsPushDisabled =
@@ -380,11 +380,15 @@ export const BranchRow: FC<
 							)}
 						</span>
 
-						{pullRequest !== null && (
-							<span className={classes(rowStyles.fadedText, styles.labelMetaItem)}>
+						{mforgeUrl != null && (
+							<a
+								href={mforgeUrl}
+								onClick={(evt) => void openPRInBrowser(evt)}
+								className={classes(rowStyles.fadedText, styles.labelMetaItem)}
+							>
 								<Icon name="pr" />
 								PR
-							</span>
+							</a>
 						)}
 
 						{partialStackState.requiresPush &&
