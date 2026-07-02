@@ -371,6 +371,23 @@ pub(crate) fn remote_tracking_from_repository(
             map.insert(local, rt);
         }
     }
+    // A remote tracks ONE local: a git-CONFIGURED binding evicts a name-deduced pair for the same
+    // remote (e.g. `base-of-A` configured to track `origin/A` after `A` was rebased away from it —
+    // `A` no longer tracks anything).
+    let mut config_bound: HashMap<gix::refs::FullName, gix::refs::FullName> = HashMap::new();
+    for reference in repo.references()?.local_branches()?.filter_map(Result::ok) {
+        let local = reference.name().to_owned();
+        if let Some(Ok(rt)) =
+            repo.branch_remote_tracking_ref_name(local.as_ref(), gix::remote::Direction::Fetch)
+        {
+            config_bound.insert(rt.into_owned(), local);
+        }
+    }
+    map.retain(|local, rt| {
+        config_bound
+            .get(rt)
+            .is_none_or(|config_local| config_local == local)
+    });
     Ok((map, remotes))
 }
 

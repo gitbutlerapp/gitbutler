@@ -94,12 +94,6 @@ pub fn graph_from_repository_with_overlay<T: but_core::RefMetadata>(
     // previews (apply/unapply) enrich from the future state, not the on-disk one.
     let meta = &overlay_meta;
     let ws_meta = meta.workspace(ws_ref.as_ref())?;
-    // Include inactive/outside stacks too: their branches are still spliced as empty segments where
-    // they sit on an in-graph commit (e.g. an inactive `unapplied` branch on the shared base). Stacks
-    // whose branches resolve below the base are skipped naturally when their commit isn't in the graph.
-    // A branch listed in SEVERAL stacks counts once — in-workspace occurrence first — like the walk,
-    // which ignores duplicate stack branch tips (a stale inactive stack must not demote the active
-    // stack's branch into a lane of its own).
     // Integration marks and `NotInRemote` come from the walk's traversal — no re-flagging needed. The
     // target commit is still resolved from the CALLER's project meta for the builder's boundaries; a
     // default `ProjectMeta` means no target (no hard-coded `origin/main` fallback), like the walk.
@@ -114,31 +108,24 @@ pub fn graph_from_repository_with_overlay<T: but_core::RefMetadata>(
                 .detach(),
         )
     });
-    // An OUTSIDE/inactive stack's branch participates only at or below the workspace's lower bound
-    // (an unapplied branch resting on the shared base). One resting INSIDE a lane stays a passive
-    // ref — splicing it would demote the active stack's branch as a false shared base.
-    let below_bound: Option<HashSet<gix::ObjectId>> =
-        effective_lower_bound(&cg, ws_commit, target, &project_meta, &options)
-            .map(|lb| ancestor_set(&cg, lb));
+    // Only IN-WORKSPACE stacks form lanes. An inactive/outside stack's branches never splice as
+    // empty segments (`unapplied_branch_on_base`: "This will be an empty workspace") — they
+    // contribute only branch METADATA, which names commit-holding segments via the metadata tier
+    // of disambiguation. A branch listed in SEVERAL stacks counts once, like the walk, which
+    // ignores duplicate stack branch tips.
     let mut seen_branches = HashSet::new();
-    let mut stack_branches: Vec<Vec<gix::refs::FullName>> = vec![Vec::new(); ws_meta.stacks.len()];
-    let mut order: Vec<usize> = (0..ws_meta.stacks.len()).collect();
-    order.sort_by_key(|&i| !ws_meta.stacks[i].is_in_workspace());
-    for i in order {
-        let in_ws = ws_meta.stacks[i].is_in_workspace();
-        stack_branches[i] = ws_meta.stacks[i]
-            .branches
-            .iter()
-            .map(|b| b.ref_name.clone())
-            .filter(|b| {
-                in_ws
-                    || cg
-                        .commit_by_ref(b.as_ref())
-                        .is_none_or(|c| below_bound.as_ref().is_none_or(|s| s.contains(&c)))
-            })
-            .filter(|b| seen_branches.insert(b.clone()))
-            .collect();
-    }
+    let stack_branches: Vec<Vec<gix::refs::FullName>> = ws_meta
+        .stacks
+        .iter()
+        .filter(|s| s.is_in_workspace())
+        .map(|s| {
+            s.branches
+                .iter()
+                .map(|b| b.ref_name.clone())
+                .filter(|b| seen_branches.insert(b.clone()))
+                .collect()
+        })
+        .collect();
     // Remote-tracking relationships come from git CONFIG plus the caller's project meta — overlay
     // refs don't reshape them.
     let (remote_tracking, symbolic_remotes) =
@@ -1563,7 +1550,7 @@ fn insert_empty_workspace_segment(
         generation: 0,
         ref_info: Some(RefInfo {
             ref_name: ws_ref,
-            commit_id: None,
+            commit_id: Some(workspace_commit),
             worktree: None,
         }),
         remote_tracking_ref_name: None,
@@ -1865,7 +1852,7 @@ fn insert_empty_branches(
                             .first()
                             .is_some_and(|c| !c.flags.contains(crate::CommitFlags::Integrated))
                     });
-                insert_empty_chain_above(sg, from_sidx, anchor, &empties, dependent);
+                insert_empty_chain_above(sg, from_sidx, anchor, &empties, commit, dependent);
             }
             from_sidx = Some(anchor);
         }
@@ -1964,6 +1951,9 @@ fn insert_empty_chain_above(
     from_sidx: Option<SegmentIndex>,
     anchor: SegmentIndex,
     empties: &[gix::refs::FullName],
+    // The commit every empty branch points at (the group's commit — empty segments still have a
+    // ref TARGET, like the walk's).
+    commit_id: gix::ObjectId,
     // The anchor commit sits strictly inside another stack's lane (not at/below the base): splice into
     // that chain's existing edge rather than adding a fresh workspace lane.
     dependent: bool,
@@ -1976,7 +1966,7 @@ fn insert_empty_chain_above(
                 generation: 0,
                 ref_info: Some(RefInfo {
                     ref_name: b.clone(),
-                    commit_id: None,
+                    commit_id: Some(commit_id),
                     worktree: None,
                 }),
                 remote_tracking_ref_name: None,
