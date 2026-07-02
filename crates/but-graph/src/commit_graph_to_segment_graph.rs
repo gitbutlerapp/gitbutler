@@ -31,7 +31,18 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
 ) -> anyhow::Result<Option<crate::Graph>> {
-    let mut cg = CommitGraph::from_repository(repo)?;
+    // Workspaces with a RESOLVABLE target branch automatically have unlimited traversals — they rely
+    // on the target to bound the walk. Otherwise the commits limit applies to the local side.
+    let target_resolves = project_meta
+        .target_ref
+        .as_ref()
+        .is_some_and(|tr| repo.find_reference(tr).is_ok());
+    let effective_limit = if target_resolves {
+        None
+    } else {
+        options.commits_limit_hint
+    };
+    let mut cg = CommitGraph::from_repository_with_limit(repo, effective_limit)?;
     let ws_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
     let ws_commit = repo
         .find_reference(&ws_ref)?

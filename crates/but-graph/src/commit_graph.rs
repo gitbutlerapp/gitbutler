@@ -173,13 +173,23 @@ impl CommitGraph {
     /// Spike scope: walks the full reachable history (no bounding at the base) and leaves flags empty;
     /// both are fine for the projection (which only reads above the base) and for proving the build.
     pub fn from_repository(repo: &gix::Repository) -> anyhow::Result<Self> {
+        Self::from_repository_with_limit(repo, None)
+    }
+
+    /// Like [`Self::from_repository`], but bounding the LOCAL walk to about `commits_limit_hint`
+    /// commits below each local tip. Remote tips stay unbounded — they must be able to find their
+    /// local counterparts independently of the limit, exactly like the walk.
+    pub fn from_repository_with_limit(
+        repo: &gix::Repository,
+        commits_limit_hint: Option<usize>,
+    ) -> anyhow::Result<Self> {
         let ws_ref_name: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
         let ws_commit = repo
             .find_reference(&ws_ref_name)?
             .peel_to_commit()?
             .id()
             .detach();
-        Self::from_repository_seeded(repo, Some(ws_commit), Some(ws_commit))
+        Self::from_repository_seeded(repo, Some(ws_commit), Some(ws_commit), commits_limit_hint)
     }
 
     /// Like [`Self::from_repository`], but for a non-managed checkout: there is no workspace ref, so no
@@ -189,7 +199,7 @@ impl CommitGraph {
         repo: &gix::Repository,
         head_tip: Option<gix::ObjectId>,
     ) -> anyhow::Result<Self> {
-        Self::from_repository_seeded(repo, head_tip, None)
+        Self::from_repository_seeded(repo, head_tip, None, None)
     }
 
     /// Shared builder. `head_seed` roots the walk / `NotInRemote` / entrypoint (the workspace octopus
@@ -199,6 +209,7 @@ impl CommitGraph {
         repo: &gix::Repository,
         head_seed: Option<gix::ObjectId>,
         ws_commit: Option<gix::ObjectId>,
+        commits_limit_hint: Option<usize>,
     ) -> anyhow::Result<Self> {
         // Refs pointing at each commit (heads + remotes, peeled).
         let mut refs_by_commit: HashMap<gix::ObjectId, Vec<gix::refs::FullName>> = HashMap::new();
@@ -217,10 +228,61 @@ impl CommitGraph {
             .into_iter()
             .chain(refs_by_commit.keys().copied())
             .collect();
+        // With a limit, restrict the LOCAL side to about `limit` commits below the head/workspace
+        // commit (a budgeted BFS, taking the best budget a commit is reached with). Other local tips
+        // are not seeded at all — the walk only walks its traversal tips under a limit. Remote tips
+        // are unbounded so they can find their local counterparts, matching the walk's limit
+        // semantics.
+        let include: Option<HashSet<gix::ObjectId>> = match commits_limit_hint {
+            None => None,
+            Some(limit) => {
+                let mut best: HashMap<gix::ObjectId, usize> = HashMap::new();
+                let mut queue: std::collections::VecDeque<(gix::ObjectId, usize)> =
+                    std::collections::VecDeque::new();
+                for (&id, refs) in &refs_by_commit {
+                    let is_remote = refs
+                        .iter()
+                        .any(|r| r.category() == Some(gix::reference::Category::RemoteBranch));
+                    if is_remote {
+                        queue.push_back((id, usize::MAX));
+                    }
+                }
+                if let Some(head) = head_seed {
+                    queue.push_back((head, limit));
+                }
+                while let Some((id, budget)) = queue.pop_front() {
+                    match best.get(&id) {
+                        Some(&b) if b >= budget => continue,
+                        _ => {
+                            best.insert(id, budget);
+                        }
+                    }
+                    if budget == 0 {
+                        continue;
+                    }
+                    let next = if budget == usize::MAX {
+                        usize::MAX
+                    } else {
+                        budget - 1
+                    };
+                    if let Ok(commit) = repo.find_commit(id) {
+                        for p in commit.parent_ids() {
+                            queue.push_back((p.detach(), next));
+                        }
+                    }
+                }
+                Some(best.into_keys().collect())
+            }
+        };
         let mut commits = Vec::new();
         let mut managed_ws_commits = HashSet::new();
         for info in repo.rev_walk(seeds).all()? {
             let id = info?.id;
+            if let Some(include) = &include
+                && !include.contains(&id)
+            {
+                continue;
+            }
             let commit = repo.find_commit(id)?;
             // Collapse EXACT duplicate parents (a GitButler workspace merge encodes empty lanes as
             // repeated parents, e.g. `[base, base]`). Lanes are derived from workspace metadata here,
@@ -229,6 +291,12 @@ impl CommitGraph {
             let mut parent_ids: Vec<gix::ObjectId> = Vec::new();
             for p in commit.parent_ids() {
                 let p = p.detach();
+                // A limit-excluded parent is cut off entirely, like a shallow boundary.
+                if let Some(include) = &include
+                    && !include.contains(&p)
+                {
+                    continue;
+                }
                 if !parent_ids.contains(&p) {
                     parent_ids.push(p);
                 }
