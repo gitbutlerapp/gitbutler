@@ -1,12 +1,18 @@
 # Intentional graph-behavior changes (CommitGraph flip)
 
-> **STATUS 2026-07-02 — PROJECTION PARITY COMPLETE.** The `BUT_GRAPH_PARITY`
-> sweep (a temporary panic inside `from_commit_traversal` comparing the walk's
-> and the flip's `into_workspace()` fingerprints) passes on the FULL but-graph
-> test suite: **0 divergences across 196 tests** — every `from_head` /
-> `from_commit_traversal` call in the suite, including entrypoint, extra-target,
-> limit, and detached states. The items below describe *structural* (graph-tree)
-> differences that remain by design; the projection they feed is identical.
+> **STATUS 2026-07-02 — THE FLIP IS THE DEFAULT** (commit `ac975ef523`).
+> `from_head`, `from_commit_traversal`, and `redo_traversal_with_overlay` build
+> managed workspaces via `graph_from_repository(_with_overlay)`;
+> `BUT_GRAPH_NO_FLIP` forces the legacy walk until it is deleted. Non-managed
+> checkouts and the explicit-tips API (`from_commit_traversal_tips`) remain
+> WALK-backed — the latter needs a flip counterpart before deletion. The full
+> cargo workspace passes with zero failures and the Playwright e2e suite is
+> green, both without any env var. All snapshots are re-accepted to the flip's
+> segment numbering (one file pending: but-workspace's `apply_unapply.rs`
+> re-accepts are blocked by hunk-locking against another applied stack).
+> Projection parity was previously proven exhaustively by the `BUT_GRAPH_PARITY`
+> sweep (0 divergences over the whole but-graph suite). The items below describe
+> *structural* differences that remain by design.
 > See "Execution readiness" at the bottom for the deletion plan.
 
 As part of replacing the SegmentGraph walk with the CommitGraph-derived build, we
@@ -133,11 +139,15 @@ fmt+commit, `git apply sweep.patch`.
    own segments where the walk keeps them inline — intentional-change #8
    family; hand-edit at flip-default.
 3. ✅ e2e Playwright green flip-on (94 passed), repeatedly.
-4. TO EXECUTE at flip-default: default `BUT_GRAPH_FLIP` on (or drop the env
-   check), `cargo insta test --accept` for but-graph/but-workspace/but-rebase,
-   hand-edit the two fixture guards, re-run e2e.
-5. Delete: `post.rs`, the walk-only projection glue, the dead CommitGraph
-   methods above, then the sweep instrumentation (#16).
+4. ✅ EXECUTED — the flip is the default (`BUT_GRAPH_NO_FLIP` = legacy escape
+   hatch); all snapshots re-accepted; full workspace + e2e green without env.
+5. BEFORE DELETION: `from_commit_traversal_tips` (explicit tips) is still
+   walk-backed; its only non-test production caller is `but-debug`'s revision
+   command — give it a flip counterpart or drop it with the walk. Commit the
+   blocked `apply_unapply.rs` re-accepts; remove `BUT_GRAPH_NO_FLIP` + the
+   sweep instrumentation (#16).
+6. Delete: `post.rs`, the walk-only projection glue, the dead CommitGraph
+   methods above.
 
 ## Debugging aid
 `BUT_GRAPH_FLIP_DEBUG=1` prints, on flip entry, the resolved workspace commit,
