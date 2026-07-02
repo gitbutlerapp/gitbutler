@@ -444,7 +444,15 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             || remote_rejoins.contains(&c)
             || metadata_commits.contains(&c)
             || pinned_commits.contains(&c)
-            || disambiguated_ref(cg, c, remote_tracking, meta).is_some()
+            || disambiguated_ref(
+                cg,
+                c,
+                remote_tracking,
+                meta,
+                Some(workspace_commit),
+                project_meta.target_ref.as_ref(),
+            )
+            .is_some()
             || cg.all_parent_ids(c).len() > 1
             || {
                 let kids = children.get(&c).map(Vec::as_slice).unwrap_or_default();
@@ -503,12 +511,26 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
                 // Co-located stack tip / advanced ref (managed) or a non-managed symbolic tip: name by
                 // disambiguation — a stack branch when present, else anonymous. For the managed cases the
                 // empty workspace segment is spliced in above afterward.
-                disambiguated_ref(cg, tip, remote_tracking, meta)
+                disambiguated_ref(
+                    cg,
+                    tip,
+                    remote_tracking,
+                    meta,
+                    Some(workspace_commit),
+                    project_meta.target_ref.as_ref(),
+                )
             } else {
                 None
             }
         } else {
-            disambiguated_ref(cg, tip, remote_tracking, meta)
+            disambiguated_ref(
+                cg,
+                tip,
+                remote_tracking,
+                meta,
+                Some(workspace_commit),
+                project_meta.target_ref.as_ref(),
+            )
         };
         let ref_info = ref_name.map(|ref_name| RefInfo {
             ref_name,
@@ -727,6 +749,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             workspace_commit,
             remote_tracking,
             meta,
+            project_meta.target_ref.as_ref(),
         );
         // Empty metadata branches (no commits) are spliced in at their place in the stack's branch order,
         // routing from the workspace segment (the empty one when present, else the ws-commit's segment).
@@ -737,24 +760,12 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // represents their stack.
         let ws_lower_bound =
             effective_lower_bound(cg, workspace_commit, target, &project_meta, &options);
-        insert_empty_branches(
-            &mut sg,
-            cg,
-            ws_sidx,
-            stack_branches,
-            ws_lower_bound,
-            &in_set,
-            workspace_commit,
-            ws_is_managed_merge,
-        );
-        // `add_remote_segments` linked each remote to the local that named its commit's segment. When a
-        // later pass (anonymize / empty-branch splicing) floats that local up into its own empty segment,
-        // the remote's sibling is left pointing at the now-anonymous segment below. Re-establish the
-        // walk's invariant — a remote `origin/X` is the sibling of the local segment named `X`.
-        // A segment still ANONYMOUS after all naming passes takes the name the RAW WALK gave it, when
-        // that name is a plain local branch not already naming another segment. The walk's naming is
-        // traversal-order dependent and cannot be reproduced statically; this only ADDS names where
-        // the derived passes had no opinion — it never overrides their demotions.
+        // A segment still ANONYMOUS takes the name the RAW WALK gave it, when that name is a plain
+        // local branch not already naming another segment. The walk's naming is traversal-order
+        // dependent and cannot be reproduced statically (e.g. two remote-tracked stack branches on
+        // one commit are statically ambiguous; the walk names it after whichever tip claimed it).
+        // BEFORE empty-branch splicing, so a walk-named anchor keeps its lane and the other
+        // branches splice above it; demotions afterward can still strip it.
         for sidx in sg.node_indices().collect::<Vec<_>>() {
             let Some(first) = sg
                 .node(sidx)
@@ -777,6 +788,20 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
                 });
             }
         }
+        insert_empty_branches(
+            &mut sg,
+            cg,
+            ws_sidx,
+            stack_branches,
+            ws_lower_bound,
+            &in_set,
+            workspace_commit,
+            ws_is_managed_merge,
+        );
+        // `add_remote_segments` linked each remote to the local that named its commit's segment. When a
+        // later pass (anonymize / empty-branch splicing) floats that local up into its own empty segment,
+        // the remote's sibling is left pointing at the now-anonymous segment below. Re-establish the
+        // walk's invariant — a remote `origin/X` is the sibling of the local segment named `X`.
         // Naming passes (anchor naming, metadata-order renames, floats) don't carry remote-tracking
         // names — backfill them so any named local segment knows its remote, as segments named at
         // creation time do.
@@ -813,6 +838,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             entrypoint_ref.as_ref(),
             remote_tracking,
             meta,
+            project_meta.target_ref.as_ref(),
         )
     };
 
@@ -926,6 +952,7 @@ fn split_at_entrypoint_segment<T: but_core::RefMetadata>(
     entrypoint_ref: Option<&gix::refs::FullName>,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
     meta: &T,
+    target_ref: Option<&gix::refs::FullName>,
 ) -> Option<SegmentIndex> {
     let (sidx, pos) = sg.node_indices().find_map(|sidx| {
         sg.node(sidx)
@@ -939,7 +966,7 @@ fn split_at_entrypoint_segment<T: but_core::RefMetadata>(
     let moved_conns = std::mem::take(&mut sg.node_mut(sidx).expect("present").connections);
     let name = entrypoint_ref
         .cloned()
-        .or_else(|| disambiguated_ref(cg, entrypoint, remote_tracking, meta));
+        .or_else(|| disambiguated_ref(cg, entrypoint, remote_tracking, meta, None, target_ref));
     let ref_info = name.clone().map(|ref_name| RefInfo {
         ref_name,
         commit_id: Some(entrypoint),
@@ -1596,6 +1623,7 @@ fn add_advanced_outside_branches<T: but_core::RefMetadata>(
     workspace_commit: gix::ObjectId,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
     meta: &T,
+    target_ref: Option<&gix::refs::FullName>,
 ) {
     for b in stack_branches.into_iter().flatten().flatten() {
         // Only LOCAL branches advance past a workspace; metadata can also list remote refs as stack
@@ -1636,11 +1664,14 @@ fn add_advanced_outside_branches<T: but_core::RefMetadata>(
         };
         // Named like any tip: ambiguous refs keep the segment anonymous (the walk's floating
         // `►D, ►E` run), a unique branch names it (the advanced `B` above its own lane).
-        let ref_info = disambiguated_ref(cg, tip, remote_tracking, meta).map(|ref_name| RefInfo {
-            ref_name,
-            commit_id: Some(tip),
-            worktree: None,
-        });
+        let ref_info =
+            disambiguated_ref(cg, tip, remote_tracking, meta, None, target_ref).map(|ref_name| {
+                RefInfo {
+                    ref_name,
+                    commit_id: Some(tip),
+                    worktree: None,
+                }
+            });
         let named = ref_info.is_some();
         let seg = sg.add_node(Segment {
             id: 0,
@@ -1709,8 +1740,20 @@ fn insert_empty_branches(
     // may have named it after one of those branches (e.g. the remote-tracked `main`) — demote that
     // name so it floats like its peers; its remote links are re-established on the floated segment
     // by `reconcile_remote_siblings`.
+    // Where several stacks' branches share a commit ABOVE the lower bound, ONE stack genuinely
+    // owns it (its branch keeps the name) and the other stacks' branches splice in as empties on
+    // the same lane — e.g. a just-applied branch resting on the target's tip next to `main`. Only
+    // at/below the bound — or with no bound at all (no target) — is the commit a true shared base
+    // whose name floats while every stack forms its own lane.
+    let at_or_below_bound: Option<HashSet<gix::ObjectId>> =
+        ws_lower_bound.map(|lb| ancestor_set(cg, lb));
     for (&commit, &count) in &lists_per_commit {
         if count <= 1 {
+            continue;
+        }
+        if let Some(below) = &at_or_below_bound
+            && !below.contains(&commit)
+        {
             continue;
         }
         let Some(anchor) = segment_by_commit(sg, commit) else {
@@ -1859,7 +1902,11 @@ fn insert_empty_branches(
                 // shared by several metadata stacks gets its own lane from the workspace; a commit
                 // strictly inside another stack's lane means these branches are DEPENDENT and must
                 // splice into that chain instead of minting a duplicate lane.
-                let dependent = lists_per_commit.get(&commit).copied().unwrap_or(0) <= 1
+                let shared_base = lists_per_commit.get(&commit).copied().unwrap_or(0) > 1
+                    && at_or_below_bound
+                        .as_ref()
+                        .is_none_or(|below| below.contains(&commit));
+                let dependent = !shared_base
                     && sg.node(anchor).is_some_and(|s| {
                         s.commits
                             .first()
@@ -2126,6 +2173,10 @@ fn disambiguated_ref<T: but_core::RefMetadata>(
     c: gix::ObjectId,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
     meta: &T,
+    // The workspace commit, when naming happens in a managed workspace: the target-local
+    // tie-break applies only to its direct parents (lane tops).
+    workspace_commit: Option<gix::ObjectId>,
+    target_ref: Option<&gix::refs::FullName>,
 ) -> Option<gix::refs::FullName> {
     let branches: Vec<gix::refs::FullName> = cg
         .refs_at(c)
@@ -2143,6 +2194,20 @@ fn disambiguated_ref<T: but_core::RefMetadata>(
         .then(|| unique(&|r| segment_metadata(r.as_ref(), meta).is_some()))
         .flatten()
         .or_else(|| unique(&|r| remote_tracking.contains_key(r)))
+        // Several remote-tracked branches on a LANE TOP (a direct parent of the workspace merge):
+        // a unique branch WITH metadata wins even when integrated (it is the lane the user works
+        // in, e.g. `first-branch` next to a target-local `main` in gb-local mode); among several
+        // metadata branches the TARGET's own local wins (e.g. `main` next to a just-applied
+        // branch, both resting on the target's tip). Deeper commits stay anonymous like the walk's.
+        .or_else(|| {
+            workspace_commit
+                .is_some_and(|ws| cg.children(c).any(|k| k == ws))
+                .then(|| {
+                    unique(&|r| segment_metadata(r.as_ref(), meta).is_some())
+                        .or_else(|| unique(&|r| remote_tracking.get(r) == target_ref))
+                })
+                .flatten()
+        })
         .or_else(|| unique(&|_| true))
 }
 
