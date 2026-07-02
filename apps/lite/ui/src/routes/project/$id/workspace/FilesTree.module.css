@@ -50,11 +50,11 @@
 
 	& > * {
 		grid-area: 1 / 1;
+		align-self: center;
 	}
 }
 
 .fileCheckbox {
-	margin-block-start: 1px;
 	opacity: 0;
 
 	&[data-checked],
