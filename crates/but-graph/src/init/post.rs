@@ -1703,7 +1703,13 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
     }
 
     let involved_segments = ordered_segment_ids.iter().copied().collect::<BTreeSet<_>>();
-    let incoming_edges = involved_segments
+    let top_segment_id = ordered_segment_ids
+        .first()
+        .copied()
+        .context("BUG: empty refs should create a top segment")?;
+    // Re-point outside incoming edges at the (empty) top segment in place, preserving their
+    // position in the source's connections and with it the source's parent order.
+    let incoming_edges: Vec<_> = involved_segments
         .iter()
         .flat_map(|segment_id| {
             graph
@@ -1713,18 +1719,19 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
                 .collect::<Vec<_>>()
         })
         .filter(|edge| !involved_segments.contains(&edge.source))
-        .collect::<Vec<_>>();
-    let incoming_edge_ids_to_remove = involved_segments
-        .iter()
-        .flat_map(|segment_id| {
-            graph
-                .inner
-                .edges_directed(*segment_id, Direction::Incoming)
-                .map(|edge| edge.id())
-                .collect::<Vec<_>>()
-        })
-        .collect::<BTreeSet<_>>();
-    let outgoing_edge_ids_to_remove = involved_segments
+        .collect();
+    for edge in incoming_edges {
+        let weight = graph
+            .inner
+            .edge_weight_mut(edge.source, &edge.weight)
+            .expect("still present as we just saw it");
+        weight.target = top_segment_id;
+        weight.dst = None;
+        weight.dst_id = None;
+    }
+    // Drop the involved segments' own outgoing connections — except the bottom segment's
+    // connections leading outside — then re-chain the segments in the desired order.
+    let outgoing_edges_to_remove: Vec<_> = involved_segments
         .iter()
         .flat_map(|segment_id| {
             graph
@@ -1733,16 +1740,12 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
                 .filter(|edge| {
                     *segment_id != bottom_segment_id || involved_segments.contains(&edge.target())
                 })
-                .map(|edge| edge.id())
+                .map(EdgeOwned::from)
                 .collect::<Vec<_>>()
         })
-        .collect::<BTreeSet<_>>();
-    let edge_ids_to_remove = incoming_edge_ids_to_remove
-        .into_iter()
-        .chain(outgoing_edge_ids_to_remove)
-        .collect::<BTreeSet<_>>();
-    for edge_id in edge_ids_to_remove {
-        graph.inner.remove_edge(edge_id);
+        .collect();
+    for edge in outgoing_edges_to_remove {
+        graph.inner.remove_edge(edge.source, &edge.weight);
     }
 
     for pair in ordered_segment_ids.windows(2) {
@@ -1751,23 +1754,6 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
         };
         let below_commit_index = (*below == bottom_segment_id).then_some(0);
         graph.connect_segments(*above, None, *below, below_commit_index);
-    }
-
-    let top_segment_id = ordered_segment_ids
-        .first()
-        .copied()
-        .context("BUG: empty refs should create a top segment")?;
-    for edge in incoming_edges.into_iter().rev() {
-        graph.inner.add_edge(
-            edge.source,
-            top_segment_id,
-            Edge {
-                src: edge.weight.src,
-                src_id: edge.weight.src_id,
-                dst: None,
-                dst_id: None,
-            },
-        );
     }
 
     if graph
