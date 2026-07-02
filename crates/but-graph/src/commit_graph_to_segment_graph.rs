@@ -563,6 +563,68 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // connects into it, rather than absorbing the lower remote's commits.
     split_stacked_remotes(&mut sg);
 
+    // A no-ref checkout at a REMOTE-named segment's tip: the walk's anonymous entrypoint tip owns
+    // the commits as a local segment — a remote ref never names it — and the remote's machinery
+    // re-establishes the name as an EMPTY segment above. Float the name up so the projection sees
+    // a detached view, not the remote segment. A LOCAL name stays: the walk names the entrypoint
+    // segment after it.
+    if entrypoint_ref.is_none()
+        && entrypoint != workspace_commit
+        && let Some(ep_sidx) = segment_by_commit(&sg, entrypoint)
+        && sg.node(ep_sidx).is_some_and(|s| {
+            s.ref_info
+                .as_ref()
+                .is_some_and(|ri| ri.ref_name.as_ref().category() == Some(Category::RemoteBranch))
+                && s.commits.first().is_some_and(|c| c.id == entrypoint)
+        })
+    {
+        let (ref_info, rt_name, sibling, rt_seg) = {
+            let s = sg.node_mut(ep_sidx).expect("present");
+            (
+                s.ref_info.take(),
+                s.remote_tracking_ref_name.take(),
+                s.sibling_segment_id.take(),
+                s.remote_tracking_branch_segment_id.take(),
+            )
+        };
+        let floated = sg.add_node(Segment {
+            id: 0,
+            generation: 0,
+            ref_info,
+            remote_tracking_ref_name: rt_name,
+            sibling_segment_id: sibling,
+            remote_tracking_branch_segment_id: rt_seg,
+            commits: Vec::new(),
+            metadata: None,
+            connections: Vec::new(),
+        });
+        sg.node_mut(floated).expect("just added").id = floated;
+        // Links and edges aimed at the named segment now belong to its floated name.
+        for sidx in sg.node_indices().collect::<Vec<_>>() {
+            if sidx == floated {
+                continue;
+            }
+            if let Some(s) = sg.node_mut(sidx) {
+                if s.sibling_segment_id == Some(ep_sidx) {
+                    s.sibling_segment_id = Some(floated);
+                }
+                if s.remote_tracking_branch_segment_id == Some(ep_sidx) {
+                    s.remote_tracking_branch_segment_id = Some(floated);
+                }
+                for conn in &mut s.connections {
+                    if conn.target == ep_sidx {
+                        conn.target = floated;
+                        conn.dst_id = None;
+                    }
+                }
+            }
+        }
+        sg.add_edge(
+            floated,
+            Connection::new(ep_sidx, None, None, None, Some(entrypoint)),
+        );
+    }
+
     // When the ws commit is not a real managed merge (co-located stack tip or advanced ref), an empty
     // workspace segment sits above it.
     let mut ws_empty_sidx = None;
