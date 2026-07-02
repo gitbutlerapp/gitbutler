@@ -20,12 +20,6 @@
 	padding-inline: var(--panel-padding-inline);
 }
 
-.uncommittedChanges {
-	display: flex;
-	row-gap: 4px;
-	flex-direction: column;
-}
-
 .stacksScroller {
 	padding-inline: var(--panel-padding-inline);
 	padding-block-end: var(--panel-padding-block);

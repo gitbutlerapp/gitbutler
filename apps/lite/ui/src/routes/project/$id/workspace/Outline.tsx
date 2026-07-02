@@ -30,6 +30,7 @@ import {
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree/OutlineTree.tsx";
 import styles from "./Outline.module.css";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
+import { CommitForm } from "#ui/routes/project/$id/workspace/OutlineTree/CommitForm.tsx";
 
 const ActivitySpinner: FC = () => {
 	const fetchingCount = useIsFetching();
@@ -274,6 +275,14 @@ export const Outline: FC<
 				</ToggleGroup>
 			</div>
 
+			<div className={styles.commitFormContainer}>
+				<CommitForm
+					projectId={projectId}
+					commitTarget={commitTarget}
+					targetComboboxItems={targetComboboxItems}
+				/>
+			</div>
+
 			<OutlineTree
 				data-selection-scope={"outline" satisfies SelectionScope}
 				tabIndex={0}
@@ -282,7 +291,6 @@ export const Outline: FC<
 				projectId={projectId}
 				headInfo={headInfo}
 				commitTarget={commitTarget}
-				targetComboboxItems={targetComboboxItems}
 				// Focus on page load.
 				ref={(el) => {
 					// Don't steal focus if this component is mounted later on.

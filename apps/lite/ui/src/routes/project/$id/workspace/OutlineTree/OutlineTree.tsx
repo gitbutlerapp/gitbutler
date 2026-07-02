@@ -49,7 +49,7 @@ import { GraphSegment, GraphSegmentStatus } from "#ui/components/GraphSegment.ts
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { CommitForm, type CommitTargetComboboxItem } from "./CommitForm.tsx";
+import { type CommitTargetComboboxItem } from "./CommitForm.tsx";
 import { useIsSelected } from "./useIsSelected.ts";
 import { CommitRow } from "./CommitRow.tsx";
 import { BranchRow } from "./BranchRow.tsx";
@@ -70,7 +70,6 @@ export const OutlineTree: FC<
 		projectId: string;
 		headInfo: RefInfo | undefined;
 		commitTarget: CommitTargetComboboxItem | null;
-		targetComboboxItems: Array<CommitTargetComboboxItem>;
 		navigationIndex: NavigationIndex<Operand>;
 		absorptionTargetKeys: ReadonlySet<string>;
 	} & ComponentProps<"div">
@@ -78,7 +77,6 @@ export const OutlineTree: FC<
 	projectId,
 	headInfo,
 	commitTarget,
-	targetComboboxItems,
 	navigationIndex,
 	absorptionTargetKeys,
 	ref: refProp,
@@ -129,11 +127,7 @@ export const OutlineTree: FC<
 						ref={useMergedRefs(refProp, ref)}
 					>
 						<div className={styles.uncommittedChangesContainer}>
-							<UncommittedChanges
-								projectId={projectId}
-								commitTarget={commitTarget}
-								targetComboboxItems={targetComboboxItems}
-							/>
+							<UncommittedChanges projectId={projectId} />
 						</div>
 
 						<div className={classes(styles.stacksScroller, uiStyles.scrollerWithSeparator)}>
@@ -245,46 +239,37 @@ const CommitC: FC<{
 
 const UncommittedChanges: FC<{
 	projectId: string;
-	commitTarget: CommitTargetComboboxItem | null;
-	targetComboboxItems: Array<CommitTargetComboboxItem>;
-}> = ({ projectId, commitTarget, targetComboboxItems }) => {
+}> = ({ projectId }) => {
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const fileRowItems = worktreeChanges ? getChangesFileRowItems(worktreeChanges) : [];
 
 	const operand = uncommittedChangesOperand;
 
 	return (
-		<div className={classes(styles.section, styles.uncommittedChanges)}>
-			<TreeItem
-				projectId={projectId}
-				operand={operand}
-				aria-label={`Uncommitted changes (${worktreeChanges?.changes.length ?? 0})`}
-				render={<OperandC projectId={projectId} operand={operand} />}
-			>
-				<UncommittedChangesRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
+		<TreeItem
+			projectId={projectId}
+			operand={operand}
+			aria-label={`Uncommitted changes (${worktreeChanges?.changes.length ?? 0})`}
+			className={styles.section}
+			render={<OperandC projectId={projectId} operand={operand} />}
+		>
+			<UncommittedChangesRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
 
-				{(worktreeChanges?.changes.length ?? 0) === 0 ? (
-					<Row interactive={false}>
-						<RowLabelContainer>
-							<RowLabel className={rowStyles.fadedText}>Nothing to commit</RowLabel>
-						</RowLabelContainer>
-					</Row>
-				) : (
-					// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics.
-					<div role="group">
-						{fileRowItems.map((item) => (
-							<UncommittedFileRow key={item.path} item={item} projectId={projectId} />
-						))}
-					</div>
-				)}
-			</TreeItem>
-
-			<CommitForm
-				projectId={projectId}
-				commitTarget={commitTarget}
-				targetComboboxItems={targetComboboxItems}
-			/>
-		</div>
+			{(worktreeChanges?.changes.length ?? 0) === 0 ? (
+				<Row interactive={false}>
+					<RowLabelContainer>
+						<RowLabel className={rowStyles.fadedText}>Nothing to commit</RowLabel>
+					</RowLabelContainer>
+				</Row>
+			) : (
+				// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics.
+				<div role="group">
+					{fileRowItems.map((item) => (
+						<UncommittedFileRow key={item.path} item={item} projectId={projectId} />
+					))}
+				</div>
+			)}
+		</TreeItem>
 	);
 };
 
