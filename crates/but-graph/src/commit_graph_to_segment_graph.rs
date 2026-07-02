@@ -117,11 +117,9 @@ pub fn graph_from_repository_with_overlay<T: but_core::RefMetadata>(
     // An OUTSIDE/inactive stack's branch participates only at or below the workspace's lower bound
     // (an unapplied branch resting on the shared base). One resting INSIDE a lane stays a passive
     // ref — splicing it would demote the active stack's branch as a false shared base.
-    let below_bound: Option<HashSet<gix::ObjectId>> = target
-        .or(project_meta.target_commit_id)
-        .or(options.extra_target_commit_id)
-        .and_then(|t| workspace_lower_bound(&cg, ws_commit, t))
-        .map(|lb| ancestor_set(&cg, lb));
+    let below_bound: Option<HashSet<gix::ObjectId>> =
+        effective_lower_bound(&cg, ws_commit, target, &project_meta, &options)
+            .map(|lb| ancestor_set(&cg, lb));
     let mut seen_branches = HashSet::new();
     let mut stack_branches: Vec<Vec<gix::refs::FullName>> = vec![Vec::new(); ws_meta.stacks.len()];
     let mut order: Vec<usize> = (0..ws_meta.stacks.len()).collect();
@@ -362,6 +360,13 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     // Only remotes whose LOCAL counterpart is itself in the graph count — a remote for a branch that
     // lives outside the workspace (e.g. `origin/A-middle` on an outside `A-middle`) is never surfaced,
     // so its spine crossing an in-set commit must not carve a spurious boundary there.
+    // The TARGET's rejoin always counts — it is surfaced regardless of where (or whether) its local
+    // branch sits; e.g. `main` inside the target's own ahead region must not stop `origin/main`'s
+    // line from carving its meeting point with the workspace.
+    let target_tip = project_meta
+        .target_ref
+        .as_ref()
+        .and_then(|tr| cg.commit_by_ref(tr.as_ref()));
     let remote_rejoins: HashSet<gix::ObjectId> = remote_tracking
         .iter()
         .filter(|(local, _)| {
@@ -369,6 +374,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
                 .is_some_and(|c| in_set.contains(&c))
         })
         .filter_map(|(_, r)| cg.commit_by_ref(r.as_ref()))
+        .chain(target_tip)
         .filter_map(|tip| {
             let mut c = Some(tip);
             while let Some(id) = c {
@@ -433,12 +439,13 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
 
     // Stored/extra target positions must start their own segment: the projection's
     // `TargetCommit::from_commit` ignores a stored target commit that sits mid-segment, losing the
-    // remembered base (and with it the workspace lower bound).
+    // remembered base (and with it the workspace lower bound). Not restricted to the workspace set —
+    // an older target position often sits inside the target REMOTE's ahead region.
     let pinned_commits: HashSet<gix::ObjectId> = project_meta
         .target_commit_id
         .into_iter()
         .chain(options.extra_target_commit_id)
-        .filter(|c| in_set.contains(c))
+        .filter(|&c| cg.node(c).is_some())
         .collect();
 
     // A commit starts a new segment when it carries a disambiguated ref, is the workspace tip, is a
@@ -565,6 +572,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         &owner_of,
         symbolic_remotes,
         stack_branches,
+        &pinned_commits,
     );
     add_untracked_remote_segments(
         cg,
@@ -619,7 +627,17 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             // The target's own (remote) commits: segment its region like any remote's — split at
             // merges, connect every rejoin (including a merge's second parent) back into the
             // workspace — so the projection can find the common base. No tracking local, no links.
-            segment_ahead_region(cg, &mut sg, tr, tip, &in_set, &seg_of_tip, &owner_of, None);
+            segment_ahead_region(
+                cg,
+                &mut sg,
+                tr,
+                tip,
+                &in_set,
+                &seg_of_tip,
+                &owner_of,
+                None,
+                &pinned_commits,
+            );
         }
     }
 
@@ -721,13 +739,12 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // Empty metadata branches (no commits) are spliced in at their place in the stack's branch order,
         // routing from the workspace segment (the empty one when present, else the ws-commit's segment).
         let ws_sidx = ws_empty_sidx.or_else(|| seg_of_tip.get(&workspace_commit).copied());
-        // The workspace's lower bound — the base all lanes and the (stored/extra) target converge on.
-        // Stack branches resting there float as their own empty lanes instead of naming the boundary
-        // segment, when nothing else represents their stack.
-        let ws_lower_bound = target
-            .or(project_meta.target_commit_id)
-            .or(options.extra_target_commit_id)
-            .and_then(|t| workspace_lower_bound(cg, workspace_commit, t));
+        // The workspace's lower bound — the base all lanes and the (stored/extra) target converge
+        // on, extended down to an older target position. Stack branches resting there float as
+        // their own empty lanes instead of naming the boundary segment, when nothing else
+        // represents their stack.
+        let ws_lower_bound =
+            effective_lower_bound(cg, workspace_commit, target, &project_meta, &options);
         insert_empty_branches(
             &mut sg,
             cg,
@@ -1025,6 +1042,7 @@ fn add_remote_segments(
     owner_of: &HashMap<gix::ObjectId, gix::ObjectId>,
     symbolic_remotes: &[String],
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+    pinned_commits: &HashSet<gix::ObjectId>,
 ) {
     let mut locals: Vec<(SegmentIndex, gix::refs::FullName, gix::ObjectId)> = seg_of_tip
         .iter()
@@ -1100,6 +1118,7 @@ fn add_remote_segments(
             seg_of_tip,
             owner_of,
             Some(local_sidx),
+            pinned_commits,
         );
     }
 }
@@ -1122,6 +1141,10 @@ fn segment_ahead_region(
     // The local segment tracking this remote, if any — a TARGET without a tracking local segment
     // builds the same region without the sibling/remote-tracking links.
     local_sidx: Option<SegmentIndex>,
+    // Stored/extra target positions must start their own segment even inside a remote's ahead
+    // region — the projection's `TargetCommit::from_commit` ignores one that sits mid-segment,
+    // silently disabling integration checks against it.
+    pinned_commits: &HashSet<gix::ObjectId>,
 ) {
     // Commits the remote is ahead by: ancestors of the tip that stop at the in-set boundary.
     let mut ahead_set: HashSet<gix::ObjectId> = HashSet::new();
@@ -1148,13 +1171,17 @@ fn segment_ahead_region(
         .filter(|p| ahead_set.contains(p))
         .collect();
     let is_boundary = |c: gix::ObjectId| -> bool {
-        c == remote_tip || cg.all_parent_ids(c).len() > 1 || merge_first_parents.contains(&c) || {
-            let kids = children.get(&c).map(Vec::as_slice).unwrap_or_default();
-            kids.len() > 1
-                || kids
-                    .iter()
-                    .any(|&k| cg.first_parent(k) != Some(c) && ahead_set.contains(&k))
-        }
+        c == remote_tip
+            || pinned_commits.contains(&c)
+            || cg.all_parent_ids(c).len() > 1
+            || merge_first_parents.contains(&c)
+            || {
+                let kids = children.get(&c).map(Vec::as_slice).unwrap_or_default();
+                kids.len() > 1
+                    || kids
+                        .iter()
+                        .any(|&k| cg.first_parent(k) != Some(c) && ahead_set.contains(&k))
+            }
     };
 
     let tips: Vec<gix::ObjectId> = ahead_set
@@ -1436,12 +1463,21 @@ fn anonymize_shared_stack_tips(
             continue;
         };
         let has_ref = sg.node(p_sidx).is_some_and(|s| s.ref_info.is_some());
-        // Shared iff some other in-set commit's first parent is this tip (another stack depends on it).
-        let shared = in_set
-            .iter()
-            .any(|&c| c != workspace_commit && cg.first_parent(c) == Some(parent));
+        // Shared iff some other IN-WORKSPACE commit's first parent is this tip (another stack
+        // depends on it). The in-set also carries the target's own local history (e.g. `main`
+        // merging the stack back) — the target flowing into a tip doesn't make it shared.
+        let shared = in_set.iter().any(|&c| {
+            c != workspace_commit
+                && cg.first_parent(c) == Some(parent)
+                && cg
+                    .node(c)
+                    .is_some_and(|n| n.commit.flags.contains(crate::CommitFlags::InWorkspace))
+        });
         if !has_ref || !shared {
             continue;
+        }
+        if std::env::var_os("BUT_GRAPH_FLIP_DEBUG").is_some() {
+            eprintln!("FLIP anonymize_shared_stack_tips floats ref off segment of {parent}");
         }
         // Float the ref onto a new empty placeholder segment. The walk floats the TIP-SEEDED
         // (traversal) name; when build-time disambiguation picked a different ref (e.g. the
@@ -1735,6 +1771,9 @@ fn insert_empty_branches(
             })
         && let Some(s) = sg.node_mut(anchor)
     {
+        if std::env::var_os("BUT_GRAPH_FLIP_DEBUG").is_some() {
+            eprintln!("FLIP lower-bound demotion at {ws_lower_bound:?}");
+        }
         s.ref_info = None;
         s.remote_tracking_ref_name = None;
         s.remote_tracking_branch_segment_id = None;
@@ -1884,6 +1923,35 @@ fn workspace_lower_bound(
         }
     }
     None
+}
+
+/// The lower bound the PROJECTION will use: the merge base with the target, extended DOWN to a
+/// stored/extra target position lying below it — an older target location keeps the commits
+/// integrated since then visible, so stacks resting between the bound and the merge base are real
+/// (kept) stacks, not empty floats.
+fn effective_lower_bound(
+    cg: &CommitGraph,
+    workspace_commit: gix::ObjectId,
+    target: Option<gix::ObjectId>,
+    project_meta: &but_core::ref_metadata::ProjectMeta,
+    options: &crate::init::Options,
+) -> Option<gix::ObjectId> {
+    let mut lb = target
+        .or(project_meta.target_commit_id)
+        .or(options.extra_target_commit_id)
+        .and_then(|t| workspace_lower_bound(cg, workspace_commit, t))?;
+    for candidate in [
+        project_meta.target_commit_id,
+        options.extra_target_commit_id,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        if candidate != lb && ancestor_set(cg, lb).contains(&candidate) {
+            lb = candidate;
+        }
+    }
+    Some(lb)
 }
 
 /// Splice `empties` as a chain of empty segments ABOVE `anchor`, routing `from_sidx` to `anchor`
