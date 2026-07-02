@@ -250,8 +250,7 @@ export const CommitForm: FC<{
 					</Combobox.Portal>
 				</Combobox.Root>
 
-				{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Grouping keeps the split submit control together. */}
-				<div role="group" className={styles.dropdownButton}>
+				<div className={styles.dropdownButton}>
 					<Tooltip.Root>
 						<Tooltip.Trigger
 							className={getButtonClassName({ variant: "pop" })}

@@ -89,7 +89,7 @@ import {
 } from "#ui/selection-scopes.ts";
 import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
-import { changeFileTreeItem, conflictFileTreeItem, type FileTreeItem } from "./file-tree.ts";
+import { changeFileRowItem, conflictFileRowItem, type FileRowItem } from "./file-row.ts";
 import {
 	getDependencyCommitIds,
 	getHunkDependencyDiffsByPath,
@@ -117,11 +117,11 @@ const codeViewItemIdPath = ({ changesetKey, id }: { changesetKey: string; id: st
 const hunkOperandIdentityKey = (operand: HunkOperand): string =>
 	operandIdentityKey(hunkOperand(operand));
 
-const getCommitFileTreeItems = ({
+const getCommitFileRowItems = ({
 	commitDetails,
 }: {
 	commitDetails: CommitDetails;
-}): Array<FileTreeItem> => {
+}): Array<FileRowItem> => {
 	const conflictedPaths = commitDetails.conflictEntries
 		? globalThis.Array.from(
 				new Set([
@@ -135,14 +135,14 @@ const getCommitFileTreeItems = ({
 
 	return [
 		...conflictedPaths.map((path) =>
-			conflictFileTreeItem({
+			conflictFileRowItem({
 				path,
 			}),
 		),
 		...commitDetails.changes
 			.filter((change) => !conflictedPathSet.has(change.path))
 			.map((change) =>
-				changeFileTreeItem({
+				changeFileRowItem({
 					change,
 					path: change.path,
 				}),
@@ -150,7 +150,7 @@ const getCommitFileTreeItems = ({
 	];
 };
 
-const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTreeItem> => {
+const getChangesFileRowItems = (worktreeChanges: WorktreeChanges): Array<FileRowItem> => {
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
@@ -161,7 +161,7 @@ const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTr
 			? getDependencyCommitIds({ hunkDependencyDiffs })
 			: undefined;
 
-		return changeFileTreeItem({
+		return changeFileRowItem({
 			change,
 			dependencyCommitIds,
 			path: change.path,
@@ -169,9 +169,9 @@ const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTr
 	});
 };
 
-const getBranchFileTreeItems = ({ branchDiff }: { branchDiff: TreeChanges }): Array<FileTreeItem> =>
+const getBranchFileRowItems = ({ branchDiff }: { branchDiff: TreeChanges }): Array<FileRowItem> =>
 	branchDiff.changes.map((change) =>
-		changeFileTreeItem({
+		changeFileRowItem({
 			change,
 			path: change.path,
 		}),
@@ -883,7 +883,7 @@ const CommitDetailsContent: FC<{
 const Diff: FC<{
 	changes: Array<TreeChange>;
 	filesVisible: boolean;
-	filesItems: Array<FileTreeItem>;
+	filesItems: Array<FileRowItem>;
 	onFileSelection: (selection: string) => void;
 	outlineSelection: Operand;
 	projectId: string;
@@ -1316,7 +1316,7 @@ export const Details: FC<
 						filesItems,
 					}: {
 						changes: Array<TreeChange>;
-						filesItems: Array<FileTreeItem>;
+						filesItems: Array<FileRowItem>;
 					}) => (
 						<Diff
 							changes={changes}
@@ -1338,7 +1338,7 @@ export const Details: FC<
 								{({ data: commitDetails }) =>
 									renderDiff({
 										changes: commitDetails.changes,
-										filesItems: getCommitFileTreeItems({ commitDetails }),
+										filesItems: getCommitFileRowItems({ commitDetails }),
 									})
 								}
 							</SuspenseQuery>
@@ -1348,7 +1348,7 @@ export const Details: FC<
 								{({ data: worktreeChanges }) =>
 									renderDiff({
 										changes: worktreeChanges.changes,
-										filesItems: getChangesFileTreeItems(worktreeChanges),
+										filesItems: getChangesFileRowItems(worktreeChanges),
 									})
 								}
 							</SuspenseQuery>
@@ -1394,7 +1394,7 @@ export const Details: FC<
 									{({ data: branchDiff }) =>
 										renderDiff({
 											changes: branchDiff.changes,
-											filesItems: getBranchFileTreeItems({ branchDiff }),
+											filesItems: getBranchFileRowItems({ branchDiff }),
 										})
 									}
 								</SuspenseQuery>
