@@ -5,6 +5,7 @@
 	padding: 8px;
 	border-radius: var(--radius-m);
 	outline: 1px solid var(--border-2);
+	outline-offset: -1px;
 	background: var(--bg-1);
 
 	&:not(:has(.textarea[disabled])) {

@@ -15,6 +15,7 @@ import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
 	uncommittedChangesFileParent,
+	uncommittedChangesOperand,
 	commitFileParent,
 	FileOperand,
 	fileOperand,
@@ -655,6 +656,12 @@ const Title: FC<{
 				<div className={styles.title}>
 					<Icon name="file-diff" />
 					<h3 className={classes("text-15", "text-semibold")}>Uncommitted changes</h3>
+				</div>
+			),
+			File: ({ path }) => (
+				<div className={styles.title}>
+					<Icon name="file" />
+					<h3 className={classes("text-15", "text-semibold")}>{path}</h3>
 				</div>
 			),
 			Commit: ({ commitId }) => (
@@ -1311,16 +1318,18 @@ export const Details: FC<
 					const renderDiff = ({
 						changes,
 						filesItems,
+						outlineSelection: diffOutlineSelection = outlineSelection,
 					}: {
 						changes: Array<TreeChange>;
 						filesItems: Array<FileRowItem>;
+						outlineSelection?: Operand;
 					}) => (
 						<Diff
 							changes={changes}
 							filesVisible={filesVisible}
 							filesItems={filesItems}
 							onFileSelection={selectFile}
-							outlineSelection={outlineSelection}
+							outlineSelection={diffOutlineSelection}
 							projectId={projectId}
 						/>
 					);
@@ -1350,6 +1359,30 @@ export const Details: FC<
 								}
 							</SuspenseQuery>
 						)),
+						Match.tag("File", (file) => {
+							if (file.parent._tag !== "UncommittedChanges") return null;
+
+							return (
+								<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
+									{({ data: worktreeChanges }) => {
+										const filesItems = getChangesFileRowItems(worktreeChanges).filter(
+											(item) => item.path === file.path,
+										);
+										const changes = filesItems.flatMap((item) =>
+											item._tag === "Change" ? [item.change] : [],
+										);
+
+										if (changes.length === 0) return null;
+
+										return renderDiff({
+											changes,
+											filesItems,
+											outlineSelection: uncommittedChangesOperand,
+										});
+									}}
+								</SuspenseQuery>
+							);
+						}),
 						Match.tag("Branch", ({ branchRef }) =>
 							branchTab === "pr" ? (
 								<SuspenseQuery

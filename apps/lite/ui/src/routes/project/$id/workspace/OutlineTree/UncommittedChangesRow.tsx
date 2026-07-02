@@ -22,7 +22,7 @@ import { RowBubble, RowBubbleGroup, RowLabel, RowLabelContainer, RowToolbar } fr
 import { ItemRow } from "./ItemRow.tsx";
 import { useQueries } from "@tanstack/react-query";
 import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
-import { commitMessageInputId } from "./CommitForm.tsx";
+import { commitMessageInputId } from "../CommitForm.tsx";
 
 type LineStats = {
 	linesAdded: number;
@@ -127,9 +127,7 @@ export const UncommittedChangesRow: FC<{
 			}}
 		>
 			<RowLabelContainer>
-				<RowLabel heading>
-					{changes.length === 0 ? "Nothing to commit" : "Uncommitted changes"}
-				</RowLabel>
+				<RowLabel heading>Uncommitted changes</RowLabel>
 
 				<RowBubble variant="fillGray">{changes.length}</RowBubble>
 

@@ -3,7 +3,7 @@ import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitTitle } from "#ui/commit.ts";
 import type { RefInfo, RelativeTo } from "@gitbutler/but-sdk";
 import { reverse } from "effect/Array";
-import type { CommitTargetComboboxItem } from "./CommitForm.tsx";
+import type { CommitTargetComboboxItem } from "../CommitForm.tsx";
 
 export const buildCommitTargetComboboxItems = ({
 	headInfo,

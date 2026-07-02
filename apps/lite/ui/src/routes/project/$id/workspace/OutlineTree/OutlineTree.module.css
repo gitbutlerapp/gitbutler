@@ -5,38 +5,40 @@
 }
 
 .tree {
-	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
-	grid-template-columns: minmax(0, 1fr);
-	gap: 12px;
-
 	&:focus {
 		/* The focus state is displayed on the item row instead. */
 		outline: none;
 	}
 }
 
+.resizeHandle {
+	height: 1px;
+	background-color: var(--border-3);
+
+	&[data-separator="hover"],
+	&[data-separator="active"] {
+		background-color: var(--border-2);
+	}
+}
+
 .uncommittedChangesContainer {
-	padding-inline: var(--panel-padding-inline);
-}
-
-.uncommittedChanges {
 	display: flex;
-	row-gap: 4px;
+	row-gap: 12px;
 	flex-direction: column;
-}
-
-.stacksScroller {
 	padding-inline: var(--panel-padding-inline);
-	padding-block-end: var(--panel-padding-block);
-	scroll-padding-block: var(--panel-padding-block);
-	scroll-padding-inline: var(--panel-padding-inline);
+	padding-block: var(--panel-padding-block);
+	overflow: auto;
 }
 
 .stacks {
 	display: flex;
 	row-gap: 12px;
 	flex-direction: column;
+	padding-inline: var(--panel-padding-inline);
+	padding-block: var(--panel-padding-block);
+	overflow: auto;
+	scroll-padding-block: var(--panel-padding-block);
+	scroll-padding-inline: var(--panel-padding-inline);
 }
 
 .segments {

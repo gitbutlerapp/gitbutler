@@ -1,16 +1,21 @@
 .container {
 	display: grid;
-	grid-template-rows: auto auto minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
-	gap: 12px;
+}
+
+.top {
+	display: flex;
+	row-gap: 12px;
+	flex-direction: column;
+	padding-inline: var(--panel-padding-inline);
+	padding-block: var(--panel-padding-block);
 }
 
 .workspaceControls {
 	display: flex;
 	column-gap: 12px;
 	align-items: center;
-	padding-inline: var(--panel-padding-inline);
-	padding-block-start: var(--panel-padding-block);
 }
 
 .workspaceControlsLeft {
@@ -48,7 +53,6 @@
 	white-space: nowrap;
 }
 
-.navContainer {
-	display: grid;
-	padding-inline: var(--panel-padding-inline);
+.outlineTree {
+	border-top: 1px solid var(--border-3);
 }

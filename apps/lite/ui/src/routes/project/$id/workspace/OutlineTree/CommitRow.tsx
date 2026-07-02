@@ -44,7 +44,7 @@ import { ComponentProps, FC, use, useOptimistic, useTransition } from "react";
 import { RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
-import { commitMessageInputId } from "./CommitForm.tsx";
+import { commitMessageInputId } from "../CommitForm.tsx";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
