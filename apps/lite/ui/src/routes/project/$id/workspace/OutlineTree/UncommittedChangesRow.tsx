@@ -127,9 +127,7 @@ export const UncommittedChangesRow: FC<{
 			}}
 		>
 			<RowLabelContainer>
-				<RowLabel heading>
-					{changes.length === 0 ? "Nothing to commit" : "Uncommitted changes"}
-				</RowLabel>
+				<RowLabel heading>Uncommitted changes</RowLabel>
 
 				<RowBubble variant="fillGray">{changes.length}</RowBubble>
 
