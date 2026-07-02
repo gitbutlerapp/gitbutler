@@ -3,7 +3,7 @@ import { FC } from "react";
 import { Route as rootRoute } from "#ui/routes/__root.tsx";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
 
-// oxlint-disable-next-line react/only-export-components -- Route files export route definitions too.
+// oxlint-disable-next-line react/only-export-components -- False positive?
 const IndexPage: FC = () => <p>Select a project.</p>;
 
 export const Route = createRoute({
