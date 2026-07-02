@@ -1,5 +1,5 @@
-import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
-import { WorkspaceItemRowLabel, WorkspaceItemRowLabelContainer } from "../WorkspaceItemRow.tsx";
+import { getRowButtonClassName } from "../Row-utils.ts";
+import { RowLabel, RowLabelContainer } from "../Row.tsx";
 import { formatForDisplaySorted } from "#ui/hotkeys.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useHotkey } from "@tanstack/react-hotkeys";
@@ -43,8 +43,8 @@ export const InlineEditor: FC<{
 
 	return (
 		<form ref={formRef} className={styles.form} action={submitAction}>
-			<WorkspaceItemRowLabelContainer>
-				<WorkspaceItemRowLabel
+			<RowLabelContainer>
+				<RowLabel
 					heading={heading}
 					aria-label={label}
 					className={styles.input}
@@ -56,13 +56,13 @@ export const InlineEditor: FC<{
 						)
 					}
 				/>
-			</WorkspaceItemRowLabelContainer>
+			</RowLabelContainer>
 			<div className={styles.help}>
-				<button type="submit" className={getWorkspaceItemRowButtonClassName({})}>
+				<button type="submit" className={getRowButtonClassName({})}>
 					<kbd>{formatForDisplaySorted("Enter")}</kbd>
 					<span className={styles.shortcutLabel}> to Save</span>
 				</button>
-				<button type="button" className={getWorkspaceItemRowButtonClassName({})} onClick={onExit}>
+				<button type="button" className={getRowButtonClassName({})} onClick={onExit}>
 					<kbd>{formatForDisplaySorted("Escape")}</kbd>
 					<span className={styles.shortcutLabel}> to Cancel</span>
 				</button>

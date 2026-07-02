@@ -1,4 +1,4 @@
-import workspaceItemRowStyles from "../WorkspaceItemRow.module.css";
+import rowStyles from "../Row.module.css";
 import {
 	useBranchCreate,
 	useCommitInsertBlank,
@@ -35,12 +35,8 @@ import { projectActions, selectProjectOutlineModeState } from "#ui/projects/stat
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { prForgeUrl } from "#ui/pr.ts";
-import {
-	WorkspaceItemRowLabel,
-	WorkspaceItemRowLabelContainer,
-	WorkspaceItemRowToolbar,
-} from "../WorkspaceItemRow.tsx";
-import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
+import { RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
+import { getRowButtonClassName } from "../Row-utils.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
 import { commitMessageInputId } from "./CommitForm.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
@@ -368,12 +364,12 @@ export const BranchRow: FC<
 				/>
 			) : (
 				<div className={styles.label}>
-					<WorkspaceItemRowLabelContainer>
-						<WorkspaceItemRowLabel heading>{optimisticBranchDisplayName}</WorkspaceItemRowLabel>
-					</WorkspaceItemRowLabelContainer>
+					<RowLabelContainer>
+						<RowLabel heading>{optimisticBranchDisplayName}</RowLabel>
+					</RowLabelContainer>
 
 					<div className={classes("text-13", styles.labelMeta)}>
-						<span className={classes(workspaceItemRowStyles.fadedText, styles.labelMetaItem)}>
+						<span className={classes(rowStyles.fadedText, styles.labelMetaItem)}>
 							{Match.value(pushStatus).pipe(
 								Match.when("nothingToPush", () => "Nothing to push"),
 								Match.when("unpushedCommits", () => "Some unpushed"),
@@ -385,7 +381,7 @@ export const BranchRow: FC<
 						</span>
 
 						{pullRequest !== null && (
-							<span className={classes(workspaceItemRowStyles.fadedText, styles.labelMetaItem)}>
+							<span className={classes(rowStyles.fadedText, styles.labelMetaItem)}>
 								<Icon name="pr" />
 								PR
 							</span>
@@ -415,7 +411,7 @@ export const BranchRow: FC<
 										<Tooltip.Trigger
 											aria-label={pushButtonLabel}
 											onClick={workspaceBranchAndAncestorsPush}
-											className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
+											className={getRowButtonClassName({ variant: "outline" })}
 											// We pass `disabled` here because we want to disable the button, not
 											// the tooltip. Other props should be passed above.
 											render={
@@ -455,13 +451,13 @@ export const BranchRow: FC<
 			)}
 
 			{isDefaultMode && (
-				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
+				<Toolbar.Root aria-label="Branch actions" render={<RowToolbar />}>
 					<Toolbar.Button
 						aria-label="Branch menu"
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+						className={getRowButtonClassName({ iconOnly: true })}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>

@@ -1,4 +1,4 @@
-import workspaceItemRowStyles from "../WorkspaceItemRow.module.css";
+import rowStyles from "../Row.module.css";
 import uiStyles from "#ui/components/ui.module.css";
 import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import { relativeToEquals } from "#ui/api/relative-to.ts";
@@ -38,11 +38,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { ComponentProps, createContext, FC, Fragment, use, useRef } from "react";
 import styles from "./OutlineTree.module.css";
-import {
-	WorkspaceItemRow,
-	WorkspaceItemRowLabel,
-	WorkspaceItemRowLabelContainer,
-} from "../WorkspaceItemRow.tsx";
+import { Row, RowLabel, RowLabelContainer } from "../Row.tsx";
 import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
 import { reverse } from "effect/Array";
 import { GraphSegment, GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
@@ -369,17 +365,15 @@ const SegmentContent: FC<{
 
 		return (
 			<div>
-				<WorkspaceItemRow interactive={false} inert={inert}>
+				<Row interactive={false} inert={inert}>
 					<GraphSegment
 						glyph="parent"
 						status={segmentPushStatusToGraphSegmentStatus(segment.pushStatus)}
 					/>
-					<WorkspaceItemRowLabelContainer>
-						<WorkspaceItemRowLabel className={workspaceItemRowStyles.fadedText}>
-							No commits.
-						</WorkspaceItemRowLabel>
-					</WorkspaceItemRowLabelContainer>
-				</WorkspaceItemRow>
+					<RowLabelContainer>
+						<RowLabel className={rowStyles.fadedText}>No commits.</RowLabel>
+					</RowLabelContainer>
+				</Row>
 			</div>
 		);
 	}
@@ -492,7 +486,7 @@ const StackC: FC<{
 									/>
 								)}
 							</div>
-							<WorkspaceItemRow
+							<Row
 								interactive={false}
 								className={styles.segmentParentItemRow}
 								inert={
@@ -515,7 +509,7 @@ const StackC: FC<{
 												: assert(segment.commits.at(-1)).state.type
 									}
 								/>
-							</WorkspaceItemRow>
+							</Row>
 						</Fragment>
 					);
 				})}
