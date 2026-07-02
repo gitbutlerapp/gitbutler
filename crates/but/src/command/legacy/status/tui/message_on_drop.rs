@@ -2,6 +2,8 @@ use std::{rc::Rc, sync::mpsc::Sender};
 
 use crate::command::legacy::status::tui::Message;
 
+use super::PanicOnClone;
+
 /// Create a `MessageOnDrop` which, as the name implies, will send a message from its `Drop`
 /// implementation.
 ///
@@ -10,7 +12,7 @@ use crate::command::legacy::status::tui::Message;
 pub fn message_on_drop(msg: Message, messages: &mut Vec<Message>) -> MessageOnDrop {
     let (tx, rx) = std::sync::mpsc::channel::<Message>();
 
-    messages.push(Message::RegisterOutOfBandMessage(Rc::new(rx)));
+    messages.push(Message::RegisterOutOfBandMessage(PanicOnClone(rx)));
 
     MessageOnDrop(Rc::new(Shared {
         tx,

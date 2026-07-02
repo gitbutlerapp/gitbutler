@@ -159,7 +159,6 @@ fn handle_mark_cli_id(commit: &CliId, mode: &mut Mode) -> bool {
                         | CliId::Stack { .. } => return false,
                     }
                 }
-                RubSource::CommittedHunk(..) => return false,
                 RubSource::Marks(marks) => {
                     marks.toggle(markable.clone());
 

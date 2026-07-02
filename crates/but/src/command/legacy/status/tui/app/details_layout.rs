@@ -145,14 +145,20 @@ impl App {
         self.is_details_visible = !self.is_details_visible;
 
         if self.is_details_visible {
-            self.details.mark_dirty();
+            match &mut self.details {
+                super::DetailOldOrNew::Old(details) => details.mark_dirty(),
+                super::DetailOldOrNew::New(_) => {}
+            }
 
             if matches!(&*self.mode, Mode::Normal(..)) {
                 self.backstack.push_open_details_view(false);
             }
         } else {
             self.backstack.remove_open_details_view();
-            self.details.reset_scroll();
+            match &mut self.details {
+                super::DetailOldOrNew::Old(details) => details.reset_scroll(),
+                super::DetailOldOrNew::New(_) => {}
+            }
             if matches!(&*self.mode, Mode::Details(..)) {
                 messages.push(Message::UnfocusDetails);
             }
@@ -184,6 +190,11 @@ impl App {
         );
 
         let details_viewport = details_viewport(self, terminal_area);
-        self.details.ensure_selection_visible(details_viewport);
+        match &mut self.details {
+            super::DetailOldOrNew::Old(details) => {
+                details.ensure_selection_visible(details_viewport);
+            }
+            super::DetailOldOrNew::New(_) => {}
+        }
     }
 }

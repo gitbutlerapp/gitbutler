@@ -1,6 +1,5 @@
 use std::{
     borrow::Cow,
-    rc::Rc,
     sync::{Arc, mpsc::Receiver},
     time::Instant,
 };
@@ -18,7 +17,7 @@ use crate::{
     CliId,
     command::legacy::status::{
         FilesStatusFlag, StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome,
-        TuiRunOptions, output::StatusOutputLineData,
+        TuiRunOptions, output::StatusOutputLineData, tui::details2::Details2,
     },
     theme::Theme,
     tui::TerminalGuard,
@@ -97,11 +96,11 @@ pub struct App {
     pub app_key_binds: AppKeyBinds,
     pub highlight: Highlights<CliId>,
     pub modal: Option<Modal>,
-    pub details: Details,
+    pub details: DetailOldOrNew,
     pub is_details_visible: bool,
     pub launch_options: TuiLaunchOptions,
     pub delayed_messages: Vec<Message>,
-    pub incoming_out_of_band_messages: Vec<Rc<Receiver<Message>>>,
+    pub incoming_out_of_band_messages: Vec<Receiver<Message>>,
     pub fps: FpsCounter,
     pub to_be_discarded: Vec<Arc<CliId>>,
     pub status_width_percentage: u16,
@@ -129,9 +128,21 @@ impl App {
 
         let theme = crate::theme::get();
 
-        let (mut details, is_details_visible) = (Details::new(theme), launch_options.show_diff);
+        let (details2_tx, details2_rx) = std::sync::mpsc::channel::<Message>();
+        let incoming_out_of_band_messages = Vec::from([details2_rx]);
+
+        let (mut details, is_details_visible) = (
+            // DetailOldOrNew::Old(Details::new(theme)),
+            DetailOldOrNew::New(Details2::new(theme, details2_tx)),
+            launch_options.show_diff,
+        );
         if is_details_visible {
-            details.mark_dirty();
+            match &mut details {
+                DetailOldOrNew::Old(details) => {
+                    details.mark_dirty();
+                }
+                DetailOldOrNew::New(_) => {}
+            }
         }
 
         let app_key_binds = AppKeyBinds {
@@ -160,7 +171,7 @@ impl App {
             app_key_binds,
             highlight: Default::default(),
             delayed_messages: Default::default(),
-            incoming_out_of_band_messages: Default::default(),
+            incoming_out_of_band_messages,
             to_be_discarded: Default::default(),
             modal: Default::default(),
             backstack: Default::default(),
@@ -230,11 +241,13 @@ impl App {
         let terminal_area: Rect = terminal_guard.terminal_mut().size()?.into();
         let visible_height = status_viewport_height(self, terminal_area);
 
-        if self
-            .details
-            .needs_update_after_message(self.is_details_visible, &msg)
-        {
-            self.details.mark_dirty();
+        match &mut self.details {
+            DetailOldOrNew::Old(details) => {
+                if details.needs_update_after_message(self.is_details_visible, &msg) {
+                    details.mark_dirty();
+                }
+            }
+            DetailOldOrNew::New(_) => {}
         }
 
         match msg {
@@ -439,11 +452,17 @@ impl App {
             },
             Message::Details(details_message) => {
                 let details_viewport = details_viewport(self, terminal_area);
-                self.details
-                    .try_handle_message(details_message, details_viewport, messages)?;
+                match &mut self.details {
+                    DetailOldOrNew::Old(details) => {
+                        details.try_handle_message(details_message, details_viewport)?;
+                    }
+                    DetailOldOrNew::New(details2) => {
+                        details2.try_handle_message(details_message, messages)?;
+                    }
+                }
             }
             Message::RegisterOutOfBandMessage(rx) => {
-                self.incoming_out_of_band_messages.push(rx);
+                self.incoming_out_of_band_messages.push(rx.0);
             }
             Message::WithOneFrameDelay(msg) => {
                 self.delayed_messages.push(*msg);
@@ -1118,6 +1137,17 @@ pub enum Modal {
     },
 }
 
+impl Modal {
+    pub fn is_picker(&self) -> bool {
+        match self {
+            Modal::CopySelectionPicker { .. }
+            | Modal::GotoBranchPicker { .. }
+            | Modal::ApplyStackPicker { .. } => true,
+            Modal::Confirm { .. } | Modal::Help { .. } => false,
+        }
+    }
+}
+
 /// Formats an error for display in the terminal UI without including backtraces.
 ///
 /// The output always starts with the top-level error message and, when available,
@@ -1173,4 +1203,12 @@ impl FuzzyPickerItem for GotoBranchItem {
             Self::Uncommitted => theme.info,
         }
     }
+}
+
+#[derive(Debug)]
+#[expect(clippy::large_enum_variant)]
+pub enum DetailOldOrNew {
+    #[allow(dead_code)]
+    Old(Details),
+    New(Details2),
 }

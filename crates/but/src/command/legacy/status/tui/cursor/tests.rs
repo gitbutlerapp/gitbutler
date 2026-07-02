@@ -1561,7 +1561,6 @@ fn move_up_in_rub_mode_skips_unavailable_targets() {
         source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![allowed],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
-        _unlock_details: None,
     });
 
     let mut cursor = Cursor(2);
@@ -1597,7 +1596,6 @@ fn move_down_in_rub_mode_skips_unavailable_targets() {
         source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![allowed],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
-        _unlock_details: None,
     });
 
     let mut cursor = Cursor(0);
@@ -1643,7 +1641,6 @@ fn movement_in_rub_mode_handles_starting_on_unavailable_line() {
         source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![allowed_a, allowed_b],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
-        _unlock_details: None,
     });
 
     let mut cursor = Cursor(2);
@@ -1793,7 +1790,6 @@ fn move_next_section_in_rub_mode_jumps_to_first_selectable_in_next_section() {
         source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![commit_a, commit_b],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
-        _unlock_details: None,
     });
 
     let mut cursor = Cursor(1);
@@ -1827,7 +1823,6 @@ fn move_previous_section_in_rub_mode_moves_to_first_selectable_in_current_sectio
         source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![commit],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
-        _unlock_details: None,
     });
 
     let mut cursor = Cursor(2);
@@ -1877,7 +1872,6 @@ fn move_previous_section_in_rub_mode_from_first_selectable_goes_to_previous_sect
         source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![commit_a, commit_b],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
-        _unlock_details: None,
     });
 
     let mut cursor = Cursor(4);
@@ -1924,7 +1918,6 @@ fn move_next_section_in_rub_mode_skips_sections_without_selectable_targets() {
         source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![allowed_commit],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
-        _unlock_details: None,
     });
 
     let mut cursor = Cursor(0);
@@ -1995,7 +1988,6 @@ fn is_selectable_in_rub_mode_requires_available_target() {
         source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![allowed],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
-        _unlock_details: None,
     });
 
     assert!(is_selectable_in_mode(

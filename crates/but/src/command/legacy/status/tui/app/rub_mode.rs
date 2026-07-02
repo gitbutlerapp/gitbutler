@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use bstr::BString;
-use but_core::{DryRun, HunkHeader, ref_metadata::StackId};
+use but_core::HunkHeader;
 use but_ctx::Context;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use nonempty::NonEmpty;
@@ -16,14 +15,12 @@ use crate::{
             tui::{
                 App, Message, ReloadCause, SelectAfterReload, cursor,
                 marking::{MarkClasses, Markable, Marks},
-                message_on_drop::MessageOnDrop,
                 mode::Mode,
                 nonempty_from_refs, operations,
             },
         },
     },
-    id::{ShortId, UNCOMMITTED},
-    utils::diff_specs::DiffSpecBuilder,
+    id::UNCOMMITTED,
 };
 
 #[derive(Debug, Clone)]
@@ -31,7 +28,6 @@ pub struct RubMode {
     pub source: RubSource,
     pub available_targets: Vec<Arc<CliId>>,
     pub how_to_combine_messages: MessageCombinationStrategy,
-    pub _unlock_details: Option<MessageOnDrop>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -45,7 +41,6 @@ pub struct CommittedHunk {
 pub enum RubSource {
     Marks(Marks),
     CliId(Arc<CliId>),
-    CommittedHunk(CommittedHunk),
 }
 
 impl RubSource {
@@ -55,7 +50,6 @@ impl RubSource {
                 Markable::try_from_cli_id(other).is_some_and(|markable| marks.contains(&markable))
             }
             RubSource::CliId(source) => &**source == other,
-            RubSource::CommittedHunk { .. } => false,
         }
     }
 }
@@ -63,10 +57,6 @@ impl RubSource {
 #[derive(Debug, Clone)]
 pub enum RubMessage {
     Start,
-    StartWithSource {
-        source: RubSource,
-        unlock_details: Option<MessageOnDrop>,
-    },
     StartReverse,
     UseTargetMessage,
     UseSourceMessage,
@@ -82,12 +72,6 @@ impl App {
     ) -> anyhow::Result<()> {
         match rub_message {
             RubMessage::Start => self.handle_rub_start(),
-            RubMessage::StartWithSource {
-                source,
-                unlock_details,
-            } => {
-                self.handle_rub_start_with_source(source, unlock_details);
-            }
             RubMessage::StartReverse => {
                 self.handle_rub_start_reverse(ctx)?;
             }
@@ -114,9 +98,9 @@ impl App {
             return;
         };
         if normal_mode.marks.is_empty() {
-            self.handle_rub_start_with_source(RubSource::CliId(Arc::clone(cli_id)), None);
+            self.handle_rub_start_with_source(RubSource::CliId(Arc::clone(cli_id)));
         } else {
-            self.handle_rub_start_with_source(RubSource::Marks(normal_mode.marks.clone()), None);
+            self.handle_rub_start_with_source(RubSource::Marks(normal_mode.marks.clone()));
         }
     }
 
@@ -134,16 +118,6 @@ impl App {
                             MessageCombinationStrategy::KeepBoth,
                         )
                         .is_some()
-                })
-                .cloned()
-                .collect::<Vec<_>>(),
-            RubSource::CommittedHunk(hunk) => self
-                .status_lines
-                .iter()
-                .filter_map(|line| line.data.cli_id())
-                .filter(|target| {
-                    source.contains(target)
-                        || route_operation_from_detail_view(hunk, target).is_some()
                 })
                 .cloned()
                 .collect::<Vec<_>>(),
@@ -174,11 +148,7 @@ impl App {
         }
     }
 
-    fn handle_rub_start_with_source(
-        &mut self,
-        source: RubSource,
-        unlock_details: Option<MessageOnDrop>,
-    ) {
+    fn handle_rub_start_with_source(&mut self, source: RubSource) {
         match &source {
             RubSource::CliId(cli_id) => {
                 if !supports_rubbing(cli_id) {
@@ -200,7 +170,6 @@ impl App {
                     }
                 }
             }
-            RubSource::CommittedHunk(..) => {}
         }
 
         let available_targets = self.available_targets_for_rub_mode(&source);
@@ -211,7 +180,6 @@ impl App {
                     source,
                     available_targets,
                     how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
-                    _unlock_details: unlock_details,
                 });
             });
 
@@ -290,7 +258,6 @@ impl App {
                     source,
                     available_targets,
                     how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
-                    _unlock_details: None,
                 });
             });
 
@@ -343,7 +310,6 @@ impl App {
             source,
             how_to_combine_messages,
             available_targets: _,
-            _unlock_details: _,
         }) = &*self.mode
         else {
             return Ok(());
@@ -364,13 +330,6 @@ impl App {
                 {
                     let what_to_select = perform_operation(ctx, &operation)?;
                     Message::Reload(what_to_select, ReloadCause::Mutation)
-                } else {
-                    return Ok(());
-                }
-            }
-            RubSource::CommittedHunk(hunk) => {
-                if let Some(operation) = route_operation_from_detail_view(hunk, target) {
-                    Message::Reload(Some(operation.execute(ctx)?), ReloadCause::Mutation)
                 } else {
                     return Ok(());
                 }
@@ -642,147 +601,4 @@ pub fn perform_operation(
     };
 
     Ok(Some(selection))
-}
-
-pub fn route_operation_from_detail_view<'a>(
-    source: &'a CommittedHunk,
-    target: &'a CliId,
-) -> Option<RubFromDetailViewOperation<'a>> {
-    match target {
-        CliId::Commit { commit_id, .. } => {
-            Some(RubFromDetailViewOperation::CommittedHunkToCommit {
-                source,
-                target: *commit_id,
-            })
-        }
-        CliId::Uncommitted { id } => {
-            Some(RubFromDetailViewOperation::CommittedHunkToUncommittedArea { source, id })
-        }
-        CliId::Stack { stack_id, .. } => {
-            Some(RubFromDetailViewOperation::CommittedHunkToStack { source, stack_id })
-        }
-        CliId::Branch { stack_id, .. } => stack_id
-            .as_ref()
-            .map(|stack_id| RubFromDetailViewOperation::CommittedHunkToStack { source, stack_id }),
-        CliId::UncommittedHunkOrFile(..)
-        | CliId::PathPrefix { .. }
-        | CliId::CommittedFile { .. } => None,
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-#[expect(clippy::enum_variant_names)]
-pub enum RubFromDetailViewOperation<'a> {
-    CommittedHunkToCommit {
-        source: &'a CommittedHunk,
-        target: gix::ObjectId,
-    },
-    CommittedHunkToUncommittedArea {
-        source: &'a CommittedHunk,
-        #[expect(dead_code)]
-        id: &'a ShortId,
-    },
-    CommittedHunkToStack {
-        source: &'a CommittedHunk,
-        stack_id: &'a StackId,
-    },
-}
-
-impl<'a> RubFromDetailViewOperation<'a> {
-    pub fn execute(self, ctx: &mut Context) -> anyhow::Result<SelectAfterReload> {
-        match self {
-            RubFromDetailViewOperation::CommittedHunkToCommit { source, target } => {
-                let CommittedHunk {
-                    commit_id: source_commit_id,
-                    header,
-                    path,
-                } = source;
-
-                let changes =
-                    single_hunk_changes(ctx, Arc::unwrap_or_clone(Arc::clone(path)), *header)?;
-
-                let move_result = but_api::commit::move_changes::commit_move_changes_between(
-                    ctx,
-                    *source_commit_id,
-                    target,
-                    changes,
-                    DryRun::No,
-                )?;
-
-                Ok(SelectAfterReload::Commit(
-                    move_result
-                        .workspace
-                        .replaced_commits
-                        .get(&target)
-                        .with_context(|| {
-                            format!("{target} not found in move_result.workspace.replaced_commits")
-                        })
-                        .copied()?,
-                ))
-            }
-            RubFromDetailViewOperation::CommittedHunkToUncommittedArea { source, id: _ } => {
-                let CommittedHunk {
-                    commit_id: source_commit_id,
-                    header,
-                    path,
-                } = source;
-
-                let changes =
-                    single_hunk_changes(ctx, Arc::unwrap_or_clone(Arc::clone(path)), *header)?;
-
-                but_api::commit::uncommit::commit_uncommit_changes(
-                    ctx,
-                    *source_commit_id,
-                    changes,
-                    None,
-                    DryRun::No,
-                )?;
-
-                Ok(SelectAfterReload::Uncommitted)
-            }
-            RubFromDetailViewOperation::CommittedHunkToStack { source, stack_id } => {
-                let CommittedHunk {
-                    commit_id: source_commit_id,
-                    header,
-                    path,
-                } = source;
-
-                let changes =
-                    single_hunk_changes(ctx, Arc::unwrap_or_clone(Arc::clone(path)), *header)?;
-
-                but_api::commit::uncommit::commit_uncommit_changes(
-                    ctx,
-                    *source_commit_id,
-                    changes,
-                    Some(*stack_id),
-                    DryRun::No,
-                )?;
-
-                Ok(SelectAfterReload::Stack(*stack_id))
-            }
-        }
-    }
-}
-
-fn single_hunk_changes(
-    ctx: &Context,
-    path: bstr::BString,
-    header: but_core::HunkHeader,
-) -> anyhow::Result<Vec<but_core::DiffSpec>> {
-    let context_lines = ctx.settings.context_lines;
-    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-    let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-    builder.push_changes_from_single_hunk(path, header);
-    Ok(builder.into_diff_specs())
-}
-
-pub fn rub_from_detail_view_operation_display(
-    source: &CommittedHunk,
-    target: &CliId,
-) -> Option<&'static str> {
-    Some(match route_operation_from_detail_view(source, target)? {
-        RubFromDetailViewOperation::CommittedHunkToCommit { .. } => "amend commit",
-        RubFromDetailViewOperation::CommittedHunkToUncommittedArea { .. }
-        | RubFromDetailViewOperation::CommittedHunkToStack { .. } => "unassign hunk",
-    })
 }

@@ -49,7 +49,7 @@ impl Mode {
             Mode::Normal(normal_mode) => Some(&normal_mode.marks),
             Mode::Rub(rub_mode) => match &rub_mode.source {
                 RubSource::Marks(marks) => Some(marks),
-                RubSource::CliId(..) | RubSource::CommittedHunk(..) => None,
+                RubSource::CliId(..) => None,
             },
             Mode::Commit(commit_mode) => match &*commit_mode.source {
                 CommitSource::Marks(marks) => Some(marks),

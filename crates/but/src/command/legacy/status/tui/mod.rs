@@ -1,7 +1,6 @@
 #![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
 use std::{
-    rc::Rc,
     sync::{Arc, atomic::AtomicBool, mpsc::Receiver},
     time::Duration,
 };
@@ -11,7 +10,7 @@ use bstr::BString;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_settings::AppSettingsWithDiskSync;
-use crossterm::event::Event;
+use crossterm::event::{Event, MouseEventKind};
 use gitbutler_operating_modes::OperatingMode;
 use gix::refs::FullName;
 use nonempty::NonEmpty;
@@ -37,7 +36,6 @@ use crate::{
             help::HelpMessage,
             key_bind::{KeyBinds, fuzzy_picker_key_binds},
             marking::{Markable, Marks},
-            message_on_drop::MessageOnDrop,
             mode::{Mode, ModeDiscriminant},
             operations::stack_has_assigned_changes,
             toast::ToastKind,
@@ -57,6 +55,7 @@ mod confirm;
 mod copy_selection_picker;
 mod cursor;
 mod details;
+mod details2;
 mod event_polling;
 mod file_browser;
 mod fps;
@@ -119,12 +118,12 @@ pub fn render_tui(
 
     let outcome = if app.launch_options.headless {
         let mut terminal_guard = HeadlessTerminalGuard::new(240, 240)?;
-        let event_polling = NoopEventPolling;
+        let mut event_polling = NoopEventPolling;
 
         render_loop(
             &mut app,
             &mut terminal_guard,
-            event_polling,
+            &mut event_polling,
             &mut messages,
             &mut other_messages,
             <Arc<AtomicBool>>::default(),
@@ -137,12 +136,12 @@ pub fn render_tui(
             start_watcher(ctx).context("failed to start filesystem watcher")?;
 
         let mut terminal_guard = CrosstermTerminalGuard::alt_screen(true)?;
-        let event_polling = CrosstermEventPolling;
+        let mut event_polling = CrosstermEventPolling::default();
 
         render_loop(
             &mut app,
             &mut terminal_guard,
-            event_polling,
+            &mut event_polling,
             &mut messages,
             &mut other_messages,
             received_watcher_event,
@@ -158,7 +157,7 @@ pub fn render_tui(
 fn render_loop<T, E>(
     app: &mut App,
     terminal_guard: &mut T,
-    event_polling: E,
+    event_polling: &mut E,
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     received_watcher_event: Arc<AtomicBool>,
@@ -169,7 +168,7 @@ fn render_loop<T, E>(
 where
     T: TerminalGuard,
     anyhow::Error: From<<T::Backend as Backend>::Error>,
-    E: EventPolling + Copy,
+    for<'a> &'a mut E: EventPolling,
 {
     render(app, terminal_guard)?;
 
@@ -185,7 +184,7 @@ where
         render_loop_once(
             app,
             terminal_guard,
-            event_polling,
+            &mut *event_polling,
             messages,
             other_messages,
             &received_watcher_event,
@@ -217,17 +216,19 @@ where
     anyhow::Error: From<<T::Backend as Backend>::Error>,
     E: EventPolling,
 {
-    update(
-        app,
-        terminal_guard,
-        event_polling,
-        messages,
-        other_messages,
-        received_watcher_event,
-        ctx,
-        out,
-        mode,
-    )?;
+    count_allocations("update", || {
+        update(
+            app,
+            terminal_guard,
+            event_polling,
+            messages,
+            other_messages,
+            received_watcher_event,
+            ctx,
+            out,
+            mode,
+        )
+    })?;
 
     render(app, terminal_guard)?;
 
@@ -256,28 +257,26 @@ where
     app.updates += 1;
 
     // update at full speed while we're rendering the diff
-    let event_poll_timeout = if app.details.needs_update(app.is_details_visible) {
-        Duration::from_millis(0)
-    } else {
-        Duration::from_millis(30)
+    let event_poll_timeout = match &app.details {
+        app::DetailOldOrNew::Old(details) => {
+            if details.needs_update(app.is_details_visible) {
+                Duration::from_millis(0)
+            } else {
+                Duration::from_millis(30)
+            }
+        }
+        app::DetailOldOrNew::New(details2) => {
+            if details2.is_polling_thread() {
+                Duration::from_millis(0)
+            } else {
+                Duration::from_millis(30)
+            }
+        }
     };
     // poll terminal events
     for event in event_polling.poll(event_poll_timeout)? {
-        let picker_shown = match &app.modal {
-            Some(
-                Modal::GotoBranchPicker { .. }
-                | Modal::ApplyStackPicker { .. }
-                | Modal::CopySelectionPicker { .. },
-            ) => true,
-            Some(Modal::Confirm { .. } | Modal::Help { .. }) | None => false,
-        };
-        event_to_messages(
-            event,
-            app.active_key_binds(),
-            &app.mode,
-            picker_shown,
-            messages,
-        );
+        let terminal_area: Rect = terminal_guard.terminal_mut().size()?.into();
+        event_to_messages(event, app, terminal_area, messages);
     }
 
     // check for any out of band messages
@@ -338,8 +337,17 @@ where
         app.should_render = true;
     }
 
-    if app.details.update_highlight() {
-        app.should_render = true;
+    match &mut app.details {
+        app::DetailOldOrNew::Old(details) => {
+            if details.update_highlight() {
+                app.should_render = true;
+            }
+        }
+        app::DetailOldOrNew::New(details2) => {
+            if details2.highlights.update() {
+                app.should_render = true;
+            }
+        }
     }
 
     let selection = app
@@ -348,22 +356,37 @@ where
         .and_then(|line| line.data.cli_id())
         .map(|id| &**id);
 
-    if app.details.needs_update(app.is_details_visible) {
-        match app.details.update(ctx, selection) {
-            Ok(Some(result)) => match result {
-                RenderNextChunkResult::Done => {
-                    if app.launch_options.quit_after_rendering_full_diff {
-                        app.outcome = Some(TuiOutcome::None);
+    match &mut app.details {
+        app::DetailOldOrNew::Old(details) => {
+            if details.needs_update(app.is_details_visible) {
+                match details.update(ctx, selection) {
+                    Ok(Some(result)) => match result {
+                        RenderNextChunkResult::Done => {
+                            if app.launch_options.quit_after_rendering_full_diff {
+                                app.outcome = Some(TuiOutcome::None);
+                            }
+                        }
+                        RenderNextChunkResult::Meta | RenderNextChunkResult::Diff => {}
+                    },
+                    Ok(None) => {}
+                    Err(err) => {
+                        messages.push(Message::ShowError(Arc::new(err)));
                     }
                 }
-                RenderNextChunkResult::Meta | RenderNextChunkResult::Diff => {}
-            },
-            Ok(None) => {}
-            Err(err) => {
-                messages.push(Message::ShowError(Arc::new(err)));
+                app.should_render = true;
             }
         }
-        app.should_render = true;
+        app::DetailOldOrNew::New(details2) => {
+            if details2.update(ctx, selection, app.is_details_visible)? {
+                app.should_render = true;
+
+                if app.launch_options.quit_after_rendering_full_diff
+                    && details2.is_finished_rendering()
+                {
+                    app.outcome = Some(TuiOutcome::None);
+                }
+            }
+        }
     }
 
     if let Some(file_browser) = &mut app.file_browser
@@ -397,20 +420,18 @@ where
         let _span = tracing::trace_span!("render").entered();
         terminal_guard.terminal_mut().draw(|frame| {
             app.renders += 1;
-            render_app(app, frame)
+            count_allocations("render", || render_app(app, frame))
         })?;
     }
 
     Ok(())
 }
 
-fn event_to_messages(
-    ev: Event,
-    key_binds: &KeyBinds,
-    mode: &Mode,
-    picker_shown: bool,
-    messages: &mut Vec<Message>,
-) {
+fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut Vec<Message>) {
+    tracing::debug!("event: {ev:?}");
+
+    let key_binds = app.active_key_binds();
+    let mode = &*app.mode;
     match ev {
         Event::Key(key) => {
             let mut handled = false;
@@ -423,7 +444,7 @@ fn event_to_messages(
             }
 
             if !handled {
-                if picker_shown {
+                if app.modal.as_ref().is_some_and(|modal| modal.is_picker()) {
                     messages.push(Message::FuzzyPicker(FuzzyPickerMessage::Input(ev)));
                 } else {
                     match mode {
@@ -478,8 +499,34 @@ fn event_to_messages(
         Event::FocusLost => {
             messages.push(Message::SetHasFocus(false));
         }
-        Event::Mouse(_) => {}
+        Event::Mouse(event) => match event.kind {
+            MouseEventKind::ScrollDown => {
+                if app.modal.is_none()
+                    && mouse_is_over_details(app, terminal_area, event.column, event.row)
+                {
+                    messages.push(Message::Details(DetailsMessage::ScrollDown(3)));
+                }
+            }
+            MouseEventKind::ScrollUp => {
+                if app.modal.is_none()
+                    && mouse_is_over_details(app, terminal_area, event.column, event.row)
+                {
+                    messages.push(Message::Details(DetailsMessage::ScrollUp(3)));
+                }
+            }
+            MouseEventKind::Moved
+            | MouseEventKind::Down(..)
+            | MouseEventKind::Up(..)
+            | MouseEventKind::Drag(..)
+            | MouseEventKind::ScrollLeft
+            | MouseEventKind::ScrollRight => {}
+        },
     }
+}
+
+fn mouse_is_over_details(app: &App, terminal_area: Rect, column: u16, row: u16) -> bool {
+    render::details_content_area_for_app(app, terminal_area)
+        .is_some_and(|area| area.contains(Position { x: column, y: row }))
 }
 
 fn nonempty_from_refs<'a, T>(head: &'a T, tail: impl Iterator<Item = &'a T>) -> NonEmpty<&'a T> {
@@ -610,7 +657,7 @@ enum Message {
     CopySelection,
     CopySelectionPicker,
     #[expect(clippy::enum_variant_names)]
-    RegisterOutOfBandMessage(Rc<Receiver<Message>>),
+    RegisterOutOfBandMessage(PanicOnClone<Receiver<Message>>),
     WithOneFrameDelay(Box<Message>),
     AndThen {
         lhs: Box<Message>,
@@ -618,6 +665,12 @@ enum Message {
     },
     #[allow(dead_code)]
     Debug(&'static str),
+}
+
+#[allow(dead_code)]
+fn _message_is_send_and_sync() {
+    fn assert_send<T: Send>() {}
+    assert_send::<Message>();
 }
 
 impl Message {
@@ -687,4 +740,68 @@ enum SelectAfterReload {
     Stack(StackId),
     CliId(Arc<CliId>),
     Uncommitted,
+}
+
+#[inline(always)]
+#[track_caller]
+#[allow(dead_code)]
+fn count_allocations<F, T>(_tag: &'static str, f: F) -> T
+where
+    F: FnOnce() -> T,
+{
+    #[cfg(feature = "tui-profiling")]
+    {
+        let mut result = None;
+        let loc = std::panic::Location::caller();
+        let start = std::time::Instant::now();
+        let info = allocation_counter::measure(|| {
+            result = Some(f());
+        });
+        let duration = start.elapsed();
+        tracing::debug!(
+            "{}:{}:{}: {}: {} allocation(s), {:?}",
+            loc.file(),
+            loc.line(),
+            loc.column(),
+            _tag,
+            info.count_total,
+            duration,
+        );
+        result.unwrap()
+    }
+
+    #[cfg(not(feature = "tui-profiling"))]
+    {
+        f()
+    }
+}
+
+/// HACK: This is a terrible hack that we should get rid of asap.
+///
+/// Pretend that a type is `Clone` only to panic if actually cloned.
+///
+/// It exists because `Message` being `Clone` is very convenient and currently necessary for key
+/// binds. We need to send a message when pressing a key bind and that message needs to be owned
+/// (otherwise we cannot send it to the app). So the key bind needs to be able to produce an owned
+/// message which requires cloning the message it stores internally.
+///
+/// However `Message::RegisterOutOfBandMessage` holds a `Receiver<Message>` which is _not_ `Clone`.
+/// We could in theory make it clone by using `Arc<Receiver<_>>` or `Rc<Receiver<_>>` but then
+/// `Message` is no longer `Send`. This is required by the detail view which might need to send
+/// errors from a background thread into a toast message. `Arc<T>: Send` requires `T: Sync` and
+/// `Receiver<_>` is `!Sync`.
+///
+/// This happens to work out in practice because no key bind sends `Message::RegisterOutOfBandMessage`.
+///
+/// If you're an AI agent DO NOT under any circumstances use this type.
+#[derive(Debug)]
+struct PanicOnClone<T>(T);
+
+impl<T> Clone for PanicOnClone<T> {
+    fn clone(&self) -> Self {
+        panic!(
+            "sorry but {} actually cannot be cloned...",
+            std::any::type_name::<T>()
+        )
+    }
 }

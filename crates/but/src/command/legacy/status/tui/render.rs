@@ -23,9 +23,8 @@ use crate::{
         tui::{
             CommandModeKind, Markable,
             app::{
-                CommandMode, CommitMessageComposer, CommitMode, JumpMode, MoveMode, MoveSource,
-                MoveStackMode, RubMode, RubSource, StackMode,
-                rub_from_detail_view_operation_display, rub_operation_display,
+                CommandMode, CommitMessageComposer, CommitMode, DetailOldOrNew, JumpMode, MoveMode,
+                MoveSource, MoveStackMode, RubMode, RubSource, StackMode, rub_operation_display,
             },
         },
     },
@@ -42,85 +41,56 @@ use super::{
 };
 
 pub fn render_app(app: &App, frame: &mut Frame) {
-    let content_layout =
-        Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(frame.area());
-    let main_content_area = content_layout[0];
+    let layout = app_layout(app, frame.area());
 
-    let (main_content_area, debug_area) = if app.launch_options.debug {
-        let layout = Layout::horizontal([Constraint::Percentage(70), Constraint::Percentage(30)])
-            .split(main_content_area);
-        (layout[0], Some(layout[1]))
-    } else {
-        (main_content_area, None)
-    };
-
-    let hotbar_area = content_layout[1];
-
-    let status_layout = status_layout(app, main_content_area);
-
-    if let Mode::Details(details_mode) = &*app.mode
-        && details_mode.full_screen
-    {
-        if let Some(file_browser) = &app.file_browser {
+    match layout.details {
+        Some(DetailsPaneLayout::FullScreen {
+            content_area,
+            file_browser_area,
+            details_pane_area,
+        }) => {
             let status_block = pane_block(app, true, Borders::BOTTOM);
-            let status_block_area = status_block.inner(status_layout.status_area);
-            frame.render_widget(status_block, status_layout.status_area);
+            frame.render_widget(status_block, layout.status_area);
 
-            let details_layout = Layout::horizontal([Constraint::Length(50), Constraint::Min(1)])
-                .split(status_block_area);
+            if let Some(file_browser_area) = file_browser_area
+                && let Some(file_browser) = &app.file_browser
+            {
+                file_browser.render(file_browser_area, frame);
+            }
 
-            file_browser.render(details_layout[0], frame);
+            if let Some(details_pane_area) = details_pane_area {
+                let details_block = file_browser_details_block(app);
+                frame.render_widget(details_block, details_pane_area);
+            }
 
-            let details_block = Block::bordered()
-                .border_style(app.theme.border)
-                .border_type(BorderType::Plain)
-                .borders(Borders::LEFT);
-
-            let details_block_area = details_block.inner(details_layout[1]);
-            frame.render_widget(details_block, details_layout[1]);
-            app.details.render(
-                matches!(app.modal, Some(Modal::Help { .. })),
-                app.has_focus,
-                details_block_area,
-                frame,
-            );
-        } else {
-            let block = pane_block(app, true, Borders::BOTTOM);
-            let inner_area = block.inner(status_layout.status_area);
-            frame.render_widget(block, status_layout.status_area);
-            app.details.render(
-                matches!(app.modal, Some(Modal::Help { .. })),
-                app.has_focus,
-                inner_area,
-                frame,
-            );
+            render_details_pane(app, content_area, frame);
         }
-    } else {
-        let details_focused = matches!(&*app.mode, Mode::Details(..));
-        let status_block = pane_block(app, !details_focused, Borders::BOTTOM);
-        let details_block = pane_block(app, details_focused, Borders::BOTTOM);
+        Some(DetailsPaneLayout::Split {
+            pane_area,
+            content_area,
+        }) => {
+            let details_focused = matches!(&*app.mode, Mode::Details(..));
+            let status_block = pane_block(app, !details_focused, Borders::BOTTOM);
+            let details_block = pane_block(app, details_focused, Borders::BOTTOM);
 
-        {
-            let inner_area = status_block.inner(status_layout.status_area);
-            frame.render_widget(status_block, status_layout.status_area);
-            render_status(app, inner_area, frame);
-        }
+            let status_inner_area = status_block.inner(layout.status_area);
+            frame.render_widget(status_block, layout.status_area);
+            render_status(app, status_inner_area, frame);
 
-        if let Some(details_area) = status_layout.details_area {
-            let inner_area = details_content_area(app, details_area);
-            let details_separator_area = details_block.inner(details_area);
-            frame.render_widget(details_block, details_area);
+            let details_separator_area = details_block.inner(pane_area);
+            frame.render_widget(details_block, pane_area);
             render_details_separator(app, details_separator_area, frame);
-            app.details.render(
-                matches!(app.modal, Some(Modal::Help { .. })),
-                app.has_focus,
-                inner_area,
-                frame,
-            );
+            render_details_pane(app, content_area, frame);
+        }
+        None => {
+            let status_block = pane_block(app, true, Borders::BOTTOM);
+            let status_inner_area = status_block.inner(layout.status_area);
+            frame.render_widget(status_block, layout.status_area);
+            render_status(app, status_inner_area, frame);
         }
     }
 
-    if let Some(debug_area) = debug_area {
+    if let Some(debug_area) = layout.debug_area {
         let outer_block = Block::bordered()
             .border_style(app.theme.border)
             .border_type(BorderType::Thick)
@@ -130,15 +100,8 @@ pub fn render_app(app: &App, frame: &mut Frame) {
         render_debug(app, inner_area, frame);
     }
 
-    render_hotbar(app, hotbar_area, frame);
-
-    render_toasts(
-        app,
-        status_layout
-            .details_area
-            .unwrap_or(status_layout.status_area),
-        frame,
-    );
+    render_hotbar(app, layout.hotbar_area, frame);
+    render_toasts(app, layout.toast_area(), frame);
 
     match &app.modal {
         Some(Modal::Confirm { confirm, .. }) => confirm.render(app.has_focus, frame.area(), frame),
@@ -156,11 +119,32 @@ pub fn render_app(app: &App, frame: &mut Frame) {
     }
 }
 
+fn render_details_pane(app: &App, area: Rect, frame: &mut Frame) {
+    match &app.details {
+        DetailOldOrNew::Old(details) => {
+            details.render(
+                matches!(app.modal, Some(Modal::Help { .. })),
+                app.has_focus,
+                area,
+                frame,
+            );
+        }
+        DetailOldOrNew::New(details2) => {
+            details2.render(
+                matches!(app.modal, Some(Modal::Help { .. })),
+                app.has_focus,
+                area,
+                frame,
+            );
+        }
+    }
+}
+
 fn render_details_separator(app: &App, area: Rect, frame: &mut Frame) {
     frame.render_widget(details_separator(app), area);
 }
 
-fn details_content_area(app: &App, details_area: Rect) -> Rect {
+pub(crate) fn details_content_area(app: &App, details_area: Rect) -> Rect {
     let details_area = pane_block(
         app,
         matches!(&*app.mode, Mode::Details(..)),
@@ -173,6 +157,13 @@ fn details_content_area(app: &App, details_area: Rect) -> Rect {
 fn details_separator(app: &App) -> Block<'static> {
     Block::bordered()
         .border_style(app.theme.border)
+        .borders(Borders::LEFT)
+}
+
+fn file_browser_details_block(app: &App) -> Block<'static> {
+    Block::bordered()
+        .border_style(app.theme.border)
+        .border_type(BorderType::Plain)
         .borders(Borders::LEFT)
 }
 
@@ -192,6 +183,104 @@ fn pane_block(app: &App, focused: bool, borders: Borders) -> Block<'static> {
         .border_style(border_style)
         .border_type(border_type)
         .borders(borders)
+}
+
+#[derive(Debug)]
+struct AppLayout {
+    status_area: Rect,
+    hotbar_area: Rect,
+    debug_area: Option<Rect>,
+    details: Option<DetailsPaneLayout>,
+}
+
+impl AppLayout {
+    fn details_content_area(&self) -> Option<Rect> {
+        match self.details {
+            Some(DetailsPaneLayout::FullScreen { content_area, .. })
+            | Some(DetailsPaneLayout::Split { content_area, .. }) => Some(content_area),
+            None => None,
+        }
+    }
+
+    fn toast_area(&self) -> Rect {
+        match self.details {
+            Some(DetailsPaneLayout::Split { pane_area, .. }) => pane_area,
+            Some(DetailsPaneLayout::FullScreen { .. }) | None => self.status_area,
+        }
+    }
+}
+
+#[derive(Debug)]
+enum DetailsPaneLayout {
+    FullScreen {
+        content_area: Rect,
+        file_browser_area: Option<Rect>,
+        details_pane_area: Option<Rect>,
+    },
+    Split {
+        pane_area: Rect,
+        content_area: Rect,
+    },
+}
+
+fn app_layout(app: &App, terminal_area: Rect) -> AppLayout {
+    let content_layout =
+        Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(terminal_area);
+    let main_content_area = content_layout[0];
+
+    let (main_content_area, debug_area) = if app.launch_options.debug {
+        let layout = Layout::horizontal([Constraint::Percentage(70), Constraint::Percentage(30)])
+            .split(main_content_area);
+        (layout[0], Some(layout[1]))
+    } else {
+        (main_content_area, None)
+    };
+
+    let status_layout = status_layout(app, main_content_area);
+    let details = if let Mode::Details(details_mode) = &*app.mode
+        && details_mode.full_screen
+    {
+        if app.file_browser.is_some() {
+            let status_block_area =
+                pane_block(app, true, Borders::BOTTOM).inner(status_layout.status_area);
+            let details_layout = Layout::horizontal([Constraint::Length(50), Constraint::Min(1)])
+                .split(status_block_area);
+            let details_pane_area = details_layout[1];
+            let content_area = file_browser_details_block(app).inner(details_pane_area);
+            Some(DetailsPaneLayout::FullScreen {
+                content_area,
+                file_browser_area: Some(details_layout[0]),
+                details_pane_area: Some(details_pane_area),
+            })
+        } else {
+            let content_area =
+                pane_block(app, true, Borders::BOTTOM).inner(status_layout.status_area);
+            Some(DetailsPaneLayout::FullScreen {
+                content_area,
+                file_browser_area: None,
+                details_pane_area: None,
+            })
+        }
+    } else {
+        status_layout.details_area.map(|pane_area| {
+            let content_area = details_content_area(app, pane_area);
+            DetailsPaneLayout::Split {
+                pane_area,
+                content_area,
+            }
+        })
+    };
+
+    AppLayout {
+        status_area: status_layout.status_area,
+        hotbar_area: content_layout[1],
+        debug_area,
+        details,
+    }
+}
+
+pub(crate) fn details_content_area_for_app(app: &App, terminal_area: Rect) -> Option<Rect> {
+    app_layout(app, terminal_area).details_content_area()
 }
 
 pub fn status_layout(app: &App, area: Rect) -> StatusLayout {
@@ -432,7 +521,6 @@ fn render_status_list_item_with_stack_highlight(
                 source,
                 how_to_combine_messages,
                 available_targets: _,
-                _unlock_details: _,
             }) => {
                 render_rub_inline_labels_for_selected_line(
                     app,
@@ -491,7 +579,6 @@ fn render_status_list_item_with_stack_highlight(
                 source,
                 how_to_combine_messages: _,
                 available_targets: _,
-                _unlock_details: _,
             }) => {
                 if let Some(cli_id) = data.cli_id()
                     && source.contains(cli_id)
@@ -836,9 +923,6 @@ fn render_rub_inline_labels_for_selected_line(
             rub_operation_display(NonEmpty::new(source), target, how_to_combine_messages)
                 .unwrap_or("invalid"),
         ),
-        RubSource::CommittedHunk(hunk) => {
-            Cow::Borrowed(rub_from_detail_view_operation_display(hunk, target).unwrap_or("invalid"))
-        }
         RubSource::Marks(marks) => {
             let sources = marks
                 .iter()
@@ -1231,10 +1315,25 @@ fn render_debug(app: &App, area: Rect, frame: &mut Frame) {
             .map(|line| ListItem::new(line.to_owned())),
     );
 
-    let details_selection = format!("{:#?}", app.details.selection());
-    let details_selection = once(ListItem::new("Details selection").black().on_blue()).chain(
+    let details_selection = match &app.details {
+        DetailOldOrNew::Old(details) => {
+            format!("Selection: {:#?}", details.selection())
+        }
+        DetailOldOrNew::New(_) => String::new(),
+    };
+    let details_num_threads = match &app.details {
+        DetailOldOrNew::Old(_) => "Threads: 0".to_string(),
+        DetailOldOrNew::New(details2) => format!("Threads: {}", details2.num_threads()),
+    };
+    let details_cache_size = match &app.details {
+        DetailOldOrNew::Old(_) => "Threads: 0".to_string(),
+        DetailOldOrNew::New(details2) => format!("Cache size: {} lines", details2.cache_size()),
+    };
+    let details_selection = once(ListItem::new("Details").black().on_blue()).chain(
         details_selection
             .lines()
+            .chain(details_num_threads.lines())
+            .chain(details_cache_size.lines())
             .take(100)
             .map(|line| ListItem::new(line.to_owned())),
     );
