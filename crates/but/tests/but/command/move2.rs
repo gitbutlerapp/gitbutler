@@ -1874,6 +1874,58 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn unstack_empty_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("branch new bottom").assert().success();
+    env.but("branch new -a bottom top").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄op [top] (no commits)
+┊│
+┊├┄bo [bottom] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_move2 --unstack top")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Unstacked branch 'top'
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄bo [bottom] (no commits)
+├╯
+┊
+┊╭┄op [top] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn cannot_unstack_multiple_branches() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "one-stack-three-dependent-branches",
