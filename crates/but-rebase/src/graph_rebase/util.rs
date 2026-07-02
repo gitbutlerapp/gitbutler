@@ -68,9 +68,7 @@ mod test {
             let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
             let b = graph.add_node(Step::new_pick(b_id));
             // Second parent - is a reference
-            let c = graph.add_node(Step::Reference {
-                refname: "refs/heads/foobar".try_into()?,
-            });
+            let c = graph.add_node(Step::new_reference("refs/heads/foobar".try_into()?));
             // Second parent's first child
             let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
             let d = graph.add_node(Step::new_pick(d_id));
@@ -105,9 +103,7 @@ mod test {
             let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
             let b = graph.add_node(Step::new_pick(b_id));
             // Second parent - is a reference
-            let c = graph.add_node(Step::Reference {
-                refname: "refs/heads/foobar".try_into()?,
-            });
+            let c = graph.add_node(Step::new_reference("refs/heads/foobar".try_into()?));
             // Second parent's second child
             let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
             let d = graph.add_node(Step::new_pick(d_id));

@@ -320,6 +320,14 @@ export declare function getReviewMergeStatus(projectId: string, reviewId: number
  */
 export declare function getUndoTargetSnapshot(projectId: string): Promise<Snapshot | null>
 
+/**
+ * Return the current detailed graph workspace for the frontend.
+ *
+ * This is a read-only projection of the current workspace graph. It does not
+ * mutate the cached [`WorkspaceState`] returned by mutation APIs.
+ */
+export declare function getWorkspace(projectId: string): Promise<DetailedGraphWorkspace>
+
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
 /**
@@ -521,6 +529,15 @@ export declare class WatcherHandle {
   get active(): boolean
 }
 
+/** Any fork link line. */
+export const ANY_FORK: number
+
+/** Any fork or merge link line. */
+export const ANY_FORK_OR_MERGE: number
+
+/** Any merge link line. */
+export const ANY_MERGE: number
+
 /** Additional context sent alongside a credential prompt. */
 export type AskpassContext =
   | { type: 'Push', /** The stack being pushed, if one is associated with the prompt. */
@@ -543,6 +560,63 @@ export interface AskpassPromptEvent {
 
 /** Submit a response for a pending askpass prompt. */
 export declare function askpassSubmitPromptResponse(id: string, response?: string | undefined | null): Promise<void>
+
+/** The target node of this link line is the child of this column. */
+export const CHILD: number
+
+/** This cell contains a horizontal line that connects to an ancestor. */
+export const HORIZ_ANCESTOR: number
+
+/** This cell contains a horizontal line that connects to a parent. */
+export const HORIZ_PARENT: number
+
+/** Any horizontal link line. */
+export const HORIZONTAL: number
+
+/** Any left fork link line. */
+export const LEFT_FORK: number
+
+/** The ancestor of this cell is linked in this link row and the child is to the left. */
+export const LEFT_FORK_ANCESTOR: number
+
+/** The parent of this cell is linked in this link row and the child is to the left. */
+export const LEFT_FORK_PARENT: number
+
+/** Any left merge link line. */
+export const LEFT_MERGE: number
+
+/** The child of this cell is linked to ancestors on the left. */
+export const LEFT_MERGE_ANCESTOR: number
+
+/** The child of this cell is linked to parents on the left. */
+export const LEFT_MERGE_PARENT: number
+
+/** Any right fork link line. */
+export const RIGHT_FORK: number
+
+/** The ancestor of this cell is linked in this link row and the child is to the right. */
+export const RIGHT_FORK_ANCESTOR: number
+
+/** The parent of this cell is linked in this link row and the child is to the right. */
+export const RIGHT_FORK_PARENT: number
+
+/** Any right merge link line. */
+export const RIGHT_MERGE: number
+
+/** The child of this cell is linked to ancestors on the right. */
+export const RIGHT_MERGE_ANCESTOR: number
+
+/** The child of this cell is linked to parents on the right. */
+export const RIGHT_MERGE_PARENT: number
+
+/** The descendant of this cell is connected to an ancestor. */
+export const VERT_ANCESTOR: number
+
+/** The descendant of this cell is connected to the parent. */
+export const VERT_PARENT: number
+
+/** Any vertical link line. */
+export const VERTICAL: number
 
 export interface WatcherEvent {
   name: string
@@ -1170,6 +1244,92 @@ export type CreateForgeReviewParams = {
   sourceBranch: string;
   targetBranch: string;
   draft: boolean;
+};
+
+/** A linear run of detailed graph rows. */
+export type DetailedGraphLinearSegment = {
+  /** The reference row that starts this run, if any. */
+  referenceIdx: number | null;
+  /** The row indices in this run. */
+  rowIdxs: Array<number>;
+};
+
+/** A reference row in a detailed graph workspace. */
+export type DetailedGraphReference = {
+  /** The reference name rendered in this row. */
+  refName: DetailedGraphReferenceName;
+  /** Derived status for this reference, when available. */
+  status: DetailedGraphReferenceStatus | null;
+};
+
+/** A Git reference name with both byte-preserving and frontend-friendly forms. */
+export type DetailedGraphReferenceName = {
+  /** The full ref name bytes, such as `refs/heads/feature`. */
+  fullNameBytes: Array<number>;
+  /** The full ref name as a string, such as `refs/heads/feature`. */
+  fullName: string;
+  /** The shortened display name, such as `feature`. */
+  displayName: string;
+};
+
+/** A reference and the rows reachable from it down to the next reference. */
+export type DetailedGraphReferenceSegment = {
+  /** The reference row index. */
+  referenceIdx: number;
+  /** The row indices in this reference segment. */
+  rowIdxs: Array<number>;
+};
+
+/** Derived status for a detailed graph reference row. */
+export type DetailedGraphReferenceStatus = {
+  /** The remote-tracking reference this reference was compared with. */
+  remoteRef: DetailedGraphReferenceName | null;
+  /** Push status for this reference. */
+  pushStatus: PushStatus;
+  /** Push status including parent references below it in the stack. */
+  combinedPushStatus: PushStatus;
+};
+
+/** One row in a rendered detailed graph stack. */
+export type DetailedGraphRow = {
+  /** The commit or reference represented by this row. */
+  data: DetailedGraphRowData;
+  /** The node columns for this row. */
+  nodeLine: Array<NodeLine>;
+  /** The link columns for this row, if a link row is necessary. */
+  linkLine: Array<LinkLine> | null;
+  /** The location of terminators, if a terminator row is necessary. */
+  termLine: Array<boolean> | null;
+  /** The pad columns for this row. */
+  padLines: Array<PadLine>;
+};
+
+/** The typed data represented by one detailed graph row. */
+export type DetailedGraphRowData = {
+  type: "Commit";
+  subject: Commit;
+} | {
+  type: "Reference";
+  subject: DetailedGraphReference;
+};
+
+/** One rendered stack in a detailed graph workspace. */
+export type DetailedGraphStack = {
+  /** The rendered rows in this stack. */
+  rows: Array<DetailedGraphRow>;
+  /** Linear row runs split by reference rows and graph forks/merges. */
+  linearSegments: Array<DetailedGraphLinearSegment>;
+  /**
+   * Per-reference row runs, including shared commits for every reference
+   * that reaches them.
+   */
+  referenceSegments: Array<DetailedGraphReferenceSegment>;
+};
+
+/** The rendered detailed graph workspace. */
+export type DetailedGraphWorkspace = {
+  /** The rendered stacks in the workspace. */
+  stacks: Array<DetailedGraphStack>;
 };
 
 /** A hunk as used in a [UnifiedPatch], which also contains all added and removed lines. */
@@ -1859,6 +2019,9 @@ export type LineStats = {
   filesChanged: number;
 };
 
+/** Bit flags for one column in a detailed graph linking row. */
+export type LinkLine = number;
+
 /**
  * An optional full reference name accepted as a string like `refs/heads/main`,
  * for use as a parameter transport via `#[but_api(...)]`.
@@ -1903,6 +2066,9 @@ export type NameAndStatus = {
   status: BranchStatus;
 };
 
+/** A column in a detailed graph node row. */
+export type NodeLine = "blank" | "ancestor" | "parent" | "node";
+
 export type OperatingMode = {
   type: "OpenWorkspace";
 } | {
@@ -1924,6 +2090,9 @@ export type OutsideWorkspaceMetadata = {
   /** The paths of any files that would conflict with the workspace as it currently is */
   worktreeConflicts: Array<string>;
 };
+
+/** A column in a detailed graph padding row. */
+export type PadLine = "blank" | "ancestor" | "parent";
 
 /**
  * API-specific project type that can be enriched with computed/derived data

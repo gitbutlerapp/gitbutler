@@ -303,6 +303,7 @@ fn main() -> anyhow::Result<()> {
                 gitlab::tauri_clear_all_gitlab_tokens::clear_all_gitlab_tokens,
                 diff::tauri_commit_details::commit_details,
                 diff::tauri_commit_details_with_line_stats::commit_details_with_line_stats,
+                workspace::tauri_get_workspace::get_workspace,
                 but_api::branch::tauri_branch_diff::branch_diff,
                 but_api::branch::tauri_move_branch::move_branch,
                 but_api::branch::tauri_tear_off_branch::tear_off_branch,

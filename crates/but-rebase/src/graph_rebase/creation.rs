@@ -6,28 +6,29 @@ use but_graph::{Commit, SegmentIndex};
 use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
-    Checkout, Edge, Editor, ExtraRef, ExtraRefMutability, Pick, RevisionHistory, Selector, Step,
-    StepGraph, StepGraphIndex, SuccessfulRebase, util,
+    Checkout, Edge, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
+    SuccessfulRebase, util,
 };
 
 #[derive(Clone)]
 /// Options for the editor.
-pub struct GraphEditorOptions<'a> {
+pub struct GraphEditorOptions {
     /// Determines how cherry-picked commits are signed.
     pub default_sign_commit: SignCommit,
-    /// Extra references that should be included in the editor.
+    /// References whose segment should be forced mutable.
     ///
-    /// If the parentage of a commit in the extra references list gets modified,
-    /// mutable extra references will be updated while immutable ones remain
-    /// traversal-only.
-    pub extra_refs: Vec<ExtraRef<'a>>,
+    /// The editor always contains every segment in the workspace graph, with
+    /// only those reachable from `HEAD` being mutable. Use this to force a
+    /// segment that isn't reachable from `HEAD` to be mutable so it can be
+    /// rewritten.
+    pub extra_mutable_refs: Vec<gix::refs::FullName>,
 }
 
-impl Default for GraphEditorOptions<'_> {
+impl Default for GraphEditorOptions {
     fn default() -> Self {
         Self {
             default_sign_commit: SignCommit::IfSignCommitsEnabled,
-            extra_refs: vec![],
+            extra_mutable_refs: vec![],
         }
     }
 }
@@ -63,66 +64,32 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         let entrypoint = workspace.graph.entrypoint()?;
 
         let mut mutable_entrypoints = vec![entrypoint.segment.id];
-        let mut immutable_entrypoints = vec![];
 
-        for extra_ref in &options.extra_refs {
+        for ref_name in &options.extra_mutable_refs {
             let Some((segment, _)) = workspace
                 .graph
-                .segment_and_commit_by_ref_name(extra_ref.ref_name)
+                .segment_and_commit_by_ref_name(ref_name.as_ref())
             else {
-                bail!(
-                    "Failed to find corresponding segment for {}",
-                    extra_ref.ref_name
-                );
+                bail!("Failed to find corresponding segment for {ref_name}");
             };
-            if extra_ref.mutability == ExtraRefMutability::Mutable {
-                mutable_entrypoints.push(segment.id);
-            } else {
-                immutable_entrypoints.push(segment.id);
-            }
+            mutable_entrypoints.push(segment.id);
         }
 
-        let mut segments_to_add = vec![];
-        let mut seen_segments = HashSet::new();
-
+        // Segments reachable from a mutable entrypoint (following parent edges)
+        // may be rewritten. Every other segment is still included in the
+        // editor, but as immutable.
+        let mut mutable_segments = HashSet::new();
         for entrypoint in mutable_entrypoints {
             workspace.graph.visit_all_segments_including_start_until(
                 entrypoint,
                 Direction::Outgoing,
-                |segment| {
-                    if seen_segments.insert(segment.id) {
-                        segments_to_add.push(segment.id);
-                        false
-                    } else {
-                        true
-                    }
-                },
+                |segment| !mutable_segments.insert(segment.id),
             );
         }
-        let mut immutable_references = HashSet::new();
-        for entrypoint in immutable_entrypoints {
-            workspace.graph.visit_all_segments_including_start_until(
-                entrypoint,
-                Direction::Outgoing,
-                |segment| {
-                    if seen_segments.insert(segment.id) {
-                        immutable_references.extend(segment.ref_name().map(|r| r.to_owned()));
-                        immutable_references.extend(
-                            segment
-                                .commits
-                                .iter()
-                                .flat_map(|c| c.ref_name_iter())
-                                .map(|r| r.to_owned()),
-                        );
 
-                        segments_to_add.push(segment.id);
-                        false
-                    } else {
-                        true
-                    }
-                },
-            );
-        }
+        // The editor contains every commit the graph contains, so we iterate
+        // over all segments rather than only those reachable from an entrypoint.
+        let segments_to_add = workspace.graph.segments().collect::<Vec<_>>();
 
         let workspace_commit_id = workspace
             .graph
@@ -143,13 +110,18 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
 
         for sid in segments_to_add {
             let segment = &workspace.graph[sid];
+            let mutable = mutable_segments.contains(&sid);
             let mut nodes = vec![];
 
             if let Some(reference) = segment.ref_name() {
                 let refname = reference.to_owned();
-                references.push(refname.clone());
+                // Only mutable references are tracked for potential deletion.
+                if mutable {
+                    references.push(refname.clone());
+                }
                 let ix = graph.add_node(Step::Reference {
                     refname: refname.clone(),
+                    mutable,
                 });
                 if Some(reference) == entrypoint.segment.ref_name() {
                     head_selectors.push(Selector {
@@ -171,9 +143,12 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     .collect::<Vec<_>>();
 
                 for reference in refs {
-                    references.push(reference.to_owned());
+                    if mutable {
+                        references.push(reference.to_owned());
+                    }
                     let ix = graph.add_node(Step::Reference {
                         refname: reference.clone(),
+                        mutable,
                     });
                     if let Some(previous_ix) = nodes.last() {
                         graph.add_edge(*previous_ix, ix, Edge { order: 0 });
@@ -181,13 +156,14 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     nodes.push(ix);
                 }
 
-                let pick = if workspace_commit_id == Some(commit.id) {
+                let mut pick = if workspace_commit_id == Some(commit.id) {
                     Pick::new_workspace_pick(commit.id)
                 } else {
                     let mut pick = Pick::new_pick(commit.id);
                     pick.sign_commit = options.default_sign_commit;
                     pick
                 };
+                pick.mutable = mutable;
                 let ix = graph.add_node(Step::Pick(pick));
                 commit_to_pick_ix.insert(commit.id, ix);
                 if let Some(previous_ix) = nodes.last() {
@@ -342,7 +318,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 .collect(),
             repo: repo.clone().with_object_memory(),
             history: RevisionHistory::new(),
-            immutable_references,
             workspace,
             meta,
         })
@@ -362,7 +337,6 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             checkouts: self.checkouts,
             repo: self.repo,
             history: self.history,
-            immutable_references: self.immutable_references,
             workspace: self.workspace,
             meta: self.meta,
         }

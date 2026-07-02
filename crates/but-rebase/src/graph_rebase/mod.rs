@@ -6,6 +6,7 @@
 
 mod creation;
 pub mod rebase;
+pub mod traverse;
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
@@ -24,42 +25,8 @@ pub mod merge_commit_changes;
 pub mod mutate;
 pub mod ordering;
 pub(crate) mod util;
-
-/// Additional reference to include in an editor, with persistence behavior.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ExtraRef<'a> {
-    /// The reference name to include in the editor graph.
-    pub ref_name: &'a gix::refs::FullNameRef,
-    /// Whether rebases/materialization may update this ref.
-    pub mutability: ExtraRefMutability,
-}
-
-impl<'a> ExtraRef<'a> {
-    /// Track an extra ref and allow the editor to update it.
-    pub fn mutable(ref_name: &'a gix::refs::FullNameRef) -> Self {
-        Self {
-            ref_name,
-            mutability: ExtraRefMutability::Mutable,
-        }
-    }
-
-    /// Track an extra ref for traversal only, without persisting updates.
-    pub fn immutable(ref_name: &'a gix::refs::FullNameRef) -> Self {
-        Self {
-            ref_name,
-            mutability: ExtraRefMutability::Immutable,
-        }
-    }
-}
-
-/// Controls whether an extra ref may be updated by editor materialization.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ExtraRefMutability {
-    /// The ref may be rewritten and deleted as needed by the edited graph.
-    Mutable,
-    /// The ref is available for graph traversal but must not be persisted.
-    Immutable,
-}
+pub mod workspace;
+pub use workspace::{GraphWorkspace, Subgraph};
 
 /// Utilities for testing
 pub mod testing;
@@ -96,6 +63,13 @@ pub struct Pick {
     /// Controls how parent trees are merged during cherry-pick.
     /// See [`TreeMergeMode`] for details.
     pub tree_merge_mode: TreeMergeMode,
+    /// Whether the editor may rewrite this commit.
+    ///
+    /// The editor contains every commit in the workspace graph, but only those
+    /// reachable from a mutable entrypoint (e.g. `HEAD`) should be rewritten.
+    /// When `false`, the rebase copies the pick verbatim instead of
+    /// cherry-picking it, preserving its id.
+    pub mutable: bool,
 }
 
 impl Pick {
@@ -109,6 +83,7 @@ impl Pick {
             exclude_from_tracking: false,
             conflictable: true,
             tree_merge_mode: TreeMergeMode::WithRenames,
+            mutable: true,
         }
     }
 
@@ -132,6 +107,7 @@ impl Pick {
             exclude_from_tracking: false,
             conflictable: false,
             tree_merge_mode: TreeMergeMode::WithoutRenames,
+            mutable: true,
         }
     }
 }
@@ -145,6 +121,12 @@ pub enum Step {
     Reference {
         /// The refname
         refname: gix::refs::FullName,
+        /// Whether the editor may move or delete this reference.
+        ///
+        /// Only references reachable from a mutable entrypoint (e.g. `HEAD`)
+        /// are updated during materialization. When `false`, the reference is
+        /// kept in the graph for traversal but never written.
+        mutable: bool,
     },
     /// Used as a placeholder after removing a pick or reference
     None,
@@ -162,6 +144,18 @@ impl Step {
     /// `insert_blank_commit` operation.
     pub fn new_untracked_pick(id: gix::ObjectId) -> Self {
         Self::Pick(Pick::new_untracked_pick(id))
+    }
+
+    /// Creates a mutable reference step.
+    ///
+    /// References constructed by edit operations are mutable; immutable
+    /// references only originate from non-`HEAD`-reachable segments during
+    /// [`Editor::create`].
+    pub fn new_reference(refname: gix::refs::FullName) -> Self {
+        Self::Reference {
+            refname,
+            mutable: true,
+        }
     }
 }
 
@@ -276,9 +270,6 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
     repo: gix::Repository,
     /// Provides data about how the editor instance was transformed.
     history: RevisionHistory,
-    /// References that should remain selectable in the graph but must never be
-    /// updated or deleted during materialization.
-    immutable_references: std::collections::HashSet<gix::refs::FullName>,
     /// A reference to the workspace that the editor was created for.
     workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
@@ -298,7 +289,6 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     pub(crate) checkouts: Vec<Checkout>,
     /// Provides data about how the editor instance was transformed.
     pub history: RevisionHistory,
-    pub(crate) immutable_references: std::collections::HashSet<gix::refs::FullName>,
     /// A reference to the workspace that the editor was created for.
     workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
@@ -346,7 +336,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                     match step {
                         Step::None => None,
                         Step::Pick(Pick { id, .. }) => Some((*id, None)),
-                        Step::Reference { refname } => {
+                        Step::Reference { refname, .. } => {
                             let parents = collect_ordered_parents(&self.graph, selector.id);
 
                             if let Some(to_reference) = parents.first()
@@ -403,7 +393,7 @@ pub trait LookupStep {
     /// Look up the step a given selector and assert it's a pick.
     fn lookup_reference(&self, selector: Selector) -> Result<gix::refs::FullName> {
         match self.lookup_step(selector)? {
-            Step::Reference { refname } => Ok(refname),
+            Step::Reference { refname, .. } => Ok(refname),
             _ => bail!("Expected selector to point to a reference"),
         }
     }
@@ -524,6 +514,7 @@ mod test {
                 exclude_from_tracking: false,
                 conflictable: false,
                 tree_merge_mode: TreeMergeMode::WithoutRenames,
+                mutable: true,
             }
         );
 
@@ -544,6 +535,7 @@ mod test {
                 exclude_from_tracking: false,
                 conflictable: true,
                 tree_merge_mode: TreeMergeMode::WithRenames,
+                mutable: true,
             }
         );
 

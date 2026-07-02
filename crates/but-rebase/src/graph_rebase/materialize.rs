@@ -34,7 +34,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                     let (new_head, new_head_refname) = match step {
                         Step::None => bail!("Checkout selector is pointing to none"),
                         Step::Pick(Pick { id, .. }) => (id, None),
-                        Step::Reference { refname } => {
+                        Step::Reference { refname, .. } => {
                             let parents = collect_ordered_parents(&self.graph, selector.id);
                             let parent_step_id =
                                 parents.first().context("No first parent to reference")?;

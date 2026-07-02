@@ -11,6 +11,8 @@ ignored = [
     # Used only by feature-gated legacy modules.
     "git2",
     "bitflags",
+    # Imported as `renderdag` (the crate's lib name), which machete misses.
+    "sapling-renderdag",
 ]
 
 [lib]
@@ -60,8 +62,6 @@ url = { version = "2.5.4", features = ["serde"] }
 md5.workspace = true
 tracing.workspace = true
 
-# For SPMC channel
-flume = "0.11.1"
 tempfile.workspace = true
 
 bitflags = { workspace = true, optional = true }
@@ -70,12 +70,17 @@ but-gerrit = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }
 
+sapling-renderdag.workspace = true
+
 [dev-dependencies]
 # We just want to test everything, with the goal that 'legacy' can one day go away.
 but-workspace = { workspace = true, features = ["legacy"] }
 but-meta = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
 but-askpass.workspace = true
+# To name the renderdag geometry types (NodeLine/LinkLine) when rendering
+# `detailed_graph_workspace` rows to box-drawing in tests.
+sapling-renderdag.workspace = true
 insta = { version = "1.47.2", features = ["json"] }
 # for stable hashes in `gitbuter-` crates while we use them.
 # TODO: remove once `gitbutler-repo` isn't needed anymore.

@@ -45,7 +45,7 @@ pub mod branch;
 
 mod changeset;
 mod divergence;
-pub use divergence::resolve_tracking_branch_ref_name;
+pub use but_core::branch::resolve_tracking_branch_ref_name;
 mod graph_manipulation;
 
 /// Utility types for the [`WorkspaceCommit`].
@@ -68,6 +68,8 @@ pub use upstream_integration::{
 };
 mod worktree;
 pub use worktree::worktree_conflicts_for_rebase;
+
+pub mod workspace;
 
 /// Information about refs, as seen from within or outsie of a workspace.
 ///

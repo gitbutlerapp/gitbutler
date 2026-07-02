@@ -40,16 +40,15 @@ fn adding_a_step_returns_a_selector_that_can_be_connected_into_the_graph() -> Re
         .steps_ascii()
         .replace(&new_commit.to_hex_with_len(7).to_string(), "[new]");
 
-    insta::assert_snapshot!(steps_ascii, @r"
-    ◎ refs/heads/main
-    ● 120e3a9 c
+    insta::assert_snapshot!(steps_ascii, @"
+    ◎  refs/heads/main
+    ●    120e3a9 c
     ├─╮
-    ● │ a96434e b
-    │ ● [new] synthetic parent for c
+    ● │  a96434e b
+    │ ●  [new] synthetic parent for c
     ├─╯
-    ● d591dfe a
-    ● 35b8235 base
-    ╵
+    ●  d591dfe a
+    ●  35b8235 base
     ");
 
     Ok(())
@@ -136,22 +135,21 @@ fn adding_a_valid_edge_is_successful() -> Result<()> {
 
     editor.add_edge(a_selector, b_selector, 1)?;
 
-    insta::assert_snapshot!(editor.steps_ascii(), @r"
-    ◎ refs/heads/with-inner-merge
-    ● e8ee978 on top of inner merge
-    ● 2fc288c Merge branch 'B' into with-inner-merge
+    insta::assert_snapshot!(editor.steps_ascii(), @"
+    ◎  refs/heads/with-inner-merge
+    ●  e8ee978 on top of inner merge
+    ●    2fc288c Merge branch 'B' into with-inner-merge
     ├─╮
-    ◎ │ refs/heads/A
-    ● │ add59d2 A: 10 lines on top
-    ├─╪─╮
-    │ ◎ │ refs/heads/B
+    ◎ │  refs/heads/A
+    ● │    add59d2 A: 10 lines on top
+    ├───╮
+    │ ◎ │  refs/heads/B
     │ ├─╯
-    │ ● 984fd1c C: new file with 10 lines
+    │ ●  984fd1c C: new file with 10 lines
     ├─╯
-    ◎ refs/heads/main
-    ◎ refs/tags/base
-    ● 8f0d338 base
-    ╵
+    ◎  refs/heads/main
+    ◎  refs/tags/base
+    ●  8f0d338 base
     ");
 
     Ok(())
@@ -204,12 +202,11 @@ fn removing_an_existing_edge_returns_its_order_and_allows_readding_it() -> Resul
     editor.add_edge(b_selector, a_selector, 0)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
-    ◎ refs/heads/main
-    ● 120e3a9 c
-    ● a96434e b
-    ● d591dfe a
-    ● 35b8235 base
-    ╵
+    ◎  refs/heads/main
+    ●  120e3a9 c
+    ●  a96434e b
+    ●  d591dfe a
+    ●  35b8235 base
     ");
 
     Ok(())

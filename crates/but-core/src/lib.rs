@@ -70,6 +70,9 @@ pub use hunks::{HunkRange, apply_hunks};
 /// Commit related utility types.
 pub mod commit;
 
+/// The generic changeset-similarity engine, used to detect when two commits represent the same change.
+pub mod changeset;
+
 /// Utilities related to branches
 pub mod branch;
 

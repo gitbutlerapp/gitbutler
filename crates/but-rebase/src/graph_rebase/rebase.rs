@@ -29,15 +29,12 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
         // multiple.
 
         let mut ref_edits = vec![];
+        // Every external (a node with no children) seeds the traversal so the
+        // output graph keeps every commit - immutable picks are copied verbatim
+        // rather than cherry-picked.
         let rebase_heads = self
             .graph
             .externals(Direction::Incoming)
-            .filter(|idx| {
-                !matches!(
-                    &self.graph[*idx],
-                    Step::Reference { refname } if self.immutable_references.contains(refname)
-                )
-            })
             .collect::<Vec<_>>();
         let steps_to_pick = order_steps_picking(&self.graph, &rebase_heads);
 
@@ -53,6 +50,12 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             // Do the frikkin rebase man!
             let step = self.graph[step_idx].clone();
             let new_idx = match step {
+                Step::Pick(pick) if !pick.mutable => {
+                    // Immutable picks are copied verbatim: the commit keeps its
+                    // id, so there's no cherry-pick to run and nothing to record
+                    // in the history mapping.
+                    output_graph.add_node(Step::Pick(pick))
+                }
                 Step::Pick(pick) => {
                     let graph_parents = collect_ordered_parents(&self.graph, step_idx);
                     let ontos = match pick.preserved_parents.clone() {
@@ -121,62 +124,63 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                         }
                     }
                 }
-                Step::Reference { refname } => {
-                    let is_immutable = self.immutable_references.contains(&refname);
-                    let graph_parents = collect_ordered_parents(&self.graph, step_idx);
-                    let first_parent_idx = graph_parents
-                        .first()
-                        .context("References should have at least one parent")?;
-                    let Some(new_idx) = graph_mapping.get(first_parent_idx) else {
-                        bail!("A matching parent can't be found in the output graph");
-                    };
+                Step::Reference { refname, mutable } => {
+                    // Immutable references are kept in the graph for traversal
+                    // but never moved, created, or deleted.
+                    if mutable {
+                        let graph_parents = collect_ordered_parents(&self.graph, step_idx);
+                        let first_parent_idx = graph_parents
+                            .first()
+                            .context("References should have at least one parent")?;
+                        let Some(new_idx) = graph_mapping.get(first_parent_idx) else {
+                            bail!("A matching parent can't be found in the output graph");
+                        };
 
-                    let to_reference = match output_graph[*new_idx] {
-                        Step::Pick(Pick { id, .. }) => id,
-                        _ => bail!("A parent in the output graph is not a pick"),
-                    };
+                        let to_reference = match output_graph[*new_idx] {
+                            Step::Pick(Pick { id, .. }) => id,
+                            _ => bail!("A parent in the output graph is not a pick"),
+                        };
 
-                    let reference = self.repo.try_find_reference(&refname)?;
+                        let reference = self.repo.try_find_reference(&refname)?;
 
-                    if let Some(reference) = reference {
-                        let target = reference.target();
-                        match target {
-                            gix::refs::TargetRef::Object(id) => {
-                                if id == to_reference {
-                                    unchanged_references.push(refname.clone());
-                                } else if !is_immutable {
-                                    ref_edits.push(RefEdit {
-                                        name: refname.clone(),
-                                        change: Change::Update {
-                                            log: LogChange::default(),
-                                            expected: PreviousValue::MustExistAndMatch(
-                                                target.into(),
-                                            ),
-                                            new: Target::Object(to_reference),
-                                        },
-                                        deref: false,
-                                    });
-                                } else {
-                                    unchanged_references.push(refname.clone());
+                        if let Some(reference) = reference {
+                            let target = reference.target();
+                            match target {
+                                gix::refs::TargetRef::Object(id) => {
+                                    if id == to_reference {
+                                        unchanged_references.push(refname.clone());
+                                    } else {
+                                        ref_edits.push(RefEdit {
+                                            name: refname.clone(),
+                                            change: Change::Update {
+                                                log: LogChange::default(),
+                                                expected: PreviousValue::MustExistAndMatch(
+                                                    target.into(),
+                                                ),
+                                                new: Target::Object(to_reference),
+                                            },
+                                            deref: false,
+                                        });
+                                    }
+                                }
+                                gix::refs::TargetRef::Symbolic(name) => {
+                                    bail!("Attempted to update the symbolic reference {name}");
                                 }
                             }
-                            gix::refs::TargetRef::Symbolic(name) => {
-                                bail!("Attempted to update the symbolic reference {name}");
-                            }
+                        } else {
+                            ref_edits.push(RefEdit {
+                                name: refname.clone(),
+                                change: Change::Update {
+                                    log: LogChange::default(),
+                                    expected: PreviousValue::MustNotExist,
+                                    new: Target::Object(to_reference),
+                                },
+                                deref: false,
+                            });
                         }
-                    } else if !is_immutable {
-                        ref_edits.push(RefEdit {
-                            name: refname.clone(),
-                            change: Change::Update {
-                                log: LogChange::default(),
-                                expected: PreviousValue::MustNotExist,
-                                new: Target::Object(to_reference),
-                            },
-                            deref: false,
-                        });
                     }
 
-                    output_graph.add_node(Step::Reference { refname })
+                    output_graph.add_node(Step::Reference { refname, mutable })
                 }
                 Step::None => output_graph.add_node(Step::None),
             };
@@ -199,11 +203,9 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             }
         }
 
-        // Find deleted references
+        // Find deleted references. `initial_references` only contains mutable
+        // references, so immutable references are never considered for deletion.
         for reference in self.initial_references.iter() {
-            if self.immutable_references.contains(reference) {
-                continue;
-            }
             if !ref_edits
                 .iter()
                 .any(|e| e.name.as_ref() == reference.as_ref())
@@ -231,7 +233,6 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             graph: output_graph,
             checkouts: self.checkouts.to_owned(),
             history,
-            immutable_references: self.immutable_references,
             workspace: self.workspace,
             meta: self.meta,
         })
@@ -341,7 +342,7 @@ fn format_base_merge_error(
 #[cfg(test)]
 mod test {
     mod order_steps_picking {
-        use std::{collections::HashSet, str::FromStr};
+        use std::str::FromStr;
 
         use anyhow::Result;
 
@@ -365,11 +366,10 @@ mod test {
             graph.add_edge(a, b, Edge { order: 0 });
             graph.add_edge(b, c, Edge { order: 0 });
 
-            insta::assert_snapshot!(render_ascii_graph(&graph, &HashSet::new(), |_| None), @"
-            ● 1000000
-            ● 2000000
-            ● 3000000
-            ╵
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
+            ●  1000000
+            ●  2000000
+            ●  3000000
             ");
 
             let ordered_from_a = order_steps_picking(&graph, &[a]);
@@ -428,21 +428,19 @@ mod test {
 
             graph.add_edge(i, j, Edge { order: 0 });
 
-            insta::assert_snapshot!(render_ascii_graph(&graph, &HashSet::new(), |_| None), @"
-            ● 1000000
-            ● 2000000
-            │ ● 6000000
-            │ ● 7000000
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
+            ●  1000000
+            ●  2000000
+            │ ●  6000000
+            │ ●  7000000
             ├─╯
-            ● 3000000
-            │ ● 8000000
+            ●  3000000
+            │ ●  8000000
             ├─╯
-            ● 4000000
-            ● 5000000
-            ╵
-            ● 9000000
-            ● 1100000
-            ╵
+            ●  4000000
+            ●  5000000
+            ●  9000000
+            ●  1100000
             ");
 
             let ordered_from_a = order_steps_picking(&graph, &[f, h]);
@@ -477,15 +475,14 @@ mod test {
             graph.add_edge(d, e, Edge { order: 0 });
             graph.add_edge(e, b, Edge { order: 0 });
 
-            insta::assert_snapshot!(render_ascii_graph(&graph, &HashSet::new(), |_| None), @"
-            ● 1000000
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
+            ●    1000000
             ├─╮
-            │ ● 4000000
-            │ ● 5000000
+            │ ●  4000000
+            │ ●  5000000
             ├─╯
-            ● 2000000
-            ● 3000000
-            ╵
+            ●  2000000
+            ●  3000000
             ");
 
             let ordered_from_a = order_steps_picking(&graph, &[a]);
@@ -520,15 +517,14 @@ mod test {
 
             graph.add_edge(a, b, Edge { order: 1 });
 
-            insta::assert_snapshot!(render_ascii_graph(&graph, &HashSet::new(), |_| None), @"
-            ● 1000000
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
+            ●    1000000
             ├─╮
-            ● │ 4000000
-            ● │ 5000000
+            ● │  4000000
+            ● │  5000000
             ├─╯
-            ● 2000000
-            ● 3000000
-            ╵
+            ●  2000000
+            ●  3000000
             ");
 
             let ordered_from_a = order_steps_picking(&graph, &[a]);

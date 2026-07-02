@@ -6,6 +6,12 @@ authors.workspace = true
 publish = false
 rust-version.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = [
+    # Imported as `renderdag` (the crate's lib name), which machete misses.
+    "sapling-renderdag",
+]
+
 [features]
 default = []
 export-schema = ["dep:schemars", "dep:but-schemars"]
@@ -27,6 +33,7 @@ tempfile.workspace = true
 serde.workspace = true
 toml.workspace = true
 petgraph.workspace = true
+sapling-renderdag.workspace = true
 schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }
 

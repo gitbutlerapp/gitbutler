@@ -1,17 +1,24 @@
 #![deny(missing_docs)]
 //! Testing utilities
 
-use std::{cmp::Ordering, collections::HashSet};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+};
 
+use anyhow::Result;
 use but_core::RefMetadata;
 use petgraph::{
     dot::{Config, Dot},
     visit::{EdgeRef, IntoEdgeReferences},
 };
+use renderdag::{Ancestor, GraphRowRenderer, Renderer as _};
 
 #[cfg(test)]
 use crate::graph_rebase::Edge;
-use crate::graph_rebase::{Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase};
+use crate::graph_rebase::{
+    Editor, Pick, Selector, Step, StepGraph, StepGraphIndex, SuccessfulRebase, workspace::Subgraph,
+};
 
 /// An extension trait that adds debugging output for graphs
 pub trait Testing {
@@ -21,17 +28,13 @@ pub trait Testing {
 
 impl<M: RefMetadata> Testing for Editor<'_, '_, M> {
     fn steps_ascii(&self) -> String {
-        render_ascii_graph(&self.graph, &self.immutable_references, |id| {
-            lookup_commit_title(&self.repo, id)
-        })
+        render_ascii_graph(&self.graph, |id| lookup_commit_title(&self.repo, id))
     }
 }
 
 impl<M: RefMetadata> Testing for SuccessfulRebase<'_, '_, M> {
     fn steps_ascii(&self) -> String {
-        render_ascii_graph(&self.graph, &self.immutable_references, |id| {
-            lookup_commit_title(&self.repo, id)
-        })
+        render_ascii_graph(&self.graph, |id| lookup_commit_title(&self.repo, id))
     }
 }
 /// An extension trait that adds debugging output for graphs
@@ -63,7 +66,7 @@ impl TestingDot for StepGraph {
                 &|_, (_, step)| {
                     match step {
                         Step::Pick(Pick { id, .. }) => format!("label=\"pick: {id}\""),
-                        Step::Reference { refname } => {
+                        Step::Reference { refname, .. } => {
                             format!("label=\"reference: {}\"", refname.as_bstr())
                         }
                         Step::None => "label=\"none\"".into(),
@@ -82,21 +85,6 @@ fn lookup_commit_title(repo: &gix::Repository, id: gix::ObjectId) -> Option<Stri
     Some(message.title.to_string().trim().to_string())
 }
 
-mod chars {
-    pub const STEP_PICK: char = '●';
-    pub const STEP_REFERENCE: char = '◎';
-    pub const STEP_NONE: char = '◌';
-    pub const VERT: char = '│';
-    pub const HORIZ: char = '─';
-    pub const FORK_DOWN: char = '┬';
-    pub const MERGE_UP: char = '┴';
-    pub const CORNER_DR: char = '╮';
-    pub const CORNER_UR: char = '╯';
-    pub const CROSS: char = '╪'; // double horizontal crossing vertical - shows passover
-    pub const VERT_RIGHT: char = '├';
-    pub const TERM_UP: char = '╵'; // branch termination going up
-}
-
 trait ToSymbol {
     fn to_symbol(&self) -> char;
 }
@@ -104,112 +92,15 @@ trait ToSymbol {
 impl ToSymbol for Step {
     fn to_symbol(&self) -> char {
         match self {
-            Self::Pick(_) => chars::STEP_PICK,
-            Self::Reference { .. } => chars::STEP_REFERENCE,
-            Self::None => chars::STEP_NONE,
+            Self::Pick(_) => '●',
+            Self::Reference { .. } => '◎',
+            Self::None => '◌',
         }
-    }
-}
-
-/// A layout event to be rendered
-#[derive(Debug, Clone)]
-enum LayoutEvent {
-    /// A node at a specific column
-    Node {
-        col: usize,
-        node: StepGraphIndex,
-        /// Which columns have active rails (for drawing vertical lines)
-        active: Vec<bool>,
-    },
-    /// Branches forking from a node to multiple parents
-    Fork {
-        from_col: usize,
-        to_cols: Vec<usize>,
-        active: Vec<bool>,
-    },
-    /// Multiple branches merging into one
-    Merge {
-        from_cols: Vec<usize>,
-        active: Vec<bool>,
-    },
-    /// A branch terminates (root node - no parents)
-    Terminate { col: usize, active: Vec<bool> },
-}
-
-/// Rail-based layout state
-struct LayoutState {
-    /// What node each rail is waiting for (None = empty rail)
-    rails: Vec<Option<StepGraphIndex>>,
-}
-
-impl LayoutState {
-    fn new() -> Self {
-        Self { rails: Vec::new() }
-    }
-
-    /// Get a snapshot of which rails are active
-    fn active_snapshot(&self) -> Vec<bool> {
-        self.rails.iter().map(|r| r.is_some()).collect()
-    }
-
-    /// Find all rails waiting for a specific node
-    fn rails_waiting_for(&self, node: StepGraphIndex) -> Vec<usize> {
-        self.rails
-            .iter()
-            .enumerate()
-            .filter_map(|(i, r)| if *r == Some(node) { Some(i) } else { None })
-            .collect()
-    }
-
-    /// Find first empty rail, or create a new one
-    fn find_or_create_empty_rail(&mut self) -> usize {
-        self.rails
-            .iter()
-            .position(|r| r.is_none())
-            .unwrap_or_else(|| {
-                self.rails.push(None);
-                self.rails.len() - 1
-            })
-    }
-
-    /// Find first empty rail at or after `start`, or create one
-    fn find_or_create_empty_rail_from(&mut self, start: usize) -> usize {
-        for i in start..self.rails.len() {
-            if self.rails[i].is_none() {
-                return i;
-            }
-        }
-        self.rails.push(None);
-        self.rails.len() - 1
-    }
-
-    /// Set a rail to wait for a node
-    fn set_rail(&mut self, col: usize, node: Option<StepGraphIndex>) {
-        while self.rails.len() <= col {
-            self.rails.push(None);
-        }
-        self.rails[col] = node;
-    }
-
-    /// Clear a rail
-    fn clear_rail(&mut self, col: usize) {
-        if col < self.rails.len() {
-            self.rails[col] = None;
-        }
-    }
-
-    /// Find if any rail is already waiting for this node
-    fn find_rail_for(&self, node: StepGraphIndex) -> Option<usize> {
-        self.rails.iter().position(|r| *r == Some(node))
     }
 }
 
 /// Format a step for display, optionally with a commit title
-fn format_step(
-    immutable_references: &HashSet<gix::refs::FullName>,
-    step: &Step,
-    title: Option<String>,
-) -> String {
+fn format_step(step: &Step, title: Option<String>) -> String {
     match step {
         Step::Pick(Pick { id, .. }) => {
             let mut sha = id.to_string();
@@ -219,12 +110,12 @@ fn format_step(
                 None => sha,
             }
         }
-        Step::Reference { refname } => {
+        Step::Reference { refname, mutable } => {
             let name = refname.as_bstr().to_string();
-            if immutable_references.contains(refname) {
-                format!("{name} (immutable)")
-            } else {
+            if *mutable {
                 name
+            } else {
+                format!("{name} (immutable)")
             }
         }
         Step::None => "no-op".to_string(),
@@ -253,328 +144,195 @@ fn get_sorted_parents(graph: &StepGraph, node: StepGraphIndex) -> Vec<StepGraphI
     parents.into_iter().map(|(_, p)| p).collect()
 }
 
-/// Topological sort using Kahn's algorithm with DFS-style branch following
-fn topological_order(graph: &StepGraph, heads: &[StepGraphIndex]) -> Vec<StepGraphIndex> {
-    use std::collections::HashMap;
-
-    let mut result = Vec::new();
-    let mut visited: HashSet<StepGraphIndex> = HashSet::new();
-
-    // Count incoming edges
-    let mut in_degree: HashMap<StepGraphIndex, usize> = HashMap::new();
-    for idx in graph.node_indices() {
-        in_degree.insert(idx, 0);
-    }
-    for edge in graph.edge_references() {
-        *in_degree.get_mut(&edge.target()).unwrap() += 1;
-    }
-
-    fn dfs(
-        node: StepGraphIndex,
-        graph: &StepGraph,
-        visited: &mut HashSet<StepGraphIndex>,
-        in_degree: &mut HashMap<StepGraphIndex, usize>,
-        result: &mut Vec<StepGraphIndex>,
-    ) {
-        if visited.contains(&node) || in_degree[&node] > 0 {
-            return;
-        }
-
-        visited.insert(node);
-        result.push(node);
-
-        let parents = get_sorted_parents(graph, node);
-        for parent in &parents {
-            if let Some(deg) = in_degree.get_mut(parent) {
-                *deg = deg.saturating_sub(1);
-            }
-        }
-        for parent in parents {
-            dfs(parent, graph, visited, in_degree, result);
-        }
-    }
-
-    for &head in heads {
-        dfs(head, graph, &mut visited, &mut in_degree, &mut result);
-    }
-
-    result
-}
-
-/// Phase 1: Compute layout events
-fn compute_layout(graph: &StepGraph, order: &[StepGraphIndex]) -> Vec<LayoutEvent> {
-    let mut state = LayoutState::new();
-    let mut events = Vec::new();
-
-    for &node in order {
-        let parents = get_sorted_parents(graph, node);
-
-        // Find rails waiting for this node
-        let waiting = state.rails_waiting_for(node);
-
-        // Determine this node's column
-        let col = if waiting.is_empty() {
-            // New head - assign to first empty rail
-            let c = state.find_or_create_empty_rail();
-            state.set_rail(c, Some(node));
-            c
-        } else {
-            // Use leftmost waiting rail
-            waiting[0]
-        };
-
-        // Handle merge if multiple rails converge
-        if waiting.len() > 1 {
-            // Clear all but the leftmost
-            for &c in &waiting[1..] {
-                state.clear_rail(c);
-            }
-            events.push(LayoutEvent::Merge {
-                from_cols: waiting.clone(),
-                active: state.active_snapshot(),
-            });
-        }
-
-        // Emit node event
-        events.push(LayoutEvent::Node {
-            col,
-            node,
-            active: state.active_snapshot(),
-        });
-
-        // Update rails for parents
-        if parents.is_empty() {
-            // Root node - emit termination event, then clear rail
-            events.push(LayoutEvent::Terminate {
-                col,
-                active: state.active_snapshot(),
-            });
-            state.clear_rail(col);
-        } else {
-            // First parent inherits this rail
-            state.set_rail(col, Some(parents[0]));
-
-            // Additional parents need rails
-            if parents.len() > 1 {
-                let mut parent_cols = vec![col];
-
-                for &parent in &parents[1..] {
-                    // Check if parent already has a rail assigned
-                    let parent_col = if let Some(existing) = state.find_rail_for(parent) {
-                        existing
-                    } else {
-                        // Assign new rail, preferring adjacent columns
-                        let new_col = state.find_or_create_empty_rail_from(col + 1);
-                        state.set_rail(new_col, Some(parent));
-                        new_col
-                    };
-                    parent_cols.push(parent_col);
-                }
-
-                events.push(LayoutEvent::Fork {
-                    from_col: col,
-                    to_cols: parent_cols,
-                    active: state.active_snapshot(),
-                });
-            }
-        }
-    }
-
-    events
-}
-
-/// Phase 2: Render events to ASCII
-fn render_events<F>(
-    graph: &StepGraph,
-    immutable_references: &HashSet<gix::refs::FullName>,
-    events: &[LayoutEvent],
-    mut get_title: F,
-) -> String
-where
-    F: FnMut(gix::ObjectId) -> Option<String>,
-{
-    let mut lines = Vec::new();
-
-    for event in events {
-        match event {
-            LayoutEvent::Node { col, node, active } => {
-                let step = &graph[*node];
-                let title = match step {
-                    Step::Pick(Pick { id, .. }) => get_title(*id),
-                    _ => None,
-                };
-                lines.push(render_node_line(
-                    immutable_references,
-                    *col,
-                    step,
-                    active.as_slice(),
-                    title,
-                ));
-            }
-            LayoutEvent::Fork {
-                from_col,
-                to_cols,
-                active,
-            } => {
-                lines.push(render_fork_line(*from_col, to_cols, active));
-            }
-            LayoutEvent::Merge { from_cols, active } => {
-                lines.push(render_merge_line(from_cols, active));
-            }
-            LayoutEvent::Terminate { col, active } => {
-                lines.push(render_terminate_line(*col, active));
-            }
-        }
-    }
-
-    lines.join("\n")
-}
-
-/// Render a node line
-fn render_node_line(
-    immutable_references: &HashSet<gix::refs::FullName>,
-    col: usize,
-    step: &Step,
-    active: &[bool],
-    title: Option<String>,
-) -> String {
-    let width = active.len().max(col + 1);
-    let mut cells: Vec<[char; 2]> = vec![[' ', ' ']; width];
-
-    for (c, &is_active) in active.iter().enumerate() {
-        if c == col {
-            cells[c] = [step.to_symbol(), ' '];
-        } else if is_active {
-            cells[c] = [chars::VERT, ' '];
-        }
-    }
-
-    let grid: String = cells.iter().flat_map(|c| c.iter()).collect();
-    format!(
-        "{} {}",
-        grid.trim_end(),
-        format_step(immutable_references, step, title)
-    )
-}
-
-/// Render a fork line
-fn render_fork_line(from_col: usize, to_cols: &[usize], active: &[bool]) -> String {
-    if to_cols.len() <= 1 {
-        return String::new();
-    }
-
-    let max_col = *to_cols.iter().max().unwrap();
-    let width = active.len().max(max_col + 1);
-    let mut cells: Vec<[char; 2]> = vec![[' ', ' ']; width];
-
-    // The diverging columns (skip first which continues straight)
-    let diverging: HashSet<usize> = to_cols.iter().skip(1).copied().collect();
-
-    for (c, cell) in cells.iter_mut().enumerate().take(width) {
-        if c == from_col {
-            // Fork origin
-            *cell = [chars::VERT_RIGHT, chars::HORIZ];
-        } else if c > from_col && c < max_col {
-            if diverging.contains(&c) {
-                *cell = [chars::FORK_DOWN, chars::HORIZ];
-            } else if active.get(c).copied().unwrap_or(false) {
-                *cell = [chars::CROSS, chars::HORIZ];
-            } else {
-                *cell = [chars::HORIZ, chars::HORIZ];
-            }
-        } else if c == max_col && diverging.contains(&c) {
-            *cell = [chars::CORNER_DR, ' '];
-        } else if active.get(c).copied().unwrap_or(false) {
-            *cell = [chars::VERT, ' '];
-        }
-    }
-
-    let grid: String = cells.iter().flat_map(|c| c.iter()).collect();
-    grid.trim_end().to_string()
-}
-
-/// Render a merge line
-fn render_merge_line(from_cols: &[usize], active: &[bool]) -> String {
-    if from_cols.len() <= 1 {
-        return String::new();
-    }
-
-    let min_col = *from_cols.iter().min().unwrap();
-    let max_col = *from_cols.iter().max().unwrap();
-    let width = active.len().max(max_col + 1);
-    let mut cells: Vec<[char; 2]> = vec![[' ', ' ']; width];
-
-    let merging: HashSet<usize> = from_cols.iter().copied().collect();
-
-    for (c, cell) in cells.iter_mut().enumerate().take(width) {
-        if c == min_col {
-            // Merge target (leftmost)
-            *cell = [chars::VERT_RIGHT, chars::HORIZ];
-        } else if c > min_col && c < max_col {
-            if merging.contains(&c) {
-                *cell = [chars::MERGE_UP, chars::HORIZ];
-            } else if active.get(c).copied().unwrap_or(false) {
-                *cell = [chars::CROSS, chars::HORIZ];
-            } else {
-                *cell = [chars::HORIZ, chars::HORIZ];
-            }
-        } else if c == max_col {
-            *cell = [chars::CORNER_UR, ' '];
-        } else if active.get(c).copied().unwrap_or(false) {
-            *cell = [chars::VERT, ' '];
-        }
-    }
-
-    let grid: String = cells.iter().flat_map(|c| c.iter()).collect();
-    grid.trim_end().to_string()
-}
-
-/// Render a termination line (branch with no parents)
-fn render_terminate_line(col: usize, active: &[bool]) -> String {
-    let width = active.len().max(col + 1);
-    let mut cells: Vec<[char; 2]> = vec![[' ', ' ']; width];
-
-    for (c, &is_active) in active.iter().enumerate() {
-        if c == col {
-            cells[c] = [chars::TERM_UP, ' '];
-        } else if is_active {
-            cells[c] = [chars::VERT, ' '];
-        }
-    }
-
-    let grid: String = cells.iter().flat_map(|c| c.iter()).collect();
-    grid.trim_end().to_string()
-}
-
-/// Main entry point: render graph as ASCII
-pub(crate) fn render_ascii_graph<F>(
-    graph: &StepGraph,
-    immutable_references: &HashSet<gix::refs::FullName>,
-    get_title: F,
-) -> String
-where
-    F: FnMut(gix::ObjectId) -> Option<String>,
-{
-    let mut heads = find_heads(graph);
-    heads.sort_by(|a, b| match (&graph[*a], &graph[*b]) {
-        (Step::Reference { refname, .. }, Step::Reference { refname: refname_b }) => {
-            refname.cmp(refname_b)
-        }
+/// A deterministic ordering for the head nodes so snapshots are stable: picks
+/// before references, then by id / refname.
+fn compare_heads(graph: &StepGraph, a: StepGraphIndex, b: StepGraphIndex) -> Ordering {
+    match (&graph[a], &graph[b]) {
+        (
+            Step::Reference { refname, .. },
+            Step::Reference {
+                refname: refname_b, ..
+            },
+        ) => refname.cmp(refname_b),
         (Step::Pick(Pick { id, .. }), Step::Pick(Pick { id: id_b, .. })) => id.cmp(id_b),
         (Step::Reference { .. }, Step::Pick(_)) => Ordering::Greater,
         (Step::Pick(_), Step::Reference { .. }) => Ordering::Less,
         (Step::None, Step::None) => Ordering::Equal,
         (_, Step::None) => Ordering::Greater,
         (Step::None, _) => Ordering::Less,
-    });
-    let order = topological_order(graph, &heads);
+    }
+}
 
-    if order.is_empty() {
-        return String::new();
+/// Children-first topological order over `nodes`, seeded from `heads`.
+///
+/// Only edges between nodes in `nodes` are followed, so this works for a full
+/// graph (where `nodes` is every index) as well as a subgraph that doesn't
+/// include its parents.
+fn topological_order(
+    graph: &StepGraph,
+    nodes: &HashSet<StepGraphIndex>,
+    heads: &[StepGraphIndex],
+) -> Vec<StepGraphIndex> {
+    // Incoming edges from *within* the node set.
+    let mut in_degree: HashMap<StepGraphIndex, usize> = nodes.iter().map(|&n| (n, 0)).collect();
+    for &n in nodes {
+        for parent in get_sorted_parents(graph, n) {
+            if let Some(deg) = in_degree.get_mut(&parent) {
+                *deg += 1;
+            }
+        }
     }
 
-    let events = compute_layout(graph, &order);
-    render_events(graph, immutable_references, &events, get_title)
+    let mut result = Vec::new();
+    let mut visited: HashSet<StepGraphIndex> = HashSet::new();
+
+    fn dfs(
+        node: StepGraphIndex,
+        graph: &StepGraph,
+        nodes: &HashSet<StepGraphIndex>,
+        visited: &mut HashSet<StepGraphIndex>,
+        in_degree: &mut HashMap<StepGraphIndex, usize>,
+        result: &mut Vec<StepGraphIndex>,
+    ) {
+        if visited.contains(&node) || in_degree.get(&node).is_some_and(|&d| d > 0) {
+            return;
+        }
+
+        visited.insert(node);
+        result.push(node);
+
+        let parents: Vec<_> = get_sorted_parents(graph, node)
+            .into_iter()
+            .filter(|p| nodes.contains(p))
+            .collect();
+        for parent in &parents {
+            if let Some(deg) = in_degree.get_mut(parent) {
+                *deg = deg.saturating_sub(1);
+            }
+        }
+        for parent in parents {
+            dfs(parent, graph, nodes, visited, in_degree, result);
+        }
+    }
+
+    for &head in heads {
+        dfs(
+            head,
+            graph,
+            nodes,
+            &mut visited,
+            &mut in_degree,
+            &mut result,
+        );
+    }
+
+    result
+}
+
+/// Render a (sub)graph of steps as a box-drawing DAG (à la `git log --graph`)
+/// using `sapling-renderdag`.
+///
+/// `nodes` is the set of steps to draw and `heads` are the tips to seed the
+/// ordering from; parents outside `nodes` are simply dropped, so this renders
+/// both full graphs and subgraphs.
+fn render_step_graph<F>(
+    graph: &StepGraph,
+    nodes: &HashSet<StepGraphIndex>,
+    heads: &[StepGraphIndex],
+    mut get_title: F,
+) -> String
+where
+    F: FnMut(gix::ObjectId) -> Option<String>,
+{
+    let mut heads = heads.to_vec();
+    heads.sort_by(|a, b| compare_heads(graph, *a, *b));
+
+    let mut renderer = GraphRowRenderer::<StepGraphIndex>::new()
+        .output()
+        .with_min_row_height(1)
+        .build_box_drawing();
+
+    let mut out = String::new();
+    for node in topological_order(graph, nodes, &heads) {
+        let step = &graph[node];
+        let title = match step {
+            Step::Pick(Pick { id, .. }) => get_title(*id),
+            _ => None,
+        };
+        let parents = get_sorted_parents(graph, node)
+            .into_iter()
+            .filter(|p| nodes.contains(p))
+            .map(Ancestor::Parent)
+            .collect();
+        out.push_str(&renderer.next_row(
+            node,
+            parents,
+            step.to_symbol().to_string(),
+            format_step(step, title),
+        ));
+    }
+    out.trim_end().to_string()
+}
+
+/// Render the full step graph as a box-drawing DAG.
+pub(crate) fn render_ascii_graph<F>(graph: &StepGraph, get_title: F) -> String
+where
+    F: FnMut(gix::ObjectId) -> Option<String>,
+{
+    let nodes: HashSet<StepGraphIndex> = graph.node_indices().collect();
+    let heads = find_heads(graph);
+    render_step_graph(graph, &nodes, &heads, get_title)
+}
+
+impl<M: RefMetadata> Editor<'_, '_, M> {
+    /// Render a [`Subgraph`] (e.g. one of the parts of [`Editor::graph_workspace`])
+    /// as a box-drawing DAG, in the same style as [`Testing::steps_ascii`].
+    pub fn subgraph_ascii(&self, subgraph: &Subgraph) -> String {
+        let resolve = |s: &Selector| self.history.normalize_selector(*s).ok().map(|s| s.id);
+        let nodes: HashSet<StepGraphIndex> = subgraph.nodes.iter().filter_map(resolve).collect();
+        let heads: Vec<StepGraphIndex> = subgraph.heads.iter().filter_map(resolve).collect();
+        render_step_graph(&self.graph, &nodes, &heads, |id| {
+            lookup_commit_title(&self.repo, id)
+        })
+    }
+
+    /// Render an entire [`Editor::graph_workspace`] projection for snapshot
+    /// tests: the commits above the workspace, the workspace commit, then each
+    /// stack in turn. Each section is rendered with [`Editor::subgraph_ascii`].
+    pub fn graph_workspace_ascii(&self) -> Result<String> {
+        let ws = self.graph_workspace()?;
+        let body = |rendered: String| {
+            if rendered.is_empty() {
+                "(empty)".to_string()
+            } else {
+                rendered
+            }
+        };
+
+        let mut sections = vec![format!(
+            "# Above workspace\n{}",
+            body(self.subgraph_ascii(&ws.above_workspace))
+        )];
+
+        let workspace_commit = ws.workspace_commit.map(|selector| Subgraph {
+            heads: vec![selector],
+            nodes: [selector].into(),
+        });
+        sections.push(format!(
+            "# Workspace commit\n{}",
+            body(
+                workspace_commit
+                    .map(|s| self.subgraph_ascii(&s))
+                    .unwrap_or_default()
+            )
+        ));
+
+        for (i, stack) in ws.stacks.iter().enumerate() {
+            sections.push(format!("# Stack {i}\n{}", body(self.subgraph_ascii(stack))));
+        }
+
+        Ok(sections.join("\n\n"))
+    }
 }
 
 #[cfg(test)]
@@ -588,9 +346,7 @@ mod tests {
     }
 
     fn make_ref(name: &str) -> Step {
-        Step::Reference {
-            refname: gix::refs::FullName::try_from(format!("refs/heads/{name}")).unwrap(),
-        }
+        Step::new_reference(gix::refs::FullName::try_from(format!("refs/heads/{name}")).unwrap())
     }
 
     /// Helper to build a graph and add edges with order
@@ -613,14 +369,13 @@ mod tests {
         add_edge(&mut graph, c, d, 0);
         add_edge(&mut graph, d, none, 0);
 
-        let output = render_ascii_graph(&graph, &HashSet::new(), |_| None);
+        let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎ refs/heads/main
-        ● 1111111
-        ● 2222222
-        ● 3333333
-        ◌ no-op
-        ╵
+        ◎  refs/heads/main
+        ●  1111111
+        ●  2222222
+        ●  3333333
+        ◌  no-op
         ");
     }
 
@@ -645,15 +400,14 @@ mod tests {
         add_edge(&mut graph, a, c, 0);
         add_edge(&mut graph, b, c, 0);
 
-        let output = render_ascii_graph(&graph, &HashSet::new(), |_| None);
+        let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎ refs/heads/main
+        ◎    refs/heads/main
         ├─╮
-        ● │ aaaaaaa
-        │ ● bbbbbbb
+        ● │  aaaaaaa
+        │ ●  bbbbbbb
         ├─╯
-        ● ccccccc
-        ╵
+        ●  ccccccc
         ");
     }
 
@@ -681,16 +435,16 @@ mod tests {
         add_edge(&mut graph, b, d, 0);
         add_edge(&mut graph, c, d, 0);
 
-        let output = render_ascii_graph(&graph, &HashSet::new(), |_| None);
+        let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎ refs/heads/main
+        ◎      refs/heads/main
         ├─┬─╮
-        ● │ │ aaaaaaa
-        │ ● │ bbbbbbb
-        │ │ ● ccccccc
-        ├─┴─╯
-        ● ddddddd
-        ╵
+        ● │ │  aaaaaaa
+        │ ● │  bbbbbbb
+        ├─╯ │
+        │   ●  ccccccc
+        ├───╯
+        ●  ddddddd
         ");
     }
 
@@ -730,19 +484,20 @@ mod tests {
         // B also goes to C
         add_edge(&mut graph, b, c, 0);
 
-        let output = render_ascii_graph(&graph, &HashSet::new(), |_| None);
+        let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎ refs/heads/main
+        ◎    refs/heads/main
         ├─╮
-        ● │ fffffff
-        ├─╪─┬─╮
-        ● │ │ │ 1111111
-        │ │ ● │ 2222222
-        │ │ │ ● 3333333
-        │ ● │ │ bbbbbbb
-        ├─┴─┴─╯
-        ● ccccccc
-        ╵
+        ● │      fffffff
+        ├───┬─╮
+        ● │ │ │  1111111
+        │ │ ● │  2222222
+        ├───╯ │
+        │ │   ●  3333333
+        ├─────╯
+        │ ●  bbbbbbb
+        ├─╯
+        ●  ccccccc
         ");
     }
 
@@ -767,17 +522,18 @@ mod tests {
         add_edge(&mut graph, c, base, 0);
         add_edge(&mut graph, d, base, 0);
 
-        let output = render_ascii_graph(&graph, &HashSet::new(), |_| None);
+        let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎ refs/heads/main
+        ◎        refs/heads/main
         ├─┬─┬─╮
-        ● │ │ │ aaaaaaa
-        │ ● │ │ bbbbbbb
-        │ │ ● │ ccccccc
-        │ │ │ ● ddddddd
-        ├─┴─┴─╯
-        ● eeeeeee
-        ╵
+        ● │ │ │  aaaaaaa
+        │ ● │ │  bbbbbbb
+        ├─╯ │ │
+        │   ● │  ccccccc
+        ├───╯ │
+        │     ●  ddddddd
+        ├─────╯
+        ●  eeeeeee
         ");
     }
 
@@ -808,17 +564,16 @@ mod tests {
         add_edge(&mut graph, a3, c, 0);
         add_edge(&mut graph, b, c, 0);
 
-        let output = render_ascii_graph(&graph, &HashSet::new(), |_| None);
+        let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎ refs/heads/main
+        ◎    refs/heads/main
         ├─╮
-        ● │ a1a1a1a
-        ● │ a2a2a2a
-        ● │ a3a3a3a
-        │ ● bbbbbbb
+        ● │  a1a1a1a
+        ● │  a2a2a2a
+        ● │  a3a3a3a
+        │ ●  bbbbbbb
         ├─╯
-        ● ccccccc
-        ╵
+        ●  ccccccc
         ");
     }
 
@@ -853,25 +608,25 @@ mod tests {
         add_edge(&mut graph, e, f, 0);
         add_edge(&mut graph, c, f, 0);
 
-        let output = render_ascii_graph(&graph, &HashSet::new(), |_| None);
+        let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎ refs/heads/main
+        ◎    refs/heads/main
         ├─╮
-        ● │ bbbbbbb
-        ├─╪─╮
-        ● │ │ ddddddd
-        │ │ ● eeeeeee
-        │ ● │ ccccccc
-        ├─┴─╯
-        ● fffffff
-        ╵
+        ● │    bbbbbbb
+        ├───╮
+        ● │ │  ddddddd
+        │ │ ●  eeeeeee
+        ├───╯
+        │ ●  ccccccc
+        ├─╯
+        ●  fffffff
         ");
     }
 
     #[test]
-    fn extension_pushes_multiple_branches() {
-        // M forks to F,B,C where F then forks to X,Y,Z
-        // B and C should both be pushed right before F's fork
+    fn wide_merge_with_first_branch_forking_into_three() {
+        // M 3-way merges F,B,C; the first branch F itself forks into X,Y,Z,
+        // and everything converges back at D.
         //          M
         //        / | \
         //       F  B  C
@@ -906,27 +661,29 @@ mod tests {
         add_edge(&mut graph, b, d, 0);
         add_edge(&mut graph, c, d, 0);
 
-        let output = render_ascii_graph(&graph, &HashSet::new(), |_| None);
+        let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎ refs/heads/main
+        ◎      refs/heads/main
         ├─┬─╮
-        ● │ │ fffffff
-        ├─╪─╪─┬─╮
-        ● │ │ │ │ 1111111
-        │ │ │ ● │ 2222222
-        │ │ │ │ ● 3333333
-        │ ● │ │ │ bbbbbbb
-        │ │ ● │ │ ccccccc
-        ├─┴─┴─┴─╯
-        ● ddddddd
-        ╵
+        ● │ │      fffffff
+        ├─────┬─╮
+        ● │ │ │ │  1111111
+        │ │ │ ● │  2222222
+        ├─────╯ │
+        │ │ │   ●  3333333
+        ├───────╯
+        │ ● │  bbbbbbb
+        ├─╯ │
+        │   ●  ccccccc
+        ├───╯
+        ●  ddddddd
         ");
     }
 
     #[test]
-    fn fork_with_shared_parent_relocates_parallel_branch() {
-        // Tests relocation when a fork has a parent shared with another branch.
-        // B (at col 1) must be relocated before D can fork to E and F.
+    fn fork_target_shared_with_a_sibling_branch() {
+        // A fork (D -> E, F) where one target (F) is also reached by a sibling
+        // branch (C), so F has two children in different stacks.
         //
         //       M
         //      /|\
@@ -967,21 +724,21 @@ mod tests {
         add_edge(&mut graph, e, base, 0);
         add_edge(&mut graph, f, base, 0);
 
-        let output = render_ascii_graph(&graph, &HashSet::new(), |_| None);
+        let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎ refs/heads/main
+        ◎      refs/heads/main
         ├─┬─╮
-        ● │ │ aaaaaaa
-        ● │ │ ddddddd
-        ├─╪─╪─╮
-        ● │ │ │ eeeeeee
-        │ ● │ │ bbbbbbb
-        │ │ ● │ ccccccc
-        │ │ ├─╯
-        │ │ ● fffffff
-        ├─┴─╯
-        ● 0000000
-        ╵
+        ● │ │  aaaaaaa
+        ● │ │    ddddddd
+        ├─────╮
+        ● │ │ │  eeeeeee
+        │ ● │ │  bbbbbbb
+        ├─╯ │ │
+        │   ● │  ccccccc
+        │   ├─╯
+        │   ●  fffffff
+        ├───╯
+        ●  0000000
         ");
     }
 
@@ -1032,34 +789,34 @@ mod tests {
         add_edge(&mut graph, e, f, 0);
         add_edge(&mut graph, g, f, 0);
 
-        let output = render_ascii_graph(&graph, &HashSet::new(), |_| None);
+        let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎ refs/heads/main
+        ◎      refs/heads/main
         ├─┬─╮
-        ● │ │ aaaaaaa
-        ● │ │ ddddddd
-        ├─╪─╪─╮
-        ● │ │ │ eeeeeee
-        │ ● │ │ bbbbbbb
-        │ │ ● │ ccccccc
-        │ ├─┴─╯
-        │ ● 9999999
+        ● │ │  aaaaaaa
+        ● │ │    ddddddd
+        ├─────╮
+        ● │ │ │  eeeeeee
+        │ ● │ │  bbbbbbb
+        │ ├───╯
+        │ │ ●  ccccccc
+        │ ├─╯
+        │ ●  9999999
         ├─╯
-        ● fffffff
-        ╵
+        ●  fffffff
         ");
     }
 
     #[test]
-    fn wide_fork_relocates_multiple_branches_with_crossing() {
-        // A 3-way fork that requires relocating parallel branches.
-        // Tests extension line crossing when multiple branches are pushed right.
+    fn three_way_fork_with_a_shared_target() {
+        // A 3-way fork (D -> E, F, shared) where one target (shared) is also
+        // reached by a sibling branch (C).
         //
         //      M
         //     /|\
         //    A B C
         //    |   |
-        //    D   |    <- B stays parallel, D continues from A
+        //    D   |    <- D continues from A
         //   /|\ /
         //  E F shared <- D forks to E, F, shared where shared comes from C
         //   \|/
@@ -1083,37 +840,58 @@ mod tests {
         // A -> D
         add_edge(&mut graph, a, d, 0);
 
-        // C -> shared (establishes shared at column 2)
+        // C -> shared
         add_edge(&mut graph, c, shared, 0);
 
-        // D forks to E, F, shared - but shared is already at col 2
+        // D forks to E, F, shared (shared is also reached via C)
         add_edge(&mut graph, d, e, 0);
         add_edge(&mut graph, d, f, 1);
         add_edge(&mut graph, d, shared, 2);
 
-        // B, E, F, shared all merge to base
-        // add_edge(&mut graph, b, base, 0);
+        // E, F, shared merge to base; B is left as a dangling tip.
         add_edge(&mut graph, e, base, 0);
         add_edge(&mut graph, f, base, 0);
         add_edge(&mut graph, shared, base, 0);
 
-        let output = render_ascii_graph(&graph, &HashSet::new(), |_| None);
+        let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎ refs/heads/main
+        ◎      refs/heads/main
         ├─┬─╮
-        ● │ │ aaaaaaa
-        ● │ │ ddddddd
-        ├─╪─╪─┬─╮
-        ● │ │ │ │ eeeeeee
-        │ │ │ ● │ fffffff
-        │ ● │ │ │ bbbbbbb
-        │ ╵ │ │ │
-        │   ● │ │ ccccccc
-        │   ├─╪─╯
-        │   ● │ 1111111
-        ├───┴─╯
-        ● 0000000
-        ╵
+        ● │ │  aaaaaaa
+        ● │ │      ddddddd
+        ├─────┬─╮
+        ● │ │ │ │  eeeeeee
+        │ │ │ ● │  fffffff
+        ├─────╯ │
+        │ ● │   │  bbbbbbb
+        │   ●   │  ccccccc
+        │   ├───╯
+        │   ●  1111111
+        ├───╯
+        ●  0000000
+        ");
+    }
+
+    #[test]
+    fn subgraph_drops_parents_outside_the_node_set() {
+        // main -> a -> b -> base, rendering only the subgraph {a, b}.
+        // `main` (a child of `a`) and `base` (a parent of `b`) are outside the
+        // set, so neither is drawn and `b` renders as a root.
+        let mut graph = StepGraph::new();
+        let main = graph.add_node(make_ref("main"));
+        let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let base = graph.add_node(make_pick("0000000000000000000000000000000000000000"));
+
+        add_edge(&mut graph, main, a, 0);
+        add_edge(&mut graph, a, b, 0);
+        add_edge(&mut graph, b, base, 0);
+
+        let nodes: HashSet<StepGraphIndex> = [a, b].into_iter().collect();
+        let output = render_step_graph(&graph, &nodes, &[a], |_| None);
+        insta::assert_snapshot!(output, @"
+        ●  aaaaaaa
+        ●  bbbbbbb
         ");
     }
 }

@@ -11,6 +11,7 @@ mod conflictable_restriction;
 mod disconnect;
 mod edge;
 mod editor_creation;
+mod graph_workspace;
 mod insert;
 mod insert_segment;
 mod materialize;

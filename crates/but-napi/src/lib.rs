@@ -30,6 +30,94 @@ use but_api::{
 
 type EventCallback = ThreadsafeFunction<WatcherEvent>;
 
+/// This cell contains a horizontal line that connects to a parent.
+#[napi]
+pub const HORIZ_PARENT: u16 = 0b0_0000_0000_0001;
+
+/// This cell contains a horizontal line that connects to an ancestor.
+#[napi]
+pub const HORIZ_ANCESTOR: u16 = 0b0_0000_0000_0010;
+
+/// The descendant of this cell is connected to the parent.
+#[napi]
+pub const VERT_PARENT: u16 = 0b0_0000_0000_0100;
+
+/// The descendant of this cell is connected to an ancestor.
+#[napi]
+pub const VERT_ANCESTOR: u16 = 0b0_0000_0000_1000;
+
+/// The parent of this cell is linked in this link row and the child is to the left.
+#[napi]
+pub const LEFT_FORK_PARENT: u16 = 0b0_0000_0001_0000;
+
+/// The ancestor of this cell is linked in this link row and the child is to the left.
+#[napi]
+pub const LEFT_FORK_ANCESTOR: u16 = 0b0_0000_0010_0000;
+
+/// The parent of this cell is linked in this link row and the child is to the right.
+#[napi]
+pub const RIGHT_FORK_PARENT: u16 = 0b0_0000_0100_0000;
+
+/// The ancestor of this cell is linked in this link row and the child is to the right.
+#[napi]
+pub const RIGHT_FORK_ANCESTOR: u16 = 0b0_0000_1000_0000;
+
+/// The child of this cell is linked to parents on the left.
+#[napi]
+pub const LEFT_MERGE_PARENT: u16 = 0b0_0001_0000_0000;
+
+/// The child of this cell is linked to ancestors on the left.
+#[napi]
+pub const LEFT_MERGE_ANCESTOR: u16 = 0b0_0010_0000_0000;
+
+/// The child of this cell is linked to parents on the right.
+#[napi]
+pub const RIGHT_MERGE_PARENT: u16 = 0b0_0100_0000_0000;
+
+/// The child of this cell is linked to ancestors on the right.
+#[napi]
+pub const RIGHT_MERGE_ANCESTOR: u16 = 0b0_1000_0000_0000;
+
+/// The target node of this link line is the child of this column.
+#[napi]
+pub const CHILD: u16 = 0b1_0000_0000_0000;
+
+/// Any horizontal link line.
+#[napi]
+pub const HORIZONTAL: u16 = HORIZ_PARENT | HORIZ_ANCESTOR;
+
+/// Any vertical link line.
+#[napi]
+pub const VERTICAL: u16 = VERT_PARENT | VERT_ANCESTOR;
+
+/// Any left fork link line.
+#[napi]
+pub const LEFT_FORK: u16 = LEFT_FORK_PARENT | LEFT_FORK_ANCESTOR;
+
+/// Any right fork link line.
+#[napi]
+pub const RIGHT_FORK: u16 = RIGHT_FORK_PARENT | RIGHT_FORK_ANCESTOR;
+
+/// Any left merge link line.
+#[napi]
+pub const LEFT_MERGE: u16 = LEFT_MERGE_PARENT | LEFT_MERGE_ANCESTOR;
+
+/// Any right merge link line.
+#[napi]
+pub const RIGHT_MERGE: u16 = RIGHT_MERGE_PARENT | RIGHT_MERGE_ANCESTOR;
+
+/// Any merge link line.
+#[napi]
+pub const ANY_MERGE: u16 = LEFT_MERGE | RIGHT_MERGE;
+
+/// Any fork link line.
+#[napi]
+pub const ANY_FORK: u16 = LEFT_FORK | RIGHT_FORK;
+
+/// Any fork or merge link line.
+#[napi]
+pub const ANY_FORK_OR_MERGE: u16 = ANY_MERGE | ANY_FORK;
+
 #[derive(Clone)]
 #[napi(object)]
 pub struct WatcherEvent {
