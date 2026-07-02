@@ -69,7 +69,7 @@
 .regular {
 	column-gap: 6px;
 	height: 28px;
-	padding-inline: 10px;
+	padding-inline: 8px;
 	--icon-size: 16px;
 
 	&:where(.iconOnly) {
@@ -80,10 +80,10 @@
 
 :where(.pop) {
 	--button-border: none;
-	--button-bg: color-mix(in srgb, var(--scale-pop-60) 50%, transparent);
-	--button-fg: color-mix(in srgb, var(--text-1) 90%, transparent);
-	--button-hover-fg: var(--text-1);
-	--button-hover-bg: color-mix(in srgb, var(--scale-pop-60) 70%, transparent);
+	--button-bg: var(--scale-pop-70);
+	--button-fg: var(--scale-pop-10);
+	--button-icon-opacity: 0.7;
+	--button-hover-bg: color-mix(in srgb, var(--scale-pop-70), var(--scale-pop-50) 13%);
 }
 
 :where(.gray) {
@@ -120,10 +120,10 @@
 
 :where(.danger) {
 	--button-border: none;
-	--button-bg: color-mix(in srgb, var(--scale-danger-50) 14%, transparent);
+	--button-bg: color-mix(in srgb, var(--scale-danger-80) 70%, transparent);
 	--button-fg: color-mix(in srgb, var(--text-danger) 90%, transparent);
 	--button-hover-fg: var(--text-danger);
-	--button-hover-bg: color-mix(in srgb, var(--scale-danger-50) 20%, transparent);
+	--button-hover-bg: color-mix(in srgb, var(--scale-danger-80) 80%, transparent);
 }
 
 :where(.ghost) {
