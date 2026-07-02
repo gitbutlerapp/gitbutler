@@ -1678,6 +1678,86 @@ fn committing_to_existing_branch_via_short_id() {
         .success();
 }
 
+#[test]
+fn commit_records_staged_submodule_gitlink() -> anyhow::Result<()> {
+    // Regression for #14507: `but commit` silently dropped a staged submodule gitlink. The CLI
+    // opens repositories with isolated options, so gix's `worktree_file_to_object` can't open the
+    // submodule and returns `None`, which made `create_tree` reject the change. The pinned commit
+    // must instead be recorded from the index's `160000` entry, like plain `git commit`.
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    // A submodule source repository, kept outside the managed worktree.
+    let sub_src = env
+        .projects_root()
+        .parent()
+        .expect("sandbox has a parent dir")
+        .join("submodule-source");
+    let _ = std::fs::remove_dir_all(&sub_src);
+    std::fs::create_dir_all(&sub_src)?;
+    let git_in_src = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .args(args)
+            .current_dir(&sub_src)
+            .env("GIT_AUTHOR_NAME", "tester")
+            .env("GIT_AUTHOR_EMAIL", "tester@example.com")
+            .env("GIT_COMMITTER_NAME", "tester")
+            .env("GIT_COMMITTER_EMAIL", "tester@example.com")
+            .output()
+            .expect("git runs");
+        assert!(
+            out.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    };
+    git_in_src(&["init", "-q", "-b", "main"]);
+    git_in_src(&["config", "user.name", "tester"]);
+    git_in_src(&["config", "user.email", "tester@example.com"]);
+    std::fs::write(sub_src.join("README.md"), "submodule content")?;
+    git_in_src(&["add", "-A"]);
+    git_in_src(&["commit", "-qm", "submodule init"]);
+
+    // Add it as a submodule; the index now records a `160000` gitlink.
+    env.invoke_git(&format!(
+        "-c protocol.file.allow=always submodule add {} vendor/sub",
+        sub_src.display()
+    ));
+    let staged = env.invoke_git("ls-files -s vendor/sub");
+    assert!(
+        staged.starts_with("160000 "),
+        "the submodule must be staged as a gitlink, got: {staged}"
+    );
+
+    // Commit through GitButler.
+    env.but("commit -m 'vendor submodule'").assert().success();
+
+    // The gitlink must be recorded in the commit tree, exactly like plain `git commit`.
+    let tree = env.invoke_git("ls-tree -r A");
+    assert!(
+        tree.lines()
+            .any(|line| line.contains("160000 commit") && line.contains("vendor/sub")),
+        "the submodule gitlink must be recorded in the commit; `ls-tree -r A` was:\n{tree}"
+    );
+
+    // And it must no longer be reported as an uncommitted change.
+    let status = util::status_json(&env)?;
+    let still_uncommitted = status["uncommittedChanges"]
+        .as_array()
+        .map(|changes| {
+            changes
+                .iter()
+                .any(|c| c["filePath"].as_str() == Some("vendor/sub"))
+        })
+        .unwrap_or(false);
+    assert!(
+        !still_uncommitted,
+        "the submodule gitlink should have been committed, but it is still uncommitted"
+    );
+
+    Ok(())
+}
+
 /// Helper to build an isolated `std::process::Command` for `but` with the same
 /// environment as the Sandbox test harness.
 /// That way it can be spawned, which isn't possible in the [`Sandbox`] version.
