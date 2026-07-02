@@ -4,7 +4,7 @@
 //! This property allows changeset IDs to be used to determine if two different commits, or sets of commits,
 //! represent the same change.
 //!
-//! This module is the generic similarity engine: it works on anything implementing [`ChangesetCommit`], so both
+//! This module is the generic similarity engine: it works on anything implementing [`ChangesetCommit`](crate::changeset::ChangesetCommit), so both
 //! the rebase Editor's commits and the richer `but-workspace` commits can reuse it without copying commit data.
 
 use std::{
@@ -338,7 +338,7 @@ fn should_stop(start: std::time::Instant, commit_idx: usize) -> bool {
 
 /// Produce a changeset ID to represent the changes between `lhs` and `rhs`, where `lhs` is
 /// the previous version of the treeish, and `rhs` is the current version of that treeish.
-/// We use the [`CURRENT_VERSION`], which must be considered when handling persisted values.
+/// We use the current `CURRENT_VERSION`, which must be considered when handling persisted values.
 pub fn id_for_tree_diff(
     repo: &gix::Repository,
     lhs: Option<gix::ObjectId>,

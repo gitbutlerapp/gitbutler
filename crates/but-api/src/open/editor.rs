@@ -224,7 +224,7 @@ pub fn open_in_editor_unchecked(
 /// to use. Therefore, this should never be exposed to an untrusted context, such as the GUI
 /// renderer.
 ///
-/// For untrusted clients, use [`open_in_editor`] instead.
+/// For untrusted clients, use [`open_in_editor`](crate::open::open_in_editor) instead.
 #[cfg(target_os = "macos")]
 pub fn open_in_editor_unchecked(
     editor: &EditorSpec<'_>,

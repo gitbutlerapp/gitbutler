@@ -11,6 +11,8 @@ ignored = [
     # Used only by feature-gated legacy modules.
     "git2",
     "bitflags",
+    # Imported as `renderdag` (the crate's lib name), which machete misses.
+    "sapling-renderdag",
 ]
 
 [lib]
