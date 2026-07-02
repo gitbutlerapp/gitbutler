@@ -273,6 +273,14 @@ export const operationHotkeys = {
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const diffHotkeys = {
+	foldFile: {
+		hotkey: "Mod+Alt+[",
+		meta: { group: "Diff", name: "Fold" },
+	},
+	unfoldFile: {
+		hotkey: "Mod+Alt+]",
+		meta: { group: "Diff", name: "Unfold" },
+	},
 	toggleDiffStyle: {
 		hotkey: "Mod+B",
 		meta: { group: "Diff", name: "Toggle diff style" },
