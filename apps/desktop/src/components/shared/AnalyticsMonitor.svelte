@@ -39,6 +39,7 @@ attached to posthog events.
 			defaultCodeEditor: globalState.defaultCodeEditor.current.schemeIdentifer,
 			aiSummariesEnabled: globalState.aiSummariesEnabled.current,
 			diffLigatures: globalState.diffLigatures.current,
+			allInOneDiff: globalState.allInOneDiff.current,
 		});
 	});
 

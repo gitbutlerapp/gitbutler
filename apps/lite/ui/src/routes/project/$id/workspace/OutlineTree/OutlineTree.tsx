@@ -334,7 +334,7 @@ const BranchSegment: FC<{
 				isTopSegment={isTopSegment}
 			/>
 
-			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation. */}
+			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
 			<div role="group">
 				<SegmentContent
 					projectId={projectId}
@@ -443,7 +443,7 @@ const StackC: FC<{
 		>
 			<StackRow projectId={projectId} stack={stack} />
 
-			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation. */}
+			{/* oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics. */}
 			<div role="group" className={styles.segments}>
 				{stack.segments.map((segment, index) => {
 					const partialStackState = assert(partialStackStates[index]);
