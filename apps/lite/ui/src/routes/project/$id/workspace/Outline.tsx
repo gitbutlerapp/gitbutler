@@ -167,98 +167,100 @@ export const Outline: FC<
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
-			<header className={styles.workspaceControls}>
-				<TopLeftControls />
+			<div className={styles.top}>
+				<header className={styles.workspaceControls}>
+					<TopLeftControls />
 
-				<div className={styles.workspaceControlsLeft}>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							aria-label={globalHotkeys.selectProject.meta.name}
-							className={classes("text-15", "text-bold", styles.workspaceName)}
-							onClick={openProjectPicker}
-						>
-							<span className={styles.workspaceNameLabel}>{project.title}</span>
-							<Icon name="chevron-down" className={styles.workspaceNameChevron} />
-						</Tooltip.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup render={<TooltipPopup kbd={globalHotkeys.selectProject.hotkey} />}>
-									{globalHotkeys.selectProject.meta.name}
-								</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
-					<ActivitySpinner />
-				</div>
+					<div className={styles.workspaceControlsLeft}>
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								aria-label={globalHotkeys.selectProject.meta.name}
+								className={classes("text-15", "text-bold", styles.workspaceName)}
+								onClick={openProjectPicker}
+							>
+								<span className={styles.workspaceNameLabel}>{project.title}</span>
+								<Icon name="chevron-down" className={styles.workspaceNameChevron} />
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup render={<TooltipPopup kbd={globalHotkeys.selectProject.hotkey} />}>
+										{globalHotkeys.selectProject.meta.name}
+									</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+						<ActivitySpinner />
+					</div>
 
-				<div className={styles.workspaceControlsActions}>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							aria-label={workspaceHotkeys.updateWorkspace.meta.name}
-							className={getButtonClassName({ iconOnly: true })}
-							onClick={updateWorkspace}
-							// We pass `disabled` here because we want to disable the button, not
-							// the tooltip. Other props should be passed above.
-							render={<Button focusableWhenDisabled disabled={!canUpdateWorkspace} />}
-						>
-							<Icon name="arrow-line-down" />
-						</Tooltip.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup
-									render={<TooltipPopup kbd={workspaceHotkeys.updateWorkspace.hotkey} />}
-								>
-									{workspaceHotkeys.updateWorkspace.meta.name}
-								</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
+					<div className={styles.workspaceControlsActions}>
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								aria-label={workspaceHotkeys.updateWorkspace.meta.name}
+								className={getButtonClassName({ iconOnly: true })}
+								onClick={updateWorkspace}
+								// We pass `disabled` here because we want to disable the button, not
+								// the tooltip. Other props should be passed above.
+								render={<Button focusableWhenDisabled disabled={!canUpdateWorkspace} />}
+							>
+								<Icon name="arrow-line-down" />
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={<TooltipPopup kbd={workspaceHotkeys.updateWorkspace.hotkey} />}
+									>
+										{workspaceHotkeys.updateWorkspace.meta.name}
+									</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
 
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							aria-label={workspaceHotkeys.createIndependentBranch.meta.name}
-							className={getButtonClassName({ iconOnly: true })}
-							onClick={createIndependentBranch}
-							// We pass `disabled` here because we want to disable the button, not
-							// the tooltip. Other props should be passed above.
-							render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
-						>
-							{branchCreateMutation.isPending ? <Icon name="spinner" /> : <Icon name="plus" />}
-						</Tooltip.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup
-									render={<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />}
-								>
-									{workspaceHotkeys.createIndependentBranch.meta.name}
-								</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								aria-label={workspaceHotkeys.createIndependentBranch.meta.name}
+								className={getButtonClassName({ iconOnly: true })}
+								onClick={createIndependentBranch}
+								// We pass `disabled` here because we want to disable the button, not
+								// the tooltip. Other props should be passed above.
+								render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
+							>
+								{branchCreateMutation.isPending ? <Icon name="spinner" /> : <Icon name="plus" />}
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />}
+									>
+										{workspaceHotkeys.createIndependentBranch.meta.name}
+									</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
 
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							aria-label={workspaceHotkeys.applyBranch.meta.name}
-							className={getButtonClassName({ iconOnly: true })}
-							onClick={openApplyBranchPicker}
-							// We pass `disabled` here because we want to disable the button, not
-							// the tooltip. Other props should be passed above.
-							render={<Button focusableWhenDisabled disabled={!canApplyBranch} />}
-						>
-							<Icon name="branch" />
-						</Tooltip.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}>
-									{workspaceHotkeys.applyBranch.meta.name}
-								</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
-				</div>
-			</header>
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								aria-label={workspaceHotkeys.applyBranch.meta.name}
+								className={getButtonClassName({ iconOnly: true })}
+								onClick={openApplyBranchPicker}
+								// We pass `disabled` here because we want to disable the button, not
+								// the tooltip. Other props should be passed above.
+								render={<Button focusableWhenDisabled disabled={!canApplyBranch} />}
+							>
+								<Icon name="branch" />
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
+									>
+										{workspaceHotkeys.applyBranch.meta.name}
+									</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+					</div>
+				</header>
 
-			<div className={styles.navContainer}>
 				<ToggleGroup render={<ToggleGroupStyles />} aria-label="Navigation" value={["workspace"]}>
 					<Toggle render={<ToggleStyles />} value="workspace">
 						<Icon name="workbench" />
@@ -273,9 +275,7 @@ export const Outline: FC<
 						Branches
 					</Toggle>
 				</ToggleGroup>
-			</div>
 
-			<div className={styles.commitFormContainer}>
 				<CommitForm
 					projectId={projectId}
 					commitTarget={commitTarget}
