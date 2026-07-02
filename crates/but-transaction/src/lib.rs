@@ -303,17 +303,59 @@ where
         source_branch: &FullNameRef,
         target_branch: &FullNameRef,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, _, _| {
+        let ws_meta = self.rebase(|editor, _, _| {
             let outcome = but_workspace::branch::move_branch(editor, source_branch, target_branch)?;
-            Ok(((), outcome.rebase))
-        })
+            Ok((outcome.ws_meta, outcome.rebase))
+        })?;
+
+        self.record_workspace_metadata_update(ws_meta)?;
+
+        Ok(())
     }
 
     pub fn tear_off_branch(&mut self, source_branch: &FullNameRef) -> anyhow::Result<()> {
-        self.rebase(|editor, _, _| {
+        let ws_meta = self.rebase(|editor, _, _| {
             let outcome = but_workspace::branch::tear_off_branch(editor, source_branch, None)?;
-            Ok(((), outcome.rebase))
-        })
+            Ok((outcome.ws_meta, outcome.rebase))
+        })?;
+
+        self.record_workspace_metadata_update(ws_meta)?;
+
+        Ok(())
+    }
+
+    fn record_workspace_metadata_update(
+        &mut self,
+        ws_meta: Option<ref_metadata::Workspace>,
+    ) -> anyhow::Result<()> {
+        let Some(mut ws_meta) = ws_meta else {
+            return Ok(());
+        };
+
+        let workspace = self
+            .inner
+            .rebase
+            .as_ref()
+            .expect("rebase is always Some(_)")
+            .overlayed_graph()?
+            .into_workspace()?;
+
+        let ref_name = workspace
+            .ref_name()
+            .context("workspace metadata update requires workspace ref")?
+            .to_owned();
+
+        ws_meta.set_project_meta(workspace.graph.project_meta.clone());
+
+        self.inner
+            .pending_metadata_updates
+            .push(PendingMetadataUpdate::Workspace(RecordingMetadataHandle {
+                name: ref_name,
+                value: ws_meta,
+                is_default: false,
+            }));
+
+        Ok(())
     }
 
     pub fn create_reference<'name>(

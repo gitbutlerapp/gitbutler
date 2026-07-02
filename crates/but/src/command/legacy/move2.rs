@@ -428,14 +428,11 @@ fn resolve(
             }
         }
         (Some(None), None, None, false) => match resolved_sources {
-            ResolvedSources::Branch(branch) => Err(bad_input("Invalid target for branch source")
-                .arg_name("--branch")
-                .hint(format!(
-                    "Trying to unstack {}? Use `--unstack '{}'` instead!",
-                    branch.shorten(),
-                    branch.shorten()
-                ))
-                .into()),
+            ResolvedSources::Branch(source_branch) => {
+                Ok(MoveOperation::UnstackBranch(UnstackBranchOperation {
+                    source_branch,
+                }))
+            }
             ResolvedSources::Commits {
                 resolved_commits: sources,
                 ..
@@ -465,13 +462,22 @@ fn resolve(
                     source_branch,
                 }))
             }
-            other => Err(bad_input(format!(
-                "Cannot unstack {}, only a branch source is allowed with `--unstack`",
-                other.display_kind()
-            ))
-            .arg_name("<SOURCES>")
-            .hint("Trying to move stuff to a new branch? Use the `--branch` argument instead!")
-            .into()),
+            ResolvedSources::Commits {
+                resolved_commits,
+                args: _,
+            } => Ok(MoveOperation::CommitsToNewBranch(
+                MoveCommitsToNewBranchOperation {
+                    sources: resolved_commits,
+                    branch_name: None,
+                },
+            )),
+            ResolvedSources::CommittedChanges((source_commit_id, changes)) => Ok(
+                MoveOperation::ChangesToNewBranch(MoveChangesToNewBranchOperation {
+                    source_commit_id,
+                    changes,
+                    branch_name: None,
+                }),
+            ),
         },
         _ => unreachable!("BUG: Targeting group is required"),
     }
@@ -572,16 +578,6 @@ enum ResolvedSources {
     },
     CommittedChanges((gix::ObjectId, NonEmpty<DiffSpec>)),
     Branch(FullName),
-}
-
-impl ResolvedSources {
-    fn display_kind(&self) -> String {
-        match self {
-            Self::Commits { .. } => String::from("commits"),
-            Self::CommittedChanges(_) => String::from("committed changes"),
-            Self::Branch(_) => String::from("a branch"),
-        }
-    }
 }
 
 fn resolve_sources(
