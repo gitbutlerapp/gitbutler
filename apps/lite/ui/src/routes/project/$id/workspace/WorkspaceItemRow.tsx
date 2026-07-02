@@ -14,12 +14,21 @@ const isFromInteractiveDescendant = (event: MouseEvent<HTMLDivElement>): boolean
 export const WorkspaceItemRow: FC<
 	{
 		isSelected?: boolean;
+		suppressSelectedStyles?: boolean;
 		onSelect?: () => void;
 		/** @default false */
 		isHighlighted?: boolean;
 		interactive?: boolean;
 	} & Omit<ComponentProps<"div">, "onSelect">
-> = ({ isSelected, onSelect, isHighlighted, interactive = true, ref: refProp, ...props }) => {
+> = ({
+	isSelected,
+	suppressSelectedStyles,
+	onSelect,
+	isHighlighted,
+	interactive = true,
+	ref: refProp,
+	...props
+}) => {
 	const rowRef = useRef<HTMLDivElement | null>(null);
 	const mergedRef = useMergedRefs(rowRef, refProp);
 
@@ -41,6 +50,7 @@ export const WorkspaceItemRow: FC<
 				props.className,
 				styles.container,
 				isSelected && styles.containerSelected,
+				suppressSelectedStyles && styles.containerSuppressSelected,
 				isHighlighted && styles.containerHighlighted,
 				interactive && styles.containerInteractive,
 			)}

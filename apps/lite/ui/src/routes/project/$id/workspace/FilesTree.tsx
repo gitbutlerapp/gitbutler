@@ -228,12 +228,16 @@ const ItemRow: FC<
 > = ({ onFileSelection, projectId, path, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const isSelected = useIsSelected({ projectId, path });
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const isPointerTransferActive =
+		outlineMode._tag === "Transfer" && outlineMode.value._tag === "Pointer";
 
 	return (
 		<WorkspaceItemRow
 			{...props}
 			inert={!navigationIndexIncludes(navigationIndex, path, identity)}
 			isSelected={isSelected}
+			suppressSelectedStyles={isPointerTransferActive}
 			onSelect={() => onFileSelection(path)}
 		/>
 	);
