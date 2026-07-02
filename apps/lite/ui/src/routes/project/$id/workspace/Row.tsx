@@ -1,7 +1,7 @@
 import { classes } from "#ui/components/classes.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ComponentProps, FC, MouseEvent, useLayoutEffect, useRef } from "react";
-import styles from "./WorkspaceItemRow.module.css";
+import styles from "./Row.module.css";
 import { mergeProps, useRender } from "@base-ui/react";
 import { Match } from "effect";
 
@@ -11,7 +11,7 @@ const isFromInteractiveDescendant = (event: MouseEvent<HTMLDivElement>): boolean
 	return interactiveElement !== null && event.currentTarget.contains(interactiveElement);
 };
 
-export const WorkspaceItemRow: FC<
+export const Row: FC<
 	{
 		isSelected?: boolean;
 		onSelect?: () => void;
@@ -68,11 +68,11 @@ export const WorkspaceItemRow: FC<
 	);
 };
 
-export const WorkspaceItemRowLabelContainer: FC<ComponentProps<"div">> = (props) => (
+export const RowLabelContainer: FC<ComponentProps<"div">> = (props) => (
 	<div {...props} className={classes(props.className, styles.labelContainer)} />
 );
 
-export const WorkspaceItemRowLabel: FC<
+export const RowLabel: FC<
 	{ heading?: boolean; singleLine?: boolean } & useRender.ComponentProps<"div">
 > = ({ heading, singleLine, render, ...props }) =>
 	useRender({
@@ -87,11 +87,11 @@ export const WorkspaceItemRowLabel: FC<
 		}),
 	});
 
-type WorkspaceItemRowBubbleVariant = "fillGray" | "safe" | "danger";
+type RowBubbleVariant = "fillGray" | "safe" | "danger";
 
-export const WorkspaceItemRowBubble: FC<
+export const RowBubble: FC<
 	{
-		variant: WorkspaceItemRowBubbleVariant;
+		variant: RowBubbleVariant;
 	} & ComponentProps<"span">
 > = ({ variant, ...props }) => (
 	<span
@@ -111,11 +111,11 @@ export const WorkspaceItemRowBubble: FC<
 	/>
 );
 
-export const WorkspaceItemRowBubbleGroup: FC<ComponentProps<"span">> = (props) => (
+export const RowBubbleGroup: FC<ComponentProps<"span">> = (props) => (
 	<span {...props} className={classes(props.className, styles.bubbleGroup)} />
 );
 
-export const WorkspaceItemRowToolbar: FC<{ forceVisible?: boolean } & ComponentProps<"div">> = ({
+export const RowToolbar: FC<{ forceVisible?: boolean } & ComponentProps<"div">> = ({
 	forceVisible,
 	...props
 }) => (

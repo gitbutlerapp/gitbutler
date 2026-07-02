@@ -1,4 +1,4 @@
-import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
+import rowStyles from "./Row.module.css";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
@@ -19,13 +19,8 @@ import { useQuery } from "@tanstack/react-query";
 import { identity, Match } from "effect";
 import { ComponentProps, createContext, FC, use, useRef } from "react";
 import styles from "./FilesTree.module.css";
-import {
-	WorkspaceItemRow,
-	WorkspaceItemRowLabel,
-	WorkspaceItemRowLabelContainer,
-	WorkspaceItemRowToolbar,
-} from "./WorkspaceItemRow.tsx";
-import { getWorkspaceItemRowButtonClassName } from "./WorkspaceItemRow-utils.ts";
+import { Row, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
+import { getRowButtonClassName } from "./Row-utils.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
 import {
@@ -159,13 +154,11 @@ export const FilesTree: FC<
 			>
 				<div className={styles.section}>
 					{items.length === 0 ? (
-						<WorkspaceItemRow interactive={false}>
-							<WorkspaceItemRowLabelContainer>
-								<WorkspaceItemRowLabel className={workspaceItemRowStyles.fadedText}>
-									No changes.
-								</WorkspaceItemRowLabel>
-							</WorkspaceItemRowLabelContainer>
-						</WorkspaceItemRow>
+						<Row interactive={false}>
+							<RowLabelContainer>
+								<RowLabel className={rowStyles.fadedText}>No changes.</RowLabel>
+							</RowLabelContainer>
+						</Row>
 					) : (
 						// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- New lint violation.
 						<div role="group">
@@ -224,13 +217,13 @@ const ItemRow: FC<
 		onFileSelection: (selection: string) => void;
 		projectId: string;
 		path: string;
-	} & Omit<ComponentProps<typeof WorkspaceItemRow>, "inert" | "isSelected" | "onSelect">
+	} & Omit<ComponentProps<typeof Row>, "inert" | "isSelected" | "onSelect">
 > = ({ onFileSelection, projectId, path, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const isSelected = useIsSelected({ projectId, path });
 
 	return (
-		<WorkspaceItemRow
+		<Row
 			{...props}
 			inert={!navigationIndexIncludes(navigationIndex, path, identity)}
 			isSelected={isSelected}
@@ -325,26 +318,24 @@ const FileRow: FC<
 					</Tooltip.Root>
 				</div>
 
-				<WorkspaceItemRowLabelContainer>
+				<RowLabelContainer>
 					{item._tag === "Conflict" && "⚠️"}
-					<WorkspaceItemRowLabel singleLine className={styles.filePath}>
+					<RowLabel singleLine className={styles.filePath}>
 						{fileName}
 						{directoryPath !== null && (
-							<span className={classes(styles.pathInit, workspaceItemRowStyles.fadedText)}>
-								{directoryPath}
-							</span>
+							<span className={classes(styles.pathInit, rowStyles.fadedText)}>{directoryPath}</span>
 						)}
-					</WorkspaceItemRowLabel>
-				</WorkspaceItemRowLabelContainer>
+					</RowLabel>
+				</RowLabelContainer>
 
 				{outlineMode._tag === "Default" && (
-					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
+					<Toolbar.Root aria-label="File actions" render={<RowToolbar />}>
 						<Toolbar.Button
 							aria-label="File menu"
 							onClick={(event) => {
 								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 							}}
-							className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+							className={getRowButtonClassName({ iconOnly: true })}
 						>
 							<Icon name="kebab" />
 						</Toolbar.Button>
@@ -355,17 +346,14 @@ const FileRow: FC<
 					item._tag === "Change" &&
 					fileParent._tag === "UncommittedChanges" &&
 					item.dependencyCommitIds && (
-						<Toolbar.Root
-							aria-label="File actions"
-							render={<WorkspaceItemRowToolbar forceVisible />}
-						>
+						<Toolbar.Root aria-label="File actions" render={<RowToolbar forceVisible />}>
 							<Toolbar.Button
 								render={
 									<DependencyIndicator
 										projectId={projectId}
 										commitIds={item.dependencyCommitIds}
 										branchNameByCommitId={branchNameByCommitId}
-										className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+										className={getRowButtonClassName({ iconOnly: true })}
 									/>
 								}
 							>

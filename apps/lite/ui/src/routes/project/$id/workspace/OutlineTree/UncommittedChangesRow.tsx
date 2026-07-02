@@ -17,14 +17,8 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { AbsorptionTarget, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { FC } from "react";
-import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
-import {
-	WorkspaceItemRowBubble,
-	WorkspaceItemRowBubbleGroup,
-	WorkspaceItemRowLabel,
-	WorkspaceItemRowLabelContainer,
-	WorkspaceItemRowToolbar,
-} from "../WorkspaceItemRow.tsx";
+import { getRowButtonClassName } from "../Row-utils.ts";
+import { RowBubble, RowBubbleGroup, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { ItemRow } from "./ItemRow.tsx";
 import { useQueries } from "@tanstack/react-query";
 import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
@@ -132,40 +126,33 @@ export const UncommittedChangesRow: FC<{
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
-			<WorkspaceItemRowLabelContainer>
-				<WorkspaceItemRowLabel heading>
+			<RowLabelContainer>
+				<RowLabel heading>
 					{changes.length === 0 ? "Nothing to commit" : "Uncommitted changes"}
-				</WorkspaceItemRowLabel>
+				</RowLabel>
 
-				<WorkspaceItemRowBubble variant="fillGray">{changes.length}</WorkspaceItemRowBubble>
+				<RowBubble variant="fillGray">{changes.length}</RowBubble>
 
 				{(lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
-					<WorkspaceItemRowBubbleGroup>
+					<RowBubbleGroup>
 						{lineStats.linesAdded > 0 && (
-							<WorkspaceItemRowBubble variant="safe">
-								+{lineStats.linesAdded}
-							</WorkspaceItemRowBubble>
+							<RowBubble variant="safe">+{lineStats.linesAdded}</RowBubble>
 						)}
 						{lineStats.linesRemoved > 0 && (
-							<WorkspaceItemRowBubble variant="danger">
-								-{lineStats.linesRemoved}
-							</WorkspaceItemRowBubble>
+							<RowBubble variant="danger">-{lineStats.linesRemoved}</RowBubble>
 						)}
-					</WorkspaceItemRowBubbleGroup>
+					</RowBubbleGroup>
 				)}
-			</WorkspaceItemRowLabelContainer>
+			</RowLabelContainer>
 
 			{isDefaultMode && (
-				<Toolbar.Root
-					aria-label="Uncommitted changes actions"
-					render={<WorkspaceItemRowToolbar forceVisible />}
-				>
+				<Toolbar.Root aria-label="Uncommitted changes actions" render={<RowToolbar forceVisible />}>
 					<Toolbar.Button
 						aria-label="Uncommitted changes menu"
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+						className={getRowButtonClassName({ iconOnly: true })}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>

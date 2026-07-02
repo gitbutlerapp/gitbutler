@@ -1,4 +1,4 @@
-import workspaceItemRowStyles from "../WorkspaceItemRow.module.css";
+import rowStyles from "../Row.module.css";
 import {
 	useBranchCreate,
 	useCommitAmend,
@@ -41,12 +41,8 @@ import { Toast, Tooltip } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { useQuery } from "@tanstack/react-query";
 import { ComponentProps, FC, use, useOptimistic, useTransition } from "react";
-import {
-	WorkspaceItemRowLabel,
-	WorkspaceItemRowLabelContainer,
-	WorkspaceItemRowToolbar,
-} from "../WorkspaceItemRow.tsx";
-import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
+import { RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
+import { getRowButtonClassName } from "../Row-utils.ts";
 import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
 import { commitMessageInputId } from "./CommitForm.tsx";
 import { InlineEditor } from "./InlineEditor.tsx";
@@ -417,26 +413,26 @@ export const CommitRow: FC<
 					onExit={endEditing}
 				/>
 			) : (
-				<WorkspaceItemRowLabelContainer>
-					<WorkspaceItemRowLabel singleLine>
+				<RowLabelContainer>
+					<RowLabel singleLine>
 						{title === undefined ? (
-							<span className={workspaceItemRowStyles.fadedText}>(no message)</span>
+							<span className={rowStyles.fadedText}>(no message)</span>
 						) : (
 							title
 						)}
 						{hasConflicts && " ⚠️"}
-					</WorkspaceItemRowLabel>
-				</WorkspaceItemRowLabelContainer>
+					</RowLabel>
+				</RowLabelContainer>
 			)}
 
 			{isDefaultMode && (
-				<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
+				<Toolbar.Root aria-label="Commit actions" render={<RowToolbar />}>
 					<Toolbar.Button
 						aria-label="Commit menu"
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+						className={getRowButtonClassName({ iconOnly: true })}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>

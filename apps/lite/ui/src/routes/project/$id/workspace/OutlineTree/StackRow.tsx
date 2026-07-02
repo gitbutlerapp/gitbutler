@@ -14,12 +14,8 @@ import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { BottomUpdate, Stack } from "@gitbutler/but-sdk";
 import { ComponentProps, FC } from "react";
-import { getWorkspaceItemRowButtonClassName } from "../WorkspaceItemRow-utils.ts";
-import {
-	WorkspaceItemRow,
-	WorkspaceItemRowLabelContainer,
-	WorkspaceItemRowToolbar,
-} from "../WorkspaceItemRow.tsx";
+import { getRowButtonClassName } from "../Row-utils.ts";
+import { Row, RowLabelContainer, RowToolbar } from "../Row.tsx";
 
 export const StackRow: FC<
 	{
@@ -69,28 +65,28 @@ export const StackRow: FC<
 	];
 
 	return (
-		<WorkspaceItemRow
+		<Row
 			{...restProps}
 			interactive={false}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
-			<WorkspaceItemRowLabelContainer />
+			<RowLabelContainer />
 
 			{isDefaultMode && (
-				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar forceVisible />}>
+				<Toolbar.Root aria-label="Stack actions" render={<RowToolbar forceVisible />}>
 					<Toolbar.Button
 						aria-label="Stack menu"
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+						className={getRowButtonClassName({ iconOnly: true })}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
 				</Toolbar.Root>
 			)}
-		</WorkspaceItemRow>
+		</Row>
 	);
 };

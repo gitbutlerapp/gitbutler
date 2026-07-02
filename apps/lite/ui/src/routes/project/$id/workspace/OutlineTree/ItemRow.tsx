@@ -1,5 +1,5 @@
 import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
-import { WorkspaceItemRow } from "../WorkspaceItemRow.tsx";
+import { Row } from "../Row.tsx";
 import { projectActions } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { operandIdentityKey, type Operand } from "#ui/operands.ts";
@@ -43,7 +43,7 @@ export const ItemRow: FC<
 		projectId: string;
 		operand: Operand;
 		isCommitTarget?: boolean;
-	} & Omit<ComponentProps<typeof WorkspaceItemRow>, "inert" | "isSelected" | "onSelect">
+	} & Omit<ComponentProps<typeof Row>, "inert" | "isSelected" | "onSelect">
 > = ({ projectId, operand, isCommitTarget, ...props }) => {
 	const dispatch = useAppDispatch();
 	const navigationIndex = assert(use(NavigationIndexContext));
@@ -54,7 +54,7 @@ export const ItemRow: FC<
 
 	return (
 		<div className={styles.container}>
-			<WorkspaceItemRow
+			<Row
 				{...props}
 				inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 				isSelected={isSelected}

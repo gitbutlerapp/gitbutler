@@ -1,9 +1,9 @@
 import { ButtonVariant, getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Match } from "effect";
-import styles from "./WorkspaceItemRow.module.css";
+import styles from "./Row.module.css";
 
-export const getWorkspaceItemRowButtonClassName = ({
+export const getRowButtonClassName = ({
 	variant = "ghost",
 	iconOnly = false,
 }: {
