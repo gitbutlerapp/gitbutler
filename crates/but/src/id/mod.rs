@@ -729,11 +729,31 @@ impl IdMap {
 /// Private methods to individually parse what can appear on both side of a
 /// colon. (Some of them can also appear alone.)
 impl IdMap {
-    fn parse_uncommitted_filename<'a>(
+    /// Bare path token (e.g. `foo.txt`): any entry in [`Self::uncommitted_files`] with this path,
+    /// whether assigned to a stack or in the uncommitted area (`zz`).
+    ///
+    /// For stack-scoped resolution (e.g. `branch@{stack}:file.txt`), use
+    /// [`StackWithId::parse`] instead.
+    fn parse_uncommitted_filename<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
+        self.parse_uncommitted_filename_where(element, |_| true)
+    }
+
+    /// After [`UNCOMMITTED`] (`zz:`): entries in [`Self::uncommitted_files`] that are in the
+    /// uncommitted area (not assigned to a stack).
+    fn parse_uncommitted_area_filename<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
+        self.parse_uncommitted_filename_where(element, |hunk_assignment| {
+            hunk_assignment.stack_id.is_none()
+        })
+    }
+
+    fn parse_uncommitted_filename_where<'a, F>(
         &'a self,
-        stack_id: Option<StackId>,
         element: &str,
-    ) -> Vec<Box<dyn Node<'a> + 'a>> {
+        include: F,
+    ) -> Vec<Box<dyn Node<'a> + 'a>>
+    where
+        F: Fn(&HunkAssignment) -> bool,
+    {
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
         for uncommitted_file in self.uncommitted_files.values() {
             let hunk_assignments = uncommitted_file.hunk_assignments();
@@ -741,9 +761,7 @@ impl IdMap {
             // TODO once the set of allowed CLI IDs is determined and the
             // access patterns of `uncommitted_files` are known, change its data
             // structure to be more efficient than the current linear search.
-            if hunk_assignment.stack_id == stack_id
-                && hunk_assignment.path_bytes == element.as_bytes()
-            {
+            if hunk_assignment.path_bytes == element.as_bytes() && include(hunk_assignment) {
                 matches.push(Box::new(uncommitted_file));
             }
         }
@@ -810,7 +828,7 @@ impl IdMap {
                 }
             }
         }
-        matches.extend(self.parse_uncommitted_filename(None, element));
+        matches.extend(self.parse_uncommitted_filename(element));
 
         // The following match only if there have been no matches so far.
         if !matches.is_empty() {
@@ -896,7 +914,7 @@ impl IdMap {
                     id_map: &'a IdMap,
                     _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
                 ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-                    Ok(id_map.parse_uncommitted_filename(None, element))
+                    Ok(id_map.parse_uncommitted_area_filename(element))
                 }
 
                 fn to_cli_id(

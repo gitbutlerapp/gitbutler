@@ -1045,6 +1045,54 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     ]
     "#);
 
+    // `zz:` is scoped to the uncommitted area only; staged files are not visible here.
+    insta::assert_debug_snapshot!(id_map.parse("zz:assigned", Box::new(changed_paths_fn))?, @"[]");
+
+    Ok(())
+}
+
+#[test]
+fn non_colon_uncommitted_filename() -> anyhow::Result<()> {
+    let stacks = vec![stack([segment("unused", [id(1)], None, [])])];
+    let hunk_assignments = vec![hunk_assignment(
+        "assigned",
+        Some(StackId::from_number_for_testing(1)),
+    )];
+    let id_map = IdMap::new(stacks, hunk_assignments)?;
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        bail!("unexpected IDs {commit_id} {parent_id:?}");
+    };
+
+    // Bare path resolves staged files too.
+    insta::assert_debug_snapshot!(id_map.parse("assigned", Box::new(changed_paths_fn))?, @r#"
+    [
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
+                id: "mv",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "assigned",
+                        stack_id: Some(
+                            00000000-0000-0000-0000-000000000001,
+                        ),
+                        branch_ref_bytes: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
+
     Ok(())
 }
 

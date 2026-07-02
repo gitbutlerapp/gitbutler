@@ -1303,6 +1303,46 @@ Error: Invalid file ID(s):
 }
 
 #[test]
+fn commit_with_bare_path_on_staged_file() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("foo.txt", "hello");
+    env.but("stage foo.txt A").assert().success();
+
+    env.but("commit -p foo.txt -m 'test commit'")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+✓ Created commit [..] on branch A
+
+"#]]);
+
+    let log = env.git_log();
+    assert!(log.contains("test commit"));
+
+    Ok(())
+}
+
+#[test]
+fn commit_with_zz_prefix_on_staged_file_fails() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("foo.txt", "hello");
+    env.but("stage foo.txt A").assert().success();
+
+    env.but("commit -p zz:foo.txt -m 'test commit'")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Invalid file ID(s):
+  'zz:foo.txt' not found. Run 'but status' to see available file IDs.
+
+"#]]);
+}
+
+#[test]
 fn commit_with_file_assigned_to_different_stack_fails() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
