@@ -589,6 +589,32 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // later pass (anonymize / empty-branch splicing) floats that local up into its own empty segment,
         // the remote's sibling is left pointing at the now-anonymous segment below. Re-establish the
         // walk's invariant — a remote `origin/X` is the sibling of the local segment named `X`.
+        // A segment still ANONYMOUS after all naming passes takes the name the RAW WALK gave it, when
+        // that name is a plain local branch not already naming another segment. The walk's naming is
+        // traversal-order dependent and cannot be reproduced statically; this only ADDS names where
+        // the derived passes had no opinion — it never overrides their demotions.
+        for sidx in sg.node_indices().collect::<Vec<_>>() {
+            let Some(first) = sg
+                .node(sidx)
+                .filter(|s| s.ref_info.is_none())
+                .and_then(|s| s.commits.first().map(|c| c.id))
+            else {
+                continue;
+            };
+            if let Some(name) = cg
+                .walk_name_of(first)
+                .filter(|n| is_plain_local_branch(n))
+                .cloned()
+                && segment_by_ref(&sg, &name).is_none()
+                && let Some(s) = sg.node_mut(sidx)
+            {
+                s.ref_info = Some(RefInfo {
+                    ref_name: name,
+                    commit_id: Some(first),
+                    worktree: None,
+                });
+            }
+        }
         // Naming passes (anchor naming, metadata-order renames, floats) don't carry remote-tracking
         // names — backfill them so any named local segment knows its remote, as segments named at
         // creation time do.
@@ -1270,8 +1296,32 @@ fn anonymize_shared_stack_tips(
         if !has_ref || !shared {
             continue;
         }
-        // Float the ref onto a new empty placeholder segment.
-        let ref_info = sg.node_mut(p_sidx).expect("present").ref_info.take();
+        // Float the ref onto a new empty placeholder segment. The walk floats the TIP-SEEDED
+        // (traversal) name; when build-time disambiguation picked a different ref (e.g. the
+        // remote-tracked `main` over the stack's `lane`), float the walk's choice and return
+        // the displaced name to the commit as a passive ref.
+        let mut ref_info = sg.node_mut(p_sidx).expect("present").ref_info.take();
+        if let Some(walk_name) = cg
+            .walk_name_of(parent)
+            .filter(|n| {
+                is_plain_local_branch(n) && ref_info.as_ref().is_none_or(|ri| ri.ref_name != **n)
+            })
+            .cloned()
+            && segment_by_ref(sg, &walk_name).is_none()
+        {
+            let displaced = ref_info.replace(RefInfo {
+                ref_name: walk_name,
+                commit_id: Some(parent),
+                worktree: None,
+            });
+            if let Some(displaced) = displaced
+                && let Some(c0) = sg.node_mut(p_sidx).and_then(|s| s.commits.first_mut())
+                && !c0.refs.iter().any(|r| r.ref_name == displaced.ref_name)
+            {
+                c0.refs.push(displaced);
+                c0.refs.sort_by(|a, b| a.ref_name.cmp(&b.ref_name));
+            }
+        }
         if let Some(s) = sg.node_mut(p_sidx) {
             s.remote_tracking_ref_name = None;
             s.remote_tracking_branch_segment_id = None;
