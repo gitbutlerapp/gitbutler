@@ -179,8 +179,9 @@ export const FilesTree: FC<
 											render={
 												<FileRow
 													item={item}
-													path={item.path}
-													onFileSelection={onFileSelection}
+													inert={!navigationIndexIncludes(navigationIndex, item.path, identity)}
+													isSelected={selection !== null && selection === item.path}
+													onSelect={() => onFileSelection(item.path)}
 													projectId={projectId}
 													fileParent={fileParent}
 													branchNameByCommitId={(cid) =>
@@ -212,26 +213,6 @@ const useIsSelected = ({ projectId, path }: { projectId: string; path: string })
 
 const treeItemId = (path: string): string => `files-treeitem-${encodeURIComponent(path)}`;
 
-const ItemRow: FC<
-	{
-		onFileSelection: (selection: string) => void;
-		projectId: string;
-		path: string;
-	} & Omit<ComponentProps<typeof Row>, "inert" | "isSelected" | "onSelect">
-> = ({ onFileSelection, projectId, path, ...props }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useIsSelected({ projectId, path });
-
-	return (
-		<Row
-			{...props}
-			inert={!navigationIndexIncludes(navigationIndex, path, identity)}
-			isSelected={isSelected}
-			onSelect={() => onFileSelection(path)}
-		/>
-	);
-};
-
 const TreeItem: FC<
 	{
 		projectId: string;
@@ -257,7 +238,7 @@ const FileRow: FC<
 		projectId: string;
 		fileParent: FileParent;
 		branchNameByCommitId?: (commitId: string) => string | undefined;
-	} & Omit<ComponentProps<typeof ItemRow>, "projectId">
+	} & Omit<ComponentProps<typeof Row>, "projectId">
 > = ({ item, projectId, fileParent, branchNameByCommitId, id, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
@@ -285,10 +266,8 @@ const FileRow: FC<
 				// https://github.com/mui/base-ui/issues/5108
 				id={id}
 				render={
-					<ItemRow
+					<Row
 						{...restProps}
-						projectId={projectId}
-						path={item.path}
 						className={classes(restProps.className, styles.fileRow)}
 						onContextMenu={(event) => {
 							void showNativeContextMenu(event, menuItems);
