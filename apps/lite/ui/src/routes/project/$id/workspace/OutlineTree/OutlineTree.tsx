@@ -1,5 +1,4 @@
 import rowStyles from "../Row.module.css";
-import uiStyles from "#ui/components/ui.module.css";
 import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import { relativeToEquals } from "#ui/api/relative-to.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -41,6 +40,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { ComponentProps, createContext, FC, Fragment, use, useRef } from "react";
+import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import styles from "./OutlineTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "../Row.tsx";
 import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
@@ -64,6 +64,10 @@ import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.t
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
 const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(null);
+
+// This must be unique as to not collide with other IDs, and stable because it's
+// stored in local storage.
+type PanelId = "uncommitted-changes-panel" | "stacks-panel";
 
 export const OutlineTree: FC<
 	{
@@ -106,6 +110,11 @@ export const OutlineTree: FC<
 	const dryRunWorkspace = dryRunOperationQuery.data?.workspace ?? null;
 
 	const ref = useRef<HTMLDivElement>(null);
+	const layoutId = `project=${projectId}:outline-tree`;
+	const outlineLayout = useDefaultLayout({
+		id: layoutId,
+		panelIds: ["uncommitted-changes-panel", "stacks-panel"] satisfies Array<PanelId>,
+	});
 
 	useOutlineTreeHotkeys({
 		navigationIndex,
@@ -117,32 +126,42 @@ export const OutlineTree: FC<
 		<NavigationIndexContext value={navigationIndex}>
 			<AbsorptionTargetKeysContext value={absorptionTargetKeys}>
 				<DryRunWorkspaceContext value={dryRunWorkspace}>
-					<div
+					<Group
 						{...props}
+						id={layoutId}
+						orientation="vertical"
 						tabIndex={0}
 						role="tree"
 						aria-activedescendant={selection ? treeItemId(selection) : undefined}
 						data-has-checked-commits={hasCheckedCommits || undefined}
 						className={classes(props.className, styles.tree)}
-						ref={useMergedRefs(refProp, ref)}
+						defaultLayout={outlineLayout.defaultLayout}
+						onLayoutChanged={outlineLayout.onLayoutChanged}
+						elementRef={useMergedRefs(refProp, ref)}
 					>
-						<div className={styles.uncommittedChangesContainer}>
+						<Panel
+							id={"uncommitted-changes-panel" satisfies PanelId}
+							className={styles.uncommittedChangesContainer}
+							defaultSize={200}
+							minSize={120}
+							groupResizeBehavior="preserve-pixel-size"
+						>
 							<UncommittedChanges projectId={projectId} />
-						</div>
+						</Panel>
 
-						<div className={classes(styles.stacksScroller, uiStyles.scrollerWithSeparator)}>
-							<div className={styles.stacks}>
-								{reverse(headInfo?.stacks ?? []).map((stack) => (
-									<StackC
-										key={stack.id}
-										projectId={projectId}
-										stack={stack}
-										commitTarget={commitTarget?.relativeTo ?? null}
-									/>
-								))}
-							</div>
-						</div>
-					</div>
+						<Separator className={styles.resizeHandle} />
+
+						<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacks} minSize={120}>
+							{reverse(headInfo?.stacks ?? []).map((stack) => (
+								<StackC
+									key={stack.id}
+									projectId={projectId}
+									stack={stack}
+									commitTarget={commitTarget?.relativeTo ?? null}
+								/>
+							))}
+						</Panel>
+					</Group>
 				</DryRunWorkspaceContext>
 			</AbsorptionTargetKeysContext>
 		</NavigationIndexContext>

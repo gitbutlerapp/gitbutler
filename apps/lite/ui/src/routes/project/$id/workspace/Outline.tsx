@@ -284,6 +284,7 @@ export const Outline: FC<
 			</div>
 
 			<OutlineTree
+				className={styles.outlineTree}
 				data-selection-scope={"outline" satisfies SelectionScope}
 				tabIndex={0}
 				navigationIndex={navigationIndex}
