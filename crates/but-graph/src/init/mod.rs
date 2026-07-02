@@ -556,58 +556,11 @@ impl Graph {
         options: Options,
     ) -> anyhow::Result<Self> {
         let head = repo.head()?;
-        // SPIKE flip (BUT_GRAPH_FLIP): build the segment graph from a CommitGraph instead of walking.
-        if std::env::var_os("BUT_GRAPH_FLIP").is_some() {
-            match &head.kind {
-                // Managed workspace: HEAD on the workspace ref.
-                gix::head::Kind::Symbolic(r)
-                    if r.name.as_bstr() == but_core::WORKSPACE_REF_NAME.as_bytes() =>
-                {
-                    if let Some(graph) = crate::graph_from_repository(
-                        repo,
-                        meta,
-                        None,
-                        None,
-                        project_meta.clone(),
-                        options.clone(),
-                    )? {
-                        return Ok(graph);
-                    }
-                }
-                // Non-managed: a plain branch checkout.
-                gix::head::Kind::Symbolic(r) => {
-                    let ref_name = r.name.clone();
-                    let tip = repo
-                        .find_reference(ref_name.as_ref())?
-                        .peel_to_id()?
-                        .detach();
-                    return crate::graph_from_repository_unmanaged(
-                        repo,
-                        meta,
-                        tip,
-                        Some(ref_name),
-                        true,
-                        project_meta.clone(),
-                        options.clone(),
-                    );
-                }
-                // Detached HEAD: the tip is forced anonymous, no worktree marker, no ref name.
-                gix::head::Kind::Detached { target, peeled } => {
-                    let tip = peeled.unwrap_or(*target);
-                    return crate::graph_from_repository_unmanaged(
-                        repo,
-                        meta,
-                        tip,
-                        None,
-                        false,
-                        project_meta.clone(),
-                        options.clone(),
-                    );
-                }
-                // Unborn: no commit to build from — fall through to the direct empty-segment path.
-                _ => {}
-            }
-        }
+        // The BUT_GRAPH_FLIP dispatch lives in `from_commit_traversal` (which every case below
+        // delegates to): a checkout inside a managed workspace — including HEAD on the workspace
+        // ref itself — builds from a CommitGraph; everything else stays on the walk. The
+        // non-managed builder (`graph_from_repository_unmanaged`) is not parity-proven yet and is
+        // deliberately NOT routed to.
         let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {
@@ -733,18 +686,30 @@ impl Graph {
         let tip = tip.detach();
         let ref_name = ref_name.into();
         // SPIKE flip: if the entrypoint is inside a managed workspace, build from a CommitGraph (with an
-        // entrypoint split). Falls through to the walk for adhoc / outside entrypoints.
+        // entrypoint split). Falls through to the walk for adhoc / outside entrypoints. A workspace-ref
+        // tip is the plain from_head case (no explicit entrypoint). NEVER for raw debugging graphs:
+        // the flip itself runs the raw walk underneath (`CommitGraph::from_walk`), which would recurse.
         if std::env::var_os("BUT_GRAPH_FLIP").is_some()
-            && let Some(graph) = crate::graph_from_repository(
+            && !options.dangerously_skip_postprocessing_for_debugging
+        {
+            let is_ws_tip = ref_name
+                .as_ref()
+                .is_some_and(|r| but_core::is_workspace_ref_name(r.as_ref()));
+            let (entrypoint, entrypoint_ref) = if is_ws_tip {
+                (None, None)
+            } else {
+                (Some(tip), ref_name.clone())
+            };
+            if let Some(graph) = crate::graph_from_repository(
                 repo,
                 meta,
-                Some(tip),
-                ref_name.clone(),
+                entrypoint,
+                entrypoint_ref,
                 project_meta.clone(),
                 options.clone(),
-            )?
-        {
-            return Ok(graph);
+            )? {
+                return Ok(graph);
+            }
         }
         let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
         let tips = initial_tips_from_workspace_metadata(

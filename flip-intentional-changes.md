@@ -1,5 +1,14 @@
 # Intentional graph-behavior changes (CommitGraph flip)
 
+> **STATUS 2026-07-02 — PROJECTION PARITY COMPLETE.** The `BUT_GRAPH_PARITY`
+> sweep (a temporary panic inside `from_commit_traversal` comparing the walk's
+> and the flip's `into_workspace()` fingerprints) passes on the FULL but-graph
+> test suite: **0 divergences across 196 tests** — every `from_head` /
+> `from_commit_traversal` call in the suite, including entrypoint, extra-target,
+> limit, and detached states. The items below describe *structural* (graph-tree)
+> differences that remain by design; the projection they feed is identical.
+> See "Execution readiness" at the bottom for the deletion plan.
+
 As part of replacing the SegmentGraph walk with the CommitGraph-derived build, we
 are **deliberately simplifying** several graph-shaping behaviors. These are not
 bugs in the flip — they are decisions to drop walk behaviors that add complexity
@@ -75,3 +84,49 @@ to add, not remove.
   metadata is retained for PR/branch-info survival; the projection filters them).
 - **#7 shared remote-ahead ownership** — when one commit carries two remote refs,
   how they stack. Deferred.
+
+# Execution readiness (deleting the SegmentGraph walk) — DO NOT EXECUTE YET
+
+Everything below is staged; per Mattias, the old code is NOT deleted until he
+says so.
+
+## Architecture as it stands
+- `graph_from_repository` (managed) runs `CommitGraph::from_walk` — the REAL
+  `Graph::from_commit_traversal` with `dangerously_skip_postprocessing_for_debugging`,
+  flattened by `CommitGraph::from_segment_graph`. Extents, limits, and flags are
+  the walk's by construction; `walk_names` records the traversal's tip-seeded
+  segment names (order-dependent, not statically reproducible). Everything the
+  walk's `post.rs` (~1833 lines) does is reproduced by the flip's derived passes
+  in `commit_graph_to_segment_graph.rs`, verified at the projection level.
+- So the walk's TRAVERSAL is kept (it is good); it is `post.rs` + the projection
+  wiring around the raw segments that the flip replaces.
+
+## Dead on the managed flip path (kept per instruction, delete when executing)
+- `CommitGraph::from_repository_with_limit` / `from_repository` (budgeted BFS
+  include-set) — superseded by `from_walk`; only spike/parity-harness tests use it.
+- `CommitGraph::remark_not_in_remote` — flags now come from the walk.
+- `CommitGraph::mark_integrated` — same.
+- The integrated-ws traversal clip at the top of `graph_from_commit_graph`
+  (goal-set pruning when the ws position itself is Integrated) — `from_walk`
+  already bounds the set; the clip no longer changes anything on that path.
+
+## Sweep instrumentation (remove LAST — task #16)
+Kept togglable in `sweep.patch` (scratchpad), applied to the working tree:
+- `init/mod.rs` `from_commit_traversal`: `BUT_GRAPH_PARITY`-gated panic block
+  (mirrors the production dispatch: ws-ref tip → from_head form, else forwards
+  the entrypoint; skips skip-postprocessing graphs).
+- `projection/workspace/mod.rs`: `Workspace::projection_fingerprint()`.
+Run: `BUT_GRAPH_PARITY=1 cargo test -p but-graph --test graph --no-fail-fast -- --test-threads=1`.
+Commit workflow: `git diff <2 files> > sweep.patch && git restore <2 files>`,
+fmt+commit, `git apply sweep.patch`.
+
+## Flip-default order (task #14+)
+1. Route `Graph::from_head` / `from_commit_traversal` through
+   `graph_from_repository` (managed) / `graph_from_repository_unmanaged`
+   behind `BUT_GRAPH_FLIP`, then default it on.
+2. Re-accept walk snapshots that encode the intentional items above
+   (structural diffs only; projections already agree). #8's list:
+   `minimal_merge*`, `without_target_ref_*managed_commit*`, ….
+3. Run but-workspace / but-rebase / e2e Playwright suites as guardrails (#15).
+4. Delete: `post.rs`, the walk-only projection glue, the dead CommitGraph
+   methods above, then the sweep instrumentation (#16).

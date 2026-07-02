@@ -32,11 +32,15 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     options: crate::init::Options,
 ) -> anyhow::Result<Option<crate::Graph>> {
     let ws_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
-    let ws_commit = repo
-        .find_reference(&ws_ref)?
-        .peel_to_commit()?
-        .id()
-        .detach();
+    // No (usable) workspace ref means no managed workspace — signal fall-through, don't fail:
+    // callers route any repository through here when the flip is enabled.
+    let Some(ws_commit) = repo
+        .try_find_reference(&ws_ref)?
+        .and_then(|mut r| r.peel_to_commit().ok())
+        .map(|c| c.id().detach())
+    else {
+        return Ok(None);
+    };
     // Run the WALK's real traversal (queue, goals, limits, flag propagation) to collect the commits:
     // extents and flags are exactly the walk's, and segments are the derived view built on top.
     let walk_tip = entrypoint.unwrap_or(ws_commit);
@@ -707,6 +711,11 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
     let entrypoint_sidx = if let (Some(ws_seg), None) = (ws_empty_sidx, entrypoint_ref.as_ref()) {
         // from_head into a co-located workspace: the entrypoint is the empty workspace segment.
         Some(ws_seg)
+    } else if let Some(named) = entrypoint_ref.as_ref().and_then(|r| segment_by_ref(&sg, r)) {
+        // The checked-out ref already names a segment — including an EMPTY one spliced in for a
+        // virtual stack branch resting on the workspace base. That segment is the entrypoint, not
+        // the segment owning the commit it points to.
+        Some(named)
     } else {
         split_at_entrypoint_segment(
             &mut sg,
@@ -764,22 +773,11 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         }
     }
 
-    // The ref HEAD points at is checked out in the main worktree (unless HEAD is detached). In the
-    // co-located case the worktree lives on the spliced-in empty workspace segment (set at creation).
-    if head_symbolic
-        && ws_empty_sidx.is_none()
-        && let Some(&ws_sidx) = seg_of_tip.get(&workspace_commit)
-        && let Some(ri) = sg.node_mut(ws_sidx).and_then(|s| s.ref_info.as_mut())
-    {
-        ri.worktree = Some(crate::Worktree {
-            kind: crate::WorktreeKind::Main,
-            owned_by_repo: true,
-        });
-    }
-
-    // Annotate every remaining ref with the worktree that checks it out — the linked worktrees `[📁]`
-    // and any main worktree the HEAD block above didn't already set. Keyed by ref name, mirroring the
-    // walk's `RefInfo::from_ref`. The `is_none()` guard preserves the HEAD annotation set above.
+    // Annotate every ref with the worktree that checks it out — the main worktree `[🌳]` (whatever
+    // ref HEAD actually points at, including the workspace ref) and linked worktrees `[📁]`. Keyed
+    // by ref name, mirroring the walk's `RefInfo::from_ref`. No hardcoded HEAD assumption: marking
+    // the workspace-commit segment unconditionally put `[🌳]` on a stack branch when HEAD was on
+    // the workspace ref, and vice versa.
     let annotate = |ri: &mut RefInfo| {
         if ri.worktree.is_none()
             && let Some(wt) = worktree_by_branch.get(&ri.ref_name).and_then(|w| w.first())
@@ -1434,20 +1432,23 @@ fn insert_empty_workspace_segment(
     workspace_commit: gix::ObjectId,
 ) -> Option<SegmentIndex> {
     let stack_sidx = *seg_of_tip.get(&workspace_commit)?;
+    // The traversal may have dropped the special workspace ref from the commit's refs when a stack
+    // branch on the same commit named its raw segment — the caller established the ref points here,
+    // so fall back to the well-known name rather than silently skipping the workspace segment.
     let ws_ref = cg
         .refs_at(workspace_commit)
         .into_iter()
-        .find(|r| but_core::is_workspace_ref_name(r.as_ref()))?;
+        .find(|r| but_core::is_workspace_ref_name(r.as_ref()))
+        .or_else(|| but_core::WORKSPACE_REF_NAME.try_into().ok())?;
+    // The worktree annotation comes from the shared `worktree_by_branch` pass — HEAD may well be on
+    // a stack branch, not the workspace ref.
     let ws_seg = sg.add_node(Segment {
         id: 0,
         generation: 0,
         ref_info: Some(RefInfo {
             ref_name: ws_ref,
             commit_id: None,
-            worktree: Some(crate::Worktree {
-                kind: crate::WorktreeKind::Main,
-                owned_by_repo: true,
-            }),
+            worktree: None,
         }),
         remote_tracking_ref_name: None,
         sibling_segment_id: None,

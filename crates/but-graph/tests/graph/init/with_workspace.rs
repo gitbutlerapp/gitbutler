@@ -8161,6 +8161,32 @@ fn assert_cg_to_sg_worktree_parity(
 }
 
 #[test]
+fn cg_to_sg_ws_ref_no_ws_commit_stack_branch_on_same_commit() -> anyhow::Result<()> {
+    // The workspace ref rests on the same commit as a metadata stack branch, without a managed
+    // workspace commit. The stack branch names the traversal segment, dropping the special
+    // workspace ref from the commit's refs — the flip must still splice the empty workspace
+    // segment (it used to skip it, making the projection fail to find the workspace upstream).
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+    let flip = but_graph::graph_from_repository(
+        &repo,
+        &*meta,
+        None,
+        None,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .expect("managed");
+    insta::assert_snapshot!(graph_workspace(&flip.into_workspace()?), @r#"
+    📕🏘️⚠️:2:gitbutler/workspace <> ✓!
+    └── ≡📙:0:A {0}
+        └── 📙:0:A
+            └── ·fafd9d0 (🏘️) ►B, ►C, ►D, ►E, ►F, ►main[🌳]
+    "#);
+    Ok(())
+}
+
+#[test]
 fn cg_to_sg_linked_worktrees() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/ambiguous-worktrees")?;
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
