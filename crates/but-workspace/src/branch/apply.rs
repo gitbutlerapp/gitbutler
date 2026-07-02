@@ -255,7 +255,11 @@ pub fn apply(
         branch = upstream_branch_name;
         branch_ref = try_find_validated_ref(repo, branch.as_ref(), "apply")?;
     }
-    if branch_is_already_applied(branch.as_ref(), &ws, meta)? {
+    let branch_has_applied_metadata =
+        branch_has_applied_workspace_metadata(branch.as_ref(), &ws, meta)?;
+    let branch_already_applied =
+        ws.is_reachable_from_entrypoint(branch.as_ref()) && branch_has_applied_metadata;
+    if branch_already_applied && (ws.is_entrypoint() || ws.ref_name().is_none()) {
         let workspace_ref_created = false;
         // When exiting early, don't try to adjust the ws commit.
         return Ok(Outcome {
@@ -266,12 +270,13 @@ pub fn apply(
             conflicting_stacks: Vec::new(),
             applied_branches: Vec::new(),
         });
-    } else if ws.refname_is_segment(branch.as_ref()) {
+    } else if !branch_has_applied_metadata && ws.refname_is_segment(branch.as_ref()) {
         // This means our workspace encloses the desired branch, but it's not checked out yet.
         let commit_to_checkout = ws
             .tip_commit()
             .map(|commit| commit.id)
             .context("Workspace must point to a commit to check out")?;
+        let ws_ref_name = ws.ref_name().map(|rn| rn.to_owned());
         let current_head_commit = ws.graph.entrypoint()?.commit().context(
             "The entrypoint must have a commit - it's equal to HEAD, and we skipped unborn earlier",
         )?;
@@ -280,28 +285,32 @@ pub fn apply(
             commit_to_checkout,
             repo,
             but_core::worktree::checkout::Options {
-                skip_head_update: false,
+                skip_head_update: true,
                 ..Default::default()
             },
         )?;
         let applied_branches = vec![branch.to_owned()];
-        if !branch_has_applied_workspace_metadata(branch.as_ref(), &ws, meta)? {
-            let ws_ref_name = ws
-                .ref_name()
+        if !branch_has_applied_metadata {
+            let ws_ref_name = ws_ref_name
+                .as_ref()
                 .context("Workspace metadata must be available to repair stale applied state")?;
-            let mut ws_md = meta.workspace(ws_ref_name)?;
+            let mut ws_md = meta.workspace(ws_ref_name.as_ref())?;
             add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), order, new_stack_id);
             persist_metadata_and_gitconfig(meta, &applied_branches, &ws_md, None)?;
         }
-        let ws_ref_name = ws.ref_name().map(|rn| rn.to_owned());
         let ws = ws
             .graph
             .redo_traversal_with_overlay(
                 repo,
                 meta,
-                Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name),
+                Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name.clone()),
             )?
             .into_workspace()?;
+        set_head_to_reference(
+            repo,
+            commit_to_checkout,
+            ws_ref_name.as_ref().map(|rn| rn.as_ref()),
+        )?;
 
         // When exiting early, don't try to adjust the ws commit.
         return Ok(Outcome {
@@ -406,7 +415,6 @@ pub fn apply(
     };
 
     let mut ws_md = meta.workspace(workspace_ref_name_to_update.as_ref())?;
-    let ws_md_orig = ws_md.clone();
     // When HEAD is on a branch that's already in the workspace, applying another branch re-roots
     // the workspace around just that branch plus the ones we apply.
     let head_branch_in_workspace = head_ref_name.as_ref().is_some_and(|head| {
@@ -453,6 +461,7 @@ pub fn apply(
             add_branch_as_stack_forcefully(ws_mut, rn.as_ref(), order, new_stack_id);
         }
     }
+    let ws_md_retry_base = ws_md.clone();
 
     let (local_tracking_config_and_ref_info, commit_to_create_branch_at) =
         if incoming_branch_is_remote_tracking_without_local_tracking {
@@ -502,7 +511,7 @@ pub fn apply(
         .iter()
         .map(|rn| (*rn).to_owned())
         .collect();
-    if all_applied_branches_are_already_visible {
+    if head_on_workspace_ref && all_applied_branches_are_already_visible {
         let head_id = repo.head_id().context("BUG: we assume HEAD is born here")?;
         if head_id != ws_ref_id {
             bail!(
@@ -626,7 +635,7 @@ pub fn apply(
         // Now that the merge is done, try to redo the operation one last time with dependent branches instead.
         // Only do that for the still unapplied branches, which should always find some sort of anchor.
         let ws_mut: &mut Workspace = &mut ws_md;
-        *ws_mut = ws_md_orig;
+        *ws_mut = ws_md_retry_base;
         for branch_to_add in branches_to_apply
             .iter()
             .filter(|rn| !unapplied_branches.contains(rn))
@@ -833,18 +842,6 @@ fn remove_conflicting_stacks_from_workspace(
         // TODO: this might as well be 'Unmerged' to keep them in the workspace, but not let them be merged.
         stack.workspacecommit_relation = Outside;
     }
-}
-
-fn branch_is_already_applied(
-    branch: &FullNameRef,
-    ws: &but_graph::Workspace,
-    meta: &impl RefMetadata,
-) -> anyhow::Result<bool> {
-    if !ws.is_reachable_from_entrypoint(branch) {
-        return Ok(false);
-    }
-
-    branch_has_applied_workspace_metadata(branch, ws, meta)
 }
 
 fn branch_has_applied_workspace_metadata(

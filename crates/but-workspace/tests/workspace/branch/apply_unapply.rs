@@ -520,7 +520,7 @@ mod workspace_disposition {
             but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
         let ws = out.workspace;
         insta::assert_snapshot!(graph_workspace(&ws), @"
-        📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
+        📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
         └── ≡📙:3:A on e5d0542 {41}
             └── 📙:3:A
         ");
@@ -615,7 +615,7 @@ mod workspace_disposition {
             but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
         let ws = out.workspace;
         insta::assert_snapshot!(graph_workspace(&ws), "the workspace ref is checked out", @"
-        📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
+        📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
         └── ≡📙:3:A on e5d0542 {41}
             └── 📙:3:A
         ");
@@ -1255,7 +1255,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     "#);
 
     insta::assert_snapshot!(graph_workspace(&out.workspace), @"
-    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
     ├── ≡📙:2:main on e5d0542 {1a5}
     │   └── 📙:2:main
     └── ≡📙:3:A on e5d0542 {41}
@@ -1408,7 +1408,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
 
     let ws = out.workspace;
     insta::assert_snapshot!(graph_workspace(&ws), @"
-    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
     └── ≡📙:3:A on e5d0542 {41}
         └── 📙:3:A
     ");
@@ -1817,6 +1817,61 @@ fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Re
         Some(true),
         "the checked-out branch joins the workspace"
     );
+    Ok(())
+}
+
+#[test]
+fn apply_already_applied_branch_from_adhoc_checkout_excludes_other_applied_stacks()
+-> anyhow::Result<()> {
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-three-file-stacks",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 3, "C", StackState::InWorkspace, &[]);
+            },
+        )?;
+    assert_worktree_files(&repo, &["A", "B", "C"], &[]);
+
+    let a_tip_before_apply = id_by_rev(&repo, "A");
+    git(&repo).args(["checkout", "A"]).run();
+    assert_worktree_files(&repo, &["A"], &["B", "C"]);
+
+    let ws = Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta),
+        standard_traversal_options(),
+    )?
+    .into_workspace()?;
+    let out =
+        but_workspace::branch::apply(r("refs/heads/C"), ws, &repo, &mut meta, apply_options())?;
+
+    assert_eq!(out.status, OutcomeStatus::Applied);
+    assert_eq!(
+        id_by_rev(&repo, "A"),
+        a_tip_before_apply,
+        "applying from A must not move A to the workspace commit"
+    );
+    assert_eq!(
+        repo.head_name()?.as_ref().map(|rn| rn.as_bstr()),
+        Some(r("refs/heads/gitbutler/workspace").as_bstr()),
+        "applying from an ad-hoc checkout should switch back to the managed workspace"
+    );
+    assert_worktree_files(&repo, &["A", "C"], &["B"]);
+
+    let ws_md = meta.workspace(WORKSPACE_REF_NAME.try_into().unwrap())?;
+    let in_workspace = |name: &str| {
+        ws_md
+            .stacks
+            .iter()
+            .find(|s| s.name().is_some_and(|n| n.shorten() == name))
+            .map(|s| s.is_in_workspace())
+    };
+    assert_eq!(in_workspace("A"), Some(true));
+    assert_eq!(in_workspace("B"), Some(false));
+    assert_eq!(in_workspace("C"), Some(true));
     Ok(())
 }
 
@@ -2857,7 +2912,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
 
     let ws = out.workspace;
     insta::assert_snapshot!(graph_workspace(&ws), "the actual HEAD is ignored, and we only see C (instead of C + HEAD-ref)", @"
-    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
     └── ≡📙:2:C on 3183e43 {43}
         └── 📙:2:C
             └── ·aaa195b (🏘️)
@@ -4193,11 +4248,11 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         &mut meta,
         apply_options(),
     )?;
-    insta::assert_debug_snapshot!(out, "no-ops aren't listing the already applied branches", @r#"
+    insta::assert_debug_snapshot!(out, "already applied branches reactivate the workspace when a stack segment is checked out", @r#"
     Outcome {
-        workspace_changed: false,
+        workspace_changed: true,
         workspace_ref_created: false,
-        applied_branches: "[]",
+        applied_branches: "[refs/heads/B]",
     }
     "#);
 
@@ -4267,11 +4322,11 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
 
     let out =
         but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
-    insta::assert_debug_snapshot!(out, "Nothing changed, the desired branch was already applied", @r#"
+    insta::assert_debug_snapshot!(out, "already applied dependent branches reactivate the workspace when a stack segment is checked out", @r#"
     Outcome {
-        workspace_changed: false,
+        workspace_changed: true,
         workspace_ref_created: false,
-        applied_branches: "[]",
+        applied_branches: "[refs/heads/A]",
     }
     "#);
 
@@ -4457,9 +4512,9 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     )?;
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {
-        workspace_changed: false,
+        workspace_changed: true,
         workspace_ref_created: false,
-        applied_branches: "[]",
+        applied_branches: "[refs/heads/B]",
     }
     "#);
 
@@ -4473,12 +4528,18 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     );
 
     // To apply, we just checkout the surrounding workspace.
+    let b_tip_before_apply = id_by_rev(&repo, "B");
     let out =
         but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
     assert_eq!(
         out.status,
         OutcomeStatus::Applied,
         "enclosed branches with commits should report a successful apply"
+    );
+    assert_eq!(
+        id_by_rev(&repo, "B"),
+        b_tip_before_apply,
+        "applying an enclosed branch must not move the previously checked-out branch"
     );
     insta::assert_debug_snapshot!(out, @r#"
     Outcome {

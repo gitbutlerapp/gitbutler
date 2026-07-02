@@ -29,6 +29,7 @@ import {
 	stack,
 } from "../../src/util.ts";
 import { expect } from "@playwright/test";
+import { execFileSync } from "child_process";
 
 test.use({
 	gitbutlerOptions: {
@@ -180,3 +181,65 @@ test("rebuilds an enclosed ad-hoc workspace around the current and applied branc
 	await expect(stack(page, "C")).toBeVisible();
 	await assertCleanWorktree(localClone);
 });
+
+test("re-enters the managed workspace when applying an already-enclosed branch", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-in-single-branch-existing-workspace-apply.sh");
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	await assertBranch("bug-fix", localClone);
+	await assertSymbolicHead("bug-fix", localClone);
+	const bugFixTipBeforeApply = git(localClone, ["rev-parse", "bug-fix"]);
+
+	await openSingleBranchWorkspace(page);
+
+	await applyBranchFromBranchesView(page, "feature-foo");
+
+	await assertBranch("gitbutler/workspace", localClone);
+	await expect(getByTestId(page, "chrome-header-current-branch")).toContainText(
+		"gitbutler/workspace",
+	);
+	await expect(getByTestId(page, "chrome-header-current-branch")).not.toContainText("read-only");
+	await expect(getByTestId(page, "chrome-header-switch-back-to-workspace-button")).toHaveCount(0);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(2);
+	await expect(stack(page, "feature-foo")).toBeVisible();
+	await expect(stack(page, "bug-fix")).toBeVisible();
+	expect(git(localClone, ["rev-parse", "bug-fix"])).toBe(bugFixTipBeforeApply);
+	await assertCleanWorktree(localClone);
+});
+
+test("rebuilds managed workspace around checked-out and applied branches", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-in-single-branch-existing-workspace-reroot.sh");
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	await assertBranch("A", localClone);
+	await assertSymbolicHead("A", localClone);
+	const aTipBeforeApply = git(localClone, ["rev-parse", "A"]);
+
+	await openSingleBranchWorkspace(page);
+
+	await applyBranchFromBranchesView(page, "C");
+
+	await assertBranch("gitbutler/workspace", localClone);
+	await expect(getByTestId(page, "chrome-header-current-branch")).toContainText(
+		"gitbutler/workspace",
+	);
+	await expect(getByTestId(page, "chrome-header-current-branch")).not.toContainText("read-only");
+	await expect(getByTestId(page, "chrome-header-switch-back-to-workspace-button")).toHaveCount(0);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(2);
+	await expect(stack(page, "A")).toBeVisible();
+	await expect(stack(page, "B")).toHaveCount(0);
+	await expect(stack(page, "C")).toBeVisible();
+	expect(git(localClone, ["rev-parse", "A"])).toBe(aTipBeforeApply);
+	await assertCleanWorktree(localClone);
+});
+
+function git(pathToRepo: string, args: string[]): string {
+	return execFileSync("git", args, {
+		cwd: pathToRepo,
+		encoding: "utf8",
+	}).trim();
+}
