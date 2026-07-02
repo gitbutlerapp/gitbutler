@@ -1,7 +1,7 @@
 import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
 import { WorkspaceItemRow } from "../WorkspaceItemRow.tsx";
-import { projectActions } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
+import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { navigationIndexIncludes } from "#ui/workspace/navigation-index.ts";
 import { Tooltip } from "@base-ui/react";
@@ -48,6 +48,9 @@ export const ItemRow: FC<
 	const dispatch = useAppDispatch();
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const isSelected = useIsSelected({ projectId, operand });
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const isPointerTransferActive =
+		outlineMode._tag === "Transfer" && outlineMode.value._tag === "Pointer";
 	const selectItem = () => {
 		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
 	};
@@ -58,6 +61,7 @@ export const ItemRow: FC<
 				{...props}
 				inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 				isSelected={isSelected}
+				suppressSelectedStyles={isPointerTransferActive}
 				onSelect={selectItem}
 			/>
 			{isCommitTarget && <CommitTargetIndicator />}

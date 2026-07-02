@@ -15,20 +15,25 @@ export const OperationTooltip: FC<
 > = ({ target, outlineMode, isActive, render, ...props }) => {
 	const tooltip = isActive
 		? Match.value(outlineMode).pipe(
-				Match.tags({
-					Absorb: () => <>Absorb target</>,
-					Transfer: ({ value: mode }) => {
-						if (mode.operationType === null) return null;
-						const operation = getOperation({
+				Match.when({ _tag: "Absorb" }, () => <>Absorb target</>),
+				Match.when({ _tag: "Transfer", value: { _tag: "Pointer" } }, ({ value: mode }) =>
+					mode.target && mode.operationType !== null
+						? getOperation({
+								source: mode.source,
+								target: mode.target,
+								operationType: mode.operationType,
+							})?.label
+						: null,
+				),
+				Match.when(
+					{ _tag: "Transfer", value: { _tag: "Keyboard" } },
+					({ value: mode }) =>
+						getOperation({
 							source: mode.source,
 							target,
 							operationType: mode.operationType,
-						});
-						if (!operation) return null;
-
-						return operation.label;
-					},
-				}),
+						})?.label,
+				),
 				Match.orElse(() => null),
 			)
 		: null;
@@ -36,7 +41,7 @@ export const OperationTooltip: FC<
 	const trigger = useRender({ render, props });
 
 	return (
-		<Tooltip.Root open={tooltip !== null} disableHoverablePopup>
+		<Tooltip.Root open={tooltip != null} disableHoverablePopup>
 			<Tooltip.Trigger render={trigger} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8} side="right">

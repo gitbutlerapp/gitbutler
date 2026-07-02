@@ -89,8 +89,17 @@ export const OutlineTree: FC<
 	);
 
 	const dryRunOperation = Match.value(outlineMode).pipe(
-		Match.tag("Transfer", ({ value: mode }) =>
-			selection && mode.operationType !== null
+		Match.when({ _tag: "Transfer", value: { _tag: "Pointer" } }, ({ value: mode }) =>
+			mode.target && mode.operationType !== null
+				? getOperation({
+						source: mode.source,
+						target: mode.target,
+						operationType: mode.operationType,
+					})?.operation
+				: undefined,
+		),
+		Match.when({ _tag: "Transfer", value: { _tag: "Keyboard" } }, ({ value: mode }) =>
+			selection
 				? getOperation({
 						source: mode.source,
 						target: selection,
