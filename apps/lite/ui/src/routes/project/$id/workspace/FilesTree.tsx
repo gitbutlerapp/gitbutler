@@ -36,7 +36,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
-import type { FileTreeItem } from "./file-tree.ts";
+import type { FileRowItem } from "./file-row.ts";
 
 const NavigationIndexContext = createContext<NavigationIndex<string> | null>(null);
 
@@ -112,7 +112,7 @@ const useFilesTreeHotkeys = ({
 export const FilesTree: FC<
 	{
 		projectId: string;
-		items: Array<FileTreeItem>;
+		items: Array<FileRowItem>;
 		onFileSelection: (selection: string) => void;
 		navigationIndex: NavigationIndex<string>;
 		fileParent: FileParent;
@@ -234,7 +234,7 @@ const TreeItem: FC<
 
 const FileRow: FC<
 	{
-		item: FileTreeItem;
+		item: FileRowItem;
 		projectId: string;
 		fileParent: FileParent;
 		branchNameByCommitId?: (commitId: string) => string | undefined;
