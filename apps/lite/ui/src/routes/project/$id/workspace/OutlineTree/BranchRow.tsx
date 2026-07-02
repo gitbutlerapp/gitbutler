@@ -38,7 +38,7 @@ import { prForgeUrl } from "#ui/pr.ts";
 import { RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { InlineEditor } from "./InlineEditor.tsx";
-import { commitMessageInputId } from "./CommitForm.tsx";
+import { commitMessageInputId } from "../CommitForm.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import { type PartialStackState, partialStackPushDisabled } from "./partialStackState.ts";

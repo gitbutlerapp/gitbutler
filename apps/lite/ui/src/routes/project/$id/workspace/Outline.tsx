@@ -30,7 +30,7 @@ import {
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree/OutlineTree.tsx";
 import styles from "./Outline.module.css";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
-import { CommitForm } from "#ui/routes/project/$id/workspace/OutlineTree/CommitForm.tsx";
+import { CommitForm } from "#ui/routes/project/$id/workspace/CommitForm.tsx";
 
 const ActivitySpinner: FC = () => {
 	const fetchingCount = useIsFetching();

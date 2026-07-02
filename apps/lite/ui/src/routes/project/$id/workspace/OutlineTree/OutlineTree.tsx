@@ -49,7 +49,7 @@ import { GraphSegment, GraphSegmentStatus } from "#ui/components/GraphSegment.ts
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { type CommitTargetComboboxItem } from "./CommitForm.tsx";
+import { type CommitTargetComboboxItem } from "../CommitForm.tsx";
 import { useIsSelected } from "./useIsSelected.ts";
 import { CommitRow } from "./CommitRow.tsx";
 import { BranchRow } from "./BranchRow.tsx";
