@@ -9,7 +9,7 @@
 	row-gap: 12px;
 	flex-direction: column;
 	padding-inline: var(--panel-padding-inline);
-	padding-top: var(--panel-padding-block);
+	padding-block-start: var(--panel-padding-block);
 }
 
 .titleRow {
@@ -85,7 +85,7 @@
 }
 
 .diffFiles {
-	padding-bottom: var(--panel-padding-block);
+	padding-block-end: var(--panel-padding-block);
 }
 
 .diffContentsContainer {

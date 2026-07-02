@@ -22,7 +22,7 @@
 
 .stacksScroller {
 	padding-inline: var(--panel-padding-inline);
-	padding-bottom: var(--panel-padding-block);
+	padding-block-end: var(--panel-padding-block);
 	scroll-padding-block: var(--panel-padding-block);
 	scroll-padding-inline: var(--panel-padding-inline);
 }
