@@ -1666,7 +1666,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Moved branch 'B' above branch 'A'
+Moved branch 'A' below branch 'B'
 
 "#]]);
 
@@ -2326,7 +2326,7 @@ Error: Bad input 'qs' for '<SOURCES>'
 
 Cannot pass uncommitted file or hunk as source
 
-Hint: Sources must be commits or committed files
+Hint: A source must be commit, committed file or branch
 
 "#]]);
     env.but("_move2 zz -b A")
@@ -2337,7 +2337,7 @@ Error: Bad input 'zz' for '<SOURCES>'
 
 Cannot pass uncommitted changes as source
 
-Hint: Sources must be commits or committed files
+Hint: A source must be commit, committed file or branch
 
 "#]]);
 }
