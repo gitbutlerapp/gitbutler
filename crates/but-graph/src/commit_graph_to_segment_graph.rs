@@ -584,7 +584,14 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // Empty metadata branches (no commits) are spliced in at their place in the stack's branch order,
         // routing from the workspace segment (the empty one when present, else the ws-commit's segment).
         let ws_sidx = ws_empty_sidx.or_else(|| seg_of_tip.get(&workspace_commit).copied());
-        insert_empty_branches(&mut sg, cg, ws_sidx, stack_branches);
+        // The workspace's lower bound — the base all lanes and the (stored/extra) target converge on.
+        // Stack branches resting there float as their own empty lanes instead of naming the boundary
+        // segment, when nothing else represents their stack.
+        let ws_lower_bound = target
+            .or(project_meta.target_commit_id)
+            .or(options.extra_target_commit_id)
+            .and_then(|t| workspace_lower_bound(cg, workspace_commit, t));
+        insert_empty_branches(&mut sg, cg, ws_sidx, stack_branches, ws_lower_bound);
         // `add_remote_segments` linked each remote to the local that named its commit's segment. When a
         // later pass (anonymize / empty-branch splicing) floats that local up into its own empty segment,
         // the remote's sibling is left pointing at the now-anonymous segment below. Re-establish the
@@ -1485,6 +1492,7 @@ fn insert_empty_branches(
     cg: &CommitGraph,
     ws_sidx: Option<SegmentIndex>,
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+    ws_lower_bound: Option<gix::ObjectId>,
 ) {
     let Some(lists) = stack_branches else {
         return;
@@ -1526,6 +1534,50 @@ fn insert_empty_branches(
             s.remote_tracking_branch_segment_id = None;
         }
     }
+    // The workspace LOWER BOUND (the base all lanes and the target converge on) is where independent
+    // stacks rest: the walk floats a stack branch pointing there up as its own empty lane — preserving
+    // the metadata stack entry — and keeps the boundary segment anonymous (`workspace_upgrades` →
+    // `create_independent_segments`). Only OTHERWISE-UNREPRESENTED stacks float: a stack with another
+    // branch alive above the bound is already visible, and its bound-resting branch stays put.
+    let floats_at_lower_bound = |list: &Vec<gix::refs::FullName>| -> bool {
+        let Some(lb) = ws_lower_bound else {
+            return false;
+        };
+        let mut at_lb = false;
+        for b in list {
+            match cg.commit_by_ref(b.as_ref()) {
+                Some(c) if c == lb => at_lb = true,
+                Some(c)
+                    if cg.node(c).is_some_and(|n| {
+                        !n.commit.flags.contains(crate::CommitFlags::Integrated)
+                    }) =>
+                {
+                    return false;
+                }
+                _ => {}
+            }
+        }
+        at_lb
+    };
+    if let Some(lb) = ws_lower_bound
+        && let Some(anchor) = segment_by_commit(sg, lb)
+        && sg
+            .node(anchor)
+            .is_some_and(|s| s.commits.first().is_some_and(|c| c.id == lb))
+        && sg
+            .node(anchor)
+            .and_then(|s| s.ref_info.as_ref())
+            .is_some_and(|ri| {
+                lists
+                    .iter()
+                    .any(|l| l.contains(&ri.ref_name) && floats_at_lower_bound(l))
+            })
+        && let Some(s) = sg.node_mut(anchor)
+    {
+        s.ref_info = None;
+        s.remote_tracking_ref_name = None;
+        s.remote_tracking_branch_segment_id = None;
+    }
     for list in lists {
         // Branches whose ref does not resolve contribute nothing — and must not SPLIT a same-commit
         // group (e.g. a nonexistent branch listed between two branches on the same commit would
@@ -1558,6 +1610,7 @@ fn insert_empty_branches(
             let anchor_is_anon = sg.node(anchor).is_some_and(|s| s.ref_info.is_none());
             if anchor_is_anon
                 && lists_per_commit.get(&commit).copied().unwrap_or(0) <= 1
+                && !(Some(commit) == ws_lower_bound && floats_at_lower_bound(&list))
                 && let Some(namer) = group.last()
                 && segment_by_ref(sg, namer).is_none()
                 && let Some(s) = sg.node_mut(anchor)
@@ -1627,6 +1680,44 @@ fn segment_by_commit(sg: &SegmentGraph, commit: gix::ObjectId) -> Option<Segment
         sg.node(sidx)
             .is_some_and(|s| s.commits.iter().any(|c| c.id == commit))
     })
+}
+
+/// All ancestors of `tip` (inclusive), over all parents.
+fn ancestor_set(cg: &CommitGraph, tip: gix::ObjectId) -> HashSet<gix::ObjectId> {
+    let mut set = HashSet::new();
+    let mut queue = std::collections::VecDeque::from([tip]);
+    while let Some(c) = queue.pop_front() {
+        if set.insert(c) {
+            queue.extend(cg.all_parent_ids(c));
+        }
+    }
+    set
+}
+
+/// The workspace's LOWER BOUND: the nearest commit common to the target and EVERY workspace lane
+/// (the walk's `compute_lowest_base` — the base all stacks and the target converge on). BFS from the
+/// workspace over all parents, so the nearest such commit wins.
+fn workspace_lower_bound(
+    cg: &CommitGraph,
+    workspace_commit: gix::ObjectId,
+    target: gix::ObjectId,
+) -> Option<gix::ObjectId> {
+    let mut common = ancestor_set(cg, target);
+    for parent in cg.all_parent_ids(workspace_commit) {
+        let lane = ancestor_set(cg, parent);
+        common.retain(|c| lane.contains(c));
+    }
+    let mut seen = HashSet::new();
+    let mut queue = std::collections::VecDeque::from([workspace_commit]);
+    while let Some(c) = queue.pop_front() {
+        if common.contains(&c) {
+            return Some(c);
+        }
+        if seen.insert(c) {
+            queue.extend(cg.all_parent_ids(c));
+        }
+    }
+    None
 }
 
 /// Splice `empties` as a chain of empty segments ABOVE `anchor`, routing `from_sidx` to `anchor`
