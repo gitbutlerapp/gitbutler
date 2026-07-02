@@ -89,13 +89,13 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
+    ├── ≡📙:1:C on 85efbe4 {2}
+    │   ├── 📙:1:C
     │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
+    │   └── 📙:3:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:2:A on 85efbe4 {1}
+        └── 📙:2:A
             └── ·09d8e52 (🏘️)
     ");
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -106,10 +106,10 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:5:C on 85efbe4 {2}
     │   ├── 📙:5:C
-    │   └── 📙:6:B
+    │   └── 📙:2:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 85efbe4 {1}
+        └── 📙:1:A
             └── ·09d8e52 (🏘️)
     ");
 
@@ -156,13 +156,13 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
+    ├── ≡📙:1:C on 85efbe4 {2}
+    │   ├── 📙:1:C
     │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
+    │   └── 📙:3:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:2:A on 85efbe4 {1}
+        └── 📙:2:A
             └── ·09d8e52 (🏘️)
     ");
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -171,12 +171,12 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     let outcome = outcome.materialize()?;
     insta::assert_snapshot!(graph_workspace(outcome.workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
+    ├── ≡📙:2:C on 85efbe4 {2}
+    │   ├── 📙:2:C
     │   │   └── ·8e00332 (🏘️)
     │   └── 📙:5:B
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 85efbe4 {1}
+        └── 📙:1:A
             └── ·09d8e52 (🏘️)
     ");
 

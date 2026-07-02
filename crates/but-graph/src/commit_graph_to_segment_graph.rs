@@ -644,7 +644,7 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             segment_ahead_region(
                 cg,
                 &mut sg,
-                tr,
+                Some(tr),
                 tip,
                 &in_set,
                 &seg_of_tip,
@@ -653,6 +653,26 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
                 &pinned_commits,
             );
         }
+    }
+
+    // An EXTRA TARGET (an older target position) whose commit isn't part of any region so far — e.g.
+    // one below the workspace's own history under a traversal cut — is surfaced like a target's
+    // region, so the projection can derive `target_commit` from it.
+    if let Some(extra) = options.extra_target_commit_id
+        && cg.node(extra).is_some()
+        && segment_by_commit(&sg, extra).is_none()
+    {
+        segment_ahead_region(
+            cg,
+            &mut sg,
+            None,
+            extra,
+            &in_set,
+            &seg_of_tip,
+            &owner_of,
+            None,
+            &pinned_commits,
+        );
     }
 
     // A remote's ahead-run may absorb a lower remote's ref (e.g. `origin/split-segment` sitting inside
@@ -822,8 +842,15 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
 
     // A checkout inside a stack (from_commit_traversal) splits the enclosing segment so the entrypoint
     // begins its own segment — there is always a segment starting at the entrypoint.
-    let entrypoint_sidx = if let (Some(ws_seg), None) = (ws_empty_sidx, entrypoint_ref.as_ref()) {
+    let entrypoint_sidx = if let (Some(ws_seg), None, true) = (
+        ws_empty_sidx,
+        entrypoint_ref.as_ref(),
+        entrypoint == workspace_commit,
+    ) {
         // from_head into a co-located workspace: the entrypoint is the empty workspace segment.
+        // Only when the checkout IS the workspace position — a ref-less checkout elsewhere (e.g.
+        // an unapply preview with the branch dropped) must not claim the workspace segment while
+        // remembering a commit the graph doesn't hold.
         Some(ws_seg)
     } else if let Some(named) = entrypoint_ref.as_ref().and_then(|r| segment_by_ref(&sg, r)) {
         // The checked-out ref already names a segment — including an EMPTY one spliced in for a
@@ -924,9 +951,13 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
 
     // Surface the extra target (an older target position) as an integrated traversal tip. The projection
     // derives `target_commit` from the deepest integrated tip and uses it to extend the workspace base
-    // down to it — showing the commits integrated since then, exactly as the walk does.
+    // down to it — showing the commits integrated since then, exactly as the walk does. Only when the
+    // commit actually made it into a segment — validation requires every tip to be owned by one, and
+    // the traversal legitimately never reaches an extra target outside its cut.
     let mut traversal_tips = Vec::new();
-    if let Some(extra) = options.extra_target_commit_id {
+    if let Some(extra) = options.extra_target_commit_id
+        && segment_by_commit(&sg, extra).is_some()
+    {
         traversal_tips
             .push(crate::init::Tip::new(extra).with_role(crate::init::TipRole::TargetRemote));
     }
@@ -960,6 +991,65 @@ fn split_at_entrypoint_segment<T: but_core::RefMetadata>(
             .map(|pos| (sidx, pos))
     })?;
     if pos == 0 {
+        // The checked-out ref names the entrypoint segment (validation requires it): an anonymous
+        // segment takes the name directly; one already named by ANOTHER ref keeps its commits and
+        // the entrypoint ref becomes an empty segment spliced in above, like the walk's.
+        if let Some(ep_ref) = entrypoint_ref {
+            let current = sg
+                .node(sidx)
+                .and_then(|s| s.ref_info.as_ref())
+                .map(|ri| ri.ref_name.clone());
+            match current {
+                None => {
+                    if let Some(s) = sg.node_mut(sidx) {
+                        s.ref_info = Some(RefInfo {
+                            ref_name: ep_ref.clone(),
+                            commit_id: Some(entrypoint),
+                            worktree: None,
+                        });
+                        s.remote_tracking_ref_name = remote_tracking.get(ep_ref).cloned();
+                    }
+                }
+                Some(existing) if existing != *ep_ref => {
+                    let empty = sg.add_node(Segment {
+                        id: 0,
+                        generation: 0,
+                        ref_info: Some(RefInfo {
+                            ref_name: ep_ref.clone(),
+                            commit_id: Some(entrypoint),
+                            worktree: None,
+                        }),
+                        remote_tracking_ref_name: remote_tracking.get(ep_ref).cloned(),
+                        sibling_segment_id: None,
+                        remote_tracking_branch_segment_id: None,
+                        commits: Vec::new(),
+                        connections: Vec::new(),
+                        metadata: None,
+                    });
+                    sg.node_mut(empty).expect("just added").id = empty;
+                    // Incoming edges now route through the entrypoint's empty segment.
+                    for other in sg.node_indices().collect::<Vec<_>>() {
+                        if other == empty {
+                            continue;
+                        }
+                        if let Some(s) = sg.node_mut(other) {
+                            for conn in &mut s.connections {
+                                if conn.target == sidx {
+                                    conn.target = empty;
+                                    conn.dst_id = None;
+                                }
+                            }
+                        }
+                    }
+                    sg.add_edge(
+                        empty,
+                        Connection::new(sidx, None, None, None, Some(entrypoint)),
+                    );
+                    return Some(empty);
+                }
+                Some(_) => {}
+            }
+        }
         return Some(sidx);
     }
     let lower_commits = sg.node_mut(sidx).expect("present").commits.split_off(pos);
@@ -1133,7 +1223,7 @@ fn add_remote_segments(
         segment_ahead_region(
             cg,
             sg,
-            &remote_ref,
+            Some(&remote_ref),
             remote_tip,
             in_set,
             seg_of_tip,
@@ -1154,7 +1244,9 @@ fn add_remote_segments(
 fn segment_ahead_region(
     cg: &CommitGraph,
     sg: &mut SegmentGraph,
-    remote_ref: &gix::refs::FullName,
+    // `None` for a bare EXTRA TARGET commit id — the tip segment is then named by the unique
+    // plain local branch on it, if any.
+    remote_ref: Option<&gix::refs::FullName>,
     remote_tip: gix::ObjectId,
     in_set: &HashSet<gix::ObjectId>,
     seg_of_tip: &HashMap<gix::ObjectId, SegmentIndex>,
@@ -1205,11 +1297,19 @@ fn segment_ahead_region(
             }
     };
 
-    let tips: Vec<gix::ObjectId> = ahead_set
+    let mut tips: Vec<gix::ObjectId> = ahead_set
         .iter()
         .copied()
         .filter(|&c| is_boundary(c))
         .collect();
+    // Deterministic segment ids: `ahead_set` is a HashSet, its order varies per process.
+    tips.sort_by_key(|&t| {
+        (
+            t != remote_tip,
+            std::cmp::Reverse(cg.node(t).map(|n| n.generation).unwrap_or(0)),
+            t,
+        )
+    });
     let mut ahead_owner: HashMap<gix::ObjectId, gix::ObjectId> = HashMap::new();
     let mut ahead_seg: HashMap<gix::ObjectId, SegmentIndex> = HashMap::new();
     for &tip in &tips {
@@ -1218,14 +1318,27 @@ fn segment_ahead_region(
             ahead_owner.insert(c.id, tip);
         }
         let is_root = tip == remote_tip;
+        let root_name = || {
+            remote_ref.cloned().or_else(|| {
+                let mut it = cg
+                    .refs_at(remote_tip)
+                    .into_iter()
+                    .filter(|r| is_plain_local_branch(r));
+                it.next().filter(|_| it.next().is_none())
+            })
+        };
         let sidx = sg.add_node(Segment {
             id: 0,
             generation: 0,
-            ref_info: is_root.then(|| RefInfo {
-                ref_name: remote_ref.clone(),
-                commit_id: Some(remote_tip),
-                worktree: None,
-            }),
+            ref_info: is_root
+                .then(|| {
+                    root_name().map(|ref_name| RefInfo {
+                        ref_name,
+                        commit_id: Some(remote_tip),
+                        worktree: None,
+                    })
+                })
+                .flatten(),
             remote_tracking_ref_name: None,
             sibling_segment_id: if is_root { local_sidx } else { None },
             remote_tracking_branch_segment_id: None,
@@ -1388,6 +1501,44 @@ fn split_remote_interior_refs(sg: &mut SegmentGraph) {
         );
         // The new lower segment may itself carry further interior remote refs.
         work.push(new);
+    }
+    // Several remote refs can share ONE commit (e.g. `origin/A`+`origin/B`+`origin/C` after squash
+    // merges rewrote their locals) — the first named the commit-holding segment above; every other
+    // becomes an EMPTY segment pointing at it, so each remote ref resolves to a segment.
+    for sidx in sg.node_indices().collect::<Vec<_>>() {
+        if !is_remote(sg, sidx) {
+            continue;
+        }
+        let Some(first) = sg.node(sidx).and_then(|s| s.commits.first().cloned()) else {
+            continue;
+        };
+        for ri in &first.refs {
+            if ri.ref_name.as_ref().category() != Some(Category::RemoteBranch)
+                || segment_by_ref(sg, &ri.ref_name).is_some()
+            {
+                continue;
+            }
+            let empty = sg.add_node(Segment {
+                id: 0,
+                generation: 0,
+                ref_info: Some(RefInfo {
+                    ref_name: ri.ref_name.clone(),
+                    commit_id: Some(first.id),
+                    worktree: None,
+                }),
+                remote_tracking_ref_name: None,
+                sibling_segment_id: None,
+                remote_tracking_branch_segment_id: None,
+                commits: Vec::new(),
+                metadata: None,
+                connections: Vec::new(),
+            });
+            sg.node_mut(empty).expect("just added").id = empty;
+            sg.add_edge(
+                empty,
+                Connection::new(sidx, None, None, None, Some(first.id)),
+            );
+        }
     }
 }
 
@@ -1854,10 +2005,18 @@ fn insert_empty_branches(
             // When several branches of a SINGLE stack share a commit its segment is name-ambiguous
             // (anonymous). The bottom-most branch (adjacent to the commit) NAMES that segment; the ones
             // above it are the empties. Skip if it already has a segment (a placeholder floated by
-            // anonymize) or if the commit is a shared base owned by more than one stack (stays anon).
+            // anonymize) or if the commit is a true shared base (at/below the bound, or with no
+            // bound at all) owned by more than one stack — that stays anon while each stack forms
+            // its own lane. ABOVE the bound one stack genuinely owns the commit: the FIRST list
+            // (metadata order) names it, later stacks' branches splice in as empties on the lane.
             let anchor_is_anon = sg.node(anchor).is_some_and(|s| s.ref_info.is_none());
+            let shared_commit_above_bound = lists_per_commit.get(&commit).copied().unwrap_or(0) > 1
+                && at_or_below_bound
+                    .as_ref()
+                    .is_some_and(|below| !below.contains(&commit));
             if anchor_is_anon
-                && lists_per_commit.get(&commit).copied().unwrap_or(0) <= 1
+                && (lists_per_commit.get(&commit).copied().unwrap_or(0) <= 1
+                    || shared_commit_above_bound)
                 && !(Some(commit) == ws_lower_bound && floats_at_lower_bound(&list))
                 && let Some(namer) = group.last()
                 && segment_by_ref(sg, namer).is_none()
@@ -1902,17 +2061,35 @@ fn insert_empty_branches(
                 // shared by several metadata stacks gets its own lane from the workspace; a commit
                 // strictly inside another stack's lane means these branches are DEPENDENT and must
                 // splice into that chain instead of minting a duplicate lane.
+                let anchor_not_integrated = sg.node(anchor).is_some_and(|s| {
+                    s.commits
+                        .first()
+                        .is_some_and(|c| !c.flags.contains(crate::CommitFlags::Integrated))
+                });
                 let shared_base = lists_per_commit.get(&commit).copied().unwrap_or(0) > 1
                     && at_or_below_bound
                         .as_ref()
                         .is_none_or(|below| below.contains(&commit));
-                let dependent = !shared_base
-                    && sg.node(anchor).is_some_and(|s| {
-                        s.commits
-                            .first()
-                            .is_some_and(|c| !c.flags.contains(crate::CommitFlags::Integrated))
-                    });
-                insert_empty_chain_above(sg, from_sidx, anchor, &empties, commit, dependent);
+                // ANOTHER stack owns the commit (its branch named the anchor) and it is not
+                // integrated: these branches stay PASSIVE refs — consumers (apply) discover them
+                // on the commit and record them as dependent branches in THIS stack's metadata,
+                // after which the same-list path splices them.
+                let cross_stack_owned = lists_per_commit.get(&commit).copied().unwrap_or(0) > 1
+                    && sg
+                        .node(anchor)
+                        .and_then(|s| s.ref_info.as_ref())
+                        .is_some_and(|ri| {
+                            !list.contains(&ri.ref_name)
+                                && lists.iter().any(|l| l.contains(&ri.ref_name))
+                        });
+                if cross_stack_owned && anchor_not_integrated {
+                    from_sidx = Some(anchor);
+                    continue;
+                }
+                let dependent = !shared_base && anchor_not_integrated;
+                insert_empty_chain_above(
+                    sg, from_sidx, anchor, &empties, commit, dependent, dependent,
+                );
             }
             from_sidx = Some(anchor);
         }
@@ -2017,6 +2194,11 @@ fn insert_empty_chain_above(
     // The anchor commit sits strictly inside another stack's lane (not at/below the base): splice into
     // that chain's existing edge rather than adding a fresh workspace lane.
     dependent: bool,
+    // Route EVERY incoming edge to the anchor through the chain (a splice INTO the lane, above the
+    // bound): both the workspace's parent edge and the chain edge from the commit-holding segment
+    // above enter at the chain top — the walk's inline-splice shape. `false` keeps other stacks'
+    // direct edges (a true shared base where each stack has its own lane).
+    redirect_all: bool,
 ) {
     let seg_ids: Vec<SegmentIndex> = empties
         .iter()
@@ -2052,27 +2234,41 @@ fn insert_empty_chain_above(
     // edge connect this stack from above.
     if let Some(from_sidx) = from_sidx {
         let mut redirected = false;
-        if let Some(from) = sg.node_mut(from_sidx) {
-            for conn in &mut from.connections {
-                if conn.target == anchor {
-                    conn.target = top;
-                    conn.dst_id = None;
-                    redirected = true;
+        let redirect_sources: Vec<SegmentIndex> = if redirect_all {
+            sg.node_indices()
+                .filter(|&s| !seg_ids.contains(&s) && !is_remote_segment(sg, s))
+                .collect()
+        } else {
+            vec![from_sidx]
+        };
+        for source in redirect_sources {
+            if let Some(from) = sg.node_mut(source) {
+                for conn in &mut from.connections {
+                    if conn.target == anchor {
+                        conn.target = top;
+                        conn.dst_id = None;
+                        redirected = true;
+                    }
                 }
             }
         }
         if !redirected {
-            let chain_parent = dependent
-                .then(|| {
-                    sg.node_indices().find(|&sidx| {
-                        sidx != from_sidx
-                            && !is_remote_segment(sg, sidx)
-                            && sg.node(sidx).is_some_and(|s| {
-                                !s.commits.is_empty()
-                                    && s.connections.iter().any(|c| c.target == anchor)
-                            })
-                    })
+            // Prefer a commit-holding chain parent (the dependent-branch pattern); an EMPTY one —
+            // another stack's branch already spliced above the same anchor — also carries the
+            // chain, so a further dependent branch slots in underneath it rather than minting a
+            // fresh lane.
+            let find_parent = |require_commits: bool| {
+                sg.node_indices().find(|&sidx| {
+                    sidx != from_sidx
+                        && !is_remote_segment(sg, sidx)
+                        && sg.node(sidx).is_some_and(|s| {
+                            (!require_commits || !s.commits.is_empty())
+                                && s.connections.iter().any(|c| c.target == anchor)
+                        })
                 })
+            };
+            let chain_parent = dependent
+                .then(|| find_parent(true).or_else(|| find_parent(false)))
                 .flatten();
             match chain_parent {
                 Some(parent) => {
@@ -2226,6 +2422,16 @@ fn segment_metadata<T: but_core::RefMetadata>(
 ) -> Option<crate::SegmentMetadata> {
     if ref_name.category() != Some(Category::LocalBranch) {
         return None;
+    }
+    // The workspace ref is a WORKSPACE, never a branch — stray branch metadata under its name
+    // (e.g. an overlay that pre-writes branch data for a ref about to be created) must not
+    // reclassify the workspace segment, which the projection finds by its metadata.
+    if but_core::is_workspace_ref_name(ref_name) {
+        return meta
+            .workspace_opt(ref_name)
+            .ok()
+            .flatten()
+            .map(|ws| crate::SegmentMetadata::Workspace((*ws).clone()));
     }
     if let Ok(Some(branch)) = meta.branch_opt(ref_name) {
         return Some(crate::SegmentMetadata::Branch((*branch).clone()));

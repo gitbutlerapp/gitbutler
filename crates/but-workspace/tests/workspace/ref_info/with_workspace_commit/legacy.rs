@@ -535,8 +535,8 @@ mod stack_details {
         let ws = graph.into_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓!
-        └── ≡📙:4:B →:1: {1}
-            ├── 📙:4:B →:1:
+        └── ≡📙:1:B →:4: {1}
+            ├── 📙:1:B →:4:
             │   ├── ·cc0bf57*
             │   └── ·d69fe94 (🏘️)
             ├── 📙:2:A
@@ -564,9 +564,9 @@ mod stack_details {
                 },
             },
             stacks: [
-                Stack(≡📙:4:B →:1: {1}) {
+                Stack(≡📙:1:B →:4: {1}) {
                     segments: [
-                        StackSegment(📙:4:B →:1:) {
+                        StackSegment(📙:1:B →:4:) {
                             commits: [
                                 "·d69fe94 (🏘\u{fe0f})",
                             ],
@@ -660,7 +660,7 @@ mod stack_details {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 5,
+                            id: 1,
                             ref_name: "►B",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -677,7 +677,7 @@ mod stack_details {
                             base: "09d8e52",
                         },
                         ref_info::ui::Segment {
-                            id: 4,
+                            id: 2,
                             ref_name: "►A",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -697,18 +697,18 @@ mod stack_details {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 0,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
-                    segment_index: 2,
+                    segment_index: 3,
                 },
             ),
             lower_bound: Some(
-                2,
+                3,
             ),
             is_managed_ref: true,
             is_managed_commit: true,

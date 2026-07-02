@@ -59,7 +59,7 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -80,7 +80,7 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 0,
                 },
             ),
@@ -149,7 +149,7 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -170,7 +170,7 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 2,
                 },
             ),
@@ -241,7 +241,7 @@ fn remote_diverged() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -264,18 +264,18 @@ fn remote_diverged() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 5,
                     commits_ahead: 0,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                    segment_index: 2,
+                    segment_index: 3,
                 },
             ),
             lower_bound: Some(
-                2,
+                3,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -343,7 +343,7 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 5,
+                            id: 3,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -364,18 +364,18 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 6,
                     commits_ahead: 2,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(085089cbf8a35fa549a5d50bd74930a7fddf970d),
-                    segment_index: 2,
+                    segment_index: 1,
                 },
             ),
             lower_bound: Some(
-                3,
+                5,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -429,7 +429,7 @@ fn remote_behind() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -450,18 +450,18 @@ fn remote_behind() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 0,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                    segment_index: 2,
+                    segment_index: 3,
                 },
             ),
             lower_bound: Some(
-                2,
+                3,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -524,7 +524,7 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 5,
+                            id: 1,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -545,7 +545,7 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 5,
                     commits_ahead: 1,
                 },
             ),
@@ -556,7 +556,7 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                 },
             ),
             lower_bound: Some(
-                3,
+                4,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -611,7 +611,7 @@ fn remote_ahead() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -633,7 +633,7 @@ fn remote_ahead() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 0,
                 },
             ),
@@ -703,7 +703,7 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 4,
+                            id: 2,
                             ref_name: "►A",
                             remote_tracking_ref_name: "refs/remotes/origin/A",
                             commits: [
@@ -723,14 +723,14 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 1,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(a62b0de7d50898e05c6cfa5b56d268aa5be17087),
-                    segment_index: 2,
+                    segment_index: 1,
                 },
             ),
             lower_bound: Some(

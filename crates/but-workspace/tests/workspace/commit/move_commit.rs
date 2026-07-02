@@ -40,13 +40,13 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
+    ├── ≡📙:1:C on 85efbe4 {2}
+    │   ├── 📙:1:C
     │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
+    │   └── 📙:3:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:2:A on 85efbe4 {1}
+        └── 📙:2:A
             └── ·09d8e52 (🏘️)
     ");
 
@@ -100,10 +100,10 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:5:C on 85efbe4 {2}
     │   ├── 📙:5:C
-    │   └── 📙:6:B
+    │   └── 📙:2:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 85efbe4 {1}
+        └── 📙:1:A
             ├── ·f2cc60d (🏘️)
             └── ·09d8e52 (🏘️)
     ");
@@ -134,13 +134,13 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
+    ├── ≡📙:1:C on 85efbe4 {2}
+    │   ├── 📙:1:C
     │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
+    │   └── 📙:3:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:2:A on 85efbe4 {1}
+        └── 📙:2:A
             └── ·09d8e52 (🏘️)
     ");
 
@@ -194,12 +194,12 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
+    ├── ≡📙:2:C on 85efbe4 {2}
+    │   ├── 📙:2:C
     │   │   └── ·8e00332 (🏘️)
     │   └── 📙:5:B
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 85efbe4 {1}
+        └── 📙:1:A
             ├── ·f9061ed (🏘️)
             └── ·09d8e52 (🏘️)
     ");
@@ -230,13 +230,13 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
+    ├── ≡📙:1:C on 85efbe4 {2}
+    │   ├── 📙:1:C
     │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
+    │   └── 📙:3:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:2:A on 85efbe4 {1}
+        └── 📙:2:A
             └── ·09d8e52 (🏘️)
     ");
 
@@ -290,10 +290,10 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:5:C on 85efbe4 {2}
     │   ├── 📙:5:C
-    │   └── 📙:6:B
+    │   └── 📙:2:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 85efbe4 {1}
+        └── 📙:1:A
             ├── ·2506923 (🏘️)
             └── ·8e00332 (🏘️)
     ");
@@ -324,13 +324,13 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
+    ├── ≡📙:1:C on 85efbe4 {2}
+    │   ├── 📙:1:C
     │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
+    │   └── 📙:3:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:2:A on 85efbe4 {1}
+        └── 📙:2:A
             └── ·09d8e52 (🏘️)
     ");
 
@@ -384,12 +384,12 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
+    ├── ≡📙:2:C on 85efbe4 {2}
+    │   ├── 📙:2:C
     │   │   └── ·8e00332 (🏘️)
     │   └── 📙:5:B
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 85efbe4 {1}
+        └── 📙:1:A
             ├── ·4dfe841 (🏘️)
             └── ·c813d8d (🏘️)
     ");
@@ -420,13 +420,13 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
+    ├── ≡📙:1:C on 85efbe4 {2}
+    │   ├── 📙:1:C
     │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
+    │   └── 📙:3:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:2:A on 85efbe4 {1}
+        └── 📙:2:A
             └── ·09d8e52 (🏘️)
     ");
 
@@ -471,11 +471,11 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:C on 85efbe4 {2}
-    │   ├── 📙:3:C
+    ├── ≡📙:1:C on 85efbe4 {2}
+    │   ├── 📙:1:C
     │   │   ├── ·148f8f3 (🏘️)
     │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:4:B
+    │   └── 📙:2:B
     │       └── ·c813d8d (🏘️)
     └── ≡📙:5:A on 85efbe4 {1}
         └── 📙:5:A
@@ -507,13 +507,13 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:4:C on 85efbe4 {2}
-    │   ├── 📙:4:C
+    ├── ≡📙:1:C on 85efbe4 {2}
+    │   ├── 📙:1:C
     │   │   └── ·09bc93e (🏘️)
-    │   └── 📙:5:B
+    │   └── 📙:3:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:2:A on 85efbe4 {1}
+        └── 📙:2:A
             └── ·09d8e52 (🏘️)
     ");
 
@@ -567,10 +567,10 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:C on 85efbe4 {2}
-    │   ├── 📙:3:C
+    ├── ≡📙:1:C on 85efbe4 {2}
+    │   ├── 📙:1:C
     │   │   └── ·ad476a8 (🏘️)
-    │   └── 📙:4:B
+    │   └── 📙:2:B
     │       ├── ·f9061ed (🏘️)
     │       └── ·09d8e52 (🏘️)
     └── ≡📙:5:A on 85efbe4 {1}
@@ -600,8 +600,8 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:4:B on 85efbe4 {2}
     │   └── 📙:4:B
-    └── ≡📙:3:A on 85efbe4 {1}
-        └── 📙:3:A
+    └── ≡📙:1:A on 85efbe4 {1}
+        └── 📙:1:A
             └── ·09d8e52 (🏘️)
     ");
 
@@ -643,8 +643,8 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:4:A on 85efbe4 {1}
     │   └── 📙:4:A
-    └── ≡📙:3:B on 85efbe4 {2}
-        └── 📙:3:B
+    └── ≡📙:1:B on 85efbe4 {2}
+        └── 📙:1:B
             └── ·09d8e52 (🏘️)
     ");
 

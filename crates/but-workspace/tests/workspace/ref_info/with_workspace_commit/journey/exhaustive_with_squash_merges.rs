@@ -338,18 +338,18 @@ fn j04_create_workspace() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 2,
                     commits_ahead: 0,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                    segment_index: 2,
+                    segment_index: 1,
                 },
             ),
             lower_bound: Some(
-                2,
+                1,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -424,18 +424,18 @@ fn j05_empty_stack() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 2,
                     commits_ahead: 0,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                    segment_index: 2,
+                    segment_index: 1,
                 },
             ),
             lower_bound: Some(
-                2,
+                1,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -489,7 +489,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►S1",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -509,7 +509,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 3,
                     commits_ahead: 0,
                 },
             ),
@@ -564,7 +564,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►S1",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -584,7 +584,7 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 3,
                     commits_ahead: 0,
                 },
             ),
@@ -651,7 +651,7 @@ fn j07_push_commit() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
@@ -671,7 +671,7 @@ fn j07_push_commit() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 0,
                 },
             ),
@@ -743,7 +743,7 @@ fn j08_next_local_commit() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
@@ -764,18 +764,18 @@ fn j08_next_local_commit() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 4,
                     commits_ahead: 0,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                    segment_index: 2,
+                    segment_index: 3,
                 },
             ),
             lower_bound: Some(
-                2,
+                3,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -834,7 +834,7 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
@@ -855,18 +855,18 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 5,
                     commits_ahead: 0,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                    segment_index: 2,
+                    segment_index: 3,
                 },
             ),
             lower_bound: Some(
-                2,
+                3,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -932,7 +932,7 @@ fn j10_squash_merge_stack() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
@@ -953,18 +953,18 @@ fn j10_squash_merge_stack() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 5,
                     commits_ahead: 2,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                    segment_index: 2,
+                    segment_index: 3,
                 },
             ),
             lower_bound: Some(
-                2,
+                3,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -1040,7 +1040,7 @@ fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 1,
                             ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
@@ -1064,18 +1064,18 @@ fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 5,
                     commits_ahead: 5,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(adc9f0cd07bd0a09363ac6536291bf821ca845c4),
-                    segment_index: 2,
+                    segment_index: 6,
                 },
             ),
             lower_bound: Some(
-                5,
+                3,
             ),
             is_managed_ref: true,
             is_managed_commit: true,
@@ -1156,7 +1156,7 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 3,
+                            id: 2,
                             ref_name: "►S1",
                             remote_tracking_ref_name: "refs/remotes/origin/S1",
                             commits: [
@@ -1181,7 +1181,7 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: 5,
+                            id: 1,
                             ref_name: "►local",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -1194,7 +1194,7 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
                             base: "de02b20",
                         },
                         ref_info::ui::Segment {
-                            id: 6,
+                            id: 4,
                             ref_name: "►local-bottom",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -1214,18 +1214,18 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: 1,
+                    segment_index: 7,
                     commits_ahead: 7,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(35faa22c8d0a01ba45da3971406eab6932b1bbde),
-                    segment_index: 2,
+                    segment_index: 8,
                 },
             ),
             lower_bound: Some(
-                8,
+                5,
             ),
             is_managed_ref: true,
             is_managed_commit: true,

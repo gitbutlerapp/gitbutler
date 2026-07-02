@@ -425,11 +425,11 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     ");
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:1:A on 85efbe4 {1}
+    │   └── 📙:1:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:B on 85efbe4 {2}
-        └── 📙:4:B
+    └── ≡📙:2:B on 85efbe4 {2}
+        └── 📙:2:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -463,8 +463,8 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:4:A on 85efbe4 {1}
     │   └── 📙:4:A
-    └── ≡📙:3:B on 85efbe4 {2}
-        └── 📙:3:B
+    └── ≡📙:1:B on 85efbe4 {2}
+        └── 📙:1:B
             └── ·82d6f41 (🏘️)
     ");
 
@@ -493,11 +493,11 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:1:A on 85efbe4 {1}
+    │   └── 📙:1:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:B on 85efbe4 {2}
-        └── 📙:4:B
+    └── ≡📙:2:B on 85efbe4 {2}
+        └── 📙:2:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -529,8 +529,8 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     ");
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:1:A on 85efbe4 {1}
+    │   └── 📙:1:A
     │       └── ·17e27b0 (🏘️)
     └── ≡📙:4:B on 85efbe4 {2}
         └── 📙:4:B

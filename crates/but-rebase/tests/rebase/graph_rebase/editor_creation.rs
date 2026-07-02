@@ -320,19 +320,19 @@ fn workspace_with_empty_stack() -> Result<()> {
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
     │   └── ·74bcc92 (⌂|🏘|01)
-    │       ├── 📙►:3[1]:stack-1
+    │       ├── 📙►:1[1]:stack-1
     │       │   ├── ·2169646 (⌂|🏘|01)
     │       │   └── ·46ef828 (⌂|🏘|01)
-    │       │       └── ►:4[2]:anon:
+    │       │       └── ►:3[2]:anon:
     │       │           ├── ·f555940 (⌂|🏘|✓|11)
     │       │           ├── ·d664be0 (⌂|🏘|✓|11)
     │       │           └── 🏁·fafd9d0 (⌂|🏘|✓|11)
     │       └── 📙►:5[1]:stack-2
-    │           └── →:4:
-    └── ►:1[0]:origin/main →:2:
-        └── ►:2[1]:main <> origin/main →:1:
+    │           └── →:3:
+    └── ►:4[0]:origin/main →:2:
+        └── ►:2[1]:main <> origin/main →:4:
             └── ·a0f2ac5 (⌂|✓|10)
-                └── →:4:
+                └── →:3:
     ");
 
     let mut ws = graph.into_workspace()?;
@@ -379,16 +379,16 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
     │   └── ·a26ae77 (⌂|🏘|01)
     │       ├── 📙►:4[1]:stack-1
-    │       │   └── ►:3[2]:anon:
+    │       │   └── ►:2[2]:anon:
     │       │       └── 🏁·fafd9d0 (⌂|🏘|✓|11)
     │       ├── 📙►:5[1]:stack-2
-    │       │   └── →:3:
+    │       │   └── →:2:
     │       └── 📙►:6[1]:stack-3
-    │           └── →:3:
-    └── ►:1[0]:origin/main →:2:
-        └── ►:2[1]:main <> origin/main →:1:
+    │           └── →:2:
+    └── ►:3[0]:origin/main →:1:
+        └── ►:1[1]:main <> origin/main →:3:
             └── ·1cf9cf4 (⌂|✓|10)
-                └── →:3:
+                └── →:2:
     ");
 
     let mut ws = graph.into_workspace()?;
