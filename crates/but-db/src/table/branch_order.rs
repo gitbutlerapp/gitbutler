@@ -9,13 +9,13 @@ use crate::{DbHandle, M, SchemaVersion, Transaction};
 pub(crate) const M: &[M<'static>] = &[M::up(
     20260626120100,
     SchemaVersion::Zero,
-    "CREATE TABLE `branch_order`(
+    "CREATE TABLE IF NOT EXISTS `branch_order`(
     `branch_ref_name` TEXT NOT NULL PRIMARY KEY,
     `parent_ref_name` TEXT UNIQUE,
     CHECK (`parent_ref_name` IS NULL OR `branch_ref_name` != `parent_ref_name`)
 );
 
-CREATE INDEX `idx_branch_order_parent_ref_name` ON `branch_order`(`parent_ref_name`);",
+CREATE INDEX IF NOT EXISTS `idx_branch_order_parent_ref_name` ON `branch_order`(`parent_ref_name`);",
 )];
 
 /// Read-only accessor for ad-hoc branch ordering metadata.
