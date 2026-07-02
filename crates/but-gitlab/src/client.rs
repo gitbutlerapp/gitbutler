@@ -25,6 +25,22 @@ pub struct GitLabClient {
     base_url: String,
 }
 
+#[derive(Debug)]
+struct MergeRequestEnrichmentError {
+    source: anyhow::Error,
+    mr: MergeRequest,
+}
+
+impl MergeRequestEnrichmentError {
+    fn into_inner(self) -> MergeRequest {
+        self.mr
+    }
+
+    fn source(&self) -> &anyhow::Error {
+        &self.source
+    }
+}
+
 impl GitLabClient {
     pub fn new(access_token: &Sensitive<String>) -> Result<Self> {
         let mut headers = HeaderMap::new();
@@ -281,7 +297,19 @@ impl GitLabClient {
         }
 
         let mr: GitLabMergeRequest = response.json().await?;
-        Ok(mr.into())
+        let mr = mr.into();
+        match self.enrich_merge_request_source_project(mr).await {
+            Ok(mr) => Ok(mr),
+            Err(err) => {
+                tracing::warn!(
+                    error = ?err.source(),
+                    project_id = %project_id,
+                    mr_iid,
+                    "Failed to enrich GitLab merge request source project"
+                );
+                Ok(err.into_inner())
+            }
+        }
     }
 
     /// Focused fetch returning just GitLab's `merge_status` and the
@@ -480,10 +508,20 @@ impl GitLabClient {
     }
 
     pub async fn fetch_project(&self, project_id: GitLabProjectId) -> Result<GitLabProject> {
+        self.fetch_project_by_path(project_id.to_string()).await
+    }
+
+    pub async fn fetch_project_by_numeric_id(&self, project_id: i64) -> Result<GitLabProject> {
+        self.fetch_project_by_path(project_id.to_string()).await
+    }
+
+    async fn fetch_project_by_path(&self, project_id: String) -> Result<GitLabProject> {
         #[derive(Deserialize)]
         struct GitLabApiProject {
             id: i64,
             path_with_namespace: String,
+            ssh_url_to_repo: String,
+            http_url_to_repo: String,
             default_branch: Option<String>,
             #[serde(default)]
             forked_from_project: Option<GitLabApiProjectRef>,
@@ -535,11 +573,34 @@ impl GitLabClient {
         Ok(GitLabProject {
             id: project.id,
             path_with_namespace: project.path_with_namespace,
+            ssh_url_to_repo: project.ssh_url_to_repo,
+            http_url_to_repo: project.http_url_to_repo,
             default_branch: project.default_branch,
             forked_from_project_id: project.forked_from_project.map(|fork| fork.id),
             remove_source_branch_after_merge: project.remove_source_branch_after_merge,
             access_level,
         })
+    }
+
+    async fn enrich_merge_request_source_project(
+        &self,
+        mut mr: MergeRequest,
+    ) -> std::result::Result<MergeRequest, MergeRequestEnrichmentError> {
+        let source_project_id = mr.source_project_id.unwrap_or(mr.project_id);
+        let source_project = match self.fetch_project_by_numeric_id(source_project_id).await {
+            Ok(source_project) => source_project,
+            Err(source) => return Err(MergeRequestEnrichmentError { source, mr }),
+        };
+
+        mr.repository_ssh_url = Some(source_project.ssh_url_to_repo);
+        mr.repository_https_url = Some(source_project.http_url_to_repo);
+        mr.repo_owner = repo_owner_from_path_with_namespace(&source_project.path_with_namespace);
+        mr.source_project_is_fork = source_project_differs_from_target(
+            mr.source_project_id,
+            mr.target_project_id,
+            mr.project_id,
+        );
+        Ok(mr)
     }
 
     /// Fetch pipeline jobs for the latest commit on a given branch reference.
@@ -837,6 +898,8 @@ impl From<String> for GitLabLabel {
 pub struct GitLabProject {
     pub id: i64,
     pub path_with_namespace: String,
+    pub ssh_url_to_repo: String,
+    pub http_url_to_repo: String,
     pub default_branch: Option<String>,
     pub forked_from_project_id: Option<i64>,
     pub remove_source_branch_after_merge: Option<bool>,
@@ -887,6 +950,12 @@ pub struct MergeRequest {
     pub merged_at: Option<String>,
     pub closed_at: Option<String>,
     pub project_id: i64,
+    pub source_project_id: Option<i64>,
+    pub target_project_id: Option<i64>,
+    pub repository_ssh_url: Option<String>,
+    pub repository_https_url: Option<String>,
+    pub repo_owner: Option<String>,
+    pub source_project_is_fork: bool,
     pub assignees: Vec<GitLabUser>,
     pub reviewers: Vec<GitLabUser>,
 }
@@ -910,6 +979,8 @@ struct GitLabMergeRequest {
     merged_at: Option<String>,
     closed_at: Option<String>,
     project_id: i64,
+    source_project_id: Option<i64>,
+    target_project_id: Option<i64>,
     #[serde(default)]
     assignees: Vec<GitLabApiUser>,
     #[serde(default)]
@@ -944,10 +1015,36 @@ impl From<GitLabMergeRequest> for MergeRequest {
             merged_at: mr.merged_at,
             closed_at: mr.closed_at,
             project_id: mr.project_id,
+            source_project_id: mr.source_project_id,
+            target_project_id: mr.target_project_id,
+            repository_ssh_url: None,
+            repository_https_url: None,
+            repo_owner: None,
+            source_project_is_fork: source_project_differs_from_target(
+                mr.source_project_id,
+                mr.target_project_id,
+                mr.project_id,
+            ),
             assignees,
             reviewers,
         }
     }
+}
+
+fn repo_owner_from_path_with_namespace(path_with_namespace: &str) -> Option<String> {
+    path_with_namespace
+        .rsplit_once('/')
+        .map(|(owner, _repo)| owner.to_string())
+}
+
+fn source_project_differs_from_target(
+    source_project_id: Option<i64>,
+    target_project_id: Option<i64>,
+    project_id: i64,
+) -> bool {
+    let source_project_id = source_project_id.unwrap_or(project_id);
+    let target_project_id = target_project_id.unwrap_or(project_id);
+    source_project_id != target_project_id
 }
 
 pub(crate) fn resolve_account(
@@ -979,7 +1076,8 @@ pub(crate) fn resolve_account(
 mod tests {
     use super::{
         GitLabMergeRequest, GitLabPipelineJob, GitLabPipelineRef, MergeRequest,
-        next_page_from_headers, normalize_pipeline_jobs, update_draft_state_in_title,
+        next_page_from_headers, normalize_pipeline_jobs, repo_owner_from_path_with_namespace,
+        update_draft_state_in_title,
     };
     use reqwest::header::{HeaderMap, HeaderValue};
 
@@ -1156,6 +1254,8 @@ mod tests {
             merged_at: Some("2026-06-24T12:00:00Z".into()),
             closed_at: Some("2026-06-24T12:00:00Z".into()),
             project_id: 1,
+            source_project_id: Some(1),
+            target_project_id: Some(1),
             assignees: vec![],
             reviewers: vec![],
         }
@@ -1181,6 +1281,81 @@ mod tests {
             mr.merged_at.as_deref(),
             Some("2026-06-24T12:00:00Z"),
             "associated-commit lookup must preserve merge state for filtering"
+        );
+    }
+
+    #[test]
+    fn repo_owner_comes_from_project_namespace() {
+        assert_eq!(
+            repo_owner_from_path_with_namespace("group/subgroup/repo").as_deref(),
+            Some("group/subgroup"),
+            "GitLab remote names should be based on the full source namespace"
+        );
+    }
+
+    #[test]
+    fn source_project_is_not_a_fork_when_mr_targets_its_own_project() {
+        let mr: MergeRequest = GitLabMergeRequest {
+            web_url: "https://gitlab.example/group/repo/-/merge_requests/8".into(),
+            iid: 8,
+            title: "Refine branch".into(),
+            description: None,
+            author: None,
+            labels: vec![],
+            draft: false,
+            source_branch: "feature".into(),
+            target_branch: "main".into(),
+            sha: "1234567890abcdef1234567890abcdef12345678".into(),
+            merge_commit_sha: None,
+            squash_commit_sha: None,
+            created_at: None,
+            updated_at: None,
+            merged_at: None,
+            closed_at: None,
+            project_id: 7,
+            source_project_id: Some(7),
+            target_project_id: Some(7),
+            assignees: vec![],
+            reviewers: vec![],
+        }
+        .into();
+
+        assert!(
+            !mr.source_project_is_fork,
+            "MR fork handling should stay off when source and target projects match"
+        );
+    }
+
+    #[test]
+    fn source_project_falls_back_to_mr_project_when_target_project_is_missing() {
+        let mr: MergeRequest = GitLabMergeRequest {
+            web_url: "https://gitlab.example/group/repo/-/merge_requests/9".into(),
+            iid: 9,
+            title: "Refine branch".into(),
+            description: None,
+            author: None,
+            labels: vec![],
+            draft: false,
+            source_branch: "feature".into(),
+            target_branch: "main".into(),
+            sha: "1234567890abcdef1234567890abcdef12345678".into(),
+            merge_commit_sha: None,
+            squash_commit_sha: None,
+            created_at: None,
+            updated_at: None,
+            merged_at: None,
+            closed_at: None,
+            project_id: 7,
+            source_project_id: Some(11),
+            target_project_id: None,
+            assignees: vec![],
+            reviewers: vec![],
+        }
+        .into();
+
+        assert!(
+            mr.source_project_is_fork,
+            "Missing target project IDs should compare against the MR project for fork handling"
         );
     }
 }

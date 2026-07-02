@@ -1,5 +1,5 @@
 //! In place of commands.rs
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
@@ -266,10 +266,6 @@ pub fn review_apply(
             target_protocol,
         )
     };
-
-    if forge_repo_info.forge != but_forge::ForgeName::GitHub {
-        bail!("Applying reviews is currently only supported for GitHub pull requests");
-    }
 
     let review = {
         let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);

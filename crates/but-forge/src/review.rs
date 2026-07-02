@@ -426,10 +426,10 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
             modified_at: mr.updated_at,
             merged_at: mr.merged_at,
             closed_at: mr.closed_at,
-            repository_ssh_url: None,
-            repository_https_url: None,
-            repo_owner: None,
-            head_repo_is_fork: false,
+            repository_ssh_url: mr.repository_ssh_url,
+            repository_https_url: mr.repository_https_url,
+            repo_owner: mr.repo_owner,
+            head_repo_is_fork: mr.source_project_is_fork,
             reviewers: mr
                 .reviewers
                 .into_iter()
@@ -1638,6 +1638,56 @@ mod tests {
 
         assert_eq!(head_owner, "target-owner");
         assert_eq!(head_repo, None);
+    }
+
+    #[test]
+    fn gitlab_review_preserves_source_project_clone_urls() {
+        let review = ForgeReview::from(but_gitlab::MergeRequest {
+            web_url: "https://gitlab.example/acme/widgets/-/merge_requests/42".into(),
+            iid: 42,
+            title: "Fork MR".into(),
+            description: None,
+            author: None,
+            labels: vec![],
+            draft: false,
+            source_branch: "fork-feature".into(),
+            target_branch: "main".into(),
+            sha: "1234567890abcdef1234567890abcdef12345678".into(),
+            integration_commit_shas: vec![],
+            created_at: None,
+            updated_at: None,
+            merged_at: None,
+            closed_at: None,
+            project_id: 10,
+            source_project_id: Some(20),
+            target_project_id: Some(10),
+            repository_ssh_url: Some("git@gitlab.example:contributor/widgets.git".into()),
+            repository_https_url: Some("https://gitlab.example/contributor/widgets.git".into()),
+            repo_owner: Some("contributor".into()),
+            source_project_is_fork: true,
+            assignees: vec![],
+            reviewers: vec![],
+        });
+
+        assert_eq!(
+            review.repository_https_url.as_deref(),
+            Some("https://gitlab.example/contributor/widgets.git"),
+            "GitLab review apply needs the source project HTTPS URL"
+        );
+        assert_eq!(
+            review.repository_ssh_url.as_deref(),
+            Some("git@gitlab.example:contributor/widgets.git"),
+            "GitLab review apply needs the source project SSH URL"
+        );
+        assert_eq!(
+            review.repo_owner.as_deref(),
+            Some("contributor"),
+            "GitLab fork remotes should be named from the source project namespace"
+        );
+        assert!(
+            review.head_repo_is_fork,
+            "GitLab fork MRs should preserve that the source project differs from the target"
+        );
     }
 
     #[test]
