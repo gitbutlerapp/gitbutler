@@ -205,10 +205,11 @@ impl CommitGraph {
         ref_name: Option<gix::refs::FullName>,
         project_meta: but_core::ref_metadata::ProjectMeta,
         options: crate::init::Options,
+        overlay: crate::init::Overlay,
     ) -> anyhow::Result<Self> {
-        use gix::prelude::ObjectIdExt;
-        let raw = crate::Graph::from_commit_traversal(
-            tip.attach(repo),
+        let raw = crate::Graph::from_commit_traversal_with_overlay(
+            repo,
+            tip,
             ref_name,
             meta,
             project_meta,
@@ -216,6 +217,7 @@ impl CommitGraph {
                 dangerously_skip_postprocessing_for_debugging: true,
                 ..options
             },
+            overlay,
         )?;
         Ok(Self::from_segment_graph(&raw))
     }

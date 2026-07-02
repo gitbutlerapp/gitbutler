@@ -13,6 +13,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use bstr::ByteSlice;
+use but_core::RefMetadata;
 use gix::reference::Category;
 
 use crate::{
@@ -31,11 +32,34 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
 ) -> anyhow::Result<Option<crate::Graph>> {
+    graph_from_repository_with_overlay(
+        repo,
+        meta,
+        entrypoint,
+        entrypoint_ref,
+        project_meta,
+        options,
+        crate::init::Overlay::default(),
+    )
+}
+
+/// Like [`graph_from_repository`], but serving `overlay` refs and metadata from memory — the flip
+/// counterpart of [`Graph::redo_traversal_with_overlay`](crate::Graph::redo_traversal_with_overlay).
+pub fn graph_from_repository_with_overlay<T: but_core::RefMetadata>(
+    repo: &gix::Repository,
+    meta: &T,
+    entrypoint: Option<gix::ObjectId>,
+    entrypoint_ref: Option<gix::refs::FullName>,
+    project_meta: but_core::ref_metadata::ProjectMeta,
+    options: crate::init::Options,
+    overlay: crate::init::Overlay,
+) -> anyhow::Result<Option<crate::Graph>> {
+    let (overlay_repo, overlay_meta, _overlay_entrypoint) = overlay.clone().into_parts(repo, meta);
     let ws_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
     // No (usable) workspace ref means no managed workspace — signal fall-through, don't fail:
     // callers route any repository through here when the flip is enabled.
-    let Some(ws_commit) = repo
-        .try_find_reference(&ws_ref)?
+    let Some(ws_commit) = overlay_repo
+        .try_find_reference(ws_ref.as_ref())?
         .and_then(|mut r| r.peel_to_commit().ok())
         .map(|c| c.id().detach())
     else {
@@ -53,12 +77,16 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
         repo,
         meta,
         walk_tip,
-        walk_ref,
+        walk_ref.clone(),
         project_meta.clone(),
         options.clone(),
+        overlay,
     )?;
     cg.mark_managed_ws_commit_by_message(repo, ws_commit);
 
+    // From here on every ref and metadata read goes through the overlay views, so in-memory
+    // previews (apply/unapply) enrich from the future state, not the on-disk one.
+    let meta = &overlay_meta;
     let ws_meta = meta.workspace(ws_ref.as_ref())?;
     // Include inactive/outside stacks too: their branches are still spliced as empty segments where
     // they sit on an in-graph commit (e.g. an inactive `unapplied` branch on the shared base). Stacks
@@ -83,20 +111,24 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     // default `ProjectMeta` means no target (no hard-coded `origin/main` fallback), like the walk.
     let target = project_meta.target_ref.clone().and_then(|tr| {
         Some(
-            repo.find_reference(&tr)
-                .ok()?
+            overlay_repo
+                .try_find_reference(tr.as_ref())
+                .ok()??
                 .peel_to_commit()
                 .ok()?
                 .id()
                 .detach(),
         )
     });
+    // Remote-tracking relationships come from git CONFIG plus the caller's project meta — overlay
+    // refs don't reshape them.
     let (remote_tracking, symbolic_remotes) =
         crate::commit_graph_projection::remote_tracking_from_repository(repo, &project_meta)?;
-    let worktree_by_branch = {
-        let (overlay_repo, _om, _ep) = crate::init::Overlay::default().into_parts(repo, meta);
-        overlay_repo.worktree_branches(entrypoint_ref.as_ref().map(|r| r.as_ref()))?
-    };
+    // The main-HEAD referent is the TRAVERSAL ref (like the walk's `graph.entrypoint_ref`): an
+    // overlay may override HEAD onto the workspace ref for a future-state preview, which the
+    // dispatched `entrypoint_ref` (None for workspace tips) would lose.
+    let worktree_by_branch =
+        overlay_repo.worktree_branches(walk_ref.as_ref().map(|r| r.as_ref()))?;
 
     let ep = entrypoint.unwrap_or(ws_commit);
     let graph = graph_from_commit_graph(
