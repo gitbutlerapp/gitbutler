@@ -2,11 +2,11 @@
 	display: flex;
 	z-index: 1;
 	position: fixed;
-	bottom: var(--panel-padding);
+	bottom: var(--panel-padding-block);
 	left: 50%;
 	row-gap: 12px;
 	flex-direction: column;
-	max-width: min(calc(100% - (2 * var(--panel-padding))), 500px);
+	max-width: min(calc(100% - (2 * var(--panel-padding-inline))), 500px);
 	padding: 12px;
 	overflow: hidden;
 	transform: translateX(-50%);

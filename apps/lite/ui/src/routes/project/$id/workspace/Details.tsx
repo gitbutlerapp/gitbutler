@@ -506,7 +506,7 @@ const DiffContents: FC<{
 				enableLineSelection: true,
 				layout: {
 					paddingTop: 0,
-					// Match --panel-padding.
+					// Match --panel-padding-block.
 					paddingBottom: 16,
 					gap: 10,
 				},

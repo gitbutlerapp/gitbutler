@@ -17,13 +17,14 @@
 }
 
 .uncommittedChangesContainer {
-	padding-inline: var(--panel-padding);
+	padding-inline: var(--panel-padding-inline);
 }
 
 .stacksScroller {
-	padding-inline: var(--panel-padding);
-	padding-bottom: var(--panel-padding);
-	scroll-padding: var(--panel-padding);
+	padding-inline: var(--panel-padding-inline);
+	padding-bottom: var(--panel-padding-block);
+	scroll-padding-block: var(--panel-padding-block);
+	scroll-padding-inline: var(--panel-padding-inline);
 }
 
 .stacks {
