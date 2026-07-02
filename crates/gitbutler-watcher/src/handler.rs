@@ -151,7 +151,7 @@ impl Handler {
                 }
                 // Watch all local branches. HEAD ref changes affect the current
                 // commit, while other branch refs can change workspace topology.
-                _ if file_name.starts_with(LOCAL_REFS_DIR) => {
+                _ if file_name.starts_with(LOCAL_REFS_DIR) && !file_name.ends_with(".lock") => {
                     if file_name == head_ref_name {
                         self.emit_app_event(Change::GitActivity {
                             project_id: project_id.clone(),
