@@ -1,0 +1,53 @@
+.pathInit {
+	margin-inline-start: 6px;
+}
+
+.fileStatusBadge {
+	align-self: center;
+	width: 12px;
+	font-weight: 700;
+	font-size: 11px;
+	font-family: var(--text-fontfamily-base);
+	text-align: right;
+
+	&[data-status-type="Addition"] {
+		color: var(--change-status-addition);
+	}
+
+	&[data-status-type="Deletion"] {
+		color: var(--change-status-deletion);
+	}
+
+	&[data-status-type="Modification"] {
+		color: var(--change-status-modification);
+	}
+
+	&[data-status-type="Rename"] {
+		color: var(--change-status-renaming);
+	}
+}
+
+.fileIconWithCheckbox {
+	display: grid;
+	align-self: center;
+	justify-items: center;
+
+	& > * {
+		grid-area: 1 / 1;
+	}
+}
+
+.fileCheckbox {
+	margin-block-start: 1px;
+	opacity: 0;
+
+	&[data-checked],
+	.fileRow:hover &,
+	&:focus {
+		opacity: 1;
+	}
+
+	&[data-disabled] {
+		display: none;
+	}
+}
