@@ -489,11 +489,16 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
         // detached — then it is forced anonymous. Every other tip: disambiguated.
         let ref_name = if tip == workspace_commit {
             if ws_is_managed_merge {
-                // The real managed merge is named by the workspace ref itself (a `gitbutler/*` ref that
-                // normal disambiguation skips).
+                // The real managed merge is named by EXACTLY the workspace ref (which normal
+                // disambiguation skips). Other transient `gitbutler/*` refs can be co-located —
+                // e.g. `gitbutler/edit` mid edit-mode — and must never name (or join) the
+                // workspace. The traversal can drop the ws ref from the commit (a checkout of
+                // another co-located ref makes it an empty raw segment) — the caller established
+                // it points here, so fall back to the well-known name.
                 cg.refs_at(tip)
                     .into_iter()
-                    .find(|r| r.as_bstr().starts_with_str("refs/heads/gitbutler/"))
+                    .find(|r| but_core::is_workspace_ref_name(r.as_ref()))
+                    .or_else(|| but_core::WORKSPACE_REF_NAME.try_into().ok())
             } else if managed || head_symbolic {
                 // Co-located stack tip / advanced ref (managed) or a non-managed symbolic tip: name by
                 // disambiguation — a stack branch when present, else anonymous. For the managed cases the
@@ -739,6 +744,8 @@ pub fn graph_from_commit_graph<T: but_core::RefMetadata>(
             stack_branches,
             ws_lower_bound,
             &in_set,
+            workspace_commit,
+            ws_is_managed_merge,
         );
         // `add_remote_segments` linked each remote to the local that named its commit's segment. When a
         // later pass (anonymize / empty-branch splicing) floats that local up into its own empty segment,
@@ -1677,6 +1684,8 @@ fn insert_empty_branches(
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
     ws_lower_bound: Option<gix::ObjectId>,
     in_set: &HashSet<gix::ObjectId>,
+    workspace_commit: gix::ObjectId,
+    ws_is_managed_merge: bool,
 ) {
     let Some(lists) = stack_branches else {
         return;
@@ -1792,7 +1801,11 @@ fn insert_empty_branches(
             };
             // A branch resting OUTSIDE the workspace (e.g. above the workspace position in an
             // apply preview) is not part of any lane — the walk leaves it a passive commit ref.
-            if !in_set.contains(&commit) {
+            // Same for one resting ON a real managed MERGE commit (e.g. a stack tip co-located
+            // with it mid edit-mode): it cannot be a lane above the workspace, and splicing it
+            // there would cycle the workspace segment into its own child. A CO-LOCATED workspace
+            // position (no managed commit) is different: that is exactly where empty stacks live.
+            if !in_set.contains(&commit) || (commit == workspace_commit && ws_is_managed_merge) {
                 continue;
             }
             // When several branches of a SINGLE stack share a commit its segment is name-ambiguous

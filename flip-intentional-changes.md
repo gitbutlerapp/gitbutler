@@ -121,12 +121,26 @@ Commit workflow: `git diff <2 files> > sweep.patch && git restore <2 files>`,
 fmt+commit, `git apply sweep.patch`.
 
 ## Flip-default order (task #14+)
-1. Route `Graph::from_head` / `from_commit_traversal` through
-   `graph_from_repository` (managed) / `graph_from_repository_unmanaged`
-   behind `BUT_GRAPH_FLIP`, then default it on.
-2. Re-accept walk snapshots that encode the intentional items above
-   (structural diffs only; projections already agree). #8's list:
-   `minimal_merge*`, `without_target_ref_*managed_commit*`, ….
-3. Run but-workspace / but-rebase / e2e Playwright suites as guardrails (#15).
-4. Delete: `post.rs`, the walk-only projection glue, the dead CommitGraph
+1. ✅ DONE — the dispatch lives in `from_commit_traversal` and
+   `redo_traversal_with_overlay` behind `BUT_GRAPH_FLIP`: managed workspaces via
+   `graph_from_repository(_with_overlay)`, walk fallback on `Ok(None)`. The
+   NON-managed builder is deliberately not routed to (not parity-proven).
+   Overlays are served from memory by the flip (`OverlayMetadata: RefMetadata`).
+2. ✅ VALIDATED — flip-on failures in but-workspace + but-rebase are pure
+   segment-INDEX renumbering (indices differ per-build by construction), except
+   TWO but-rebase `workspace_commit_behaviour` fixture guards (`assert_eq`, not
+   insta): the flip splits a no-metadata managed ws commit's parents into their
+   own segments where the walk keeps them inline — intentional-change #8
+   family; hand-edit at flip-default.
+3. ✅ e2e Playwright green flip-on (94 passed), repeatedly.
+4. TO EXECUTE at flip-default: default `BUT_GRAPH_FLIP` on (or drop the env
+   check), `cargo insta test --accept` for but-graph/but-workspace/but-rebase,
+   hand-edit the two fixture guards, re-run e2e.
+5. Delete: `post.rs`, the walk-only projection glue, the dead CommitGraph
    methods above, then the sweep instrumentation (#16).
+
+## Debugging aid
+`BUT_GRAPH_FLIP_DEBUG=1` prints, on flip entry, the resolved workspace commit,
+entrypoint(+ref), and the FULL overlay. This is how apply/unapply preview
+overlays were captured and replayed to fix every operation-flow divergence —
+keep until deletion is complete.
