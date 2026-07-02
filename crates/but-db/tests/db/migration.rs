@@ -348,6 +348,46 @@ first | two
     }
 
     #[test]
+    fn branch_order_migration_tolerates_existing_table_without_version_row() -> anyhow::Result<()> {
+        let mut db = rusqlite::Connection::open_in_memory()?;
+        db.execute_batch(
+            "CREATE TABLE `branch_order`(
+                `branch_ref_name` TEXT NOT NULL PRIMARY KEY,
+                `parent_ref_name` TEXT UNIQUE,
+                CHECK (`parent_ref_name` IS NULL OR `branch_ref_name` != `parent_ref_name`)
+            );",
+        )?;
+
+        migration::run(&mut db, but_db::migration::ours())?;
+
+        let version_was_recorded: bool = db.query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM __diesel_schema_migrations WHERE version = '20260626120100'
+            )",
+            [],
+            |row| row.get(0),
+        )?;
+        assert!(
+            version_was_recorded,
+            "existing branch_order table should still be marked as migrated"
+        );
+
+        let index_exists: bool = db.query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM sqlite_master
+                WHERE type = 'index' AND name = 'idx_branch_order_parent_ref_name'
+            )",
+            [],
+            |row| row.get(0),
+        )?;
+        assert!(
+            index_exists,
+            "existing branch_order table should still receive the branch-order index"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn run_ours() -> anyhow::Result<()> {
         // See all of our schema combined in the latest version, along with
         // all migration versions we ran to get there.
