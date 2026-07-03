@@ -51,7 +51,7 @@ import { GraphSegment, GraphSegmentStatus } from "#ui/components/GraphSegment.ts
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { type CommitTargetComboboxItem } from "../CommitForm.tsx";
+import { CommitForm, type CommitTargetComboboxItem } from "../CommitForm.tsx";
 import { useIsSelected } from "./useIsSelected.ts";
 import { CommitRow } from "./CommitRow.tsx";
 import { BranchRow } from "./BranchRow.tsx";
@@ -499,6 +499,7 @@ export const OutlineTree: FC<
 		projectId: string;
 		headInfo: RefInfo | undefined;
 		commitTarget: CommitTargetComboboxItem | null;
+		targetComboboxItems: Array<CommitTargetComboboxItem>;
 		navigationIndex: NavigationIndex<Operand>;
 		absorptionTargetKeys: ReadonlySet<string>;
 	} & ComponentProps<"div">
@@ -506,6 +507,7 @@ export const OutlineTree: FC<
 	projectId,
 	headInfo,
 	commitTarget,
+	targetComboboxItems,
 	navigationIndex,
 	absorptionTargetKeys,
 	ref: refProp,
@@ -576,8 +578,8 @@ export const OutlineTree: FC<
 						<Panel
 							id={"uncommitted-changes-panel" satisfies PanelId}
 							className={styles.uncommittedChangesPanel}
-							defaultSize={200}
-							minSize={120}
+							defaultSize={250}
+							minSize={200}
 							groupResizeBehavior="preserve-pixel-size"
 						>
 							<OperandC
@@ -587,6 +589,13 @@ export const OutlineTree: FC<
 								outline="inside"
 							>
 								<UncommittedChanges projectId={projectId} />
+
+								<CommitForm
+									className={styles.commitForm}
+									projectId={projectId}
+									commitTarget={commitTarget}
+									targetComboboxItems={targetComboboxItems}
+								/>
 							</OperandC>
 						</Panel>
 
