@@ -28,18 +28,28 @@
 	grid-template-columns: minmax(0, 1fr);
 }
 
-.uncommittedChangesContainer {
+.uncommittedChangesPanelInner {
 	display: flex;
-	row-gap: 12px;
 	flex-direction: column;
+	min-height: 0;
+}
+
+.uncommittedChangesContainer {
+	flex-grow: 1;
+	min-height: 100px;
 	padding-inline: var(--panel-padding-inline);
 	padding-block: var(--panel-padding-block);
 	overflow: auto;
 	scroll-padding-block: var(--panel-padding-block);
 }
 
-.commitForm {
-	margin-block-start: auto;
+.commitFormContainer {
+	z-index: 1;
+	padding-inline: var(--panel-padding-inline);
+	padding-block-end: var(--panel-padding-block);
+	box-shadow:
+		0 0 10px 2px var(--bg-1),
+		0 0 12px var(--bg-1);
 }
 
 .stacks {

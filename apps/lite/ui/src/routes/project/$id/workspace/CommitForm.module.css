@@ -24,7 +24,7 @@
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(1lh);
-	max-height: calc(10lh);
+	max-height: calc(3lh);
 
 	&:focus {
 		outline: none;

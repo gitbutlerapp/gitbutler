@@ -578,24 +578,29 @@ export const OutlineTree: FC<
 						<Panel
 							id={"uncommitted-changes-panel" satisfies PanelId}
 							className={styles.uncommittedChangesPanel}
-							defaultSize={250}
-							minSize={200}
+							// Approximately: minimum files height + max commit form height.
+							// This ensures the user doesn't end up with double scroll bars.
+							minSize={240}
+							defaultSize={240}
 							groupResizeBehavior="preserve-pixel-size"
 						>
 							<OperandC
 								projectId={projectId}
 								operand={uncommittedChangesOperand}
-								className={styles.uncommittedChangesContainer}
 								outline="inside"
+								className={styles.uncommittedChangesPanelInner}
 							>
-								<UncommittedChanges projectId={projectId} />
+								<div className={styles.uncommittedChangesContainer}>
+									<UncommittedChanges projectId={projectId} />
+								</div>
 
-								<CommitForm
-									className={styles.commitForm}
-									projectId={projectId}
-									commitTarget={commitTarget}
-									targetComboboxItems={targetComboboxItems}
-								/>
+								<div className={styles.commitFormContainer}>
+									<CommitForm
+										projectId={projectId}
+										commitTarget={commitTarget}
+										targetComboboxItems={targetComboboxItems}
+									/>
+								</div>
 							</OperandC>
 						</Panel>
 
