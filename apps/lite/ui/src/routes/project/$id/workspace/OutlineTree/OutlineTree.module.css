@@ -35,6 +35,7 @@
 	padding-inline: var(--panel-padding-inline);
 	padding-block: var(--panel-padding-block);
 	overflow: auto;
+	scroll-padding-block: var(--panel-padding-block);
 }
 
 .commitForm {
