@@ -9,13 +9,13 @@ export const DependencyIndicator: FC<
 	{
 		projectId: string;
 		commitIds: Array.NonEmptyArray<string>;
-		branchNameByCommitId?: (commitId: string) => string | undefined;
+		branchNameByCommitId: (commitId: string) => string | undefined;
 	} & ComponentProps<"button">
 > = ({ projectId, commitIds, branchNameByCommitId, ...restProps }) => {
 	const dispatch = useAppDispatch();
 	const branchNames = pipe(
 		commitIds,
-		Array.flatMapNullable((commitId) => branchNameByCommitId?.(commitId)),
+		Array.flatMapNullable((commitId) => branchNameByCommitId(commitId)),
 		Array.dedupe,
 	);
 	const tooltip =

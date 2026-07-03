@@ -164,7 +164,8 @@ const CommitC: FC<{
 
 const UncommittedChanges: FC<{
 	projectId: string;
-}> = ({ projectId }) => {
+	branchNameByCommitId: (commitId: string) => string | undefined;
+}> = ({ projectId, branchNameByCommitId }) => {
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const fileRowItems = worktreeChanges ? getChangesFileRowItems(worktreeChanges) : [];
 
@@ -189,7 +190,12 @@ const UncommittedChanges: FC<{
 				// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics.
 				<div role="group">
 					{fileRowItems.map((item) => (
-						<UncommittedFileRow key={item.path} item={item} projectId={projectId} />
+						<UncommittedFileRow
+							key={item.path}
+							item={item}
+							projectId={projectId}
+							branchNameByCommitId={branchNameByCommitId}
+						/>
 					))}
 				</div>
 			)}
@@ -200,7 +206,8 @@ const UncommittedChanges: FC<{
 const UncommittedFileRow: FC<{
 	item: FileRowItem;
 	projectId: string;
-}> = ({ item, projectId }) => {
+	branchNameByCommitId: (commitId: string) => string | undefined;
+}> = ({ item, projectId, branchNameByCommitId }) => {
 	const operand = fileOperand({
 		parent: uncommittedChangesFileParent,
 		path: item.path,
@@ -224,6 +231,7 @@ const UncommittedFileRow: FC<{
 							item={item}
 							projectId={projectId}
 							fileParent={uncommittedChangesFileParent}
+							branchNameByCommitId={branchNameByCommitId}
 							inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 							isSelected={isSelected}
 							onSelect={() => {
@@ -545,6 +553,8 @@ export const OutlineTree: FC<
 	const dryRunOperationQuery = useDryRunOperation({ projectId, operation: dryRunOperation });
 	const dryRunWorkspace = dryRunOperationQuery.data?.workspace ?? null;
 
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
+
 	const ref = useRef<HTMLDivElement>(null);
 	const layoutId = `project=${projectId}:outline-tree`;
 	const outlineLayout = useDefaultLayout({
@@ -591,7 +601,12 @@ export const OutlineTree: FC<
 								className={styles.uncommittedChangesPanelInner}
 							>
 								<div className={styles.uncommittedChangesContainer}>
-									<UncommittedChanges projectId={projectId} />
+									<UncommittedChanges
+										projectId={projectId}
+										branchNameByCommitId={(cid) =>
+											headInfoIndex?.commitContextById(cid)?.segment.refName?.displayName
+										}
+									/>
 								</div>
 
 								<div className={styles.commitFormContainer}>

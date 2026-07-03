@@ -26,7 +26,7 @@ export const FileRow: FC<
 		item: FileRowItem;
 		projectId: string;
 		fileParent: FileParent;
-		branchNameByCommitId?: (commitId: string) => string | undefined;
+		branchNameByCommitId: (commitId: string) => string | undefined;
 	} & Omit<ComponentProps<typeof Row>, "projectId">
 > = ({ item, projectId, fileParent, branchNameByCommitId, id, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
