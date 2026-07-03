@@ -22,8 +22,10 @@
 }
 
 .uncommittedChangesPanel {
+	/* Stretch single child element to fill this element. */
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr);
 }
 
 .uncommittedChangesContainer {

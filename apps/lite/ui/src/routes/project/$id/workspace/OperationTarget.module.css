@@ -1,6 +1,9 @@
 .target {
+	/* Stretch single child element to fill this element. */
 	display: grid;
+
 	position: relative;
+	grid-template-columns: minmax(0, 1fr);
 }
 
 .activeTarget {
