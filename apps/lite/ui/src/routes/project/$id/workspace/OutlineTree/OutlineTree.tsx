@@ -176,7 +176,6 @@ const UncommittedChanges: FC<{
 			projectId={projectId}
 			operand={operand}
 			aria-label={`Uncommitted changes (${worktreeChanges?.changes.length ?? 0})`}
-			className={styles.section}
 		>
 			<UncommittedChangesRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
 
