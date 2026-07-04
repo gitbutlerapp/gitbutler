@@ -19,7 +19,10 @@ import {
 	selectProjectHasCheckedCommits,
 	selectProjectOutlineModeState,
 } from "#ui/projects/state.ts";
-import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
+import {
+	OperationSourceC,
+	OperationSourceProvider,
+} from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import {
 	OperationTarget,
 	OperationTargetOutline,
@@ -59,8 +62,9 @@ import { StackRow } from "./StackRow.tsx";
 import { useOutlineTreeHotkeys } from "./hotkeys.ts";
 import { partialStackStatesFromSegments, type PartialStackState } from "./partialStackState.ts";
 import { UncommittedChangesRow } from "./UncommittedChangesRow.tsx";
-import { FileRow } from "../FileRow.tsx";
+import { FileRow, FileRowTooltipProvider } from "../FileRow.tsx";
 import { getChangesFileRowItems, type FileRowItem } from "../file-row.ts";
+import { useFileMenuItemsFactory } from "../useFileMenuItems.ts";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -163,8 +167,11 @@ const CommitC: FC<{
 };
 
 const UncommittedChanges: FC<{
+	getFileMenuItems: ReturnType<typeof useFileMenuItemsFactory>;
+	hasCheckedCommits: boolean;
+	isDefaultMode: boolean;
 	projectId: string;
-}> = ({ projectId }) => {
+}> = ({ getFileMenuItems, hasCheckedCommits, isDefaultMode, projectId }) => {
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const fileRowItems = worktreeChanges ? getChangesFileRowItems(worktreeChanges) : [];
 
@@ -189,7 +196,14 @@ const UncommittedChanges: FC<{
 				// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics.
 				<div role="group">
 					{fileRowItems.map((item) => (
-						<UncommittedFileRow key={item.path} item={item} projectId={projectId} />
+						<UncommittedFileRow
+							key={item.path}
+							item={item}
+							getFileMenuItems={getFileMenuItems}
+							hasCheckedCommits={hasCheckedCommits}
+							isDefaultMode={isDefaultMode}
+							projectId={projectId}
+						/>
 					))}
 				</div>
 			)}
@@ -198,9 +212,12 @@ const UncommittedChanges: FC<{
 };
 
 const UncommittedFileRow: FC<{
+	getFileMenuItems: ReturnType<typeof useFileMenuItemsFactory>;
+	hasCheckedCommits: boolean;
+	isDefaultMode: boolean;
 	item: FileRowItem;
 	projectId: string;
-}> = ({ item, projectId }) => {
+}> = ({ getFileMenuItems, hasCheckedCommits, isDefaultMode, item, projectId }) => {
 	const operand = fileOperand({
 		parent: uncommittedChangesFileParent,
 		path: item.path,
@@ -224,7 +241,10 @@ const UncommittedFileRow: FC<{
 							item={item}
 							projectId={projectId}
 							fileParent={uncommittedChangesFileParent}
+							getFileMenuItems={getFileMenuItems}
+							hasCheckedCommits={hasCheckedCommits}
 							inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
+							isDefaultMode={isDefaultMode}
 							isSelected={isSelected}
 							onSelect={() => {
 								dispatch(projectActions.selectOutline({ projectId, selection: operand }));
@@ -516,6 +536,7 @@ export const OutlineTree: FC<
 	const hasCheckedCommits = useAppSelector((state) =>
 		selectProjectHasCheckedCommits(state, projectId),
 	);
+	const getFileMenuItems = useFileMenuItemsFactory(projectId);
 
 	const dryRunOperation = Match.value(outlineMode).pipe(
 		Match.when({ _tag: "Transfer", value: { _tag: "Pointer" } }, ({ value: mode }) =>
@@ -557,54 +578,67 @@ export const OutlineTree: FC<
 	});
 
 	return (
-		<NavigationIndexContext value={navigationIndex}>
-			<AbsorptionTargetKeysContext value={absorptionTargetKeys}>
-				<DryRunWorkspaceContext value={dryRunWorkspace}>
-					<Group
-						{...props}
-						id={layoutId}
-						orientation="vertical"
-						tabIndex={0}
-						role="tree"
-						aria-activedescendant={selection ? treeItemId(selection) : undefined}
-						data-has-checked-commits={hasCheckedCommits || undefined}
-						className={classes(props.className, styles.tree)}
-						defaultLayout={outlineLayout.defaultLayout}
-						onLayoutChanged={outlineLayout.onLayoutChanged}
-						elementRef={useMergedRefs(refProp, ref)}
-					>
-						<Panel
-							id={"uncommitted-changes-panel" satisfies PanelId}
-							className={styles.uncommittedChangesPanel}
-							defaultSize={200}
-							minSize={120}
-							groupResizeBehavior="preserve-pixel-size"
-						>
-							<OperandC
-								projectId={projectId}
-								operand={uncommittedChangesOperand}
-								className={styles.uncommittedChangesContainer}
-								outline="inside"
+		<OperationSourceProvider projectId={projectId}>
+			<FileRowTooltipProvider>
+				<NavigationIndexContext value={navigationIndex}>
+					<AbsorptionTargetKeysContext value={absorptionTargetKeys}>
+						<DryRunWorkspaceContext value={dryRunWorkspace}>
+							<Group
+								{...props}
+								id={layoutId}
+								orientation="vertical"
+								tabIndex={0}
+								role="tree"
+								aria-activedescendant={selection ? treeItemId(selection) : undefined}
+								data-has-checked-commits={hasCheckedCommits || undefined}
+								className={classes(props.className, styles.tree)}
+								defaultLayout={outlineLayout.defaultLayout}
+								onLayoutChanged={outlineLayout.onLayoutChanged}
+								elementRef={useMergedRefs(refProp, ref)}
 							>
-								<UncommittedChanges projectId={projectId} />
-							</OperandC>
-						</Panel>
+								<Panel
+									id={"uncommitted-changes-panel" satisfies PanelId}
+									className={styles.uncommittedChangesPanel}
+									defaultSize={200}
+									minSize={120}
+									groupResizeBehavior="preserve-pixel-size"
+								>
+									<OperandC
+										projectId={projectId}
+										operand={uncommittedChangesOperand}
+										className={styles.uncommittedChangesContainer}
+										outline="inside"
+									>
+										<UncommittedChanges
+											getFileMenuItems={getFileMenuItems}
+											hasCheckedCommits={hasCheckedCommits}
+											isDefaultMode={outlineMode._tag === "Default"}
+											projectId={projectId}
+										/>
+									</OperandC>
+								</Panel>
 
-						<Separator className={styles.resizeHandle} />
+								<Separator className={styles.resizeHandle} />
 
-						<Panel id={"stacks-panel" satisfies PanelId} className={styles.stacks} minSize={120}>
-							{reverse(headInfo?.stacks ?? []).map((stack) => (
-								<StackC
-									key={stack.id}
-									projectId={projectId}
-									stack={stack}
-									commitTarget={commitTarget?.relativeTo ?? null}
-								/>
-							))}
-						</Panel>
-					</Group>
-				</DryRunWorkspaceContext>
-			</AbsorptionTargetKeysContext>
-		</NavigationIndexContext>
+								<Panel
+									id={"stacks-panel" satisfies PanelId}
+									className={styles.stacks}
+									minSize={120}
+								>
+									{reverse(headInfo?.stacks ?? []).map((stack) => (
+										<StackC
+											key={stack.id}
+											projectId={projectId}
+											stack={stack}
+											commitTarget={commitTarget?.relativeTo ?? null}
+										/>
+									))}
+								</Panel>
+							</Group>
+						</DryRunWorkspaceContext>
+					</AbsorptionTargetKeysContext>
+				</NavigationIndexContext>
+			</FileRowTooltipProvider>
+		</OperationSourceProvider>
 	);
 };

@@ -12,7 +12,7 @@ import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/ce
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
 import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
+import { createContext, FC, type ReactNode, use, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import type { DragData } from "./DragData.ts";
 import { Match } from "effect";
@@ -21,22 +21,72 @@ const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes(styles.dragPreview, "text-13")}>{children}</div>
 );
 
+type OperationSourceContextValue = {
+	projectId: string;
+	headInfoIndex: ReturnType<typeof getHeadInfoIndex> | undefined;
+	outlineMode: ReturnType<typeof selectProjectOutlineModeState>;
+	dispatch: ReturnType<typeof useAppDispatch>;
+};
+
+const OperationSourceContext = createContext<OperationSourceContextValue | null>(null);
+
 type OperationSourceOutline = "inside" | "outside";
 
-export const OperationSourceC: FC<
-	{
-		projectId: string;
-		source: Operand;
-		outline: OperationSourceOutline;
-	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
-> = ({ projectId, source, outline, render, ...props }) => {
+type OperationSourceCProps = {
+	projectId: string;
+	source: Operand;
+	outline: OperationSourceOutline;
+} & Omit<useRender.ComponentProps<"div">, "onDragStart">;
+
+export const OperationSourceProvider: FC<{ projectId: string; children: ReactNode }> = ({
+	projectId,
+	children,
+}) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-
 	const dispatch = useAppDispatch();
+
+	return (
+		<OperationSourceContext value={{ projectId, headInfoIndex, outlineMode, dispatch }}>
+			{children}
+		</OperationSourceContext>
+	);
+};
+
+export const OperationSourceC: FC<OperationSourceCProps> = (props) => {
+	const context = use(OperationSourceContext);
+
+	if (context?.projectId === props.projectId)
+		return <OperationSourceCInner {...props} context={context} />;
+
+	return <StandaloneOperationSourceC {...props} />;
+};
+
+const StandaloneOperationSourceC: FC<OperationSourceCProps> = (props) => {
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(props.projectId),
+		select: getHeadInfoIndex,
+	});
+	const outlineMode = useAppSelector((state) =>
+		selectProjectOutlineModeState(state, props.projectId),
+	);
+	const dispatch = useAppDispatch();
+
+	return (
+		<OperationSourceCInner
+			{...props}
+			context={{ projectId: props.projectId, headInfoIndex, outlineMode, dispatch }}
+		/>
+	);
+};
+
+const OperationSourceCInner: FC<
+	OperationSourceCProps & { context: OperationSourceContextValue }
+> = ({ projectId, source, outline, render, context, ...props }) => {
+	const { dispatch, headInfoIndex, outlineMode } = context;
 	const dragRef = useRef<HTMLElement>(null);
 	const onGenerateDragPreview: Parameters<typeof draggable>[0]["onGenerateDragPreview"] =
 		useEffectEvent(({ nativeSetDragImage }) => {

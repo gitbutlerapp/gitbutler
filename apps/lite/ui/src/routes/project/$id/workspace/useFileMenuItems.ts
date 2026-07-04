@@ -32,6 +32,11 @@ export const useFileMenuItems = ({
 	path: string;
 	change?: TreeChange;
 }): Array<NativeMenuItem> => {
+	const getFileMenuItems = useFileMenuItemsFactory(projectId);
+	return getFileMenuItems({ operand, path, change });
+};
+
+export const useFileMenuItemsFactory = (projectId: string) => {
 	const dispatch = useAppDispatch();
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
@@ -43,140 +48,151 @@ export const useFileMenuItems = ({
 	const commitDiscardChanges = useCommitDiscardChanges();
 	const discardWorktreeChanges = useDiscardWorktreeChanges();
 	const openInEditor = useOpenInEditor();
-	const cutFile = () => {
-		dispatch(
-			projectActions.enterKeyboardTransferMode({
-				projectId,
-				source: fileOperand(operand),
-			}),
-		);
-		focusSelectionScope("outline");
-	};
 
-	const menuItemGroups: Array<NonEmptyArray<NativeMenuItem>> = [
-		[
-			nativeMenuItem({
-				label: "Open In Editor",
-				submenu:
-					editors?.map((editor) =>
-						nativeMenuItem({
-							label: editor.name,
-							enabled: !openInEditor.isPending,
-							onSelect: () =>
-								openInEditor.mutate({
-									projectId,
-									editorId: editor.id,
-									path,
-									lineNr: null,
-								}),
-						}),
-					) ?? [],
-			}),
-			nativeMenuItem({
-				label: "Copy Path",
-				submenu: [
-					nativeMenuItem({
-						label: "Absolute Path",
-						onSelect: async () => {
-							const absolutePath = await window.lite.pathJoin(selectedProject.path, path);
-							await window.lite.clipboardWriteText(absolutePath);
-						},
-					}),
-					nativeMenuItem({
-						label: "Relative Path",
-						onSelect: () => window.lite.clipboardWriteText(path),
-					}),
-				],
-			}),
-		],
-		...(change && operand.parent._tag !== "Branch"
-			? [
-					[
-						nativeMenuItem({
-							label: "Cut File",
-							onSelect: cutFile,
-							accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
-						}),
-					] satisfies NonEmptyArray<NativeMenuItem>,
-				]
-			: []),
-		...(change
-			? Match.value(operand).pipe(
-					Match.withReturnType<Array<NonEmptyArray<NativeMenuItem>>>(),
-					Match.when({ parent: { _tag: "Commit" } }, (operand) => {
-						const uncommit = () =>
-							commitUncommitChanges.mutate({
-								projectId,
-								commitId: operand.parent.commitId,
-								assignTo: null,
-								changes: [createDiffSpec(change, [])],
-								dryRun: false,
-							});
-						const discard = () =>
-							commitDiscardChanges.mutate({
-								projectId,
-								commitId: operand.parent.commitId,
-								changes: [createDiffSpec(change, [])],
-								dryRun: false,
-							});
+	return ({
+		operand,
+		path,
+		change,
+	}: {
+		operand: FileOperand;
+		path: string;
+		change?: TreeChange;
+	}): Array<NativeMenuItem> => {
+		const cutFile = () => {
+			dispatch(
+				projectActions.enterKeyboardTransferMode({
+					projectId,
+					source: fileOperand(operand),
+				}),
+			);
+			focusSelectionScope("outline");
+		};
 
-						return [
-							[
-								nativeMenuItem({
-									label: "Uncommit",
-									enabled: !commitUncommitChanges.isPending,
-									onSelect: uncommit,
-								}),
-								nativeMenuItem({
-									label: "Discard Changes",
-									enabled: !commitDiscardChanges.isPending,
-									onSelect: discard,
-								}),
-							],
-						];
-					}),
-					Match.when({ parent: { _tag: "UncommittedChanges" } }, (operand) => {
-						const absorb = () => {
-							dispatch(
-								projectActions.enterAbsorbMode({
+		const menuItemGroups: Array<NonEmptyArray<NativeMenuItem>> = [
+			[
+				nativeMenuItem({
+					label: "Open In Editor",
+					submenu:
+						editors?.map((editor) =>
+							nativeMenuItem({
+								label: editor.name,
+								enabled: !openInEditor.isPending,
+								onSelect: () =>
+									openInEditor.mutate({
+										projectId,
+										editorId: editor.id,
+										path,
+										lineNr: null,
+									}),
+							}),
+						) ?? [],
+				}),
+				nativeMenuItem({
+					label: "Copy Path",
+					submenu: [
+						nativeMenuItem({
+							label: "Absolute Path",
+							onSelect: async () => {
+								const absolutePath = await window.lite.pathJoin(selectedProject.path, path);
+								await window.lite.clipboardWriteText(absolutePath);
+							},
+						}),
+						nativeMenuItem({
+							label: "Relative Path",
+							onSelect: () => window.lite.clipboardWriteText(path),
+						}),
+					],
+				}),
+			],
+			...(change && operand.parent._tag !== "Branch"
+				? [
+						[
+							nativeMenuItem({
+								label: "Cut File",
+								onSelect: cutFile,
+								accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
+							}),
+						] satisfies NonEmptyArray<NativeMenuItem>,
+					]
+				: []),
+			...(change
+				? Match.value(operand).pipe(
+						Match.withReturnType<Array<NonEmptyArray<NativeMenuItem>>>(),
+						Match.when({ parent: { _tag: "Commit" } }, (operand) => {
+							const uncommit = () =>
+								commitUncommitChanges.mutate({
 									projectId,
-									source: fileOperand(operand),
-									sourceTarget: {
-										type: "treeChanges",
-										subject: {
-											changes: [change],
-											assignedStackId: null,
+									commitId: operand.parent.commitId,
+									assignTo: null,
+									changes: [createDiffSpec(change, [])],
+									dryRun: false,
+								});
+							const discard = () =>
+								commitDiscardChanges.mutate({
+									projectId,
+									commitId: operand.parent.commitId,
+									changes: [createDiffSpec(change, [])],
+									dryRun: false,
+								});
+
+							return [
+								[
+									nativeMenuItem({
+										label: "Uncommit",
+										enabled: !commitUncommitChanges.isPending,
+										onSelect: uncommit,
+									}),
+									nativeMenuItem({
+										label: "Discard Changes",
+										enabled: !commitDiscardChanges.isPending,
+										onSelect: discard,
+									}),
+								],
+							];
+						}),
+						Match.when({ parent: { _tag: "UncommittedChanges" } }, (operand) => {
+							const absorb = () => {
+								dispatch(
+									projectActions.enterAbsorbMode({
+										projectId,
+										source: fileOperand(operand),
+										sourceTarget: {
+											type: "treeChanges",
+											subject: {
+												changes: [change],
+												assignedStackId: null,
+											},
 										},
-									},
-								}),
-							);
-							focusSelectionScope("outline");
-						};
-						const discard = () =>
-							discardWorktreeChanges.mutate({
-								projectId,
-								changes: [createDiffSpec(change, [])],
-							});
+									}),
+								);
+								focusSelectionScope("outline");
+							};
+							const discard = () =>
+								discardWorktreeChanges.mutate({
+									projectId,
+									changes: [createDiffSpec(change, [])],
+								});
 
-						return [
-							[
-								nativeMenuItem({
-									label: "Absorb",
-									accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
-									onSelect: absorb,
-								}),
-								nativeMenuItem({
-									label: "Discard Changes",
-									enabled: !discardWorktreeChanges.isPending,
-									onSelect: discard,
-								}),
-							],
-						];
-					}),
-					Match.orElse(() => []),
-				)
-			: []),
-	];
+							return [
+								[
+									nativeMenuItem({
+										label: "Absorb",
+										accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
+										onSelect: absorb,
+									}),
+									nativeMenuItem({
+										label: "Discard Changes",
+										enabled: !discardWorktreeChanges.isPending,
+										onSelect: discard,
+									}),
+								],
+							];
+						}),
+						Match.orElse(() => []),
+					)
+				: []),
+		];
 
-	return nativeMenuItemsFromGroups(menuItemGroups);
+		return nativeMenuItemsFromGroups(menuItemGroups);
+	};
 };
