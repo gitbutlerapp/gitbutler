@@ -365,7 +365,7 @@ impl App {
                 self.handle_reword(reword_message, ctx, terminal_guard, messages)?
             }
             Message::Command(command_message) => {
-                self.handle_command(command_message, terminal_guard, out, messages)?
+                self.handle_command(command_message, ctx, terminal_guard, out, messages)?
             }
             Message::Move(move_message) => self.handle_move(move_message, ctx, messages)?,
             Message::NewBranch => {
