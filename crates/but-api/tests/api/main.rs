@@ -14,5 +14,6 @@ mod forge_pr_association;
 #[cfg(feature = "legacy")]
 mod legacy_workspace;
 mod resolve_ai;
+mod resolve_hunks;
 mod support;
 mod target_commits;

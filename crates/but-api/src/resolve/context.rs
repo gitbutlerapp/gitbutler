@@ -34,8 +34,14 @@ fn merge_labels() -> gix::merge::blob::builtin_driver::text::Labels<'static> {
 
 /// One conflicted region of a file, with the content of each side and a few
 /// lines of surrounding context.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
 pub struct ConflictHunk {
+    /// The 1-based line in the commit's auto-resolved content of this file
+    /// where the conflicted region starts. Anchors the conflict within diffs
+    /// of the commit, which are computed against the auto-resolution.
+    pub line: u32,
     /// Unconflicted lines directly before the conflict, clamped to the previous conflict.
     pub context_before: String,
     /// The content of the *ours* side, i.e. the new base the commit is rebased onto.
@@ -47,6 +53,9 @@ pub struct ConflictHunk {
     /// Unconflicted lines directly after the conflict, clamped to the next conflict.
     pub context_after: String,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ConflictHunk);
 
 /// A conflicted file together with its merged marker text and extracted hunks.
 #[derive(Debug, Clone)]
@@ -72,8 +81,12 @@ pub struct ResolutionRequest {
     pub commit_message: String,
     /// The title of the commit's parent, i.e. the new base it was rebased onto.
     pub parent_message: Option<String>,
-    /// The tree produced by re-merging the commit's conflict trees, with markers in blobs.
-    pub merged_tree_id: gix::ObjectId,
+    /// The commit's stored merge-base tree.
+    pub base_tree_id: gix::ObjectId,
+    /// The commit's stored *ours* tree, i.e. the new base it was rebased onto.
+    pub ours_tree_id: gix::ObjectId,
+    /// The commit's stored *theirs* tree, i.e. its own version.
+    pub theirs_tree_id: gix::ObjectId,
     /// All conflicted files, sorted by path.
     pub files: Vec<FileConflict>,
 }
@@ -106,9 +119,11 @@ pub fn build_request(
         .and_then(|parent_id| but_core::Commit::from_id(parent_id.attach(repo)).ok())
         .map(|parent| commit_title(&parent));
 
+    let (base, ours, theirs) = (base.detach(), ours.detach(), theirs.detach());
     let repo = repo.clone().for_tree_diffing()?;
     // Merge without favoring a side to reproduce the actual conflicts, and
-    // force diff3-style markers so every hunk carries the common ancestor.
+    // force diff3-style markers with the sentinel labels so every hunk carries
+    // the common ancestor and marker lines are exactly known strings.
     let mut options: gix::merge::plumbing::tree::Options = repo.tree_merge_options()?.into();
     options.blob_merge.text.conflict = gix::merge::blob::builtin_driver::text::Conflict::Keep {
         style: gix::merge::blob::builtin_driver::text::ConflictStyle::Diff3,
@@ -213,7 +228,9 @@ pub fn build_request(
         commit_id,
         commit_message,
         parent_message,
-        merged_tree_id,
+        base_tree_id: base,
+        ours_tree_id: ours,
+        theirs_tree_id: theirs,
         files,
     })
 }
@@ -358,31 +375,35 @@ pub(crate) fn scan_conflict_blocks(lines: &[&str]) -> Vec<ConflictBlock> {
 fn extract_hunks(lines: &[&str], blocks: &[ConflictBlock]) -> Vec<ConflictHunk> {
     let join = |range: std::ops::Range<usize>| lines[range].join("\n");
 
-    blocks
-        .iter()
-        .enumerate()
-        .map(|(index, block)| {
-            let previous_end = if index == 0 {
-                0
-            } else {
-                blocks[index - 1].end + 1
-            };
-            let next_start = blocks
-                .get(index + 1)
-                .map(|next| next.start)
-                .unwrap_or(lines.len());
-            let context_before_start = block.start.saturating_sub(CONTEXT_LINES).max(previous_end);
-            let context_after_end = (block.end + 1 + CONTEXT_LINES).min(next_start);
+    // The auto-resolution is the merged text with each block replaced by its
+    // ours lines, so a block's line therein is its merged-text line minus
+    // everything earlier blocks contribute beyond their ours lines.
+    let mut removed_before = 0;
+    let mut hunks = Vec::with_capacity(blocks.len());
+    for (index, block) in blocks.iter().enumerate() {
+        let previous_end = if index == 0 {
+            0
+        } else {
+            blocks[index - 1].end + 1
+        };
+        let next_start = blocks
+            .get(index + 1)
+            .map(|next| next.start)
+            .unwrap_or(lines.len());
+        let context_before_start = block.start.saturating_sub(CONTEXT_LINES).max(previous_end);
+        let context_after_end = (block.end + 1 + CONTEXT_LINES).min(next_start);
 
-            ConflictHunk {
-                context_before: join(context_before_start..block.start),
-                ours: join(block.ours.clone()),
-                base: block.base.clone().map(join),
-                theirs: join(block.theirs.clone()),
-                context_after: join((block.end + 1)..context_after_end),
-            }
-        })
-        .collect()
+        hunks.push(ConflictHunk {
+            line: (block.start - removed_before + 1) as u32,
+            context_before: join(context_before_start..block.start),
+            ours: join(block.ours.clone()),
+            base: block.base.clone().map(join),
+            theirs: join(block.theirs.clone()),
+            context_after: join((block.end + 1)..context_after_end),
+        });
+        removed_before += (block.end - block.start + 1) - block.ours.len();
+    }
+    hunks
 }
 
 #[cfg(test)]
@@ -431,6 +452,19 @@ mod tests {
         assert_eq!(hunks.len(), 2);
         assert_eq!(hunks[0].context_after, "b");
         assert_eq!(hunks[1].context_before, "b");
+    }
+
+    /// The line anchors point into the auto-resolved content, i.e. the merged
+    /// text with each block replaced by its ours lines.
+    #[test]
+    fn hunk_lines_anchor_into_the_auto_resolution() {
+        // Auto-resolution: start, ours, end — the conflict starts at line 2.
+        assert_eq!(extract_hunks(DIFF3)[0].line, 2);
+        // Auto-resolution: a, 1, b, 3, c — conflicts at lines 2 and 4.
+        let text = "a\n<<<<<<< gitbutler-resolve-ours\n1\n=======\n2\n>>>>>>> gitbutler-resolve-theirs\nb\n<<<<<<< gitbutler-resolve-ours\n3\n=======\n4\n>>>>>>> gitbutler-resolve-theirs\nc\n";
+        let hunks = extract_hunks(text);
+        assert_eq!(hunks[0].line, 2);
+        assert_eq!(hunks[1].line, 4);
     }
 
     #[test]
