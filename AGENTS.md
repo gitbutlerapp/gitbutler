@@ -30,3 +30,7 @@ this order:
 
 - For Rust work under `crates/`, follow `crates/AGENTS.md`.
 - For Lite work under `apps/lite/`, follow `apps/lite/AGENTS.md`.
+
+## Running commands
+
+Prefix all commands pertaining to running JavaScript or Rust tooling with `mise exec --`.
