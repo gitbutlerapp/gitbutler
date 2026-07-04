@@ -24,7 +24,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { Button, FileViewHeader, HunkDiffSkeleton, VirtualList } from "@gitbutler/ui";
 	import { untrack } from "svelte";
-	import type { TreeChange } from "@gitbutler/but-sdk";
+	import type { ConflictedFile, TreeChange } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;
@@ -36,6 +36,8 @@
 		showRoundedEdges?: boolean;
 		startIndex?: number;
 		selectionId: SelectionId;
+		/// The selected commit's unresolved conflicts, shown inline per file.
+		conflicts?: ConflictedFile[];
 		onclose?: () => void;
 		onVisibleChange?: (change: { start: number; end: number } | undefined) => void;
 	};
@@ -50,9 +52,20 @@
 		showRoundedEdges = true,
 		startIndex,
 		selectionId,
+		conflicts,
 		onclose,
 		onVisibleChange,
 	}: Props = $props();
+
+	// Conflicted files whose diff is hidden by the auto-resolution get their
+	// synthetic base-vs-commit change appended, after `changes` so the indices
+	// callers use for jumping and selection stay stable.
+	const items: TreeChange[] = $derived([
+		...changes,
+		...(conflicts ?? [])
+			.filter((file) => !changes.some((change) => change.path === file.path))
+			.map((file) => file.change),
+	]);
 
 	const diffService = inject(DIFF_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -87,6 +100,14 @@
 		}
 	}
 
+	// Jump by path; this component owns the true render order of `items`
+	// (changes followed by appended conflict-only entries), so callers don't
+	// have to re-derive it.
+	export function jumpToPath(path: string) {
+		const index = items.findIndex((item) => item.path === path);
+		if (index >= 0) jumpToIndex(index);
+	}
+
 	export function openFloatingDiff() {
 		floatingDiffInitialIndex = highlightedIndex ?? startIndex ?? 0;
 		floatingDiffOpen = true;
@@ -110,6 +131,7 @@
 	{@const diffQuery = diffService.getDiff(projectId, change)}
 	{@const diffData = diffQuery.response}
 	{@const isExecutable = isExecutableStatus(change.status)}
+	{@const conflictHunks = conflicts?.find((file) => file.path === change.path)?.hunks}
 	{@const patchData = diffData?.type === "Patch" ? diffData.subject : null}
 	{@const isCollapsed = diffExpandedState.get(change.path) ?? false}
 	<Drawer
@@ -131,6 +153,7 @@
 				<FileViewHeader
 					filePath={change.path}
 					fileStatus={computeChangeStatus(change)}
+					conflicted={!!conflictHunks}
 					linesAdded={patchData?.linesAdded}
 					linesRemoved={patchData?.linesRemoved}
 					executable={isExecutable}
@@ -172,6 +195,7 @@
 					{diff}
 					{selectable}
 					{selectionId}
+					{conflictHunks}
 					topPadding
 				/>
 			{/snippet}
@@ -198,7 +222,7 @@
 		</div>
 	{/if}
 
-	{#if changes && changes.length > 0}
+	{#if items.length > 0}
 		<ChangedFilesContextMenu
 			bind:this={contextMenu}
 			{projectId}
@@ -210,7 +234,7 @@
 		/>
 		{#if !allInOneDiff}
 			{@const index = highlightedIndex ?? startIndex ?? 0}
-			{@const change = changes[index]}
+			{@const change = items[index]}
 			{#if change}
 				<div class="single-diff-view" data-remove-from-panning>
 					{@render changeItem(change, index)}
@@ -221,7 +245,7 @@
 				bind:this={virtualList}
 				{startIndex}
 				grow
-				items={changes}
+				{items}
 				defaultHeight={173}
 				visibility="scroll"
 				renderDistance={100}
@@ -231,7 +255,7 @@
 						const activeIndex = scrollLock.resolve(range);
 
 						highlightedIndex = activeIndex;
-						const activeChange = changes[activeIndex];
+						const activeChange = items[activeIndex];
 						const selectionSize = idSelection.collectionSize(selectionId);
 						const shouldFollowScrollSelection = selectionSize <= 1;
 						if (
@@ -244,10 +268,10 @@
 					}
 					onVisibleChange?.(range);
 				}}
-				getId={(change) => change.path}
+				getId={(item) => item.path}
 			>
-				{#snippet template(change, index)}
-					{@render changeItem(change, index, true)}
+				{#snippet template(item, index)}
+					{@render changeItem(item, index, true)}
 				{/snippet}
 			</VirtualList>
 		{/if}

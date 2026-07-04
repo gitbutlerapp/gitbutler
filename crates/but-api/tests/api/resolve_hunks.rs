@@ -39,8 +39,24 @@ fn conflicts_are_listed_without_entering_edit_mode() -> Result<()> {
     assert_eq!(file.hunks[1].ours, "line six changed by the new base");
     assert_eq!(file.hunks[1].context_after, "line seven\n");
 
-    // Read-only: the commit and the workspace are untouched.
+    // The synthetic change diffs the base's version against the commit's own.
     let repo = ctx.repo.get()?;
+    assert_eq!(file.change.path, "conflict");
+    let but_core::ui::TreeStatus::Modification {
+        previous_state,
+        state,
+        ..
+    } = &file.change.status
+    else {
+        panic!("expected a modification, got {:?}", file.change.status);
+    };
+    let content = |id: gix::ObjectId| -> Result<String> {
+        Ok(String::from_utf8(repo.find_blob(id)?.data.clone())?)
+    };
+    assert!(content(previous_state.id)?.contains("changed by the new base"));
+    assert!(content(state.id)?.contains("changed by this commit"));
+
+    // Read-only: the commit and the workspace are untouched.
     let commit = but_core::Commit::from_id(conflicted_commit.attach(&repo))?;
     assert!(commit.is_conflicted());
     Ok(())

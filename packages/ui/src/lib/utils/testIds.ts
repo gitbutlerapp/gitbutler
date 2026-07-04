@@ -47,7 +47,6 @@ export enum TestId {
 	CommitRowContextMenu_EditMessageMenuButton = "commit-row-context-menu-edit-message-menu-btn",
 	CommitRowContextMenu_EditCommit = "commit-row-context-menu-edit-commit",
 	CommitRowContextMenu_ResolveConflictsAi = "commit-row-context-menu-resolve-conflicts-ai",
-	CommitRowContextMenu_ShowConflicts = "commit-row-context-menu-show-conflicts",
 	CommitRowContextMenu_SquashSelected = "commit-row-context-menu-squash-selected",
 	CommitRowContextMenu_UncommitSelected = "commit-row-context-menu-uncommit-selected",
 	NewCommitView = "new-commit-view",

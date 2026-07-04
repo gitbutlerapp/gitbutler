@@ -1257,6 +1257,12 @@ export type ConflictEntryPresence = {
  * lines of surrounding context.
  */
 export type ConflictHunk = {
+  /**
+   * The 1-based line in the commit's auto-resolved content of this file
+   * where the conflicted region starts. Anchors the conflict within diffs
+   * of the commit, which are computed against the auto-resolution.
+   */
+  line: number;
   /** Unconflicted lines directly before the conflict, clamped to the previous conflict. */
   contextBefore: string;
   /** The content of the *ours* side, i.e. the new base the commit is rebased onto. */
@@ -1273,6 +1279,14 @@ export type ConflictHunk = {
 export type ConflictedFile = {
   /** The repo-relative path of the file. */
   path: string;
+  /**
+   * The file's change from the current base's version (*ours*) to the
+   * commit's own version (*theirs*). Regular commit diffs are computed
+   * against the auto-resolution, which keeps the base's version wherever
+   * there is a conflict — so this is the change to diff to actually see
+   * the conflicted content.
+   */
+  change: TreeChange;
   /**
    * The conflicts of the file; hunks are addressed by their 1-based
    * position in this list.

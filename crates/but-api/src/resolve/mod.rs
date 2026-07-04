@@ -23,6 +23,7 @@ use but_core::DryRun;
 use but_core::sync::RepoExclusive;
 use but_llm::{ChatMessage, LLMProvider};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
+use gix::objs::tree::EntryKind;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -51,6 +52,12 @@ pub struct CommitConflicts {
 pub struct ConflictedFile {
     /// The repo-relative path of the file.
     pub path: String,
+    /// The file's change from the current base's version (*ours*) to the
+    /// commit's own version (*theirs*). Regular commit diffs are computed
+    /// against the auto-resolution, which keeps the base's version wherever
+    /// there is a conflict — so this is the change to diff to actually see
+    /// the conflicted content.
+    pub change: but_core::ui::TreeChange,
     /// The conflicts of the file; hunks are addressed by their 1-based
     /// position in this list.
     pub hunks: Vec<ConflictHunk>,
@@ -77,16 +84,57 @@ pub fn commit_conflicts(
     let _guard = ctx.shared_worktree_access();
     let repo = ctx.repo.get()?;
     let request = context::build_request(&repo, commit_id)?;
-    Ok(CommitConflicts {
-        commit_id: request.commit_id,
-        files: request
-            .files
-            .into_iter()
-            .map(|file| ConflictedFile {
+    let ours_tree = repo.find_tree(request.ours_tree_id)?;
+    let theirs_tree = repo.find_tree(request.theirs_tree_id)?;
+    let files = request
+        .files
+        .into_iter()
+        .map(|file| {
+            let previous_state = conflict_side_state(&ours_tree, &file.rela_path)?;
+            let state = conflict_side_state(&theirs_tree, &file.rela_path)?;
+            let flags = match (previous_state.kind, state.kind) {
+                (EntryKind::Blob, EntryKind::BlobExecutable) => {
+                    Some(but_core::ui::ModeFlags::ExecutableBitAdded)
+                }
+                (EntryKind::BlobExecutable, EntryKind::Blob) => {
+                    Some(but_core::ui::ModeFlags::ExecutableBitRemoved)
+                }
+                _ => None,
+            };
+            Ok(ConflictedFile {
                 path: file.path,
+                change: but_core::ui::TreeChange {
+                    path: file.rela_path.clone().into(),
+                    path_bytes: file.rela_path,
+                    status: but_core::ui::TreeStatus::Modification {
+                        previous_state,
+                        state,
+                        flags,
+                    },
+                },
                 hunks: file.hunks,
             })
-            .collect(),
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    Ok(CommitConflicts {
+        commit_id: request.commit_id,
+        files,
+    })
+}
+
+/// The blob of a conflicted path on one side of the conflict. Both sides are
+/// present for every file that [`context::build_request()`] returns — side
+/// deletions bail to manual resolution there.
+fn conflict_side_state(
+    tree: &gix::Tree<'_>,
+    rela_path: &bstr::BString,
+) -> anyhow::Result<but_core::ui::ChangeState> {
+    let entry = tree
+        .lookup_entry(rela_path.split(|byte| *byte == b'/'))?
+        .with_context(|| format!("Conflicted path {rela_path:?} is missing from a side tree"))?;
+    Ok(but_core::ui::ChangeState {
+        id: entry.object_id(),
+        kind: entry.mode().kind(),
     })
 }
 

@@ -89,6 +89,7 @@
 		if (multiDiffView) {
 			controller.registerDiffView({
 				jump: (index) => multiDiffView?.jumpToIndex(index),
+				jumpToPath: (path) => multiDiffView?.jumpToPath(path),
 				popout: () => multiDiffView?.openFloatingDiff(),
 			});
 		}
@@ -204,12 +205,20 @@
 						{#if commitResult}
 							<ReduxResult {projectId} {stackId} result={commitResult}>
 								{#snippet children(commit)}
+									{@const isConflicted =
+										!!commit.conflictEntries &&
+										Object.keys(commit.conflictEntries.entries).length > 0}
+									{@const conflictsQuery =
+										isConflicted && commitId
+											? stackService.commitConflicts(projectId, commitId)
+											: undefined}
 									<MultiDiffView
 										{stackId}
 										selectionId={{ type: "commit", commitId, stackId }}
 										bind:this={multiDiffView}
 										{projectId}
 										changes={commit.changes}
+										conflicts={conflictsQuery?.response?.files}
 										draggable={true}
 										selectable={false}
 										startIndex={focusedFileStore ? get(focusedFileStore)?.index : undefined}
