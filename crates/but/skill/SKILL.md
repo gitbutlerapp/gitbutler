@@ -224,6 +224,7 @@ Conflicts do not interrupt operations in GitButler: a rebase always completes, a
 2. Apply one resolution per command:
    - Merged/mixed content (the common case — combine the intent of both sides): pipe it to `but resolve apply <path>:<N>` via stdin (heredoc) or pass `--file <f>`. The content replaces the whole conflicted region; never include conflict markers.
    - Take a side entirely: `but resolve apply <path>:<N> --ours` or `--theirs` (bare `<path>` applies the side to all conflicts in that file).
+   - Delegate one conflict to the configured AI model: `but resolve apply <path>:<N> --ai` — prefer your own merged content when you have the context.
    - `apply` targets the same default commit as `conflicts`; when more than one branch is conflicted, pin it with `--commit <branch>`.
 3. Go back to step 1 until it reports no conflicts. Commit ids are not stable here — every apply rewrites the commit — but branch names are, so address everything by branch and never bookkeep commit ids. Partial progress is fine: a commit with unresolved conflicts left stays `{conflicted}` with exactly those conflicts.
 

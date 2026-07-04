@@ -2,7 +2,6 @@ use anyhow::Result;
 use but_api::resolve::{
     HunkResolution, ResolutionSpec, commit_conflicts, resolve_commit_conflict_hunks,
 };
-use but_core::DryRun;
 use gitbutler_oplog::OplogExt as _;
 use gix::prelude::ObjectIdExt as _;
 
@@ -75,7 +74,6 @@ fn partial_resolution_narrows_the_conflict_then_completes() -> Result<()> {
             1,
             HunkResolution::Content("line two merged".into()),
         )],
-        DryRun::No,
     )?;
     assert_eq!(first.resolved, 1);
     assert_eq!(first.remaining.len(), 1);
@@ -106,6 +104,16 @@ fn partial_resolution_narrows_the_conflict_then_completes() -> Result<()> {
             auto_blob.data.as_slice(),
             b"line one\nline two merged\nline three\nline four\nline five\nline six changed by the new base\nline seven\n"
         );
+        // The stored base stays untouched: the resolution lives in ours and
+        // theirs, so a later re-pick onto changed parents replays it instead
+        // of dropping it as a region the commit does not change.
+        let base_blob = repo
+            .rev_parse_single(format!("{}:.conflict-base-0/conflict", first.new_commit).as_str())?
+            .object()?;
+        assert_eq!(
+            base_blob.data.as_slice(),
+            b"line one\nline two\nline three\nline four\nline five\nline six\nline seven\n"
+        );
         // The descendant sits on the narrowed commit.
         let descendant = repo
             .rev_parse_single("refs/heads/branchy")?
@@ -135,10 +143,10 @@ fn partial_resolution_narrows_the_conflict_then_completes() -> Result<()> {
         &mut ctx,
         first.new_commit,
         vec![spec("conflict", 1, HunkResolution::Theirs)],
-        DryRun::No,
     )?;
     assert_eq!(second.resolved, 1);
     assert!(second.remaining.is_empty());
+    assert!(!second.commit_emptied, "the commit keeps its own changes");
 
     {
         let repo = ctx.repo.get()?;
@@ -187,10 +195,13 @@ fn taking_one_side_for_all_hunks_resolves_the_commit() -> Result<()> {
             spec("conflict", 1, HunkResolution::Ours),
             spec("conflict", 2, HunkResolution::Ours),
         ],
-        DryRun::No,
     )?;
     assert_eq!(result.resolved, 2);
     assert!(result.remaining.is_empty());
+    assert!(
+        result.commit_emptied,
+        "keeping the base everywhere leaves the commit without changes of its own"
+    );
 
     let repo = ctx.repo.get()?;
     let resolved = but_core::Commit::from_id(result.new_commit.attach(&repo))?;
@@ -213,13 +224,97 @@ fn invalid_specs_change_nothing() -> Result<()> {
         &mut ctx,
         conflicted_commit,
         vec![spec("conflict", 3, HunkResolution::Ours)],
-        DryRun::No,
     )
     .unwrap_err();
-    assert!(err.to_string().contains("has conflicts 1..2"), "{err}");
+    assert!(
+        err.to_string()
+            .contains("has 2 conflicts, but conflict 3 was addressed"),
+        "{err}"
+    );
 
     let repo = ctx.repo.get()?;
     let commit = but_core::Commit::from_id(conflicted_commit.attach(&repo))?;
     assert!(commit.is_conflicted(), "nothing may be written on failure");
+    Ok(())
+}
+
+#[test]
+fn ai_specs_are_narrowed_to_their_hunks_and_applied() -> Result<()> {
+    use but_api::resolve::{
+        FileResolution, HunkContent, ResolutionResponse, resolve_commit_conflict_hunks_with,
+    };
+
+    let (mut ctx, conflicted_commit, _tmp) = conflicted_context()?;
+
+    // One AI-resolved and one side-picked conflict in a single call.
+    let result = resolve_commit_conflict_hunks_with(
+        &mut ctx,
+        conflicted_commit,
+        vec![
+            spec("conflict", 1, HunkResolution::Ai),
+            spec("conflict", 2, HunkResolution::Theirs),
+        ],
+        |request| {
+            // The model must only see the AI-addressed hunk.
+            assert_eq!(request.files.len(), 1);
+            assert_eq!(request.files[0].hunks.len(), 1);
+            assert_eq!(
+                request.files[0].hunks[0].ours,
+                "line two changed by the new base"
+            );
+            Ok(ResolutionResponse {
+                summary: None,
+                resolutions: vec![FileResolution {
+                    path: "conflict".into(),
+                    hunks: vec![HunkContent {
+                        resolved_content: "line two merged by ai".into(),
+                    }],
+                    reasoning: "combined both sides".into(),
+                }],
+            })
+        },
+    )?;
+    assert_eq!(result.resolved, 2);
+    assert!(result.remaining.is_empty());
+
+    let repo = ctx.repo.get()?;
+    let resolved = but_core::Commit::from_id(result.new_commit.attach(&repo))?;
+    assert!(!resolved.is_conflicted());
+    let blob = repo
+        .rev_parse_single(format!("{}:conflict", result.new_commit).as_str())?
+        .object()?;
+    assert_eq!(
+        blob.data.as_slice(),
+        b"line one\nline two merged by ai\nline three\nline four\nline five\nline six changed by this commit\nline seven\n"
+    );
+
+    // A mixed AI + manual apply records an AI undo point.
+    let ai_snapshots = ctx
+        .snapshots_iter(None, Vec::new(), None)?
+        .filter_map(Result::ok)
+        .filter(|snapshot| {
+            snapshot.details.as_ref().is_some_and(|details| {
+                matches!(
+                    details.operation,
+                    but_oplog::legacy::OperationKind::ResolveConflictsAi
+                )
+            })
+        })
+        .count();
+    assert_eq!(ai_snapshots, 1);
+    Ok(())
+}
+
+#[test]
+fn conflicts_of_a_normal_commit_are_empty_not_an_error() -> Result<()> {
+    let (ctx, _conflicted_commit, _tmp) = conflicted_context()?;
+    let normal_commit = {
+        let repo = ctx.repo.get()?;
+        repo.rev_parse_single("refs/heads/main")?.detach()
+    };
+
+    let conflicts = commit_conflicts(&ctx, normal_commit)?;
+    assert_eq!(conflicts.commit_id, normal_commit);
+    assert!(conflicts.files.is_empty());
     Ok(())
 }

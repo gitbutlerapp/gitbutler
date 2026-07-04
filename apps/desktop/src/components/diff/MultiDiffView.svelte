@@ -233,7 +233,7 @@
 			}}
 		/>
 		{#if !allInOneDiff}
-			{@const index = highlightedIndex ?? startIndex ?? 0}
+			{@const index = Math.min(highlightedIndex ?? startIndex ?? 0, items.length - 1)}
 			{@const change = items[index]}
 			{#if change}
 				<div class="single-diff-view" data-remove-from-panning>
@@ -284,7 +284,7 @@
 	<FloatingDiffModal
 		{projectId}
 		{stackId}
-		{changes}
+		changes={items}
 		{selectionId}
 		{draggable}
 		{selectable}

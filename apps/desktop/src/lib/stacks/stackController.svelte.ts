@@ -38,6 +38,11 @@ export function getStackContext(): StackController {
 	return ctx;
 }
 
+/** Like [getStackContext], for components that also render outside a StackView. */
+export function maybeGetStackContext(): StackController | undefined {
+	return getContext<StackController>(STACK_CTX);
+}
+
 export class StackController {
 	private uiState;
 	private fileSelection: FileSelectionManager;

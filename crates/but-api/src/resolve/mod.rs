@@ -3,13 +3,13 @@
 //! GitButler keeps conflicts as first-class committed state: a conflicted
 //! commit carries its merge inputs as trees. This module re-merges those trees
 //! in memory to expose the conflicts as per-file hunks
-//! ([`commit_conflicts()`]), and applies per-hunk resolutions — a side pick or
+//! (`commit_conflicts()`), and applies per-hunk resolutions — a side pick or
 //! custom content, for some or all hunks — by narrowing the conflict and
 //! rewriting the commit, rebasing its descendants
-//! ([`resolve_commit_conflict_hunks()`]). A partial resolution leaves the
+//! (`resolve_commit_conflict_hunks()`). A partial resolution leaves the
 //! commit conflicted with fewer conflicts, so callers can work incrementally.
 //!
-//! [`resolve_commit_conflicts_ai()`] is a client of the same core: it sends
+//! `resolve_commit_conflicts_ai()` is a client of the same core: it sends
 //! the hunks to the configured LLM as a single-shot, no-tools request and
 //! applies the returned full-coverage resolutions. In every case the workspace
 //! never enters edit mode, the exclusive worktree lock is held only for the
@@ -33,6 +33,7 @@ mod apply;
 mod context;
 mod prompt;
 
+pub use apply::normalize_path;
 pub use context::{ConflictHunk, FileConflict, ResolutionRequest};
 pub use prompt::{FileResolution, HunkContent, ResolutionResponse, SYSTEM_PROMPT};
 
@@ -71,7 +72,7 @@ but_schemars::register_sdk_type!(ConflictedFile);
 ///
 /// Hunks are identified by `(path, 1-based index)`; the extraction is
 /// deterministic, so the same commit id always yields the same hunks and
-/// [`resolve_commit_conflict_hunks()`] can be called with indices from this
+/// `resolve_commit_conflict_hunks()` can be called with indices from this
 /// result. Fails for commits whose conflicts have no hunk representation
 /// (deletions/renames, binaries, oversized files, marker-like content) — those
 /// need manual resolution in edit mode.
@@ -81,8 +82,19 @@ pub fn commit_conflicts(
     ctx: &but_ctx::Context,
     commit_id: gix::ObjectId,
 ) -> anyhow::Result<CommitConflicts> {
+    use gix::prelude::ObjectIdExt as _;
+
     let _guard = ctx.shared_worktree_access();
     let repo = ctx.repo.get()?;
+    // A non-conflicted commit has no conflicts — a valid answer for a read
+    // API. Clients routinely race a query against a commit that was just
+    // resolved, and that must not surface as an error.
+    if !but_core::Commit::from_id(commit_id.attach(&repo))?.is_conflicted() {
+        return Ok(CommitConflicts {
+            commit_id,
+            files: Vec::new(),
+        });
+    }
     let request = context::build_request(&repo, commit_id)?;
     let ours_tree = repo.find_tree(request.ours_tree_id)?;
     let theirs_tree = repo.find_tree(request.theirs_tree_id)?;
@@ -150,13 +162,16 @@ pub enum HunkResolution {
     /// Replace the conflict with this content (for mixed resolutions; an
     /// empty string deletes the conflicted region).
     Content(String),
+    /// Let the configured AI model merge this conflict. The model sees only
+    /// the AI-addressed hunks and its output is applied like [`Self::Content`].
+    Ai,
 }
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HunkResolution);
 
 /// One conflict to resolve, addressed by path and 1-based hunk index as
-/// returned by [`commit_conflicts()`].
+/// returned by `commit_conflicts()`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
@@ -195,6 +210,9 @@ pub struct HunkResolutionResult {
     pub new_commit: gix::ObjectId,
     /// How many conflicts were resolved.
     pub resolved: usize,
+    /// Whether the fully resolved commit ended up with the same tree as its
+    /// parent — the resolutions dropped all of its changes.
+    pub commit_emptied: bool,
     /// The conflicts that remain, per file. Empty when the commit is fully
     /// resolved.
     pub remaining: Vec<RemainingConflicts>,
@@ -209,13 +227,51 @@ pub struct HunkResolutionResult {
 /// into a normal commit. Either way the commit id changes — address follow-up
 /// resolutions to the returned `new_commit`. An oplog snapshot records an undo
 /// point. Nothing is written if any spec fails validation.
+///
+/// [`HunkResolution::Ai`] specs are sent to the configured LLM first (no
+/// worktree lock is held during the model call); AI configuration is only
+/// required when such a spec is present.
 #[but_api(try_from = crate::resolve::json::HunkResolutionResult)]
 #[instrument(skip(specs), err(Debug))]
 pub fn resolve_commit_conflict_hunks(
     ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,
     specs: Vec<ResolutionSpec>,
-    dry_run: DryRun,
+) -> anyhow::Result<HunkResolutionResult> {
+    let llm = specs
+        .iter()
+        .any(|spec| matches!(spec.resolution, HunkResolution::Ai))
+        .then(|| -> anyhow::Result<_> {
+            let repo = ctx.repo.get()?;
+            let config = repo.config_snapshot();
+            LLMProvider::from_git_config(config.plumbing()).context(
+                "AI is not configured. Configure an AI provider in the GitButler settings first.",
+            )
+        })
+        .transpose()?;
+    resolve_commit_conflict_hunks_with(ctx, commit_id, specs, move |request| {
+        let llm = llm.as_ref().expect("only called when an Ai spec exists");
+        let model = llm.model_or_default();
+        llm.structured_output::<ResolutionResponse>(
+            SYSTEM_PROMPT,
+            vec![ChatMessage::User(prompt::render_user_message(request))],
+            &model,
+        )?
+        .context("The AI model returned no response")
+    })
+}
+
+/// Like `resolve_commit_conflict_hunks()`, but with the model call injected
+/// as `resolve`, so tests can supply AI resolutions without network access.
+///
+/// `resolve` is only invoked when `specs` contains [`HunkResolution::Ai`],
+/// with a request narrowed to just those hunks; a failed call or response is
+/// retried once.
+pub fn resolve_commit_conflict_hunks_with(
+    ctx: &mut but_ctx::Context,
+    commit_id: gix::ObjectId,
+    mut specs: Vec<ResolutionSpec>,
+    resolve: impl Fn(&ResolutionRequest) -> anyhow::Result<ResolutionResponse>,
 ) -> anyhow::Result<HunkResolutionResult> {
     if specs.is_empty() {
         bail!("No resolutions were provided");
@@ -225,9 +281,15 @@ pub fn resolve_commit_conflict_hunks(
         let repo = ctx.repo.get()?;
         context::build_request(&repo, commit_id)?
     };
+    let any_ai = resolve_ai_specs(&request, &mut specs, &resolve)?;
     let picks = apply::validate_specs(&request, &specs)?;
     // Every spec addressed a distinct hunk, or validation would have failed.
     let resolved = specs.len();
+    let operation = if any_ai {
+        OperationKind::ResolveConflictsAi
+    } else {
+        OperationKind::ResolveConflicts
+    };
 
     let mut guard = ctx.exclusive_worktree_access();
     ctx.invalidate_workspace_cache()?;
@@ -235,8 +297,8 @@ pub fn resolve_commit_conflict_hunks(
         ctx,
         &request,
         &picks,
-        OperationKind::ResolveConflicts,
-        dry_run,
+        operation,
+        DryRun::No,
         guard.write_permission(),
     )?;
 
@@ -244,9 +306,84 @@ pub fn resolve_commit_conflict_hunks(
         commit_id: request.commit_id,
         new_commit: applied.new_commit,
         resolved,
+        commit_emptied: applied.commit_emptied,
         remaining: applied.remaining,
         workspace: applied.workspace,
     })
+}
+
+/// Replace every [`HunkResolution::Ai`] spec with the model's merged content
+/// for that hunk, obtained via one `resolve` call over a request narrowed to
+/// the AI-addressed hunks. Returns whether any spec was AI-resolved.
+fn resolve_ai_specs(
+    request: &ResolutionRequest,
+    specs: &mut [ResolutionSpec],
+    resolve: &impl Fn(&ResolutionRequest) -> anyhow::Result<ResolutionResponse>,
+) -> anyhow::Result<bool> {
+    let files_by_path = apply::index_files_by_path(request)?;
+    // Per request-file index, the AI-addressed hunks as (spec index, 0-based
+    // hunk index), ordered by hunk so the narrowed request stays in file order.
+    let mut targets_per_file: BTreeMap<usize, Vec<(usize, usize)>> = BTreeMap::new();
+    for (spec_index, spec) in specs.iter().enumerate() {
+        if !matches!(spec.resolution, HunkResolution::Ai) {
+            continue;
+        }
+        let (file_index, hunk_index) =
+            apply::locate_hunk(request, &files_by_path, &spec.path, spec.hunk)?;
+        targets_per_file
+            .entry(file_index)
+            .or_default()
+            .push((spec_index, hunk_index));
+    }
+    if targets_per_file.is_empty() {
+        return Ok(false);
+    }
+    for targets in targets_per_file.values_mut() {
+        targets.sort_by_key(|&(_, hunk_index)| hunk_index);
+    }
+
+    let narrowed = ResolutionRequest {
+        commit_id: request.commit_id,
+        commit_message: request.commit_message.clone(),
+        parent_message: request.parent_message.clone(),
+        base_tree_id: request.base_tree_id,
+        ours_tree_id: request.ours_tree_id,
+        theirs_tree_id: request.theirs_tree_id,
+        files: targets_per_file
+            .iter()
+            .map(|(&file_index, targets)| {
+                let file = &request.files[file_index];
+                FileConflict {
+                    path: file.path.clone(),
+                    rela_path: file.rela_path.clone(),
+                    entry_kind: file.entry_kind,
+                    merged_text: file.merged_text.clone(),
+                    hunks: targets
+                        .iter()
+                        .map(|&(_, hunk_index)| file.hunks[hunk_index].clone())
+                        .collect(),
+                }
+            })
+            .collect(),
+    };
+
+    let picks = retry_once(|| {
+        let response = resolve(&narrowed)?;
+        let (picks, _files) = validate_ai_response(&narrowed, &response)?;
+        Ok(picks)
+    })?;
+
+    // The narrowed files and the validated picks are aligned index-for-index,
+    // and within a file the picks' 0..n keys match the sorted targets.
+    for (targets, file_picks) in targets_per_file.values().zip(picks) {
+        for (&(spec_index, _), (_, pick)) in targets.iter().zip(file_picks) {
+            let apply::HunkPick::Content(content) = pick else {
+                unreachable!("validated AI responses only produce content picks");
+            };
+            specs[spec_index].resolution = HunkResolution::Content(content);
+        }
+    }
+    Ok(true)
 }
 
 /// How one conflicted file was resolved, for display to the user.
@@ -321,7 +458,7 @@ pub fn resolve_commit_conflicts_ai(
     })
 }
 
-/// Like [`resolve_commit_conflicts_ai()`], but with the model call injected as
+/// Like `resolve_commit_conflicts_ai()`, but with the model call injected as
 /// `resolve`, so tests and other frontends can supply resolutions without
 /// network access.
 ///
@@ -343,21 +480,11 @@ pub fn resolve_commit_conflicts_with(
     // The model call happens without any worktree lock; the request is plain
     // data and the apply step below re-reads the workspace under the exclusive
     // lock, so it fails closed if the commit changed in the meantime.
-    let attempt = || -> anyhow::Result<_> {
+    let ((picks, files), summary) = retry_once(|| {
         let response = resolve(&request)?;
         let validated = validate_ai_response(&request, &response)?;
         Ok((validated, response.summary))
-    };
-    let ((picks, files), summary) = match attempt() {
-        Ok(outcome) => outcome,
-        Err(first_failure) => {
-            tracing::warn!(
-                error = ?first_failure,
-                "AI conflict-resolution attempt failed, retrying once"
-            );
-            attempt()?
-        }
-    };
+    })?;
 
     let mut guard = ctx.exclusive_worktree_access();
     // The workspace graph may have been cached before or during the model
@@ -379,6 +506,18 @@ pub fn resolve_commit_conflicts_with(
         summary,
         files,
         workspace: applied.workspace,
+    })
+}
+
+/// Run `attempt`, and once more if it fails — covering truncated or malformed
+/// model output as well as responses that do not validate against the request.
+fn retry_once<T>(attempt: impl Fn() -> anyhow::Result<T>) -> anyhow::Result<T> {
+    attempt().or_else(|first_failure| {
+        tracing::warn!(
+            error = ?first_failure,
+            "AI conflict-resolution attempt failed, retrying once"
+        );
+        attempt()
     })
 }
 
@@ -517,6 +656,9 @@ pub mod json {
         pub new_commit: HexHash,
         /// How many conflicts were resolved.
         pub resolved: usize,
+        /// Whether the fully resolved commit ended up with the same tree as
+        /// its parent — the resolutions dropped all of its changes.
+        pub commit_emptied: bool,
         /// The conflicts that remain, per file.
         pub remaining: Vec<super::RemainingConflicts>,
         /// Workspace state after the apply.
@@ -534,6 +676,7 @@ pub mod json {
                 commit_id,
                 new_commit,
                 resolved,
+                commit_emptied,
                 remaining,
                 workspace,
             } = value;
@@ -541,6 +684,7 @@ pub mod json {
                 commit_id: commit_id.into(),
                 new_commit: new_commit.into(),
                 resolved,
+                commit_emptied,
                 remaining,
                 workspace: workspace.try_into()?,
             })

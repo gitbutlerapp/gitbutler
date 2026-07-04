@@ -1,11 +1,13 @@
 //! Turn per-hunk resolutions into a rewritten commit.
 //!
 //! Resolutions are applied by *narrowing the conflict*: each resolved hunk's
-//! content is written into all three side blobs (ours/base/theirs), while
-//! unresolved hunks keep each side's original lines. Re-merging the synthesized
-//! trees then conflicts exactly at the unresolved hunks — so a partial
-//! resolution yields a conflicted commit with fewer conflicts, and a full
-//! resolution falls out of the very same path as a clean merge.
+//! content is written into the ours and theirs side blobs (the base is left
+//! untouched), while unresolved hunks keep each side's original lines.
+//! Re-merging the synthesized trees then conflicts exactly at the unresolved
+//! hunks — so a partial resolution yields a conflicted commit with fewer
+//! conflicts, and a full resolution falls out of the very same path as a clean
+//! merge. Leaving the base unmodified means a later re-pick onto changed
+//! parents replays the resolution instead of silently dropping it.
 
 use std::collections::BTreeMap;
 
@@ -26,6 +28,9 @@ use crate::WorkspaceState;
 pub(crate) struct AppliedResolution {
     /// The rewritten commit's final id after the rebase.
     pub new_commit: gix::ObjectId,
+    /// Whether the fully resolved commit ended up with the same tree as its
+    /// parent, i.e. the resolutions dropped all of its changes.
+    pub commit_emptied: bool,
     /// The conflicts that remain per file; empty when fully resolved.
     pub remaining: Vec<RemainingConflicts>,
     /// Workspace state after the apply.
@@ -57,21 +62,8 @@ pub(crate) fn validate_specs(
     let mut picks: PicksPerFile = vec![BTreeMap::new(); request.files.len()];
 
     for spec in specs {
-        let &file_index = files_by_path
-            .get(&normalize_path(&spec.path))
-            .with_context(|| {
-                format!("\"{}\" is not a conflicted file of this commit", spec.path)
-            })?;
+        let (file_index, hunk_index) = locate_hunk(request, &files_by_path, &spec.path, spec.hunk)?;
         let file = &request.files[file_index];
-        if spec.hunk == 0 || spec.hunk > file.hunks.len() {
-            bail!(
-                "\"{}\" has conflicts 1..{}, but conflict {} was addressed",
-                file.path,
-                file.hunks.len(),
-                spec.hunk
-            );
-        }
-        let hunk_index = spec.hunk - 1;
         let pick = match &spec.resolution {
             HunkResolution::Ours => HunkPick::Ours,
             HunkResolution::Theirs => HunkPick::Theirs,
@@ -79,6 +71,8 @@ pub(crate) fn validate_specs(
                 ensure_no_markers(content, &file.path)?;
                 HunkPick::Content(content.clone())
             }
+            // Replaced with `Content` by `resolve_ai_specs()` before validation.
+            HunkResolution::Ai => bail!("AI resolutions must be materialized before validation"),
         };
         if picks[file_index].insert(hunk_index, pick).is_some() {
             bail!(
@@ -90,6 +84,30 @@ pub(crate) fn validate_specs(
     }
 
     Ok(picks)
+}
+
+/// Resolve a `(path, 1-based hunk)` address against the request, returning
+/// the file index and 0-based hunk index.
+pub(crate) fn locate_hunk(
+    request: &ResolutionRequest,
+    files_by_path: &BTreeMap<String, usize>,
+    path: &str,
+    hunk: usize,
+) -> anyhow::Result<(usize, usize)> {
+    let &file_index = files_by_path
+        .get(&normalize_path(path))
+        .with_context(|| format!("\"{path}\" is not a conflicted file of this commit"))?;
+    let file = &request.files[file_index];
+    if hunk == 0 || hunk > file.hunks.len() {
+        bail!(
+            "\"{}\" has {} conflict{}, but conflict {} was addressed",
+            file.path,
+            file.hunks.len(),
+            if file.hunks.len() == 1 { "" } else { "s" },
+            hunk
+        );
+    }
+    Ok((file_index, hunk - 1))
 }
 
 /// Map normalized request paths to file indices, rejecting collisions.
@@ -125,8 +143,11 @@ pub(crate) fn ensure_no_markers(content: &str, path: &str) -> anyhow::Result<()>
 
 /// Normalize a path for comparison: trim, backslashes to slashes, strip a
 /// leading `./`, collapse duplicate slashes. Applied to both request and
-/// caller-provided paths.
-pub(crate) fn normalize_path(path: &str) -> String {
+/// caller-provided paths, so callers matching against [`ConflictedFile`] paths
+/// should normalize with this too.
+///
+/// [`ConflictedFile`]: super::ConflictedFile
+pub fn normalize_path(path: &str) -> String {
     let mut normalized = path.trim().replace('\\', "/");
     while normalized.contains("//") {
         normalized = normalized.replace("//", "/");
@@ -140,7 +161,6 @@ pub(crate) fn normalize_path(path: &str) -> String {
 #[derive(Debug, Clone, Copy)]
 enum SideKind {
     Ours,
-    Base,
     Theirs,
 }
 
@@ -227,12 +247,6 @@ fn synthesize_side(
             let side_range = match side {
                 SideKind::Ours => block.ours.clone(),
                 SideKind::Theirs => block.theirs.clone(),
-                SideKind::Base => block.base.clone().with_context(|| {
-                    format!(
-                        "A conflict in \"{}\" carries no common-ancestor section and cannot be narrowed. Resolve this commit manually instead.",
-                        file.path
-                    )
-                })?,
             };
             for raw in &raw_lines[side_range] {
                 result.push_str(raw);
@@ -268,10 +282,13 @@ pub(crate) fn apply(
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
 
-    // Narrow the sides: every resolved hunk's content goes into all three
-    // trees, so the re-merge below agrees there and conflicts only at what
-    // remains unresolved.
-    let mut base_edit = repo.edit_tree(request.base_tree_id)?;
+    // Narrow the sides: every resolved hunk's content goes into both side
+    // trees, which the re-merge below sees as an identical change against the
+    // untouched base and resolves cleanly to the picked content. The base
+    // must stay untouched: with base==theirs a resolved region would read as
+    // "this commit does not change it", so a later re-pick of a
+    // still-conflicted commit onto changed parents would silently drop the
+    // resolution in favor of the new base instead of replaying it.
     let mut ours_edit = repo.edit_tree(request.ours_tree_id)?;
     let mut theirs_edit = repo.edit_tree(request.theirs_tree_id)?;
     for (file, picks) in request.files.iter().zip(picks_per_file) {
@@ -279,7 +296,6 @@ pub(crate) fn apply(
             continue;
         }
         for (tree, side) in [
-            (&mut base_edit, SideKind::Base),
             (&mut ours_edit, SideKind::Ours),
             (&mut theirs_edit, SideKind::Theirs),
         ] {
@@ -288,7 +304,7 @@ pub(crate) fn apply(
             tree.upsert(file.rela_path.as_bstr(), file.entry_kind, blob_id)?;
         }
     }
-    let base_tree_id = base_edit.write()?.detach();
+    let base_tree_id = request.base_tree_id;
     let ours_tree_id = ours_edit.write()?.detach();
     let theirs_tree_id = theirs_edit.write()?.detach();
 
@@ -328,6 +344,18 @@ pub(crate) fn apply(
 
     let mut editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let (target_selector, mut commit) = editor.find_selectable_commit(request.commit_id)?;
+    // Fully resolving in favor of the base can leave the commit with no
+    // changes of its own — legitimate, but worth telling the user about.
+    // The parent's content is its auto-resolution when the parent is itself
+    // still conflicted, never its raw (wrapper) tree.
+    use gix::prelude::ObjectIdExt as _;
+    let commit_emptied = !unresolved
+        && match *commit.parents.as_slice() {
+            [parent] => but_core::Commit::from_id(parent.attach(&repo))
+                .and_then(|parent| parent.tree_id_or_auto_resolution())
+                .is_ok_and(|parent_tree| parent_tree.detach() == merged_tree_id),
+            _ => false,
+        };
     if unresolved {
         // Still conflicted: same commit shape the rebase engine writes, with
         // the narrowed trees. Adding message markers is idempotent, and covers
@@ -370,6 +398,7 @@ pub(crate) fn apply(
 
     Ok(AppliedResolution {
         new_commit,
+        commit_emptied,
         remaining,
         workspace,
     })
@@ -424,7 +453,7 @@ mod tests {
         let file = two_hunks();
         let all = picks(&[(0, "merged one"), (1, "merged two")]);
         let expected = "start\nmerged one\nmiddle\nmerged two\nend\n";
-        for side in [SideKind::Ours, SideKind::Base, SideKind::Theirs] {
+        for side in [SideKind::Ours, SideKind::Theirs] {
             assert_eq!(synthesize_side(&file, &all, side).unwrap(), expected);
         }
     }
@@ -436,10 +465,6 @@ mod tests {
         assert_eq!(
             synthesize_side(&file, &first_only, SideKind::Ours).unwrap(),
             "start\nmerged one\nmiddle\nours two\nend\n"
-        );
-        assert_eq!(
-            synthesize_side(&file, &first_only, SideKind::Base).unwrap(),
-            "start\nmerged one\nmiddle\nbase two\nend\n"
         );
         assert_eq!(
             synthesize_side(&file, &first_only, SideKind::Theirs).unwrap(),
@@ -525,6 +550,14 @@ mod tests {
         assert!(matches!(&picks[0][&1], HunkPick::Content(content) if content == "mixed"));
     }
 
+    #[test]
+    fn normalize_path_canonicalizes_separators_and_prefix() {
+        assert_eq!(normalize_path(" ./a/b.txt "), "a/b.txt");
+        assert_eq!(normalize_path("a\\b\\c.txt"), "a/b/c.txt");
+        assert_eq!(normalize_path("a//b///c.txt"), "a/b/c.txt");
+        assert_eq!(normalize_path("a/b.txt"), "a/b.txt");
+    }
+
     /// A side pick must reproduce the picked side byte-for-byte — including a
     /// trailing blank line and the side's own line terminators.
     #[test]
@@ -533,7 +566,7 @@ mod tests {
             "start\n{OURS}\nfoo\n\n{BASE}\nbase\n=======\ntheirs one\r\ntheirs two\n{THEIRS}\nend\n"
         ));
         let ours: BTreeMap<usize, HunkPick> = [(0, HunkPick::Ours)].into_iter().collect();
-        for side in [SideKind::Ours, SideKind::Base, SideKind::Theirs] {
+        for side in [SideKind::Ours, SideKind::Theirs] {
             assert_eq!(
                 synthesize_side(&file, &ours, side).unwrap(),
                 "start\nfoo\n\nend\n",
@@ -561,12 +594,12 @@ mod tests {
         assert!(
             err(&[spec("file.txt", 3, HunkResolution::Ours)])
                 .to_string()
-                .contains("has conflicts 1..2")
+                .contains("has 2 conflicts, but conflict 3 was addressed")
         );
         assert!(
             err(&[spec("file.txt", 0, HunkResolution::Ours)])
                 .to_string()
-                .contains("has conflicts 1..2")
+                .contains("has 2 conflicts, but conflict 0 was addressed")
         );
         assert!(
             err(&[

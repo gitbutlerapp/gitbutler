@@ -31,7 +31,9 @@ pub(crate) fn handle(
 ) -> Result<()> {
     if ai {
         if cmd.is_some() {
-            bail!("--ai cannot be combined with a resolve subcommand");
+            bail!(
+                "--ai cannot be combined with a resolve subcommand. For one conflict, use `but resolve apply <path>[:<N>] --ai` instead."
+            );
         }
         return resolve_with_ai(ctx, out, commit_id.as_deref());
     }
@@ -42,8 +44,26 @@ pub(crate) fn handle(
             commit,
             ours,
             theirs,
+            ai,
             file,
-        }) => apply_resolutions(ctx, out, commit.as_deref(), &target, ours, theirs, file),
+        }) => {
+            let flags = ResolutionFlags {
+                ours,
+                theirs,
+                ai,
+                file,
+            };
+            // Lock stdin at the CLI boundary; the handler reads it only for a
+            // piped mixed-content resolution.
+            apply_resolutions(
+                ctx,
+                out,
+                commit.as_deref(),
+                &target,
+                flags,
+                std::io::stdin().lock(),
+            )
+        }
         Some(Subcommands::Status) => show_status(ctx, out),
         Some(Subcommands::Finish) => finish_resolution(ctx, out),
         Some(Subcommands::Cancel { force }) => cancel_resolution(ctx, out, force),
@@ -510,6 +530,26 @@ fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&st
     };
 
     let conflicts = but_api::resolve::commit_conflicts(ctx, target.commit_oid)?;
+    if conflicts.files.is_empty() {
+        if let Some(human_out) = out.for_human() {
+            let repo = ctx.repo.get()?;
+            writeln!(
+                human_out,
+                "{} {} {}",
+                t.important.paint("Commit"),
+                t.commit_id
+                    .paint(shorten_object_id(&repo, target.commit_oid)),
+                t.success.paint("is not conflicted.")
+            )?;
+        }
+        if let Some(json_out) = out.for_json() {
+            json_out.write_value(serde_json::json!({
+                "commit_id": target.commit_oid.to_string(),
+                "files": [],
+            }))?;
+        }
+        return Ok(());
+    }
 
     if let Some(human_out) = out.for_human() {
         let repo = ctx.repo.get()?;
@@ -563,12 +603,19 @@ fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&st
                 ))
             )?;
         }
+        // With several conflicted commits, a bare `apply` targets the default
+        // commit, not necessarily the one listed here — pin it in the hint.
+        let commit_flag = (target.other_conflicted > 0)
+            .then_some(target.branch.as_deref())
+            .flatten()
+            .map(|branch| format!(" --commit {branch}"))
+            .unwrap_or_default();
         writeln!(
             human_out,
             "{}",
-            t.hint.paint(
-                "Resolve with `but resolve apply <path>[:<N>] --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N>`. `but resolve --ai` resolves everything at once."
-            )
+            t.hint.paint(format!(
+                "Resolve with `but resolve apply <path>[:<N>]{commit_flag} --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N>{commit_flag}`. `but resolve --ai` resolves everything at once."
+            ))
         )?;
     }
 
@@ -585,16 +632,30 @@ fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&st
 
 /// Apply resolutions to one conflict (`<path>:<N>`) or to every conflict of a
 /// file, without entering resolution mode.
+/// How `but resolve apply` was asked to resolve, straight from the CLI flags.
+struct ResolutionFlags {
+    ours: bool,
+    theirs: bool,
+    ai: bool,
+    file: Option<std::path::PathBuf>,
+}
+
 fn apply_resolutions(
     ctx: &mut Context,
     out: &mut OutputChannel,
     commit: Option<&str>,
     target: &str,
-    ours: bool,
-    theirs: bool,
-    file: Option<std::path::PathBuf>,
+    flags: ResolutionFlags,
+    mut read: impl std::io::Read,
 ) -> Result<()> {
     use but_api::resolve::{HunkResolution, ResolutionSpec};
+
+    let ResolutionFlags {
+        ours,
+        theirs,
+        ai,
+        file,
+    } = flags;
 
     let t = theme::get();
     let mode = operating_mode(ctx)?.operating_mode;
@@ -622,20 +683,20 @@ fn apply_resolutions(
         HunkResolution::Ours
     } else if theirs {
         HunkResolution::Theirs
+    } else if ai {
+        HunkResolution::Ai
     } else {
         let content = match &file {
             Some(file) => std::fs::read_to_string(file)
                 .with_context(|| format!("Failed to read {}", file.display()))?,
             None => {
-                use std::io::{IsTerminal, Read};
-                let mut stdin = std::io::stdin();
-                if stdin.is_terminal() {
+                if out.can_prompt() {
                     bail!(
-                        "Provide the replacement content via --file or stdin, or take a side with --ours/--theirs."
+                        "Provide the replacement content via --file or stdin, or take a side with --ours/--theirs/--ai."
                     );
                 }
                 let mut content = String::new();
-                stdin.read_to_string(&mut content)?;
+                std::io::Read::read_to_string(&mut read, &mut content)?;
                 if content.is_empty() {
                     bail!(
                         "stdin was empty. To intentionally delete the conflicted region, pass --file with an empty file."
@@ -653,17 +714,22 @@ fn apply_resolutions(
         (Some(hunk), _) => vec![hunk],
         (None, _) => {
             let conflicts = but_api::resolve::commit_conflicts(ctx, commit_oid)?;
-            // Request paths are canonical; accept the common `./`-prefixed
-            // spelling the API would accept too.
-            let lookup = path.trim().trim_start_matches("./");
+            if conflicts.files.is_empty() {
+                bail!("Commit {commit_oid} is not conflicted.");
+            }
+            // Match with the same normalization the API applies, so spellings
+            // it would accept (`./`, backslashes, duplicate slashes) resolve.
+            let lookup = but_api::resolve::normalize_path(path);
             let total_hunks = conflicts
                 .files
                 .iter()
-                .find(|conflicted| conflicted.path == lookup)
+                .find(|conflicted| but_api::resolve::normalize_path(&conflicted.path) == lookup)
                 .map(|conflicted| conflicted.hunks.len())
                 .with_context(|| format!("\"{path}\" is not a conflicted file of this commit"))?;
             match &resolution {
-                HunkResolution::Ours | HunkResolution::Theirs => (1..=total_hunks).collect(),
+                HunkResolution::Ours | HunkResolution::Theirs | HunkResolution::Ai => {
+                    (1..=total_hunks).collect()
+                }
                 HunkResolution::Content(_) if total_hunks == 1 => vec![1],
                 HunkResolution::Content(_) => bail!(
                     "\"{path}\" has {total_hunks} conflicts; content applies to one at a time, use \"{path}:<N>\"."
@@ -680,12 +746,7 @@ fn apply_resolutions(
         })
         .collect();
 
-    let result = but_api::resolve::resolve_commit_conflict_hunks(
-        ctx,
-        commit_oid,
-        specs,
-        but_core::DryRun::No,
-    )?;
+    let result = but_api::resolve::resolve_commit_conflict_hunks(ctx, commit_oid, specs)?;
 
     if let Some(human_out) = out.for_human() {
         let repo = ctx.repo.get()?;
@@ -712,6 +773,14 @@ fn apply_resolutions(
                 t.success
                     .paint("All conflicts in this commit are resolved.")
             )?;
+            if result.commit_emptied {
+                writeln!(
+                    human_out,
+                    "{}",
+                    t.attention
+                        .paint("The commit is now empty — the kept content matches its parent.")
+                )?;
+            }
             drop(repo);
             let more = oldest_conflicted_commit(ctx)?.is_some();
             if more {
@@ -750,6 +819,7 @@ fn apply_resolutions(
             "commit_id": result.commit_id.to_string(),
             "new_commit_id": result.new_commit.to_string(),
             "resolved": result.resolved,
+            "commit_emptied": result.commit_emptied,
             "remaining": result.remaining,
         }))?;
     }

@@ -28,11 +28,14 @@ pub enum Subcommands {
         #[clap(long)]
         commit: Option<String>,
         /// Take the ours side: the new base the commit was rebased onto.
-        #[clap(long, conflicts_with_all = ["theirs", "file"])]
+        #[clap(long, conflicts_with_all = ["theirs", "file", "ai"])]
         ours: bool,
         /// Take the theirs side: the commit's own version.
-        #[clap(long, conflicts_with = "file")]
+        #[clap(long, conflicts_with_all = ["file", "ai"])]
         theirs: bool,
+        /// Let the configured AI model merge the targeted conflicts.
+        #[clap(long, conflicts_with = "file")]
+        ai: bool,
         /// Read the replacement content from this file (otherwise from stdin).
         #[clap(long, short = 'F')]
         file: Option<std::path::PathBuf>,
