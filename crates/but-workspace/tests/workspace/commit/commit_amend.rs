@@ -40,7 +40,7 @@ fn worktree_changes_as_specs_with_hunks(
 
 #[test]
 fn amend_commit_smoke_test() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
     std::fs::write(
@@ -48,7 +48,6 @@ fn amend_commit_smoke_test() -> Result<()> {
         "amended\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_amend(editor, two_id, worktree_changes_as_specs(&repo)?, 0)?;
 
@@ -79,7 +78,7 @@ fn amend_commit_smoke_test() -> Result<()> {
 /// but there should be no remaining uncommitted changes.
 #[test]
 fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         writable_scenario("amend-with-partial-commit", |_| {})?;
 
     // Find the "save 1" commit (first commit on the stack, parent of "partial 1")
@@ -99,7 +98,6 @@ fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
     );
 
     let context_lines = 0;
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = commit_amend(
         editor,
@@ -135,7 +133,7 @@ fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
 /// After amend, b-file.txt must still appear as a deleted uncommitted change.
 #[test]
 fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         writable_scenario("amend-two-stacks-with-deletions", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
@@ -175,7 +173,6 @@ fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
     // Find the commit on branch A
     let a_commit_id = repo.rev_parse_single("A")?.detach();
 
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = commit_amend(editor, a_commit_id, a_file_specs, 0)?;
 

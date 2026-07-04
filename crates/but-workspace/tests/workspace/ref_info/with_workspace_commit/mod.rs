@@ -4117,7 +4117,7 @@ pub(crate) mod utils {
         init_meta: impl FnMut(&mut VirtualBranchesTomlMetadata),
     ) -> anyhow::Result<(
         TempDir,
-        but_graph::Graph,
+        but_graph::Workspace,
         gix::Repository,
         VirtualBranchesTomlMetadata,
         String,
@@ -4161,7 +4161,7 @@ pub(crate) mod utils {
         mut init_meta: impl FnMut(&mut VirtualBranchesTomlMetadata),
     ) -> anyhow::Result<(
         TempDir,
-        but_graph::Graph,
+        but_graph::Workspace,
         gix::Repository,
         VirtualBranchesTomlMetadata,
         String,
@@ -4177,7 +4177,7 @@ pub(crate) mod utils {
                     .expect("valid workspace ref"),
             )?
             .project_meta();
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &meta,
             project_meta,
@@ -4186,7 +4186,7 @@ pub(crate) mod utils {
                 ..Options::limited()
             },
         )?;
-        Ok((tmp, graph, repo, meta, desc))
+        Ok((tmp, ws, repo, meta, desc))
     }
 
     pub fn named_writable_scenario(

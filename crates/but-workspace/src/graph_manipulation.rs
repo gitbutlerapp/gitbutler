@@ -415,7 +415,7 @@ pub(crate) fn traverse_nodes<M: RefMetadata>(
     let mut tips = vec![tip];
 
     while let Some(tip) = tips.pop() {
-        for (parent, _) in editor.direct_parents(tip)? {
+        for parent in editor.position_parents(tip)? {
             if seen.insert(parent) {
                 tips.push(parent);
             }

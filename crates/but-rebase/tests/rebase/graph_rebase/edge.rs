@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use but_core::Commit;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::{Editor, Step, testing::Testing as _};
 use gix::prelude::ObjectIdExt;
 
@@ -12,14 +12,13 @@ use crate::utils::{fixture, fixture_writable, standard_options};
 fn adding_a_step_returns_a_selector_that_can_be_connected_into_the_graph() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
@@ -58,14 +57,13 @@ fn adding_a_step_returns_a_selector_that_can_be_connected_into_the_graph() -> Re
 fn adding_an_existing_edge_causes_an_error() -> Result<()> {
     let (repo, mut meta) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
@@ -90,14 +88,13 @@ fn adding_an_existing_edge_causes_an_error() -> Result<()> {
 fn adding_an_edge_that_introduces_a_cycle_causes_an_error() -> Result<()> {
     let (repo, mut meta) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
@@ -118,14 +115,13 @@ fn adding_an_edge_that_introduces_a_cycle_causes_an_error() -> Result<()> {
 fn adding_a_valid_edge_is_successful() -> Result<()> {
     let (repo, mut meta) = fixture("merge-in-the-middle")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -141,10 +137,9 @@ fn adding_a_valid_edge_is_successful() -> Result<()> {
     ●    2fc288c Merge branch 'B' into with-inner-merge
     ├─╮
     ◎ │  refs/heads/A
-    ● │    add59d2 A: 10 lines on top
-    ├───╮
-    │ ◎ │  refs/heads/B
-    │ ├─╯
+    ● │  add59d2 A: 10 lines on top
+    ├─╮
+    │ ◎  refs/heads/B
     │ ●  984fd1c C: new file with 10 lines
     ├─╯
     ◎  refs/heads/main
@@ -159,14 +154,13 @@ fn adding_a_valid_edge_is_successful() -> Result<()> {
 fn remove_edge_returns_no_orders_when_no_edges_found() -> Result<()> {
     let (repo, mut meta) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
@@ -183,14 +177,13 @@ fn remove_edge_returns_no_orders_when_no_edges_found() -> Result<()> {
 fn removing_an_existing_edge_returns_its_order_and_allows_readding_it() -> Result<()> {
     let (repo, mut meta) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();

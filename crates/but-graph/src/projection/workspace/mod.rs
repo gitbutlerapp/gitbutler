@@ -96,6 +96,18 @@ impl Workspace {
         Graph::from_commit_traversal(tip, ref_name, meta, project_meta, options)?.into_workspace()
     }
 
+    /// Build the workspace from multiple `tips` at once — the multi-tip variant of
+    /// [`Self::from_commit_traversal`].
+    pub fn from_commit_traversal_tips(
+        repo: &gix::Repository,
+        tips: impl IntoIterator<Item = crate::init::Tip>,
+        meta: &impl but_core::RefMetadata,
+        project_meta: but_core::ref_metadata::ProjectMeta,
+        options: crate::init::Options,
+    ) -> anyhow::Result<Self> {
+        Graph::from_commit_traversal_tips(repo, tips, meta, project_meta, options)?.into_workspace()
+    }
+
     /// Re-read the world with in-memory `overlay` refs and metadata, yielding the workspace as
     /// it would look after applying them.
     pub fn redo_with_overlay(
@@ -107,6 +119,13 @@ impl Workspace {
         self.graph
             .redo_traversal_with_overlay(repo, meta, overlay)?
             .into_workspace()
+    }
+
+    /// Validate the carried graph's invariants (see [`Graph::validated`]), passing `self`
+    /// through for chaining — the workspace-level twin tests use after construction.
+    pub fn validated(mut self) -> anyhow::Result<Self> {
+        self.graph = self.graph.validated()?;
+        Ok(self)
     }
 }
 

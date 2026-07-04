@@ -1,4 +1,4 @@
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_testsupport::visualize_commit_graph_all;
 
 use super::project_meta;
@@ -27,9 +27,8 @@ fn returns_target_tip_when_stacks_have_different_bases() -> anyhow::Result<()> {
     // resolved_target_commit_id should return M4 (the tip of origin/main).
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
 
     let tip = ws.resolved_target_commit_id();
     let expected_m4 = repo.rev_parse_single(":/M4")?.detach();
@@ -60,9 +59,8 @@ fn returns_target_tip_when_one_stack_is_above_target() -> anyhow::Result<()> {
     // resolved_target_commit_id should return M3 (the tip of origin/main).
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
 
     let tip = ws.resolved_target_commit_id();
     let expected_m3 = repo.rev_parse_single(":/M3")?.detach();
@@ -96,9 +94,8 @@ fn prefers_target_commit_over_target_ref() -> anyhow::Result<()> {
     let m2 = repo.rev_parse_single(":/M2")?.detach();
     add_workspace_with_target(&mut meta, m2);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
 
     assert!(ws.target_ref.is_some(), "target_ref should be set");
     assert!(ws.target_commit.is_some(), "target_commit should be set");
@@ -118,9 +115,8 @@ fn returns_none_when_no_target() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace_without_target(&mut meta);
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
 
     assert!(
         ws.resolved_target_commit_id().is_none(),
@@ -137,14 +133,13 @@ fn returns_extra_target_without_target_ref() -> anyhow::Result<()> {
     add_workspace(&mut meta);
     meta.data_mut().default_target = None;
 
-    let ws = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         project_meta(&*meta),
         standard_options_with_extra_target(&repo, "main"),
     )?
-    .validated()?
-    .into_workspace()?;
+    .validated()?;
 
     let expected_target_id = repo.rev_parse_single("main")?.detach();
     assert_eq!(

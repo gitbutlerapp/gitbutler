@@ -282,10 +282,31 @@ impl Sandbox {
         (graph, repo, meta)
     }
 
-    /// Return a worktree visualisation, freshly read from [Self::graph_at_head()].
+    /// Return the workspace at `HEAD`, along with the `(workspace, repo, meta)` repository and
+    /// metadata used to create it.
+    pub fn workspace_at_head(
+        &self,
+    ) -> (
+        but_graph::Workspace,
+        gix::Repository,
+        impl but_core::RefMetadata,
+    ) {
+        let repo = self.open_repo();
+        let meta = self.meta();
+        let ws = but_graph::Workspace::from_head(
+            &repo,
+            &meta,
+            self.project_meta(),
+            but_graph::init::Options::default(),
+        )
+        .unwrap();
+        (ws, repo, meta)
+    }
+
+    /// Return a worktree visualisation, freshly read from [Self::workspace_at_head()].
     pub fn workspace_debug_at_head(&self) -> String {
-        let (graph, _repo, _meta) = self.graph_at_head();
-        graph_workspace_determinisitcally(&graph.into_workspace().unwrap()).to_string()
+        let (ws, _repo, _meta) = self.workspace_at_head();
+        graph_workspace_determinisitcally(&ws).to_string()
     }
 
     /// Open the graph at `HEAD` as SVG for debugging.

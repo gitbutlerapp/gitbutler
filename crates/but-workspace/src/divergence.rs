@@ -182,11 +182,9 @@ fn child_on_head_first_parent_path<M: RefMetadata>(
     let head_selector = editor.select_commit(head_id)?;
     let mut current = Some(head_selector);
     while let Some(selector) = current {
-        let mut parents = editor.direct_parents(selector)?;
-        parents.sort_by_key(|(_, order)| *order);
-        if parents
-            .iter()
-            .any(|(parent, _)| *parent == reference_selector)
+        if editor
+            .position_parents(selector)?
+            .contains(&reference_selector)
         {
             return Ok((selector != head_selector).then_some(selector));
         }

@@ -8,7 +8,7 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 #[test]
 fn tear_off_top_most_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -26,7 +26,6 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -83,7 +82,7 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -101,7 +100,6 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -158,7 +156,7 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -176,7 +174,6 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -231,7 +228,7 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-ref-ws-commit-one-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
@@ -243,7 +240,6 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     └── ≡📙:1:B on 85efbe4 {2}
@@ -292,7 +288,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-ref-ws-commit-one-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
@@ -304,7 +300,6 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     └── ≡📙:1:B on 85efbe4 {2}
@@ -353,7 +348,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_empty_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-one-stack-with-empty-top-branch",
             |meta| {
@@ -366,7 +361,6 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     └── ≡📙:3:B on 85efbe4 {1}
@@ -412,7 +406,7 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
 
 #[test]
 fn tear_off_non_empty_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-one-stack-with-empty-top-branch",
             |meta| {
@@ -425,7 +419,6 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     └── ≡📙:3:B on 85efbe4 {1}

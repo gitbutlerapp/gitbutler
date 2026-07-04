@@ -2,7 +2,7 @@
 //! graphs are returned.
 
 use anyhow::Result;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
 
@@ -20,15 +20,13 @@ fn four_commits() -> Result<()> {
     * 35b8235 base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -62,14 +60,13 @@ fn four_commits_with_short_traversal() -> Result<()> {
     ");
 
     let options = standard_options().with_hard_limit(4);
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         options,
     )?
     .validated()?;
-    let mut ws = graph.clone().into_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
@@ -116,15 +113,13 @@ fn merge_in_the_middle() -> Result<()> {
     * 8f0d338 (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
@@ -170,15 +165,13 @@ fn three_branches_merged() -> Result<()> {
     * 8f0d338 (tag: base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();

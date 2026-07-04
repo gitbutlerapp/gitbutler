@@ -5,23 +5,24 @@ use std::{
     fmt::Write as _,
 };
 
+use crate::graph_rebase::Direction;
 use anyhow::{Context, Result, bail};
 use but_core::RefMetadata;
 use gix::refs::{
     Target,
     transaction::{Change, LogChange, PreviousValue, RefEdit},
 };
-use petgraph::{Direction, visit::EdgeRef};
 
 use crate::graph_rebase::{
     Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
     cherry_pick::{CherryPickOutcome, cherry_pick},
-    util::{collect_ordered_parents, first_ordered_parent},
+    util::collect_ordered_parents,
 };
 
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
     /// Perform the rebase
     pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph, M>> {
+        crate::graph_rebase::positions::debug_assert_positions_total(&self.graph);
         // First we want to get a list of nodes that can be reached by
         // traversing downwards from the heads that we care about.
         // Usually there would be just one "head" which is an index to access
@@ -46,10 +47,11 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
 
         let mut history = self.history;
 
+        // Replay each step in dependency order into `output_graph`: cherry-pick mutable picks
+        // onto their already-rebuilt parents, copy immutable ones verbatim, and carry references
+        // across as positions.
         for step_idx in steps_to_pick {
-            // Do the frikkin rebase man!
-            let step = self.graph[step_idx].clone();
-            let new_idx = match step {
+            let new_idx = match self.graph.step_view(step_idx) {
                 Step::Pick(pick) if !pick.mutable => {
                     // Immutable picks are copied verbatim: the commit keeps its
                     // id, so there's no cherry-pick to run and nothing to record
@@ -125,61 +127,8 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                         }
                     }
                 }
-                Step::Reference { refname, mutable } => {
-                    // Immutable references are kept in the graph for traversal
-                    // but never moved, created, or deleted.
-                    if mutable {
-                        let first_parent_idx = first_ordered_parent(&self.graph, step_idx)
-                            .context("References should have at least one parent")?;
-                        let Some(new_idx) = graph_mapping.get(&first_parent_idx) else {
-                            bail!("A matching parent can't be found in the output graph");
-                        };
-
-                        let to_reference = match output_graph[*new_idx] {
-                            Step::Pick(Pick { id, .. }) => id,
-                            _ => bail!("A parent in the output graph is not a pick"),
-                        };
-
-                        let reference = self.repo.try_find_reference(&refname)?;
-
-                        if let Some(reference) = reference {
-                            let target = reference.target();
-                            match target {
-                                gix::refs::TargetRef::Object(id) => {
-                                    if id == to_reference {
-                                        unchanged_references.push(refname.clone());
-                                    } else {
-                                        ref_edits.push(RefEdit {
-                                            name: refname.clone(),
-                                            change: Change::Update {
-                                                log: LogChange::default(),
-                                                expected: PreviousValue::MustExistAndMatch(
-                                                    target.into(),
-                                                ),
-                                                new: Target::Object(to_reference),
-                                            },
-                                            deref: false,
-                                        });
-                                    }
-                                }
-                                gix::refs::TargetRef::Symbolic(name) => {
-                                    bail!("Attempted to update the symbolic reference {name}");
-                                }
-                            }
-                        } else {
-                            ref_edits.push(RefEdit {
-                                name: refname.clone(),
-                                change: Change::Update {
-                                    log: LogChange::default(),
-                                    expected: PreviousValue::MustNotExist,
-                                    new: Target::Object(to_reference),
-                                },
-                                deref: false,
-                            });
-                        }
-                    }
-
-                    output_graph.add_node(Step::Reference { refname, mutable })
+                Step::Reference { .. } => {
+                    unreachable!("references are replayed separately; the pick order holds none")
                 }
                 Step::None => output_graph.add_node(Step::None),
             };
@@ -188,7 +137,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
 
             let mut edges = self
                 .graph
-                .edges_directed(step_idx, petgraph::Direction::Outgoing)
+                .edges_directed(step_idx, Direction::Outgoing)
                 .collect::<Vec<_>>();
             edges.sort_by_key(|e| e.weight().order);
             edges.reverse();
@@ -201,6 +150,84 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                 output_graph.add_edge(new_idx, *new_parent, e.weight().clone());
             }
         }
+
+        // References have no edges, so they take no part in the pick order; their only
+        // dependency — the anchor's mapping — is satisfied now that every pick is processed.
+        // They replay at the very end, in stable id order. DEAD references carry over as dead
+        // records (name and position retained, for stale-selector normalization and retention
+        // reads); live anchor-less refs (unborn or hand-built) are dropped, as before.
+        for step_idx in self.graph.ref_indices() {
+            let record = self
+                .graph
+                .reference_record(step_idx)
+                .expect("ref_indices only yields references");
+            if !record.live {
+                let new_idx = output_graph.add_reference(record.refname.clone(), record.mutable);
+                output_graph.tombstone_reference(new_idx);
+                graph_mapping.insert(step_idx, new_idx);
+                continue;
+            }
+            if record.position.is_none() {
+                continue;
+            }
+            let (refname, mutable) = (record.refname.clone(), record.mutable);
+            // Immutable references are kept in the graph for traversal
+            // but never moved, created, or deleted.
+            if mutable {
+                let first_parent_idx =
+                    crate::graph_rebase::positions::resolve_to_pick(&self.graph, step_idx)
+                        .context("References should resolve to a commit")?;
+                let Some(new_idx) = graph_mapping.get(&first_parent_idx) else {
+                    bail!("A matching parent can't be found in the output graph");
+                };
+
+                let to_reference = match output_graph[*new_idx] {
+                    Step::Pick(Pick { id, .. }) => id,
+                    _ => bail!("A parent in the output graph is not a pick"),
+                };
+
+                let reference = self.repo.try_find_reference(&refname)?;
+
+                if let Some(reference) = reference {
+                    let target = reference.target();
+                    match target {
+                        gix::refs::TargetRef::Object(id) => {
+                            if id == to_reference {
+                                unchanged_references.push(refname.clone());
+                            } else {
+                                ref_edits.push(RefEdit {
+                                    name: refname.clone(),
+                                    change: Change::Update {
+                                        log: LogChange::default(),
+                                        expected: PreviousValue::MustExistAndMatch(target.into()),
+                                        new: Target::Object(to_reference),
+                                    },
+                                    deref: false,
+                                });
+                            }
+                        }
+                        gix::refs::TargetRef::Symbolic(name) => {
+                            bail!("Attempted to update the symbolic reference {name}");
+                        }
+                    }
+                } else {
+                    ref_edits.push(RefEdit {
+                        name: refname.clone(),
+                        change: Change::Update {
+                            log: LogChange::default(),
+                            expected: PreviousValue::MustNotExist,
+                            new: Target::Object(to_reference),
+                        },
+                        deref: false,
+                    });
+                }
+            }
+
+            let new_idx = output_graph.add_reference(refname, mutable);
+            graph_mapping.insert(step_idx, new_idx);
+        }
+
+        output_graph.carry_positions_mapped(&self.graph, &graph_mapping);
 
         // Find deleted references. `initial_references` only contains mutable
         // references, so immutable references are never considered for deletion.
@@ -250,13 +277,21 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
 /// This second traversal ensures that all the parents of any given node have
 /// been seen, before traversing it.
 fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<StepGraphIndex> {
-    let mut heads = heads.to_vec();
+    // References take no part in the pick order (no edges) and are replayed separately;
+    // everything else — picks AND tombstones, even one carrying a leaked anchor — must be
+    // traversed, or its subtree is orphaned. Filter by the STEP, not by anchor presence
+    // (a non-reference with a stray anchor must not be skipped).
+    let mut heads: Vec<StepGraphIndex> = heads
+        .iter()
+        .copied()
+        .filter(|h| !graph.is_reference(*h))
+        .collect();
     let mut seen = heads.iter().cloned().collect::<HashSet<StepGraphIndex>>();
     // Reachable nodes with no outgoing nodes.
     let mut bases = VecDeque::new();
 
     while let Some(head) = heads.pop() {
-        let edges = graph.edges_directed(head, petgraph::Direction::Outgoing);
+        let edges = graph.edges_directed(head, Direction::Outgoing);
 
         if edges.clone().count() == 0 {
             bases.push_back(head);
@@ -277,10 +312,10 @@ fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<
     let mut retraversed = bases.iter().cloned().collect::<HashSet<_>>();
 
     while let Some(base) = bases.pop_front() {
-        for edge in graph.edges_directed(base, petgraph::Direction::Incoming) {
+        for edge in graph.edges_directed(base, Direction::Incoming) {
             // We only want to queue nodes for traversing that have had all of their parents traversed.
             let s = edge.source();
-            let mut outgoing_edges = graph.edges_directed(s, petgraph::Direction::Outgoing);
+            let mut outgoing_edges = graph.edges_directed(s, Direction::Outgoing);
             let all_parents_seen = outgoing_edges.clone().count() == 0
                 || outgoing_edges.all(|e| retraversed.contains(&e.target()));
             if all_parents_seen && seen.contains(&s) && retraversed.insert(s) {

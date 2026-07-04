@@ -3,9 +3,22 @@
 //! one vector based to find them,
 //! one mess of git2 code to bring them all,
 //! and in the darknes bind them.
+//!
+//! ---
+//!
+//! A graph-based rebase engine. The workspace is loaded into an `Editor` as a `StepGraph`: an
+//! arena of `Step`s where a `Pick` is a commit to cherry-pick and a `Reference` is a branch.
+//! Callers mutate the graph (insert/move/remove picks, create/move references), then
+//! `Editor::rebase` replays it — cherry-picking every mutable pick onto its new parents and
+//! producing the reference updates to write.
+//!
+//! References are POSITIONS, not nodes with edges — see the `positions` module for the model.
 
+mod arrangement;
 mod creation;
+mod positions;
 pub mod rebase;
+mod step_graph;
 pub mod traverse;
 use std::collections::{BTreeMap, HashMap};
 
@@ -14,8 +27,6 @@ use but_core::{RefMetadata, commit::SignCommit};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
 use gix::refs::transaction::RefEdit;
-
-use crate::graph_rebase::util::first_ordered_parent;
 
 use crate::graph_rebase::cherry_pick::{PickMode, TreeMergeMode};
 pub mod cherry_pick;
@@ -128,7 +139,12 @@ pub enum Step {
         /// kept in the graph for traversal but never written.
         mutable: bool,
     },
-    /// Used as a placeholder after removing a pick or reference
+    /// A tombstone left behind when a pick or reference is removed.
+    ///
+    /// The node is never deleted from the arena — that would invalidate every node id after it.
+    /// Instead the slot becomes `None`, keeping ids stable. It retains its first
+    /// outgoing edge so that resolving a reference downward walks THROUGH it to the next live
+    /// pick. A tombstone must not survive into materialized output.
     None,
 }
 
@@ -159,18 +175,17 @@ impl Step {
     }
 }
 
-/// Used to represent a connection between a given commit.
+/// A parent link from a child pick to one of its parents.
 #[derive(Debug, Clone)]
 pub(crate) struct Edge {
-    /// Represents in which order the `parent` fields should be written out
+    /// This parent's slot in the child commit's parent list (0 = first parent).
     ///
-    /// A child commit should have edges that all have unique orders. In order
-    /// to achive that we can employ the following semantics.
+    /// A child's outgoing edges must all have distinct orders; the order is what the rebase
+    /// writes out as the commit's parent ordering, so a merge's first/second parent is preserved.
     order: usize,
 }
 
-type StepGraphIndex = petgraph::stable_graph::NodeIndex;
-type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
+pub(crate) use step_graph::{Direction, StepGraph, StepGraphIndex};
 
 /// Convert a structure to a selector for a particular editor.
 ///
@@ -215,7 +230,7 @@ pub struct Selector {
 impl ToCommitSelector for Selector {
     fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         let selector = editor.history.normalize_selector(*self)?;
-        let step = &editor.graph[selector.id];
+        let step = editor.graph.step_view(selector.id);
         if !matches!(step, Step::Pick(_)) {
             bail!("Expected selector for {step:?} to refer to a commit");
         }
@@ -227,8 +242,8 @@ impl ToCommitSelector for Selector {
 impl ToReferenceSelector for Selector {
     fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         let selector = editor.history.normalize_selector(*self)?;
-        let step = &editor.graph[selector.id];
-        if !matches!(step, Step::Reference { .. }) {
+        if !editor.graph.is_reference(selector.id) {
+            let step = editor.graph.step_view(selector.id);
             bail!("Expected selector for {step:?} to refer to a reference");
         }
 
@@ -320,6 +335,16 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// in-memory repository owned by this [`SuccessfulRebase`] (`self.repo`),
     /// since they might exist only in memory.
     pub fn overlayed_graph(&self) -> Result<but_graph::Graph> {
+        self.workspace.graph.redo_traversal_with_overlay(
+            &self.repo,
+            self.meta,
+            self.rebase_overlay()?,
+        )
+    }
+
+    /// The overlay describing this rebase's outcome: updated/dropped refs plus the requested
+    /// checkout as the entrypoint.
+    fn rebase_overlay(&self) -> Result<Overlay> {
         let dropped_refs = self.ref_edits.iter().filter_map(|edit| match &edit.change {
             gix::refs::transaction::Change::Delete { .. } => Some(edit.name.clone()),
             _ => None,
@@ -340,17 +365,19 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             .filter_map(|checkout| match checkout {
                 Checkout::Head { selector, .. } => {
                     let selector = self.history.normalize_selector(*selector).ok()?;
-                    let step = &self.graph[selector.id];
 
-                    match step {
+                    match self.graph.step_view(selector.id) {
                         Step::None => None,
-                        Step::Pick(Pick { id, .. }) => Some((*id, None)),
+                        Step::Pick(Pick { id, .. }) => Some((id, None)),
                         Step::Reference { refname, .. } => {
                             if let Some(to_reference) =
-                                first_ordered_parent(&self.graph, selector.id)
+                                crate::graph_rebase::positions::resolve_to_pick(
+                                    &self.graph,
+                                    selector.id,
+                                )
                                 && let Step::Pick(Pick { id, .. }) = self.graph[to_reference]
                             {
-                                Some((id, Some(refname.clone())))
+                                Some((id, Some(refname)))
                             } else {
                                 None
                             }
@@ -363,18 +390,16 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             bail!("BUG: Tried to construct rebase engine graph overlay with no entrypoints");
         };
 
-        let overlay = Overlay::default()
+        Ok(Overlay::default()
             .with_references(updated_refs)
             .with_dropped_references(dropped_refs)
-            .with_entrypoint(entrypoint_id, entrypoint_refname);
-        self.workspace
-            .graph
-            .redo_traversal_with_overlay(&self.repo, self.meta, overlay)
+            .with_entrypoint(entrypoint_id, entrypoint_refname))
     }
 
     /// Like [`Self::overlayed_graph`], but projected onto the workspace view most callers want.
     pub fn overlayed_workspace(&self) -> Result<but_graph::Workspace> {
-        self.overlayed_graph()?.into_workspace()
+        self.workspace
+            .redo_with_overlay(&self.repo, self.meta, self.rebase_overlay()?)
     }
 }
 
@@ -432,12 +457,20 @@ impl<M: RefMetadata> LookupStep for MaterializeOutcome<'_, '_, M> {
 
 fn lookup_step(graph: &StepGraph, history: &RevisionHistory, selector: Selector) -> Result<Step> {
     let normalized = history.normalize_selector(selector)?;
-    Ok(graph[normalized.id].clone())
+    Ok(graph.step_view(normalized.id))
 }
 
-/// Provides data about how the editor instance was transformed.
+/// How node ids and commit ids moved as the editor transformed the graph.
+///
+/// Some operations rebuild the graph and renumber its nodes, advancing the editor to a new
+/// REVISION. A [`Selector`] remembers the revision it was minted in, so before it can index the
+/// current graph it must be brought forward with `normalize_selector` — that is what `mappings`
+/// is for.
 #[derive(Debug, Clone, Default)]
 pub struct RevisionHistory {
+    /// One entry per revision transition: `mappings[r]` maps a node id at revision `r` to its id
+    /// at revision `r + 1`. `mappings.len()` is the current revision. `normalize_selector` walks a
+    /// selector's id forward through these until it reaches the current revision.
     mappings: Vec<HashMap<StepGraphIndex, StepGraphIndex>>,
     /// A mapping from any commits that were in the original mapping to a
     /// rewritten version.

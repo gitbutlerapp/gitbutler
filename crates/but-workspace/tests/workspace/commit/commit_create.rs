@@ -18,7 +18,7 @@ fn worktree_changes_as_specs(repo: &gix::Repository) -> Result<Vec<DiffSpec>> {
 
 #[test]
 fn commit_above_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
     std::fs::write(
@@ -27,7 +27,6 @@ fn commit_above_commit() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
@@ -64,7 +63,7 @@ fn commit_above_commit() -> Result<()> {
 
 #[test]
 fn commit_below_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let one_id = repo.rev_parse_single("one")?.detach();
     let two_id = repo.rev_parse_single("two")?.detach();
@@ -74,7 +73,6 @@ fn commit_below_commit() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
@@ -105,7 +103,7 @@ fn commit_below_commit() -> Result<()> {
 
 #[test]
 fn commit_above_reference() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
     let reference = repo.find_reference("two")?;
@@ -115,7 +113,6 @@ fn commit_above_reference() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
@@ -152,7 +149,7 @@ fn commit_above_reference() -> Result<()> {
 
 #[test]
 fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("merge-with-two-branches-line-offset", |_| {})?;
     let merge_id = repo.rev_parse_single("HEAD")?.detach();
     let merge_commit = repo.find_commit(merge_id)?;
@@ -167,7 +164,6 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
@@ -202,10 +198,9 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
 
 #[test]
 fn commit_all_rejected_is_noop() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
 
     let outcome = commit_create(

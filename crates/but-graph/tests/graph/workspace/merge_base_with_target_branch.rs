@@ -1,4 +1,4 @@
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_testsupport::visualize_commit_graph_all;
 
 use super::project_meta;
@@ -26,9 +26,8 @@ fn with_target_ref() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
 
     // We have a target_ref but nothing else
     assert!(ws.target_ref.is_some());
@@ -69,14 +68,13 @@ fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
     meta.data_mut().default_target = None;
 
     // Use extra_target to set a lower bound
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         project_meta(&*meta),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
-    let ws = graph.into_workspace()?;
 
     assert!(ws.target_ref.is_none());
     let expected_target_id = repo.rev_parse_single("main")?.detach();
@@ -100,9 +98,8 @@ fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace_without_target(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
-    let ws = graph.into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
 
     assert!(ws.target_ref.is_none(), "should not have target_ref");
     assert!(ws.target_commit.is_none(), "should not have target_commit");
@@ -122,9 +119,8 @@ fn returns_none_when_commit_not_in_graph() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/local-target-and-stack")?;
 
     add_workspace(&mut meta);
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
 
     let res = ws.merge_base_with_target_branch(repo.object_hash().null());
     assert!(

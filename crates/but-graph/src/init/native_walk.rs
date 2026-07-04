@@ -101,15 +101,16 @@ impl Store {
 
 /// Lightweight segment identity — just enough of the raw walk's segment bookkeeping to replicate
 /// its behavior-relevant decisions: which queued tips inherit goals at a re-encounter (leaf
-/// SEGMENTS, not leaf commits), the workspace-ownership swap, and the entrypoint owner's name.
+/// SEGMENTS, not leaf commits), the entrypoint owner's name and first-commit flags (the
+/// integrated-cutoff gate), and the hoisted segment-name re-attachment.
 /// Boundaries follow the walk exactly: every seed is a segment; merge parents start new ones
 /// (`ConnectNewSegment`); a continuation splits off when its commit carries an unambiguous branch
 /// name or is a merge (`try_split_non_empty_segment_at_branch`); a mid-segment re-encounter
 /// splits the tail (`split_commit_into_segment`).
+
 #[derive(Default)]
 struct Segs {
     names: Vec<Option<crate::RefInfo>>,
-    has_ws_meta: Vec<bool>,
     commits: Vec<Vec<gix::ObjectId>>,
     of: HashMap<gix::ObjectId, usize>,
 }
@@ -118,7 +119,6 @@ impl Segs {
     fn add(&mut self, seg: &Segment) -> usize {
         let ix = self.names.len();
         self.names.push(seg.ref_info.clone());
-        self.has_ws_meta.push(seg.workspace_metadata().is_some());
         self.commits.push(Vec::new());
         ix
     }
@@ -138,21 +138,10 @@ impl Segs {
         let tail = self.commits[seg].split_off(pos);
         let new_seg = self.names.len();
         self.names.push(None);
-        self.has_ws_meta.push(false);
         for id in &tail {
             self.of.insert(*id, new_seg);
         }
         self.commits.push(tail);
-    }
-    /// `swap_commits_and_connections`: contents swap, names and metadata stay with their segment.
-    fn swap_commits(&mut self, a: usize, b: usize) {
-        self.commits.swap(a, b);
-        let Self { commits, of, .. } = self;
-        for ix in [a, b] {
-            for id in &commits[ix] {
-                of.insert(*id, ix);
-            }
-        }
     }
     /// The segment a queue item collects into — seeds into their seed segment, parents into the
     /// queuing commit's CURRENT segment (splits and swaps are picked up live, which is what the
@@ -309,20 +298,6 @@ pub(crate) fn traverse<T: RefMetadata>(
             // replay the segment-ownership choreography (workspace swap, mid-segment split),
             // merge flags, propagate downward, adjust queued tips.
             store.connect(instr.queued_by, id);
-            let src_seg = segs
-                .landing(&instr, &seed_seg)
-                .expect("every queue item has a seed or a queuing commit");
-            let dst_seg = segs.of[&id];
-            // A normal branch walking into a workspace branch: the workspace must not own the
-            // existing commit, so the segments trade contents.
-            if segs.has_ws_meta[dst_seg]
-                && segs.names[src_seg]
-                    .as_ref()
-                    .and_then(|ri| ri.ref_name.category())
-                    .is_some_and(|c| matches!(c, Category::LocalBranch))
-            {
-                segs.swap_commits(dst_seg, src_seg);
-            }
             let bottom_seg = segs.of[&id];
             let pos = segs.commits[bottom_seg]
                 .iter()
@@ -483,27 +458,18 @@ pub(crate) fn traverse<T: RefMetadata>(
         }
     }
 
-    // A detached entrypoint moves its seed segment's ref onto the segment's first commit and
-    // anonymizes the segment (`detach_entrypoint_segment`) — before the re-attachment below.
-    if detach_entrypoint
-        && let Some(seg) = ep_seed.and_then(|ix| seed_seg.get(ix)).copied()
-        && let (Some(ri), Some(first)) = (segs.names[seg].clone(), segs.commits[seg].first())
-    {
-        let refs = &mut store.commits[store.by_id[first]].refs;
-        if !refs.iter().any(|r| r.ref_name == ri.ref_name) {
-            refs.push(ri);
-            refs.sort_by(|a, b| a.ref_name.cmp(&b.ref_name));
-        }
-        segs.names[seg] = None;
-    }
     // Like the flatten: the ref of the segment OWNING the entrypoint commit — None after
     // ownership moved to an anonymous stand-in or an ambiguous split.
     let entrypoint_ref = segs
         .of
         .get(&tip)
         .and_then(|&s| segs.names[s].as_ref().map(|ri| ri.ref_name.clone()));
-    // Re-attach every segment's hoisted name to its FINAL first commit — ownership swaps and
-    // splits may have moved it away from the ref's true commit; the flatten does the same.
+    // Re-attach every segment's hoisted name to its FINAL first commit. This is the
+    // ADVANCED-REF presentation contract, not bookkeeping: when a named seed's ref points at a
+    // commit the walk never reached (branch advanced outside the workspace, ref deleted, or an
+    // overlay preview), the name still surfaces at the walk-visible position — census-verified:
+    // every corpus divergence between `first` and the ref's true commit is exactly the
+    // true-commit-not-in-graph case (~1.4k across the suite, mostly apply/unapply previews).
     for (seg, name) in segs.names.iter().enumerate() {
         let (Some(ri), Some(first)) = (name, segs.commits[seg].first()) else {
             continue;

@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
+use crate::graph_rebase::Direction;
 use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
 use but_graph::{Commit, SegmentIndex};
-use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
     Checkout, Edge, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
@@ -119,10 +119,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 if mutable {
                     references.push(refname.clone());
                 }
-                let ix = graph.add_node(Step::Reference {
-                    refname: refname.clone(),
-                    mutable,
-                });
+                let ix = graph.add_reference(refname.clone(), mutable);
                 if Some(reference) == entrypoint.segment.ref_name() {
                     head_selectors.push(Selector {
                         id: ix,
@@ -146,10 +143,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     if mutable {
                         references.push(reference.to_owned());
                     }
-                    let ix = graph.add_node(Step::Reference {
-                        refname: reference.clone(),
-                        mutable,
-                    });
+                    let ix = graph.add_reference(reference.clone(), mutable);
                     if let Some(previous_ix) = nodes.last() {
                         graph.add_edge(*previous_ix, ix, Edge { order: 0 });
                     }
@@ -249,56 +243,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                         o
                     }
                 };
-                // Whether a parent edge lands on a Reference node or directly on a Pick is
-                // load-bearing: upstream integration classifies refs by reachability from the
-                // target's node, treating every ref a merge routes through as integrated history.
-                // So a merge rejoining a lane from outside (the target's merge into a stack) must
-                // bypass empty-branch chains spliced above its parent — those refs belong to the
-                // workspace spine and must stay unreachable from the target, or integration would
-                // drop them. A merge into a commit-holding named segment (the merged branch's own
-                // tip) keeps its chain: that ref genuinely is integrated. The walk-era builder
-                // produced this shape by accident (mis-ordered empty edges tripped the repair
-                // pass below, which rewires to picks); this encodes it deliberately.
-                let is_merge = edge.weight().src_id().is_some()
-                    && edge.weight().src_id() != workspace_commit_id
-                    && parents.is_some_and(|p| p.len() > 1);
-                let bypass_to_pick = if !is_merge {
-                    None
-                } else if let Some(dst) = edge.weight().dst_id() {
-                    let spliced_above = workspace
-                        .graph
-                        .edges_directed(edge.target(), but_graph::Direction::Incoming)
-                        .any(|e| {
-                            let src = &workspace.graph[e.source()];
-                            src.commits.is_empty() && src.ref_name().is_some()
-                        });
-                    (spliced_above
-                        && workspace.graph[edge.target()].commits.first().map(|c| c.id)
-                            == Some(dst))
-                    .then(|| commit_to_pick_ix.get(&dst))
-                    .flatten()
-                } else {
-                    // The edge enters an empty segment chain (the walk's inline splice): resolve
-                    // through it to the first commit-holding segment below.
-                    let mut tsel = edge.target();
-                    let mut hops = 0usize;
-                    loop {
-                        if let Some(c) = workspace.graph[tsel].commits.first() {
-                            break commit_to_pick_ix.get(&c.id);
-                        }
-                        hops += 1;
-                        let next = workspace
-                            .graph
-                            .edges_directed(tsel, but_graph::Direction::Outgoing)
-                            .next()
-                            .map(|e| e.target());
-                        match next {
-                            Some(next) if hops <= 1000 => tsel = next,
-                            _ => break None,
-                        }
-                    }
-                };
-                let target = bypass_to_pick.unwrap_or(target);
                 graph.add_edge(*source, *target, Edge { order });
             }
         }
@@ -369,6 +313,8 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             }
         }
 
+        crate::graph_rebase::positions::initialize_anchors_and_strip_ref_edges(&mut graph);
+        crate::graph_rebase::positions::debug_assert_positions_total(&graph);
         Ok(Self {
             graph,
             initial_references: references,

@@ -1,7 +1,7 @@
 //! Exercises the step option for whether a step should be allowed to enter a conflicted state.
 
 use anyhow::{Result, bail};
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, LookupStep, Step, mutate::InsertSide},
@@ -21,15 +21,13 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     * 6155f21 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Replacing b with none will cause c to conflict
@@ -87,15 +85,13 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
     * 6155f21 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Replacing b with none will cause c to conflict
@@ -134,15 +130,13 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
     * 6155f21 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Insert an empty commit above b to cause c to get cherry picked with out a conflict

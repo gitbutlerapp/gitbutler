@@ -2,10 +2,10 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::graph_rebase::Direction;
 use anyhow::{Context, Result, bail};
 use but_core::{RefMetadata, commit::tree_expression::TreeExpression};
 use gix::prelude::ObjectIdExt;
-use petgraph::Direction;
 
 use crate::graph_rebase::{Editor, Pick, Step, StepGraphIndex, util::collect_ordered_parents};
 
@@ -248,7 +248,7 @@ fn traverse_graph_for_planning<M: RefMetadata>(
         .graph
         .externals(Direction::Incoming)
         .collect::<Vec<StepGraphIndex>>();
-    roots.sort_unstable_by_key(|idx| idx.index());
+    roots.sort_unstable();
 
     for root in roots {
         let mut stack = vec![(root, false, TraversalMode::Normal)];

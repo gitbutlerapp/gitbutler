@@ -9,7 +9,7 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 #[test]
 fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -22,7 +22,6 @@ fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
     let two = repo.rev_parse_single("two")?;
     let three = repo.rev_parse_single("three")?;
 
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = discard_commits(editor, [two.detach()])?;
 
@@ -64,7 +63,7 @@ fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
 
 #[test]
 fn discard_tip_commit_in_workspace_stack() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -86,7 +85,6 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     let b = repo.rev_parse_single("B")?;
     let c = repo.rev_parse_single("C")?;
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -130,7 +128,7 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
 
 #[test]
 fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -153,7 +151,6 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     let c = repo.rev_parse_single("C")?;
     let main = repo.rev_parse_single("main")?;
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -209,7 +206,7 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
 
 #[test]
 fn can_discard_conflicted_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -219,7 +216,6 @@ fn can_discard_conflicted_commit() -> Result<()> {
 
     let conflicted = repo.rev_parse_single("conflicted")?;
 
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = discard_commits(editor, [conflicted.detach()])?;
 
@@ -235,7 +231,7 @@ fn can_discard_conflicted_commit() -> Result<()> {
 
 #[test]
 fn discard_multiple_commits_in_single_rebase() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -248,7 +244,6 @@ fn discard_multiple_commits_in_single_rebase() -> Result<()> {
     let two = repo.rev_parse_single("two")?;
     let three = repo.rev_parse_single("three")?;
 
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     // Discard both two and three in a single operation.
     let outcome = discard_commits(editor, [two.into(), three.into()])?;
@@ -288,7 +283,7 @@ fn discard_multiple_commits_in_single_rebase() -> Result<()> {
 
 #[test]
 fn discard_both_commits_in_workspace_stack() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -311,7 +306,6 @@ fn discard_both_commits_in_workspace_stack() -> Result<()> {
     let c = repo.rev_parse_single("C")?;
     let main = repo.rev_parse_single("main")?;
 
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     // Discard both B and C in one rebase.
     let outcome = discard_commits(editor, [b.into(), c.into()])?;

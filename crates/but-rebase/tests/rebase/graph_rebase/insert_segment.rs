@@ -1,7 +1,7 @@
 //! These tests exercise the insert segment operation.
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::{Editor, mutate};
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph, visualize_commit_graph_all};
 
@@ -43,14 +43,13 @@ fn insert_single_node_segment_above() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -127,14 +126,13 @@ fn insert_single_node_segment_below() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -214,14 +212,13 @@ fn insert_multi_node_segment_above() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -304,14 +301,13 @@ fn insert_multi_node_segment_below() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -393,14 +389,13 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -497,14 +492,13 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -592,14 +586,13 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
 #[test]
 fn insert_single_node_segment_below_can_append_reparented_parent() -> Result<()> {
     let (repo, _tmp, mut meta) = fixture_writable("three-branches-merged")?;
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();

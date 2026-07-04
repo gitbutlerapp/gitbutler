@@ -1,6 +1,6 @@
 //! These tests exercise the replace operation.
 use anyhow::{Context, Result};
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::{Editor, Step};
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all, visualize_tree};
 
@@ -23,15 +23,13 @@ fn reword_a_commit() -> Result<()> {
 
     let head_tree = repo.head_tree()?.id;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // get the original a
@@ -114,15 +112,13 @@ fn amend_a_commit() -> Result<()> {
     └── new-file:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
     "#);
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // get the original a

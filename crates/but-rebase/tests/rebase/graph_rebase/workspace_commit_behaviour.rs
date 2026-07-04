@@ -1,7 +1,7 @@
 //! These tests cover behaviour specific to the workspace commit
 
 use anyhow::Result;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Step};
 use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 
@@ -23,15 +23,13 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let id = repo.rev_parse_single("gitbutler/workspace")?;
@@ -98,14 +96,13 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Remove the "b" commit so "c" and the workspace commit get cherry-picked
@@ -187,15 +184,13 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
     * 35b8235 base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let id = repo.rev_parse_single("HEAD")?;
@@ -257,15 +252,13 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Dropping c will cause the workspace commit to conflict because the WC
@@ -342,15 +335,13 @@ fn workspace_commit_with_deleted_branch_ref_rebases_successfully() -> Result<()>
     * fafd9d0 init
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // The rebase should succeed even though the workspace commit has a

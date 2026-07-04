@@ -524,7 +524,7 @@ mod stack_details {
         // The raw workspace projection can now link the advanced tip back to `refs/heads/B` even
         // though the extra commit sits outside the workspace commit. That sibling link records the
         // outside commit separately from the in-workspace `B` commit.
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -532,7 +532,6 @@ mod stack_details {
                 ..standard_options().traversal
             },
         )?;
-        let ws = graph.into_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓!
         └── ≡📙:1:B →:4: {1}

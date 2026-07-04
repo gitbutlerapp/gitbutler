@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use but_core::commit::SignCommit;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::{Editor, GraphEditorOptions, Pick, Step, cherry_pick::PickMode};
 use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 
@@ -20,14 +20,13 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Modify the "c" commit to no longer be signed
@@ -70,14 +69,13 @@ fn commits_are_signed_by_default() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Remove the "b" commit so "c" gets cherry-picked
@@ -144,14 +142,13 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Modify the "c" commit to no longer be signed
@@ -214,14 +211,13 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
     * 7a5aacf (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
@@ -288,14 +284,13 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
     * 7a5aacf (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
@@ -381,14 +376,13 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
     * 7a5aacf (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
@@ -471,14 +465,13 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
     * 7a5aacf (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
 
     let mut editor = Editor::create_with_opts(
         &mut ws,
@@ -545,14 +538,13 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
     * 7a5aacf (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
 
     let mut editor = Editor::create_with_opts(
         &mut ws,

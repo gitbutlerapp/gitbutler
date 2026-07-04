@@ -1487,7 +1487,7 @@ Some(
 
     // The above being stable already fixes `dlib`.
     let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    let ws = but_graph::Workspace::from_commit_traversal(
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
@@ -1503,7 +1503,7 @@ Some(
     // test was tuned for a certain outcome and now this becomes more obvious. But whatever, it's legacy and
     // it doesn't fail anymore.
     snapbox::assert_data_eq!(
-        but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?).to_string(),
+        but_testsupport::graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
 
@@ -1537,7 +1537,7 @@ Some(
     );
 
     let ws = store.workspace(ws_ref_name)?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    let graph_ws = but_graph::Workspace::from_commit_traversal(
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
@@ -1545,7 +1545,7 @@ Some(
         but_graph::init::Options::limited(),
     )?;
     snapbox::assert_data_eq!(
-        but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?).to_string(),
+        but_testsupport::graph_workspace_determinisitcally(&graph_ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
 

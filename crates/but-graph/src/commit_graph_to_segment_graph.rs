@@ -38,6 +38,28 @@ pub fn graph_from_repository<T: but_core::RefMetadata>(
     )
 }
 
+/// [`graph_from_repository`] with the workspace projection applied — the flip test seam for
+/// asserting projection-level parity. `None` on the same non-managed fall-through.
+pub fn workspace_from_repository<T: but_core::RefMetadata>(
+    repo: &gix::Repository,
+    meta: &T,
+    entrypoint: Option<gix::ObjectId>,
+    entrypoint_ref: Option<gix::refs::FullName>,
+    project_meta: but_core::ref_metadata::ProjectMeta,
+    options: crate::init::Options,
+) -> anyhow::Result<Option<crate::Workspace>> {
+    graph_from_repository(
+        repo,
+        meta,
+        entrypoint,
+        entrypoint_ref,
+        project_meta,
+        options,
+    )?
+    .map(crate::Graph::into_workspace)
+    .transpose()
+}
+
 /// Like [`graph_from_repository`], but serving `overlay` refs and metadata from memory — the flip
 /// counterpart of [`Graph::redo_traversal_with_overlay`](crate::Graph::redo_traversal_with_overlay).
 pub(crate) fn graph_from_repository_with_overlay<T: but_core::RefMetadata>(
@@ -639,6 +661,23 @@ fn facts<T: but_core::RefMetadata>(
 ///
 /// Inputs mirror the projection's enrichment: the workspace commit, the target that bounds/integrates,
 /// and the local→remote tracking map. `project_meta`/`options` are carried onto the `Graph`.
+///
+/// This is "gather-then-build": everything is decided as data BEFORE any segment exists, then
+/// materialized in one pass. Roughly, in order:
+///
+/// 1. **Facts** (`facts`) — the boundaries where segments start, which boundary owns each
+///    commit, and the tips in materialization order. Pure facts over `cg`; reads no segment.
+/// 2. **Lower bound** — the base all lanes and the target converge on.
+/// 3. **Lane plan** (`lane_plan`) — the NAME each tip's segment gets (some go anonymous so an
+///    empty named segment can float above them), decided before any segment is built.
+/// 4. **Materialize** — one local segment per tip holding its first-parent commit run, then the
+///    planned float placeholders (empty named segments) spliced above the anonymized tips.
+/// 5. **Connect** — each segment's bottom commit points at the segments owning its parents.
+/// 6. **Lane structure** — empty-workspace segment, advanced-outside branches, empty-branch
+///    splices. Runs before the remote passes so those link the lane segments at creation.
+/// 7. **Remote / target / entrypoint passes** — a remote root segment per local branch whose
+///    remote tip is present; the target's own remote segment when no local tracks it; regions for
+///    an extra (older) target position, an outside checkout, and any explicit tip left uncovered.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
     cg: &CommitGraph,
@@ -696,7 +735,7 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
     );
     let Facts {
         in_set,
-        ws_is_managed_merge,
+        ws_is_managed_merge: _,
         empty_ws_case,
         pinned_commits,
         boundaries,
@@ -725,7 +764,9 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
                 .map(|n| (n.clone(), tip))
                 .or_else(|| plan.renames.get(&tip).cloned())
         };
-        if let Some(displaced) = floated.get(&tip).and_then(|fl| fl.displaced.as_ref())
+        if let Some(displaced) = floated
+            .get(&tip)
+            .and_then(|fl| fl.displaced_ref_name.as_ref())
             && let Some(c0) = commits.first_mut()
             && !c0.refs.iter().any(|r| r.ref_name == *displaced)
         {
@@ -835,18 +876,7 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
             &pinned_commits,
         );
         let ws_sidx = ws_empty_sidx.or_else(|| seg_of_tip.get(&workspace_commit).copied());
-        insert_empty_branches(
-            &mut sg,
-            cg,
-            ws_sidx,
-            stack_branches,
-            ws_lower_bound,
-            &in_set,
-            workspace_commit,
-            ws_is_managed_merge,
-            &plan,
-            remote_tracking,
-        );
+        insert_empty_branches(&mut sg, ws_sidx, &plan, remote_tracking);
     }
     // Segments the lane pass creates: the coverage gates below (extra target, outside
     // entrypoint, explicit tips) historically evaluated BEFORE any lane existed — they must not
@@ -1458,9 +1488,13 @@ fn name_entrypoint_segment(
 /// build-time name pushed aside by a metadata stack branch) returns to the commit as a passive
 /// ref.
 struct Float {
+    /// The commit whose segment goes anonymous so the empty named segment can float above it.
     tip: gix::ObjectId,
+    /// The name given to the empty segment spliced in between the workspace and `tip`.
     name: gix::refs::FullName,
-    displaced: Option<gix::refs::FullName>,
+    /// A build-time name pushed aside by a metadata stack branch; it returns to `tip`'s commit as
+    /// a passive ref. `None` when nothing was displaced.
+    displaced_ref_name: Option<gix::refs::FullName>,
 }
 
 /// The managed lane NAME decisions, computed before any segment mutation happens (phase 2 of
@@ -1475,6 +1509,33 @@ struct Float {
 /// The group-naming decisions stay in `insert_empty_branches` for now: their "does this ref
 /// already name a segment" checks range over remote segments, which become plan data only when
 /// the remote passes are planned too.
+/// One same-commit group of a metadata stack list — the RefOrder unit. Groups appear in
+/// metadata order (top → bottom of the stack); a group's refs all point at `commit`.
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct RefGroup {
+    /// The commit every ref of this group points at.
+    commit: gix::ObjectId,
+    /// The members that become empty segments spliced above the anchor, in metadata order.
+    /// The group's remaining members either name the anchor or already name another segment.
+    empties: Vec<gix::refs::FullName>,
+    /// How the group lands in the graph.
+    placement: GroupPlacement,
+}
+
+/// How a [`RefGroup`] is placed by materialization.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+enum GroupPlacement {
+    /// The group's commit is inside another lane: the empties splice into that chain.
+    Dependent,
+    /// The group anchors its own lane from the workspace (shared base or integrated anchor).
+    OwnLane,
+    /// Another stack owns the (non-integrated) commit: the refs stay passive on it.
+    Passive,
+    /// The group is outside the workspace or co-located with a managed merge commit — nothing
+    /// is created. Kept so group ordinals stay aligned between plan and build.
+    Skipped,
+}
+
 struct LanePlan {
     floats: Vec<Float>,
     demoted: HashSet<gix::ObjectId>,
@@ -1496,6 +1557,11 @@ struct LanePlan {
     /// regions, untracked surfacing, the target). With the lane structure built FIRST, the
     /// empties filter consults this instead of finding the remote segments in the graph.
     remote_used: HashSet<gix::refs::FullName>,
+    /// The RefOrder: co-located ref-order decisions per metadata stack list, in metadata
+    /// order — which refs of each same-commit group become empty segments, and how the group
+    /// is placed. Modeled with the same `used`-names state the group naming sees, so
+    /// materialization can consume order as DATA instead of re-deriving it from the graph.
+    ref_order: Vec<Vec<RefGroup>>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1522,6 +1588,7 @@ fn lane_plan<T: but_core::RefMetadata>(
         base_name_of: HashMap::new(),
         renames: HashMap::new(),
         remote_used: HashSet::new(),
+        ref_order: Vec::new(),
     };
     // The naming state as the lane passes will see it: materialization names first…
     let mut name_of: HashMap<gix::ObjectId, gix::refs::FullName> = HashMap::new();
@@ -1697,7 +1764,7 @@ fn lane_plan<T: but_core::RefMetadata>(
             plan.floats.push(Float {
                 tip: parent,
                 name: float_name,
-                displaced,
+                displaced_ref_name: displaced,
             });
         }
     }
@@ -1849,6 +1916,7 @@ fn lane_plan<T: but_core::RefMetadata>(
             .filter(|b| cg.commit_by_ref(b.as_ref()).is_some())
             .cloned()
             .collect();
+        plan.ref_order.push(Vec::new());
         let mut i = 0;
         while i < list.len() {
             let commit = cg.commit_by_ref(list[i].as_ref());
@@ -1861,6 +1929,11 @@ fn lane_plan<T: but_core::RefMetadata>(
             if !facts.in_set.contains(&commit)
                 || (commit == workspace_commit && facts.ws_is_managed_merge)
             {
+                plan.ref_order[li].push(RefGroup {
+                    commit,
+                    empties: Vec::new(),
+                    placement: GroupPlacement::Skipped,
+                });
                 continue;
             }
             let anchor = facts.owner_of.get(&commit).copied().unwrap_or(commit);
@@ -1885,6 +1958,11 @@ fn lane_plan<T: but_core::RefMetadata>(
                     .get(&anchor)
                     .is_some_and(|n| n != namer && group.contains(n))
             {
+                // The override DISPLACES the anchor's build-time name: it no longer names any
+                // segment, so it re-enters the pool and splices as an empty group member.
+                if let Some(displaced) = name_of.get(&anchor) {
+                    used.remove(displaced);
+                }
                 name_of.insert(anchor, namer.clone());
                 used.insert(namer.clone());
                 plan.group_names.insert((li, commit), (namer.clone(), true));
@@ -1898,6 +1976,29 @@ fn lane_plan<T: but_core::RefMetadata>(
             let anchor_not_integrated = cg
                 .node(anchor)
                 .is_some_and(|n| !n.commit.flags.contains(crate::CommitFlags::Integrated));
+            // ── The RefOrder: which members become empties, and how the group lands. The
+            // `used` set at THIS point models materialization's "already names a segment"
+            // gate (the group namer included — it names the anchor, not an empty). ──
+            let shared_base = lists_per_commit.get(&commit).copied().unwrap_or(0) > 1
+                && at_or_below_bound
+                    .as_ref()
+                    .is_none_or(|below| below.contains(&commit));
+            let placement = if cross_stack_owned && anchor_not_integrated {
+                GroupPlacement::Passive
+            } else if !shared_base && anchor_not_integrated {
+                GroupPlacement::Dependent
+            } else {
+                GroupPlacement::OwnLane
+            };
+            plan.ref_order[li].push(RefGroup {
+                commit,
+                empties: group
+                    .iter()
+                    .filter(|b| !used.contains(*b) && !remote_used.contains(*b))
+                    .cloned()
+                    .collect(),
+                placement,
+            });
             if !(cross_stack_owned && anchor_not_integrated) {
                 used.extend(group.iter().cloned());
             }
@@ -2655,48 +2756,22 @@ fn add_advanced_outside_branches<T: but_core::RefMetadata>(
     }
 }
 
-/// Splice each stack's empty metadata branches (no commits of their own) into the segment chain at
-/// their metadata position. Each branch points at a commit (`cg.commit_by_ref`); consecutive branches
-/// on the same commit form a group whose segment (the anchor) already exists — the metadata-pointed
-/// commit was made a boundary. Any branch in a group that does not NAME the anchor is an empty segment
-/// stacked above it, in list order. Groups are threaded top→bottom so the chain interleaves
+/// Materialize the plan's [RefOrder](LanePlan::ref_order): per metadata stack list, thread the
+/// same-commit groups top→bottom — the plan-decided namer takes the anchor, the plan-decided
+/// empties splice above it in metadata order — producing
 /// `ws → [empties] → seg(c1) → [empties] → seg(c2) → … → [empties] → base`.
-#[expect(clippy::too_many_arguments)]
+/// Which refs become empties and how a group lands (dependent splice, own lane, passive) is
+/// plan DATA; this pass only looks up anchors and splices.
 fn insert_empty_branches(
     sg: &mut SegmentGraph,
-    cg: &CommitGraph,
     ws_sidx: Option<SegmentIndex>,
-    stack_branches: Option<&[Vec<gix::refs::FullName>]>,
-    ws_lower_bound: Option<gix::ObjectId>,
-    in_set: &HashSet<gix::ObjectId>,
-    workspace_commit: gix::ObjectId,
-    ws_is_managed_merge: bool,
     plan: &LanePlan,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) {
-    let Some(lists) = stack_branches else {
-        return;
-    };
-    // Commits pointed at by branches from MORE THAN ONE stack are the shared base/convergence; they
-    // keep their anonymity (each stack's empty branch floats above), whereas a commit owned by a single
-    // stack is named by that stack's bottom-most branch.
-    let mut lists_per_commit: HashMap<gix::ObjectId, usize> = HashMap::new();
-    for list in lists {
-        let mut seen = HashSet::new();
-        for b in list {
-            if let Some(c) = cg.commit_by_ref(b.as_ref())
-                && seen.insert(c)
-            {
-                *lists_per_commit.entry(c).or_default() += 1;
-            }
-        }
-    }
     // DEMOTIONS, decided by `lane_plan`: a shared base at/below the bound stays anonymous while
     // every stack's branches float above as their own lane; the lower-bound anchor of an
     // otherwise-unrepresented stack floats likewise. Remote links of a demoted name are
     // established on the floated segment by the remote creators.
-    let at_or_below_bound: Option<HashSet<gix::ObjectId>> =
-        ws_lower_bound.map(|lb| cg.ancestor_set(lb));
     for &tip in &plan.demoted {
         let Some(anchor) = segment_by_commit(sg, tip) else {
             continue;
@@ -2710,49 +2785,27 @@ fn insert_empty_branches(
             s.remote_tracking_branch_segment_id = None;
         }
     }
-    for (li, list) in lists.iter().enumerate() {
-        // Branches whose ref does not resolve contribute nothing — and must not SPLIT a same-commit
-        // group (e.g. a nonexistent branch listed between two branches on the same commit would
-        // otherwise break the group in two, mis-naming the anchor and losing the empties).
-        let list: Vec<gix::refs::FullName> = list
-            .iter()
-            .filter(|b| cg.commit_by_ref(b.as_ref()).is_some())
-            .cloned()
-            .collect();
+    for (li, lane) in plan.ref_order.iter().enumerate() {
         // `from_sidx` feeds the top of the stack: the workspace segment for the first group, then each
         // group's anchor for the next (so its empties splice into the edge coming from above).
         let mut from_sidx = ws_sidx;
-        let mut i = 0;
-        while i < list.len() {
-            let commit = cg.commit_by_ref(list[i].as_ref());
-            let start = i;
-            while i < list.len() && cg.commit_by_ref(list[i].as_ref()) == commit {
-                i += 1;
+        for group in lane {
+            // Outside the workspace or co-located with a managed merge commit: nothing to place.
+            if group.placement == GroupPlacement::Skipped {
+                continue;
             }
-            let group = &list[start..i];
-            let (Some(commit), Some(anchor)) =
-                (commit, commit.and_then(|c| segment_by_commit(sg, c)))
-            else {
+            let Some(anchor) = segment_by_commit(sg, group.commit) else {
                 continue;
             };
-            // A branch resting OUTSIDE the workspace (e.g. above the workspace position in an
-            // apply preview) is not part of any lane — the walk leaves it a passive commit ref.
-            // Same for one resting ON a real managed MERGE commit (e.g. a stack tip co-located
-            // with it mid edit-mode): it cannot be a lane above the workspace, and splicing it
-            // there would cycle the workspace segment into its own child. A CO-LOCATED workspace
-            // position (no managed commit) is different: that is exactly where empty stacks live.
-            if !in_set.contains(&commit) || (commit == workspace_commit && ws_is_managed_merge) {
-                continue;
-            }
             // GROUP NAMING, decided by `lane_plan`: the bottom-most branch names an anonymous
             // anchor; metadata order overrides a build-time name that belongs to the group (its
             // remote links are cleared, the remote creators link its floated empty instead).
-            if let Some((namer, clear_remote)) = plan.group_names.get(&(li, commit))
+            if let Some((namer, clear_remote)) = plan.group_names.get(&(li, group.commit))
                 && let Some(s) = sg.node_mut(anchor)
             {
                 s.ref_info = Some(RefInfo {
                     ref_name: namer.clone(),
-                    commit_id: Some(commit),
+                    commit_id: Some(group.commit),
                     worktree: None,
                 });
                 s.remote_tracking_ref_name = remote_tracking.get(namer).cloned();
@@ -2760,55 +2813,29 @@ fn insert_empty_branches(
                     s.remote_tracking_branch_segment_id = None;
                 }
             }
-            // Only branches without any segment yet become empties — one that already names a segment
-            // (its own materialised segment, the anchor just named above, or a placeholder floated by
-            // `anonymize_shared_stack_tips`) is already placed.
-            let empties: Vec<gix::refs::FullName> = group
-                .iter()
-                .filter(|b| segment_by_ref(sg, b).is_none() && !plan.remote_used.contains(*b))
-                .cloned()
-                .collect();
             if std::env::var_os("BUT_GRAPH_FLIP_DEBUG").is_some() {
-                eprintln!("EMPTIES li={li} commit={commit} group={group:?} empties={empties:?}");
+                eprintln!(
+                    "EMPTIES li={li} commit={} empties={:?}",
+                    group.commit, group.empties
+                );
             }
-            if !empties.is_empty() {
-                // Dependent-branch splice vs own lane: a commit at/below the base (Integrated) or
-                // shared by several metadata stacks gets its own lane from the workspace; a commit
-                // strictly inside another stack's lane means these branches are DEPENDENT and must
-                // splice into that chain instead of minting a duplicate lane.
-                let anchor_not_integrated = sg.node(anchor).is_some_and(|s| {
-                    s.commits
-                        .first()
-                        .is_some_and(|c| !c.flags.contains(crate::CommitFlags::Integrated))
-                });
-                let shared_base = lists_per_commit.get(&commit).copied().unwrap_or(0) > 1
-                    && at_or_below_bound
-                        .as_ref()
-                        .is_none_or(|below| below.contains(&commit));
-                // ANOTHER stack owns the commit (its branch named the anchor) and it is not
-                // integrated: these branches stay PASSIVE refs — consumers (apply) discover them
-                // on the commit and record them as dependent branches in THIS stack's metadata,
-                // after which the same-list path splices them.
-                let cross_stack_owned = lists_per_commit.get(&commit).copied().unwrap_or(0) > 1
-                    && sg
-                        .node(anchor)
-                        .and_then(|s| s.ref_info.as_ref())
-                        .is_some_and(|ri| {
-                            !list.contains(&ri.ref_name)
-                                && lists.iter().any(|l| l.contains(&ri.ref_name))
-                        });
-                if cross_stack_owned && anchor_not_integrated {
+            if !group.empties.is_empty() {
+                // ANOTHER stack owns the (non-integrated) commit: these branches stay PASSIVE
+                // refs — consumers (apply) discover them on the commit and record them as
+                // dependent branches in THIS stack's metadata, after which the same-list path
+                // splices them.
+                if group.placement == GroupPlacement::Passive {
                     from_sidx = Some(anchor);
                     continue;
                 }
-                let dependent = !shared_base && anchor_not_integrated;
+                let dependent = group.placement == GroupPlacement::Dependent;
                 insert_empty_chain_above(
                     sg,
                     from_sidx,
                     anchor,
-                    &empties,
+                    &group.empties,
                     remote_tracking,
-                    commit,
+                    group.commit,
                     dependent,
                     dependent,
                 );

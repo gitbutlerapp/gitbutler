@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::{Editor, LookupStep, Step, mutate, testing::Testing as _};
 use but_testsupport::visualize_commit_graph_all;
 
@@ -34,14 +34,13 @@ fn trim_trailing_whitespace(input: &str) -> String {
 fn handles_zero_nodes() -> Result<()> {
     let (repo, mut meta) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
@@ -63,14 +62,13 @@ fn handles_zero_nodes() -> Result<()> {
 fn handles_one_node() -> Result<()> {
     let (repo, mut meta) = fixture("single-commit")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
@@ -94,14 +92,13 @@ fn handles_one_node() -> Result<()> {
 fn orders_linear_commits_parent_first_for_n_nodes() -> Result<()> {
     let (repo, mut meta) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let base = repo.rev_parse_single("HEAD~3")?.detach();
@@ -127,14 +124,13 @@ fn orders_linear_commits_parent_first_for_n_nodes() -> Result<()> {
 fn orders_disjoint_commits_by_editor_graph_traversal_1() -> Result<()> {
     let (repo, mut meta) = fixture("three-branches-merged")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let graph = trim_trailing_whitespace(&visualize_commit_graph_all(&repo)?);
@@ -171,14 +167,13 @@ fn orders_disjoint_commits_by_editor_graph_traversal_1() -> Result<()> {
 fn orders_disjoint_commits_by_editor_graph_traversal_2() -> Result<()> {
     let (repo, mut meta) = fixture("three-branches-merged")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let graph = trim_trailing_whitespace(&visualize_commit_graph_all(&repo)?);
@@ -224,14 +219,13 @@ fn orders_disjoint_commits_by_editor_graph_traversal_2() -> Result<()> {
 fn orders_disjoint_commits_by_editor_graph_traversal_3() -> Result<()> {
     let (repo, mut meta) = fixture("three-branches-merged")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let graph = trim_trailing_whitespace(&visualize_commit_graph_all(&repo)?);
@@ -288,14 +282,13 @@ fn errors_when_selected_commit_is_absent_from_editor_graph() -> Result<()> {
     * c7488cd orphan: base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
@@ -331,14 +324,13 @@ fn errors_when_selected_commit_is_absent_from_editor_graph() -> Result<()> {
 fn deduplicates_duplicate_selectors_by_commit_id() -> Result<()> {
     let (repo, mut meta) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("HEAD~2")?.detach();
@@ -362,14 +354,13 @@ fn deduplicates_duplicate_selectors_by_commit_id() -> Result<()> {
 fn orders_commit_present_in_editor_graph_even_if_workspace_projection_stale() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("HEAD~2")?.detach();
@@ -396,14 +387,13 @@ fn orders_commit_present_in_editor_graph_even_if_workspace_projection_stale() ->
 fn orders_commit_disconnected_from_checkout_roots_if_still_in_editor_graph() -> Result<()> {
     let (repo, mut meta) = fixture("four-commits")?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~1")?.detach();
@@ -446,14 +436,13 @@ fn orders_all_commits_in_y_shaped_two_branch_fixture() -> Result<()> {
     ");
     let right_ref: gix::refs::FullName = "refs/heads/right".try_into()?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("HEAD")?.detach();

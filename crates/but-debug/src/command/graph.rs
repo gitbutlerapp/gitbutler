@@ -71,8 +71,8 @@ pub(crate) fn run(
             .collect(),
     };
 
-    let graph = match graph_args.ref_name.as_deref() {
-        None => but_graph::Graph::from_head(
+    let workspace = match graph_args.ref_name.as_deref() {
+        None => but_graph::Workspace::from_head(
             &repo,
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -81,7 +81,7 @@ pub(crate) fn run(
         Some(ref_name) => {
             let mut reference = repo.find_reference(ref_name)?;
             let id = reference.peel_to_id()?;
-            but_graph::Graph::from_commit_traversal(
+            but_graph::Workspace::from_commit_traversal(
                 id,
                 reference.name().to_owned(),
                 &meta,
@@ -91,7 +91,6 @@ pub(crate) fn run(
         }
     }?;
 
-    let workspace = graph.into_workspace()?;
     emit_workspace(&workspace, graph_args, out, err)
 }
 

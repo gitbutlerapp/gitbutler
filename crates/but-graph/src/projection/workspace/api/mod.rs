@@ -42,8 +42,7 @@ impl Workspace {
         meta: &impl RefMetadata,
         project_meta: but_core::ref_metadata::ProjectMeta,
     ) -> anyhow::Result<()> {
-        let graph = Graph::from_head(repo, meta, project_meta, self.graph.options.clone())?;
-        *self = graph.into_workspace()?;
+        *self = Workspace::from_head(repo, meta, project_meta, self.graph.options.clone())?;
         Ok(())
     }
 }

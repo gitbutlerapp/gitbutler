@@ -1,6 +1,6 @@
 //! These tests exercise the insert operation.
 use anyhow::{Context, Result};
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide};
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
 
@@ -22,15 +22,13 @@ fn insert_below_merge_commit() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge_id = repo.rev_parse_single("HEAD~")?;
@@ -106,15 +104,13 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge_id = repo.rev_parse_single("HEAD~")?;
@@ -193,15 +189,13 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let base_id = repo.rev_parse_single("base")?;

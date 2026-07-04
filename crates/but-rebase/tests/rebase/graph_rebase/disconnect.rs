@@ -2,7 +2,7 @@
 use std::collections::HashSet;
 
 use anyhow::{Context, Result};
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::{Editor, Step, mutate};
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
 use gix::prelude::ObjectIdExt;
@@ -21,14 +21,13 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
 	");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
@@ -83,14 +82,13 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
 	");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
@@ -151,14 +149,13 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
@@ -232,14 +229,13 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -352,14 +348,13 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -479,14 +474,13 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -613,14 +607,13 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -691,14 +684,13 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
@@ -769,14 +761,13 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();

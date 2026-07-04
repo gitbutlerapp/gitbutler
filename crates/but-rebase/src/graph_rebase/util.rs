@@ -2,9 +2,7 @@
 
 use std::collections::HashSet;
 
-use petgraph::visit::EdgeRef as _;
-
-use crate::graph_rebase::{Pick, Step, StepGraph, StepGraphIndex};
+use crate::graph_rebase::{Direction, StepGraph, StepGraphIndex};
 
 /// Find the parents of a given node that are commit - in correct parent
 /// ordering.
@@ -14,61 +12,70 @@ pub(crate) fn collect_ordered_parents(
     graph: &StepGraph,
     target: StepGraphIndex,
 ) -> Vec<StepGraphIndex> {
-    ordered_commit_parents(graph, target, false)
-}
-
-/// The first commit parent of `target` in parent order, or `None` if it has none.
-///
-/// Equivalent to `collect_ordered_parents(graph, target).into_iter().next()`, but stops the
-/// search at the first commit instead of walking out every parent.
-pub(crate) fn first_ordered_parent(
-    graph: &StepGraph,
-    target: StepGraphIndex,
-) -> Option<StepGraphIndex> {
-    ordered_commit_parents(graph, target, true)
-        .into_iter()
-        .next()
+    ordered_commit_parents(graph, target)
 }
 
 /// Pruned depth-first search for `target`'s commit parents in parent order, descending through
-/// non-commit steps. Stops after the first commit when `first_only` is set.
-fn ordered_commit_parents(
-    graph: &StepGraph,
-    target: StepGraphIndex,
-    first_only: bool,
-) -> Vec<StepGraphIndex> {
+/// non-commit steps.
+///
+/// A parent slot that carries a reference chain (the edge is a stored approach entry of a chain
+/// anchored at its pick) yields to any plain slot resolving to the same pick, and only the
+/// first of several carrying slots survives — the same collapse the node-era search produced
+/// when a ref path and a direct path reached one pick. Plain duplicate slots are all kept
+/// (dup-parents workspace commits).
+fn ordered_commit_parents(graph: &StepGraph, target: StepGraphIndex) -> Vec<StepGraphIndex> {
     let mut potential_parent_edges = graph
-        .edges_directed(target, petgraph::Direction::Outgoing)
+        .edges_directed(target, Direction::Outgoing)
         .collect::<Vec<_>>();
     potential_parent_edges.sort_by_key(|e| e.weight().order);
-    potential_parent_edges.reverse();
 
-    let mut seen = potential_parent_edges
+    let carries_chain = |edge: &crate::graph_rebase::step_graph::StepEdgeRef<'_>| {
+        graph.is_pick(edge.target())
+            && graph.anchored_refs().any(|(node, stored)| {
+                crate::graph_rebase::positions::ref_approach(graph, node)
+                    .contains(&(target, edge.weight().order))
+                    && crate::graph_rebase::positions::resolve_to_pick(graph, stored.anchor)
+                        == Some(edge.target())
+            })
+    };
+    let plain_targets: HashSet<StepGraphIndex> = potential_parent_edges
         .iter()
+        .filter(|e| graph.is_pick(e.target()) && !carries_chain(e))
         .map(|e| e.target())
-        .collect::<HashSet<_>>();
+        .collect();
+    let mut emitted_carrying = HashSet::new();
+
+    let mut potential: Vec<(StepGraphIndex, bool)> = potential_parent_edges
+        .iter()
+        .rev()
+        .map(|e| (e.target(), carries_chain(e)))
+        .collect();
+    let mut seen = potential
+        .iter()
+        .map(|(t, _)| *t)
+        .collect::<HashSet<StepGraphIndex>>();
 
     let mut parents = vec![];
 
-    while let Some(candidate) = potential_parent_edges.pop() {
-        if let Step::Pick(Pick { .. }) = graph[candidate.target()] {
-            parents.push(candidate.target());
-            if first_only {
-                break;
+    while let Some((node, carrying)) = potential.pop() {
+        if graph.is_pick(node) {
+            if carrying && (plain_targets.contains(&node) || !emitted_carrying.insert(node)) {
+                continue;
             }
+            parents.push(node);
             // Don't pursue the children
             continue;
         };
 
         let mut outgoings = graph
-            .edges_directed(candidate.target(), petgraph::Direction::Outgoing)
+            .edges_directed(node, Direction::Outgoing)
             .collect::<Vec<_>>();
         outgoings.sort_by_key(|e| e.weight().order);
         outgoings.reverse();
 
         for edge in outgoings {
             if seen.insert(edge.target()) {
-                potential_parent_edges.push(edge);
+                potential.push((edge.target(), false));
             }
         }
     }
@@ -94,7 +101,7 @@ mod test {
             let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
             let b = graph.add_node(Step::new_pick(b_id));
             // Second parent - is a reference
-            let c = graph.add_node(Step::new_reference("refs/heads/foobar".try_into()?));
+            let c = graph.add_reference("refs/heads/foobar".try_into()?, true);
             // Second parent's first child
             let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
             let d = graph.add_node(Step::new_pick(d_id));
@@ -129,7 +136,7 @@ mod test {
             let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
             let b = graph.add_node(Step::new_pick(b_id));
             // Second parent - is a reference
-            let c = graph.add_node(Step::new_reference("refs/heads/foobar".try_into()?));
+            let c = graph.add_reference("refs/heads/foobar".try_into()?, true);
             // Second parent's second child
             let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
             let d = graph.add_node(Step::new_pick(d_id));
@@ -151,38 +158,6 @@ mod test {
 
             let parents = collect_ordered_parents(&graph, a);
             assert_eq!(&parents, &[b, e, d, f]);
-
-            Ok(())
-        }
-    }
-
-    mod first_ordered_parent {
-        use std::str::FromStr as _;
-
-        use anyhow::Result;
-
-        use crate::graph_rebase::{Edge, Step, StepGraph, util::first_ordered_parent};
-
-        #[test]
-        fn descends_through_references_and_stops_at_first_commit() -> Result<()> {
-            let mut graph = StepGraph::new();
-            let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let a = graph.add_node(Step::new_pick(a_id));
-            // First parent is a reference that must be descended through to reach its commit.
-            let r = graph.add_node(Step::new_reference("refs/heads/foobar".try_into()?));
-            let first_id = gix::ObjectId::from_str("2000000000000000000000000000000000000000")?;
-            let first = graph.add_node(Step::new_pick(first_id));
-            // A real second parent that must not be returned.
-            let second_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
-            let second = graph.add_node(Step::new_pick(second_id));
-
-            graph.add_edge(a, r, Edge { order: 0 });
-            graph.add_edge(a, second, Edge { order: 1 });
-            graph.add_edge(r, first, Edge { order: 0 });
-
-            assert_eq!(first_ordered_parent(&graph, a), Some(first));
-            // A node with no parents resolves to nothing.
-            assert_eq!(first_ordered_parent(&graph, first), None);
 
             Ok(())
         }

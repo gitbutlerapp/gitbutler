@@ -9,9 +9,7 @@ use gix::refs::{
     transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
 };
 
-use crate::graph_rebase::{
-    Checkout, MaterializeOutcome, Pick, Step, SuccessfulRebase, util::first_ordered_parent,
-};
+use crate::graph_rebase::{Checkout, MaterializeOutcome, Pick, Step, SuccessfulRebase};
 
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     /// Materializes a history rewrite
@@ -29,16 +27,19 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                     merge_base_override,
                 } => {
                     let selector = self.history.normalize_selector(selector)?;
-                    let step = self.graph[selector.id].clone();
+                    let step = self.graph.step_view(selector.id);
 
                     let (new_head, new_head_refname) = match step {
                         Step::None => bail!("Checkout selector is pointing to none"),
                         Step::Pick(Pick { id, .. }) => (id, None),
                         Step::Reference { refname, .. } => {
-                            let parent_step_id = first_ordered_parent(&self.graph, selector.id)
-                                .context("No first parent to reference")?;
+                            let parent_step_id = crate::graph_rebase::positions::resolve_to_pick(
+                                &self.graph,
+                                selector.id,
+                            )
+                            .context("No commit to reference")?;
                             let Step::Pick(Pick { id, .. }) = self.graph[parent_step_id] else {
-                                bail!("first_ordered_parent should always return a commit pick");
+                                bail!("resolve_to_pick should always return a commit pick");
                             };
                             (id, Some(refname))
                         }

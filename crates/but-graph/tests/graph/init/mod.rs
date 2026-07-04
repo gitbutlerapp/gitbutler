@@ -1,5 +1,5 @@
 use but_graph::{
-    CommitFlags, Graph, StopCondition,
+    CommitFlags, Graph, StopCondition, Workspace,
     init::{Overlay, Tip},
 };
 use but_testsupport::{
@@ -12,17 +12,17 @@ use gix::prelude::ObjectIdExt;
 fn unborn() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("unborn")?;
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:main[🌳]
     ");
-    insta::assert_debug_snapshot!(graph, @r#"
+    insta::assert_debug_snapshot!(ws.graph, @r#"
     Graph {
         inner: SegmentGraph {
             segments: [
@@ -68,10 +68,10 @@ fn unborn() -> anyhow::Result<()> {
     "#);
 
     assert!(
-        graph.managed_entrypoint_commit(&repo)?.is_none(),
+        ws.graph.managed_entrypoint_commit(&repo)?.is_none(),
         "there is no commit it could return"
     );
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
     └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
@@ -90,20 +90,20 @@ fn detached() -> anyhow::Result<()> {
 
     // Detached branches are forcefully made anonymous, and it's something
     // we only know by examining `HEAD`.
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── ►:0[0]:anon:
         └── 👉·541396b (⌂|1) ►tags/annotated, ►tags/release/v1, ►main
             └── ►:1[1]:other
                 └── 🏁·fafd9d0 (⌂|1)
     ");
-    insta::assert_debug_snapshot!(graph, @r#"
+    insta::assert_debug_snapshot!(ws.graph, @r#"
     Graph {
         inner: SegmentGraph {
             segments: [
@@ -183,28 +183,29 @@ fn detached() -> anyhow::Result<()> {
     "#);
 
     assert!(
-        graph.entrypoint()?.commit().map(|c| c.id).is_some(),
+        ws.graph.entrypoint()?.commit().map(|c| c.id).is_some(),
         "there is an entrypoint commit, detached or not"
     );
     assert!(
-        graph.managed_entrypoint_commit(&repo)?.is_none(),
+        ws.graph.managed_entrypoint_commit(&repo)?.is_none(),
         "but it's not managed"
     );
-    let root_sidx = graph
+    let root_sidx = ws
+        .graph
         .base_segments()
         .find(|sidx| {
-            graph[*sidx]
+            ws.graph[*sidx]
                 .commits
                 .last()
                 .is_some_and(|commit| commit.parent_ids.is_empty())
         })
         .expect("root segment is present");
     assert_eq!(
-        graph.stop_condition(root_sidx),
+        ws.graph.stop_condition(root_sidx),
         Some(StopCondition::FirstCommit)
     );
 
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:DETACHED <> ✓!
     └── ≡:0:anon: {1}
         ├── :0:anon:
@@ -231,31 +232,32 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
         "the linear depth-2 clone should have exactly one shallow boundary"
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── ►:1[0]:origin/main →:0:
         └── 👉►:0[1]:main[🌳] <> origin/main →:1:
             ├── ·71a64f3 (⌂|1)
             └── ⛰·62d65ed (⌂|⛰|1)
     ");
-    let (boundary_sidx, boundary_cidx) = graph
+    let (boundary_sidx, boundary_cidx) = ws
+        .graph
         .segments()
         .find_map(|sidx| {
-            graph[sidx]
+            ws.graph[sidx]
                 .commits
                 .iter()
                 .position(|commit| commit.id == shallow_boundary_id)
                 .map(|cidx| (sidx, cidx))
         })
         .expect("boundary commit is included in the graph");
-    let boundary_commit = &graph[boundary_sidx].commits[boundary_cidx];
+    let boundary_commit = &ws.graph[boundary_sidx].commits[boundary_cidx];
     assert!(
         boundary_commit.flags.contains(CommitFlags::ShallowBoundary),
         "the boundary commit is explicitly flagged"
@@ -266,21 +268,21 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
         .copied()
         .expect("shallow boundary commit still records its grafted parent");
     assert!(
-        graph.segments().all(|sidx| graph[sidx]
+        ws.graph.segments().all(|sidx| ws.graph[sidx]
             .commits
             .iter()
             .all(|commit| commit.id != missing_parent)),
         "the grafted parent is not traversed"
     );
 
-    let condition = graph
+    let condition = ws
+        .graph
         .stop_condition(boundary_sidx)
         .expect("boundary segment has a cutoff condition");
     assert!(condition.contains(StopCondition::ShallowBoundary));
     assert!(!condition.contains(StopCondition::Limit));
     assert!(!condition.contains(StopCondition::FirstCommit));
 
-    let ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓refs/remotes/origin/main on 71a64f3
     └── ≡:0:main[🌳] <> origin/main →:1: {1}
@@ -308,14 +310,14 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
     * 793a434 (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:first-parent[🌳]
         └── ·738ea18 (⌂|1)
@@ -332,7 +334,7 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
                             └── →:4: (main)
     ");
 
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), "we see only first-parent with two commits, not the 'second-parent' ref because it *seems* to be traversed first", @"
+    insta::assert_snapshot!(graph_workspace(&ws), "we see only first-parent with two commits, not the 'second-parent' ref because it *seems* to be traversed first", @"
     ⌂:0:first-parent[🌳] <> ✓!
     └── ≡:0:first-parent[🌳] {1}
         ├── :0:first-parent[🌳]
@@ -356,13 +358,13 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     ├── 👉►:0[0]:main[🌳] <> origin/main →:2:
     │   └── ·971953d (⌂|01)
@@ -374,7 +376,7 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
             └── →:1:
     ");
 
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣1 on ce09734
     └── ≡:0:main[🌳] <> origin/main →:2:⇡1⇣1 on ce09734 {1}
         └── :0:main[🌳] <> origin/main →:2:⇡1⇣1
@@ -396,13 +398,13 @@ fn only_remote_advanced() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── ►:1[0]:origin/main →:0:
         └── 🟣085535d (0x0|10)
@@ -417,7 +419,7 @@ fn only_remote_advanced() -> anyhow::Result<()> {
     // TODO: it should detect that `main` has no own commits as it's fully integrated.
     //       This also affects the base which would have to be 085535d, the first commit.
     //       which is strange but maybe can work?
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
     └── ≡:0:main[🌳] <> origin/main →:1:⇣1 {1}
         └── :0:main[🌳] <> origin/main →:1:⇣1
@@ -439,13 +441,13 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── ►:2[0]:origin/main →:0:
         └── 🟣085535d (0x0|10)
@@ -461,7 +463,7 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     // TODO: We'd actually have to recognise that the `origin/split-segment` branch
     //       isn't related to our stack and count its commits to `origin/main`.
     //       Right now we are missing dd9f8d9.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
     └── ≡:0:main[🌳] <> origin/main →:2:⇣1 {1}
         └── :0:main[🌳] <> origin/main →:2:⇣1
@@ -487,13 +489,13 @@ fn multi_root() -> anyhow::Result<()> {
     * e5d0542 A
     ");
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:main[🌳]
         └── ·c6c8c05 (⌂|1)
@@ -511,16 +513,16 @@ fn multi_root() -> anyhow::Result<()> {
                         └── 🏁·f4955b6 (⌂|1)
     ");
     assert_eq!(
-        graph.tip_segments().count(),
+        ws.graph.tip_segments().count(),
         1,
         "all leads to a single merge-commit"
     );
     assert_eq!(
-        graph.base_segments().count(),
+        ws.graph.base_segments().count(),
         4,
         "there are 4 orphaned bases"
     );
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
     └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
@@ -551,13 +553,13 @@ fn four_diamond() -> anyhow::Result<()> {
     * 965998b (main) base
     ");
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:merged[🌳]
         └── ·8a6c109 (⌂|1)
@@ -581,18 +583,18 @@ fn four_diamond() -> anyhow::Result<()> {
     ");
 
     assert_eq!(
-        graph.num_segments(),
+        ws.graph.num_segments(),
         8,
         "just as many as are displayed in the tree"
     );
-    assert_eq!(graph.num_commits(), 8, "one commit per node");
+    assert_eq!(ws.graph.num_commits(), 8, "one commit per node");
     assert_eq!(
-        graph.num_connections(),
+        ws.graph.num_connections(),
         10,
         "however, we see only a portion of the edges as the tree can only show simple stacks"
     );
 
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:merged[🌳] <> ✓!
     └── ≡:0:merged[🌳] {1}
         ├── :0:merged[🌳]
@@ -871,7 +873,7 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
     let target_ref_name = ref_name("refs/heads/A");
     let target_ref_id = id_by_rev(&repo, "A").detach();
     let target_commit_id = id_by_rev(&repo, "main").detach();
-    let graph = Graph::from_commit_traversal_tips(
+    let ws = Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(merged_id, Some(ref_name("refs/heads/merged"))),
@@ -883,7 +885,7 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
         standard_options(),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:merged[🌳]
         └── ·8a6c109 (⌂|1)
@@ -906,14 +908,13 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
                             └── →:7: (main)
     ");
 
-    let target_segment = graph.segment_by_commit_id(target_commit_id)?;
+    let target_segment = ws.graph.segment_by_commit_id(target_commit_id)?;
     assert_eq!(
         target_segment.commits.first().map(|commit| commit.id),
         Some(target_commit_id),
         "integrated tip is also split into its own segment"
     );
 
-    let ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:merged[🌳] <> ✓refs/heads/A⇣3 on 965998b
     └── ≡:0:merged[🌳] on 965998b {1}
@@ -951,14 +952,14 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     ");
 
     // A remote will always be able to find their non-remotes so they don't seem cut-off.
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     ├── 👉►:0[0]:B[🌳] <> origin/B →:3:
     │   └── ·312f819 (⌂|0001)
@@ -974,7 +975,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     ");
 
     // 'main' is frozen because it connects to a 'foreign' remote, the commit was pushed.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣2 on fafd9d0
     └── ≡:0:B[🌳] <> origin/B →:3:⇡1⇣1 on fafd9d0 {1}
         ├── :0:B[🌳] <> origin/B →:3:⇡1⇣1
@@ -987,14 +988,14 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
 
     // The hard limit stops queueing deeper commits, but queued commits are still processed
     // so existing work can complete its graph connections.
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options().with_hard_limit(5),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     ├── 👉►:0[0]:B[🌳] <> origin/B →:2:
     │   └── ·312f819 (⌂|001)
@@ -1008,10 +1009,10 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
                         └── 🏁🟣fafd9d0 (0x0|010)
     ");
     assert!(
-        graph.hard_limit_hit(),
+        ws.graph.hard_limit_hit(),
         "graph should record that traversal stopped queueing after hitting the hard limit"
     );
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣3 on 312f819
     └── ≡:0:B[🌳] <> origin/B →:2:⇣1 on e255adc {1}
         └── :0:B[🌳] <> origin/B →:2:⇣1
@@ -1043,7 +1044,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
 
     // With a lower entrypoint, we don't see part of the graph.
     let (id, name) = id_at(&repo, "A");
-    let graph = Graph::from_commit_traversal(
+    let ws = Workspace::from_commit_traversal(
         id,
         name,
         &*meta,
@@ -1051,7 +1052,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         standard_options(),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     ├── 👉►:0[0]:A <> origin/A →:2:
     │   └── ·e255adc (⌂|01)
@@ -1061,7 +1062,7 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
         └── 🟣e29c23d (0x0|10)
             └── →:1: (main)
     ");
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:A <> ✓refs/remotes/origin/A⇣1 on fafd9d0
     └── ≡:0:A <> origin/A →:2:⇡1⇣1 on fafd9d0 {1}
         └── :0:A <> origin/A →:2:⇡1⇣1
@@ -1096,14 +1097,14 @@ fn with_limits() -> anyhow::Result<()> {
     ");
 
     // Without limits
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ·2a95729 (⌂|1)
@@ -1129,7 +1130,7 @@ fn with_limits() -> anyhow::Result<()> {
                     └── →:4: (main)
     ");
     // No limits list the first parent everywhere.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:C[🌳] <> ✓!
     └── ≡:0:C[🌳] {1}
         ├── :0:C[🌳]
@@ -1147,20 +1148,20 @@ fn with_limits() -> anyhow::Result<()> {
 
     // There is no empty starting points, we always traverse the first commit as we really want
     // to get to remote processing there.
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options().with_limit_hint(0),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ✂·2a95729 (⌂|1)
     ");
     // The cut by limit is also represented here.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:C[🌳] <> ✓!
     └── ≡:0:C[🌳] {1}
         └── :0:C[🌳]
@@ -1168,14 +1169,14 @@ fn with_limits() -> anyhow::Result<()> {
     ");
 
     // A single commit, the merge commit.
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options().with_limit_hint(1),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ·2a95729 (⌂|1)
@@ -1186,7 +1187,7 @@ fn with_limits() -> anyhow::Result<()> {
             └── ►:3[1]:B
                 └── ✂·9908c99 (⌂|1)
     ");
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:C[🌳] <> ✓!
     └── ≡:0:C[🌳] {1}
         └── :0:C[🌳]
@@ -1220,14 +1221,14 @@ fn with_limits() -> anyhow::Result<()> {
     ");
 
     // The merge commit, then we witness lane-duplication of the limit so we get more than requested.
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options().with_limit_hint(2),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ·2a95729 (⌂|1)
@@ -1241,7 +1242,7 @@ fn with_limits() -> anyhow::Result<()> {
                 ├── ·9908c99 (⌂|1)
                 └── ✂·60d9a56 (⌂|1)
     ");
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:C[🌳] <> ✓!
     └── ≡:0:C[🌳] {1}
         └── :0:C[🌳]
@@ -1252,7 +1253,7 @@ fn with_limits() -> anyhow::Result<()> {
 
     // Allow to see more commits just in the middle lane, the limit is reset,
     // and we see two more.
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -1261,7 +1262,7 @@ fn with_limits() -> anyhow::Result<()> {
             .with_limit_extension_at(Some(id_by_rev(&repo, ":/A3").detach())),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ·2a95729 (⌂|1)
@@ -1276,7 +1277,7 @@ fn with_limits() -> anyhow::Result<()> {
                 ├── ·9908c99 (⌂|1)
                 └── ✂·60d9a56 (⌂|1)
     ");
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:C[🌳] <> ✓!
     └── ≡:0:C[🌳] {1}
         └── :0:C[🌳]
@@ -1287,7 +1288,7 @@ fn with_limits() -> anyhow::Result<()> {
 
     // Multiple extensions are fine as well.
     let id = |rev| id_by_rev(&repo, rev).detach();
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -1296,7 +1297,7 @@ fn with_limits() -> anyhow::Result<()> {
             .with_limit_extension_at([id(":/A3"), id(":/A1"), id(":/B3"), id(":/C3")]),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ·2a95729 (⌂|1)
@@ -1316,7 +1317,7 @@ fn with_limits() -> anyhow::Result<()> {
                 ├── ·60d9a56 (⌂|1)
                 └── ✂·9d171ff (⌂|1)
     ");
-    insta::assert_debug_snapshot!(graph.statistics(), @r#"
+    insta::assert_debug_snapshot!(ws.graph.statistics(), @r#"
     Statistics {
         segments: 5,
         segments_integrated: 0,
@@ -1364,7 +1365,7 @@ fn with_limits() -> anyhow::Result<()> {
     }
     "#);
 
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:C[🌳] <> ✓!
     └── ≡:0:C[🌳] {1}
         └── :0:C[🌳]
@@ -1375,7 +1376,7 @@ fn with_limits() -> anyhow::Result<()> {
     ");
 
     // We can specify any target, despite not having a workspace setup.
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -1384,7 +1385,7 @@ fn with_limits() -> anyhow::Result<()> {
     .validated()?;
 
     // This limits the reach of the stack naturally.
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ·2a95729 (⌂|1)
@@ -1410,7 +1411,7 @@ fn with_limits() -> anyhow::Result<()> {
                     └── →:4: (main)
     ");
 
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:C[🌳] <> ✓! on edc4dee
     └── ≡:0:C[🌳] on edc4dee {1}
         └── :0:C[🌳]
@@ -1431,7 +1432,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     * fafd9d0 (gitbutler/target) init
     ");
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -1439,7 +1440,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     )?
     .validated()?;
     // Standard handling after travrsal and post-processing.
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:main[🌳]
         └── ·3686017 (⌂|1)
@@ -1450,7 +1451,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     ");
 
     // But special handling for workspace views.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
     └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
@@ -1466,20 +1467,20 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("ambiguous-worktrees")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 85efbe4 (HEAD -> main, wt-outside-ambiguous-worktree, wt-inside-ambiguous-worktree) M");
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:main[🌳@repo]
         └── 🏁·85efbe4 (⌂|1) ►wt-inside-ambiguous-worktree[📁], ►wt-outside-ambiguous-worktree[📁]
     ");
 
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳@repo] <> ✓!
     └── ≡:0:main[🌳@repo] {1}
         └── :0:main[🌳@repo]
@@ -1494,20 +1495,20 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
         gix::open::Options::isolated(),
     )?
     .with_object_memory();
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &linked_repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), "when the graph is built from the linked worktree repository, it can't see anything else without metadata", @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), "when the graph is built from the linked worktree repository, it can't see anything else without metadata", @"
 
     └── 👉►:0[0]:wt-inside-ambiguous-worktree[📁@repo]
         └── 🏁·85efbe4 (⌂|1) ►main[🌳], ►wt-outside-ambiguous-worktree[📁]
     ");
 
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), "workspace debug output should preserve that the linked worktree, not the main worktree, is owned by the repository used to build the graph", @"
+    insta::assert_snapshot!(graph_workspace(&ws), "workspace debug output should preserve that the linked worktree, not the main worktree, is owned by the repository used to build the graph", @"
     ⌂:0:wt-inside-ambiguous-worktree[📁@repo] <> ✓!
     └── ≡:0:wt-inside-ambiguous-worktree[📁@repo] {1}
         └── :0:wt-inside-ambiguous-worktree[📁@repo]
@@ -1579,7 +1580,7 @@ fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
     create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
     let meta = in_memory_meta(tmp.as_ref())?;
 
-    let graph = graph_with_branch_order(
+    let ws = workspace_with_branch_order(
         &repo,
         &*meta,
         "refs/heads/top",
@@ -1587,18 +1588,18 @@ fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
     )?
     .validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:1[0]:top
         └── ►:0[1]:bottom
             └── 🏁·960152d (⌂|1) ►main[🌳]
     ");
     assert_eq!(
-        graph.entrypoint()?.commit().map(|commit| commit.id),
+        ws.graph.entrypoint()?.commit().map(|commit| commit.id),
         Some(tip),
         "a checked-out empty ordered branch still points at the bottom commit"
     );
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:1:top <> ✓!
     └── ≡:1:top {1}
         ├── :1:top
@@ -1615,7 +1616,7 @@ fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Resul
     create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
     let meta = in_memory_meta(tmp.as_ref())?;
 
-    let graph = graph_with_branch_order(
+    let ws = workspace_with_branch_order(
         &repo,
         &*meta,
         "refs/heads/bottom",
@@ -1623,13 +1624,13 @@ fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Resul
     )?
     .validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── ►:1[0]:top
         └── 👉►:0[1]:bottom
             └── 🏁·960152d (⌂|1) ►main[🌳]
     ");
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:bottom <> ✓!
     └── ≡:0:bottom {1}
         └── :0:bottom
@@ -1649,7 +1650,7 @@ fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<
     )?;
     let meta = in_memory_meta(tmp.as_ref())?;
 
-    let graph = graph_with_branch_order(
+    let ws = workspace_with_branch_order(
         &repo,
         &*meta,
         "refs/heads/top",
@@ -1657,14 +1658,14 @@ fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<
     )?
     .validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:1[0]:top
         └── ►:2[1]:middle
             └── ►:0[2]:bottom
                 └── 🏁·960152d (⌂|1) ►main[🌳]
     ");
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:1:top <> ✓!
     └── ≡:1:top {1}
         ├── :1:top
@@ -1682,7 +1683,7 @@ fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Resu
     create_branches(&repo, tip, ["refs/heads/top", "refs/heads/bottom"])?;
     let meta = in_memory_meta(tmp.as_ref())?;
 
-    let graph = graph_with_branch_order(
+    let ws = workspace_with_branch_order(
         &repo,
         &*meta,
         "refs/heads/top",
@@ -1690,13 +1691,13 @@ fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Resu
     )?
     .validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:1[0]:top
         └── ►:0[1]:bottom
             └── 🏁·960152d (⌂|1) ►main[🌳]
     ");
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:1:top <> ✓!
     └── ≡:1:top {1}
         ├── :1:top
@@ -1715,7 +1716,7 @@ fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Resul
     create_branches(&repo, top_tip, ["refs/heads/top"])?;
     let meta = in_memory_meta(tmp.as_ref())?;
 
-    let graph = graph_with_branch_order(
+    let ws = workspace_with_branch_order(
         &repo,
         &*meta,
         "refs/heads/top",
@@ -1723,13 +1724,13 @@ fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Resul
     )?
     .validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:top
         ├── ·5cd63e5 (⌂|1)
         └── 🏁·fa91c94 (⌂|1) ►bottom, ►main[🌳]
     ");
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:top <> ✓!
     └── ≡:0:top {1}
         └── :0:top
@@ -1755,7 +1756,7 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
     )?;
     let meta = in_memory_meta(tmp.as_ref())?;
 
-    let graph = graph_with_branch_orders(
+    let ws = workspace_with_branch_orders(
         &repo,
         &*meta,
         "refs/heads/top",
@@ -1766,13 +1767,13 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
     )?
     .validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:1[0]:top
         └── ►:0[1]:bottom
             └── 🏁·960152d (⌂|1) ►main[🌳], ►other-bottom, ►other-top
     ");
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:1:top <> ✓!
     └── ≡:1:top {1}
         ├── :1:top
@@ -1857,21 +1858,21 @@ fn create_branches<const N: usize>(
     Ok(())
 }
 
-fn graph_with_branch_order<const N: usize>(
+fn workspace_with_branch_order<const N: usize>(
     repo: &gix::Repository,
     meta: &impl but_core::RefMetadata,
     entrypoint_ref: &str,
     order: [&str; N],
-) -> anyhow::Result<Graph> {
-    graph_with_branch_orders(repo, meta, entrypoint_ref, &[&order])
+) -> anyhow::Result<Workspace> {
+    workspace_with_branch_orders(repo, meta, entrypoint_ref, &[&order])
 }
 
-fn graph_with_branch_orders(
+fn workspace_with_branch_orders(
     repo: &gix::Repository,
     meta: &impl but_core::RefMetadata,
     entrypoint_ref: &str,
     orders: &[&[&str]],
-) -> anyhow::Result<Graph> {
+) -> anyhow::Result<Workspace> {
     let entrypoint_ref = ref_name(entrypoint_ref);
     let tip = repo
         .find_reference(entrypoint_ref.as_ref())?
@@ -1881,12 +1882,12 @@ fn graph_with_branch_orders(
     for order in orders {
         overlay = overlay.with_branch_stack_order_override(order.iter().copied().map(ref_name));
     }
-    Graph::from_commit_traversal(
+    Workspace::from_commit_traversal(
         tip.attach(repo),
         Some(entrypoint_ref),
         meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
-    .redo_traversal_with_overlay(repo, meta, overlay)
+    .redo_with_overlay(repo, meta, overlay)
 }

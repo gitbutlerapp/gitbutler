@@ -2,9 +2,9 @@
 
 use std::collections::{HashMap, HashSet};
 
+use crate::graph_rebase::Direction;
 use anyhow::{Result, bail};
 use but_core::RefMetadata;
-use petgraph::Direction;
 
 use crate::graph_rebase::{Editor, Pick, Selector, Step, StepGraphIndex, ToCommitSelector, util};
 
@@ -93,7 +93,7 @@ fn step_graph_parent_to_child_rank<M: RefMetadata>(
         .graph
         .externals(Direction::Incoming)
         .collect::<Vec<StepGraphIndex>>();
-    roots.sort_unstable_by_key(|idx| idx.index());
+    roots.sort_unstable();
 
     // Traverse from all child-most entrypoints (graph nodes without children), assigning
     // rank in post-order so parent commits always rank before descendants. Parents are

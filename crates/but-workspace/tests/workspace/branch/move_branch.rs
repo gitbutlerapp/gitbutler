@@ -11,7 +11,7 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 #[test]
 fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -29,7 +29,6 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -84,7 +83,7 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -93,7 +92,6 @@ fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Resul
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
     let before = graph_workspace(&ws).to_string();
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
@@ -119,7 +117,7 @@ fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Resul
 
 #[test]
 fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -137,7 +135,6 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -191,7 +188,7 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -209,7 +206,6 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -261,7 +257,7 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn reorder_branch_in_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -279,7 +275,6 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -334,7 +329,7 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
 
 #[test]
 fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -352,7 +347,6 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -404,7 +398,7 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_empty_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
@@ -417,7 +411,6 @@ fn move_empty_branch() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main, B) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:3:B on 85efbe4 {2}
@@ -460,7 +453,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
@@ -473,7 +466,6 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main, B) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:3:B on 85efbe4 {2}
@@ -527,7 +519,7 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
     let project_meta = meta
         .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
         .project_meta();
-    let graph = but_graph::Graph::from_head(
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta,
@@ -539,8 +531,6 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
             ..Options::limited()
         },
     )?;
-
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
     └── ≡📙:3:B on 3183e43 {1}
@@ -585,7 +575,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
     let project_meta = meta
         .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
         .project_meta();
-    let graph = but_graph::Graph::from_head(
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta,
@@ -597,8 +587,6 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
             ..Options::limited()
         },
     )?;
-
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
     ├── ≡📙:3:A on 3183e43 {1}
@@ -632,7 +620,7 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
 
 #[test]
 fn non_empty_move_display_order_follows_workspace_parents() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -651,7 +639,6 @@ fn non_empty_move_display_order_follows_workspace_parents() -> anyhow::Result<()
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -741,7 +728,7 @@ fn non_empty_move_display_order_follows_workspace_parents() -> anyhow::Result<()
 
 #[test]
 fn empty_move_display_order_follows_workspace_parents() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
@@ -755,7 +742,6 @@ fn empty_move_display_order_follows_workspace_parents() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main, B) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     let before_display_order = stack_display_order(&ws);
     let before_metadata_order = metadata_stack_order(&ws);
     // Stack order comes from the workspace-commit parent array, not metadata. The
@@ -811,7 +797,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
     // When origin/main advances past the fork point, the old fork commit becomes
     // an unnamed base segment. Moving a branch should still work by falling back
     // to selecting by the segment's tip commit.
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-two-stacks-advanced-remote",
             |meta| {
@@ -830,7 +816,6 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
     * 85efbe4 (main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 85efbe4
     ├── ≡📙:1:A on 85efbe4 {1}
@@ -882,7 +867,7 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
     // reference node sitting above the base commit. Selecting the base by commit would point one
     // hop too far and fail the direct-parent check. Moving the empty branch onto the non-empty one
     // must still succeed.
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-with-empty-stack-target-advanced",
             |meta| {
@@ -900,7 +885,6 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
     * 85efbe4 (gitbutler/target, B) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 85efbe4
     ├── ≡📙:4:B on 85efbe4 {2}
@@ -946,7 +930,7 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
 fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Result<()> {
     // Same setup as the empty-onto-non-empty regression, but the subject is the non-empty branch
     // and the target is the empty one. Both directions must succeed when the target is ahead.
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-with-empty-stack-target-advanced",
             |meta| {
@@ -964,7 +948,6 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
     * 85efbe4 (gitbutler/target, B) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 85efbe4
     ├── ≡📙:4:B on 85efbe4 {2}

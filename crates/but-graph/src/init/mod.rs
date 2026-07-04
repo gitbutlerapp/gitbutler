@@ -855,18 +855,6 @@ impl Graph {
             overlay_for_flip,
         )
     }
-
-    /// Like [`Self::redo_traversal_with_overlay()`], but replaces this instance, without overlay, and returns
-    /// a newly computed workspace for it.
-    pub fn into_workspace_of_redone_traversal(
-        mut self,
-        repo: &gix::Repository,
-        meta: &impl RefMetadata,
-    ) -> anyhow::Result<crate::Workspace> {
-        let new = self.redo_traversal_with_overlay(repo, meta, Default::default())?;
-        self = new;
-        self.into_workspace()
-    }
 }
 
 /// Validate caller-provided traversal tips before they seed graph traversal.

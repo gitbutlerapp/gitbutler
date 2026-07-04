@@ -35,7 +35,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -64,7 +64,6 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
     * 85aa44b (o1) o1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     let remote_tip_before = repo.rev_parse_single("origin/master")?.detach();
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
@@ -118,7 +117,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -147,7 +146,6 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
     * 85aa44b (o1) o1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
@@ -199,7 +197,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -226,7 +224,6 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     * 85aa44b (o1) o1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/master⇣4 on 85aa44b
     └── ≡📙:2:E on 85aa44b {1}
@@ -283,7 +280,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -310,7 +307,6 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     * 85aa44b (o1) o1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
@@ -361,7 +357,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -386,7 +382,6 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
     * 3183e43 (main) M1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
     └── ≡:0:A[🌳] on 3183e43 {1}
@@ -445,7 +440,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -461,7 +456,6 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
@@ -508,7 +502,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -533,7 +527,6 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     * 3183e43 (main) M1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
     └── ≡:0:A[🌳] on 3183e43 {1}
@@ -600,7 +593,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -618,7 +611,6 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
     * 2b73dee (origin/main, main) init-integration
     ");
 
-    let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
@@ -692,7 +684,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -711,7 +703,6 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     * 3183e43 (main) M1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
     ├── ≡📙:1:A on 3183e43 {1}
@@ -738,9 +729,8 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
         ],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
     └── ≡📙:1:B on 905d6e5 {2}
@@ -770,7 +760,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -786,7 +776,6 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     * 3183e43 (main) M1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
     └── ≡📙:1:A on 3183e43 {1}
@@ -804,9 +793,8 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         }],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f88e9ce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -830,7 +818,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -849,7 +837,6 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     * 8d5739f (main) add C
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 8d5739f
     └── ≡📙:1:A on 8d5739f {1}
@@ -868,9 +855,8 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         }],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 6b20716");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * fa202eb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -896,7 +882,7 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -905,8 +891,6 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
             ..Options::limited()
         },
     )?;
-
-    let mut workspace = graph.into_workspace()?;
     let project_meta = project_meta(&meta)?;
     let out = integrate_upstream(
         &mut workspace,
@@ -933,8 +917,8 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         repo.try_find_reference("A")?.is_some(),
         "local branch should remain when update selector is not a stack bottom"
     );
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 8d5739f
     └── ≡📙:1:A on 8d5739f {1}
@@ -961,7 +945,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -984,7 +968,6 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     * 8d5739f (main) add C
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 8d5739f
     └── ≡📙:1:A on 8d5739f {1}
@@ -1003,9 +986,8 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
         }],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f27db86");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * d60856a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -1045,7 +1027,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1054,7 +1036,6 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
@@ -1068,7 +1049,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         }],
     )?;
 
-    let preview = rebase.overlayed_graph()?.into_workspace()?;
+    let preview = rebase.overlayed_workspace()?;
     assert_eq!(
         preview.ref_name(),
         Some(branch_2.as_ref()),
@@ -1141,7 +1122,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1150,7 +1131,6 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
@@ -1164,7 +1144,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         }],
     )?;
 
-    let preview = rebase.overlayed_graph()?.into_workspace()?;
+    let preview = rebase.overlayed_workspace()?;
     assert_eq!(
         preview.ref_name(),
         Some(branch_2.as_ref()),
@@ -1204,7 +1184,7 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1213,7 +1193,6 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
     integrate_and_materialize(&mut workspace, &mut meta, &repo, vec![])?;
 
     assert_eq!(
@@ -1237,7 +1216,7 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1246,7 +1225,6 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
     integrate_and_materialize(&mut workspace, &mut meta, &repo, vec![])?;
 
     assert_eq!(
@@ -1274,7 +1252,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1294,7 +1272,6 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     * fe9ae6e (target-sha) add C1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fe9ae6e
     ├── ≡:1:anon: on fe9ae6e
@@ -1314,9 +1291,8 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         }],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fe9ae6e
     ├── ≡:2:anon: on fe9ae6e
@@ -1357,7 +1333,7 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1366,7 +1342,6 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
 
     std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
     let project_meta = project_meta(&meta)?;
@@ -1412,7 +1387,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1421,7 +1396,6 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
 
     std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
     git(&repo).args(["add", "shared.txt"]).run();
@@ -1463,7 +1437,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     });
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1483,7 +1457,6 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     * 3183e43 (main) M1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
     ├── ≡📙:1:A on 3183e43 {1}
@@ -1512,9 +1485,8 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         ],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f1e7451
     ├── ≡📙:1:A on f1e7451 {1}
@@ -1551,7 +1523,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     });
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1571,7 +1543,6 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     * 3183e43 (main) M1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
     ├── ≡📙:1:A on 3183e43 {1}
@@ -1600,9 +1571,8 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
         ],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 44c9428
     └── ≡📙:1:B on 44c9428 {2}
@@ -1634,7 +1604,7 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1661,7 +1631,6 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
     * 3183e43 M1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
     ├── ≡📙:3:A on 3183e43 {1}
@@ -1688,9 +1657,8 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
         ],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 5f7d45e");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * ef6d1ef (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -1723,7 +1691,7 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1732,7 +1700,6 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
         &mut workspace,
@@ -1768,7 +1735,7 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1777,7 +1744,6 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
         &mut workspace,
@@ -1812,7 +1778,7 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1821,7 +1787,6 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
         &mut workspace,
@@ -1860,7 +1825,7 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1869,7 +1834,6 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
         &mut workspace,
@@ -1903,7 +1867,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "topic", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1923,7 +1887,6 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
  * 563a7fc add base
  ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
     └── ≡📙:2:topic <> origin/topic →:5: on 563a7fc {1}
@@ -1953,8 +1916,8 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         "workspace metadata should no longer expose the integrated empty branch"
     );
     out.rebase.materialize()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
     └── ≡:1:main <> origin/main →:4: on 563a7fc
@@ -1986,7 +1949,7 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "topic", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -2008,7 +1971,6 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
   * 563a7fc add base
   ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
     └── ≡📙:2:topic <> origin/topic →:3:⇡1 on 563a7fc {1}
@@ -2039,8 +2001,8 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
             .trim_end(),
         "add local",
     );
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
     └── ≡📙:1:topic <> origin/topic →:3:⇡1 on 563a7fc {1}
@@ -2075,7 +2037,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         push_remote_name: None,
     });
     add_stack_with_segments(&mut meta, 1, "top", StackState::InWorkspace, &["bottom"]);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -2095,7 +2057,6 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
 * 563a7fc add base
 ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
     └── ≡📙:4:top <> origin/top →:7: on 563a7fc {1}
@@ -2134,8 +2095,8 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         "workspace metadata should retain only the unmerged empty top branch"
     );
     out.rebase.materialize()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
     └── ≡📙:1:top <> origin/top →:2: on 563a7fc {1}
@@ -2167,7 +2128,7 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -2176,7 +2137,6 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
         &mut workspace,
@@ -2217,7 +2177,7 @@ fn orphan_reparent_two_stacks_through_merge_target() -> Result<()> {
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -2226,7 +2186,6 @@ fn orphan_reparent_two_stacks_through_merge_target() -> Result<()> {
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
         &mut workspace,
@@ -2266,7 +2225,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -2282,7 +2241,6 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
 
     let out = integrate_upstream_with_hints(
@@ -2329,7 +2287,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -2351,7 +2309,6 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     * 3183e43 (main) M1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
     ├── ≡📙:1:A on 3183e43 {1}
@@ -2380,8 +2337,8 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     )?;
     out.rebase.materialize()?;
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
     └── ≡📙:1:B on 3183e43 {2}
@@ -2426,7 +2383,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -2450,7 +2407,6 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     * 3183e43 (main) M1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
     └── ≡:0:A[🌳] on 3183e43 {1}
@@ -2475,8 +2431,8 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         }],
     )?;
     out.rebase.materialize()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     ⌂:0:amo-branch-1[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
     └── ≡:0:amo-branch-1[🌳] on 3183e43 {1}
@@ -2517,7 +2473,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let mut workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -2537,7 +2493,6 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     * 3183e43 (main) M1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
     └── ≡📙:1:A on 3183e43 {1}
@@ -2560,9 +2515,8 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
         }],
     )?;
 
-    let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
-    let workspace = graph.into_workspace()?;
+    let workspace =
+        but_graph::Workspace::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e2f5892
     └── ≡📙:1:A on e2f5892 {1}
@@ -2594,7 +2548,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -2620,7 +2574,6 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     * 3183e43 (main) M1
     ");
 
-    let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
     └── ≡:0:A[🌳] on 3183e43 {1}
@@ -2650,7 +2603,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     )?;
     rebase.materialize()?;
 
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), repo.head_name()?),
@@ -2663,7 +2616,6 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         updated_project_meta,
         Options::limited(),
     )?;
-    let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     ⌂:0:A[🌳] <> ✓refs/remotes/origin/main on e2f5892
     └── ≡:0:A[🌳] on e2f5892 {1}
@@ -2703,7 +2655,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         .args(["commit", "-m", "post-review local commit"])
         .run();
 
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -2719,7 +2671,6 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
             ..Options::limited()
         },
     )?;
-    let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
 
     let out = integrate_upstream_with_hints(

@@ -253,12 +253,12 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
             while let Some(tip) = tips.pop() {
                 for c in editor
-                    .direct_children(tip)?
+                    .position_children(tip)?
                     .iter()
-                    .filter_map(|(c, _)| stack.nodes.contains_key(c).then_some(*c))
+                    .filter(|c| stack.nodes.contains_key(*c))
                 {
-                    if seen.insert(c) {
-                        tips.push(c);
+                    if seen.insert(*c) {
+                        tips.push(*c);
                     }
                 }
             }
@@ -471,9 +471,9 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
 ) -> Result<Vec<Stack>> {
     let mut stacks = if head_is_workspace_commit {
         editor
-            .direct_parents(head_commit.id)?
+            .position_parents(head_commit.id)?
             .into_iter()
-            .map(|(c, _)| Stack {
+            .map(|c| Stack {
                 to_merge: false,
                 nodes: HashMap::from([(c, AnnotatedNode::new())]),
                 heads: HashSet::from([c]),
@@ -493,7 +493,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
         let mut tips = stack.nodes.keys().copied().collect::<Vec<_>>();
 
         while let Some(tip) = tips.pop() {
-            for (parent, _order) in editor.direct_parents(tip)? {
+            for parent in editor.position_parents(tip)? {
                 if from_target_sha.contains(&parent) {
                     continue;
                 }
@@ -545,15 +545,18 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
 
         for node in nodes.keys() {
             if editor
-                .direct_parents(*node)?
+                .position_parents(*node)?
                 .iter()
-                .all(|(p, _)| !nodes.contains_key(p))
+                .all(|p| !nodes.contains_key(p))
             {
                 bottoms.insert(*node);
             }
         }
 
         for (node, attrs) in nodes.iter_mut() {
+            // Reachability also marks REFERENCES: a ref chain reachable from the target lies
+            // on integrated history (its anchor commit is integrated), so this is anchor-based
+            // integration expressed through the graph walk.
             if from_target_ref.contains(node) {
                 attrs.historically_integrated = true;
             }
@@ -597,7 +600,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             let mut traversed_commits = false;
 
             'traversal: while let Some(tip) = tips.pop() {
-                for (parent, _) in editor.direct_parents(tip)? {
+                for parent in editor.position_parents(tip)? {
                     let Some(attrs) = stack.nodes.get(&parent) else {
                         continue;
                     };
@@ -630,7 +633,6 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                 *r_sel,
                 r_name.as_ref(),
                 &reference_nodes,
-                &from_target_ref,
                 target_sha,
                 target_ref_name,
                 target_ref_commit,
@@ -666,7 +668,6 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
     selector: Selector,
     ref_name: &gix::refs::FullNameRef,
     reference_nodes: &HashMap<Selector, gix::refs::FullName>,
-    from_target_ref: &HashSet<Selector>,
     target_sha: gix::ObjectId,
     target_ref_name: &gix::refs::FullNameRef,
     target_ref_commit: gix::ObjectId,
@@ -674,10 +675,14 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
     if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
         return Ok(false);
     }
-    if editor.direct_parents(selector)?.iter().any(|(parent, _)| {
+    // An empty branch sitting on another local branch is that stack's forward-going tip and
+    // survives the cleanup — unless the parent branch literally rests at the target position.
+    // (An earlier `!from_target_ref.contains(parent)` conjunct here was constant-true under the
+    // merge-bypass rule — workspace-lane ref nodes were never target-reachable — so the live
+    // semantics were always just the points-to-target check.)
+    if editor.position_parents(selector)?.iter().any(|parent| {
         reference_nodes.get(parent).is_some_and(|parent_ref| {
             parent_ref.category() == Some(gix::refs::Category::LocalBranch)
-                && !from_target_ref.contains(parent)
                 && !reference_points_to_target(
                     editor.repo(),
                     parent_ref.as_ref(),

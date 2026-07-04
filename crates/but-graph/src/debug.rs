@@ -10,6 +10,17 @@ use crate::{
 };
 
 /// Debugging
+impl crate::Workspace {
+    /// Like [`Graph::anonymize`], but re-projecting afterwards so the workspace view reflects
+    /// the anonymized names.
+    pub fn anonymize(&mut self, remotes: &gix::remote::Names) -> anyhow::Result<&mut Self> {
+        self.graph.anonymize(remotes)?;
+        *self = self.graph.clone().into_workspace()?;
+        Ok(self)
+    }
+}
+
+/// Debugging
 impl Graph {
     /// Assure that no PII is left in the graph, by deterministically anonymizing branch names.
     ///

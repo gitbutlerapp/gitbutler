@@ -197,9 +197,8 @@ fn visible_parents<M: RefMetadata>(
         seen: &mut HashSet<Selector>,
         out: &mut Vec<Selector>,
     ) -> Result<()> {
-        let mut parents = editor.direct_parents(selector)?;
-        parents.sort_by_key(|(_, order)| *order);
-        for (parent, _) in parents {
+        let parents = editor.position_parents(selector)?;
+        for parent in parents {
             if !stack_nodes.contains(&parent) || !seen.insert(parent) {
                 continue;
             }

@@ -76,7 +76,7 @@ impl Graph {
         skip(self),
         err(Debug)
     )]
-    pub fn into_workspace(self) -> anyhow::Result<Workspace> {
+    pub(crate) fn into_workspace(self) -> anyhow::Result<Workspace> {
         let state = self.to_workspace_state()?;
         Ok(Workspace::from_state(self, state))
     }

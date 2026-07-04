@@ -341,7 +341,7 @@ mod from_new_merge_with_metadata {
 
     #[test]
     fn with_conflict_commits() -> anyhow::Result<()> {
-        let (_tmp, mut graph, repo, mut meta, _description) =
+        let (_tmp, ws, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * 8450331 (HEAD -> main, tag: conflicted) GitButler WIP Commit
@@ -366,7 +366,7 @@ mod from_new_merge_with_metadata {
         let stacks = ["tip-conflicted", "unrelated"];
         add_stacks(&mut meta, stacks);
 
-        graph = graph.redo_traversal_with_overlay(
+        let graph = ws.graph.redo_traversal_with_overlay(
             &repo,
             &meta,
             Overlay::default().with_references_if_new([

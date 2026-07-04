@@ -117,13 +117,14 @@ pub fn cherry_pick(
         return Ok(CherryPickOutcome::Identity(target.id.detach()));
     }
 
-    let base_t = find_base_tree(&target, tree_merge_mode)?;
+    let base_tree = find_base_tree(&target, tree_merge_mode)?;
     // We always want the "theirs-ist" side of the target if it's conflicted.
-    let target_t = find_real_tree(&target, TreeKind::Theirs)?;
+    let target_tree = find_real_tree(&target, TreeKind::Theirs)?;
     // We want to cherry-pick onto the merge result.
-    let onto_t = merged_tree_from_commits(repo, ontos, tree_merge_mode, TreeKind::AutoResolution)?;
+    let onto_tree =
+        merged_tree_from_commits(repo, ontos, tree_merge_mode, TreeKind::AutoResolution)?;
 
-    match (&base_t, &onto_t) {
+    match (&base_tree, &onto_tree) {
         (MergeOutcome::NoCommit, MergeOutcome::NoCommit) if pick_mode == PickMode::Force => {
             // We should only end up here when trying to force-pick a parentless commit. At that
             // point, it's safe to simply recreate that commit outright.
@@ -161,8 +162,8 @@ pub fn cherry_pick(
                 repo,
                 &target,
                 ontos,
-                &base_t,
-                target_t.detach(),
+                &base_tree,
+                target_tree.detach(),
                 tree_merge_mode,
                 sign_commit,
             )? {
@@ -181,13 +182,13 @@ pub fn cherry_pick(
             MergeOutcome::Success(_) | MergeOutcome::NoCommit,
         ) => {
             let empty_tree = gix::ObjectId::empty_tree(gix::hash::Kind::Sha1);
-            let base_t = base_t.object_id().unwrap_or(empty_tree);
-            let onto_t = onto_t.object_id().unwrap_or(empty_tree);
+            let base_tree = base_tree.object_id().unwrap_or(empty_tree);
+            let onto_tree = onto_tree.object_id().unwrap_or(empty_tree);
 
             let mut outcome = repo.merge_trees(
-                base_t,
-                onto_t,
-                target_t,
+                base_tree,
+                onto_tree,
+                target_tree,
                 repo.default_merge_labels(),
                 repo.merge_options_force_ours()?,
             )?;
@@ -201,9 +202,9 @@ pub fn cherry_pick(
                     tree_id,
                     outcome,
                     conflict_kind,
-                    base_t,
-                    onto_t,
-                    target_t.detach(),
+                    base_tree,
+                    onto_tree,
+                    target_tree.detach(),
                     sign_commit,
                 )?;
                 Ok(CherryPickOutcome::ConflictedCommit(
@@ -235,7 +236,7 @@ pub fn cherry_pick(
 /// `ontos`
 /// The two commits whose full trees should become the merge parents of the result.
 ///
-/// `base_t`
+/// `base_tree`
 /// The already-computed original-base merge outcome for `target`, used to confirm this is the parentless template case.
 ///
 /// `target_tree_id`
@@ -250,13 +251,13 @@ fn maybe_materialize_conflicted_onto_merge(
     repo: &gix::Repository,
     target: &but_core::Commit<'_>,
     ontos: &[gix::ObjectId],
-    base_t: &MergeOutcome,
+    base_tree: &MergeOutcome,
     target_tree_id: gix::ObjectId,
     tree_merge_mode: TreeMergeMode,
     sign_commit: SignCommit,
 ) -> Result<Option<CherryPickOutcome>> {
     let empty_tree = gix::ObjectId::empty_tree(repo.object_hash());
-    if !matches!(base_t, MergeOutcome::NoCommit)
+    if !matches!(base_tree, MergeOutcome::NoCommit)
         || target.is_conflicted()
         || !target.parents.is_empty()
         || target_tree_id != empty_tree
@@ -355,7 +356,8 @@ fn merged_tree_from_commits(
         // Handle the case where no commits are given.
         return Ok(MergeOutcome::NoCommit);
     };
-    let mut sum = find_real_tree(&but_core::Commit::from_id(first.attach(repo))?, preference)?;
+    let mut merged_tree =
+        find_real_tree(&but_core::Commit::from_id(first.attach(repo))?, preference)?;
 
     let mut base: Option<Option<gix::ObjectId>> = None;
 
@@ -382,7 +384,7 @@ fn merged_tree_from_commits(
 
         let mut output = repo.merge_trees(
             peel_to_tree_or_empty(repo, base)?,
-            sum,
+            merged_tree,
             tree,
             repo.default_merge_labels(),
             options,
@@ -394,10 +396,10 @@ fn merged_tree_from_commits(
             });
         }
 
-        sum = output.tree.write()?;
+        merged_tree = output.tree.write()?;
     }
 
-    Ok(MergeOutcome::Success(sum.detach()))
+    Ok(MergeOutcome::Success(merged_tree.detach()))
 }
 
 fn merge_base(

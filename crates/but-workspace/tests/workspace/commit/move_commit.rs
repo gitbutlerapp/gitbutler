@@ -19,7 +19,7 @@ fn parent_subjects(repo: &gix::Repository, rev: &str) -> anyhow::Result<Vec<Stri
 
 #[test]
 fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -37,7 +37,6 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -113,7 +112,7 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -131,7 +130,6 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -209,7 +207,7 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -227,7 +225,6 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -303,7 +300,7 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -321,7 +318,6 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -399,7 +395,7 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -417,7 +413,6 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -486,7 +481,7 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -504,7 +499,6 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:1:C on 85efbe4 {2}
@@ -582,7 +576,7 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_commit_to_empty_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &["B"]);
@@ -595,7 +589,6 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main, B) M
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:3:B on 85efbe4 {2}
@@ -653,7 +646,7 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -662,7 +655,6 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     * 8b426d0 (one) commit one
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:three[🌳] <> ✓!
     └── ≡:0:three[🌳] {1}
@@ -729,7 +721,7 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 
 #[test]
 fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("gb-1525-reorder-merge-commit", |_| {})?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -745,7 +737,6 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
     * 7674a5e (tag: base) base
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
     └── ≡:0:child-stack[🌳] on aa67ae0 {1}
@@ -801,7 +792,7 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
 
 #[test]
 fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("gb-1525-reorder-merge-commit", |_| {})?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -817,7 +808,6 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
     * 7674a5e (tag: base) base
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
     └── ≡:0:child-stack[🌳] on aa67ae0 {1}
@@ -872,7 +862,7 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
 
 #[test]
 fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -881,7 +871,6 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     * 8b426d0 (one) commit one
     ");
 
-    let mut ws = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:three[🌳] <> ✓!
     └── ≡:0:three[🌳] {1}

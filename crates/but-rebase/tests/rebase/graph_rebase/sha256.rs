@@ -1,7 +1,7 @@
 //! Tests key graph rebase operations against a SHA-256 repository.
 
 use anyhow::{Context, Result};
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, Step, mutate::InsertSide},
@@ -26,14 +26,13 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
     * 8dcf66f (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge_id = editor.repo().rev_parse_single("HEAD~")?.detach();
@@ -100,14 +99,13 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
     * 8dcf66f (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = editor.repo().rev_parse_single("A")?.detach();
@@ -172,14 +170,13 @@ fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
     * 8dcf66f (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let inner_merge = editor.repo().rev_parse_single("HEAD~")?.detach();

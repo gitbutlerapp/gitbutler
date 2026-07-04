@@ -7,10 +7,7 @@ use gix::prelude::ObjectIdExt;
 
 use crate::{
     commit::{DateMode, create},
-    graph_rebase::{
-        Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector,
-        util::first_ordered_parent,
-    },
+    graph_rebase::{Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector},
 };
 
 impl<M: RefMetadata> Editor<'_, '_, M> {
@@ -65,8 +62,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             .history
             .normalize_selector(selector.to_reference_selector(self)?)?;
 
-        let first_parent = first_ordered_parent(&self.graph, selector.id)
-            .context("Failed to find a parent for selected reference in the step graph.")?;
+        let first_parent =
+            crate::graph_rebase::positions::resolve_to_pick(&self.graph, selector.id)
+                .context("Failed to find a parent for selected reference in the step graph.")?;
 
         let Step::Pick(pick) = &self.graph[first_parent] else {
             bail!("BUG: first_ordered_parent provided a non-pick return value");
