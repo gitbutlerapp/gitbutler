@@ -24,12 +24,13 @@ EOF
 # inputs are kept as trees, the commit tree is auto-resolved favoring "ours",
 # and the conflict is recorded in the message trailer plus the legacy header.
 #
-# The content conflict: base, ours (the new base), and theirs (the commit's own
-# version) each have a different middle line in "conflict".
+# The content conflicts: base, ours (the new base), and theirs (the commit's
+# own version) each differ at "line two" and at "line six" of "conflict",
+# far enough apart to form two separate conflict hunks.
 unrelated_blob=$(git rev-parse HEAD:file)
-base_blob=$(printf "line one\nline two\nline three\n" | git hash-object -wt blob --stdin)
-ours_blob=$(printf "line one\nline two changed by the new base\nline three\n" | git hash-object -wt blob --stdin)
-theirs_blob=$(printf "line one\nline two changed by this commit\nline three\n" | git hash-object -wt blob --stdin)
+base_blob=$(printf "line one\nline two\nline three\nline four\nline five\nline six\nline seven\n" | git hash-object -wt blob --stdin)
+ours_blob=$(printf "line one\nline two changed by the new base\nline three\nline four\nline five\nline six changed by the new base\nline seven\n" | git hash-object -wt blob --stdin)
+theirs_blob=$(printf "line one\nline two changed by this commit\nline three\nline four\nline five\nline six changed by this commit\nline seven\n" | git hash-object -wt blob --stdin)
 conflict_files_blob=$(git hash-object -wt blob --stdin <<EOF
 ancestorEntries = [ "conflict" ]
 ourEntries = [ "conflict" ]

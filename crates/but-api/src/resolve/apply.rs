@@ -1,122 +1,162 @@
-//! Validate a model response against the request, splice the resolved hunks
-//! into the merged blobs, and rewrite the conflicted commit into a normal one.
+//! Turn per-hunk resolutions into a rewritten commit.
+//!
+//! Resolutions are applied by *narrowing the conflict*: each resolved hunk's
+//! content is written into all three side blobs (ours/base/theirs), while
+//! unresolved hunks keep each side's original lines. Re-merging the synthesized
+//! trees then conflicts exactly at the unresolved hunks — so a partial
+//! resolution yields a conflicted commit with fewer conflicts, and a full
+//! resolution falls out of the very same path as a clean merge.
+
+use std::collections::BTreeMap;
 
 use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_core::DryRun;
 use but_core::commit::Headers;
+use but_core::commit::tree_expression::TreeExpression;
 use but_core::sync::RepoExclusive;
 use but_rebase::commit::DateMode;
 use but_rebase::graph_rebase::{Editor, LookupStep as _, Step};
 
 use super::context::{FileConflict, ResolutionRequest, is_marker_shaped, scan_conflict_blocks};
-use super::prompt::ResolutionResponse;
+use super::{HunkResolution, RemainingConflicts, ResolutionSpec};
 use crate::WorkspaceState;
 
-/// A validated, spliced resolution, aligned index-for-index with the
-/// request's files.
-#[derive(Debug)]
-pub(crate) struct ValidatedFile {
-    /// The full file content with every conflict block replaced by its resolution.
-    pub resolved_text: String,
-    /// The per-hunk replacement contents, in file order.
-    pub hunks: Vec<String>,
-    /// The model's per-file reasoning.
-    pub reasoning: String,
+/// What applying resolutions produced.
+pub(crate) struct AppliedResolution {
+    /// The rewritten commit's final id after the rebase.
+    pub new_commit: gix::ObjectId,
+    /// The conflicts that remain per file; empty when fully resolved.
+    pub remaining: Vec<RemainingConflicts>,
+    /// Workspace state after the apply.
+    pub workspace: WorkspaceState,
 }
 
-/// Check `response` against `request` and splice the resolutions into the
-/// merged blobs. Any mismatch fails validation so the caller can retry the
-/// model once before giving up. Nothing is written to the repository here.
-pub(crate) fn validate(
+/// A validated resolution for one hunk. Side picks stay symbolic so the
+/// synthesis can copy the picked side's raw bytes instead of a re-rendered
+/// string.
+#[derive(Debug, Clone)]
+pub(crate) enum HunkPick {
+    Ours,
+    Theirs,
+    Content(String),
+}
+
+/// Resolved hunks per file, aligned index-for-index with the request's files.
+/// Keys are 0-based hunk indices; an empty map leaves the file's conflicts
+/// untouched.
+pub(crate) type PicksPerFile = Vec<BTreeMap<usize, HunkPick>>;
+
+/// Validate caller-provided resolution specs against the request and translate
+/// them into per-file hunk contents. Nothing is written to the repository here.
+pub(crate) fn validate_specs(
     request: &ResolutionRequest,
-    response: &ResolutionResponse,
-) -> anyhow::Result<Vec<ValidatedFile>> {
-    // Both sides of the path comparison are normalized: models tend to add
-    // `./` or backslashes, and request paths are matched under the same rules
-    // so a path that normalizes differently can never silently mismatch.
-    let mut request_paths = std::collections::BTreeSet::new();
-    for file in &request.files {
-        if !request_paths.insert(normalize_path(&file.path)) {
+    specs: &[ResolutionSpec],
+) -> anyhow::Result<PicksPerFile> {
+    let files_by_path = index_files_by_path(request)?;
+    let mut picks: PicksPerFile = vec![BTreeMap::new(); request.files.len()];
+
+    for spec in specs {
+        let &file_index = files_by_path
+            .get(&normalize_path(&spec.path))
+            .with_context(|| {
+                format!("\"{}\" is not a conflicted file of this commit", spec.path)
+            })?;
+        let file = &request.files[file_index];
+        if spec.hunk == 0 || spec.hunk > file.hunks.len() {
+            bail!(
+                "\"{}\" has conflicts 1..{}, but conflict {} was addressed",
+                file.path,
+                file.hunks.len(),
+                spec.hunk
+            );
+        }
+        let hunk_index = spec.hunk - 1;
+        let pick = match &spec.resolution {
+            HunkResolution::Ours => HunkPick::Ours,
+            HunkResolution::Theirs => HunkPick::Theirs,
+            HunkResolution::Content(content) => {
+                ensure_no_markers(content, &file.path)?;
+                HunkPick::Content(content.clone())
+            }
+        };
+        if picks[file_index].insert(hunk_index, pick).is_some() {
+            bail!(
+                "Conflict {} of \"{}\" was addressed more than once",
+                spec.hunk,
+                file.path
+            );
+        }
+    }
+
+    Ok(picks)
+}
+
+/// Map normalized request paths to file indices, rejecting collisions.
+pub(crate) fn index_files_by_path(
+    request: &ResolutionRequest,
+) -> anyhow::Result<BTreeMap<String, usize>> {
+    let mut files_by_path = BTreeMap::new();
+    for (index, file) in request.files.iter().enumerate() {
+        if files_by_path
+            .insert(normalize_path(&file.path), index)
+            .is_some()
+        {
             bail!(
                 "Two conflicted paths normalize to the same value ({:?}); resolve this commit manually instead",
                 normalize_path(&file.path)
             );
         }
     }
-
-    let mut resolutions_by_path = std::collections::BTreeMap::new();
-    for resolution in &response.resolutions {
-        let path = normalize_path(&resolution.path);
-        if resolutions_by_path
-            .insert(path.clone(), resolution)
-            .is_some()
-        {
-            bail!("The model returned more than one resolution for \"{path}\"");
-        }
-    }
-
-    let mut validated = Vec::with_capacity(request.files.len());
-    for file in &request.files {
-        let resolution = resolutions_by_path
-            .remove(&normalize_path(&file.path))
-            .with_context(|| {
-                format!(
-                    "The model returned no resolution for the conflicted file \"{}\"",
-                    file.path
-                )
-            })?;
-        if resolution.hunks.len() != file.hunks.len() {
-            bail!(
-                "The model returned {} resolved hunks for \"{}\" but the file has {} conflicts",
-                resolution.hunks.len(),
-                file.path,
-                file.hunks.len()
-            );
-        }
-        if resolution.reasoning.trim().is_empty() {
-            bail!("The model returned no reasoning for \"{}\"", file.path);
-        }
-        let hunks: Vec<String> = resolution
-            .hunks
-            .iter()
-            .map(|hunk| hunk.resolved_content.clone())
-            .collect();
-        let resolved_text = splice_resolved_file(file, &hunks)?;
-        // The inputs were verified to be free of marker-shaped content when
-        // the request was built, so any marker-shaped line in the spliced
-        // output can only come from the model.
-        if let Some(marker) = resolved_text
-            .lines()
-            .find(|line| is_marker_shaped(line.strip_suffix('\r').unwrap_or(line)))
-        {
-            bail!(
-                "The model's resolution for \"{}\" still contains a conflict marker ({marker:?})",
-                file.path
-            );
-        }
-        validated.push(ValidatedFile {
-            resolved_text,
-            hunks,
-            reasoning: resolution.reasoning.clone(),
-        });
-    }
-
-    if let Some(path) = resolutions_by_path.into_keys().next() {
-        bail!("The model returned a resolution for \"{path}\", which was not requested");
-    }
-
-    Ok(validated)
+    Ok(files_by_path)
 }
 
-/// Replace each conflict block in the merged text with its resolved content.
+/// Reject content that contains a conflict-marker-shaped line.
+pub(crate) fn ensure_no_markers(content: &str, path: &str) -> anyhow::Result<()> {
+    if let Some(marker) = content
+        .lines()
+        .map(|line| line.strip_suffix('\r').unwrap_or(line))
+        .find(|line| is_marker_shaped(line))
+    {
+        bail!("The resolution for \"{path}\" contains a conflict marker ({marker:?})");
+    }
+    Ok(())
+}
+
+/// Normalize a path for comparison: trim, backslashes to slashes, strip a
+/// leading `./`, collapse duplicate slashes. Applied to both request and
+/// caller-provided paths.
+pub(crate) fn normalize_path(path: &str) -> String {
+    let mut normalized = path.trim().replace('\\', "/");
+    while normalized.contains("//") {
+        normalized = normalized.replace("//", "/");
+    }
+    normalized
+        .strip_prefix("./")
+        .map(str::to_owned)
+        .unwrap_or(normalized)
+}
+
+#[derive(Debug, Clone, Copy)]
+enum SideKind {
+    Ours,
+    Base,
+    Theirs,
+}
+
+/// Render one side's narrowed version of a conflicted file: resolved blocks
+/// become the picked content, unresolved blocks keep this side's own lines.
 ///
-/// Non-conflicted lines are copied byte-for-byte including their own line
-/// terminators, so mixed-EOL files stay untouched outside conflict regions.
-/// Only the inserted resolution lines use the file's dominant EOL style, and a
-/// single trailing newline on a resolution is dropped since the block's own
-/// terminator is preserved.
-fn splice_resolved_file(file: &FileConflict, resolutions: &[String]) -> anyhow::Result<String> {
+/// Non-conflicted lines, unresolved side lines, and side picks are copied
+/// byte-for-byte including their own terminators, so mixed-EOL files stay
+/// untouched outside resolved regions. Inserted custom-content lines use the
+/// file's dominant EOL, and a single trailing newline on such content is
+/// dropped since the block's own terminator is preserved.
+fn synthesize_side(
+    file: &FileConflict,
+    picks: &BTreeMap<usize, HunkPick>,
+    side: SideKind,
+) -> anyhow::Result<String> {
     let eol = if file.merged_text.contains("\r\n") {
         "\r\n"
     } else {
@@ -129,39 +169,73 @@ fn splice_resolved_file(file: &FileConflict, resolutions: &[String]) -> anyhow::
         .map(|line| strip_terminator(line))
         .collect();
     let blocks = scan_conflict_blocks(&stripped_lines);
-    if blocks.len() != resolutions.len() {
+    if blocks.len() != file.hunks.len() {
         bail!(
-            "BUG: found {} conflict blocks in \"{}\" while splicing, but validated {} resolutions",
+            "BUG: found {} conflict blocks in \"{}\" while applying, but the request has {} hunks",
             blocks.len(),
             file.path,
-            resolutions.len()
+            file.hunks.len()
         );
     }
 
     let mut result = String::with_capacity(file.merged_text.len());
     let mut line = 0;
-    for (block, resolution) in blocks.iter().zip(resolutions) {
+    for (index, block) in blocks.iter().enumerate() {
         for raw in &raw_lines[line..block.start] {
             result.push_str(raw);
         }
-        let resolution = resolution
-            .strip_suffix('\n')
-            .map(|r| r.strip_suffix('\r').unwrap_or(r))
-            .unwrap_or(resolution);
-        if !resolution.is_empty() {
-            let block_is_terminated = raw_lines[block.end].ends_with('\n');
-            for (index, resolved_line) in resolution
-                .split('\n')
-                .map(|l| l.strip_suffix('\r').unwrap_or(l))
-                .enumerate()
-            {
-                if index > 0 {
+        if let Some(pick) = picks.get(&index) {
+            let resolution = match pick {
+                // The picked side's raw bytes, terminators included.
+                HunkPick::Ours => {
+                    for raw in &raw_lines[block.ours.clone()] {
+                        result.push_str(raw);
+                    }
+                    line = block.end + 1;
+                    continue;
+                }
+                HunkPick::Theirs => {
+                    for raw in &raw_lines[block.theirs.clone()] {
+                        result.push_str(raw);
+                    }
+                    line = block.end + 1;
+                    continue;
+                }
+                HunkPick::Content(content) => content,
+            };
+            let resolution = resolution
+                .strip_suffix('\n')
+                .map(|r| r.strip_suffix('\r').unwrap_or(r))
+                .unwrap_or(resolution);
+            if !resolution.is_empty() {
+                let block_is_terminated = raw_lines[block.end].ends_with('\n');
+                for (index, resolved_line) in resolution
+                    .split('\n')
+                    .map(|l| l.strip_suffix('\r').unwrap_or(l))
+                    .enumerate()
+                {
+                    if index > 0 {
+                        result.push_str(eol);
+                    }
+                    result.push_str(resolved_line);
+                }
+                if block_is_terminated {
                     result.push_str(eol);
                 }
-                result.push_str(resolved_line);
             }
-            if block_is_terminated {
-                result.push_str(eol);
+        } else {
+            let side_range = match side {
+                SideKind::Ours => block.ours.clone(),
+                SideKind::Theirs => block.theirs.clone(),
+                SideKind::Base => block.base.clone().with_context(|| {
+                    format!(
+                        "A conflict in \"{}\" carries no common-ancestor section and cannot be narrowed. Resolve this commit manually instead.",
+                        file.path
+                    )
+                })?,
+            };
+            for raw in &raw_lines[side_range] {
+                result.push_str(raw);
             }
         }
         line = block.end + 1;
@@ -177,46 +251,109 @@ fn strip_terminator(line: &str) -> &str {
     line.strip_suffix('\r').unwrap_or(line)
 }
 
-/// Normalize a path for comparison: trim, backslashes to slashes, strip a
-/// leading `./`, collapse duplicate slashes. Applied to both request and
-/// response paths.
-fn normalize_path(path: &str) -> String {
-    let mut normalized = path.trim().replace('\\', "/");
-    while normalized.contains("//") {
-        normalized = normalized.replace("//", "/");
-    }
-    normalized
-        .strip_prefix("./")
-        .map(str::to_owned)
-        .unwrap_or(normalized)
-}
-
-/// Write the resolved blobs and tree, rewrite the conflicted commit into a
-/// normal commit (resolved tree, stripped message, conflict header removed),
-/// and rebase its descendants.
+/// Apply `picks` to the conflicted commit: synthesize narrowed side trees,
+/// re-merge them, and rewrite the commit — into a normal commit when nothing
+/// is left unresolved, or into a conflicted commit with the remaining
+/// conflicts otherwise. Descendants are rebased either way.
 ///
-/// Returns the rewritten commit's final id and the resulting workspace state.
+/// Returns the rewritten commit's final id, the conflicts that remain per
+/// file, and the resulting workspace state.
 pub(crate) fn apply(
     ctx: &mut but_ctx::Context,
     request: &ResolutionRequest,
-    validated: &[ValidatedFile],
+    picks_per_file: &PicksPerFile,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
-) -> anyhow::Result<(gix::ObjectId, WorkspaceState)> {
+) -> anyhow::Result<AppliedResolution> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
 
-    let mut tree_editor = repo.edit_tree(request.merged_tree_id)?;
-    for (file, resolution) in request.files.iter().zip(validated) {
-        let blob_id = repo.write_blob(resolution.resolved_text.as_bytes())?;
-        tree_editor.upsert(file.rela_path.as_bstr(), file.entry_kind, blob_id)?;
+    // Narrow the sides: every resolved hunk's content goes into all three
+    // trees, so the re-merge below agrees there and conflicts only at what
+    // remains unresolved.
+    let mut base_edit = repo.edit_tree(request.base_tree_id)?;
+    let mut ours_edit = repo.edit_tree(request.ours_tree_id)?;
+    let mut theirs_edit = repo.edit_tree(request.theirs_tree_id)?;
+    for (file, picks) in request.files.iter().zip(picks_per_file) {
+        if picks.is_empty() {
+            continue;
+        }
+        for (tree, side) in [
+            (&mut base_edit, SideKind::Base),
+            (&mut ours_edit, SideKind::Ours),
+            (&mut theirs_edit, SideKind::Theirs),
+        ] {
+            let content = synthesize_side(file, picks, side)?;
+            let blob_id = repo.write_blob(content.as_bytes())?;
+            tree.upsert(file.rela_path.as_bstr(), file.entry_kind, blob_id)?;
+        }
     }
-    let resolved_tree_id = tree_editor.write()?.detach();
+    let base_tree_id = base_edit.write()?.detach();
+    let ours_tree_id = ours_edit.write()?.detach();
+    let theirs_tree_id = theirs_edit.write()?.detach();
+
+    // Auto-resolve like the rebase engine does when it writes conflicted
+    // commits: favor *ours* so the merged tree is clean content, never marker
+    // text, and detect the forcefully-resolved conflicts as unresolved.
+    use but_core::RepositoryExt as _;
+    let mut outcome = repo.merge_trees(
+        base_tree_id,
+        ours_tree_id,
+        theirs_tree_id,
+        repo.default_merge_labels(),
+        repo.merge_options_force_ours()?,
+    )?;
+    let merged_tree_id = outcome.tree.write()?.detach();
+    let treat_as_unresolved = gix::merge::tree::TreatAsUnresolved::forced_resolution();
+    let unresolved = outcome.has_unresolved_conflicts(treat_as_unresolved);
+
+    let remaining: Vec<RemainingConflicts> = request
+        .files
+        .iter()
+        .zip(picks_per_file)
+        .filter_map(|(file, picks)| {
+            let remaining = file.hunks.len() - picks.len();
+            (remaining > 0).then(|| RemainingConflicts {
+                path: file.path.clone(),
+                hunks: remaining,
+            })
+        })
+        .collect();
+    if unresolved && remaining.is_empty() {
+        bail!(
+            "BUG: all conflicts of commit {} were resolved, yet re-merging the narrowed trees still conflicts",
+            request.commit_id
+        );
+    }
 
     let mut editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let (target_selector, mut commit) = editor.find_selectable_commit(request.commit_id)?;
-    commit.tree = resolved_tree_id;
-    commit.message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
+    if unresolved {
+        // Still conflicted: same commit shape the rebase engine writes, with
+        // the narrowed trees. Adding message markers is idempotent, and covers
+        // commits that were only marked by the legacy header — the header is
+        // cleared below, so the message must carry the state.
+        commit.message = but_core::commit::add_conflict_markers(commit.message.as_ref());
+        let conflict_entries = but_core::commit::conflict_entries_from_merge_outcome(
+            &repo,
+            merged_tree_id,
+            &outcome,
+            treat_as_unresolved,
+        )?;
+        let tree_expression = TreeExpression {
+            base_tree_ids: vec![base_tree_id],
+            side_tree_ids: [ours_tree_id, theirs_tree_id].into_iter().collect(),
+        };
+        commit.tree = but_core::commit::write_conflicted_tree(
+            &repo,
+            merged_tree_id,
+            &tree_expression,
+            &conflict_entries,
+        )?;
+    } else {
+        commit.tree = merged_tree_id;
+        commit.message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
+    }
     if let Some(headers) = Headers::try_from_commit(&commit) {
         Headers {
             conflicted: None,
@@ -231,13 +368,21 @@ pub(crate) fn apply(
     let new_commit = rebase.lookup_pick(target_selector)?;
     let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
 
-    Ok((new_commit, workspace))
+    Ok(AppliedResolution {
+        new_commit,
+        remaining,
+        workspace,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::resolve::context::split_lines;
+
+    const OURS: &str = "<<<<<<< gitbutler-resolve-ours";
+    const BASE: &str = "||||||| gitbutler-resolve-base";
+    const THEIRS: &str = ">>>>>>> gitbutler-resolve-theirs";
 
     fn test_file(merged_text: &str) -> FileConflict {
         let lines = split_lines(merged_text);
@@ -249,92 +394,195 @@ mod tests {
             merged_text: merged_text.to_owned(),
             hunks: blocks
                 .iter()
-                .map(|_| super::super::context::ConflictHunk {
+                .map(|block| super::super::context::ConflictHunk {
                     context_before: String::new(),
-                    ours: String::new(),
-                    base: None,
-                    theirs: String::new(),
+                    ours: lines[block.ours.clone()].join("\n"),
+                    base: block.base.clone().map(|range| lines[range].join("\n")),
+                    theirs: lines[block.theirs.clone()].join("\n"),
                     context_after: String::new(),
                 })
                 .collect(),
         }
     }
 
-    #[test]
-    fn splice_replaces_blocks_and_preserves_surroundings() {
-        let file = test_file(
-            "before\n<<<<<<< gitbutler-resolve-ours\na\n=======\nb\n>>>>>>> gitbutler-resolve-theirs\nbetween\n<<<<<<< gitbutler-resolve-ours\nc\n=======\nd\n>>>>>>> gitbutler-resolve-theirs\nafter\n",
-        );
-        let result =
-            splice_resolved_file(&file, &["merged one".to_owned(), "merged two".to_owned()])
-                .unwrap();
-        assert_eq!(result, "before\nmerged one\nbetween\nmerged two\nafter\n");
+    fn picks(entries: &[(usize, &str)]) -> BTreeMap<usize, HunkPick> {
+        entries
+            .iter()
+            .map(|(index, content)| (*index, HunkPick::Content(content.to_string())))
+            .collect()
+    }
+
+    fn two_hunks() -> FileConflict {
+        test_file(&format!(
+            "start\n{OURS}\nours one\n{BASE}\nbase one\n=======\ntheirs one\n{THEIRS}\nmiddle\n{OURS}\nours two\n{BASE}\nbase two\n=======\ntheirs two\n{THEIRS}\nend\n"
+        ))
     }
 
     #[test]
-    fn splice_empty_resolution_deletes_the_block() {
-        let file = test_file(
-            "before\n<<<<<<< gitbutler-resolve-ours\na\n=======\nb\n>>>>>>> gitbutler-resolve-theirs\nafter\n",
+    fn full_resolution_makes_all_sides_agree() {
+        let file = two_hunks();
+        let all = picks(&[(0, "merged one"), (1, "merged two")]);
+        let expected = "start\nmerged one\nmiddle\nmerged two\nend\n";
+        for side in [SideKind::Ours, SideKind::Base, SideKind::Theirs] {
+            assert_eq!(synthesize_side(&file, &all, side).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn partial_resolution_keeps_each_sides_lines_for_unresolved_blocks() {
+        let file = two_hunks();
+        let first_only = picks(&[(0, "merged one")]);
+        assert_eq!(
+            synthesize_side(&file, &first_only, SideKind::Ours).unwrap(),
+            "start\nmerged one\nmiddle\nours two\nend\n"
         );
-        let result = splice_resolved_file(&file, &[String::new()]).unwrap();
+        assert_eq!(
+            synthesize_side(&file, &first_only, SideKind::Base).unwrap(),
+            "start\nmerged one\nmiddle\nbase two\nend\n"
+        );
+        assert_eq!(
+            synthesize_side(&file, &first_only, SideKind::Theirs).unwrap(),
+            "start\nmerged one\nmiddle\ntheirs two\nend\n"
+        );
+    }
+
+    #[test]
+    fn empty_resolution_deletes_the_block() {
+        let file = test_file(&format!(
+            "before\n{OURS}\na\n{BASE}\nb\n=======\nc\n{THEIRS}\nafter\n"
+        ));
+        let result = synthesize_side(&file, &picks(&[(0, "")]), SideKind::Theirs).unwrap();
         assert_eq!(result, "before\nafter\n");
     }
 
-    #[test]
-    fn splice_preserves_crlf() {
-        let file = test_file(
-            "a\r\n<<<<<<< gitbutler-resolve-ours\r\nx\r\n=======\r\ny\r\n>>>>>>> gitbutler-resolve-theirs\r\nb\r\n",
-        );
-        let result = splice_resolved_file(&file, &["merged".to_owned()]).unwrap();
-        assert_eq!(result, "a\r\nmerged\r\nb\r\n");
-    }
-
-    /// Mixed-EOL files must keep every non-conflicted line's own terminator —
+    /// Mixed-EOL files must keep every untouched line's own terminator —
     /// only inserted resolution lines use the dominant EOL.
     #[test]
-    fn splice_preserves_mixed_eol_outside_conflicts() {
-        let file = test_file(
-            "line1\nwin\r\nline3\n<<<<<<< gitbutler-resolve-ours\na\n=======\nb\n>>>>>>> gitbutler-resolve-theirs\nline4\n",
-        );
-        let result = splice_resolved_file(&file, &["merged".to_owned()]).unwrap();
+    fn synthesis_preserves_mixed_eol_outside_resolved_blocks() {
+        let file = test_file(&format!(
+            "line1\nwin\r\nline3\n{OURS}\na\n{BASE}\nb\n=======\nc\n{THEIRS}\nline4\n"
+        ));
+        let result = synthesize_side(&file, &picks(&[(0, "merged")]), SideKind::Ours).unwrap();
         assert_eq!(
             result, "line1\nwin\r\nline3\nmerged\r\nline4\n",
-            "non-conflicted lines keep their own terminators; the inserted line uses the dominant (CRLF) EOL"
+            "untouched lines keep their own terminators; the inserted line uses the dominant (CRLF) EOL"
         );
     }
 
-    /// A CRLF that only exists inside the replaced conflict block must not
-    /// change any line outside it.
     #[test]
-    fn splice_ignores_eol_of_deleted_block_content() {
-        let file = test_file(
-            "line1\n<<<<<<< gitbutler-resolve-ours\na\r\n=======\nb\n>>>>>>> gitbutler-resolve-theirs\nline2\n",
-        );
-        let result = splice_resolved_file(&file, &[String::new()]).unwrap();
-        assert_eq!(result, "line1\nline2\n");
-    }
-
-    #[test]
-    fn splice_strips_a_single_trailing_newline_from_resolutions() {
-        let file = test_file(
-            "before\n<<<<<<< gitbutler-resolve-ours\na\n=======\nb\n>>>>>>> gitbutler-resolve-theirs\nafter\n",
-        );
-        let result = splice_resolved_file(&file, &["merged\n".to_owned()]).unwrap();
+    fn synthesis_strips_a_single_trailing_newline_from_resolutions() {
+        let file = test_file(&format!(
+            "before\n{OURS}\na\n{BASE}\nb\n=======\nc\n{THEIRS}\nafter\n"
+        ));
+        let result = synthesize_side(&file, &picks(&[(0, "merged\n")]), SideKind::Ours).unwrap();
         assert_eq!(result, "before\nmerged\nafter\n");
-        // An intentional blank line (two newlines) keeps one.
-        let result = splice_resolved_file(&file, &["merged\n\n".to_owned()]).unwrap();
+        let result = synthesize_side(&file, &picks(&[(0, "merged\n\n")]), SideKind::Ours).unwrap();
         assert_eq!(result, "before\nmerged\n\nafter\n");
     }
 
     #[test]
-    fn splice_without_trailing_newline_at_eof() {
-        let file = test_file(
-            "before\n<<<<<<< gitbutler-resolve-ours\na\n=======\nb\n>>>>>>> gitbutler-resolve-theirs",
-        );
-        let result = splice_resolved_file(&file, &["merged".to_owned()]).unwrap();
+    fn synthesis_without_trailing_newline_at_eof() {
+        let file = test_file(&format!(
+            "before\n{OURS}\na\n{BASE}\nb\n=======\nc\n{THEIRS}"
+        ));
+        let result = synthesize_side(&file, &picks(&[(0, "merged")]), SideKind::Ours).unwrap();
+        assert_eq!(result, "before\nmerged");
+    }
+
+    fn test_request(files: Vec<FileConflict>) -> ResolutionRequest {
+        ResolutionRequest {
+            commit_id: gix::ObjectId::null(gix::hash::Kind::Sha1),
+            commit_message: String::new(),
+            parent_message: None,
+            base_tree_id: gix::ObjectId::null(gix::hash::Kind::Sha1),
+            ours_tree_id: gix::ObjectId::null(gix::hash::Kind::Sha1),
+            theirs_tree_id: gix::ObjectId::null(gix::hash::Kind::Sha1),
+            files,
+        }
+    }
+
+    fn spec(path: &str, hunk: usize, resolution: HunkResolution) -> ResolutionSpec {
+        ResolutionSpec {
+            path: path.into(),
+            hunk,
+            resolution,
+        }
+    }
+
+    #[test]
+    fn specs_translate_side_picks_and_content() {
+        let request = test_request(vec![two_hunks()]);
+        let picks = validate_specs(
+            &request,
+            &[
+                spec("file.txt", 1, HunkResolution::Ours),
+                spec("./file.txt", 2, HunkResolution::Content("mixed".into())),
+            ],
+        )
+        .unwrap();
+        assert!(matches!(picks[0][&0], HunkPick::Ours));
+        assert!(matches!(&picks[0][&1], HunkPick::Content(content) if content == "mixed"));
+    }
+
+    /// A side pick must reproduce the picked side byte-for-byte — including a
+    /// trailing blank line and the side's own line terminators.
+    #[test]
+    fn side_picks_preserve_the_sides_raw_bytes() {
+        let file = test_file(&format!(
+            "start\n{OURS}\nfoo\n\n{BASE}\nbase\n=======\ntheirs one\r\ntheirs two\n{THEIRS}\nend\n"
+        ));
+        let ours: BTreeMap<usize, HunkPick> = [(0, HunkPick::Ours)].into_iter().collect();
+        for side in [SideKind::Ours, SideKind::Base, SideKind::Theirs] {
+            assert_eq!(
+                synthesize_side(&file, &ours, side).unwrap(),
+                "start\nfoo\n\nend\n",
+                "the ours side's trailing blank line must survive"
+            );
+        }
+        let theirs: BTreeMap<usize, HunkPick> = [(0, HunkPick::Theirs)].into_iter().collect();
         assert_eq!(
-            result, "before\nmerged",
-            "an unterminated closing marker keeps the file unterminated"
+            synthesize_side(&file, &theirs, SideKind::Ours).unwrap(),
+            "start\ntheirs one\r\ntheirs two\nend\n",
+            "the theirs side's own terminators must survive"
+        );
+    }
+
+    #[test]
+    fn specs_are_validated() {
+        let request = test_request(vec![two_hunks()]);
+        let err = |specs: &[ResolutionSpec]| validate_specs(&request, specs).unwrap_err();
+
+        assert!(
+            err(&[spec("other.txt", 1, HunkResolution::Ours)])
+                .to_string()
+                .contains("not a conflicted file")
+        );
+        assert!(
+            err(&[spec("file.txt", 3, HunkResolution::Ours)])
+                .to_string()
+                .contains("has conflicts 1..2")
+        );
+        assert!(
+            err(&[spec("file.txt", 0, HunkResolution::Ours)])
+                .to_string()
+                .contains("has conflicts 1..2")
+        );
+        assert!(
+            err(&[
+                spec("file.txt", 1, HunkResolution::Ours),
+                spec("file.txt", 1, HunkResolution::Theirs),
+            ])
+            .to_string()
+            .contains("more than once")
+        );
+        assert!(
+            err(&[spec(
+                "file.txt",
+                1,
+                HunkResolution::Content("<<<<<<< HEAD\nx".into()),
+            )])
+            .to_string()
+            .contains("conflict marker")
         );
     }
 

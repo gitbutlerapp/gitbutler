@@ -1,22 +1,29 @@
-//! Resolve the conflicts of a conflicted commit with an LLM.
+//! Inspect and resolve the conflicts of a conflicted commit — without edit mode.
 //!
 //! GitButler keeps conflicts as first-class committed state: a conflicted
 //! commit carries its merge inputs as trees. This module re-merges those trees
-//! in memory, sends the conflict hunks to the configured LLM as a single-shot,
-//! no-tools request, splices the returned per-hunk resolutions back
-//! deterministically, and rewrites the commit into a normal one, rebasing its
-//! descendants. The workspace never enters edit mode and the exclusive
-//! worktree lock is held only for the final apply step — not while the model
-//! is thinking. Disagreement with the result is handled by the oplog: the
-//! operation records an undo point.
+//! in memory to expose the conflicts as per-file hunks
+//! ([`commit_conflicts()`]), and applies per-hunk resolutions — a side pick or
+//! custom content, for some or all hunks — by narrowing the conflict and
+//! rewriting the commit, rebasing its descendants
+//! ([`resolve_commit_conflict_hunks()`]). A partial resolution leaves the
+//! commit conflicted with fewer conflicts, so callers can work incrementally.
+//!
+//! [`resolve_commit_conflicts_ai()`] is a client of the same core: it sends
+//! the hunks to the configured LLM as a single-shot, no-tools request and
+//! applies the returned full-coverage resolutions. In every case the workspace
+//! never enters edit mode, the exclusive worktree lock is held only for the
+//! apply step, and an oplog snapshot records an undo point.
 
-use anyhow::Context as _;
+use std::collections::BTreeMap;
+
+use anyhow::{Context as _, bail};
 use but_api_macros::but_api;
 use but_core::DryRun;
 use but_core::sync::RepoExclusive;
 use but_llm::{ChatMessage, LLMProvider};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use crate::WorkspaceState;
@@ -26,7 +33,173 @@ mod context;
 mod prompt;
 
 pub use context::{ConflictHunk, FileConflict, ResolutionRequest};
-pub use prompt::{FileResolution, HunkResolution, ResolutionResponse, SYSTEM_PROMPT};
+pub use prompt::{FileResolution, HunkContent, ResolutionResponse, SYSTEM_PROMPT};
+
+/// The conflicts of a conflicted commit, as per-file hunks.
+#[derive(Debug, Clone)]
+pub struct CommitConflicts {
+    /// The conflicted commit.
+    pub commit_id: gix::ObjectId,
+    /// The conflicted files, sorted by path.
+    pub files: Vec<ConflictedFile>,
+}
+
+/// One conflicted file and its conflicts, in file order.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictedFile {
+    /// The repo-relative path of the file.
+    pub path: String,
+    /// The conflicts of the file; hunks are addressed by their 1-based
+    /// position in this list.
+    pub hunks: Vec<ConflictHunk>,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ConflictedFile);
+
+/// Return the conflicts of the conflicted commit `commit_id` without entering
+/// edit mode or touching the working tree.
+///
+/// Hunks are identified by `(path, 1-based index)`; the extraction is
+/// deterministic, so the same commit id always yields the same hunks and
+/// [`resolve_commit_conflict_hunks()`] can be called with indices from this
+/// result. Fails for commits whose conflicts have no hunk representation
+/// (deletions/renames, binaries, oversized files, marker-like content) — those
+/// need manual resolution in edit mode.
+#[but_api(try_from = crate::resolve::json::CommitConflicts)]
+#[instrument(err(Debug))]
+pub fn commit_conflicts(
+    ctx: &but_ctx::Context,
+    commit_id: gix::ObjectId,
+) -> anyhow::Result<CommitConflicts> {
+    let _guard = ctx.shared_worktree_access();
+    let repo = ctx.repo.get()?;
+    let request = context::build_request(&repo, commit_id)?;
+    Ok(CommitConflicts {
+        commit_id: request.commit_id,
+        files: request
+            .files
+            .into_iter()
+            .map(|file| ConflictedFile {
+                path: file.path,
+                hunks: file.hunks,
+            })
+            .collect(),
+    })
+}
+
+/// How to resolve a single conflict hunk.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+pub enum HunkResolution {
+    /// Take the *ours* side, i.e. the new base the commit was rebased onto.
+    Ours,
+    /// Take the *theirs* side, i.e. the commit's own version.
+    Theirs,
+    /// Replace the conflict with this content (for mixed resolutions; an
+    /// empty string deletes the conflicted region).
+    Content(String),
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HunkResolution);
+
+/// One conflict to resolve, addressed by path and 1-based hunk index as
+/// returned by [`commit_conflicts()`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ResolutionSpec {
+    /// The repo-relative path of the conflicted file.
+    pub path: String,
+    /// The 1-based index of the conflict within the file.
+    pub hunk: usize,
+    /// How to resolve it.
+    pub resolution: HunkResolution,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ResolutionSpec);
+
+/// Conflicts still unresolved in a file after an apply.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct RemainingConflicts {
+    /// The repo-relative path of the file.
+    pub path: String,
+    /// How many conflicts remain in it.
+    pub hunks: usize,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(RemainingConflicts);
+
+/// The outcome of applying per-hunk resolutions to a conflicted commit.
+#[derive(Debug, Clone)]
+pub struct HunkResolutionResult {
+    /// The conflicted commit the resolutions were applied to.
+    pub commit_id: gix::ObjectId,
+    /// The rewritten commit. Still conflicted when `remaining` is non-empty.
+    pub new_commit: gix::ObjectId,
+    /// How many conflicts were resolved.
+    pub resolved: usize,
+    /// The conflicts that remain, per file. Empty when the commit is fully
+    /// resolved.
+    pub remaining: Vec<RemainingConflicts>,
+    /// Workspace state after the apply.
+    pub workspace: WorkspaceState,
+}
+
+/// Apply `specs` to the conflicted commit `commit_id` and rebase descendants.
+///
+/// Resolving a subset of the conflicts rewrites the commit into a conflicted
+/// commit with only the remaining conflicts; resolving all of them rewrites it
+/// into a normal commit. Either way the commit id changes — address follow-up
+/// resolutions to the returned `new_commit`. An oplog snapshot records an undo
+/// point. Nothing is written if any spec fails validation.
+#[but_api(try_from = crate::resolve::json::HunkResolutionResult)]
+#[instrument(skip(specs), err(Debug))]
+pub fn resolve_commit_conflict_hunks(
+    ctx: &mut but_ctx::Context,
+    commit_id: gix::ObjectId,
+    specs: Vec<ResolutionSpec>,
+    dry_run: DryRun,
+) -> anyhow::Result<HunkResolutionResult> {
+    if specs.is_empty() {
+        bail!("No resolutions were provided");
+    }
+    let request = {
+        let _guard = ctx.shared_worktree_access();
+        let repo = ctx.repo.get()?;
+        context::build_request(&repo, commit_id)?
+    };
+    let picks = apply::validate_specs(&request, &specs)?;
+    // Every spec addressed a distinct hunk, or validation would have failed.
+    let resolved = specs.len();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.invalidate_workspace_cache()?;
+    let applied = apply_with_snapshot(
+        ctx,
+        &request,
+        &picks,
+        OperationKind::ResolveConflicts,
+        dry_run,
+        guard.write_permission(),
+    )?;
+
+    Ok(HunkResolutionResult {
+        commit_id: request.commit_id,
+        new_commit: applied.new_commit,
+        resolved,
+        remaining: applied.remaining,
+        workspace: applied.workspace,
+    })
+}
 
 /// How one conflicted file was resolved, for display to the user.
 #[derive(Debug, Clone, Serialize)]
@@ -124,10 +297,10 @@ pub fn resolve_commit_conflicts_with(
     // lock, so it fails closed if the commit changed in the meantime.
     let attempt = || -> anyhow::Result<_> {
         let response = resolve(&request)?;
-        let validated = apply::validate(&request, &response)?;
+        let validated = validate_ai_response(&request, &response)?;
         Ok((validated, response.summary))
     };
-    let (validated, summary) = match attempt() {
+    let ((picks, files), summary) = match attempt() {
         Ok(outcome) => outcome,
         Err(first_failure) => {
             tracing::warn!(
@@ -143,57 +316,111 @@ pub fn resolve_commit_conflicts_with(
     // call; the commit-presence check in apply must run against the state
     // under this exclusive lock, not a stale cache.
     ctx.invalidate_workspace_cache()?;
-    finish_with_perm(
+    let applied = apply_with_snapshot(
         ctx,
         &request,
-        validated,
-        summary,
+        &picks,
+        OperationKind::ResolveConflictsAi,
         dry_run,
         guard.write_permission(),
-    )
+    )?;
+
+    Ok(AiResolutionResult {
+        commit_id: request.commit_id,
+        new_commit: applied.new_commit,
+        summary,
+        files,
+        workspace: applied.workspace,
+    })
 }
 
-fn finish_with_perm(
+/// Check the model response against the request and translate it into
+/// full-coverage picks plus the per-file display payload. Any mismatch fails
+/// validation so the caller can retry the model once before giving up.
+fn validate_ai_response(
+    request: &ResolutionRequest,
+    response: &ResolutionResponse,
+) -> anyhow::Result<(apply::PicksPerFile, Vec<ResolvedFile>)> {
+    let files_by_path = apply::index_files_by_path(request)?;
+    let mut picks: apply::PicksPerFile = vec![BTreeMap::new(); request.files.len()];
+    let mut resolved_files: Vec<Option<ResolvedFile>> = vec![None; request.files.len()];
+
+    for resolution in &response.resolutions {
+        let Some(&index) = files_by_path.get(&apply::normalize_path(&resolution.path)) else {
+            bail!(
+                "The model returned a resolution for \"{}\", which was not requested",
+                resolution.path
+            );
+        };
+        if resolved_files[index].is_some() {
+            bail!(
+                "The model returned more than one resolution for \"{}\"",
+                resolution.path
+            );
+        }
+        let file = &request.files[index];
+        if resolution.hunks.len() != file.hunks.len() {
+            bail!(
+                "The model returned {} resolved hunks for \"{}\" but the file has {} conflicts",
+                resolution.hunks.len(),
+                file.path,
+                file.hunks.len()
+            );
+        }
+        if resolution.reasoning.trim().is_empty() {
+            bail!("The model returned no reasoning for \"{}\"", file.path);
+        }
+        for (hunk_index, hunk) in resolution.hunks.iter().enumerate() {
+            apply::ensure_no_markers(&hunk.resolved_content, &file.path)?;
+            picks[index].insert(
+                hunk_index,
+                apply::HunkPick::Content(hunk.resolved_content.clone()),
+            );
+        }
+        resolved_files[index] = Some(ResolvedFile {
+            path: file.path.clone(),
+            hunks: resolution
+                .hunks
+                .iter()
+                .map(|hunk| hunk.resolved_content.clone())
+                .collect(),
+            reasoning: resolution.reasoning.clone(),
+        });
+    }
+
+    if let Some(missing) = resolved_files.iter().position(Option::is_none) {
+        bail!(
+            "The model returned no resolution for the conflicted file \"{}\"",
+            request.files[missing].path
+        );
+    }
+
+    Ok((picks, resolved_files.into_iter().flatten().collect()))
+}
+
+/// Record an undo point, apply `picks`, and commit the snapshot on success.
+fn apply_with_snapshot(
     ctx: &mut but_ctx::Context,
     request: &ResolutionRequest,
-    validated: Vec<apply::ValidatedFile>,
-    summary: Option<String>,
+    picks: &apply::PicksPerFile,
+    operation: OperationKind,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
-) -> anyhow::Result<AiResolutionResult> {
+) -> anyhow::Result<apply::AppliedResolution> {
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
-        SnapshotDetails::new(OperationKind::ResolveConflictsAi),
+        SnapshotDetails::new(operation),
         perm.read_permission(),
         dry_run,
     );
 
-    let res = apply::apply(ctx, request, &validated, dry_run, perm);
+    let res = apply::apply(ctx, request, picks, dry_run, perm);
     if let Some(snapshot) = maybe_oplog_entry
         && res.is_ok()
     {
         snapshot.commit(ctx, perm).ok();
     }
-    let (new_commit, workspace) = res?;
-
-    let files = request
-        .files
-        .iter()
-        .zip(validated)
-        .map(|(file, validated)| ResolvedFile {
-            path: file.path.clone(),
-            hunks: validated.hunks,
-            reasoning: validated.reasoning,
-        })
-        .collect();
-
-    Ok(AiResolutionResult {
-        commit_id: request.commit_id,
-        new_commit,
-        summary,
-        files,
-        workspace,
-    })
+    res
 }
 
 /// JSON transport types for this module.
@@ -201,6 +428,76 @@ pub mod json {
     use serde::Serialize;
 
     use crate::json::HexHash;
+
+    /// JSON transport type for the conflicts of a conflicted commit.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct CommitConflicts {
+        /// The conflicted commit.
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+        pub commit_id: HexHash,
+        /// The conflicted files, sorted by path.
+        pub files: Vec<super::ConflictedFile>,
+    }
+
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(CommitConflicts);
+
+    impl TryFrom<super::CommitConflicts> for CommitConflicts {
+        type Error = anyhow::Error;
+
+        fn try_from(value: super::CommitConflicts) -> Result<Self, Self::Error> {
+            let super::CommitConflicts { commit_id, files } = value;
+            Ok(Self {
+                commit_id: commit_id.into(),
+                files,
+            })
+        }
+    }
+
+    /// JSON transport type for the outcome of applying per-hunk resolutions.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct HunkResolutionResult {
+        /// The conflicted commit the resolutions were applied to.
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+        pub commit_id: HexHash,
+        /// The rewritten commit. Still conflicted when `remaining` is non-empty.
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+        pub new_commit: HexHash,
+        /// How many conflicts were resolved.
+        pub resolved: usize,
+        /// The conflicts that remain, per file.
+        pub remaining: Vec<super::RemainingConflicts>,
+        /// Workspace state after the apply.
+        pub workspace: crate::json::WorkspaceState,
+    }
+
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(HunkResolutionResult);
+
+    impl TryFrom<super::HunkResolutionResult> for HunkResolutionResult {
+        type Error = anyhow::Error;
+
+        fn try_from(value: super::HunkResolutionResult) -> Result<Self, Self::Error> {
+            let super::HunkResolutionResult {
+                commit_id,
+                new_commit,
+                resolved,
+                remaining,
+                workspace,
+            } = value;
+            Ok(Self {
+                commit_id: commit_id.into(),
+                new_commit: new_commit.into(),
+                resolved,
+                remaining,
+                workspace: workspace.try_into()?,
+            })
+        }
+    }
 
     /// JSON transport type for the outcome of an AI conflict resolution.
     #[derive(Debug, Serialize)]

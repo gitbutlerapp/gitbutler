@@ -34,7 +34,9 @@ fn merge_labels() -> gix::merge::blob::builtin_driver::text::Labels<'static> {
 
 /// One conflicted region of a file, with the content of each side and a few
 /// lines of surrounding context.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
 pub struct ConflictHunk {
     /// Unconflicted lines directly before the conflict, clamped to the previous conflict.
     pub context_before: String,
@@ -47,6 +49,9 @@ pub struct ConflictHunk {
     /// Unconflicted lines directly after the conflict, clamped to the next conflict.
     pub context_after: String,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ConflictHunk);
 
 /// A conflicted file together with its merged marker text and extracted hunks.
 #[derive(Debug, Clone)]
@@ -72,8 +77,12 @@ pub struct ResolutionRequest {
     pub commit_message: String,
     /// The title of the commit's parent, i.e. the new base it was rebased onto.
     pub parent_message: Option<String>,
-    /// The tree produced by re-merging the commit's conflict trees, with markers in blobs.
-    pub merged_tree_id: gix::ObjectId,
+    /// The commit's stored merge-base tree.
+    pub base_tree_id: gix::ObjectId,
+    /// The commit's stored *ours* tree, i.e. the new base it was rebased onto.
+    pub ours_tree_id: gix::ObjectId,
+    /// The commit's stored *theirs* tree, i.e. its own version.
+    pub theirs_tree_id: gix::ObjectId,
     /// All conflicted files, sorted by path.
     pub files: Vec<FileConflict>,
 }
@@ -106,9 +115,11 @@ pub fn build_request(
         .and_then(|parent_id| but_core::Commit::from_id(parent_id.attach(repo)).ok())
         .map(|parent| commit_title(&parent));
 
+    let (base, ours, theirs) = (base.detach(), ours.detach(), theirs.detach());
     let repo = repo.clone().for_tree_diffing()?;
     // Merge without favoring a side to reproduce the actual conflicts, and
-    // force diff3-style markers so every hunk carries the common ancestor.
+    // force diff3-style markers with the sentinel labels so every hunk carries
+    // the common ancestor and marker lines are exactly known strings.
     let mut options: gix::merge::plumbing::tree::Options = repo.tree_merge_options()?.into();
     options.blob_merge.text.conflict = gix::merge::blob::builtin_driver::text::Conflict::Keep {
         style: gix::merge::blob::builtin_driver::text::ConflictStyle::Diff3,
@@ -213,7 +224,9 @@ pub fn build_request(
         commit_id,
         commit_message,
         parent_message,
-        merged_tree_id,
+        base_tree_id: base,
+        ours_tree_id: ours,
+        theirs_tree_id: theirs,
         files,
     })
 }

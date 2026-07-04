@@ -36,6 +36,14 @@ pub(crate) fn handle(
         return resolve_with_ai(ctx, out, commit_id.as_deref());
     }
     match cmd {
+        Some(Subcommands::Conflicts { commit }) => list_conflicts(ctx, out, commit.as_deref()),
+        Some(Subcommands::Apply {
+            target,
+            commit,
+            ours,
+            theirs,
+            file,
+        }) => apply_resolutions(ctx, out, commit.as_deref(), &target, ours, theirs, file),
         Some(Subcommands::Status) => show_status(ctx, out),
         Some(Subcommands::Finish) => finish_resolution(ctx, out),
         Some(Subcommands::Cancel { force }) => cancel_resolution(ctx, out, force),
@@ -402,6 +410,348 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) ->
             out,
             "All changes made during resolution have been discarded."
         )?;
+    }
+
+    Ok(())
+}
+
+/// Where a conflicted-commit target resolved to, with enough context to tell
+/// the user what scope they are working in.
+struct ConflictTarget {
+    commit_oid: gix::ObjectId,
+    /// The branch the commit sits on, if it is a known conflicted commit.
+    branch: Option<String>,
+    /// Conflicted commits elsewhere in the workspace (other ids than the target).
+    other_conflicted: usize,
+}
+
+/// Resolve `target` — a commit id, a CLI id, or a branch name (meaning that
+/// branch's oldest conflicted commit) — or default to the oldest conflicted
+/// commit of the first conflicted branch. `Ok(None)` means nothing is
+/// conflicted.
+fn target_conflicted_commit(
+    ctx: &mut Context,
+    target: Option<&str>,
+) -> Result<Option<ConflictTarget>> {
+    let conflicts_by_branch = find_conflicted_commits(ctx)?;
+    let commit_oid = match target {
+        // An exact conflicted-branch name scopes to that branch.
+        Some(target) if conflicts_by_branch.contains_key(target) => {
+            conflicts_by_branch[target][0].commit_oid
+        }
+        Some(target) => match parse_commit_or_branch(ctx, target)? {
+            CommitOrBranch::Commit(commit_oid) => commit_oid,
+            CommitOrBranch::Branch(name) => match conflicts_by_branch.get(&name) {
+                Some(commits) => commits[0].commit_oid,
+                None => bail!("Branch \"{name}\" has no conflicted commits."),
+            },
+        },
+        None => match conflicts_by_branch.values().flatten().next() {
+            Some(commit) => commit.commit_oid,
+            None => return Ok(None),
+        },
+    };
+
+    let branch = conflicts_by_branch
+        .iter()
+        .find(|(_, commits)| commits.iter().any(|commit| commit.commit_oid == commit_oid))
+        .map(|(branch, _)| branch.clone());
+    let other_conflicted = conflicts_by_branch
+        .values()
+        .flatten()
+        .filter(|commit| commit.commit_oid != commit_oid)
+        .map(|commit| commit.commit_oid)
+        .collect::<HashSet<_>>()
+        .len();
+    Ok(Some(ConflictTarget {
+        commit_oid,
+        branch,
+        other_conflicted,
+    }))
+}
+
+enum CommitOrBranch {
+    Commit(gix::ObjectId),
+    Branch(String),
+}
+
+/// Resolve a user-provided identifier to a commit or a branch.
+fn parse_commit_or_branch(ctx: &mut Context, target: &str) -> Result<CommitOrBranch> {
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let matches = id_map.parse_using_context(target, ctx)?;
+    match matches.as_slice() {
+        [] => bail!(
+            "\"{target}\" is neither a commit nor a branch. Try running 'but status' to see what is available."
+        ),
+        [CliId::Commit { commit_id, .. }] => Ok(CommitOrBranch::Commit(*commit_id)),
+        [CliId::Branch { name, .. }] => Ok(CommitOrBranch::Branch(name.clone())),
+        [_] => bail!("\"{target}\" does not refer to a commit or a branch"),
+        _ => bail!(
+            "\"{target}\" is ambiguous. Please provide more characters to uniquely identify it."
+        ),
+    }
+}
+
+/// List the conflicts of a conflicted commit without entering resolution mode.
+fn list_conflicts(ctx: &mut Context, out: &mut OutputChannel, commit: Option<&str>) -> Result<()> {
+    let t = theme::get();
+    let Some(target) = target_conflicted_commit(ctx, commit)? else {
+        if let Some(human_out) = out.for_human() {
+            writeln!(
+                human_out,
+                "{}",
+                t.success.paint("No conflicted commits found.")
+            )?;
+        }
+        if let Some(json_out) = out.for_json() {
+            json_out.write_value(serde_json::json!({ "commit_id": null, "files": [] }))?;
+        }
+        return Ok(());
+    };
+
+    let conflicts = but_api::resolve::commit_conflicts(ctx, target.commit_oid)?;
+
+    if let Some(human_out) = out.for_human() {
+        let repo = ctx.repo.get()?;
+        writeln!(
+            human_out,
+            "{} {}{}",
+            t.important.paint("Conflicts in commit"),
+            t.commit_id
+                .paint(shorten_object_id(&repo, target.commit_oid)),
+            target
+                .branch
+                .as_deref()
+                .map(|branch| format!(
+                    "{} {}",
+                    t.important.paint(" on branch"),
+                    t.local_branch.paint(branch)
+                ))
+                .unwrap_or_default()
+        )?;
+        for file in &conflicts.files {
+            writeln!(human_out)?;
+            writeln!(human_out, "{}", t.attention.paint(&file.path))?;
+            let total = file.hunks.len();
+            for (index, hunk) in file.hunks.iter().enumerate() {
+                writeln!(
+                    human_out,
+                    "{}",
+                    t.important
+                        .paint(format!("── conflict {} of {total}", index + 1))
+                )?;
+                writeln!(human_out, "{}", t.hint.paint("<<< ours (new base)"))?;
+                writeln!(human_out, "{}", hunk.ours)?;
+                if let Some(base) = &hunk.base {
+                    writeln!(human_out, "{}", t.hint.paint("||| base"))?;
+                    writeln!(human_out, "{base}")?;
+                }
+                writeln!(human_out, "{}", t.hint.paint(">>> theirs (this commit)"))?;
+                writeln!(human_out, "{}", hunk.theirs)?;
+            }
+        }
+        writeln!(human_out)?;
+        if target.other_conflicted > 0 {
+            writeln!(
+                human_out,
+                "{}",
+                t.attention.paint(format!(
+                    "{} other conflicted commit{} exist{} — scope with `but resolve conflicts <branch>`.",
+                    target.other_conflicted,
+                    if target.other_conflicted == 1 { "" } else { "s" },
+                    if target.other_conflicted == 1 { "s" } else { "" },
+                ))
+            )?;
+        }
+        writeln!(
+            human_out,
+            "{}",
+            t.hint.paint(
+                "Resolve with `but resolve apply <path>[:<N>] --ours|--theirs` or pipe mixed content into `but resolve apply <path>:<N>`. `but resolve --ai` resolves everything at once."
+            )
+        )?;
+    }
+
+    if let Some(json_out) = out.for_json() {
+        json_out.write_value(serde_json::json!({
+            "commit_id": conflicts.commit_id.to_string(),
+            "branch": target.branch,
+            "files": conflicts.files,
+        }))?;
+    }
+
+    Ok(())
+}
+
+/// Apply resolutions to one conflict (`<path>:<N>`) or to every conflict of a
+/// file, without entering resolution mode.
+fn apply_resolutions(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    commit: Option<&str>,
+    target: &str,
+    ours: bool,
+    theirs: bool,
+    file: Option<std::path::PathBuf>,
+) -> Result<()> {
+    use but_api::resolve::{HunkResolution, ResolutionSpec};
+
+    let t = theme::get();
+    let mode = operating_mode(ctx)?.operating_mode;
+    if matches!(mode, OperatingMode::Edit(_)) {
+        bail!(
+            "You are in conflict resolution mode. Finish with `but resolve finish` or cancel with `but resolve cancel` first."
+        );
+    }
+    let Some(conflict_target) = target_conflicted_commit(ctx, commit)? else {
+        bail!("No conflicted commits found.");
+    };
+    let commit_oid = conflict_target.commit_oid;
+
+    // Split a trailing `:<number>` off the target; everything else is the path.
+    let (path, hunk) = match target.rsplit_once(':') {
+        Some((path, number))
+            if !number.is_empty() && number.bytes().all(|b| b.is_ascii_digit()) =>
+        {
+            (path, Some(number.parse::<usize>()?))
+        }
+        _ => (target, None),
+    };
+
+    let resolution = if ours {
+        HunkResolution::Ours
+    } else if theirs {
+        HunkResolution::Theirs
+    } else {
+        let content = match &file {
+            Some(file) => std::fs::read_to_string(file)
+                .with_context(|| format!("Failed to read {}", file.display()))?,
+            None => {
+                use std::io::{IsTerminal, Read};
+                let mut stdin = std::io::stdin();
+                if stdin.is_terminal() {
+                    bail!(
+                        "Provide the replacement content via --file or stdin, or take a side with --ours/--theirs."
+                    );
+                }
+                let mut content = String::new();
+                stdin.read_to_string(&mut content)?;
+                if content.is_empty() {
+                    bail!(
+                        "stdin was empty. To intentionally delete the conflicted region, pass --file with an empty file."
+                    );
+                }
+                content
+            }
+        };
+        HunkResolution::Content(content)
+    };
+
+    // Expand a bare path into explicit per-hunk specs; an explicit `:<N>`
+    // target needs no lookup, the API validates it.
+    let hunks: Vec<usize> = match (hunk, &resolution) {
+        (Some(hunk), _) => vec![hunk],
+        (None, _) => {
+            let conflicts = but_api::resolve::commit_conflicts(ctx, commit_oid)?;
+            // Request paths are canonical; accept the common `./`-prefixed
+            // spelling the API would accept too.
+            let lookup = path.trim().trim_start_matches("./");
+            let total_hunks = conflicts
+                .files
+                .iter()
+                .find(|conflicted| conflicted.path == lookup)
+                .map(|conflicted| conflicted.hunks.len())
+                .with_context(|| format!("\"{path}\" is not a conflicted file of this commit"))?;
+            match &resolution {
+                HunkResolution::Ours | HunkResolution::Theirs => (1..=total_hunks).collect(),
+                HunkResolution::Content(_) if total_hunks == 1 => vec![1],
+                HunkResolution::Content(_) => bail!(
+                    "\"{path}\" has {total_hunks} conflicts; content applies to one at a time, use \"{path}:<N>\"."
+                ),
+            }
+        }
+    };
+    let specs = hunks
+        .into_iter()
+        .map(|hunk| ResolutionSpec {
+            path: path.to_owned(),
+            hunk,
+            resolution: resolution.clone(),
+        })
+        .collect();
+
+    let result = but_api::resolve::resolve_commit_conflict_hunks(
+        ctx,
+        commit_oid,
+        specs,
+        but_core::DryRun::No,
+    )?;
+
+    if let Some(human_out) = out.for_human() {
+        let repo = ctx.repo.get()?;
+        writeln!(
+            human_out,
+            "{} {} {} {} {} {}",
+            t.success.paint(format!(
+                "✓ Resolved {} conflict{} in",
+                result.resolved,
+                if result.resolved == 1 { "" } else { "s" }
+            )),
+            t.attention.paint(path),
+            t.hint.paint("—"),
+            t.commit_id
+                .paint(shorten_object_id(&repo, result.commit_id)),
+            t.success.paint("→"),
+            t.commit_id
+                .paint(shorten_object_id(&repo, result.new_commit)),
+        )?;
+        if result.remaining.is_empty() {
+            writeln!(
+                human_out,
+                "{}",
+                t.success
+                    .paint("All conflicts in this commit are resolved.")
+            )?;
+            drop(repo);
+            let more = oldest_conflicted_commit(ctx)?.is_some();
+            if more {
+                writeln!(
+                    human_out,
+                    "{}",
+                    t.attention
+                        .paint("Other commits are still conflicted — run `but resolve conflicts`.")
+                )?;
+            }
+        } else {
+            for remaining in &result.remaining {
+                writeln!(
+                    human_out,
+                    "{}",
+                    t.attention.paint(format!(
+                        "{} conflict{} remaining in {} — run `but resolve conflicts` to see {}.",
+                        remaining.hunks,
+                        if remaining.hunks == 1 { "" } else { "s" },
+                        remaining.path,
+                        if remaining.hunks == 1 { "it" } else { "them" },
+                    ))
+                )?;
+            }
+        }
+        writeln!(
+            human_out,
+            "{}",
+            t.hint
+                .paint("If this isn't right, run `but undo` to revert it.")
+        )?;
+    }
+
+    if let Some(json_out) = out.for_json() {
+        json_out.write_value(serde_json::json!({
+            "commit_id": result.commit_id.to_string(),
+            "new_commit_id": result.new_commit.to_string(),
+            "resolved": result.resolved,
+            "remaining": result.remaining,
+        }))?;
     }
 
     Ok(())

@@ -27,6 +27,7 @@ import type {
 	AbsorptionTarget,
 	AiResolutionResult,
 	BranchLandResult,
+	CommitConflicts,
 	CommitAbsorption,
 	BranchDetails,
 	BranchReference,
@@ -453,6 +454,16 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			invalidatesTags: (_result, _error, { stackId }) => [
 				invalidatesList(ReduxTag.HeadSha),
 				...(stackId ? [invalidatesItem(ReduxTag.StackDetails, stackId)] : []),
+			],
+		}),
+		commitConflicts: build.query<CommitConflicts, { projectId: string; commitId: string }>({
+			// Conflicts are derived from the commit's own trees, so results are
+			// immutable per commit id.
+			keepUnusedDataFor: 60,
+			extraOptions: { command: "commit_conflicts" },
+			query: (args) => args,
+			providesTags: (_result, _error, { commitId }) => [
+				...providesItem(ReduxTag.CommitChanges, commitId),
 			],
 		}),
 		resolveCommitConflictsAi: build.mutation<

@@ -526,6 +526,8 @@ fn main() -> anyhow::Result<()> {
                 workspace::tauri_workspace_integrate_upstream::workspace_integrate_upstream,
                 land::tauri_branch_land::branch_land,
                 resolve::tauri_resolve_commit_conflicts_ai::resolve_commit_conflicts_ai,
+                resolve::tauri_commit_conflicts::commit_conflicts,
+                resolve::tauri_resolve_commit_conflict_hunks::resolve_commit_conflict_hunks,
                 platform::tauri_build_type::build_type,
             ])
             .menu(menu::build)
