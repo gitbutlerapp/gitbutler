@@ -2,7 +2,6 @@
 
 use std::collections::HashSet;
 
-use crate::graph_rebase::Direction;
 use anyhow::Result;
 use but_core::RefMetadata;
 
@@ -52,11 +51,7 @@ impl Iterator for Traversal<'_> {
             if self.excluded.contains(&n) || !self.seen.insert(n) {
                 continue;
             }
-            self.tips.extend(
-                self.graph
-                    .edges_directed(n, Direction::Outgoing)
-                    .map(|e| e.target()),
-            );
+            self.tips.extend(self.graph.parents(n));
             return Some(n);
         }
         None
@@ -101,10 +96,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         &self,
         start: impl ToSelector,
     ) -> Result<impl Iterator<Item = Selector> + '_> {
-        let start = self
-            .history
-            .normalize_selector(start.to_selector(self)?)?
-            .id;
+        let start = start.to_selector(self)?.id;
         Ok(self
             .reachable_ids(start)
             .into_iter()
@@ -135,14 +127,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         start: impl ToSelector,
         excluded: impl ToSelector,
     ) -> Result<impl Iterator<Item = Selector> + '_> {
-        let start = self
-            .history
-            .normalize_selector(start.to_selector(self)?)?
-            .id;
-        let excluded = self
-            .history
-            .normalize_selector(excluded.to_selector(self)?)?
-            .id;
+        let start = start.to_selector(self)?.id;
+        let excluded = excluded.to_selector(self)?.id;
         let excluded: std::collections::HashSet<StepGraphIndex> =
             self.reachable_ids(excluded).into_iter().collect();
         let result: Vec<StepGraphIndex> = self
@@ -164,8 +150,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// rather than the first-parent-only branch-line reasoning of
     /// `but_workspace`'s `derive_push_status_from_graph`.
     pub fn ahead_behind(&self, a: impl ToSelector, b: impl ToSelector) -> Result<AheadBehind> {
-        let a = self.history.normalize_selector(a.to_selector(self)?)?.id;
-        let b = self.history.normalize_selector(b.to_selector(self)?)?.id;
+        let a = a.to_selector(self)?.id;
+        let b = b.to_selector(self)?.id;
         // Only picks count, so reference endpoints stand for their anchors.
         let a = crate::graph_rebase::positions::resolve_to_pick(&self.graph, a);
         let b = crate::graph_rebase::positions::resolve_to_pick(&self.graph, b);
@@ -188,17 +174,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         start: impl ToSelector,
         limit: Option<Selector>,
     ) -> Result<impl Iterator<Item = Selector> + '_> {
-        let start = self
-            .history
-            .normalize_selector(start.to_selector(self)?)?
-            .id;
-        let limit = limit
-            .map(|limit| {
-                self.history
-                    .normalize_selector(limit)
-                    .map(|selector| selector.id)
-            })
-            .transpose()?;
+        let start = start.to_selector(self)?.id;
+        let limit = limit.map(|limit| limit.id);
         let excluded: std::collections::HashSet<StepGraphIndex> = limit
             .map(|limit| self.reachable_ids(limit).into_iter().collect())
             .unwrap_or_default();
@@ -216,7 +193,7 @@ mod test {
     use std::{collections::HashSet, str::FromStr as _};
 
     use super::{a_not_b, all_until_optional_limit, count_picks, reachable_from};
-    use crate::graph_rebase::{Edge, Step, StepGraph, StepGraphIndex};
+    use crate::graph_rebase::{Step, StepGraph, StepGraphIndex};
 
     fn pick(graph: &mut StepGraph) -> StepGraphIndex {
         let id = gix::ObjectId::from_str("1000000000000000000000000000000000000000").unwrap();
@@ -227,14 +204,14 @@ mod test {
     /// `a ^c` must drop `base` (shared with `c`) but keep `a`, `b`.
     #[test]
     fn a_not_b_excludes_shared_ancestry() {
-        let mut g = StepGraph::new();
+        let mut g = StepGraph::default();
         let a = pick(&mut g);
         let b = pick(&mut g);
         let base = pick(&mut g);
         let c = pick(&mut g);
-        g.add_edge(a, b, Edge { order: 0 });
-        g.add_edge(b, base, Edge { order: 0 });
-        g.add_edge(c, base, Edge { order: 0 });
+        g.push_parent(a, b);
+        g.push_parent(b, base);
+        g.push_parent(c, base);
 
         assert_eq!(
             a_not_b(&g, a, c).collect::<HashSet<_>>(),
@@ -256,16 +233,16 @@ mod test {
     /// `b`; only the two picks count. `c ^a` reaches `c`.
     #[test]
     fn count_picks_ignores_non_pick_steps() {
-        let mut g = StepGraph::new();
+        let mut g = StepGraph::default();
         let a = pick(&mut g);
         let none = g.add_node(Step::None);
         let b = pick(&mut g);
         let base = pick(&mut g);
         let c = pick(&mut g);
-        g.add_edge(a, none, Edge { order: 0 });
-        g.add_edge(none, b, Edge { order: 0 });
-        g.add_edge(b, base, Edge { order: 0 });
-        g.add_edge(c, base, Edge { order: 0 });
+        g.push_parent(a, none);
+        g.push_parent(none, b);
+        g.push_parent(b, base);
+        g.push_parent(c, base);
 
         assert_eq!(count_picks(&g, a_not_b(&g, a, c)), 2);
         assert_eq!(count_picks(&g, a_not_b(&g, c, a)), 1);

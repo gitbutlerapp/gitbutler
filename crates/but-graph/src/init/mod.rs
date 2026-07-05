@@ -10,7 +10,7 @@ use tracing::instrument;
 
 use crate::{CommitFlags, CommitIndex, Connection, Graph, SegmentIndex, SegmentMetadata};
 
-mod walk;
+pub(crate) mod walk;
 use walk::*;
 
 pub(crate) mod types;
@@ -323,10 +323,10 @@ impl TipRole {
 
 /// A local branch ref and the commit it points to, when it tracks a workspace
 /// target ref.
-type LocalTrackingTip = (gix::refs::FullName, gix::ObjectId);
+pub(crate) type LocalTrackingTip = (gix::refs::FullName, gix::ObjectId);
 
 /// A workspace target ref, its commit, and optionally the local branch tracking it.
-type WorkspaceTargetTip = (gix::refs::FullName, gix::ObjectId, Option<LocalTrackingTip>);
+pub(crate) type WorkspaceTargetTip = (gix::refs::FullName, gix::ObjectId, Option<LocalTrackingTip>);
 
 /// The complete pre-traversal plan derived from either explicit tips or
 /// workspace metadata.
@@ -1401,7 +1401,7 @@ fn push_tip_once(tips: &mut Vec<Tip>, tip: Tip) {
 
 /// Resolve a workspace target ref and, when possible, its local tracking branch
 /// tip.
-fn workspace_target_tip(
+pub(crate) fn workspace_target_tip(
     repo: &OverlayRepo<'_>,
     target_ref: Option<&gix::refs::FullName>,
 ) -> anyhow::Result<Option<WorkspaceTargetTip>> {

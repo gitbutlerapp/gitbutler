@@ -48,16 +48,16 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
-        ├── ·f6ce7ad (⌂|1)
-        └── ·174eb34 (⌂|1)
+        ├── ·f6ce7ad (⌂)
+        └── ·174eb34 (⌂)
             └── ►:1[1]:anon:
-                └── ·3a9910d (⌂|1)
+                └── ·3a9910d (⌂)
                     ├── ►:2[2]:A
-                    │   └── ·2ff29ff (⌂|1)
+                    │   └── ·2ff29ff (⌂)
                     │       └── ►:4[3]:main
-                    │           └── 🏁·8dcf66f (⌂|1) ►tags/base
+                    │           └── 🏁·8dcf66f (⌂) ►tags/base
                     └── ►:3[2]:B
-                        └── ·8f04e4a (⌂|1)
+                        └── ·8f04e4a (⌂)
                             └── →:4: (main)
     ");
     let outcome = outcome.materialize()?;
@@ -122,15 +122,15 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
-        └── ·f6f0125 (⌂|1)
+        └── ·f6f0125 (⌂)
             └── ►:1[1]:anon:
-                └── ·fccb3fd (⌂|1)
+                └── ·fccb3fd (⌂)
                     ├── ►:3[2]:A
-                    │   └── ·b5c16ab (⌂|1)
+                    │   └── ·b5c16ab (⌂)
                     │       └── ►:4[3]:main
-                    │           └── 🏁·8dcf66f (⌂|1) ►tags/base
+                    │           └── 🏁·8dcf66f (⌂) ►tags/base
                     └── ►:2[2]:B
-                        └── ·8f04e4a (⌂|1)
+                        └── ·8f04e4a (⌂)
                             └── →:4: (main)
     ");
     let outcome = outcome.materialize()?;
@@ -194,21 +194,21 @@ fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
         1,
     ]
     ");
-    editor.add_edge(a_selector, b_selector, 1)?;
+    editor.insert_edge(a_selector, b_selector, 1)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
-        ├── ·636f2bd (⌂|1)
-        └── ·93b14a1 (⌂|1)
+        ├── ·636f2bd (⌂)
+        └── ·93b14a1 (⌂)
             └── ►:1[1]:A
-                └── ·9d083f9 (⌂|1)
+                └── ·9d083f9 (⌂)
                     ├── ►:3[3]:main
-                    │   └── 🏁·8dcf66f (⌂|1) ►tags/base
+                    │   └── 🏁·8dcf66f (⌂) ►tags/base
                     └── ►:2[2]:B
-                        └── ·8f04e4a (⌂|1)
+                        └── ·8f04e4a (⌂)
                             └── →:3: (main)
     ");
     let outcome = outcome.materialize()?;

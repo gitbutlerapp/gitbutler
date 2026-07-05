@@ -2,12 +2,11 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::graph_rebase::Direction;
 use anyhow::{Context, Result, bail};
 use but_core::{RefMetadata, commit::tree_expression::TreeExpression};
 use gix::prelude::ObjectIdExt;
 
-use crate::graph_rebase::{Editor, Pick, Step, StepGraphIndex, util::collect_ordered_parents};
+use crate::graph_rebase::{Editor, StepGraphIndex, util::collect_ordered_parents};
 
 /// A selected commit change range that should be merged into an accumulated
 /// tree.
@@ -244,10 +243,7 @@ fn traverse_graph_for_planning<M: RefMetadata>(
     let mut seen_normal = HashSet::<StepGraphIndex>::new();
     let mut seen_target_ancestor_walk = HashSet::<StepGraphIndex>::new();
 
-    let mut roots = editor
-        .graph
-        .externals(Direction::Incoming)
-        .collect::<Vec<StepGraphIndex>>();
+    let mut roots = editor.graph.tips().collect::<Vec<StepGraphIndex>>();
     roots.sort_unstable();
 
     for root in roots {
@@ -256,7 +252,7 @@ fn traverse_graph_for_planning<M: RefMetadata>(
             match mode {
                 TraversalMode::Normal => {
                     if expanded {
-                        if let Step::Pick(Pick { id, .. }) = editor.graph[node] {
+                        if let Some(id) = editor.graph.commit_id(node) {
                             if let Some(first_parent_metadata) =
                                 get_first_parent_metadata(editor, id, selected_commit_ids)?
                             {
@@ -297,7 +293,7 @@ fn traverse_graph_for_planning<M: RefMetadata>(
                         continue;
                     }
 
-                    if let Step::Pick(Pick { id, .. }) = editor.graph[node] {
+                    if let Some(id) = editor.graph.commit_id(node) {
                         traversal.target_ancestor_commit_ids.insert(id);
                     }
 

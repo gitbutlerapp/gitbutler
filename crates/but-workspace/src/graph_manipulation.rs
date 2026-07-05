@@ -244,15 +244,13 @@ pub(crate) fn selected_edges_from_set<M: RefMetadata>(
 ///
 /// `children` are the previously captured child edges that should point back to
 /// `delimiter.child`. If the child is already connected to `delimiter.child`, no
-/// new edge is added. Otherwise, the original edge order is reused when
-/// available, or the next free order is used when another parent already
-/// occupies it.
+/// new edge is added. Otherwise, the edge is inserted at the captured parent
+/// slot (clamped to the end), restoring the child's original parent order.
 ///
 /// `parents` are the previously captured parent edges that should be restored
-/// from `delimiter.parent`, with fresh order values appended after any existing
-/// parents already connected there. If a parent is already connected to
-/// `delimiter.parent`, no new edge is added. Otherwise, the appended order is
-/// reused when available, or advanced to the next free order on collision.
+/// from `delimiter.parent`, appended after any existing parents already
+/// connected there in their captured relative order. If a parent is already
+/// connected to `delimiter.parent`, no new edge is added.
 ///
 /// Returns `Ok(())` after the captured child and parent edges have been
 /// reattached to the rebuilt segment.
@@ -262,7 +260,7 @@ pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
     children: &[(Selector, usize)],
     parents: &[(Selector, usize)],
 ) -> Result<()> {
-    for (child, order) in children {
+    for (child, slot) in children {
         let direct_parents = editor.direct_parents(*child)?;
         if direct_parents
             .iter()
@@ -270,55 +268,23 @@ pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
         {
             continue;
         }
-        editor.add_edge(
-            *child,
-            delimiter.child,
-            next_available_order(direct_parents.iter().map(|(_, order)| *order), *order),
-        )?;
+        editor.insert_edge(*child, delimiter.child, *slot)?;
     }
 
-    let parent_order_offset = editor
-        .direct_parents(delimiter.parent)?
-        .into_iter()
-        .map(|(_, order)| order)
-        .max()
-        .map(|max| max + 1)
-        .unwrap_or(0);
-
-    for (parent, order) in parents {
+    let mut parents = parents.to_vec();
+    parents.sort_by_key(|(_, slot)| *slot);
+    for (parent, _) in parents {
         let direct_parents = editor.direct_parents(delimiter.parent)?;
         if direct_parents
             .iter()
-            .any(|(existing_parent, _)| *existing_parent == *parent)
+            .any(|(existing_parent, _)| *existing_parent == parent)
         {
             continue;
         }
-        let desired_order = parent_order_offset + *order;
-        editor.add_edge(
-            delimiter.parent,
-            *parent,
-            next_available_order(
-                direct_parents
-                    .iter()
-                    .map(|(_, existing_order)| *existing_order),
-                desired_order,
-            ),
-        )?;
+        editor.push_edge(delimiter.parent, parent)?;
     }
 
     Ok(())
-}
-
-fn next_available_order(
-    existing_orders: impl Iterator<Item = usize>,
-    desired_order: usize,
-) -> usize {
-    let used_orders = existing_orders.collect::<HashSet<_>>();
-    let mut order = desired_order;
-    while used_orders.contains(&order) {
-        order += 1;
-    }
-    order
 }
 
 /// Return a direct parent of `child` when `step` refers to a pick that is already connected.
@@ -356,8 +322,9 @@ pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
 
 /// Connect `child` to `parent_step`, reusing an existing pick node when possible.
 ///
-/// The new edge gets the smallest currently unused parent order on `child`, which keeps
-/// parent ordering stable while allowing callers to splice additional parents into a node.
+/// The new edge is inserted at parent slot 0: the rebuilt chain defines `child`'s
+/// first-parent lane, and any parents `child` kept (a merge's side parent, parents that
+/// survived a partial disconnect) shift after it.
 ///
 /// `editor` is the mutable graph editor that may reuse an existing pick or add a
 /// new step before creating the edge.
@@ -385,17 +352,7 @@ pub(crate) fn connect_parent_step<M: RefMetadata>(
         Step::None => bail!("BUG: trying to connect to none"),
     };
 
-    let used_orders = editor
-        .direct_parents(child)?
-        .into_iter()
-        .map(|(_, order)| order)
-        .collect::<HashSet<_>>();
-    let mut order = 0;
-    while used_orders.contains(&order) {
-        order += 1;
-    }
-
-    editor.add_edge(child, parent, order)?;
+    editor.insert_edge(child, parent, 0)?;
     Ok(parent)
 }
 

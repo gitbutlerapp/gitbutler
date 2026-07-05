@@ -24,7 +24,7 @@ use std::collections::HashMap;
 
 use crate::graph_rebase::positions::{self, legs_into_pick};
 use crate::graph_rebase::step_graph::{LaneCarry, RefPosition};
-use crate::graph_rebase::{Direction, StepGraph, StepGraphIndex};
+use crate::graph_rebase::{StepGraph, StepGraphIndex};
 
 /// A position in a commit's reference stack, named by intent.
 #[derive(Debug, Clone, Copy)]
@@ -55,7 +55,7 @@ pub(crate) enum StackSlot {
 pub(crate) fn place_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: StackSlot) {
     match slot {
         StackSlot::Above(target) => {
-            if graph.anchor_of(target).is_none() {
+            if graph.position_of(target).is_none() {
                 return;
             }
             // Same-lane members that sat directly on the target now sit on the
@@ -71,7 +71,7 @@ pub(crate) fn place_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: Stack
             graph.join_lane_of(node, target, Some(target));
         }
         StackSlot::Below(target) => {
-            let Some(stored) = graph.anchor_of(target) else {
+            let Some(stored) = graph.position_of(target) else {
                 return;
             };
             let below = stored.below;
@@ -82,7 +82,7 @@ pub(crate) fn place_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: Stack
             let approach = positions::legs_into_pick(graph, pick);
             // Members that sat on the pick itself now sit on the new bottom.
             let rehang: Vec<_> = graph
-                .anchored_refs()
+                .positioned_refs()
                 .filter(|(mate, stored)| {
                     *mate != node
                         && stored.below.is_none()
@@ -93,12 +93,12 @@ pub(crate) fn place_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: Stack
             for mate in rehang {
                 graph.set_below(mate, Some(node));
             }
-            graph.place_anchor(node, pick, &approach, approach.len() > 1, None);
+            graph.set_position(node, pick, &approach, approach.len() > 1, None);
         }
         StackSlot::LaneTop { pick, leg } => {
             let approach = vec![leg];
             let top = graph
-                .anchored_refs()
+                .positioned_refs()
                 .filter(|(mate, stored)| {
                     *mate != node
                         && positions::resolve_to_pick(graph, stored.anchor) == Some(pick)
@@ -106,10 +106,10 @@ pub(crate) fn place_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: Stack
                 })
                 .map(|(mate, _)| mate)
                 .max_by_key(|&mate| (positions::ref_depth(graph, mate), mate));
-            graph.place_anchor(node, pick, &approach, false, top);
+            graph.set_position(node, pick, &approach, false, top);
         }
         StackSlot::Root(pick) => {
-            graph.place_anchor(node, pick, &[], false, None);
+            graph.set_position(node, pick, &[], false, None);
         }
     }
 }
@@ -121,7 +121,7 @@ pub(crate) fn place_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: Stack
 /// anchor and merge into the slot's approach), and — when moving above another reference —
 /// the chain members now entered through the moved reference share the merged approach.
 pub(crate) fn move_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: StackSlot) {
-    let Some(moving) = graph.anchor_of(node) else {
+    let Some(moving) = graph.position_of(node) else {
         return;
     };
     let moving_approach = positions::ref_approach(graph, node);
@@ -141,7 +141,7 @@ pub(crate) fn move_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: StackS
     // through its stale pointer.
     let (anchor, mut approach, below) = match slot {
         StackSlot::Above(target) => {
-            let Some(t_stored) = graph.anchor_of(target) else {
+            let Some(t_stored) = graph.position_of(target) else {
                 return;
             };
             graph.set_below(node, Some(target));
@@ -161,7 +161,7 @@ pub(crate) fn move_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: StackS
             )
         }
         StackSlot::Below(target) => {
-            let Some(t_stored) = graph.anchor_of(target) else {
+            let Some(t_stored) = graph.position_of(target) else {
                 return;
             };
             graph.set_below(node, t_stored.below);
@@ -177,7 +177,7 @@ pub(crate) fn move_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: StackS
             // the mover. Only the moved reference's own legs approach it there.
             graph.set_below(node, None);
             let rehang: Vec<_> = graph
-                .anchored_refs()
+                .positioned_refs()
                 .filter(|(mate, stored)| {
                     *mate != node
                         && stored.below.is_none()
@@ -193,7 +193,7 @@ pub(crate) fn move_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: StackS
         StackSlot::LaneTop { pick, leg } => {
             let approach = vec![leg];
             let top = graph
-                .anchored_refs()
+                .positioned_refs()
                 .filter(|(mate, stored)| {
                     *mate != node
                         && positions::resolve_to_pick(graph, stored.anchor) == Some(pick)
@@ -215,26 +215,19 @@ pub(crate) fn move_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: StackS
     let old_anchor_pick = positions::resolve_to_pick(graph, moving.anchor);
     let new_anchor_pick = positions::resolve_to_pick(graph, anchor);
     if sole_carrier && let (Some(old_pick), Some(new_pick)) = (old_anchor_pick, new_anchor_pick) {
-        for (leg, leg_slot) in &moving_approach {
-            if old_pick != new_pick {
-                let moved: Vec<_> = graph
-                    .edges_directed(*leg, Direction::Outgoing)
-                    .filter(|e| e.target() == old_pick && e.weight().order == *leg_slot)
-                    .map(|e| (e.id(), e.weight().clone()))
-                    .collect();
-                for (id, weight) in moved {
-                    graph.move_edge(id, new_pick, weight);
-                }
+        for &(leg, leg_slot) in &moving_approach {
+            if old_pick != new_pick && graph.parents(leg).get(leg_slot) == Some(&old_pick) {
+                graph.replace_parent(leg, leg_slot, new_pick);
             }
-            if !approach.contains(&(*leg, *leg_slot)) {
-                approach.push((*leg, *leg_slot));
+            if !approach.contains(&(leg, leg_slot)) {
+                approach.push((leg, leg_slot));
             }
         }
         approach.sort();
         // Members below in the joined chain are now approached through the moved reference:
         // they share the merged entry set.
         if let StackSlot::Above(target) = slot
-            && graph.anchor_of(target).is_some()
+            && graph.position_of(target).is_some()
         {
             let t_depth = positions::ref_depth(graph, target);
             let mates: Vec<_> = positions::chain_members(graph, target)
@@ -242,11 +235,11 @@ pub(crate) fn move_ref(graph: &mut StepGraph, node: StepGraphIndex, slot: StackS
                 .filter(|(mate, _)| *mate != node && positions::ref_depth(graph, *mate) <= t_depth)
                 .collect();
             for (mate, m) in mates {
-                graph.place_anchor(mate, m.anchor, &approach, approach.len() > 1, m.below);
+                graph.set_position(mate, m.anchor, &approach, approach.len() > 1, m.below);
             }
         }
     }
-    graph.place_anchor(node, anchor, &approach, approach.len() > 1, below);
+    graph.set_position(node, anchor, &approach, approach.len() > 1, below);
 }
 
 /// Splice `node` out of its physical stack: members sitting directly on it re-hang onto
@@ -258,7 +251,7 @@ pub(crate) fn splice_out(
     onto: Option<StepGraphIndex>,
 ) {
     let dependents: Vec<_> = graph
-        .anchored_refs()
+        .positioned_refs()
         .filter(|(mate, stored)| *mate != node && stored.below == Some(node))
         .map(|(mate, _)| mate)
         .collect();
@@ -280,7 +273,7 @@ fn mate_below_depth(
     }
     let pick = positions::resolve_to_pick(graph, anchor)?;
     graph
-        .anchored_refs()
+        .positioned_refs()
         .filter(|(mate, stored)| {
             *mate != exclude
                 && positions::resolve_to_pick(graph, stored.anchor) == Some(pick)
@@ -296,7 +289,7 @@ fn mate_below_depth(
 /// become roots at the old anchor). An anchorless reference is placed as a fresh root; a
 /// reference already resolving there just refreshes its stored anchor.
 pub(crate) fn repoint_ref(graph: &mut StepGraph, node: StepGraphIndex, new_anchor: StepGraphIndex) {
-    let Some(stored) = graph.anchor_of(node) else {
+    let Some(stored) = graph.position_of(node) else {
         place_ref(graph, node, StackSlot::Root(new_anchor));
         return;
     };
@@ -305,14 +298,9 @@ pub(crate) fn repoint_ref(graph: &mut StepGraph, node: StepGraphIndex, new_ancho
             // Snapshot the reference's legs before moving their edges (the derived approach
             // tracks live edges), so it can be re-placed against `new_anchor`'s final legs.
             let approach = positions::ref_approach(graph, node);
-            for (leg, slot) in &approach {
-                let moved: Vec<_> = graph
-                    .edges_directed(*leg, Direction::Outgoing)
-                    .filter(|e| e.target() == old_anchor && e.weight().order == *slot)
-                    .map(|e| (e.id(), e.weight().clone()))
-                    .collect();
-                for (id, weight) in moved {
-                    graph.move_edge(id, new_anchor, weight);
+            for &(leg, slot) in &approach {
+                if graph.parents(leg).get(slot) == Some(&old_anchor) {
+                    graph.replace_parent(leg, slot, new_anchor);
                 }
             }
             // Its old below stays behind; at the destination the reference sits on whatever
@@ -329,7 +317,7 @@ pub(crate) fn repoint_ref(graph: &mut StepGraph, node: StepGraphIndex, new_ancho
                 let current = carried[i];
                 i += 1;
                 let dependents: Vec<_> = graph
-                    .anchored_refs()
+                    .positioned_refs()
                     .filter(|(mate, member)| {
                         member.below == Some(current)
                             && !carried.contains(mate)
@@ -344,17 +332,17 @@ pub(crate) fn repoint_ref(graph: &mut StepGraph, node: StepGraphIndex, new_ancho
                 .filter(|(mate, _)| *mate != node && !carried.contains(mate))
                 .collect();
             for (mate, member) in mates {
-                graph.place_anchor(mate, member.anchor, &[], false, member.below);
+                graph.set_position(mate, member.anchor, &[], false, member.below);
             }
             for &mate in &carried[1..] {
-                graph.rekey_anchor(mate, new_anchor);
+                graph.rekey_position(mate, new_anchor);
             }
             // The reference's legs moved with it; re-classify its lane against `new_anchor`'s
             // final legs (its old `Lane` slot may not exist there).
-            graph.place_anchor(node, new_anchor, &approach, stored.ambiguous, below);
+            graph.set_position(node, new_anchor, &approach, stored.ambiguous, below);
         }
         _ => {
-            graph.rekey_anchor(node, new_anchor);
+            graph.rekey_position(node, new_anchor);
         }
     }
 }
@@ -364,7 +352,7 @@ pub(crate) fn repoint_ref(graph: &mut StepGraph, node: StepGraphIndex, new_ancho
 /// `drop_legs` the pick edges that approached its position are removed outright; otherwise
 /// they stay on the anchor for a follow-up reconnect to rewire.
 pub(crate) fn unhook_ref(graph: &mut StepGraph, node: StepGraphIndex, drop_legs: bool) {
-    let Some(unhooked) = graph.anchor_of(node) else {
+    let Some(unhooked) = graph.position_of(node) else {
         return;
     };
     // The chain closes past the unhooked reference: mates that sat on it settle onto what it
@@ -378,18 +366,17 @@ pub(crate) fn unhook_ref(graph: &mut StepGraph, node: StepGraphIndex, drop_legs:
         graph.set_below(mate, unhooked.below);
     }
     if drop_legs && let Some(anchor) = positions::resolve_to_pick(graph, unhooked.anchor) {
-        for (leg, slot) in positions::ref_approach(graph, node) {
-            let removed: Vec<_> = graph
-                .edges_directed(leg, Direction::Outgoing)
-                .filter(|e| e.target() == anchor && e.weight().order == slot)
-                .map(|e| e.id())
-                .collect();
-            for id in removed {
-                graph.remove_edge(id);
+        let mut legs = positions::ref_approach(graph, node);
+        legs.sort_unstable();
+        // Descending slots per leg: a removal shifts only the slots above it, so every
+        // pending (leg, slot) name below stays exact.
+        for (leg, slot) in legs.into_iter().rev() {
+            if graph.parents(leg).get(slot) == Some(&anchor) {
+                graph.remove_parent(leg, slot);
             }
         }
     }
-    graph.place_anchor(node, unhooked.anchor, &[], false, unhooked.below);
+    graph.set_position(node, unhooked.anchor, &[], false, unhooked.below);
 }
 
 /// Move the stack slice led by `lead_ref` — it and its below-subtree in its lane on
@@ -402,7 +389,7 @@ pub(crate) fn transfer_stack(
     source_pick: StepGraphIndex,
     dest_anchor: StepGraphIndex,
 ) {
-    if graph.anchor_of(lead_ref).is_none() {
+    if graph.position_of(lead_ref).is_none() {
         return;
     }
     let lane = positions::ref_approach(graph, lead_ref);
@@ -412,7 +399,7 @@ pub(crate) fn transfer_stack(
         let current = moves[i];
         i += 1;
         let dependents: Vec<_> = graph
-            .anchored_refs()
+            .positioned_refs()
             .filter(|(node, stored)| {
                 stored.below == Some(current)
                     && !moves.contains(node)
@@ -424,14 +411,14 @@ pub(crate) fn transfer_stack(
         moves.extend(dependents);
     }
     for node in moves {
-        let Some(stored) = graph.anchor_of(node) else {
+        let Some(stored) = graph.position_of(node) else {
             continue;
         };
         let approach = positions::ref_approach(graph, node);
         // The lead lands at the bottom of the destination (its old below stays behind);
         // the rest of the slice keeps its internal stacking.
         let below = (node != lead_ref).then_some(stored.below).flatten();
-        graph.place_anchor(node, dest_anchor, &approach, stored.ambiguous, below);
+        graph.set_position(node, dest_anchor, &approach, stored.ambiguous, below);
     }
 }
 
@@ -447,7 +434,7 @@ pub(crate) fn carry_stack_above(
     dest_anchor: StepGraphIndex,
 ) {
     let moves: Vec<_> = graph
-        .anchored_refs()
+        .positioned_refs()
         .filter(|(node, stored)| {
             positions::resolve_to_pick(graph, stored.anchor) == Some(source_pick)
                 && positions::ref_approach(graph, *node) == lane
@@ -456,12 +443,12 @@ pub(crate) fn carry_stack_above(
         .map(|(node, _)| node)
         .collect();
     for &node in &moves {
-        graph.rekey_anchor(node, dest_anchor);
+        graph.rekey_position(node, dest_anchor);
     }
     // The slice bottom sat on the delimiter left behind; at the destination (depths carried
     // verbatim) it sits on whatever holds the depth below it there.
     for &node in &moves {
-        if let Some(stored) = graph.anchor_of(node)
+        if let Some(stored) = graph.position_of(node)
             && stored.below.is_some_and(|b| !moves.contains(&b))
         {
             let mate =
@@ -481,12 +468,12 @@ pub(crate) fn land_stack_above(
     top: StepGraphIndex,
     bridge_anchor: StepGraphIndex,
 ) -> bool {
-    let Some(top_stored) = graph.anchor_of(top) else {
+    let Some(top_stored) = graph.position_of(top) else {
         return false;
     };
     let bridge = positions::legs_into_pick(graph, bridge_anchor);
     let top_depth = positions::ref_depth(graph, top);
-    graph.place_anchor(
+    graph.set_position(
         top,
         top_stored.anchor,
         &bridge,
@@ -495,7 +482,7 @@ pub(crate) fn land_stack_above(
     );
 
     let moves: Vec<_> = graph
-        .anchored_refs()
+        .positioned_refs()
         .filter(|(_, stored)| positions::resolve_to_pick(graph, stored.anchor) == Some(source_pick))
         .map(|(node, stored)| (node, positions::ref_depth(graph, node), stored.below))
         .collect();
@@ -505,7 +492,7 @@ pub(crate) fn land_stack_above(
         // itself when it lives on the bridge anchor, its stand-in there otherwise.
         let below =
             below.or_else(|| mate_below_depth(graph, node, bridge_anchor, depth + top_depth + 1));
-        graph.place_anchor(node, bridge_anchor, &bridge, bridge.len() > 1, below);
+        graph.set_position(node, bridge_anchor, &bridge, bridge.len() > 1, below);
     }
     true
 }
@@ -515,11 +502,11 @@ pub(crate) fn land_stack_above(
 /// follows where the commit's place went, the approach stays.
 pub(crate) fn readopt_dangling_refs(graph: &mut StepGraph, new_anchor: StepGraphIndex) {
     let dangling: Vec<_> = graph
-        .anchored_refs()
+        .positioned_refs()
         .filter(|(_, stored)| positions::resolve_to_pick(graph, stored.anchor).is_none())
         .collect();
     for (node, _) in dangling {
-        graph.rekey_anchor(node, new_anchor);
+        graph.rekey_position(node, new_anchor);
     }
 }
 
@@ -551,7 +538,7 @@ pub(crate) fn split_chain(
     boundary: SplitBoundary,
     upper_anchor: StepGraphIndex,
 ) -> ChainSplit {
-    if graph.anchor_of(at_ref).is_none() {
+    if graph.position_of(at_ref).is_none() {
         return ChainSplit {
             lower: Vec::new(),
             moved_any: false,
@@ -579,7 +566,7 @@ pub(crate) fn split_chain(
     let mut boundary_below = None;
     for (node, member) in members {
         if moved.contains(&node) {
-            graph.rekey_anchor(node, upper_anchor);
+            graph.rekey_position(node, upper_anchor);
             if member.below.is_none_or(|b| !moved.contains(&b)) {
                 // The boundary member lands at the bottom of the upper anchor; its old
                 // below stays on the lower side of the split.
@@ -594,7 +581,7 @@ pub(crate) fn split_chain(
     // remote above the moved tip) settle onto what the slice sat on: they and everything on
     // top of them close the gap by construction.
     let stranded: Vec<_> = graph
-        .anchored_refs()
+        .positioned_refs()
         .filter(|(node, s)| !moved.contains(node) && s.below.is_some_and(|b| moved.contains(&b)))
         .map(|(node, _)| node)
         .collect();
@@ -615,7 +602,7 @@ pub(crate) fn settle_chain_lower(
     leg: (StepGraphIndex, usize),
 ) {
     for (node, member) in lower {
-        graph.place_anchor(*node, member.anchor, &[leg], false, member.below);
+        graph.set_position(*node, member.anchor, &[leg], false, member.below);
     }
 }
 
@@ -645,7 +632,7 @@ fn extract(graph: &StepGraph, notes: &mut Vec<String>) -> Arrangement {
         if let Some(previous) = seen_names.insert(refname.clone(), node) {
             notes.push(format!("DUPNAME {refname:?} nodes {previous} and {node}"));
         }
-        let Some(stored) = graph.anchor_of(node) else {
+        let Some(stored) = graph.position_of(node) else {
             continue; // no stored anchor: unborn, exempt like the standing assert
         };
         let Some(anchor) = positions::resolve_to_pick(graph, stored.anchor) else {
@@ -789,7 +776,7 @@ fn census(graph: &StepGraph) -> Vec<String> {
     }
     let derived = derive(graph, &arrangement, &mut notes);
     for (node, refname, _) in graph.references() {
-        let Some(stored) = graph.anchor_of(node) else {
+        let Some(stored) = graph.position_of(node) else {
             continue;
         };
         let Some(anchor) = positions::resolve_to_pick(graph, stored.anchor) else {

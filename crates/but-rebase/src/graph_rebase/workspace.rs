@@ -6,7 +6,6 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::graph_rebase::Direction;
 use crate::graph_rebase::positions;
 use anyhow::Result;
 use but_core::{
@@ -135,20 +134,10 @@ struct NodeSet {
 }
 
 impl NodeSet {
-    /// Convert into a [`Subgraph`] by pointing every index at `revision` - the
-    /// editor revision the node set was traversed against.
-    fn into_subgraph(self, revision: usize) -> Subgraph {
+    fn into_subgraph(self) -> Subgraph {
         Subgraph {
-            heads: self
-                .heads
-                .into_iter()
-                .map(|id| Selector { id, revision })
-                .collect(),
-            nodes: self
-                .nodes
-                .into_iter()
-                .map(|id| Selector { id, revision })
-                .collect(),
+            heads: self.heads.into_iter().map(|id| Selector { id }).collect(),
+            nodes: self.nodes.into_iter().map(|id| Selector { id }).collect(),
         }
     }
 }
@@ -193,7 +182,6 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             .is_some_and(|(refname, _)| *refname == ws_ref);
 
         let target_ix = self.target_selector().map(|s| s.id);
-        let revision = self.history.current_revision();
 
         // The entrypoint is a reference: the region floods from the pick it resolves to
         // (references carry no edges).
@@ -210,10 +198,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
             // The workspace commit, if present, lives somewhere in `HEAD ^target`.
             let workspace_commit = head_not_target_commit.nodes.iter().copied().find_map(|ix| {
-                let Step::Pick(Pick { id, .. }) = &self.graph[ix] else {
-                    return None;
-                };
-                let gix_commit = self.repo.find_commit(*id).ok()?;
+                let id = self.graph.commit_id(ix)?;
+                let gix_commit = self.repo.find_commit(id).ok()?;
                 is_managed_workspace_by_message(gix_commit.message_raw().ok()?).then_some(ix)
             });
 
@@ -225,12 +211,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 );
 
                 Ok(GraphWorkspace {
-                    above_workspace: above_workspace.into_subgraph(revision),
+                    above_workspace: above_workspace.into_subgraph(),
                     workspace_commit: Some(self.new_selector(workspace_commit_ix)),
-                    stacks: stacks
-                        .into_iter()
-                        .map(|s| s.into_subgraph(revision))
-                        .collect(),
+                    stacks: stacks.into_iter().map(|s| s.into_subgraph()).collect(),
                     reference_status: HashMap::new(),
                     commit_state: HashMap::new(),
                 })
@@ -241,7 +224,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     Some(entrypoint_ix),
                 );
                 Ok(GraphWorkspace {
-                    above_workspace: head_not_target_commit.into_subgraph(revision),
+                    above_workspace: head_not_target_commit.into_subgraph(),
                     workspace_commit: None,
                     stacks: vec![],
                     reference_status: HashMap::new(),
@@ -263,7 +246,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             Ok(GraphWorkspace {
                 above_workspace: Subgraph::empty(),
                 workspace_commit: None,
-                stacks: vec![stack.into_subgraph(revision)],
+                stacks: vec![stack.into_subgraph()],
                 reference_status: HashMap::new(),
                 commit_state: HashMap::new(),
             })
@@ -273,20 +256,14 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// The entrypoint (`HEAD`) reference node, or `None` if HEAD isn't on a ref.
     fn head_index(&self) -> Option<StepGraphIndex> {
         self.checkouts
-            .iter()
-            .find_map(|Checkout::Head { selector, .. }| {
-                self.history
-                    .normalize_selector(*selector)
-                    .ok()
-                    .map(|s| s.id)
-            })
+            .first()
+            .map(|Checkout::Head { selector, .. }| selector.id)
     }
 
     /// The target commit's node, if a target is configured and present.
     fn target_selector(&self) -> Option<Selector> {
         let target = self.workspace.graph.project_meta.target_commit_id?;
-        let selector = self.try_select_commit(target)?;
-        self.history.normalize_selector(selector).ok()
+        self.try_select_commit(target)
     }
 
     /// Compute the per-reference status for every local-branch reference in the
@@ -681,19 +658,21 @@ fn divide_workspace_into_stacks(
     // Each parent of the workspace commit seeds a stack, flooded pick-to-pick: every outgoing
     // edge resolves through reference/tombstone steps to the pick beneath.
     let mut initial_stacks = graph
-        .edges_directed(workspace_commit_ix, Direction::Outgoing)
-        .map(|edge| {
+        .parents(workspace_commit_ix)
+        .iter()
+        .copied()
+        .map(|head| {
             let mut nodes = std::collections::HashSet::new();
             let mut tips = Vec::new();
-            if let Some(pick) = positions::resolve_to_pick(graph, edge.target())
+            if let Some(pick) = positions::resolve_to_pick(graph, head)
                 && head_not_target.nodes.contains(&pick)
             {
                 nodes.insert(pick);
                 tips.push(pick);
             }
             while let Some(tip) = tips.pop() {
-                for edge in graph.edges_directed(tip, Direction::Outgoing) {
-                    let Some(pick) = positions::resolve_to_pick(graph, edge.target()) else {
+                for parent in graph.parents(tip) {
+                    let Some(pick) = positions::resolve_to_pick(graph, parent) else {
                         continue;
                     };
                     if !head_not_target.nodes.contains(&pick) {
@@ -705,14 +684,17 @@ fn divide_workspace_into_stacks(
                 }
             }
             NodeSet {
-                heads: vec![edge.target()],
+                heads: vec![head],
                 nodes,
             }
         })
         .collect::<Vec<_>>();
 
-    // Merge stacks that share any pick (they aren't actually distinct).
+    // Merge stacks that share any pick (they aren't actually distinct). The pop-loop takes
+    // from the back, so reverse first: stacks come out in the workspace commit's slot order,
+    // first parent first.
     let mut deduplicated = vec![];
+    initial_stacks.reverse();
     while let Some(mut out) = initial_stacks.pop() {
         for bix in (0..initial_stacks.len()).rev() {
             #[expect(clippy::indexing_slicing)]
@@ -734,7 +716,7 @@ fn divide_workspace_into_stacks(
     // anchor's stack — the workspace commit itself is in none), else the anchor pick's stack.
     // References belonging to neither (e.g. the target's own ref above the excluded target
     // commit) stay outside every stack.
-    for (node, stored) in graph.anchored_refs() {
+    for (node, stored) in graph.positioned_refs() {
         let anchor = positions::resolve_to_pick(graph, stored.anchor);
         let approach = positions::ref_approach(graph, node);
         let by_anchor = |a: Option<StepGraphIndex>| {
@@ -814,7 +796,7 @@ fn attach_flooded_refs(
     entry: Option<StepGraphIndex>,
 ) {
     let mut additions: Vec<StepGraphIndex> = graph
-        .anchored_refs()
+        .positioned_refs()
         .filter_map(|(node, _stored)| {
             // A chain any in-region leg approaches was flooded through before the walk
             // stopped at a boundary — membership is broader than lane assignment, which
@@ -829,12 +811,12 @@ fn attach_flooded_refs(
         })
         .collect();
     if let Some(entry) = entry
-        && let Some(entry_stored) = graph.anchor_of(entry)
+        && let Some(entry_stored) = graph.position_of(entry)
     {
         additions.push(entry);
         let entry_approach = positions::ref_approach(graph, entry);
         let entry_depth = positions::ref_depth(graph, entry);
-        additions.extend(graph.anchored_refs().filter_map(|(node, stored)| {
+        additions.extend(graph.positioned_refs().filter_map(|(node, stored)| {
             (stored.anchor == entry_stored.anchor
                 && positions::ref_approach(graph, node) == entry_approach
                 && positions::ref_depth(graph, node) < entry_depth)

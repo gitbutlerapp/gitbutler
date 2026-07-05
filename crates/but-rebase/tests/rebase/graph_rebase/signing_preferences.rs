@@ -41,13 +41,13 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:main[🌳]
-        └── ·dd72792 (⌂|1) ►c
+        └── ·dd72792 (⌂) ►c
             └── ►:1[1]:b
-                └── ·e5aa7b5 (⌂|1)
+                └── ·e5aa7b5 (⌂)
                     └── ►:2[2]:a
-                        └── ·3bfeb52 (⌂|1)
+                        └── ·3bfeb52 (⌂)
                             └── ►:3[3]:base
-                                └── 🏁·b6e2f57 (⌂|1)
+                                └── 🏁·b6e2f57 (⌂)
     ");
     let outcome = outcome.materialize()?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
@@ -88,10 +88,10 @@ fn commits_are_signed_by_default() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:main[🌳]
-        ├── ·06106c2 (⌂|1) ►c
-        └── ·3bfeb52 (⌂|1) ►a, ►b
+        ├── ·06106c2 (⌂) ►c
+        └── ·3bfeb52 (⌂) ►a, ►b
             └── ►:1[1]:base
-                └── 🏁·b6e2f57 (⌂|1)
+                └── 🏁·b6e2f57 (⌂)
     ");
     let outcome = outcome.materialize()?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
@@ -168,10 +168,10 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:main[🌳]
-        ├── ·a773b84 (⌂|1) ►c
-        └── ·3bfeb52 (⌂|1) ►a, ►b
+        ├── ·a773b84 (⌂) ►c
+        └── ·3bfeb52 (⌂) ►a, ►b
             └── ►:1[1]:base
-                └── 🏁·b6e2f57 (⌂|1)
+                └── 🏁·b6e2f57 (⌂)
     ");
     let outcome = outcome.materialize()?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());

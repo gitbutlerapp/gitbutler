@@ -550,7 +550,7 @@ where
                 | None => {
                     let target = editor.select_commit(target_id)?;
                     let reference = editor.add_step(reference)?;
-                    editor.add_edge(reference, target, 0)?;
+                    editor.insert_edge(reference, target, 0)?;
                 }
             }
             Ok(((), editor.rebase()?))

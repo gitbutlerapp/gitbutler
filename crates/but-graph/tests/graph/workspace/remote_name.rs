@@ -68,7 +68,7 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
 
     ├── 👉📕►►►:1[0]:gitbutler/workspace[🌳]
     │   └── ►:0[1]:main <> origin/main →:2:
-    │       └── ✂·bce0c5e (⌂|🏘|✓|1) ►A, ►B
+    │       └── ✂·bce0c5e (⌂|🏘|✓) ►A, ►B
     └── ►:2[0]:origin/main →:0:
         └── →:0: (main →:2:)
     ");

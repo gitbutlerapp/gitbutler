@@ -16,13 +16,14 @@
 
 mod arrangement;
 mod creation;
+mod placements;
 mod positions;
 pub mod rebase;
 mod step_graph;
 pub mod traverse;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
@@ -175,21 +176,10 @@ impl Step {
     }
 }
 
-/// A parent link from a child pick to one of its parents.
-#[derive(Debug, Clone)]
-pub(crate) struct Edge {
-    /// This parent's slot in the child commit's parent list (0 = first parent).
-    ///
-    /// A child's outgoing edges must all have distinct orders; the order is what the rebase
-    /// writes out as the commit's parent ordering, so a merge's first/second parent is preserved.
-    order: usize,
-}
-
-pub(crate) use step_graph::{Direction, StepGraph, StepGraphIndex};
+pub(crate) use step_graph::{StepGraph, StepGraphIndex};
 
 /// Convert a structure to a selector for a particular editor.
 ///
-/// `ToSelector` does _not_ normalize a selector.
 pub trait ToSelector {
     /// Converts a given object into a selector. Calling `to_selector` on an
     /// object asserts that the reciever was a object that is selectable in the
@@ -215,39 +205,34 @@ pub trait ToReferenceSelector {
 
 /// Points to a step in the rebase editor.
 ///
-/// Hash, PartialEq, and Eq are implemented for this struct. Because selectors
-/// are a pointer to a node in a particular version of the Editor's internal
-/// representation, it means that you can have two selectors that when
-/// normalised point to the same node. If you want to ensure you have just one
-/// selector to a given node, make sure you are working with selectors all
-/// normalised to the latest revision of the Editor.
+/// Step indices are stable across mutation and rebase — a selector taken at
+/// any point remains valid for the lifetime of the editor. Deleted steps
+/// become tombstones ([`Step::None`]) rather than being removed, so a selector
+/// never dangles, though it may point at a tombstone.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Selector {
     id: StepGraphIndex,
-    revision: usize,
 }
 
 impl ToCommitSelector for Selector {
     fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
-        let selector = editor.history.normalize_selector(*self)?;
-        let step = editor.graph.step_view(selector.id);
+        let step = editor.graph.step_view(self.id);
         if !matches!(step, Step::Pick(_)) {
             bail!("Expected selector for {step:?} to refer to a commit");
         }
 
-        Ok(selector)
+        Ok(*self)
     }
 }
 
 impl ToReferenceSelector for Selector {
     fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
-        let selector = editor.history.normalize_selector(*self)?;
-        if !editor.graph.is_reference(selector.id) {
-            let step = editor.graph.step_view(selector.id);
+        if !editor.graph.is_reference(self.id) {
+            let step = editor.graph.step_view(self.id);
             bail!("Expected selector for {step:?} to refer to a reference");
         }
 
-        Ok(selector)
+        Ok(*self)
     }
 }
 
@@ -363,27 +348,21 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             .checkouts
             .iter()
             .filter_map(|checkout| match checkout {
-                Checkout::Head { selector, .. } => {
-                    let selector = self.history.normalize_selector(*selector).ok()?;
-
-                    match self.graph.step_view(selector.id) {
-                        Step::None => None,
-                        Step::Pick(Pick { id, .. }) => Some((id, None)),
-                        Step::Reference { refname, .. } => {
-                            if let Some(to_reference) =
-                                crate::graph_rebase::positions::resolve_to_pick(
-                                    &self.graph,
-                                    selector.id,
-                                )
-                                && let Step::Pick(Pick { id, .. }) = self.graph[to_reference]
-                            {
-                                Some((id, Some(refname)))
-                            } else {
-                                None
-                            }
+                Checkout::Head { selector, .. } => match self.graph.step_view(selector.id) {
+                    Step::None => None,
+                    Step::Pick(Pick { id, .. }) => Some((id, None)),
+                    Step::Reference { refname, .. } => {
+                        if let Some(to_reference) = crate::graph_rebase::positions::resolve_to_pick(
+                            &self.graph,
+                            selector.id,
+                        ) && let Some(id) = self.graph.commit_id(to_reference)
+                        {
+                            Some((id, Some(refname)))
+                        } else {
+                            None
                         }
                     }
-                }
+                },
             })
             .next()
         else {
@@ -439,39 +418,25 @@ pub trait LookupStep {
 
 impl<M: RefMetadata> LookupStep for Editor<'_, '_, M> {
     fn lookup_step(&self, selector: Selector) -> Result<Step> {
-        lookup_step(&self.graph, &self.history, selector)
+        Ok(self.graph.step_view(selector.id))
     }
 }
 
 impl<M: RefMetadata> LookupStep for SuccessfulRebase<'_, '_, M> {
     fn lookup_step(&self, selector: Selector) -> Result<Step> {
-        lookup_step(&self.graph, &self.history, selector)
+        Ok(self.graph.step_view(selector.id))
     }
 }
 
 impl<M: RefMetadata> LookupStep for MaterializeOutcome<'_, '_, M> {
     fn lookup_step(&self, selector: Selector) -> Result<Step> {
-        lookup_step(&self.graph, &self.history, selector)
+        Ok(self.graph.step_view(selector.id))
     }
 }
 
-fn lookup_step(graph: &StepGraph, history: &RevisionHistory, selector: Selector) -> Result<Step> {
-    let normalized = history.normalize_selector(selector)?;
-    Ok(graph.step_view(normalized.id))
-}
-
-/// How node ids and commit ids moved as the editor transformed the graph.
-///
-/// Some operations rebuild the graph and renumber its nodes, advancing the editor to a new
-/// REVISION. A [`Selector`] remembers the revision it was minted in, so before it can index the
-/// current graph it must be brought forward with `normalize_selector` — that is what `mappings`
-/// is for.
+/// How commit ids moved as the editor transformed the graph.
 #[derive(Debug, Clone, Default)]
 pub struct RevisionHistory {
-    /// One entry per revision transition: `mappings[r]` maps a node id at revision `r` to its id
-    /// at revision `r + 1`. `mappings.len()` is the current revision. `normalize_selector` walks a
-    /// selector's id forward through these until it reaches the current revision.
-    mappings: Vec<HashMap<StepGraphIndex, StepGraphIndex>>,
     /// A mapping from any commits that were in the original mapping to a
     /// rewritten version.
     ///
@@ -482,20 +447,13 @@ pub struct RevisionHistory {
 
 impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
     pub(crate) fn new_selector(&self, id: StepGraphIndex) -> Selector {
-        Selector {
-            id,
-            revision: self.history.current_revision(),
-        }
+        Selector { id }
     }
 }
 
 impl RevisionHistory {
     pub(crate) fn new() -> Self {
         Default::default()
-    }
-
-    pub(crate) fn current_revision(&self) -> usize {
-        self.mappings.len()
     }
 
     /// The commit mappings starts empty, and gets updated when we perform a cherry pick.
@@ -517,20 +475,6 @@ impl RevisionHistory {
             .iter()
             .filter_map(|(k, v)| if k == v { None } else { Some((*v, *k)) })
             .collect()
-    }
-
-    pub(crate) fn normalize_selector(&self, mut selector: Selector) -> Result<Selector> {
-        while selector.revision < self.current_revision() {
-            selector.id = *self.mappings[selector.revision]
-                .get(&selector.id)
-                .context("Failed to normalize selector, selector was missing from the mapping")?;
-            selector.revision += 1;
-        }
-        Ok(selector)
-    }
-
-    pub(crate) fn add_revision(&mut self, mapping: HashMap<StepGraphIndex, StepGraphIndex>) {
-        self.mappings.push(mapping);
     }
 }
 

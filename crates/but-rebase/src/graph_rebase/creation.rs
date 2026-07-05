@@ -1,13 +1,11 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use crate::graph_rebase::Direction;
-use anyhow::{Result, bail};
+use anyhow::{Context as _, Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
-use but_graph::{Commit, SegmentIndex};
 
 use crate::graph_rebase::{
-    Checkout, Edge, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
-    SuccessfulRebase, util,
+    Checkout, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
+    SuccessfulRebase, placements,
 };
 
 #[derive(Clone)]
@@ -51,288 +49,140 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         repo: &gix::Repository,
         options: &GraphEditorOptions,
     ) -> Result<Self> {
-        // This first creates runs of nodes and associates them with the
-        // but-graph segments. We then do a second pass over all the segments
-        // and use the but_graph to connect up the runs. Finally, we validate
-        // that each Pick step's parents match the commit's actual parents,
-        // and if not, we disconnect and rewire directly to the correct
-        // parent commits.
-
-        // TODO(CTO): Look into traversing "in workspace" segments that are not
-        // reachable from the entrypoint TODO(CTO): Look into stopping at the
-        // common base
-        let entrypoint = workspace.graph.entrypoint()?;
-
-        let mut mutable_entrypoints = vec![entrypoint.segment.id];
-
-        for ref_name in &options.extra_mutable_refs {
-            let Some((segment, _)) = workspace
-                .graph
-                .segment_and_commit_by_ref_name(ref_name.as_ref())
-            else {
-                bail!("Failed to find corresponding segment for {ref_name}");
-            };
-            mutable_entrypoints.push(segment.id);
-        }
-
-        // Segments reachable from a mutable entrypoint (following parent edges)
-        // may be rewritten. Every other segment is still included in the
-        // editor, but as immutable.
-        let mut mutable_segments = HashSet::new();
-        for entrypoint in mutable_entrypoints {
-            workspace.graph.visit_all_segments_including_start_until(
-                entrypoint,
-                but_graph::Direction::Outgoing,
-                |segment| !mutable_segments.insert(segment.id),
-            );
-        }
-
-        // The editor contains every commit the graph contains, so we iterate
-        // over all segments rather than only those reachable from an entrypoint.
-        let segments_to_add = workspace.graph.segments().collect::<Vec<_>>();
-
-        let workspace_commit_id = workspace
-            .graph
-            .managed_entrypoint_commit(repo)?
-            .map(|c| c.id);
-
-        let mut commits: Vec<Commit> = vec![];
-        let mut commit_to_idx = HashMap::<gix::ObjectId, SegmentIndex>::new();
-        let mut commit_to_pick_ix = HashMap::<gix::ObjectId, StepGraphIndex>::new();
-        let mut graph = StepGraph::new();
-        let mut head_selectors = vec![];
-        let mut references = vec![];
-        struct NodeSegment {
-            nodes: Vec<StepGraphIndex>,
-        }
-
-        let mut segments = HashMap::<SegmentIndex, NodeSegment>::new();
-
-        for sid in segments_to_add {
-            let segment = &workspace.graph[sid];
-            let mutable = mutable_segments.contains(&sid);
-            let mut nodes = vec![];
-
-            if let Some(reference) = segment.ref_name() {
-                let refname = reference.to_owned();
-                // Only mutable references are tracked for potential deletion.
-                if mutable {
-                    references.push(refname.clone());
-                }
-                let ix = graph.add_reference(refname.clone(), mutable);
-                if Some(reference) == entrypoint.segment.ref_name() {
-                    head_selectors.push(Selector {
-                        id: ix,
-                        revision: 0,
-                    });
-                }
-                nodes.push(ix);
-            }
-
-            for commit in &segment.commits {
-                commits.push(commit.clone());
-                commit_to_idx.insert(commit.id, segment.id);
-
-                let refs = commit
-                    .refs
-                    .iter()
-                    .map(|r| r.ref_name.clone())
-                    .collect::<Vec<_>>();
-
-                for reference in refs {
-                    if mutable {
-                        references.push(reference.to_owned());
-                    }
-                    let ix = graph.add_reference(reference.clone(), mutable);
-                    if let Some(previous_ix) = nodes.last() {
-                        graph.add_edge(*previous_ix, ix, Edge { order: 0 });
-                    }
-                    nodes.push(ix);
-                }
-
-                let mut pick = if workspace_commit_id == Some(commit.id) {
-                    Pick::new_workspace_pick(commit.id)
-                } else {
-                    let mut pick = Pick::new_pick(commit.id);
-                    pick.sign_commit = options.default_sign_commit;
-                    pick
-                };
-                pick.mutable = mutable;
-                let ix = graph.add_node(Step::Pick(pick));
-                commit_to_pick_ix.insert(commit.id, ix);
-                if let Some(previous_ix) = nodes.last() {
-                    graph.add_edge(*previous_ix, ix, Edge { order: 0 });
-                }
-                nodes.push(ix);
-            }
-
-            if nodes.is_empty() {
-                tracing::debug!("Empty node added - this is probably impossible");
-                let ix = graph.add_node(Step::None);
-                nodes.push(ix);
-            }
-
-            segments.insert(segment.id, NodeSegment { nodes });
-        }
-
-        let commit_ids = commits.iter().map(|c| c.id).collect::<HashSet<_>>();
-
-        for c in &commits {
-            let has_no_parents = c.parent_ids.is_empty();
-            let missing_parent_steps = c.parent_ids.iter().any(|p| !commit_ids.contains(p));
-
-            // If the commit has parents, but at least one of them is not
-            // in the graph, this means but-graph did a partial traversal
-            // and we want to preserve the commit as it is.
-            if !has_no_parents && missing_parent_steps {
-                let Some(idx) = commit_to_pick_ix.get(&c.id) else {
-                    bail!("BUG: Listed commit does not have corresponding idx.");
-                };
-
-                let Step::Pick(pick) = &mut graph[*idx] else {
-                    bail!("BUG: Listed commit does not have corresponding pick step.");
-                };
-
-                pick.preserved_parents = Some(c.parent_ids.clone());
-            };
-        }
-
-        // Rebase edge order = the destination's position in the source commit's parent list.
-        let parents_by_commit: HashMap<gix::ObjectId, &[gix::ObjectId]> = commits
-            .iter()
-            .map(|c| (c.id, c.parent_ids.as_slice()))
-            .collect();
-
-        for sidx in segments.keys() {
-            let Some(source) = segments.get(sidx).and_then(|n| n.nodes.last()) else {
-                continue;
-            };
-
-            // but-graph yields outgoing edges in parent order, so iterate as-is. The counter below
-            // gives commit-less empty branches distinct, increasing orders — so the StepGraph never
-            // has tied parent orders and needs no insertion-order tie-break.
-            let edges = workspace
-                .graph
-                .edges_directed(*sidx, but_graph::Direction::Outgoing);
-            let mut empty_branch_count = 0usize;
-            'inner: for edge in edges {
-                let Some(target) = segments.get(&edge.target()).and_then(|n| n.nodes.first())
-                else {
-                    tracing::warn!(
-                        "Dropping parent edge for segment {sidx:?}: edge target {:?} has no nodes",
-                        edge.target()
-                    );
-                    continue 'inner;
-                };
-
-                // A real parent gets its index in the source commit's parent array. A dst with no
-                // commit id (a commit-less empty branch) can't be indexed, so it's placed after the
-                // real parents — and each one bumps the counter so siblings get distinct orders.
-                let parents = edge
-                    .weight()
-                    .src_id()
-                    .and_then(|src| parents_by_commit.get(&src).copied());
-                let real_parent_index = parents
-                    .zip(edge.weight().dst_id())
-                    .and_then(|(parents, dst)| parents.iter().position(|p| *p == dst));
-                let order = match real_parent_index {
-                    Some(idx) => idx,
-                    None => {
-                        let o = parents.map_or(0, |p| p.len()) + empty_branch_count;
-                        empty_branch_count += 1;
-                        o
-                    }
-                };
-                graph.add_edge(*source, *target, Edge { order });
-            }
-        }
-
-        for c in &commits {
-            if Some(c.id) == workspace_commit_id {
-                continue;
-            }
-
-            let Some(&pick_ix) = commit_to_pick_ix.get(&c.id) else {
-                continue;
-            };
-
-            // Skip commits with preserved parents (partial traversal — already handled above)
-            if let Step::Pick(Pick {
-                preserved_parents: Some(_),
-                ..
-            }) = &graph[pick_ix]
-            {
-                continue;
-            }
-
-            // Resolve what the graph thinks are the parents of this pick
-            let graph_parents = util::collect_ordered_parents(&graph, pick_ix);
-            let graph_parent_ids: Vec<gix::ObjectId> = graph_parents
-                .iter()
-                .filter_map(|idx| match &graph[*idx] {
-                    Step::Pick(Pick { id, .. }) => Some(*id),
-                    _ => None,
-                })
-                .collect();
-
-            if graph_parent_ids == c.parent_ids {
-                continue;
-            }
-
-            tracing::warn!(
-                "but-graph inconsistent with the commit graph.\nParents for commit {} do not match.\n\nFound:{:?}\nExpected:{:?}\n\nThese IDs may be in memory, but may be helpful for debugging.",
-                c.id,
-                graph_parent_ids
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<_>>(),
-                c.parent_ids
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<_>>(),
-            );
-
-            let outgoing_edge_ids: Vec<_> = graph
-                .edges_directed(pick_ix, Direction::Outgoing)
-                .map(|e| e.id())
-                .collect();
-            for edge_id in outgoing_edge_ids {
-                graph.remove_edge(edge_id);
-            }
-
-            'inner: for (order, parent_id) in c.parent_ids.iter().enumerate() {
-                let Some(&target_ix) = commit_to_pick_ix.get(parent_id) else {
-                    tracing::warn!(
-                        "Dropping parent edge for commit {} (parent fix): parent {parent_id} not found in pick map",
-                        c.id
-                    );
-                    continue 'inner;
-                };
-
-                graph.add_edge(pick_ix, target_ix, Edge { order });
-            }
-        }
-
-        crate::graph_rebase::positions::initialize_anchors_and_strip_ref_edges(&mut graph);
-        crate::graph_rebase::positions::debug_assert_positions_total(&graph);
+        // The editor graph is built NATIVELY: the ref-placement ledger derives from the
+        // segment graph and create_native builds picks straight from the carried CommitGraph.
+        let ledger = placements::derive(workspace, repo, options)?;
+        let (graph, references, checkouts) = create_native(workspace, repo, options, &ledger)?;
         Ok(Self {
             graph,
             initial_references: references,
-            // TODO(CTO): We need to eventually list all worktrees that we own
-            // here so we can `safe_checkout` them too.
-            checkouts: head_selectors
-                .into_iter()
-                .map(|selector| Checkout::Head {
-                    selector,
-                    merge_base_override: None,
-                })
-                .collect(),
+            checkouts,
             repo: repo.clone().with_object_memory(),
             history: RevisionHistory::new(),
             workspace,
             meta,
         })
     }
+}
+
+/// Build the editor graph by ADOPTION: the carried [`but_graph::CommitGraph`] is cloned
+/// wholesale into the arena — full commit payloads (flags, refs, generation) survive, which
+/// the write-through put-back depends on — then normalized to editor shape (every parent
+/// slot present, the ws commit on its ledger lane slots) and dressed with pick settings and
+/// the ledger's reference positions.
+fn create_native(
+    workspace: &but_graph::Workspace,
+    repo: &gix::Repository,
+    options: &GraphEditorOptions,
+    ledger: &placements::RefPlacements,
+) -> Result<(StepGraph, Vec<gix::refs::FullName>, Vec<Checkout>)> {
+    let Some(cg) = workspace.graph.commit_graph() else {
+        bail!("native creation requires the graph to carry its CommitGraph");
+    };
+    let workspace_commit_id = workspace
+        .graph
+        .managed_entrypoint_commit(repo)?
+        .map(|c| c.id);
+    // A parent outside the graph means the traversal was partial here: the editor's slots
+    // must all be present, so those slots are dropped — the raw parent list is preserved so
+    // the rebase keeps the commit's real ancestry.
+    let traversal_was_partial_at = |id: gix::ObjectId| {
+        let raw_parents = &cg.node(id).expect("iterating graph ids").commit.parent_ids;
+        (!raw_parents.is_empty() && raw_parents.iter().any(|p| cg.node(*p).is_none()))
+            .then(|| raw_parents.clone())
+    };
+
+    let mut arena = cg.clone();
+    for (i, id) in cg.commit_ids().enumerate() {
+        // The ws commit takes its LANE slots from the ledger (one per workspace lane, dups
+        // and all); everything else keeps the PRESENT parents in slot order — the same
+        // presence filter the segment walk's parent-fixup pass applied.
+        if workspace_commit_id == Some(id) {
+            let mut targets = Vec::new();
+            for parent in ledger.ws_parents.as_deref().unwrap_or_default() {
+                let Some(target) = cg.index_of(*parent) else {
+                    bail!("ledger ws parent {parent} is not a commit in the graph");
+                };
+                targets.push(target);
+            }
+            arena.set_parents(i, targets);
+        } else if traversal_was_partial_at(id).is_some() {
+            arena.set_parents(i, cg.present_parent_indices(i));
+        }
+    }
+
+    let mut graph = StepGraph::adopt(arena);
+    for (i, id) in cg.commit_ids().enumerate() {
+        let ix = StepGraphIndex::Node(i);
+        let mut pick = if workspace_commit_id == Some(id) {
+            Pick::new_workspace_pick(id)
+        } else {
+            let mut pick = Pick::new_pick(id);
+            pick.sign_commit = options.default_sign_commit;
+            pick
+        };
+        pick.mutable = ledger.mutable_commits.contains(&id);
+        graph.set_step(ix, Step::Pick(pick));
+        if let Some(raw_parents) = traversal_was_partial_at(id) {
+            graph.set_preserved_parents(ix, Some(raw_parents));
+        }
+    }
+
+    // Two passes: refs stack top-down in the ledger (a ref's `below` has a HIGHER index), so
+    // every node must exist before positions can name it.
+    let mut ref_by_name = HashMap::<gix::refs::FullName, StepGraphIndex>::new();
+    for placed in &ledger.refs {
+        let ix = graph.add_reference(placed.name.clone(), placed.mutable);
+        ref_by_name.insert(placed.name.clone(), ix);
+    }
+    for placed in &ledger.refs {
+        // Unborn refs (no anchor) keep no stored position.
+        let Some(anchor_id) = placed.anchor else {
+            continue;
+        };
+        let node = ref_by_name[&placed.name];
+        let Some(anchor) = cg.index_of(anchor_id).map(StepGraphIndex::Node) else {
+            bail!("ledger anchor {anchor_id} is not a commit in the graph");
+        };
+        let below =
+            match &placed.below {
+                Some(name) => Some(*ref_by_name.get(name).with_context(|| {
+                    format!("ledger below {name} is not a reference in the graph")
+                })?),
+                None => None,
+            };
+        let mut approach = Vec::with_capacity(placed.approach.len());
+        for (source, slot) in &placed.approach {
+            let Some(source_ix) = cg.index_of(*source).map(StepGraphIndex::Node) else {
+                bail!("ledger approach source {source} is not a commit in the graph");
+            };
+            approach.push((source_ix, *slot));
+        }
+        graph.set_position(node, anchor, &approach, placed.ambiguous, below);
+    }
+
+    let references = ledger
+        .refs
+        .iter()
+        .filter(|r| r.mutable)
+        .map(|r| r.name.clone())
+        .collect();
+    let checkouts = ledger
+        .head_refs
+        .iter()
+        .map(|name| {
+            let Some(&id) = ref_by_name.get(name) else {
+                bail!("ledger head ref {name} is not a reference in the graph");
+            };
+            Ok(Checkout::Head {
+                selector: Selector { id },
+                merge_base_override: None,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    crate::graph_rebase::positions::debug_assert_positions_total(&graph);
+    Ok((graph, references, checkouts))
 }
 
 impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {

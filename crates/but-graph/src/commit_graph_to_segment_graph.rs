@@ -60,6 +60,308 @@ pub fn workspace_from_repository<T: but_core::RefMetadata>(
     .transpose()
 }
 
+/// Project a PROVIDED `cg` — the write-through seam: an editor-mutated commit graph projects
+/// like a fresh walk, with the enrichment (refs, target, metadata) read from the CURRENT
+/// `repo`/`meta` state. Dispatches like [`Graph::from_head`](crate::Graph::from_head):
+/// managed with `HEAD` as entrypoint when the workspace ref resolves to a commit in `cg`
+/// (falling through to non-managed when the entrypoint lands outside the workspace),
+/// non-managed from `HEAD` otherwise. `None` when `HEAD` is unborn or unresolvable.
+pub fn workspace_from_commit_graph<T: but_core::RefMetadata>(
+    mut cg: CommitGraph,
+    repo: &gix::Repository,
+    meta: &T,
+    project_meta: but_core::ref_metadata::ProjectMeta,
+    options: crate::init::Options,
+) -> anyhow::Result<Option<crate::Workspace>> {
+    let (overlay_repo, overlay_meta, _entrypoint) =
+        crate::init::Overlay::default().into_parts(repo, meta);
+    let ws_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
+    let ws_tip_on_disk = overlay_repo
+        .try_find_reference(ws_ref.as_ref())?
+        .and_then(|mut r| r.peel_to_commit().ok())
+        .map(|c| c.id().detach());
+    let ws_commit = ws_tip_on_disk.filter(|c| cg.node(*c).is_some());
+    // The walk seeds `InWorkspace` and the project target only for a workspace with METADATA
+    // whose ref resolves — a bare `gitbutler/workspace` ref without it walks (and projects)
+    // as a plain branch.
+    let ws_meta = overlay_meta.workspace_opt(ws_ref.as_ref())?;
+    let ws_has_meta = ws_meta.is_some();
+    let ws_exists = ws_has_meta && ws_tip_on_disk.is_some();
+    // A target anchor the editor dropped or rewrote away is still external context on disk —
+    // the walk seeds it as an integrated tip whenever the commit exists, so re-represent it.
+    // The stored target commit and the target REF tip only count when a workspace exists (the
+    // walk pushes them per discovered workspace); the extra target is seeded unconditionally.
+    let target_ref_tip = match project_meta.target_ref.as_ref().filter(|_| ws_exists) {
+        Some(tr) => overlay_repo
+            .try_find_reference(tr.as_ref())?
+            .and_then(|mut r| r.peel_to_commit().ok())
+            .map(|c| c.id().detach()),
+        None => None,
+    };
+    let target_anchors = || {
+        project_meta
+            .target_commit_id
+            .filter(|_| ws_exists)
+            .into_iter()
+            .chain(options.extra_target_commit_id)
+            .chain(target_ref_tip)
+    };
+    for anchor in target_anchors() {
+        ensure_anchor_region(
+            &mut cg,
+            &overlay_repo,
+            anchor,
+            crate::CommitFlags::Integrated,
+        )?;
+    }
+    ensure_remote_regions(&mut cg, repo, &overlay_repo, &project_meta)?;
+    let head = repo.head()?;
+    let head_ref = head.referent_name().map(|n| n.to_owned());
+    let head_tip = head.id().map(|id| id.detach());
+    // HEAD is external context too: the editor's graph need not contain the checked-out commit
+    // (e.g. an edit-mode WIP commit) — the walk always traverses the entrypoint's region.
+    if let Some(tip) = head_tip {
+        ensure_anchor_region(&mut cg, &overlay_repo, tip, crate::CommitFlags::empty())?;
+    }
+    let head_tip = head_tip.filter(|c| cg.node(*c).is_some());
+    // Reconcile edges LAST: the region steps above revive tombstones, and a revival flips
+    // effective parents that must then be re-validated against the odb.
+    complete_parents_from_odb(&mut cg, &overlay_repo)?;
+    cg.recompute_integrated(target_anchors());
+    cg.recompute_in_workspace(ws_commit.filter(|_| ws_has_meta));
+    // `NotInRemote` mirrors the walk's seeding: only tips the walk QUEUES seed it — HEAD,
+    // and for a discovered workspace its tip, the target's local tracking branch, and the
+    // workspace stack branch refs. A local branch that merely points into remote-reachable
+    // history is NOT a seed, and an editor drop must lose the flag entirely (a stale flag
+    // would hide the remote region from projection).
+    let mut not_in_remote_tips: Vec<gix::ObjectId> = head_tip.into_iter().collect();
+    if ws_exists {
+        not_in_remote_tips.extend(ws_tip_on_disk);
+        if let Some((_, _, Some((_, local_tip)))) =
+            crate::init::workspace_target_tip(&overlay_repo, project_meta.target_ref.as_ref())?
+        {
+            not_in_remote_tips.push(local_tip);
+        }
+        for branch in ws_meta
+            .iter()
+            .flat_map(|ws| ws.stacks.iter())
+            .filter(|s| s.is_in_workspace())
+            .flat_map(|s| s.branches.iter())
+        {
+            not_in_remote_tips.extend(crate::init::walk::try_refname_to_id(
+                &overlay_repo,
+                branch.ref_name.as_ref(),
+            )?);
+        }
+    }
+    cg.recompute_not_in_remote(not_in_remote_tips);
+    cg.recompute_generations();
+    // Editor tombstones are seam-internal: reconciliation left no live edge into them, so
+    // compaction yields the same graph a fresh walk would — which matters now that the
+    // projection's carried graph becomes THE workspace graph downstream consumers reuse.
+    cg.compact();
+    let ref_prefixes = || {
+        ["refs/heads/", "refs/remotes/"]
+            .into_iter()
+            .chain(options.collect_tags.then_some("refs/tags/"))
+    };
+    let head_on_ws = head_ref
+        .as_ref()
+        .is_some_and(|r| but_core::is_workspace_ref_name(r.as_ref()));
+    if let Some(ws_commit) = ws_commit {
+        // The dispatch's entrypoint rule: HEAD on the workspace ref is the plain case,
+        // any other checkout is an entrypoint split within the managed workspace.
+        let (entrypoint, entrypoint_ref) = match head_tip {
+            Some(tip) if !head_on_ws => (tip, head_ref.clone()),
+            _ => (ws_commit, None),
+        };
+        let main_head_ref = if entrypoint == ws_commit {
+            entrypoint_ref.clone().or_else(|| Some(ws_ref.clone()))
+        } else {
+            entrypoint_ref.clone()
+        };
+        let mut managed_cg = cg.clone();
+        let mut refs_by_id =
+            overlay_repo.collect_ref_mapping_by_prefix(ref_prefixes(), &[ws_ref.as_ref()])?;
+        let worktree_by_branch =
+            overlay_repo.worktree_branches(main_head_ref.as_ref().map(|r| r.as_ref()))?;
+        managed_cg.refresh_refs(&mut refs_by_id, &worktree_by_branch);
+        let graph = assemble_managed(
+            managed_cg,
+            repo,
+            &overlay_repo,
+            &overlay_meta,
+            &ws_ref,
+            ws_commit,
+            entrypoint,
+            entrypoint_ref,
+            main_head_ref.as_ref(),
+            project_meta.clone(),
+            options.clone(),
+        )?;
+        // The entrypoint never made it into a segment — mirror the dispatch's fall-through
+        // to the non-managed view.
+        if graph.entrypoint.is_some() {
+            return graph.into_workspace().map(Some);
+        }
+    }
+    let Some(head_tip) = head_tip else {
+        return Ok(None);
+    };
+    let mut refs_by_id = overlay_repo.collect_ref_mapping_by_prefix(ref_prefixes(), &[])?;
+    let worktree_by_branch =
+        overlay_repo.worktree_branches(head_ref.as_ref().map(|r| r.as_ref()))?;
+    cg.refresh_refs(&mut refs_by_id, &worktree_by_branch);
+    assemble_unmanaged(
+        cg,
+        repo,
+        &overlay_repo,
+        &overlay_meta,
+        head_tip,
+        head_ref,
+        project_meta,
+        options,
+    )?
+    .into_workspace()
+    .map(Some)
+}
+
+/// Reconcile every live node's parents with the odb — the write-through seam's edge refresh.
+/// After materialization the odb is authoritative for every kept id: an editor pick applied
+/// AS-IS carries no arena edges at all (parents implied by the odb), and a `preserved_parents`
+/// pick was WRITTEN with parents its arena position never had (edit mode's parent override).
+/// A node is kept only when its RAW recorded parents equal its odb parents AND no connected
+/// slot targets a tombstone — the projection reads the raw payload, so a stale id left behind
+/// by an editor drop is as much a divergence as a wrong edge. Walk cuts (absent slots with
+/// odb-true payload) survive. Anything else is rewired to the odb parents, adding (or
+/// reviving) missing commits recursively, each reconciled the same way.
+fn complete_parents_from_odb(cg: &mut CommitGraph, repo: &OverlayRepo<'_>) -> anyhow::Result<()> {
+    let mut queue: Vec<gix::ObjectId> = (0..cg.node_count())
+        .filter_map(|idx| cg.node_payload(idx))
+        .collect();
+    while let Some(id) = queue.pop() {
+        let idx = cg.index_of(id).expect("queued ids are live");
+        let Ok(commit) = repo.find_commit(id) else {
+            continue;
+        };
+        let mut odb_parents: Vec<_> = commit.parent_ids().map(|p| p.detach()).collect();
+        // Collapse exact duplicate parents like the walk and the graph reader do (a
+        // workspace merge encodes empty lanes as repeated parents).
+        if odb_parents.len() > 1 {
+            let mut deduped = Vec::with_capacity(odb_parents.len());
+            for p in odb_parents {
+                if !deduped.contains(&p) {
+                    deduped.push(p);
+                }
+            }
+            odb_parents = deduped;
+        }
+        if cg.raw_parent_ids(idx) == odb_parents && !cg.has_tombstoned_parent(idx) {
+            continue;
+        }
+        let mut revived = Vec::new();
+        let parent_indices = odb_parents
+            .iter()
+            .map(|&p| {
+                if cg.revive(p) {
+                    revived.push(p);
+                }
+                cg.index_of(p).unwrap_or_else(|| {
+                    queue.push(p);
+                    cg.add_node(Some(p))
+                })
+            })
+            .collect();
+        cg.set_parents(idx, parent_indices);
+        // A revived node is newly live — it wasn't in the initial sweep, so validate it now.
+        // (Its children need no re-queue: any child kept earlier already passed the
+        // tombstone-free check, so it can't have been substituting through this node.)
+        queue.extend(revived);
+    }
+    Ok(())
+}
+
+/// The write-through seam's external-context refresh: `anchor` (a stored/extra target, or a
+/// remote-tracking tip) still exists on disk even when the editor dropped its node (tombstoned)
+/// or rewrote it in place (the node now holds the rewritten id, while e.g. the remote ref still
+/// points at the old commit). Revive tombstones, and append any missing region — walking the odb
+/// from `anchor` down to commits the graph knows — with `flags` (Integrated for target-seeded
+/// tips, empty for remote-ahead regions, the walk's conventions). A stale anchor (unresolvable
+/// commit) is ignored, like the walk does.
+fn ensure_anchor_region(
+    cg: &mut CommitGraph,
+    repo: &OverlayRepo<'_>,
+    anchor: gix::ObjectId,
+    flags: crate::CommitFlags,
+) -> anyhow::Result<()> {
+    let mut to_add = Vec::new();
+    let mut queue = vec![anchor];
+    let mut seen = HashSet::new();
+    while let Some(id) = queue.pop() {
+        if !seen.insert(id) || cg.index_of(id).is_some() {
+            continue;
+        }
+        cg.revive(id);
+        if cg.index_of(id).is_some() {
+            continue;
+        }
+        let Ok(commit) = repo.find_commit(id) else {
+            return Ok(());
+        };
+        let parents: Vec<_> = commit.parent_ids().map(|p| p.detach()).collect();
+        queue.extend(parents.iter().copied());
+        to_add.push((id, parents));
+    }
+    let indices: Vec<_> = to_add
+        .iter()
+        .map(|(id, _)| cg.add_node(Some(*id)))
+        .collect();
+    for ((_, parents), &idx) in to_add.iter().zip(&indices) {
+        let parent_indices = parents
+            .iter()
+            .map(|p| {
+                cg.index_of(*p)
+                    .expect("parent was added or already present")
+            })
+            .collect();
+        cg.set_parents(idx, parent_indices);
+        cg.set_flags(idx, flags);
+    }
+    Ok(())
+}
+
+/// The remote half of the seam's external-context refresh: the walk traverses the AHEAD regions
+/// of configuration-implied remote-tracking branches, so when the editor's in-place rewrite made
+/// a remote tip's commit vanish from the arena (the local advanced past it), re-append that
+/// region from the odb. Only remotes of locals the graph actually contains matter — anything
+/// else the walk wouldn't have reached either.
+fn ensure_remote_regions(
+    cg: &mut CommitGraph,
+    repo: &gix::Repository,
+    overlay_repo: &OverlayRepo<'_>,
+    project_meta: &but_core::ref_metadata::ProjectMeta,
+) -> anyhow::Result<()> {
+    let (remote_tracking, _symbolic_remotes) = remote_tracking_from_repository(repo, project_meta)?;
+    for (local, remote) in remote_tracking {
+        let local_tip = overlay_repo
+            .try_find_reference(local.as_ref())?
+            .and_then(|mut r| r.peel_to_commit().ok())
+            .map(|c| c.id().detach());
+        if local_tip.is_none_or(|tip| cg.index_of(tip).is_none()) {
+            continue;
+        }
+        let Some(remote_tip) = overlay_repo
+            .try_find_reference(remote.as_ref())?
+            .and_then(|mut r| r.peel_to_commit().ok())
+            .map(|c| c.id().detach())
+        else {
+            continue;
+        };
+        ensure_anchor_region(cg, overlay_repo, remote_tip, crate::CommitFlags::empty())?;
+    }
+    Ok(())
+}
+
 /// Like [`graph_from_repository`], but serving `overlay` refs and metadata from memory — the flip
 /// counterpart of [`Graph::redo_traversal_with_overlay`](crate::Graph::redo_traversal_with_overlay).
 pub(crate) fn graph_from_repository_with_overlay<T: but_core::RefMetadata>(

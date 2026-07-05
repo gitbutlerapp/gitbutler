@@ -56,9 +56,9 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:main[🌳]
-        ├── ·a96434e (⌂|1)
-        ├── ·d591dfe (⌂|1)
-        └── 🏁·35b8235 (⌂|1)
+        ├── ·a96434e (⌂)
+        ├── ·d591dfe (⌂)
+        └── 🏁·35b8235 (⌂)
     ");
     let outcome = outcome.materialize()?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
@@ -116,9 +116,9 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:main[🌳]
-        ├── ·a96434e (⌂|1)
-        ├── ·d591dfe (⌂|1)
-        └── 🏁·35b8235 (⌂|1)
+        ├── ·a96434e (⌂)
+        ├── ·d591dfe (⌂)
+        └── 🏁·35b8235 (⌂)
     ");
     let outcome = outcome.materialize_without_checkout()?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
@@ -194,9 +194,9 @@ fn both_methods_update_references_identically() -> Result<()> {
     insta::assert_snapshot!(overlayed_materialize, @"
 
     └── 👉►:0[0]:main[🌳]
-        ├── ·a96434e (⌂|1)
-        ├── ·d591dfe (⌂|1)
-        └── 🏁·35b8235 (⌂|1)
+        ├── ·a96434e (⌂)
+        ├── ·d591dfe (⌂)
+        └── 🏁·35b8235 (⌂)
     ");
     assert_eq!(overlayed_materialize, overlayed_without_checkout);
 
@@ -229,10 +229,10 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:replacement[🌳]
-        ├── ·120e3a9 (⌂|1)
-        ├── ·a96434e (⌂|1)
-        ├── ·d591dfe (⌂|1)
-        └── 🏁·35b8235 (⌂|1)
+        ├── ·120e3a9 (⌂)
+        ├── ·a96434e (⌂)
+        ├── ·d591dfe (⌂)
+        └── 🏁·35b8235 (⌂)
     ");
     assert_eq!(
         repo.head_name()?,

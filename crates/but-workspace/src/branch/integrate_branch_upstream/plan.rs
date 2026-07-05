@@ -413,7 +413,10 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
                 pick.preserved_parents = Some(preserved_parents);
                 let commit_to_merge = editor.add_step(commit_to_merge)?;
                 let merge_commit = editor.add_step(Step::new_untracked_pick(merge_commit))?;
-                editor.add_edge(merge_commit, commit_to_merge, 1)?;
+                // The merged side is the merge's only parent for now; the rebuilt chain's
+                // parent prepends at slot 0 later (`connect_parent_step`), shifting it to
+                // the merge-side lane.
+                editor.insert_edge(merge_commit, commit_to_merge, 0)?;
                 out.push(editor.lookup_step(merge_commit)?);
             }
         }

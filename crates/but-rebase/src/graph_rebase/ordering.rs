@@ -2,11 +2,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::graph_rebase::Direction;
 use anyhow::{Result, bail};
 use but_core::RefMetadata;
 
-use crate::graph_rebase::{Editor, Pick, Selector, Step, StepGraphIndex, ToCommitSelector, util};
+use crate::graph_rebase::{Editor, Selector, StepGraphIndex, ToCommitSelector, util};
 
 impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Order commit selectors by parentage, with parents first and children last.
@@ -89,10 +88,7 @@ fn step_graph_parent_to_child_rank<M: RefMetadata>(
     let mut next_rank = 0usize;
     let mut seen = HashSet::<StepGraphIndex>::new();
 
-    let mut roots = editor
-        .graph
-        .externals(Direction::Incoming)
-        .collect::<Vec<StepGraphIndex>>();
+    let mut roots = editor.graph.tips().collect::<Vec<StepGraphIndex>>();
     roots.sort_unstable();
 
     // Traverse from all child-most entrypoints (graph nodes without children), assigning
@@ -112,7 +108,7 @@ fn step_graph_parent_to_child_rank<M: RefMetadata>(
             }
 
             if expanded {
-                if let Step::Pick(Pick { id, .. }) = editor.graph[node]
+                if let Some(id) = editor.graph.commit_id(node)
                     && selected_ids.contains(&id)
                 {
                     rank_by_id.entry(id).or_insert_with(|| {

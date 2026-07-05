@@ -53,15 +53,15 @@ fn reword_a_commit() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
-        └── ·78aaae2 (⌂|1)
+        └── ·78aaae2 (⌂)
             └── ►:1[1]:anon:
-                └── ·53af95a (⌂|1)
+                └── ·53af95a (⌂)
                     ├── ►:2[2]:A
-                    │   └── ·6de6b92 (⌂|1)
+                    │   └── ·6de6b92 (⌂)
                     │       └── ►:4[3]:main
-                    │           └── 🏁·8f0d338 (⌂|1) ►tags/base
+                    │           └── 🏁·8f0d338 (⌂) ►tags/base
                     └── ►:3[2]:B
-                        └── ·984fd1c (⌂|1)
+                        └── ·984fd1c (⌂)
                             └── →:4: (main)
     ");
     let outcome = outcome.materialize()?;
@@ -152,15 +152,15 @@ fn amend_a_commit() -> Result<()> {
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
-        └── ·e7221b5 (⌂|1)
+        └── ·e7221b5 (⌂)
             └── ►:1[1]:anon:
-                └── ·8101192 (⌂|1)
+                └── ·8101192 (⌂)
                     ├── ►:3[2]:A
-                    │   └── ·f1905a8 (⌂|1)
+                    │   └── ·f1905a8 (⌂)
                     │       └── ►:4[3]:main
-                    │           └── 🏁·8f0d338 (⌂|1) ►tags/base
+                    │           └── 🏁·8f0d338 (⌂) ►tags/base
                     └── ►:2[2]:B
-                        └── ·984fd1c (⌂|1)
+                        └── ·984fd1c (⌂)
                             └── →:4: (main)
     ");
     let outcome = outcome.materialize()?;

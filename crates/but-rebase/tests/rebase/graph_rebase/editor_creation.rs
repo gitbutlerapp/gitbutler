@@ -141,10 +141,10 @@ fn many_references() -> Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:main[🌳]
-        ├── ·120e3a9 (⌂|1)
-        ├── ·a96434e (⌂|1)
-        ├── ·d591dfe (⌂|1) ►X, ►Y, ►Z
-        └── 🏁·35b8235 (⌂|1)
+        ├── ·120e3a9 (⌂)
+        ├── ·a96434e (⌂)
+        ├── ·d591dfe (⌂) ►X, ►Y, ►Z
+        └── 🏁·35b8235 (⌂)
     ");
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -184,17 +184,17 @@ fn first_parent_leg_long() -> Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
-        └── ·6ac5745 (⌂|1)
+        └── ·6ac5745 (⌂)
             └── ►:1[1]:anon:
-                └── ·d20f547 (⌂|1)
+                └── ·d20f547 (⌂)
                     ├── ►:2[2]:A
-                    │   ├── ·198d2e4 (⌂|1)
-                    │   ├── ·7325853 (⌂|1)
-                    │   └── ·add59d2 (⌂|1)
+                    │   ├── ·198d2e4 (⌂)
+                    │   ├── ·7325853 (⌂)
+                    │   └── ·add59d2 (⌂)
                     │       └── ►:4[3]:main
-                    │           └── 🏁·8f0d338 (⌂|1) ►tags/base
+                    │           └── 🏁·8f0d338 (⌂) ►tags/base
                     └── ►:3[2]:B
-                        └── ·984fd1c (⌂|1)
+                        └── ·984fd1c (⌂)
                             └── →:4: (main)
     ");
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -241,17 +241,17 @@ fn second_parent_leg_long() -> Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
-        └── ·a6775ea (⌂|1)
+        └── ·a6775ea (⌂)
             └── ►:1[1]:anon:
-                └── ·b85214b (⌂|1)
+                └── ·b85214b (⌂)
                     ├── ►:3[2]:A
-                    │   └── ·add59d2 (⌂|1)
+                    │   └── ·add59d2 (⌂)
                     │       └── ►:4[3]:main
-                    │           └── 🏁·8f0d338 (⌂|1) ►tags/base
+                    │           └── 🏁·8f0d338 (⌂) ►tags/base
                     └── ►:2[2]:B
-                        ├── ·f87f875 (⌂|1)
-                        ├── ·cb181a0 (⌂|1)
-                        └── ·984fd1c (⌂|1)
+                        ├── ·f87f875 (⌂)
+                        ├── ·cb181a0 (⌂)
+                        └── ·984fd1c (⌂)
                             └── →:4: (main)
     ");
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -302,19 +302,19 @@ fn workspace_with_empty_stack() -> Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── ·74bcc92 (⌂|🏘|01)
+    │   └── ·74bcc92 (⌂|🏘)
     │       ├── 📙►:1[1]:stack-1
-    │       │   ├── ·2169646 (⌂|🏘|01)
-    │       │   └── ·46ef828 (⌂|🏘|01)
+    │       │   ├── ·2169646 (⌂|🏘)
+    │       │   └── ·46ef828 (⌂|🏘)
     │       │       └── ►:3[2]:anon:
-    │       │           ├── ·f555940 (⌂|🏘|✓|11)
-    │       │           ├── ·d664be0 (⌂|🏘|✓|11)
-    │       │           └── 🏁·fafd9d0 (⌂|🏘|✓|11)
+    │       │           ├── ·f555940 (⌂|🏘|✓)
+    │       │           ├── ·d664be0 (⌂|🏘|✓)
+    │       │           └── 🏁·fafd9d0 (⌂|🏘|✓)
     │       └── 📙►:4[1]:stack-2
     │           └── →:3:
     └── ►:5[0]:origin/main →:2:
         └── ►:2[1]:main <> origin/main →:5:
-            └── ·a0f2ac5 (⌂|✓|10)
+            └── ·a0f2ac5 (⌂|✓)
                 └── →:3:
     ");
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -361,17 +361,17 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── ·a26ae77 (⌂|🏘|01)
+    │   └── ·a26ae77 (⌂|🏘)
     │       ├── 📙►:3[1]:stack-1
     │       │   └── ►:2[2]:anon:
-    │       │       └── 🏁·fafd9d0 (⌂|🏘|✓|11)
+    │       │       └── 🏁·fafd9d0 (⌂|🏘|✓)
     │       ├── 📙►:4[1]:stack-2
     │       │   └── →:2:
     │       └── 📙►:5[1]:stack-3
     │           └── →:2:
     └── ►:6[0]:origin/main →:1:
         └── ►:1[1]:main <> origin/main →:6:
-            └── ·1cf9cf4 (⌂|✓|10)
+            └── ·1cf9cf4 (⌂|✓)
                 └── →:2:
     ");
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -415,8 +415,8 @@ fn commit_with_two_parents() -> Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:main[🌳]
-        ├── ·d70d863 (⌂|1)
-        └── 🏁·35b8235 (⌂|1)
+        ├── ·d70d863 (⌂)
+        └── 🏁·35b8235 (⌂)
     ");
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -522,17 +522,17 @@ fn merge_first_parent_older_than_second() -> Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:first-parent[🌳]
-        └── ·738ea18 (⌂|1)
+        └── ·738ea18 (⌂)
             └── ►:1[1]:anon:
-                └── ·408ca26 (⌂|1)
+                └── ·408ca26 (⌂)
                     ├── ►:3[2]:anon:
-                    │   └── ·2854fa2 (⌂|1)
+                    │   └── ·2854fa2 (⌂)
                     │       └── ►:4[3]:main
-                    │           └── 🏁·793a434 (⌂|1) ►tags/base
+                    │           └── 🏁·793a434 (⌂) ►tags/base
                     └── ►:2[2]:second-parent
-                        ├── ·75369b0 (⌂|1)
-                        ├── ·553bbf7 (⌂|1)
-                        └── ·72614bb (⌂|1)
+                        ├── ·75369b0 (⌂)
+                        ├── ·553bbf7 (⌂)
+                        └── ·72614bb (⌂)
                             └── →:4: (main)
     ");
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -604,14 +604,14 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
     │               └── ►:4[2]:explicit-mut
     │                   └── ·a96434e (⌂)
     │                       └── ►:1[3]:foo
-    │                           ├── ·d591dfe (⌂|1)
-    │                           └── 🏁·35b8235 (⌂|1)
+    │                           ├── ·d591dfe (⌂)
+    │                           └── 🏁·35b8235 (⌂)
     └── ►:5[0]:explicit-const-2
         └── ·d9fa122 (⌂)
             └── ►:6[1]:implicit-const-2
                 └── ·85bccf0 (⌂)
                     └── 👉►:0[2]:implicit-mut
-                        └── ·c8dd361 (⌂|1)
+                        └── ·c8dd361 (⌂)
                             └── →:1: (foo)
     ");
 

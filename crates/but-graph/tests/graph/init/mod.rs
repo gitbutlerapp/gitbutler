@@ -99,9 +99,9 @@ fn detached() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── ►:0[0]:anon:
-        └── 👉·541396b (⌂|1) ►tags/annotated, ►tags/release/v1, ►main
+        └── 👉·541396b (⌂) ►tags/annotated, ►tags/release/v1, ►main
             └── ►:1[1]:other
-                └── 🏁·fafd9d0 (⌂|1)
+                └── 🏁·fafd9d0 (⌂)
     ");
     insta::assert_debug_snapshot!(ws.graph, @r#"
     Graph {
@@ -115,7 +115,7 @@ fn detached() -> anyhow::Result<()> {
                         sibling_segment_id: None,
                         remote_tracking_branch_segment_id: None,
                         commits: [
-                            Commit(541396b, ⌂|1►annotated, ►release/v1, ►main),
+                            Commit(541396b, ⌂►annotated, ►release/v1, ►main),
                         ],
                         metadata: "None",
                         connections: [
@@ -145,7 +145,7 @@ fn detached() -> anyhow::Result<()> {
                         sibling_segment_id: None,
                         remote_tracking_branch_segment_id: None,
                         commits: [
-                            Commit(fafd9d0, ⌂|1),
+                            Commit(fafd9d0, ⌂),
                         ],
                         metadata: "None",
                         connections: [],
@@ -243,8 +243,8 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
 
     └── ►:1[0]:origin/main →:0:
         └── 👉►:0[1]:main[🌳] <> origin/main →:1:
-            ├── ·71a64f3 (⌂|1)
-            └── ⛰·62d65ed (⌂|⛰|1)
+            ├── ·71a64f3 (⌂)
+            └── ⛰·62d65ed (⌂|⛰)
     ");
     let (boundary_sidx, boundary_cidx) = ws
         .graph
@@ -320,17 +320,17 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:first-parent[🌳]
-        └── ·738ea18 (⌂|1)
+        └── ·738ea18 (⌂)
             └── ►:1[1]:anon:
-                └── ·408ca26 (⌂|1)
+                └── ·408ca26 (⌂)
                     ├── ►:3[2]:anon:
-                    │   └── ·2854fa2 (⌂|1)
+                    │   └── ·2854fa2 (⌂)
                     │       └── ►:4[3]:main
-                    │           └── 🏁·793a434 (⌂|1) ►tags/base
+                    │           └── 🏁·793a434 (⌂) ►tags/base
                     └── ►:2[2]:second-parent
-                        ├── ·75369b0 (⌂|1)
-                        ├── ·553bbf7 (⌂|1)
-                        └── ·72614bb (⌂|1)
+                        ├── ·75369b0 (⌂)
+                        ├── ·553bbf7 (⌂)
+                        └── ·72614bb (⌂)
                             └── →:4: (main)
     ");
 
@@ -367,12 +367,12 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     ├── 👉►:0[0]:main[🌳] <> origin/main →:2:
-    │   └── ·971953d (⌂|01)
+    │   └── ·971953d (⌂)
     │       └── ►:1[1]:anon:
-    │           ├── ·ce09734 (⌂|11)
-    │           └── 🏁·fafd9d0 (⌂|11)
+    │           ├── ·ce09734 (⌂)
+    │           └── 🏁·fafd9d0 (⌂)
     └── ►:2[0]:origin/main →:0:
-        └── 🟣5d29d62 (0x0|10)
+        └── 🟣5d29d62
             └── →:1:
     ");
 
@@ -407,13 +407,13 @@ fn only_remote_advanced() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── ►:1[0]:origin/main →:0:
-        └── 🟣085535d (0x0|10)
+        └── 🟣085535d
             └── ►:2[1]:origin/split-segment
-                └── 🟣dd9f8d9 (0x0|10)
+                └── 🟣dd9f8d9
                     └── 👉►:0[2]:main[🌳] <> origin/main →:1:
-                        ├── ·971953d (⌂|11)
-                        ├── ·ce09734 (⌂|11)
-                        └── 🏁·fafd9d0 (⌂|11)
+                        ├── ·971953d (⌂)
+                        ├── ·ce09734 (⌂)
+                        └── 🏁·fafd9d0 (⌂)
     ");
 
     // TODO: it should detect that `main` has no own commits as it's fully integrated.
@@ -450,14 +450,14 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── ►:2[0]:origin/main →:0:
-        └── 🟣085535d (0x0|10)
+        └── 🟣085535d
             └── ►:3[1]:origin/split-segment
-                └── 🟣dd9f8d9 (0x0|10)
+                └── 🟣dd9f8d9
                     └── 👉►:0[2]:main[🌳] <> origin/main →:2:
-                        └── ·971953d (⌂|11)
+                        └── ·971953d (⌂)
                             └── ►:1[3]:gitbutler/target
-                                ├── ·ce09734 (⌂|11)
-                                └── 🏁·fafd9d0 (⌂|11)
+                                ├── ·ce09734 (⌂)
+                                └── 🏁·fafd9d0 (⌂)
     ");
 
     // TODO: We'd actually have to recognise that the `origin/split-segment` branch
@@ -498,19 +498,19 @@ fn multi_root() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:main[🌳]
-        └── ·c6c8c05 (⌂|1)
+        └── ·c6c8c05 (⌂)
             ├── ►:1[1]:anon:
-            │   └── ·76fc5c4 (⌂|1)
+            │   └── ·76fc5c4 (⌂)
             │       ├── ►:5[2]:anon:
-            │       │   └── 🏁·e5d0542 (⌂|1)
+            │       │   └── 🏁·e5d0542 (⌂)
             │       └── ►:4[2]:B
-            │           └── 🏁·366d496 (⌂|1)
+            │           └── 🏁·366d496 (⌂)
             └── ►:2[1]:C
-                └── ·8631946 (⌂|1)
+                └── ·8631946 (⌂)
                     ├── ►:3[2]:anon:
-                    │   └── 🏁·00fab2a (⌂|1)
+                    │   └── 🏁·00fab2a (⌂)
                     └── ►:6[2]:D
-                        └── 🏁·f4955b6 (⌂|1)
+                        └── 🏁·f4955b6 (⌂)
     ");
     assert_eq!(
         ws.graph.tip_segments().count(),
@@ -562,23 +562,23 @@ fn four_diamond() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:merged[🌳]
-        └── ·8a6c109 (⌂|1)
+        └── ·8a6c109 (⌂)
             ├── ►:1[1]:A
-            │   └── ·62b409a (⌂|1)
+            │   └── ·62b409a (⌂)
             │       ├── ►:4[2]:anon:
-            │       │   └── ·592abec (⌂|1)
+            │       │   └── ·592abec (⌂)
             │       │       └── ►:7[3]:main
-            │       │           └── 🏁·965998b (⌂|1)
+            │       │           └── 🏁·965998b (⌂)
             │       └── ►:6[2]:B
-            │           └── ·f16dddf (⌂|1)
+            │           └── ·f16dddf (⌂)
             │               └── →:7: (main)
             └── ►:2[1]:C
-                └── ·7ed512a (⌂|1)
+                └── ·7ed512a (⌂)
                     ├── ►:3[2]:anon:
-                    │   └── ·35ee481 (⌂|1)
+                    │   └── ·35ee481 (⌂)
                     │       └── →:7: (main)
                     └── ►:5[2]:D
-                        └── ·ecb1877 (⌂|1)
+                        └── ·ecb1877 (⌂)
                             └── →:7: (main)
     ");
 
@@ -659,9 +659,9 @@ fn explicit_traversal_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> 
 
     └── ►:2[0]:tags/release/v1
         └── 👉►:0[1]:main
-            └── ·541396b (⌂|1) ►tags/annotated
+            └── ·541396b (⌂) ►tags/annotated
                 └── ►:1[2]:other
-                    └── 🏁·fafd9d0 (⌂|1)
+                    └── 🏁·fafd9d0 (⌂)
     ");
     Ok(())
 }
@@ -706,23 +706,23 @@ fn explicit_traversal_tips_allow_named_and_anonymous_integrated_targets_on_same_
     insta::assert_snapshot!(graph_tree(&graph), "anonymous target context with the same commit collapses into the named target ref", @"
 
     └── 👉►:0[0]:merged[🌳]
-        └── ·8a6c109 (⌂|1)
+        └── ·8a6c109 (⌂)
             ├── ►:1[1]:A
-            │   └── ·62b409a (⌂|1)
+            │   └── ·62b409a (⌂)
             │       ├── ►:4[2]:anon:
-            │       │   └── ·592abec (⌂|1)
+            │       │   └── ·592abec (⌂)
             │       │       └── ►:7[3]:main
-            │       │           └── 🏁·965998b (⌂|✓|1)
+            │       │           └── 🏁·965998b (⌂|✓)
             │       └── ►:6[2]:B
-            │           └── ·f16dddf (⌂|1)
+            │           └── ·f16dddf (⌂)
             │               └── →:7: (main)
             └── ►:2[1]:C
-                └── ·7ed512a (⌂|1)
+                └── ·7ed512a (⌂)
                     ├── ►:3[2]:anon:
-                    │   └── ·35ee481 (⌂|1)
+                    │   └── ·35ee481 (⌂)
                     │       └── →:7: (main)
                     └── ►:5[2]:D
-                        └── ·ecb1877 (⌂|1)
+                        └── ·ecb1877 (⌂)
                             └── →:7: (main)
     ");
     Ok(())
@@ -888,23 +888,23 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:merged[🌳]
-        └── ·8a6c109 (⌂|1)
+        └── ·8a6c109 (⌂)
             ├── ►:1[1]:A
-            │   └── ·62b409a (⌂|✓|1)
+            │   └── ·62b409a (⌂|✓)
             │       ├── ►:4[2]:anon:
-            │       │   └── ·592abec (⌂|✓|1)
+            │       │   └── ·592abec (⌂|✓)
             │       │       └── ►:7[3]:main
-            │       │           └── 🏁·965998b (⌂|✓|1)
+            │       │           └── 🏁·965998b (⌂|✓)
             │       └── ►:6[2]:B
-            │           └── ·f16dddf (⌂|✓|1)
+            │           └── ·f16dddf (⌂|✓)
             │               └── →:7: (main)
             └── ►:2[1]:C
-                └── ·7ed512a (⌂|1)
+                └── ·7ed512a (⌂)
                     ├── ►:3[2]:anon:
-                    │   └── ·35ee481 (⌂|1)
+                    │   └── ·35ee481 (⌂)
                     │       └── →:7: (main)
                     └── ►:5[2]:D
-                        └── ·ecb1877 (⌂|1)
+                        └── ·ecb1877 (⌂)
                             └── →:7: (main)
     ");
 
@@ -962,15 +962,15 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     ├── 👉►:0[0]:B[🌳] <> origin/B →:3:
-    │   └── ·312f819 (⌂|0001)
+    │   └── ·312f819 (⌂)
     │       └── ►:1[1]:A <> origin/A →:4:
-    │           └── ·e255adc (⌂|0101)
+    │           └── ·e255adc (⌂)
     │               └── ►:2[2]:main
-    │                   └── 🏁·fafd9d0 (⌂|1111)
+    │                   └── 🏁·fafd9d0 (⌂)
     └── ►:3[0]:origin/B →:0:
-        └── 🟣682be32 (0x0|0010)
+        └── 🟣682be32
             └── ►:4[1]:origin/A →:1:
-                └── 🟣e29c23d (0x0|1010)
+                └── 🟣e29c23d
                     └── →:2: (main)
     ");
 
@@ -998,15 +998,15 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     ├── 👉►:0[0]:B[🌳] <> origin/B →:2:
-    │   └── ·312f819 (⌂|001)
+    │   └── ·312f819 (⌂)
     │       └── ►:1[1]:A <> origin/A →:4:
-    │           └── ❌·e255adc (⌂|101)
+    │           └── ❌·e255adc (⌂)
     └── ►:2[0]:origin/B →:0:
-        └── 🟣682be32 (0x0|010)
+        └── 🟣682be32
             └── ►:4[1]:origin/A →:1:
-                └── 🟣e29c23d (0x0|010)
+                └── 🟣e29c23d
                     └── ►:3[2]:main
-                        └── 🏁🟣fafd9d0 (0x0|010)
+                        └── 🏁🟣fafd9d0
     ");
     assert!(
         ws.graph.hard_limit_hit(),
@@ -1030,15 +1030,15 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉►:0[0]:B[🌳] <> origin/B →:3:
-    │   └── ·312f819 (⌂|0001)
+    │   └── ·312f819 (⌂)
     │       └── ►:1[1]:A <> origin/A →:4:
-    │           └── ·e255adc (⌂|0101)
+    │           └── ·e255adc (⌂)
     │               └── ►:2[2]:main
-    │                   └── 🏁·fafd9d0 (⌂|1111)
+    │                   └── 🏁·fafd9d0 (⌂)
     └── ►:3[0]:origin/B →:0:
-        └── 🟣682be32 (0x0|0010)
+        └── 🟣682be32
             └── ►:4[1]:origin/A →:1:
-                └── 🟣e29c23d (0x0|1010)
+                └── 🟣e29c23d
                     └── →:2: (main)
     ");
 
@@ -1055,11 +1055,11 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     ├── 👉►:0[0]:A <> origin/A →:2:
-    │   └── ·e255adc (⌂|01)
+    │   └── ·e255adc (⌂)
     │       └── ►:1[1]:main
-    │           └── 🏁·fafd9d0 (⌂|11)
+    │           └── 🏁·fafd9d0 (⌂)
     └── ►:2[0]:origin/A →:0:
-        └── 🟣e29c23d (0x0|10)
+        └── 🟣e29c23d
             └── →:1: (main)
     ");
     insta::assert_snapshot!(graph_workspace(&ws), @"
@@ -1107,26 +1107,26 @@ fn with_limits() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
-        └── ·2a95729 (⌂|1)
+        └── ·2a95729 (⌂)
             ├── ►:2[1]:anon:
-            │   ├── ·6861158 (⌂|1)
-            │   ├── ·4f1f248 (⌂|1)
-            │   └── ·487ffce (⌂|1)
+            │   ├── ·6861158 (⌂)
+            │   ├── ·4f1f248 (⌂)
+            │   └── ·487ffce (⌂)
             │       └── ►:4[2]:main
-            │           ├── ·edc4dee (⌂|1)
-            │           ├── ·01d0e1e (⌂|1)
-            │           ├── ·4b3e5a8 (⌂|1)
-            │           ├── ·34d0715 (⌂|1)
-            │           └── 🏁·eb5f731 (⌂|1)
+            │           ├── ·edc4dee (⌂)
+            │           ├── ·01d0e1e (⌂)
+            │           ├── ·4b3e5a8 (⌂)
+            │           ├── ·34d0715 (⌂)
+            │           └── 🏁·eb5f731 (⌂)
             ├── ►:1[1]:A
-            │   ├── ·20a823c (⌂|1)
-            │   ├── ·442a12f (⌂|1)
-            │   └── ·686706b (⌂|1)
+            │   ├── ·20a823c (⌂)
+            │   ├── ·442a12f (⌂)
+            │   └── ·686706b (⌂)
             │       └── →:4: (main)
             └── ►:3[1]:B
-                ├── ·9908c99 (⌂|1)
-                ├── ·60d9a56 (⌂|1)
-                └── ·9d171ff (⌂|1)
+                ├── ·9908c99 (⌂)
+                ├── ·60d9a56 (⌂)
+                └── ·9d171ff (⌂)
                     └── →:4: (main)
     ");
     // No limits list the first parent everywhere.
@@ -1158,7 +1158,7 @@ fn with_limits() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
-        └── ✂·2a95729 (⌂|1)
+        └── ✂·2a95729 (⌂)
     ");
     // The cut by limit is also represented here.
     insta::assert_snapshot!(graph_workspace(&ws), @"
@@ -1179,13 +1179,13 @@ fn with_limits() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
-        └── ·2a95729 (⌂|1)
+        └── ·2a95729 (⌂)
             ├── ►:2[1]:anon:
-            │   └── ✂·6861158 (⌂|1)
+            │   └── ✂·6861158 (⌂)
             ├── ►:1[1]:A
-            │   └── ✂·20a823c (⌂|1)
+            │   └── ✂·20a823c (⌂)
             └── ►:3[1]:B
-                └── ✂·9908c99 (⌂|1)
+                └── ✂·9908c99 (⌂)
     ");
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:C[🌳] <> ✓!
@@ -1211,13 +1211,13 @@ fn with_limits() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:C[🌳]
-        └── ·2a95729 (⌂|1)
+        └── ·2a95729 (⌂)
             ├── ►:2[1]:anon:
-            │   └── ❌·6861158 (⌂|1)
+            │   └── ❌·6861158 (⌂)
             ├── ►:1[1]:A
-            │   └── ❌·20a823c (⌂|1)
+            │   └── ❌·20a823c (⌂)
             └── ►:3[1]:B
-                └── ❌·9908c99 (⌂|1)
+                └── ❌·9908c99 (⌂)
     ");
 
     // The merge commit, then we witness lane-duplication of the limit so we get more than requested.
@@ -1231,16 +1231,16 @@ fn with_limits() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
-        └── ·2a95729 (⌂|1)
+        └── ·2a95729 (⌂)
             ├── ►:2[1]:anon:
-            │   ├── ·6861158 (⌂|1)
-            │   └── ✂·4f1f248 (⌂|1)
+            │   ├── ·6861158 (⌂)
+            │   └── ✂·4f1f248 (⌂)
             ├── ►:1[1]:A
-            │   ├── ·20a823c (⌂|1)
-            │   └── ✂·442a12f (⌂|1)
+            │   ├── ·20a823c (⌂)
+            │   └── ✂·442a12f (⌂)
             └── ►:3[1]:B
-                ├── ·9908c99 (⌂|1)
-                └── ✂·60d9a56 (⌂|1)
+                ├── ·9908c99 (⌂)
+                └── ✂·60d9a56 (⌂)
     ");
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:C[🌳] <> ✓!
@@ -1265,17 +1265,17 @@ fn with_limits() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
-        └── ·2a95729 (⌂|1)
+        └── ·2a95729 (⌂)
             ├── ►:2[1]:anon:
-            │   ├── ·6861158 (⌂|1)
-            │   └── ✂·4f1f248 (⌂|1)
+            │   ├── ·6861158 (⌂)
+            │   └── ✂·4f1f248 (⌂)
             ├── ►:1[1]:A
-            │   ├── ·20a823c (⌂|1)
-            │   ├── ·442a12f (⌂|1)
-            │   └── ✂·686706b (⌂|1)
+            │   ├── ·20a823c (⌂)
+            │   ├── ·442a12f (⌂)
+            │   └── ✂·686706b (⌂)
             └── ►:3[1]:B
-                ├── ·9908c99 (⌂|1)
-                └── ✂·60d9a56 (⌂|1)
+                ├── ·9908c99 (⌂)
+                └── ✂·60d9a56 (⌂)
     ");
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:C[🌳] <> ✓!
@@ -1300,22 +1300,22 @@ fn with_limits() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
-        └── ·2a95729 (⌂|1)
+        └── ·2a95729 (⌂)
             ├── ►:2[1]:anon:
-            │   ├── ·6861158 (⌂|1)
-            │   ├── ·4f1f248 (⌂|1)
-            │   └── ✂·487ffce (⌂|1)
+            │   ├── ·6861158 (⌂)
+            │   ├── ·4f1f248 (⌂)
+            │   └── ✂·487ffce (⌂)
             ├── ►:1[1]:A
-            │   ├── ·20a823c (⌂|1)
-            │   ├── ·442a12f (⌂|1)
-            │   └── ·686706b (⌂|1)
+            │   ├── ·20a823c (⌂)
+            │   ├── ·442a12f (⌂)
+            │   └── ·686706b (⌂)
             │       └── ►:4[2]:main
-            │           ├── ·edc4dee (⌂|1)
-            │           └── ✂·01d0e1e (⌂|1)
+            │           ├── ·edc4dee (⌂)
+            │           └── ✂·01d0e1e (⌂)
             └── ►:3[1]:B
-                ├── ·9908c99 (⌂|1)
-                ├── ·60d9a56 (⌂|1)
-                └── ✂·9d171ff (⌂|1)
+                ├── ·9908c99 (⌂)
+                ├── ·60d9a56 (⌂)
+                └── ✂·9d171ff (⌂)
     ");
     insta::assert_debug_snapshot!(ws.graph.statistics(), @r#"
     Statistics {
@@ -1352,7 +1352,7 @@ fn with_limits() -> anyhow::Result<()> {
                 0,
                 Some(
                     CommitFlags(
-                        NotInRemote | 0x10,
+                        NotInRemote,
                     ),
                 ),
             ),
@@ -1388,26 +1388,26 @@ fn with_limits() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:C[🌳]
-        └── ·2a95729 (⌂|1)
+        └── ·2a95729 (⌂)
             ├── ►:2[1]:anon:
-            │   ├── ·6861158 (⌂|1)
-            │   ├── ·4f1f248 (⌂|1)
-            │   └── ·487ffce (⌂|1)
+            │   ├── ·6861158 (⌂)
+            │   ├── ·4f1f248 (⌂)
+            │   └── ·487ffce (⌂)
             │       └── ►:4[2]:main
-            │           ├── ·edc4dee (⌂|✓|1)
-            │           ├── ·01d0e1e (⌂|✓|1)
-            │           ├── ·4b3e5a8 (⌂|✓|1)
-            │           ├── ·34d0715 (⌂|✓|1)
-            │           └── 🏁·eb5f731 (⌂|✓|1)
+            │           ├── ·edc4dee (⌂|✓)
+            │           ├── ·01d0e1e (⌂|✓)
+            │           ├── ·4b3e5a8 (⌂|✓)
+            │           ├── ·34d0715 (⌂|✓)
+            │           └── 🏁·eb5f731 (⌂|✓)
             ├── ►:1[1]:A
-            │   ├── ·20a823c (⌂|1)
-            │   ├── ·442a12f (⌂|1)
-            │   └── ·686706b (⌂|1)
+            │   ├── ·20a823c (⌂)
+            │   ├── ·442a12f (⌂)
+            │   └── ·686706b (⌂)
             │       └── →:4: (main)
             └── ►:3[1]:B
-                ├── ·9908c99 (⌂|1)
-                ├── ·60d9a56 (⌂|1)
-                └── ·9d171ff (⌂|1)
+                ├── ·9908c99 (⌂)
+                ├── ·60d9a56 (⌂)
+                └── ·9d171ff (⌂)
                     └── →:4: (main)
     ");
 
@@ -1443,11 +1443,11 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:main[🌳]
-        └── ·3686017 (⌂|1)
+        └── ·3686017 (⌂)
             └── ►:1[1]:gitbutler/edit
-                └── ·9725482 (⌂|1)
+                └── ·9725482 (⌂)
                     └── ►:2[2]:gitbutler/target
-                        └── 🏁·fafd9d0 (⌂|1)
+                        └── 🏁·fafd9d0 (⌂)
     ");
 
     // But special handling for workspace views.
@@ -1477,7 +1477,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:main[🌳@repo]
-        └── 🏁·85efbe4 (⌂|1) ►wt-inside-ambiguous-worktree[📁], ►wt-outside-ambiguous-worktree[📁]
+        └── 🏁·85efbe4 (⌂) ►wt-inside-ambiguous-worktree[📁], ►wt-outside-ambiguous-worktree[📁]
     ");
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
@@ -1505,7 +1505,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&ws.graph), "when the graph is built from the linked worktree repository, it can't see anything else without metadata", @"
 
     └── 👉►:0[0]:wt-inside-ambiguous-worktree[📁@repo]
-        └── 🏁·85efbe4 (⌂|1) ►main[🌳], ►wt-outside-ambiguous-worktree[📁]
+        └── 🏁·85efbe4 (⌂) ►main[🌳], ►wt-outside-ambiguous-worktree[📁]
     ");
 
     insta::assert_snapshot!(graph_workspace(&ws), "workspace debug output should preserve that the linked worktree, not the main worktree, is owned by the repository used to build the graph", @"
@@ -1567,8 +1567,8 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:main[🌳]
-        ├── ·06470d7 (⌂|1)
-        └── 🏁·86719d5 (⌂|1)
+        ├── ·06470d7 (⌂)
+        └── 🏁·86719d5 (⌂)
     ");
     Ok(())
 }
@@ -1592,7 +1592,7 @@ fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
 
     └── 👉►:1[0]:top
         └── ►:0[1]:bottom
-            └── 🏁·960152d (⌂|1) ►main[🌳]
+            └── 🏁·960152d (⌂) ►main[🌳]
     ");
     assert_eq!(
         ws.graph.entrypoint()?.commit().map(|commit| commit.id),
@@ -1628,7 +1628,7 @@ fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Resul
 
     └── ►:1[0]:top
         └── 👉►:0[1]:bottom
-            └── 🏁·960152d (⌂|1) ►main[🌳]
+            └── 🏁·960152d (⌂) ►main[🌳]
     ");
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:bottom <> ✓!
@@ -1663,7 +1663,7 @@ fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<
     └── 👉►:1[0]:top
         └── ►:2[1]:middle
             └── ►:0[2]:bottom
-                └── 🏁·960152d (⌂|1) ►main[🌳]
+                └── 🏁·960152d (⌂) ►main[🌳]
     ");
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:1:top <> ✓!
@@ -1695,7 +1695,7 @@ fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Resu
 
     └── 👉►:1[0]:top
         └── ►:0[1]:bottom
-            └── 🏁·960152d (⌂|1) ►main[🌳]
+            └── 🏁·960152d (⌂) ►main[🌳]
     ");
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:1:top <> ✓!
@@ -1727,8 +1727,8 @@ fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Resul
     insta::assert_snapshot!(graph_tree(&ws.graph), @"
 
     └── 👉►:0[0]:top
-        ├── ·5cd63e5 (⌂|1)
-        └── 🏁·fa91c94 (⌂|1) ►bottom, ►main[🌳]
+        ├── ·5cd63e5 (⌂)
+        └── 🏁·fa91c94 (⌂) ►bottom, ►main[🌳]
     ");
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:top <> ✓!
@@ -1771,7 +1771,7 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
 
     └── 👉►:1[0]:top
         └── ►:0[1]:bottom
-            └── 🏁·960152d (⌂|1) ►main[🌳], ►other-bottom, ►other-top
+            └── 🏁·960152d (⌂) ►main[🌳], ►other-bottom, ►other-top
     ");
     insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:1:top <> ✓!

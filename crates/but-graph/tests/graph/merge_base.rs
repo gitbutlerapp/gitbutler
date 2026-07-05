@@ -34,23 +34,23 @@ fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> 
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:merged[🌳]
-        └── ·8a6c109 (⌂|1)
+        └── ·8a6c109 (⌂)
             ├── ►:1[1]:A
-            │   └── ·62b409a (⌂|1)
+            │   └── ·62b409a (⌂)
             │       ├── ►:4[2]:anon:
-            │       │   └── ·592abec (⌂|1)
+            │       │   └── ·592abec (⌂)
             │       │       └── ►:7[3]:main
-            │       │           └── 🏁·965998b (⌂|1)
+            │       │           └── 🏁·965998b (⌂)
             │       └── ►:6[2]:B
-            │           └── ·f16dddf (⌂|1)
+            │           └── ·f16dddf (⌂)
             │               └── →:7: (main)
             └── ►:2[1]:C
-                └── ·7ed512a (⌂|1)
+                └── ·7ed512a (⌂)
                     ├── ►:3[2]:anon:
-                    │   └── ·35ee481 (⌂|1)
+                    │   └── ·35ee481 (⌂)
                     │       └── →:7: (main)
                     └── ►:5[2]:D
-                        └── ·ecb1877 (⌂|1)
+                        └── ·ecb1877 (⌂)
                             └── →:7: (main)
     ");
 
@@ -81,23 +81,23 @@ fn merge_base_in_redundant_ancestor_case() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:merged[🌳]
-        └── ·8a6c109 (⌂|1)
+        └── ·8a6c109 (⌂)
             ├── ►:1[1]:A
-            │   └── ·62b409a (⌂|1)
+            │   └── ·62b409a (⌂)
             │       ├── ►:4[2]:anon:
-            │       │   └── ·592abec (⌂|1)
+            │       │   └── ·592abec (⌂)
             │       │       └── ►:7[3]:main
-            │       │           └── 🏁·965998b (⌂|1)
+            │       │           └── 🏁·965998b (⌂)
             │       └── ►:6[2]:B
-            │           └── ·f16dddf (⌂|1)
+            │           └── ·f16dddf (⌂)
             │               └── →:7: (main)
             └── ►:2[1]:C
-                └── ·7ed512a (⌂|1)
+                └── ·7ed512a (⌂)
                     ├── ►:3[2]:anon:
-                    │   └── ·35ee481 (⌂|1)
+                    │   └── ·35ee481 (⌂)
                     │       └── →:7: (main)
                     └── ►:5[2]:D
-                        └── ·ecb1877 (⌂|1)
+                        └── ·ecb1877 (⌂)
                             └── →:7: (main)
     ");
 
@@ -192,23 +192,23 @@ fn explicit_traversal_tips_include_unnamed_revisions() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:merged[🌳]
-        └── ·8a6c109 (⌂|1)
+        └── ·8a6c109 (⌂)
             ├── ►:1[1]:A
-            │   └── ·62b409a (⌂|1)
+            │   └── ·62b409a (⌂)
             │       ├── ►:4[2]:anon:
-            │       │   └── ·592abec (⌂|1)
+            │       │   └── ·592abec (⌂)
             │       │       └── ►:7[3]:main
-            │       │           └── 🏁·965998b (⌂|1)
+            │       │           └── 🏁·965998b (⌂)
             │       └── ►:6[2]:B
-            │           └── ·f16dddf (⌂|1)
+            │           └── ·f16dddf (⌂)
             │               └── →:7: (main)
             └── ►:2[1]:C
-                └── ·7ed512a (⌂|1)
+                └── ·7ed512a (⌂)
                     ├── ►:3[2]:anon:
-                    │   └── ·35ee481 (⌂|1)
+                    │   └── ·35ee481 (⌂)
                     │       └── →:7: (main)
                     └── ►:5[2]:D
-                        └── ·ecb1877 (⌂|1)
+                        └── ·ecb1877 (⌂)
                             └── →:7: (main)
     ");
 
@@ -252,23 +252,23 @@ fn explicit_traversal_prioritizes_integrated_tips_independent_of_input_order() -
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:merged[🌳]
-        └── ·8a6c109 (⌂|1)
+        └── ·8a6c109 (⌂)
             ├── ►:1[1]:A
-            │   └── ·62b409a (⌂|1)
+            │   └── ·62b409a (⌂)
             │       ├── ►:4[2]:anon:
-            │       │   └── ·592abec (⌂|1)
+            │       │   └── ·592abec (⌂)
             │       │       └── ►:7[3]:main
-            │       │           └── 🏁·965998b (⌂|✓|1)
+            │       │           └── 🏁·965998b (⌂|✓)
             │       └── ►:6[2]:B
-            │           └── ·f16dddf (⌂|1)
+            │           └── ·f16dddf (⌂)
             │               └── →:7: (main)
             └── ►:2[1]:C
-                └── ·7ed512a (⌂|1)
+                └── ·7ed512a (⌂)
                     ├── ►:3[2]:anon:
-                    │   └── ·35ee481 (⌂|1)
+                    │   └── ·35ee481 (⌂)
                     │       └── →:7: (main)
                     └── ►:5[2]:D
-                        └── ·ecb1877 (⌂|1)
+                        └── ·ecb1877 (⌂)
                             └── →:7: (main)
     ");
 

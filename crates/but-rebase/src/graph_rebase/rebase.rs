@@ -1,11 +1,10 @@
 //! Perform the actual rebase operations
 
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashSet, VecDeque},
     fmt::Write as _,
 };
 
-use crate::graph_rebase::Direction;
 use anyhow::{Context, Result, bail};
 use but_core::RefMetadata;
 use gix::refs::{
@@ -14,220 +13,154 @@ use gix::refs::{
 };
 
 use crate::graph_rebase::{
-    Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
+    Editor, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
     cherry_pick::{CherryPickOutcome, cherry_pick},
     util::collect_ordered_parents,
 };
 
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
-    /// Perform the rebase
+    /// Perform the rebase IN PLACE: each mutable pick's commit id is rewritten where it
+    /// stands, in dependency order, so a pick's parent slots already hold rebased ids by the
+    /// time it is picked. Node ids never change — parent arrays, positions, lanes, and every
+    /// outstanding selector stay valid across the rebase.
     pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph, M>> {
         crate::graph_rebase::positions::debug_assert_positions_total(&self.graph);
-        // First we want to get a list of nodes that can be reached by
-        // traversing downwards from the heads that we care about.
-        // Usually there would be just one "head" which is an index to access
-        // the reference step for `gitbutler/workspace`, but there could be
-        // multiple.
 
+        let mut graph = self.graph;
+        let mut history = self.history;
         let mut ref_edits = vec![];
-        // Every external (a node with no children) seeds the traversal so the
-        // output graph keeps every commit - immutable picks are copied verbatim
-        // rather than cherry-picked.
-        let rebase_heads = self
-            .graph
-            .externals(Direction::Incoming)
-            .collect::<Vec<_>>();
-        let steps_to_pick = order_steps_picking(&self.graph, &rebase_heads);
-
-        // A 1 to 1 mapping between the incoming graph and the output graph
-        let mut graph_mapping: HashMap<StepGraphIndex, StepGraphIndex> = HashMap::new();
-        // The step graph with updated commit oids
-        let mut output_graph = StepGraph::new();
         let mut unchanged_references = vec![];
 
-        let mut history = self.history;
+        // Every tip (a node with no children) seeds the traversal so every commit is
+        // visited — immutable picks and tombstones are left untouched where they stand.
+        let rebase_heads = graph.tips().collect::<Vec<_>>();
+        let steps_to_pick = order_steps_picking(&graph, &rebase_heads);
 
-        // Replay each step in dependency order into `output_graph`: cherry-pick mutable picks
-        // onto their already-rebuilt parents, copy immutable ones verbatim, and carry references
-        // across as positions.
         for step_idx in steps_to_pick {
-            let new_idx = match self.graph.step_view(step_idx) {
-                Step::Pick(pick) if !pick.mutable => {
-                    // Immutable picks are copied verbatim: the commit keeps its
-                    // id, so there's no cherry-pick to run and nothing to record
-                    // in the history mapping.
-                    output_graph.add_node(Step::Pick(pick))
-                }
-                Step::Pick(pick) => {
-                    // Only resolve the graph parents when we actually need them — a pick with
-                    // `preserved_parents` already carries its onto-commits.
-                    let ontos = match pick.preserved_parents.clone() {
-                        Some(ontos) => ontos,
-                        None => collect_ordered_parents(&self.graph, step_idx)
-                            .iter()
-                            .map(|idx| {
-                                let Some(new_idx) = graph_mapping.get(idx) else {
-                                    bail!("A matching parent can't be found in the output graph");
-                                };
+            let Step::Pick(pick) = graph.step_view(step_idx) else {
+                // Tombstones have nothing to rewrite.
+                continue;
+            };
+            if !pick.mutable {
+                // Immutable picks keep their id: no cherry-pick to run, nothing to record
+                // in the history mapping.
+                continue;
+            }
 
-                                match output_graph[*new_idx] {
-                                    Step::Pick(Pick { id, .. }) => Ok(id),
-                                    _ => bail!("A parent in the output graph is not a pick"),
-                                }
-                            })
-                            .collect::<Result<Vec<_>>>()?,
-                    };
-
-                    let outcome = cherry_pick(
-                        &self.repo,
-                        pick.id,
-                        &ontos,
-                        pick.pick_mode,
-                        pick.tree_merge_mode,
-                        pick.sign_commit,
-                    )?;
-
-                    if matches!(outcome, CherryPickOutcome::ConflictedCommit(_))
-                        && !pick.conflictable
-                    {
-                        bail!(
-                            "Commit {} was marked as not conflictable, but resulted in a conflicted state",
-                            pick.id
-                        );
-                    }
-
-                    match outcome {
-                        CherryPickOutcome::Commit(new_id)
-                        | CherryPickOutcome::ConflictedCommit(new_id)
-                        | CherryPickOutcome::Identity(new_id) => {
-                            let mut new_pick = pick.clone();
-                            new_pick.id = new_id;
-                            let new_idx = output_graph.add_node(Step::Pick(new_pick));
-                            graph_mapping.insert(step_idx, new_idx);
-                            if !pick.exclude_from_tracking {
-                                history.update_mapping(pick.id, new_id);
-                            }
-
-                            new_idx
-                        }
-                        CherryPickOutcome::FailedToMergeBases {
-                            base_merge_failed,
-                            bases,
-                            onto_merge_failed,
-                            ontos,
-                        } => {
-                            // Exit early - the rebase failed because it encountered a commit it couldn't pick
-                            bail!(format_base_merge_error(
-                                pick.id,
-                                base_merge_failed,
-                                bases,
-                                onto_merge_failed,
-                                ontos
-                            ));
-                        }
-                    }
-                }
-                Step::Reference { .. } => {
-                    unreachable!("references are replayed separately; the pick order holds none")
-                }
-                Step::None => output_graph.add_node(Step::None),
+            // Only resolve the graph parents when we actually need them — a pick with
+            // `preserved_parents` already carries its onto-commits.
+            let ontos = match pick.preserved_parents.clone() {
+                Some(ontos) => ontos,
+                None => collect_ordered_parents(&graph, step_idx)
+                    .iter()
+                    .map(|&idx| {
+                        graph
+                            .commit_id(idx)
+                            .context("BUG: ordered parents must be picks")
+                    })
+                    .collect::<Result<Vec<_>>>()?,
             };
 
-            graph_mapping.insert(step_idx, new_idx);
+            let outcome = cherry_pick(
+                &self.repo,
+                pick.id,
+                &ontos,
+                pick.pick_mode,
+                pick.tree_merge_mode,
+                pick.sign_commit,
+            )?;
 
-            let mut edges = self
-                .graph
-                .edges_directed(step_idx, Direction::Outgoing)
-                .collect::<Vec<_>>();
-            edges.sort_by_key(|e| e.weight().order);
-            edges.reverse();
-
-            for e in edges {
-                let Some(new_parent) = graph_mapping.get(&e.target()) else {
-                    bail!("Failed to find corresponding parent");
-                };
-
-                output_graph.add_edge(new_idx, *new_parent, e.weight().clone());
+            if matches!(outcome, CherryPickOutcome::ConflictedCommit(_)) && !pick.conflictable {
+                bail!(
+                    "Commit {} was marked as not conflictable, but resulted in a conflicted state",
+                    pick.id
+                );
             }
-        }
 
-        // References have no edges, so they take no part in the pick order; their only
-        // dependency — the anchor's mapping — is satisfied now that every pick is processed.
-        // They replay at the very end, in stable id order. DEAD references carry over as dead
-        // records (name and position retained, for stale-selector normalization and retention
-        // reads); live anchor-less refs (unborn or hand-built) are dropped, as before.
-        for step_idx in self.graph.ref_indices() {
-            let record = self
-                .graph
-                .reference_record(step_idx)
-                .expect("ref_indices only yields references");
-            if !record.live {
-                let new_idx = output_graph.add_reference(record.refname.clone(), record.mutable);
-                output_graph.tombstone_reference(new_idx);
-                graph_mapping.insert(step_idx, new_idx);
-                continue;
-            }
-            if record.position.is_none() {
-                continue;
-            }
-            let (refname, mutable) = (record.refname.clone(), record.mutable);
-            // Immutable references are kept in the graph for traversal
-            // but never moved, created, or deleted.
-            if mutable {
-                let first_parent_idx =
-                    crate::graph_rebase::positions::resolve_to_pick(&self.graph, step_idx)
-                        .context("References should resolve to a commit")?;
-                let Some(new_idx) = graph_mapping.get(&first_parent_idx) else {
-                    bail!("A matching parent can't be found in the output graph");
-                };
-
-                let to_reference = match output_graph[*new_idx] {
-                    Step::Pick(Pick { id, .. }) => id,
-                    _ => bail!("A parent in the output graph is not a pick"),
-                };
-
-                let reference = self.repo.try_find_reference(&refname)?;
-
-                if let Some(reference) = reference {
-                    let target = reference.target();
-                    match target {
-                        gix::refs::TargetRef::Object(id) => {
-                            if id == to_reference {
-                                unchanged_references.push(refname.clone());
-                            } else {
-                                ref_edits.push(RefEdit {
-                                    name: refname.clone(),
-                                    change: Change::Update {
-                                        log: LogChange::default(),
-                                        expected: PreviousValue::MustExistAndMatch(target.into()),
-                                        new: Target::Object(to_reference),
-                                    },
-                                    deref: false,
-                                });
-                            }
-                        }
-                        gix::refs::TargetRef::Symbolic(name) => {
-                            bail!("Attempted to update the symbolic reference {name}");
-                        }
+            match outcome {
+                CherryPickOutcome::Commit(new_id)
+                | CherryPickOutcome::ConflictedCommit(new_id)
+                | CherryPickOutcome::Identity(new_id) => {
+                    graph.set_commit_id(step_idx, new_id);
+                    if !pick.exclude_from_tracking {
+                        history.update_mapping(pick.id, new_id);
                     }
-                } else {
-                    ref_edits.push(RefEdit {
-                        name: refname.clone(),
-                        change: Change::Update {
-                            log: LogChange::default(),
-                            expected: PreviousValue::MustNotExist,
-                            new: Target::Object(to_reference),
-                        },
-                        deref: false,
-                    });
+                }
+                CherryPickOutcome::FailedToMergeBases {
+                    base_merge_failed,
+                    bases,
+                    onto_merge_failed,
+                    ontos,
+                } => {
+                    // Exit early - the rebase failed because it encountered a commit it couldn't pick
+                    bail!(format_base_merge_error(
+                        pick.id,
+                        base_merge_failed,
+                        bases,
+                        onto_merge_failed,
+                        ontos
+                    ));
                 }
             }
-
-            let new_idx = output_graph.add_reference(refname, mutable);
-            graph_mapping.insert(step_idx, new_idx);
         }
 
-        output_graph.carry_positions_mapped(&self.graph, &graph_mapping);
+        // References need no rewrite at all — their position's anchor node now carries the
+        // rebased id. All that remains is emitting the ref transaction: every live, mutable,
+        // positioned reference moves to its anchor's new commit.
+        for step_idx in graph.ref_indices() {
+            let record = graph
+                .reference_record(step_idx)
+                .expect("ref_indices only yields references");
+            if !record.live || record.position.is_none() || !record.mutable {
+                // Dead records keep their retained name and position; immutable references
+                // are kept in the graph for traversal but never moved, created, or deleted.
+                continue;
+            }
+            let refname = record.refname.clone();
+            let first_parent_idx =
+                crate::graph_rebase::positions::resolve_to_pick(&graph, step_idx)
+                    .context("References should resolve to a commit")?;
+            let to_reference = match graph.commit_id(first_parent_idx) {
+                Some(id) => id,
+                None => bail!("A reference's anchor is not a pick"),
+            };
+
+            let reference = self.repo.try_find_reference(&refname)?;
+
+            if let Some(reference) = reference {
+                let target = reference.target();
+                match target {
+                    gix::refs::TargetRef::Object(id) => {
+                        if id == to_reference {
+                            unchanged_references.push(refname.clone());
+                        } else {
+                            ref_edits.push(RefEdit {
+                                name: refname.clone(),
+                                change: Change::Update {
+                                    log: LogChange::default(),
+                                    expected: PreviousValue::MustExistAndMatch(target.into()),
+                                    new: Target::Object(to_reference),
+                                },
+                                deref: false,
+                            });
+                        }
+                    }
+                    gix::refs::TargetRef::Symbolic(name) => {
+                        bail!("Attempted to update the symbolic reference {name}");
+                    }
+                }
+            } else {
+                ref_edits.push(RefEdit {
+                    name: refname.clone(),
+                    change: Change::Update {
+                        log: LogChange::default(),
+                        expected: PreviousValue::MustNotExist,
+                        new: Target::Object(to_reference),
+                    },
+                    deref: false,
+                });
+            }
+        }
 
         // Find deleted references. `initial_references` only contains mutable
         // references, so immutable references are never considered for deletion.
@@ -250,14 +183,12 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             }
         }
 
-        history.add_revision(graph_mapping);
-
         Ok(SuccessfulRebase {
             repo: self.repo,
             initial_references: self.initial_references,
             ref_edits,
-            graph: output_graph,
-            checkouts: self.checkouts.to_owned(),
+            graph,
+            checkouts: self.checkouts,
             history,
             workspace: self.workspace,
             meta: self.meta,
@@ -291,15 +222,14 @@ fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<
     let mut bases = VecDeque::new();
 
     while let Some(head) = heads.pop() {
-        let edges = graph.edges_directed(head, Direction::Outgoing);
+        let parents = graph.parents(head);
 
-        if edges.clone().count() == 0 {
+        if parents.is_empty() {
             bases.push_back(head);
             continue;
         }
 
-        for edge in edges {
-            let t = edge.target();
+        for t in parents {
             if seen.insert(t) {
                 heads.push(t);
             }
@@ -312,12 +242,9 @@ fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<
     let mut retraversed = bases.iter().cloned().collect::<HashSet<_>>();
 
     while let Some(base) = bases.pop_front() {
-        for edge in graph.edges_directed(base, Direction::Incoming) {
+        for (s, _) in graph.incoming_legs(base) {
             // We only want to queue nodes for traversing that have had all of their parents traversed.
-            let s = edge.source();
-            let mut outgoing_edges = graph.edges_directed(s, Direction::Outgoing);
-            let all_parents_seen = outgoing_edges.clone().count() == 0
-                || outgoing_edges.all(|e| retraversed.contains(&e.target()));
+            let all_parents_seen = graph.parents(s).iter().all(|t| retraversed.contains(t));
             if all_parents_seen && seen.contains(&s) && retraversed.insert(s) {
                 bases.push_back(s);
                 ordered.push_back(s);
@@ -381,12 +308,12 @@ mod test {
         use anyhow::Result;
 
         use crate::graph_rebase::{
-            Edge, Step, StepGraph, rebase::order_steps_picking, testing::render_ascii_graph,
+            Step, StepGraph, rebase::order_steps_picking, testing::render_ascii_graph,
         };
 
         #[test]
         fn basic_scenario() -> Result<()> {
-            let mut graph = StepGraph::new();
+            let mut graph = StepGraph::default();
             let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));
@@ -397,8 +324,8 @@ mod test {
                 "3000000000000000000000000000000000000000",
             )?));
 
-            graph.add_edge(a, b, Edge { order: 0 });
-            graph.add_edge(b, c, Edge { order: 0 });
+            graph.push_parent(a, b);
+            graph.push_parent(b, c);
 
             insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
             ●  1000000
@@ -418,7 +345,7 @@ mod test {
 
         #[test]
         fn complex_scenario() -> Result<()> {
-            let mut graph = StepGraph::new();
+            let mut graph = StepGraph::default();
             let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));
@@ -450,17 +377,17 @@ mod test {
                 "1100000000000000000000000000000000000000",
             )?));
 
-            graph.add_edge(a, b, Edge { order: 0 });
-            graph.add_edge(b, c, Edge { order: 0 });
-            graph.add_edge(c, d, Edge { order: 0 });
-            graph.add_edge(d, e, Edge { order: 0 });
+            graph.push_parent(a, b);
+            graph.push_parent(b, c);
+            graph.push_parent(c, d);
+            graph.push_parent(d, e);
 
-            graph.add_edge(f, g, Edge { order: 0 });
-            graph.add_edge(g, c, Edge { order: 0 });
+            graph.push_parent(f, g);
+            graph.push_parent(g, c);
 
-            graph.add_edge(h, d, Edge { order: 0 });
+            graph.push_parent(h, d);
 
-            graph.add_edge(i, j, Edge { order: 0 });
+            graph.push_parent(i, j);
 
             insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
             ●  1000000
@@ -478,14 +405,14 @@ mod test {
             ");
 
             let ordered_from_a = order_steps_picking(&graph, &[f, h]);
-            assert_eq!(&ordered_from_a, &[e, d, h, c, g, f]);
+            assert_eq!(&ordered_from_a, &[e, d, c, h, g, f]);
 
             Ok(())
         }
 
         #[test]
         fn merge_scenario() -> Result<()> {
-            let mut graph = StepGraph::new();
+            let mut graph = StepGraph::default();
             let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));
@@ -502,12 +429,12 @@ mod test {
                 "5000000000000000000000000000000000000000",
             )?));
 
-            graph.add_edge(a, b, Edge { order: 0 });
-            graph.add_edge(b, c, Edge { order: 0 });
+            graph.push_parent(a, b);
+            graph.push_parent(b, c);
 
-            graph.add_edge(a, d, Edge { order: 1 });
-            graph.add_edge(d, e, Edge { order: 0 });
-            graph.add_edge(e, b, Edge { order: 0 });
+            graph.push_parent(a, d);
+            graph.push_parent(d, e);
+            graph.push_parent(e, b);
 
             insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
             ●    1000000
@@ -527,7 +454,7 @@ mod test {
 
         #[test]
         fn merge_flipped_scenario() -> Result<()> {
-            let mut graph = StepGraph::new();
+            let mut graph = StepGraph::default();
             let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));
@@ -544,12 +471,12 @@ mod test {
                 "5000000000000000000000000000000000000000",
             )?));
 
-            graph.add_edge(a, d, Edge { order: 0 });
-            graph.add_edge(d, e, Edge { order: 0 });
-            graph.add_edge(e, b, Edge { order: 0 });
-            graph.add_edge(b, c, Edge { order: 0 });
+            graph.push_parent(a, d);
+            graph.push_parent(d, e);
+            graph.push_parent(e, b);
+            graph.push_parent(b, c);
 
-            graph.add_edge(a, b, Edge { order: 1 });
+            graph.push_parent(a, b);
 
             insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
             ●    1000000

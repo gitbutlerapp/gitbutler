@@ -18,11 +18,8 @@ use anyhow::Result;
 use but_core::RefMetadata;
 use renderdag::{Ancestor, GraphRowRenderer, Renderer as _};
 
-#[cfg(test)]
-use crate::graph_rebase::Edge;
 use crate::graph_rebase::{
-    Editor, Pick, Selector, Step, StepGraph, StepGraphIndex, SuccessfulRebase, positions,
-    workspace::Subgraph,
+    Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase, positions, workspace::Subgraph,
 };
 
 /// An extension trait that adds debugging output for graphs
@@ -73,13 +70,12 @@ impl TestingDot for StepGraph {
             };
             out.push_str(&format!("    {idx} [ label=\"{label}\"]\n"));
         }
-        for edge in self.edge_references() {
-            out.push_str(&format!(
-                "    {} -> {} [ label=\"order: {}\"]\n",
-                edge.source(),
-                edge.target(),
-                edge.weight().order
-            ));
+        for idx in self.node_indices() {
+            for (order, parent) in self.parents(idx).iter().enumerate() {
+                out.push_str(&format!(
+                    "    {idx} -> {parent} [ label=\"order: {order}\"]\n"
+                ));
+            }
         }
         out.push_str("}\n");
         out
@@ -137,7 +133,7 @@ type ChainKey = (StepGraphIndex, Vec<(StepGraphIndex, usize)>);
 
 fn chains(graph: &StepGraph) -> HashMap<ChainKey, Vec<StepGraphIndex>> {
     let mut out: HashMap<_, Vec<(usize, StepGraphIndex)>> = HashMap::new();
-    for (node, stored) in graph.anchored_refs() {
+    for (node, stored) in graph.positioned_refs() {
         out.entry((stored.anchor, positions::ref_approach(graph, node)))
             .or_default()
             .push((positions::ref_depth(graph, node), node));
@@ -154,8 +150,8 @@ fn chains(graph: &StepGraph) -> HashMap<ChainKey, Vec<StepGraphIndex>> {
 /// reference chains (positioned with nothing above them).
 fn find_heads(graph: &StepGraph) -> Vec<StepGraphIndex> {
     let mut has_incoming: HashSet<StepGraphIndex> = HashSet::new();
-    for edge in graph.edge_references() {
-        has_incoming.insert(edge.target());
+    for idx in graph.node_indices() {
+        has_incoming.extend(graph.parents(idx));
     }
     let chains = chains(graph);
     // Node-arena entries first, then references (the render sorts heads deterministically, so
@@ -164,7 +160,7 @@ fn find_heads(graph: &StepGraph) -> Vec<StepGraphIndex> {
     graph
         .node_indices()
         .chain(graph.ref_indices())
-        .filter(|idx| match graph.anchor_of(*idx) {
+        .filter(|idx| match graph.position_of(*idx) {
             Some(stored) => {
                 let approach = positions::ref_approach(graph, *idx);
                 approach.is_empty()
@@ -186,7 +182,7 @@ fn find_heads(graph: &StepGraph) -> Vec<StepGraphIndex> {
 /// when they were nodes.
 fn get_sorted_parents(graph: &StepGraph, node: StepGraphIndex) -> Vec<StepGraphIndex> {
     let chains = chains(graph);
-    if let Some(stored) = graph.anchor_of(node) {
+    if let Some(stored) = graph.position_of(node) {
         let chain = chains
             .get(&(stored.anchor, positions::ref_approach(graph, node)))
             .map(Vec::as_slice)
@@ -199,13 +195,11 @@ fn get_sorted_parents(graph: &StepGraph, node: StepGraphIndex) -> Vec<StepGraphI
             .unwrap_or(stored.anchor);
         return vec![below];
     }
-    let mut parents: Vec<_> = graph
-        .edges(node)
-        .map(|e| (e.weight().order, e.target()))
-        .collect();
-    parents.sort_by_key(|(order, _)| *order);
-    parents
-        .into_iter()
+    graph
+        .parents(node)
+        .iter()
+        .copied()
+        .enumerate()
         .map(|(order, target)| {
             chains
                 .iter()
@@ -336,7 +330,7 @@ where
         // A positioned reference whose anchor lies outside the set is a boundary chain the
         // edge-era walk never reached from this subgraph's heads — don't seed it.
         .filter(|n| {
-            graph.anchor_of(*n).is_none_or(|stored| {
+            graph.position_of(*n).is_none_or(|stored| {
                 crate::graph_rebase::positions::resolve_to_pick(graph, stored.anchor)
                     .is_some_and(|pick| nodes.contains(&pick))
             })
@@ -388,9 +382,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Render a [`Subgraph`] (e.g. one of the parts of [`Editor::graph_workspace`])
     /// as a box-drawing DAG, in the same style as [`Testing::steps_ascii`].
     pub fn subgraph_ascii(&self, subgraph: &Subgraph) -> String {
-        let resolve = |s: &Selector| self.history.normalize_selector(*s).ok().map(|s| s.id);
-        let nodes: HashSet<StepGraphIndex> = subgraph.nodes.iter().filter_map(resolve).collect();
-        let heads: Vec<StepGraphIndex> = subgraph.heads.iter().filter_map(resolve).collect();
+        let nodes: HashSet<StepGraphIndex> = subgraph.nodes.iter().map(|s| s.id).collect();
+        let heads: Vec<StepGraphIndex> = subgraph.heads.iter().map(|s| s.id).collect();
         render_step_graph(&self.graph, &nodes, &heads, |id| {
             lookup_commit_title(&self.repo, id)
         })
@@ -471,22 +464,31 @@ mod tests {
         )
     }
 
-    /// Helper to build a graph and add edges with order
+    /// Add a reference POSITIONED on `anchor`, the way native creation authors refs — a
+    /// root chain of one.
+    fn place_ref(graph: &mut StepGraph, name: &str, anchor: StepGraphIndex) -> StepGraphIndex {
+        let ix = add_ref(graph, name);
+        graph.set_position(ix, anchor, &[], false, None);
+        ix
+    }
+
+    /// Helper to append a parent slot; the stated order documents the intended slot and is
+    /// asserted against the push (arrays make insertion order the structure).
     fn add_edge(graph: &mut StepGraph, from: StepGraphIndex, to: StepGraphIndex, order: usize) {
-        graph.add_edge(from, to, Edge { order });
+        let slot = graph.push_parent(from, to);
+        assert_eq!(slot, order, "test builder must push parents in slot order");
     }
 
     #[test]
     fn linear_graph() {
-        // Simple linear: A -> B -> C -> D
-        let mut graph = StepGraph::new();
-        let a = add_ref(&mut graph, "main");
+        // Simple linear: main on B -> C -> D
+        let mut graph = StepGraph::default();
         let b = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
         let c = graph.add_node(make_pick("2222222222222222222222222222222222222222"));
         let d = graph.add_node(make_pick("3333333333333333333333333333333333333333"));
         let none = graph.add_node(Step::None);
+        place_ref(&mut graph, "main", b);
 
-        add_edge(&mut graph, a, b, 0);
         add_edge(&mut graph, b, c, 0);
         add_edge(&mut graph, c, d, 0);
         add_edge(&mut graph, d, none, 0);
@@ -509,11 +511,12 @@ mod tests {
         // A   B
         //  \ /
         //   C
-        let mut graph = StepGraph::new();
-        let m = add_ref(&mut graph, "main");
+        let mut graph = StepGraph::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        place_ref(&mut graph, "main", m);
 
         // M has two parents: A (first) and B (second)
         add_edge(&mut graph, m, a, 0);
@@ -524,7 +527,8 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎    refs/heads/main
+        ◎  refs/heads/main
+        ●    9999999
         ├─╮
         ● │  aaaaaaa
         │ ●  bbbbbbb
@@ -541,12 +545,13 @@ mod tests {
         //  A  B  C
         //   \ | /
         //     D
-        let mut graph = StepGraph::new();
-        let m = add_ref(&mut graph, "main");
+        let mut graph = StepGraph::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
         let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
+        place_ref(&mut graph, "main", m);
 
         // M has three parents
         add_edge(&mut graph, m, a, 0);
@@ -559,7 +564,8 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎      refs/heads/main
+        ◎  refs/heads/main
+        ●      9999999
         ├─┬─╮
         ● │ │  aaaaaaa
         │ ● │  bbbbbbb
@@ -580,14 +586,15 @@ mod tests {
         //  X  Y  Z  \
         //   \ | /   |
         //     C-----+
-        let mut graph = StepGraph::new();
-        let m = add_ref(&mut graph, "main");
+        let mut graph = StepGraph::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff")); // fork point
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let x = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
         let y = graph.add_node(make_pick("2222222222222222222222222222222222222222"));
         let z = graph.add_node(make_pick("3333333333333333333333333333333333333333"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        place_ref(&mut graph, "main", m);
 
         // M has two parents: F (first) and B (second)
         add_edge(&mut graph, m, f, 0);
@@ -608,7 +615,8 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎    refs/heads/main
+        ◎  refs/heads/main
+        ●    9999999
         ├─╮
         ● │      fffffff
         ├───┬─╮
@@ -626,13 +634,14 @@ mod tests {
     #[test]
     fn four_way_merge() {
         // Four-way merge
-        let mut graph = StepGraph::new();
-        let m = add_ref(&mut graph, "main");
+        let mut graph = StepGraph::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
         let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
         let base = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
+        place_ref(&mut graph, "main", m);
 
         add_edge(&mut graph, m, a, 0);
         add_edge(&mut graph, m, b, 1);
@@ -646,7 +655,8 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎        refs/heads/main
+        ◎  refs/heads/main
+        ●        9999999
         ├─┬─┬─╮
         ● │ │ │  aaaaaaa
         │ ● │ │  bbbbbbb
@@ -671,13 +681,14 @@ mod tests {
         // A3  |
         //  \ /
         //   C
-        let mut graph = StepGraph::new();
-        let m = add_ref(&mut graph, "main");
+        let mut graph = StepGraph::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a1 = graph.add_node(make_pick("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"));
         let a2 = graph.add_node(make_pick("a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2"));
         let a3 = graph.add_node(make_pick("a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        place_ref(&mut graph, "main", m);
 
         add_edge(&mut graph, m, a1, 0);
         add_edge(&mut graph, m, b, 1);
@@ -688,7 +699,8 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎    refs/heads/main
+        ◎  refs/heads/main
+        ●    9999999
         ├─╮
         ● │  a1a1a1a
         ● │  a2a2a2a
@@ -709,13 +721,14 @@ mod tests {
         //   D   E   |
         //    \ /    |
         //     F-----+
-        let mut graph = StepGraph::new();
-        let a = add_ref(&mut graph, "main");
+        let mut graph = StepGraph::default();
+        let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
         let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
         let e = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
+        place_ref(&mut graph, "main", a);
 
         // A forks to B, C
         add_edge(&mut graph, a, b, 0);
@@ -732,7 +745,8 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎    refs/heads/main
+        ◎  refs/heads/main
+        ●    aaaaaaa
         ├─╮
         ● │    bbbbbbb
         ├───╮
@@ -756,8 +770,8 @@ mod tests {
         //     X Y Z  \|
         //      \|/    |
         //       D-----+
-        let mut graph = StepGraph::new();
-        let m = add_ref(&mut graph, "main");
+        let mut graph = StepGraph::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
@@ -765,6 +779,7 @@ mod tests {
         let y = graph.add_node(make_pick("2222222222222222222222222222222222222222"));
         let z = graph.add_node(make_pick("3333333333333333333333333333333333333333"));
         let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
+        place_ref(&mut graph, "main", m);
 
         // M forks to F, B, C
         add_edge(&mut graph, m, f, 0);
@@ -785,7 +800,8 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎      refs/heads/main
+        ◎  refs/heads/main
+        ●      9999999
         ├─┬─╮
         ● │ │      fffffff
         ├─────┬─╮
@@ -816,8 +832,8 @@ mod tests {
         //   E   F     <- D forks to E and F, F is shared with C
         //    \ /
         //     base
-        let mut graph = StepGraph::new();
-        let m = add_ref(&mut graph, "main");
+        let mut graph = StepGraph::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
@@ -825,6 +841,7 @@ mod tests {
         let e = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
         let base = graph.add_node(make_pick("0000000000000000000000000000000000000000"));
+        place_ref(&mut graph, "main", m);
 
         // M forks to A, B, C
         add_edge(&mut graph, m, a, 0);
@@ -848,7 +865,8 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎      refs/heads/main
+        ◎  refs/heads/main
+        ●      9999999
         ├─┬─╮
         ● │ │  aaaaaaa
         ● │ │    ddddddd
@@ -881,8 +899,8 @@ mod tests {
         //   |     G     <- B, C, and D's second branch merge at G
         //    \   /
         //      F        <- E and G merge at F
-        let mut graph = StepGraph::new();
-        let m = add_ref(&mut graph, "main");
+        let mut graph = StepGraph::default();
+        let m = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
@@ -890,6 +908,7 @@ mod tests {
         let e = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
         let g = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
+        place_ref(&mut graph, "main", m);
 
         // M forks to A, B, C
         add_edge(&mut graph, m, a, 0);
@@ -913,7 +932,8 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎      refs/heads/main
+        ◎  refs/heads/main
+        ●      1111111
         ├─┬─╮
         ● │ │  aaaaaaa
         ● │ │    ddddddd
@@ -943,8 +963,8 @@ mod tests {
         //  E F shared <- D forks to E, F, shared where shared comes from C
         //   \|/
         //    base
-        let mut graph = StepGraph::new();
-        let m = add_ref(&mut graph, "main");
+        let mut graph = StepGraph::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
@@ -953,6 +973,7 @@ mod tests {
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
         let shared = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
         let base = graph.add_node(make_pick("0000000000000000000000000000000000000000"));
+        place_ref(&mut graph, "main", m);
 
         // M forks to A, B, C
         add_edge(&mut graph, m, a, 0);
@@ -977,7 +998,8 @@ mod tests {
 
         let output = render_ascii_graph(&graph, |_| None);
         insta::assert_snapshot!(output, @"
-        ◎      refs/heads/main
+        ◎  refs/heads/main
+        ●      9999999
         ├─┬─╮
         ● │ │  aaaaaaa
         ● │ │      ddddddd
@@ -996,16 +1018,15 @@ mod tests {
 
     #[test]
     fn subgraph_drops_parents_outside_the_node_set() {
-        // main -> a -> b -> base, rendering only the subgraph {a, b}.
-        // `main` (a child of `a`) and `base` (a parent of `b`) are outside the
-        // set, so neither is drawn and `b` renders as a root.
-        let mut graph = StepGraph::new();
-        let main = add_ref(&mut graph, "main");
+        // main on a -> b -> base, rendering only the subgraph {a, b}.
+        // `main` (positioned on `a`) and `base` (a parent of `b`) are outside
+        // the set, so neither is drawn and `b` renders as a root.
+        let mut graph = StepGraph::default();
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let base = graph.add_node(make_pick("0000000000000000000000000000000000000000"));
+        place_ref(&mut graph, "main", a);
 
-        add_edge(&mut graph, main, a, 0);
         add_edge(&mut graph, a, b, 0);
         add_edge(&mut graph, b, base, 0);
 
