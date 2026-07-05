@@ -2349,7 +2349,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_
 }
 
 #[test]
-fn integrate_upstream_precomputes_squash_before_later_step_graph_rewiring() -> Result<()> {
+fn integrate_upstream_precomputes_squash_before_later_graph_rewiring() -> Result<()> {
     let (_tmp, mut ws, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "remote-diverged-with-workspace",

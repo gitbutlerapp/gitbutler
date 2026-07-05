@@ -60,7 +60,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
         let first_parent =
             crate::graph_rebase::positions::resolve_to_pick(&self.graph, selector.id)
-                .context("Failed to find a parent for selected reference in the step graph.")?;
+                .context("Failed to find a parent for selected reference in the commit graph.")?;
 
         let Some(id) = self.graph.commit_id(first_parent) else {
             bail!("BUG: first_ordered_parent provided a non-pick return value");

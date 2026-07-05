@@ -5,9 +5,10 @@
 //! stay stable across removal), and every connection — which target segment, and which commit
 //! connects to which — lives on the source segment in [`Segment::connections`].
 //!
-//! Incoming edges are derived by scanning (the graph is tiny: a handful of segments per workspace),
-//! so only the outgoing direction is stored. Outgoing connections are kept in first-parent order
-//! (see `order_outgoing_connections_by_first_parent`), which is the order traversal wants.
+//! Outgoing connections are kept in first-parent order (see
+//! `order_outgoing_connections_by_first_parent`), which is the order traversal wants. The reverse
+//! direction is a maintained index (`incoming`: one source entry per connection), so per-node
+//! incoming queries are O(degree) even on graphs with hundreds of thousands of segments.
 
 use crate::{CommitIndex, Segment, SegmentIndex};
 
@@ -125,10 +126,21 @@ impl<'a> EdgeRef<'a> {
 
 /// The segment arena. Removing a segment tombstones its slot, which is reused (LIFO) before a fresh
 /// id is handed out, so segment ids stay stable across construction-time surgery.
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct SegmentGraph {
-    segments: Vec<Option<Segment>>, // index = SegmentIndex
-    free: Vec<SegmentIndex>,        // tombstoned slots, reused LIFO
+    segments: Vec<Option<Segment>>,   // index = SegmentIndex
+    incoming: Vec<Vec<SegmentIndex>>, // index = target; one source entry per connection
+    free: Vec<SegmentIndex>,          // tombstoned slots, reused LIFO
+}
+
+/// Skips the `incoming` index — it's derived from the connections and only noise in snapshots.
+impl std::fmt::Debug for SegmentGraph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SegmentGraph")
+            .field("segments", &self.segments)
+            .field("free", &self.free)
+            .finish()
+    }
 }
 
 impl SegmentGraph {
@@ -146,11 +158,13 @@ impl SegmentGraph {
     /// The caller is responsible for having set `segment.id` to the returned id where it matters.
     pub fn add_node(&mut self, segment: Segment) -> SegmentIndex {
         if let Some(id) = self.free.pop() {
+            debug_assert!(self.incoming[id].is_empty(), "tombstones have no edges");
             self.segments[id] = Some(segment);
             id
         } else {
             let id = self.segments.len();
             self.segments.push(Some(segment));
+            self.incoming.push(Vec::new());
             id
         }
     }
@@ -177,8 +191,15 @@ impl SegmentGraph {
     /// Tombstone `id` and drop every connection incident to it (its own, and those pointing at it).
     pub(crate) fn remove_node(&mut self, id: SegmentIndex) -> Option<Segment> {
         let removed = self.segments.get_mut(id)?.take()?;
-        for seg in self.segments.iter_mut().flatten() {
-            seg.connections.retain(|c| c.target != id);
+        for c in &removed.connections {
+            let inc = &mut self.incoming[c.target];
+            let pos = inc.iter().position(|&s| s == id).expect("index in sync");
+            inc.swap_remove(pos);
+        }
+        for src in std::mem::take(&mut self.incoming[id]) {
+            if let Some(seg) = self.segments.get_mut(src).and_then(Option::as_mut) {
+                seg.connections.retain(|c| c.target != id);
+            }
         }
         self.free.push(id);
         Some(removed)
@@ -194,6 +215,7 @@ impl SegmentGraph {
             self.node(connection.target).is_some(),
             "connection target must be live"
         );
+        self.incoming[connection.target].push(source);
         self.segments[source]
             .as_mut()
             .expect("live source")
@@ -206,19 +228,47 @@ impl SegmentGraph {
     pub fn remove_edge(&mut self, source: SegmentIndex, weight: &Connection) -> Option<Connection> {
         let conns = &mut self.node_mut(source)?.connections;
         let pos = conns.iter().position(|c| c == weight)?;
-        Some(conns.remove(pos))
+        let removed = conns.remove(pos);
+        let inc = &mut self.incoming[removed.target];
+        let pos = inc
+            .iter()
+            .position(|&s| s == source)
+            .expect("index in sync");
+        inc.swap_remove(pos);
+        Some(removed)
     }
 
-    /// Mutable access to the first connection leaving `source` that equals `weight`.
-    pub(crate) fn edge_weight_mut(
+    /// Re-point `source`'s connections at `old_target` to `new_target`, clearing their destination
+    /// endpoints (segment surgery invalidates them; `dst` stays `None` until re-normalized).
+    /// Returns how many connections were re-pointed.
+    pub(crate) fn retarget_edges(
         &mut self,
         source: SegmentIndex,
-        weight: &Connection,
-    ) -> Option<&mut Connection> {
-        self.node_mut(source)?
-            .connections
-            .iter_mut()
-            .find(|c| **c == *weight)
+        old_target: SegmentIndex,
+        new_target: SegmentIndex,
+    ) -> usize {
+        let Some(seg) = self.segments.get_mut(source).and_then(Option::as_mut) else {
+            return 0;
+        };
+        let mut retargeted = 0;
+        for c in &mut seg.connections {
+            if c.target == old_target {
+                c.target = new_target;
+                c.dst = None;
+                c.dst_id = None;
+                retargeted += 1;
+            }
+        }
+        for _ in 0..retargeted {
+            let inc = &mut self.incoming[old_target];
+            let pos = inc
+                .iter()
+                .position(|&s| s == source)
+                .expect("index in sync");
+            inc.swap_remove(pos);
+            self.incoming[new_target].push(source);
+        }
+        retargeted
     }
 
     /// Live segment ids, ascending.
@@ -229,13 +279,13 @@ impl SegmentGraph {
             .filter_map(|(i, n)| n.as_ref().map(|_| i))
     }
 
-    /// petgraph-compatible alias for `Self::node_ids`.
+    /// Alias for `Self::node_ids` under the petgraph-era name callers still use.
     pub fn node_indices(&self) -> impl Iterator<Item = SegmentIndex> + '_ {
         self.node_ids()
     }
 
     /// Connections leaving (`Outgoing`, in stored first-parent order) or entering (`Incoming`,
-    /// derived by scanning in ascending source order) `node`.
+    /// via the incoming index, in ascending source order) `node`.
     pub fn edges_directed(
         &self,
         node: SegmentIndex,
@@ -256,7 +306,10 @@ impl SegmentGraph {
                 }
             }
             Direction::Incoming => {
-                for src in self.node_ids() {
+                let mut sources = self.incoming.get(node).cloned().unwrap_or_default();
+                sources.sort_unstable();
+                sources.dedup();
+                for src in sources {
                     for c in &self.segments[src].as_ref().expect("live").connections {
                         if c.target == node {
                             out.push(EdgeRef {
@@ -290,13 +343,7 @@ impl SegmentGraph {
     /// Topological order (Kahn's algorithm): every connection's source precedes its target.
     /// Assumes a DAG; nodes left over after a cycle are omitted.
     pub(crate) fn toposort(&self) -> Vec<SegmentIndex> {
-        let bound = self.segments.len();
-        let mut in_degree = vec![0usize; bound];
-        for src in self.node_ids() {
-            for c in &self.segments[src].as_ref().expect("live").connections {
-                in_degree[c.target] += 1;
-            }
-        }
+        let mut in_degree: Vec<usize> = self.incoming.iter().map(Vec::len).collect();
         let mut queue: std::collections::VecDeque<SegmentIndex> =
             self.node_ids().filter(|&id| in_degree[id] == 0).collect();
         let mut order = Vec::with_capacity(self.node_count());
@@ -315,7 +362,14 @@ impl SegmentGraph {
     /// Live segments with no connections in `dir` — sinks for `Outgoing`, roots for `Incoming`.
     pub fn externals(&self, dir: Direction) -> impl Iterator<Item = SegmentIndex> + '_ {
         self.node_ids()
-            .filter(move |&id| self.edges_directed(id, dir).next().is_none())
+            .filter(move |&id| match dir {
+                Direction::Outgoing => self.segments[id]
+                    .as_ref()
+                    .expect("live")
+                    .connections
+                    .is_empty(),
+                Direction::Incoming => self.incoming[id].is_empty(),
+            })
             .collect::<Vec<_>>()
             .into_iter()
     }

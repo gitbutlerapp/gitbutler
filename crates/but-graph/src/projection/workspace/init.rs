@@ -76,7 +76,7 @@ impl Graph {
         skip(self),
         err(Debug)
     )]
-    pub(crate) fn into_workspace(self) -> anyhow::Result<Workspace> {
+    pub fn into_workspace(self) -> anyhow::Result<Workspace> {
         let state = self.to_workspace_state()?;
         Ok(Workspace::from_state(self, state))
     }
@@ -453,8 +453,9 @@ impl Graph {
                 );
             }
             // Stacks already arrive in workspace-parent-array order: the workspace commit's outgoing
-            // edges are sorted by the parent array during graph construction (post.rs
-            // `stack_entry_commit`), and collecting them above preserves that order — no re-sort here.
+            // edges are sorted by the parent array during graph construction
+            // (`commit_graph_to_segment_graph`), and collecting them above preserves that order —
+            // no re-sort here.
         } else {
             let start = &self[frame.ws_tip_segment_id];
             let has_seen_base = RefCell::new(false);

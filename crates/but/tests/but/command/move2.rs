@@ -564,11 +564,11 @@ fn move_commit_above_empty_branch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted] (no changes)
 ┊
-┊╭┄g0 [A]
-┊●   9477ae7 add A
+┊╭┄g0 [B] (no commits)
 ├╯
 ┊
-┊╭┄h0 [B] (no commits)
+┊╭┄h0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -577,7 +577,7 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("_move2 94 --above h0")
+    env.but("_move2 94 --above g0")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -618,11 +618,11 @@ fn move_commit_below_empty_branch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted] (no changes)
 ┊
-┊╭┄g0 [A]
-┊●   9477ae7 add A
+┊╭┄g0 [B] (no commits)
 ├╯
 ┊
-┊╭┄h0 [B] (no commits)
+┊╭┄h0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -631,7 +631,7 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    env.but("_move2 94 --below h0")
+    env.but("_move2 94 --below g0")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -672,11 +672,11 @@ fn above_or_below_unapplied_or_non_existing_branch_errors() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted] (no changes)
 ┊
-┊╭┄g0 [A]
-┊●   9477ae7 add A
+┊╭┄g0 [B] (no commits)
 ├╯
 ┊
-┊╭┄h0 [B] (no commits)
+┊╭┄h0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -792,11 +792,11 @@ fn move_to_tip_of_empty_branch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted] (no changes)
 ┊
-┊╭┄g0 [A]
-┊●   9477ae7 add A
+┊╭┄g0 [B] (no commits)
 ├╯
 ┊
-┊╭┄h0 [B] (no commits)
+┊╭┄h0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -1647,11 +1647,11 @@ fn move_empty_branch_above_other_branch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted] (no changes)
 ┊
-┊╭┄g0 [A]
-┊●   9477ae7 add A
+┊╭┄g0 [B] (no commits)
 ├╯
 ┊
-┊╭┄h0 [B] (no commits)
+┊╭┄h0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -1845,15 +1845,15 @@ Unstacked branch 'B'
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted] (no changes)
 ┊
-┊╭┄g0 [B]
-┊●   05d3df1 add B
-├╯
-┊
-┊╭┄h0 [C]
+┊╭┄g0 [C]
 ┊●   983f317 add C
 ┊│
-┊├┄i0 [A]
+┊├┄h0 [A]
 ┊●   9477ae7 add A
+├╯
+┊
+┊╭┄i0 [B]
+┊●   05d3df1 add B
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -1906,15 +1906,15 @@ Unstacked branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted] (no changes)
 ┊
-┊╭┄g0 [A]
-┊●   9477ae7 add A
-├╯
-┊
-┊╭┄h0 [C]
+┊╭┄g0 [C]
 ┊●   ec33a86 add C
 ┊│
-┊├┄i0 [B]
+┊├┄h0 [B]
 ┊●   05d3df1 add B
+├╯
+┊
+┊╭┄i0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2020,15 +2020,15 @@ Unstacked branch 'A'
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted] (no changes)
 ┊
-┊╭┄g0 [A]
-┊●   9477ae7 add A
-├╯
-┊
-┊╭┄h0 [C]
+┊╭┄g0 [C]
 ┊●   ec33a86 add C
 ┊│
-┊├┄i0 [B]
+┊├┄h0 [B]
 ┊●   05d3df1 add B
+├╯
+┊
+┊╭┄i0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -2319,11 +2319,11 @@ fn targeting_unapplied_branch_errors() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted] (no changes)
 ┊
-┊╭┄g0 [A]
-┊●   9477ae7 add A
+┊╭┄g0 [B] (no commits)
 ├╯
 ┊
-┊╭┄h0 [B] (no commits)
+┊╭┄h0 [A]
+┊●   9477ae7 add A
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

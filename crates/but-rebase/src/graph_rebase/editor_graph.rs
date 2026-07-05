@@ -5,7 +5,7 @@
 //! (a reverse scan of the parent arrays), never stored. Nothing is ever removed (a removed
 //! pick becomes a `None` payload, a removed reference goes dead in place), so ids are
 //! stable by construction. [`Step`] and [`Pick`] are BOUNDARY VALUE types: synthesized by
-//! [`StepGraph::step_view`], decomposed by [`StepGraph::add_node`]/[`StepGraph::set_step`].
+//! [`EditorGraph::step_view`], decomposed by [`EditorGraph::add_node`]/[`EditorGraph::set_step`].
 
 use std::collections::{HashMap, HashSet};
 
@@ -16,47 +16,47 @@ use crate::graph_rebase::{
     cherry_pick::{PickMode, TreeMergeMode},
 };
 
-/// The stable identifier of a step-graph entry. Two namespaces, one id type: `Node` points
+/// The stable identifier of a commit-graph entry. Two namespaces, one id type: `Node` points
 /// into the pick arena (its parent array is its truth), `Ref` into the reference table (a
 /// position is its truth) — so a selector can address either without knowing which.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) enum StepGraphIndex {
+pub(crate) enum EditorGraphIndex {
     /// A pick or its tombstone in the node arena.
     Node(usize),
     /// A reference (live or dead) in the ref table.
     Ref(usize),
 }
 
-impl std::fmt::Display for StepGraphIndex {
+impl std::fmt::Display for EditorGraphIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            StepGraphIndex::Node(i) => write!(f, "n{i}"),
-            StepGraphIndex::Ref(i) => write!(f, "r{i}"),
+            EditorGraphIndex::Node(i) => write!(f, "n{i}"),
+            EditorGraphIndex::Ref(i) => write!(f, "r{i}"),
         }
     }
 }
 
-/// One incoming child leg of a pick, named POSITIONALLY as `(source pick, parent-slot)`.
-/// Lanes state legs by this name so a leg removed and re-created at the same coordinates is
-/// the SAME statement — see [`LaneRec::legs`].
-pub(crate) type Leg = (StepGraphIndex, usize);
+/// One incoming child edge of a pick, named POSITIONALLY as `(source pick, parent-slot)`.
+/// Chains state edges by this name, so an edge removed and re-created at the same coordinates is
+/// the SAME statement — see [`ChainRec::edges`].
+pub(crate) type Edge = (EditorGraphIndex, usize);
 
 /// Where a reference sits, stored explicitly: references are POSITIONS, not topology. The
-/// approach legs live in the reference's LANE (see [`StepGraph::lane_of`]), not here.
-/// Derived reads live in `positions`: `ref_depth` (rank), `ref_approach` (legs),
-/// `resolve_to_pick` (anchor through tombstones).
+/// edges entering through it live in the reference's CHAIN (see [`EditorGraph::chain_of`]), not here.
+/// Derived reads live in `positions`: `ref_depth` (rank), `edges_through` (entering edges),
+/// `resolve_to_pick` (the node, followed through tombstones).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RefPosition {
     /// The node this reference resolves to (a pick, or its tombstone after deletion) — the
     /// commit the ref points at, reached lazily through tombstones at read time.
-    pub anchor: StepGraphIndex,
-    /// The reference directly underneath in the physical stack (`None` = sits on the anchor).
+    pub on: EditorGraphIndex,
+    /// The reference directly underneath in the physical stack (`None` = sits directly on the node).
     /// Rank is DERIVED: a reference's depth is the length of its below-chain
     /// (`positions::ref_depth`).
-    pub below: Option<StepGraphIndex>,
-    /// The entry into this position converged — more than one thing (legs and/or refs stacked
-    /// above) met here (a merge). A creation-time signal distinct from `approach.len() > 1` (a position
-    /// can converge yet resolve to a single leg), so it is stored and PRESERVED, not re-derived.
+    pub below: Option<EditorGraphIndex>,
+    /// The entry into this position converged — more than one thing (edges and/or refs stacked
+    /// above) met here (a merge). A creation-time signal distinct from `edges.len() > 1` (a position
+    /// can converge yet resolve to a single edge), so it is stored and PRESERVED, not re-derived.
     pub ambiguous: bool,
 }
 
@@ -136,57 +136,57 @@ impl Default for PickSettings {
     }
 }
 
-/// How much of its anchor's incoming legs a lane carries.
+/// How much of its node's incoming edges a chain carries.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum LaneCarry {
-    /// Nothing descends into this lane (a root chain: remote above a tip, empty top).
+pub(crate) enum ChainCarry {
+    /// Nothing descends into this chain (a root chain: remote above a tip, empty top).
     None,
-    /// Every leg into the anchor descends through this lane (a plain chain, or a shared
-    /// chain all merge lanes converge on).
+    /// Every edge into the node descends through this chain (a plain chain, or a shared
+    /// chain all merge chains converge on).
     All,
-    /// This lane carries exactly the legs its [`LaneRec::legs`] statement names — one lane
+    /// This chain carries exactly the edges its [`ChainRec::edges`] statement names — one chain
     /// of a merge.
-    Count(usize),
+    Edges,
 }
 
-/// One lane above a stored anchor: the references sharing an approach at one position.
+/// One chain above a stored node: the references sharing the same entering edges at one position.
 /// Membership only — order among members stays the below-chain's job.
 #[derive(Debug, Clone)]
-pub(crate) struct LaneRec {
-    /// The reference nodes in this lane, unordered (order by below-chain depth to read).
-    pub members: Vec<StepGraphIndex>,
-    /// How much of the anchor's legs this lane carries.
-    pub carry: LaneCarry,
-    /// The legs this lane STATES it carries (`Count` lanes only). Keyed by the full
-    /// `(source-pick, parent-slot)` leg: two distinct sources can feed one anchor at the
+pub(crate) struct ChainRec {
+    /// The reference nodes in this chain, unordered (order by below-chain depth to read).
+    pub members: Vec<EditorGraphIndex>,
+    /// How much of the node's edges this chain carries.
+    pub carry: ChainCarry,
+    /// The edges this chain STATES it carries (`Edges` chains only). Keyed by the full
+    /// `(source-pick, parent-slot)` edge: two distinct sources can feed one node at the
     /// same slot (and one source at two slots), so both coordinates are needed. Read
-    /// filtered against the anchor's LIVE legs, so a stale entry is inert — and reclaims
-    /// its leg by itself when surgery revives the same coordinates.
-    pub legs: Vec<Leg>,
+    /// filtered against the node's LIVE edges, so a stale entry is inert — and reclaims
+    /// its edge by itself when surgery revives the same coordinates.
+    pub edges: Vec<Edge>,
 }
 
-/// The rebase step graph: a [`but_graph::CommitGraph`] arena where PICKS carry ordered
+/// The editor's commit graph: a [`but_graph::CommitGraph`] arena where PICKS carry ordered
 /// parent slots, plus a table of [`RefRecord`]s where REFERENCES carry explicit positions —
-/// the CommitGraph is the truth for commits, positions the truth for refs, with no overlap.
+/// the arena is the truth for commits, positions the truth for refs, with no overlap.
 /// References are edgeless: native creation authors their positions straight from the
 /// placement ledger.
 #[derive(Debug, Clone, Default)]
-pub(crate) struct StepGraph {
-    /// THE arena: `StepGraphIndex::Node(i)` IS `CommitIdx` `i`. Commit ids are the payload
+pub(crate) struct EditorGraph {
+    /// THE arena: `EditorGraphIndex::Node(i)` IS `CommitIdx` `i`. Commit ids are the payload
     /// (tombstoning flags a node in place, the node id survives every rewrite), parent
     /// slots are the ordered structure.
     arena: but_graph::CommitGraph,
     /// Each node's pick options, parallel to the arena.
     settings: Vec<PickSettings>,
     refs: Vec<RefRecord>,
-    /// THE approach store: lane membership per STORED (unresolved) anchor value. Which legs
+    /// THE entering-edge store: chain membership per STORED (unresolved) `on` value. Which edges
     /// descend into a reference's position lives here and only here — authored by
-    /// [`Self::set_position`]/[`Self::join_lane_of`], carried by [`Self::rekey_position`],
-    /// renamed by [`Self::rename_legs`], read via `positions::ref_approach`.
-    lanes: HashMap<StepGraphIndex, Vec<LaneRec>>,
+    /// [`Self::set_position`]/[`Self::join_chain_of`], carried by [`Self::rekey_position`],
+    /// renamed by [`Self::rename_edges`], read via `positions::edges_through`.
+    chains: HashMap<EditorGraphIndex, Vec<ChainRec>>,
 }
 
-impl StepGraph {
+impl EditorGraph {
     /// Adopt `arena` wholesale as THE arena — full commit payloads (flags, refs, generation)
     /// survive, which the write-through put-back depends on. The caller must have normalized
     /// every parent slot to PRESENT (the editor's slot invariant) and follows up with
@@ -197,7 +197,7 @@ impl StepGraph {
             arena,
             settings,
             refs: Vec::new(),
-            lanes: HashMap::new(),
+            chains: HashMap::new(),
         }
     }
 
@@ -208,7 +208,7 @@ impl StepGraph {
 
     /// Add `step` to the node arena and return its stable id. References do not belong here —
     /// use [`Self::add_reference`].
-    pub(crate) fn add_node(&mut self, step: Step) -> StepGraphIndex {
+    pub(crate) fn add_node(&mut self, step: Step) -> EditorGraphIndex {
         let (id, settings) = match step {
             Step::Pick(pick) => {
                 let (id, settings) = PickSettings::split(pick);
@@ -226,13 +226,13 @@ impl StepGraph {
             self.arena.node_count(),
             "settings table fell out of step with the arena"
         );
-        StepGraphIndex::Node(i)
+        EditorGraphIndex::Node(i)
     }
 
     /// Replace the node payload at `node` with `step` — a pick decomposes into id and
     /// settings, [`Step::None`] tombstones the payload (settings go stale, not cleared).
-    pub(crate) fn set_step(&mut self, node: StepGraphIndex, step: Step) {
-        let StepGraphIndex::Node(i) = node else {
+    pub(crate) fn set_step(&mut self, node: EditorGraphIndex, step: Step) {
+        let EditorGraphIndex::Node(i) = node else {
             panic!("BUG: references live in the ref table, not the step arena");
         };
         match step {
@@ -250,17 +250,17 @@ impl StepGraph {
 
     /// The commit id of the pick at `node` — `None` for tombstones and references. THE fast
     /// payload read; whole-step consumers use [`Self::step_view`].
-    pub(crate) fn commit_id(&self, node: StepGraphIndex) -> Option<gix::ObjectId> {
+    pub(crate) fn commit_id(&self, node: EditorGraphIndex) -> Option<gix::ObjectId> {
         match node {
-            StepGraphIndex::Node(i) => self.arena.node_payload(i),
-            StepGraphIndex::Ref(_) => None,
+            EditorGraphIndex::Node(i) => self.arena.node_payload(i),
+            EditorGraphIndex::Ref(_) => None,
         }
     }
 
     /// Rewrite the commit id of the pick at `node` IN PLACE — THE rebase write: the node id,
     /// its parent array, its settings, and every position naming it all survive unchanged.
-    pub(crate) fn set_commit_id(&mut self, node: StepGraphIndex, id: gix::ObjectId) {
-        let StepGraphIndex::Node(i) = node else {
+    pub(crate) fn set_commit_id(&mut self, node: EditorGraphIndex, id: gix::ObjectId) {
+        let EditorGraphIndex::Node(i) = node else {
             panic!("BUG: only picks carry commit ids");
         };
         debug_assert!(
@@ -274,10 +274,10 @@ impl StepGraph {
     /// [`Pick::preserved_parents`]).
     pub(crate) fn set_preserved_parents(
         &mut self,
-        node: StepGraphIndex,
+        node: EditorGraphIndex,
         parents: Option<Vec<gix::ObjectId>>,
     ) {
-        let StepGraphIndex::Node(i) = node else {
+        let EditorGraphIndex::Node(i) = node else {
             panic!("BUG: only picks carry preserved parents");
         };
         debug_assert!(
@@ -292,19 +292,19 @@ impl StepGraph {
         &mut self,
         refname: gix::refs::FullName,
         mutable: bool,
-    ) -> StepGraphIndex {
+    ) -> EditorGraphIndex {
         self.refs.push(RefRecord {
             refname,
             mutable,
             live: true,
             position: None,
         });
-        StepGraphIndex::Ref(self.refs.len() - 1)
+        EditorGraphIndex::Ref(self.refs.len() - 1)
     }
 
     /// The reference payload at `node` — `Some` iff it names a live (non-deleted) reference.
-    pub(crate) fn reference(&self, node: StepGraphIndex) -> Option<(&gix::refs::FullName, bool)> {
-        let StepGraphIndex::Ref(i) = node else {
+    pub(crate) fn reference(&self, node: EditorGraphIndex) -> Option<(&gix::refs::FullName, bool)> {
+        let EditorGraphIndex::Ref(i) = node else {
             return None;
         };
         let record = self.refs.get(i)?;
@@ -312,49 +312,49 @@ impl StepGraph {
     }
 
     /// `true` iff `node` is a live reference.
-    pub(crate) fn is_reference(&self, node: StepGraphIndex) -> bool {
+    pub(crate) fn is_reference(&self, node: EditorGraphIndex) -> bool {
         self.reference(node).is_some()
     }
 
     /// `true` iff `node` is a pick — `false` for tombstones and references.
-    pub(crate) fn is_pick(&self, node: StepGraphIndex) -> bool {
+    pub(crate) fn is_pick(&self, node: EditorGraphIndex) -> bool {
         self.commit_id(node).is_some()
     }
 
     /// All live references, ascending by id.
     pub(crate) fn references(
         &self,
-    ) -> impl Iterator<Item = (StepGraphIndex, &gix::refs::FullName, bool)> + '_ {
+    ) -> impl Iterator<Item = (EditorGraphIndex, &gix::refs::FullName, bool)> + '_ {
         self.refs.iter().enumerate().filter_map(|(i, record)| {
             record
                 .live
-                .then_some((StepGraphIndex::Ref(i), &record.refname, record.mutable))
+                .then_some((EditorGraphIndex::Ref(i), &record.refname, record.mutable))
         })
     }
 
     /// All reference ids — live AND dead — ascending. Dead references still carry their
     /// retained name and position (see [`RefRecord`]).
-    pub(crate) fn ref_indices(&self) -> impl Iterator<Item = StepGraphIndex> + '_ {
-        (0..self.refs.len()).map(StepGraphIndex::Ref)
+    pub(crate) fn ref_indices(&self) -> impl Iterator<Item = EditorGraphIndex> + '_ {
+        (0..self.refs.len()).map(EditorGraphIndex::Ref)
     }
 
     /// The full record of the reference at `node`, including dead ones — rebuilds need the
     /// retained payload.
-    pub(crate) fn reference_record(&self, node: StepGraphIndex) -> Option<&RefRecord> {
+    pub(crate) fn reference_record(&self, node: EditorGraphIndex) -> Option<&RefRecord> {
         match node {
-            StepGraphIndex::Ref(i) => self.refs.get(i),
-            StepGraphIndex::Node(_) => None,
+            EditorGraphIndex::Ref(i) => self.refs.get(i),
+            EditorGraphIndex::Node(_) => None,
         }
     }
 
     /// Rename (or resurrect) the reference at `node` in place; its position is untouched.
     pub(crate) fn set_reference(
         &mut self,
-        node: StepGraphIndex,
+        node: EditorGraphIndex,
         refname: gix::refs::FullName,
         mutable: bool,
     ) {
-        let StepGraphIndex::Ref(i) = node else {
+        let EditorGraphIndex::Ref(i) = node else {
             panic!("BUG: only references can be renamed");
         };
         let record = &mut self.refs[i];
@@ -365,8 +365,8 @@ impl StepGraph {
 
     /// Delete the reference at `node`: it goes dead in place, RETAINING its name and
     /// position so stale selectors keep normalizing and rebuilds keep carrying it.
-    pub(crate) fn tombstone_reference(&mut self, node: StepGraphIndex) {
-        let StepGraphIndex::Ref(i) = node else {
+    pub(crate) fn tombstone_reference(&mut self, node: EditorGraphIndex) {
+        let EditorGraphIndex::Ref(i) = node else {
             panic!("BUG: only references can be tombstoned");
         };
         self.refs[i].live = false;
@@ -375,13 +375,13 @@ impl StepGraph {
     /// The step at `node` as an owned view — the read for whole-step consumers, synthesized
     /// from the payload: id plus settings make a `Step::Pick`, a `None` id a `Step::None`,
     /// a reference entry `Step::Reference` while live and `Step::None` once dead.
-    pub(crate) fn step_view(&self, node: StepGraphIndex) -> Step {
+    pub(crate) fn step_view(&self, node: EditorGraphIndex) -> Step {
         match node {
-            StepGraphIndex::Node(i) => match self.arena.node_payload(i) {
+            EditorGraphIndex::Node(i) => match self.arena.node_payload(i) {
                 Some(id) => Step::Pick(self.settings[i].pick(id)),
                 None => Step::None,
             },
-            StepGraphIndex::Ref(i) => {
+            EditorGraphIndex::Ref(i) => {
                 let record = &self.refs[i];
                 if record.live {
                     Step::Reference {
@@ -396,238 +396,226 @@ impl StepGraph {
     }
 
     /// The stored position of the reference at `node`, live or dead.
-    pub(crate) fn position_of(&self, node: StepGraphIndex) -> Option<RefPosition> {
+    pub(crate) fn position_of(&self, node: EditorGraphIndex) -> Option<RefPosition> {
         match node {
-            StepGraphIndex::Ref(i) => self.refs.get(i)?.position.clone(),
-            StepGraphIndex::Node(_) => None,
+            EditorGraphIndex::Ref(i) => self.refs.get(i)?.position.clone(),
+            EditorGraphIndex::Node(_) => None,
         }
     }
 
-    fn position_slot(&mut self, node: StepGraphIndex) -> &mut Option<RefPosition> {
+    fn position_slot(&mut self, node: EditorGraphIndex) -> &mut Option<RefPosition> {
         match node {
-            StepGraphIndex::Ref(i) => &mut self.refs[i].position,
-            StepGraphIndex::Node(_) => panic!("BUG: only references hold positions"),
+            EditorGraphIndex::Ref(i) => &mut self.refs[i].position,
+            EditorGraphIndex::Node(_) => panic!("BUG: only references hold positions"),
         }
     }
 
-    /// Author a FRESH position for `node`: `approach` is the lane intent, classified against
-    /// `anchor`'s CURRENT legs — empty opens (or joins) the root lane, the whole live set the
-    /// shared `All` lane, any other set a `Count` lane stating exactly those legs. Only
-    /// correct when the anchor's legs are already complete — never use to re-place an
+    /// Author a FRESH position for `node`: `entering` is the chain intent — the edges meant to
+    /// enter through it — classified against
+    /// `on`'s CURRENT edges — empty opens (or joins) the root chain, the whole live set the
+    /// shared `All` chain, any other set a `Count` chain stating exactly those edges. Only
+    /// correct when the node's edges are already complete — never use to re-place an
     /// existing position wholesale.
     pub(crate) fn set_position(
         &mut self,
-        node: StepGraphIndex,
-        anchor: StepGraphIndex,
-        approach: &[(StepGraphIndex, usize)],
+        node: EditorGraphIndex,
+        on: EditorGraphIndex,
+        entering: &[Edge],
         ambiguous: bool,
-        below: Option<StepGraphIndex>,
+        below: Option<EditorGraphIndex>,
     ) {
-        let live = match crate::graph_rebase::positions::resolve_to_pick(self, anchor) {
-            Some(pick) => crate::graph_rebase::positions::legs_into_pick(self, pick),
+        let live = match crate::graph_rebase::positions::resolve_to_pick(self, on) {
+            Some(pick) => crate::graph_rebase::positions::edges_into(self, pick),
             None => Vec::new(),
         };
-        let (carry, legs) = if approach.is_empty() {
-            (LaneCarry::None, Vec::new())
+        let (carry, edges) = if entering.is_empty() {
+            (ChainCarry::None, Vec::new())
         } else {
-            let approach_set: HashSet<_> = approach.iter().copied().collect();
+            let edge_set: HashSet<_> = entering.iter().copied().collect();
             let live_set: HashSet<_> = live.iter().copied().collect();
-            if approach_set == live_set {
-                (LaneCarry::All, Vec::new())
+            if edge_set == live_set {
+                (ChainCarry::All, Vec::new())
             } else {
-                let mut legs = approach.to_vec();
-                legs.sort_unstable();
-                legs.dedup();
-                (LaneCarry::Count(legs.len()), legs)
+                let mut edges = entering.to_vec();
+                edges.sort_unstable();
+                edges.dedup();
+                (ChainCarry::Edges, edges)
             }
         };
         if let Some(previous) = self.position_of(node) {
-            self.lane_remove(node, previous.anchor);
+            self.chain_remove(node, previous.on);
         }
-        self.lane_insert(node, anchor, carry, legs);
+        self.chain_insert(node, on, carry, edges);
         *self.position_slot(node) = Some(RefPosition {
-            anchor,
+            on,
             ambiguous,
             below,
         });
     }
 
-    /// Join `node` into the lane CONTAINING `mate` — direct membership, not legs-equality —
-    /// sitting on `below`, copying the mate's anchor and ambiguity.
-    pub(crate) fn join_lane_of(
+    /// Join `node` into the chain CONTAINING `mate` — direct membership, not edges-equality —
+    /// sitting on `below`, copying the mate's `on` and ambiguity.
+    pub(crate) fn join_chain_of(
         &mut self,
-        node: StepGraphIndex,
-        mate: StepGraphIndex,
-        below: Option<StepGraphIndex>,
+        node: EditorGraphIndex,
+        mate: EditorGraphIndex,
+        below: Option<EditorGraphIndex>,
     ) {
         let Some(m) = self.position_of(mate) else {
             return;
         };
         if let Some(previous) = self.position_of(node) {
-            self.lane_remove(node, previous.anchor);
+            self.chain_remove(node, previous.on);
         }
         let joined = self
-            .lanes
-            .entry(m.anchor)
+            .chains
+            .entry(m.on)
             .or_default()
             .iter_mut()
-            .find(|lane| lane.members.contains(&mate))
-            .map(|lane| lane.members.push(node))
+            .find(|chain| chain.members.contains(&mate))
+            .map(|chain| chain.members.push(node))
             .is_some();
-        debug_assert!(joined, "positioned mate {mate} must own a lane");
+        debug_assert!(joined, "positioned mate {mate} must own a chain");
         if !joined {
-            self.lane_insert(node, m.anchor, LaneCarry::All, Vec::new());
+            self.chain_insert(node, m.on, ChainCarry::All, Vec::new());
         }
         *self.position_slot(node) = Some(RefPosition {
-            anchor: m.anchor,
+            on: m.on,
             ambiguous: m.ambiguous,
             below,
         });
     }
 
-    /// Re-key `node`'s position onto `new_anchor`, carrying its CURRENT lane record — the
-    /// carry and legs as maintained through edge surgery. Below and ambiguity are preserved.
-    pub(crate) fn rekey_position(&mut self, node: StepGraphIndex, new_anchor: StepGraphIndex) {
+    /// Re-key `node`'s position onto `onto`, carrying its CURRENT chain record — the
+    /// carry and edges as maintained through edge surgery. Below and ambiguity are preserved.
+    pub(crate) fn rekey_position(&mut self, node: EditorGraphIndex, onto: EditorGraphIndex) {
         let Some(stored) = self.position_of(node) else {
             return;
         };
-        if stored.anchor == new_anchor {
+        if stored.on == onto {
             return;
         }
-        let lane_data = self.lanes.get(&stored.anchor).and_then(|lanes| {
-            lanes
+        let chain_data = self.chains.get(&stored.on).and_then(|chains| {
+            chains
                 .iter()
-                .find(|lane| lane.members.contains(&node))
-                .map(|lane| (lane.carry.clone(), lane.legs.clone()))
+                .find(|chain| chain.members.contains(&node))
+                .map(|chain| (chain.carry.clone(), chain.edges.clone()))
         });
-        self.lane_remove(node, stored.anchor);
-        match lane_data {
-            Some((carry, legs)) => self.lane_insert(node, new_anchor, carry, legs),
+        self.chain_remove(node, stored.on);
+        match chain_data {
+            Some((carry, edges)) => self.chain_insert(node, onto, carry, edges),
             None => {
-                debug_assert!(false, "positioned node {node} must own a lane");
-                self.lane_insert(node, new_anchor, LaneCarry::All, Vec::new());
+                debug_assert!(false, "positioned node {node} must own a chain");
+                self.chain_insert(node, onto, ChainCarry::All, Vec::new());
             }
         }
         if let Some(a) = self.position_slot(node).as_mut() {
-            a.anchor = new_anchor;
+            a.on = onto;
         }
     }
 
-    /// Re-hang `node` onto `below` — an adjacency statement only; anchor and lane
+    /// Re-hang `node` onto `below` — an adjacency statement only; `on` and chain
     /// membership are untouched.
-    pub(crate) fn set_below(&mut self, node: StepGraphIndex, below: Option<StepGraphIndex>) {
+    pub(crate) fn set_below(&mut self, node: EditorGraphIndex, below: Option<EditorGraphIndex>) {
         if let Some(stored) = self.position_slot(node).as_mut() {
             stored.below = below;
         }
     }
 
-    /// Point a DEAD reference's retained position at `anchor` — the bare retention pointer
-    /// stale selectors normalize through. Lane membership, below, and ambiguity are dropped;
-    /// live references re-anchor via the arrangement machinery instead.
-    pub(crate) fn set_retained_anchor(&mut self, node: StepGraphIndex, anchor: StepGraphIndex) {
+    /// Point a DEAD reference's retained position at `on` — the bare retention pointer
+    /// stale selectors normalize through. Chain membership, below, and ambiguity are dropped;
+    /// live references re-place via the arrangement machinery instead.
+    pub(crate) fn set_retained_position(&mut self, node: EditorGraphIndex, on: EditorGraphIndex) {
         debug_assert!(
-            !self.is_reference(node) && matches!(node, StepGraphIndex::Ref(_)),
-            "retained anchors belong to dead references"
+            !self.is_reference(node) && matches!(node, EditorGraphIndex::Ref(_)),
+            "retained positions belong to dead references"
         );
         if let Some(stored) = self.position_of(node) {
-            self.lane_remove(node, stored.anchor);
+            self.chain_remove(node, stored.on);
         }
         *self.position_slot(node) = Some(RefPosition {
-            anchor,
+            on,
             below: None,
             ambiguous: false,
         });
     }
 
-    fn lane_remove(&mut self, node: StepGraphIndex, key: StepGraphIndex) {
-        let Some(lanes) = self.lanes.get_mut(&key) else {
+    fn chain_remove(&mut self, node: EditorGraphIndex, key: EditorGraphIndex) {
+        let Some(chains) = self.chains.get_mut(&key) else {
             return;
         };
-        for lane in lanes.iter_mut() {
-            lane.members.retain(|&member| member != node);
+        for chain in chains.iter_mut() {
+            chain.members.retain(|&member| member != node);
         }
-        lanes.retain(|lane| !lane.members.is_empty());
-        if lanes.is_empty() {
-            self.lanes.remove(&key);
+        chains.retain(|chain| !chain.members.is_empty());
+        if chains.is_empty() {
+            self.chains.remove(&key);
         }
     }
 
-    fn lane_insert(
+    fn chain_insert(
         &mut self,
-        node: StepGraphIndex,
-        key: StepGraphIndex,
-        carry: LaneCarry,
-        legs: Vec<(StepGraphIndex, usize)>,
+        node: EditorGraphIndex,
+        key: EditorGraphIndex,
+        carry: ChainCarry,
+        edges: Vec<(EditorGraphIndex, usize)>,
     ) {
-        let lanes = self.lanes.entry(key).or_default();
-        let existing = lanes.iter_mut().find(|lane| match carry {
-            // `Count` lanes are identified by their stated legs (same legs => same lane).
-            LaneCarry::Count(_) => matches!(lane.carry, LaneCarry::Count(_)) && lane.legs == legs,
-            // One `None` and one `All` lane per key.
-            _ => lane.carry == carry,
+        let chains = self.chains.entry(key).or_default();
+        let existing = chains.iter_mut().find(|chain| {
+            // `Edges` chains are identified by their stated edges (same edges => same chain);
+            // one `None` and one `All` chain per key.
+            chain.carry == carry && (carry != ChainCarry::Edges || chain.edges == edges)
         });
         match existing {
-            Some(lane) => lane.members.push(node),
-            None => lanes.push(LaneRec {
+            Some(chain) => chain.members.push(node),
+            None => chains.push(ChainRec {
                 members: vec![node],
                 carry,
-                legs,
+                edges,
             }),
         }
     }
 
-    /// The lane table: every positioned reference's approach statement, keyed by the STORED
-    /// (unresolved) anchor value.
-    pub(crate) fn lane_table(&self) -> &HashMap<StepGraphIndex, Vec<LaneRec>> {
-        &self.lanes
-    }
-
-    /// The lane containing the reference at `node`, if it holds a position.
-    pub(crate) fn lane_of(&self, node: StepGraphIndex) -> Option<&LaneRec> {
+    /// The chain containing the reference at `node`, if it holds a position.
+    pub(crate) fn chain_of(&self, node: EditorGraphIndex) -> Option<&ChainRec> {
         let stored = match node {
-            StepGraphIndex::Ref(i) => self.refs.get(i)?.position.as_ref()?,
-            StepGraphIndex::Node(_) => return None,
+            EditorGraphIndex::Ref(i) => self.refs.get(i)?.position.as_ref()?,
+            EditorGraphIndex::Node(_) => return None,
         };
-        self.lanes
-            .get(&stored.anchor)?
+        self.chains
+            .get(&stored.on)?
             .iter()
-            .find(|lane| lane.members.contains(&node))
+            .find(|chain| chain.members.contains(&node))
     }
 
     /// All positioned references — live AND dead — ascending by id.
     pub(crate) fn positioned_refs(
         &self,
-    ) -> impl Iterator<Item = (StepGraphIndex, RefPosition)> + '_ {
-        self.refs
-            .iter()
-            .enumerate()
-            .filter_map(|(i, record)| record.position.clone().map(|p| (StepGraphIndex::Ref(i), p)))
+    ) -> impl Iterator<Item = (EditorGraphIndex, RefPosition)> + '_ {
+        self.refs.iter().enumerate().filter_map(|(i, record)| {
+            record
+                .position
+                .clone()
+                .map(|p| (EditorGraphIndex::Ref(i), p))
+        })
     }
 
-    /// The leg `old` is now called `new` — its slot renumbered (or re-sourced onto another
-    /// pick) by surgery: every lane that carried `old` carries `new` instead.
-    pub(crate) fn rename_leg(&mut self, old: Leg, new: Leg) {
-        self.rename_legs(&[(old, new)]);
-    }
-
-    /// Apply several leg renames SIMULTANEOUSLY: every lane leg is matched against the
+    /// Apply several edge renames SIMULTANEOUSLY: every chain edge is matched against the
     /// pre-rename names once, so shifting slots in a renumber can't collide mid-flight.
-    pub(crate) fn rename_legs(&mut self, renames: &[(Leg, Leg)]) {
-        for lanes in self.lanes.values_mut() {
-            for lane in lanes.iter_mut() {
+    /// Each renamed edge is `(old, new)` — a slot renumbered or re-sourced onto another pick.
+    pub(crate) fn rename_edges(&mut self, renames: &[(Edge, Edge)]) {
+        for chains in self.chains.values_mut() {
+            for chain in chains.iter_mut() {
                 let mut changed = false;
-                for leg in lane.legs.iter_mut() {
-                    if let Some((_, new)) = renames.iter().find(|(old, _)| old == leg) {
-                        *leg = *new;
+                for edge in chain.edges.iter_mut() {
+                    if let Some((_, new)) = renames.iter().find(|(old, _)| old == edge) {
+                        *edge = *new;
                         changed = true;
                     }
                 }
                 if changed {
-                    lane.legs.sort_unstable();
-                    lane.legs.dedup();
-                    if let LaneCarry::Count(_) = lane.carry {
-                        lane.carry = LaneCarry::Count(lane.legs.len());
-                    }
+                    chain.edges.sort_unstable();
+                    chain.edges.dedup();
                 }
             }
         }
@@ -643,15 +631,15 @@ impl StepGraph {
 
     /// The ordered parents of `node` — slot position is the parent order. References are
     /// edgeless by construction.
-    pub(crate) fn parents(&self, node: StepGraphIndex) -> Vec<StepGraphIndex> {
+    pub(crate) fn parents(&self, node: EditorGraphIndex) -> Vec<EditorGraphIndex> {
         match node {
-            StepGraphIndex::Node(i) => self
+            EditorGraphIndex::Node(i) => self
                 .arena
                 .parent_indices(i)
                 .into_iter()
-                .map(StepGraphIndex::Node)
+                .map(EditorGraphIndex::Node)
                 .collect(),
-            StepGraphIndex::Ref(_) => Vec::new(),
+            EditorGraphIndex::Ref(_) => Vec::new(),
         }
     }
 
@@ -659,24 +647,24 @@ impl StepGraph {
     /// flows through into the arena's slot write.
     fn update_parents<R>(
         &mut self,
-        child: StepGraphIndex,
-        f: impl FnOnce(&mut Vec<StepGraphIndex>) -> R,
+        child: EditorGraphIndex,
+        f: impl FnOnce(&mut Vec<EditorGraphIndex>) -> R,
     ) -> R {
-        let StepGraphIndex::Node(i) = child else {
+        let EditorGraphIndex::Node(i) = child else {
             panic!("references are edgeless — no parent array");
         };
-        let mut parents: Vec<StepGraphIndex> = self
+        let mut parents: Vec<EditorGraphIndex> = self
             .arena
             .parent_indices(i)
             .into_iter()
-            .map(StepGraphIndex::Node)
+            .map(EditorGraphIndex::Node)
             .collect();
         let result = f(&mut parents);
         let targets = parents
             .into_iter()
             .map(|parent| match parent {
-                StepGraphIndex::Node(j) => j,
-                StepGraphIndex::Ref(_) => {
+                EditorGraphIndex::Node(j) => j,
+                EditorGraphIndex::Ref(_) => {
                     panic!("references are edgeless — they cannot be parents")
                 }
             })
@@ -686,28 +674,32 @@ impl StepGraph {
     }
 
     /// How many parent slots `node` has.
-    pub(crate) fn parent_count(&self, node: StepGraphIndex) -> usize {
+    pub(crate) fn parent_count(&self, node: EditorGraphIndex) -> usize {
         self.parents(node).len()
     }
 
-    /// Every parent-array entry naming `node`, as `(child, slot)` legs, sorted — the derived
+    /// Every parent-array entry naming `node`, as `(child, slot)` edges, sorted — the derived
     /// children read.
-    pub(crate) fn incoming_legs(&self, node: StepGraphIndex) -> Vec<Leg> {
-        let mut legs = Vec::new();
+    pub(crate) fn incoming_edges(&self, node: EditorGraphIndex) -> Vec<Edge> {
+        let mut edges = Vec::new();
         for i in 0..self.arena.node_count() {
-            let child = StepGraphIndex::Node(i);
+            let child = EditorGraphIndex::Node(i);
             for (slot, parent) in self.arena.parent_indices(i).into_iter().enumerate() {
-                if StepGraphIndex::Node(parent) == node {
-                    legs.push((child, slot));
+                if EditorGraphIndex::Node(parent) == node {
+                    edges.push((child, slot));
                 }
             }
         }
-        legs.sort_unstable();
-        legs
+        edges.sort_unstable();
+        edges
     }
 
     /// Append `parent` as `child`'s last parent slot; returns the slot.
-    pub(crate) fn push_parent(&mut self, child: StepGraphIndex, parent: StepGraphIndex) -> usize {
+    pub(crate) fn push_parent(
+        &mut self,
+        child: EditorGraphIndex,
+        parent: EditorGraphIndex,
+    ) -> usize {
         self.update_parents(child, |parents| {
             parents.push(parent);
             parents.len() - 1
@@ -718,14 +710,14 @@ impl StepGraph {
     /// with their statements. Returns the slot actually used.
     pub(crate) fn insert_parent(
         &mut self,
-        child: StepGraphIndex,
+        child: EditorGraphIndex,
         slot: usize,
-        parent: StepGraphIndex,
+        parent: EditorGraphIndex,
     ) -> usize {
         let len = self.parent_count(child);
         let slot = slot.min(len);
         let renames: Vec<_> = (slot..len).map(|s| ((child, s), (child, s + 1))).collect();
-        self.rename_legs(&renames);
+        self.rename_edges(&renames);
         self.update_parents(child, |parents| parents.insert(slot, parent));
         slot
     }
@@ -734,29 +726,29 @@ impl StepGraph {
     /// statements, and statements naming the removed slot are dropped.
     pub(crate) fn remove_parent(
         &mut self,
-        child: StepGraphIndex,
+        child: EditorGraphIndex,
         slot: usize,
-    ) -> Option<StepGraphIndex> {
+    ) -> Option<EditorGraphIndex> {
         let len = self.parent_count(child);
         if slot >= len {
             return None;
         }
         let target = self.update_parents(child, |parents| parents.remove(slot));
-        self.retain_legs(|&leg| leg != (child, slot));
+        self.retain_edges(|&edge| edge != (child, slot));
         let renames: Vec<_> = (slot + 1..len)
             .map(|s| ((child, s), (child, s - 1)))
             .collect();
-        self.rename_legs(&renames);
+        self.rename_edges(&renames);
         Some(target)
     }
 
     /// Re-point `child`'s parent at `slot` onto `new_parent`. The slot — and so the
-    /// statement name — is untouched: chains stated on the leg follow it to its new target.
+    /// statement name — is untouched: chains stated on the edge follow it to its new target.
     pub(crate) fn replace_parent(
         &mut self,
-        child: StepGraphIndex,
+        child: EditorGraphIndex,
         slot: usize,
-        new_parent: StepGraphIndex,
+        new_parent: EditorGraphIndex,
     ) {
         self.update_parents(child, |parents| match parents.get_mut(slot) {
             Some(entry) => *entry = new_parent,
@@ -766,7 +758,7 @@ impl StepGraph {
 
     /// Move `from`'s whole parent array onto `to` (which must have none); statements follow
     /// slot-for-slot.
-    pub(crate) fn transplant_parents(&mut self, from: StepGraphIndex, to: StepGraphIndex) {
+    pub(crate) fn transplant_parents(&mut self, from: EditorGraphIndex, to: EditorGraphIndex) {
         debug_assert_eq!(
             self.parent_count(to),
             0,
@@ -775,14 +767,14 @@ impl StepGraph {
         let parents = self.update_parents(from, std::mem::take);
         let renames: Vec<_> = (0..parents.len()).map(|s| ((from, s), (to, s))).collect();
         self.update_parents(to, |slot| *slot = parents);
-        self.rename_legs(&renames);
+        self.rename_edges(&renames);
     }
 
     /// Re-target every parent-array entry naming `from` onto `to`, slots preserved —
     /// statement names are `(source, slot)`, so they stay valid untouched.
-    pub(crate) fn redirect_children(&mut self, from: StepGraphIndex, to: StepGraphIndex) {
+    pub(crate) fn redirect_children(&mut self, from: EditorGraphIndex, to: EditorGraphIndex) {
         for i in 0..self.arena.node_count() {
-            let child = StepGraphIndex::Node(i);
+            let child = EditorGraphIndex::Node(i);
             if !self.parents(child).contains(&from) {
                 continue;
             }
@@ -796,44 +788,38 @@ impl StepGraph {
         }
     }
 
-    /// Empty `child`'s parent array, returning it. Lane statements naming the drained slots
+    /// Empty `child`'s parent array, returning it. Chain statements naming the drained slots
     /// are DELIBERATELY untouched: the caller re-states the orphaned names onto their new
     /// carrier itself (the below-insert path renames them onto the segment's parent-most).
-    pub(crate) fn drain_parents(&mut self, child: StepGraphIndex) -> Vec<StepGraphIndex> {
+    pub(crate) fn drain_parents(&mut self, child: EditorGraphIndex) -> Vec<EditorGraphIndex> {
         self.update_parents(child, std::mem::take)
     }
 
-    /// Drop every lane statement `keep` rejects, keeping `Count` carries consistent.
-    fn retain_legs(&mut self, keep: impl Fn(&Leg) -> bool) {
-        for lanes in self.lanes.values_mut() {
-            for lane in lanes.iter_mut() {
-                let before = lane.legs.len();
-                lane.legs.retain(&keep);
-                if lane.legs.len() != before
-                    && let LaneCarry::Count(_) = lane.carry
-                {
-                    lane.carry = LaneCarry::Count(lane.legs.len());
-                }
+    /// Drop every chain statement `keep` rejects.
+    fn retain_edges(&mut self, keep: impl Fn(&Edge) -> bool) {
+        for chains in self.chains.values_mut() {
+            for chain in chains.iter_mut() {
+                chain.edges.retain(&keep);
             }
         }
     }
 
     /// All node-arena ids (picks and tombstones), ascending. References are NOT included —
     /// see [`Self::references`] and [`Self::ref_indices`].
-    pub(crate) fn node_indices(&self) -> impl Iterator<Item = StepGraphIndex> + '_ {
-        (0..self.arena.node_count()).map(StepGraphIndex::Node)
+    pub(crate) fn node_indices(&self) -> impl Iterator<Item = EditorGraphIndex> + '_ {
+        (0..self.arena.node_count()).map(EditorGraphIndex::Node)
     }
 
     /// The ARENA nodes no parent array names — the child-less tips, ascending. References
     /// never appear here: they are edgeless by construction, and the consumers
     /// (head discovery) want picks and tombstones only.
-    pub(crate) fn tips(&self) -> impl Iterator<Item = StepGraphIndex> + '_ {
-        let referenced: HashSet<StepGraphIndex> = (0..self.arena.node_count())
+    pub(crate) fn tips(&self) -> impl Iterator<Item = EditorGraphIndex> + '_ {
+        let referenced: HashSet<EditorGraphIndex> = (0..self.arena.node_count())
             .flat_map(|i| self.arena.parent_indices(i))
-            .map(StepGraphIndex::Node)
+            .map(EditorGraphIndex::Node)
             .collect();
         (0..self.arena.node_count())
-            .map(StepGraphIndex::Node)
+            .map(EditorGraphIndex::Node)
             .filter(move |node| !referenced.contains(node))
     }
 }

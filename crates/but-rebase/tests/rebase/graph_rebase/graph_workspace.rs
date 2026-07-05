@@ -168,7 +168,7 @@ fn three_stacks_same_base_collapse() -> Result<()> {
 ///
 /// They stay SEPARATE: stack membership is computed over picks (references are positions, not
 /// topology), so the `main` ref sitting above the excluded base commit cannot glue the two
-/// branches together — and being anchored on the excluded commit, it belongs to neither lane.
+/// branches together — and sitting on the excluded commit, it belongs to neither stack.
 /// This used to be the known limitation documented on `GraphWorkspace::stacks`.
 #[test]
 fn divergent_stacks_sharing_excluded_base_stay_separate_with_target() -> Result<()> {

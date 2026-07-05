@@ -3,24 +3,22 @@
 //!
 //! # Why
 //!
-//! Today the pipeline is `gix traversal → SegmentGraph (segments own commit ranges) → projection`,
-//! and but-rebase builds its `StepGraph` from that same segment graph. The segment layer turned out
-//! to be an *artifact of incremental construction*, not something either consumer fundamentally
-//! needs:
+//! The pipeline is `gix traversal → CommitGraph → segment graph → projection`: the traversal
+//! accumulates this graph directly ([`CommitGraph::from_walk`]), the segment graph is rebuilt
+//! from it, and but-rebase's editor adopts the carried copy as its mutable arena. The segment
+//! layer turned out to be an *artifact of incremental construction*, not something either
+//! consumer fundamentally needs:
 //!
-//! * **StepGraph** is already commit/ref-granular — its nodes are `Pick(commit)` / `Reference(ref)`
-//!   and its edges carry only the parent-array `order`. It re-derives parent order from
-//!   `commit.parent_ids` and even *corrects* but-graph when they disagree. It needs: commit id,
-//!   parent ids (first-parent at `[0]`), the refs on each commit, an entrypoint, and parent-walk
-//!   reachability. No segment boundaries, no segment ids.
+//! * **The rebase editor** is commit/ref-granular. It needs: commit id, parent ids (first-parent
+//!   at `[0]`), the refs on each commit, an entrypoint, and parent-walk reachability. No segment
+//!   boundaries, no segment ids. Its arena IS this type, with pick/ref side tables on top.
 //!
 //! * **Projection** emits segment-shaped output (`Stack`/`StackSegment`), but the segmentation is
 //!   recomputable: a segment is a maximal first-parent run, split where a local-branch ref appears,
 //!   at branch/merge points, and at the projection's own stops (entrypoint, merge-base, target).
-//!   `generation`, merge-base, and remote-reachability are commit-level. `sibling_segment_id` /
-//!   `remote_tracking_branch_segment_id` are just cached pointers — recomputable by ref-name match.
+//!   `generation`, merge-base, and remote-reachability are commit-level.
 //!
-//! So both can build straight from the commit DAG, and segments become a *view* produced during
+//! So both build straight from the commit DAG, and segments are a *view* produced on the way to
 //! projection rather than a stored graph.
 //!
 //! # The model
@@ -33,12 +31,11 @@
 //! order-stacks machinery ([`crate::Graph`] post-pass) disappears — the order is read straight off
 //! the merge commit's parents.
 //!
-//! Historically this was a standalone spike toward deleting the segment graph outright; today the
-//! production builders source it from the REAL traversal ([`CommitGraph::from_walk`]) and rebuild
-//! the full segment graph on top, so downstream consumers are unchanged. The commit-first model
-//! remains the intended shape for the eventual but-graph/but-rebase unification.
+//! Started as a standalone spike toward deleting the segment graph outright; the rebase side of
+//! that unification has landed (the editor mutates this graph and projects it), while read-side
+//! consumers still see the segment graph rebuilt on top.
 
-use std::collections::{HashMap, HashSet};
+use gix::hashtable::{HashMap, HashSet};
 
 use crate::{Commit, CommitFlags};
 
@@ -69,7 +66,7 @@ struct ParentSlot {
 }
 
 /// A commit-first graph: an arena of commits with HANDLE-based `commit → parent` edges (one
-/// [`ParentSlot`] per raw `parent_ids` entry) and the reverse (`parent → child`) adjacency derived
+/// `ParentSlot` per raw `parent_ids` entry) and the reverse (`parent → child`) adjacency derived
 /// for downward walks. `ObjectId` is pure payload; `by_id` is a rebuildable lookup index.
 #[derive(Debug, Clone, Default)]
 pub struct CommitGraph {
@@ -108,7 +105,7 @@ pub struct CommitGraph {
 impl CommitGraph {
     /// Build from a set of commits (as produced by the gix traversal). Commits whose parents are
     /// outside the set are simply roots of this subgraph (a partial graph), mirroring how the
-    /// StepGraph handles missing parents via `preserved_parents`.
+    /// rebase editor handles missing parents via `preserved_parents`.
     pub(crate) fn from_commits(
         commits: impl IntoIterator<Item = Commit>,
         entrypoint: Option<gix::ObjectId>,
@@ -159,7 +156,7 @@ impl CommitGraph {
             tombstoned,
             entrypoint,
             entrypoint_ref: None,
-            managed_ws_commits: HashSet::new(),
+            managed_ws_commits: HashSet::default(),
             hard_limit_hit: false,
             traversal_tips: Vec::new(),
             explicit_tips: false,
@@ -170,7 +167,10 @@ impl CommitGraph {
 
     /// Restrict connectivity to the given `(child, parent)` pairs — flag every other slot as
     /// severed — and rebuild the child adjacency from the connected, present slots.
-    fn set_connected(&mut self, connected: HashSet<(gix::ObjectId, gix::ObjectId)>) {
+    fn set_connected(
+        &mut self,
+        connected: std::collections::HashSet<(gix::ObjectId, gix::ObjectId)>,
+    ) {
         for children in &mut self.children {
             children.clear();
         }
@@ -198,6 +198,7 @@ impl CommitGraph {
     }
 
     /// Assemble from the NATIVE traversal outcome (see `init::native_walk`).
+    #[tracing::instrument(name = "CommitGraph::from_native_outcome", level = "trace", skip_all)]
     pub(crate) fn from_native_outcome(o: crate::init::native_walk::NativeOutcome) -> Self {
         let mut cg = CommitGraph::from_commits(o.commits, o.entrypoint);
         cg.entrypoint_ref = o.entrypoint_ref;
@@ -314,7 +315,7 @@ impl CommitGraph {
         }
     }
 
-    /// Overwrite the node's flags — the write-through seam flags re-added anchor regions
+    /// Overwrite the node's flags — the write-through seam flags re-added tip regions
     /// Integrated, the walk's convention for target-seeded tips.
     pub(crate) fn set_flags(&mut self, idx: CommitIdx, flags: crate::CommitFlags) {
         self.nodes[idx].commit.flags = flags;
@@ -324,7 +325,7 @@ impl CommitGraph {
     /// the write-through seam's flag refresh: an editor-mutated graph carries walk-time flags
     /// (empty on editor-added nodes), while the rewalk derives integration fresh.
     pub(crate) fn recompute_integrated(&mut self, tips: impl IntoIterator<Item = gix::ObjectId>) {
-        let mut integrated: HashSet<gix::ObjectId> = HashSet::new();
+        let mut integrated: HashSet<gix::ObjectId> = HashSet::default();
         for tip in tips {
             if self.by_id.contains_key(&tip) && !integrated.contains(&tip) {
                 integrated.extend(self.ancestor_set(tip));
@@ -368,7 +369,7 @@ impl CommitGraph {
         &mut self,
         local_tips: impl IntoIterator<Item = gix::ObjectId>,
     ) {
-        let mut not_in_remote: HashSet<gix::ObjectId> = HashSet::new();
+        let mut not_in_remote: HashSet<gix::ObjectId> = HashSet::default();
         for tip in local_tips {
             if self.by_id.contains_key(&tip) && !not_in_remote.contains(&tip) {
                 not_in_remote.extend(self.ancestor_set(tip));
@@ -385,7 +386,7 @@ impl CommitGraph {
         }
     }
 
-    /// Bring a TOMBSTONED node holding `id` back to life — the write-through seam's anchor
+    /// Bring a TOMBSTONED node holding `id` back to life — the write-through seam's tip
     /// revival: a stored/extra target the editor dropped from workspace history is still
     /// external context on disk, and the walk always seeds it as an integrated tip.
     ///
@@ -432,6 +433,22 @@ impl CommitGraph {
         let Some(&idx) = self.by_id.get(&id) else {
             return Vec::new();
         };
+        // Fast path: no tombstoned parent to substitute through (always true for walk-built
+        // graphs), so the connected slots map straight to parent ids.
+        if !self.has_tombstoned_parent(idx) {
+            return self.nodes[idx]
+                .commit
+                .parent_ids
+                .iter()
+                .copied()
+                .zip(&self.parent_slots[idx])
+                .filter(|(_, slot)| slot.connected)
+                .map(|(p, slot)| match slot.target {
+                    Some(t) => self.nodes[t].commit.id,
+                    None => p,
+                })
+                .collect();
+        }
         // The CONNECTED `(raw parent id, slot target)` pairs of `idx`, in slot order.
         let connected = |idx: CommitIdx| {
             self.nodes[idx]
@@ -445,7 +462,8 @@ impl CommitGraph {
         };
         let mut potential: Vec<(gix::ObjectId, Option<CommitIdx>)> =
             connected(idx).into_iter().rev().collect();
-        let mut seen_idx: HashSet<CommitIdx> = potential.iter().filter_map(|(_, t)| *t).collect();
+        let mut seen_idx: std::collections::HashSet<CommitIdx> =
+            potential.iter().filter_map(|(_, t)| *t).collect();
         let mut seen_raw: HashSet<gix::ObjectId> = potential
             .iter()
             .filter_map(|(p, t)| t.is_none().then_some(*p))
@@ -492,7 +510,7 @@ impl CommitGraph {
     /// traversal severed is not rejoined. Bounded by the graph, which is the traversal-limited
     /// window, not the repository.
     pub fn ancestor_set(&self, tip: gix::ObjectId) -> HashSet<gix::ObjectId> {
-        let mut set = HashSet::new();
+        let mut set = HashSet::default();
         let mut queue = std::collections::VecDeque::from([tip]);
         while let Some(c) = queue.pop_front() {
             if set.insert(c) {
@@ -528,6 +546,21 @@ impl CommitGraph {
         self.node(id)
             .map(|n| n.commit.refs.iter().map(|r| r.ref_name.clone()).collect())
             .unwrap_or_default()
+    }
+
+    /// `all_parent_ids(id).len()` without materializing the list — exact under tombstone
+    /// substitution, allocation-free in the common no-tombstone case.
+    pub(crate) fn connected_parent_count(&self, id: gix::ObjectId) -> usize {
+        let Some(&idx) = self.by_id.get(&id) else {
+            return 0;
+        };
+        if self.has_tombstoned_parent(idx) {
+            return self.all_parent_ids(id).len();
+        }
+        self.parent_slots[idx]
+            .iter()
+            .filter(|slot| slot.connected)
+            .count()
     }
 
     /// The parents of `id` that are present in this graph, first-parent first.

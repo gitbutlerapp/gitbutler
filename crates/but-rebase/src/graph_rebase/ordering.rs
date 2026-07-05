@@ -5,14 +5,14 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{Result, bail};
 use but_core::RefMetadata;
 
-use crate::graph_rebase::{Editor, Selector, StepGraphIndex, ToCommitSelector, util};
+use crate::graph_rebase::{Editor, EditorGraphIndex, Selector, ToCommitSelector, util};
 
 impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Order commit selectors by parentage, with parents first and children last.
     ///
     /// Duplicate selectors are deduplicated by commit-id with first occurrence winning.
     ///
-    /// Ordering is derived from a deterministic rank map built from the editor step graph.
+    /// Ordering is derived from a deterministic rank map built from the editor commit graph.
     /// The rank is computed by traversing from all child-most graph nodes in ordered-parent
     /// post-order (parents are pushed in `collect_ordered_parents` order, without reversing),
     /// then sorting selected commits by `(rank, input_order)`.
@@ -42,17 +42,17 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             return Ok(selected.into_iter().map(|s| s.selector).collect());
         }
 
-        // Build a deterministic rank from editor step-graph order.
+        // Build a deterministic rank from editor commit-graph order.
         let selected_ids = selected
             .iter()
             .map(|commit| commit.id)
             .collect::<HashSet<_>>();
-        let step_graph_rank = step_graph_parent_to_child_rank(self, &selected_ids)?;
+        let commit_graph_rank = commit_graph_parent_to_child_rank(self, &selected_ids)?;
 
         // Preserve the Result contract: unreachable selected commits are a runtime error,
         // not an internal panic.
         for commit in &selected {
-            if !step_graph_rank.contains_key(&commit.id) {
+            if !commit_graph_rank.contains_key(&commit.id) {
                 bail!(
                     "Cannot order selected commits by parentage: selected commit {} could not be ranked from editor graph nodes",
                     commit.id
@@ -61,13 +61,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
 
         // The rank map is the sole source of truth for deterministic parent-before-child ordering.
-        selected.sort_by_key(|commit| {
-            let rank = step_graph_rank
-                .get(&commit.id)
-                .copied()
-                .unwrap_or(usize::MAX);
-            (rank, commit.input_order)
-        });
+        selected.sort_by_key(|commit| (commit_graph_rank[&commit.id], commit.input_order));
 
         Ok(selected.into_iter().map(|s| s.selector).collect())
     }
@@ -80,15 +74,15 @@ struct SelectedCommit {
     input_order: usize,
 }
 
-fn step_graph_parent_to_child_rank<M: RefMetadata>(
+fn commit_graph_parent_to_child_rank<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
     selected_ids: &HashSet<gix::ObjectId>,
 ) -> Result<HashMap<gix::ObjectId, usize>> {
     let mut rank_by_id = HashMap::<gix::ObjectId, usize>::new();
     let mut next_rank = 0usize;
-    let mut seen = HashSet::<StepGraphIndex>::new();
+    let mut seen = HashSet::<EditorGraphIndex>::new();
 
-    let mut roots = editor.graph.tips().collect::<Vec<StepGraphIndex>>();
+    let mut roots = editor.graph.tips().collect::<Vec<EditorGraphIndex>>();
     roots.sort_unstable();
 
     // Traverse from all child-most entrypoints (graph nodes without children), assigning

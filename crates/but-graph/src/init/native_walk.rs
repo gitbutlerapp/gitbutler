@@ -9,7 +9,7 @@
 //! side table — the seed table — so the initial-queue sort and workspace-ownership shuffles
 //! run the very same code paths without a graph.
 
-use std::collections::HashMap;
+use gix::hashtable::HashMap;
 
 use but_core::RefMetadata;
 use gix::reference::Category;
@@ -169,6 +169,7 @@ impl Segs {
 /// The native counterpart of the raw `traverse_tips_with_overlay`: same queue, same limits,
 /// same dequeue order — commits stored directly.
 #[allow(clippy::too_many_arguments)]
+#[tracing::instrument(name = "native_walk::traverse", level = "trace", skip_all, err(Debug))]
 pub(crate) fn traverse<T: RefMetadata>(
     repo: &OverlayRepo<'_>,
     tips: Vec<Tip>,

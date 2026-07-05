@@ -163,8 +163,8 @@ fn many_references() -> Result<()> {
 }
 
 #[test]
-fn first_parent_leg_long() -> Result<()> {
-    let (repo, mut meta) = fixture("first-parent-leg-long")?;
+fn first_parent_side_long() -> Result<()> {
+    let (repo, mut meta) = fixture("first-parent-side-long")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 6ac5745 (HEAD -> with-inner-merge) on top of inner merge
@@ -220,8 +220,8 @@ fn first_parent_leg_long() -> Result<()> {
 }
 
 #[test]
-fn second_parent_leg_long() -> Result<()> {
-    let (repo, mut meta) = fixture("second-parent-leg-long")?;
+fn second_parent_side_long() -> Result<()> {
+    let (repo, mut meta) = fixture("second-parent-side-long")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * a6775ea (HEAD -> with-inner-merge) on top of inner merge

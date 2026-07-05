@@ -13,7 +13,7 @@ use gix::refs::{
 };
 
 use crate::graph_rebase::{
-    Editor, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
+    Editor, EditorGraph, EditorGraphIndex, Step, SuccessfulRebase,
     cherry_pick::{CherryPickOutcome, cherry_pick},
     util::collect_ordered_parents,
 };
@@ -21,7 +21,7 @@ use crate::graph_rebase::{
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
     /// Perform the rebase IN PLACE: each mutable pick's commit id is rewritten where it
     /// stands, in dependency order, so a pick's parent slots already hold rebased ids by the
-    /// time it is picked. Node ids never change — parent arrays, positions, lanes, and every
+    /// time it is picked. Node ids never change — parent arrays, positions, chains, and every
     /// outstanding selector stay valid across the rebase.
     pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph, M>> {
         crate::graph_rebase::positions::debug_assert_positions_total(&self.graph);
@@ -104,9 +104,9 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             }
         }
 
-        // References need no rewrite at all — their position's anchor node now carries the
+        // References need no rewrite at all — their position's `on` node now carries the
         // rebased id. All that remains is emitting the ref transaction: every live, mutable,
-        // positioned reference moves to its anchor's new commit.
+        // positioned reference moves to its pick's new commit.
         for step_idx in graph.ref_indices() {
             let record = graph
                 .reference_record(step_idx)
@@ -122,44 +122,33 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     .context("References should resolve to a commit")?;
             let to_reference = match graph.commit_id(first_parent_idx) {
                 Some(id) => id,
-                None => bail!("A reference's anchor is not a pick"),
+                None => bail!("A reference's position does not resolve to a pick"),
             };
 
-            let reference = self.repo.try_find_reference(&refname)?;
-
-            if let Some(reference) = reference {
-                let target = reference.target();
-                match target {
-                    gix::refs::TargetRef::Object(id) => {
-                        if id == to_reference {
-                            unchanged_references.push(refname.clone());
-                        } else {
-                            ref_edits.push(RefEdit {
-                                name: refname.clone(),
-                                change: Change::Update {
-                                    log: LogChange::default(),
-                                    expected: PreviousValue::MustExistAndMatch(target.into()),
-                                    new: Target::Object(to_reference),
-                                },
-                                deref: false,
-                            });
-                        }
+            let expected = match self.repo.try_find_reference(&refname)? {
+                Some(reference) => match reference.target() {
+                    gix::refs::TargetRef::Object(id) if id == to_reference => {
+                        unchanged_references.push(refname);
+                        continue;
+                    }
+                    target @ gix::refs::TargetRef::Object(_) => {
+                        PreviousValue::MustExistAndMatch(target.into())
                     }
                     gix::refs::TargetRef::Symbolic(name) => {
                         bail!("Attempted to update the symbolic reference {name}");
                     }
-                }
-            } else {
-                ref_edits.push(RefEdit {
-                    name: refname.clone(),
-                    change: Change::Update {
-                        log: LogChange::default(),
-                        expected: PreviousValue::MustNotExist,
-                        new: Target::Object(to_reference),
-                    },
-                    deref: false,
-                });
-            }
+                },
+                None => PreviousValue::MustNotExist,
+            };
+            ref_edits.push(RefEdit {
+                name: refname,
+                change: Change::Update {
+                    log: LogChange::default(),
+                    expected,
+                    new: Target::Object(to_reference),
+                },
+                deref: false,
+            });
         }
 
         // Find deleted references. `initial_references` only contains mutable
@@ -207,17 +196,20 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
 ///
 /// This second traversal ensures that all the parents of any given node have
 /// been seen, before traversing it.
-fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<StepGraphIndex> {
+fn order_steps_picking(
+    graph: &EditorGraph,
+    heads: &[EditorGraphIndex],
+) -> VecDeque<EditorGraphIndex> {
     // References take no part in the pick order (no edges) and are replayed separately;
-    // everything else — picks AND tombstones, even one carrying a leaked anchor — must be
-    // traversed, or its subtree is orphaned. Filter by the STEP, not by anchor presence
-    // (a non-reference with a stray anchor must not be skipped).
-    let mut heads: Vec<StepGraphIndex> = heads
+    // everything else — picks AND tombstones, even one carrying a leaked position — must be
+    // traversed, or its subtree is orphaned. Filter by the STEP, not by position presence
+    // (a non-reference with a stray position must not be skipped).
+    let mut heads: Vec<EditorGraphIndex> = heads
         .iter()
         .copied()
         .filter(|h| !graph.is_reference(*h))
         .collect();
-    let mut seen = heads.iter().cloned().collect::<HashSet<StepGraphIndex>>();
+    let mut seen = heads.iter().cloned().collect::<HashSet<EditorGraphIndex>>();
     // Reachable nodes with no outgoing nodes.
     let mut bases = VecDeque::new();
 
@@ -242,7 +234,7 @@ fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<
     let mut retraversed = bases.iter().cloned().collect::<HashSet<_>>();
 
     while let Some(base) = bases.pop_front() {
-        for (s, _) in graph.incoming_legs(base) {
+        for (s, _) in graph.incoming_edges(base) {
             // We only want to queue nodes for traversing that have had all of their parents traversed.
             let all_parents_seen = graph.parents(s).iter().all(|t| retraversed.contains(t));
             if all_parents_seen && seen.contains(&s) && retraversed.insert(s) {
@@ -308,12 +300,12 @@ mod test {
         use anyhow::Result;
 
         use crate::graph_rebase::{
-            Step, StepGraph, rebase::order_steps_picking, testing::render_ascii_graph,
+            EditorGraph, Step, rebase::order_steps_picking, testing::render_ascii_graph,
         };
 
         #[test]
         fn basic_scenario() -> Result<()> {
-            let mut graph = StepGraph::default();
+            let mut graph = EditorGraph::default();
             let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));
@@ -345,7 +337,7 @@ mod test {
 
         #[test]
         fn complex_scenario() -> Result<()> {
-            let mut graph = StepGraph::default();
+            let mut graph = EditorGraph::default();
             let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));
@@ -412,7 +404,7 @@ mod test {
 
         #[test]
         fn merge_scenario() -> Result<()> {
-            let mut graph = StepGraph::default();
+            let mut graph = EditorGraph::default();
             let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));
@@ -454,7 +446,7 @@ mod test {
 
         #[test]
         fn merge_flipped_scenario() -> Result<()> {
-            let mut graph = StepGraph::default();
+            let mut graph = EditorGraph::default();
             let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));

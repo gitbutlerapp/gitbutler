@@ -359,19 +359,17 @@ fn merged_tree_from_commits(
     let mut merged_tree =
         find_real_tree(&but_core::Commit::from_id(first.attach(repo))?, preference)?;
 
+    // `None` on the inside means the merged commits share no common ancestor;
+    // that sticks for the rest of the fold.
     let mut base: Option<Option<gix::ObjectId>> = None;
 
     while let Some(commit) = to_merge.pop() {
-        if let Some(base_commit) = base {
-            if let Some(base_commit) = base_commit {
-                base = Some(merge_base(repo, base_commit, commit)?);
-            }
-        } else {
-            base = Some(merge_base(repo, first, commit)?);
-        }
-        let Some(base) = base else {
-            bail!("BUG: Base is None, this should never happen");
+        let next_base = match base {
+            None => merge_base(repo, first, commit)?,
+            Some(Some(prior)) => merge_base(repo, prior, commit)?,
+            Some(None) => None,
         };
+        base = Some(next_base);
 
         let commit = but_core::Commit::from_id(commit.attach(repo))?;
         let tree = find_real_tree(&commit, preference)?;
@@ -383,7 +381,7 @@ fn merged_tree_from_commits(
         };
 
         let mut output = repo.merge_trees(
-            peel_to_tree_or_empty(repo, base)?,
+            peel_to_tree_or_empty(repo, next_base)?,
             merged_tree,
             tree,
             repo.default_merge_labels(),

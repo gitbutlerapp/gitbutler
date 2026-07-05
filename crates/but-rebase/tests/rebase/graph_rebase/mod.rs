@@ -18,7 +18,6 @@ mod materialize;
 mod merge_commit_changes;
 mod multiple_operations;
 mod order_commit_selectors_by_parentage;
-mod parity;
 mod rebase_identities;
 mod replace;
 mod sha256;

@@ -4657,7 +4657,7 @@ version = "0.2.3"
 source = "git+https://github.com/GitoxideLabs/gitoxide?rev=09642c6c0aab915a4f67a69848d10a225cce1405#09642c6c0aab915a4f67a69848d10a225cce1405"
 dependencies = [
  "bstr",
- "hashbrown 0.17.1",
+ "hashbrown 0.15.5",
 ]
 
 [[package]]

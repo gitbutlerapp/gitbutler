@@ -6,7 +6,7 @@ use anyhow::{Context, Result, bail};
 use but_core::{RefMetadata, commit::tree_expression::TreeExpression};
 use gix::prelude::ObjectIdExt;
 
-use crate::graph_rebase::{Editor, StepGraphIndex, util::collect_ordered_parents};
+use crate::graph_rebase::{Editor, EditorGraphIndex, util::collect_ordered_parents};
 
 /// A selected commit change range that should be merged into an accumulated
 /// tree.
@@ -106,8 +106,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Turn the selected commits into mergeable `base..commit` change ranges
     /// relative to a target commit.
     ///
-    /// This planner assumes the editor step graph and the editor's in-memory
-    /// repository describe the same commit topology. The step graph is used to
+    /// This planner assumes the editor commit graph and the editor's in-memory
+    /// repository describe the same commit topology. The commit graph is used to
     /// traverse selected commits deterministically and to find the target's
     /// ancestry cone quickly, while first-parent/base semantics still come
     /// from the commit objects stored in the in-memory repository.
@@ -229,7 +229,7 @@ enum TraversalMode {
 /// [SelectedCommitPlanningTraversal::ordered_selected_commit_ids] is
 /// deterministic and based solely on the graph.
 ///
-/// This walk intentionally uses the editor step graph only as a traversal
+/// This walk intentionally uses the editor commit graph only as a traversal
 /// structure. Parent/tree semantics are still read from the in-memory
 /// repository commits, so callers must only use this planner when the editor
 /// graph and the in-memory repository represent the same commit topology.
@@ -240,10 +240,10 @@ fn traverse_graph_for_planning<M: RefMetadata>(
 ) -> Result<SelectedCommitPlanningTraversal> {
     let mut traversal = SelectedCommitPlanningTraversal::default();
     let mut seen_selected_commit_ids = HashSet::new();
-    let mut seen_normal = HashSet::<StepGraphIndex>::new();
-    let mut seen_target_ancestor_walk = HashSet::<StepGraphIndex>::new();
+    let mut seen_normal = HashSet::<EditorGraphIndex>::new();
+    let mut seen_target_ancestor_walk = HashSet::<EditorGraphIndex>::new();
 
-    let mut roots = editor.graph.tips().collect::<Vec<StepGraphIndex>>();
+    let mut roots = editor.graph.tips().collect::<Vec<EditorGraphIndex>>();
     roots.sort_unstable();
 
     for root in roots {
@@ -311,11 +311,11 @@ fn traverse_graph_for_planning<M: RefMetadata>(
 /// Returns first-parent metadata if `commit_id` is selected.
 ///
 /// This intentionally reads the commit object from the editor's in-memory
-/// repository instead of inferring first-parent semantics from the step graph.
-/// The step graph only provides deterministic traversal order and fast target
+/// repository instead of inferring first-parent semantics from the commit graph.
+/// The commit graph only provides deterministic traversal order and fast target
 /// ancestry discovery. The actual `base..commit` merge ranges must match the
 /// commit DAG that owns the trees and SHAs being merged, so callers are
-/// expected to keep the editor step graph aligned with that in-memory
+/// expected to keep the editor commit graph aligned with that in-memory
 /// repository topology.
 fn get_first_parent_metadata<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,

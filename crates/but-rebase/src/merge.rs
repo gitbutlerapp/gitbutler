@@ -1,5 +1,5 @@
 use anyhow::{Result, anyhow, bail};
-use bstr::{BString, ByteSlice};
+use bstr::ByteSlice as _;
 use but_core::{
     RepositoryExt,
     commit::{SignCommit, TreeKind},
@@ -69,17 +69,17 @@ pub fn octopus(
             merge_options.clone(),
         )?;
         if merge.has_unresolved_conflicts(unresolved) {
+            let paths = merge
+                .conflicts
+                .iter()
+                .filter_map(|c| c.ours.location().to_str().ok().map(|p| format!("{p:?}")))
+                .collect::<Vec<_>>()
+                .join(", ");
             return Err(anyhow!(
                 "Encountered conflict when merging tree {tree_to_merge}{details}",
                 details = merge_conflict_details(&successfully_merged)
             )
-            .context(ConflictErrorContext {
-                paths: merge
-                    .conflicts
-                    .iter()
-                    .map(|c| c.ours.location().to_owned())
-                    .collect(),
-            }));
+            .context(format!("{paths} was/were conflicted when merging")));
         }
         successfully_merged.push(tree_to_merge);
         ours = merge.tree.write()?.detach();
@@ -122,27 +122,6 @@ fn merge_conflict_details(successfully_merged: &[gix::ObjectId]) -> String {
         successfully_merged
             .first()
             .map_or_else(String::new, |tree| format!(" and tree {tree}"))
-    }
-}
-
-/// A type that can be retrieved as an `anyhow` context to see if the rebase failed due to merge conflicts.
-#[derive(Debug, Clone)]
-pub struct ConflictErrorContext {
-    /// All the paths that were involved, limited to the current location of `our` side.
-    pub paths: Vec<BString>,
-}
-
-impl std::fmt::Display for ConflictErrorContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{} was/were conflicted when merging",
-            self.paths
-                .iter()
-                .filter_map(|p| p.to_str().ok().map(|p| format!("{p:?}")))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
     }
 }
 

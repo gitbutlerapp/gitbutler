@@ -14,13 +14,12 @@ use crate::graph_rebase::{Checkout, MaterializeOutcome, Pick, Step, SuccessfulRe
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     /// Materializes a history rewrite
     pub fn materialize(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
-        let repo = self.repo.clone();
         if let Some(memory) = self.repo.objects.take_object_memory() {
-            memory.persist(self.repo)?;
+            memory.persist(&self.repo)?;
         }
 
         let mut head_reference_update = None;
-        for checkout in self.checkouts {
+        for checkout in std::mem::take(&mut self.checkouts) {
             match checkout {
                 Checkout::Head {
                     selector,
@@ -49,7 +48,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                     // commit mapping), perform a safe checkout.
                     safe_checkout_from_head(
                         new_head,
-                        &repo,
+                        &self.repo,
                         Options {
                             skip_head_update: true,
                             merge_base_override,
@@ -60,9 +59,9 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             }
         }
 
-        let mut ref_edits = self.ref_edits.clone();
+        let mut ref_edits = std::mem::take(&mut self.ref_edits);
         if let Some(refname) = head_reference_update
-            && repo.head_name()?.as_ref() != Some(&refname)
+            && self.repo.head_name()?.as_ref() != Some(&refname)
         {
             let ref_short_name = refname.shorten().to_owned();
             ref_edits.push(RefEdit {
@@ -83,16 +82,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 deref: false,
             });
         }
-        repo.edit_references(ref_edits)?;
-
-        refresh_workspace_from_arena(&self.graph, self.workspace, &repo, &*self.meta)?;
-
-        Ok(MaterializeOutcome {
-            graph: self.graph,
-            history: self.history,
-            workspace: self.workspace,
-            meta: self.meta,
-        })
+        self.finish(ref_edits)
     }
 
     /// Materializes a rebase without performing a checkout.
@@ -111,14 +101,18 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     /// If I instead called [`Self::materialize`], the changes would instead be
     /// gone from disk.
     pub fn materialize_without_checkout(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
-        let repo = self.repo.clone();
         if let Some(memory) = self.repo.objects.take_object_memory() {
-            memory.persist(self.repo)?;
+            memory.persist(&self.repo)?;
         }
 
-        repo.edit_references(self.ref_edits.clone())?;
+        let ref_edits = std::mem::take(&mut self.ref_edits);
+        self.finish(ref_edits)
+    }
 
-        refresh_workspace_from_arena(&self.graph, self.workspace, &repo, &*self.meta)?;
+    fn finish(self, ref_edits: Vec<RefEdit>) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+        self.repo.edit_references(ref_edits)?;
+
+        refresh_workspace_from_arena(&self.graph, self.workspace, &self.repo, &*self.meta)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,
@@ -129,17 +123,14 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     }
 }
 
-/// THE FLIP (dissolve stage D4d-b): the editor's mutated arena IS the next workspace —
-/// materialization projects it directly instead of rewalking the repository. The rewalk
-/// survives as an env-gated verifier (`BUT_REBASE_WRITE_THROUGH=assert`): the dissolve's
-/// parity obligation, mutate-then-project == rewalk-then-project, compared on a field-exact
-/// fingerprint of everything the projection derives except graph indices (independently
-/// built graphs number segments differently).
+/// The editor's mutated arena IS the next workspace — materialization projects it directly
+/// instead of rewalking the repository. (Mutate-then-project == rewalk-then-project was
+/// proven suite-wide on a field-exact projection fingerprint before the rewalk retired.)
 ///
 /// Falls back to a rewalk when the arena has nothing to project: HEAD is unborn (e.g. its
 /// referent was deleted without a repoint) or points outside the editor's graph.
 fn refresh_workspace_from_arena<M: RefMetadata>(
-    graph: &crate::graph_rebase::StepGraph,
+    graph: &crate::graph_rebase::EditorGraph,
     workspace: &mut but_graph::Workspace,
     repo: &gix::Repository,
     meta: &M,
@@ -157,96 +148,5 @@ fn refresh_workspace_from_arena<M: RefMetadata>(
         return workspace.refresh_from_head(repo, meta, project_meta);
     };
     *workspace = mutated;
-    if std::env::var_os("BUT_REBASE_WRITE_THROUGH").is_some_and(|v| v == "assert") {
-        let rewalked = but_graph::Workspace::from_head(repo, meta, project_meta, options)?;
-        let (mutated_fp, rewalked_fp) = (
-            projection_fingerprint(workspace),
-            projection_fingerprint(&rewalked),
-        );
-        if mutated_fp != rewalked_fp {
-            bail!(
-                "WRITE-THROUGH DIVERGENCE\n--- mutate-then-project\n{mutated_fp}\n--- rewalk-then-project\n{rewalked_fp}"
-            );
-        }
-    }
     Ok(())
-}
-
-/// The parity view: everything the projection derives that is NOT a graph index — kind,
-/// bounds, target, stacks, segments, per-commit ids/parents/flags/refs, remote and outside
-/// commit sets. Graph-index-dependent fields (segment indices, sibling links) are excluded
-/// since independently built graphs number segments differently.
-fn projection_fingerprint(ws: &but_graph::Workspace) -> String {
-    use std::fmt::Write as _;
-    let commit_line = |out: &mut String, prefix: &str, c: &but_graph::workspace::StackCommit| {
-        writeln!(
-            out,
-            "{prefix}{} parents=[{}] flags={:?} refs=[{}]",
-            c.id,
-            c.parent_ids
-                .iter()
-                .map(|p| p.to_string())
-                .collect::<Vec<_>>()
-                .join(", "),
-            c.flags,
-            c.refs
-                .iter()
-                .map(|r| r.ref_name.as_bstr().to_string())
-                .collect::<Vec<_>>()
-                .join(", "),
-        )
-        .ok();
-    };
-    let mut out = String::new();
-    let kind = match &ws.kind {
-        but_graph::workspace::WorkspaceKind::Managed { ref_info } => {
-            format!("Managed({})", ref_info.ref_name.as_bstr())
-        }
-        but_graph::workspace::WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info } => {
-            format!("ManagedMissing({})", ref_info.ref_name.as_bstr())
-        }
-        but_graph::workspace::WorkspaceKind::AdHoc => "AdHoc".to_string(),
-    };
-    writeln!(
-        out,
-        "kind={kind} lower_bound={:?} target_ref={:?} target_commit={:?} metadata={}",
-        ws.lower_bound,
-        ws.target_ref
-            .as_ref()
-            .map(|t| (t.ref_name.as_bstr().to_string(), t.commits_ahead)),
-        ws.target_commit.as_ref().map(|t| t.commit_id),
-        ws.metadata.is_some(),
-    )
-    .ok();
-    for stack in &ws.stacks {
-        writeln!(out, "stack {:?}", stack.id).ok();
-        for segment in &stack.segments {
-            writeln!(
-                out,
-                "  {} base={:?} remote={:?} projected_name={} entrypoint={} metadata={}",
-                segment
-                    .ref_name()
-                    .map_or_else(|| "<anon>".to_string(), |n| n.as_bstr().to_string()),
-                segment.base,
-                segment
-                    .remote_tracking_ref_name
-                    .as_ref()
-                    .map(|n| n.as_bstr().to_string()),
-                segment.name_projected_from_outside,
-                segment.is_entrypoint,
-                segment.metadata.is_some(),
-            )
-            .ok();
-            for commit in &segment.commits {
-                commit_line(&mut out, "    ", commit);
-            }
-            for commit in &segment.commits_on_remote {
-                commit_line(&mut out, "    remote ", commit);
-            }
-            for commit in segment.commits_outside.iter().flatten() {
-                commit_line(&mut out, "    outside ", commit);
-            }
-        }
-    }
-    out
 }

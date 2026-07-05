@@ -2,11 +2,11 @@
 //! One graph based engine to rule them all,
 //! one vector based to find them,
 //! one mess of git2 code to bring them all,
-//! and in the darknes bind them.
+//! and in the darkness bind them.
 //!
 //! ---
 //!
-//! A graph-based rebase engine. The workspace is loaded into an `Editor` as a `StepGraph`: an
+//! A graph-based rebase engine. The workspace is loaded into an `Editor` as a `EditorGraph`: an
 //! arena of `Step`s where a `Pick` is a commit to cherry-pick and a `Reference` is a branch.
 //! Callers mutate the graph (insert/move/remove picks, create/move references), then
 //! `Editor::rebase` replays it — cherry-picking every mutable pick onto its new parents and
@@ -16,10 +16,9 @@
 
 mod arrangement;
 mod creation;
-mod placements;
+mod editor_graph;
 mod positions;
 pub mod rebase;
-mod step_graph;
 pub mod traverse;
 use std::collections::BTreeMap;
 
@@ -65,7 +64,7 @@ pub struct Pick {
     pub sign_commit: SignCommit,
     /// Exclude the commit from being included in the
     /// [`RevisionHistory::commit_mappings()`]. This is helpful if we are
-    /// creating a new commit since the the mappings will be non-sensical to the
+    /// creating a new commit since the mappings will be non-sensical to the
     /// frontend consumers.
     pub exclude_from_tracking: bool,
     /// If set to false, the rebase will fail if this commit results in a
@@ -129,7 +128,7 @@ impl Pick {
 pub enum Step {
     /// Cherry picks the given commit into the new location in the graph
     Pick(Pick),
-    /// Represents applying a reference to the commit found at it's first parent
+    /// Represents applying a reference to the commit found at its first parent
     Reference {
         /// The refname
         refname: gix::refs::FullName,
@@ -176,13 +175,13 @@ impl Step {
     }
 }
 
-pub(crate) use step_graph::{StepGraph, StepGraphIndex};
+pub(crate) use editor_graph::{EditorGraph, EditorGraphIndex};
 
 /// Convert a structure to a selector for a particular editor.
 ///
 pub trait ToSelector {
     /// Converts a given object into a selector. Calling `to_selector` on an
-    /// object asserts that the reciever was a object that is selectable in the
+    /// object asserts that the receiver was a object that is selectable in the
     /// graph.
     fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
 }
@@ -190,7 +189,7 @@ pub trait ToSelector {
 /// Convert a type to a selector, and ensures that it is type commit.
 pub trait ToCommitSelector {
     /// Converts a given object into a selector. Calling `to_commit_selector` on
-    /// an object asserts that the reciever has a selectable pick step in the
+    /// an object asserts that the receiver has a selectable pick step in the
     /// graph.
     fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
 }
@@ -198,7 +197,7 @@ pub trait ToCommitSelector {
 /// Convert a type to a selector, and ensures that it is type reference.
 pub trait ToReferenceSelector {
     /// Converts a given object into a selector. Calling `to_reference_selector` on
-    /// an object asserts that the reciever has a selectable reference step in
+    /// an object asserts that the receiver has a selectable reference step in
     /// the graph.
     fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
 }
@@ -211,7 +210,7 @@ pub trait ToReferenceSelector {
 /// never dangles, though it may point at a tombstone.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Selector {
-    id: StepGraphIndex,
+    id: EditorGraphIndex,
 }
 
 impl ToCommitSelector for Selector {
@@ -260,9 +259,8 @@ pub(crate) enum Checkout {
 #[derive(Debug)]
 pub struct Editor<'ws, 'meta, M: RefMetadata> {
     /// The internal graph of steps
-    graph: StepGraph,
-    /// Initial references. This is used to track any references that might need
-    /// deleted.
+    graph: EditorGraph,
+    /// Initial references, used to spot references that need deleting.
     initial_references: Vec<gix::refs::FullName>,
     /// Worktrees that we might need to perform `safe_checkout` on.
     checkouts: Vec<Checkout>,
@@ -284,8 +282,8 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     /// Any reference edits that need to be committed as a result of the history
     /// rewrite
     pub(crate) ref_edits: Vec<RefEdit>,
-    /// The new step graph
-    pub(crate) graph: StepGraph,
+    /// The new commit graph
+    pub(crate) graph: EditorGraph,
     pub(crate) checkouts: Vec<Checkout>,
     /// Provides data about how the editor instance was transformed.
     pub history: RevisionHistory,
@@ -385,7 +383,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
 /// The outcome of a materialize
 #[derive(Debug)]
 pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
-    pub(crate) graph: StepGraph,
+    pub(crate) graph: EditorGraph,
     /// Provides data about how the editor instance was transformed.
     pub history: RevisionHistory,
     /// A reference to the workspace that the editor was created for.
@@ -440,13 +438,13 @@ pub struct RevisionHistory {
     /// A mapping from any commits that were in the original mapping to a
     /// rewritten version.
     ///
-    /// Unintuatively, the values are the original values, and the keys are the
+    /// Unintuitively, the values are the original values, and the keys are the
     /// _new_ values that they have been mapped to.
     commit_mappings: BTreeMap<gix::ObjectId, gix::ObjectId>,
 }
 
 impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
-    pub(crate) fn new_selector(&self, id: StepGraphIndex) -> Selector {
+    pub(crate) fn new_selector(&self, id: EditorGraphIndex) -> Selector {
         Selector { id }
     }
 }
@@ -457,9 +455,9 @@ impl RevisionHistory {
     }
 
     /// The commit mappings starts empty, and gets updated when we perform a cherry pick.
-    /// If there is no entry whose old `to` that cooresponds with the new
+    /// If there is no entry whose old `to` that corresponds with the new
     /// `from`, then we just add a `to <- from` entry.
-    /// If there is an entry whose old `to` that cooresponds with the new
+    /// If there is an entry whose old `to` that corresponds with the new
     /// `from`, then we replace `old_to <- old_from` with `new_to <- old_from`
     pub(crate) fn update_mapping(&mut self, from: gix::ObjectId, to: gix::ObjectId) {
         if let Some(value) = self.commit_mappings.remove(&from) {

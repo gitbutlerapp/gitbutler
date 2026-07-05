@@ -253,13 +253,9 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
         .filter(|edge| !involved_segments.contains(&edge.source))
         .collect();
     for edge in incoming_edges {
-        let weight = graph
+        graph
             .inner
-            .edge_weight_mut(edge.source, &edge.weight)
-            .expect("still present as we just saw it");
-        weight.target = top_segment_id;
-        weight.dst = None;
-        weight.dst_id = None;
+            .retarget_edges(edge.source, edge.weight.target, top_segment_id);
     }
     // Drop the involved segments' own outgoing connections — except the bottom segment's
     // connections leading outside — then re-chain the segments in the desired order.

@@ -24,7 +24,7 @@ Method: `editor.order_commit_selectors_by_parentage(selectors) -> Result<Vec<Sel
 
 ## Preconditions and Errors
 
-The function treats the editor step graph as the single source of truth.
+The function treats the editor commit graph as the single source of truth.
 
 This means:
 
@@ -43,7 +43,7 @@ The current algorithm has three phases.
 
 2. Build rank map from editor traversal
 
-Build a map `commit_id -> rank` by traversing the entire editor step graph from all child-most nodes.
+Build a map `commit_id -> rank` by traversing the entire editor commit graph from all child-most nodes.
 
 Implementation notes:
 
