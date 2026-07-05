@@ -64,8 +64,14 @@ but_schemars::register_sdk_type!(ForgeCapabilities);
 /// `accounts` are the known forge accounts; when one is configured for the
 /// remote's host, its custom host supplies the web scheme and port that an
 /// SSH remote cannot.
-pub fn forge_info(remote_url: &str, accounts: &[ForgeUser]) -> Option<ForgeInfo> {
-    let repo_info = crate::derive_forge_repo_info(remote_url)?;
+/// `override_forge` is the project's saved forge preference, applied as a last
+/// resort when the URL and configured accounts don't identify a forge (#14319).
+pub fn forge_info(
+    remote_url: &str,
+    accounts: &[ForgeUser],
+    override_forge: Option<ForgeName>,
+) -> Option<ForgeInfo> {
+    let repo_info = crate::derive_forge_repo_info(remote_url, override_forge)?;
     let base_url = build_base_url(remote_url, &repo_info, accounts);
     let (commit_path, pr_path) = url_paths(&repo_info.forge);
     let (unit, posthog) = label_for(&repo_info.forge);
@@ -83,14 +89,16 @@ pub fn forge_info(remote_url: &str, accounts: &[ForgeUser]) -> Option<ForgeInfo>
 
 /// Web compare URL for a branch (used by "Open in browser" actions).
 /// `fork` is the owner namespace for forks (GitHub `bob:branch` form).
+/// `accounts` and `override_forge` have the same meaning as in [`forge_info`].
 pub fn compare_branch_url(
     remote_url: &str,
     base: &str,
     branch: &str,
     fork: Option<&str>,
     accounts: &[ForgeUser],
+    override_forge: Option<ForgeName>,
 ) -> Option<String> {
-    let repo_info = crate::derive_forge_repo_info(remote_url)?;
+    let repo_info = crate::derive_forge_repo_info(remote_url, override_forge)?;
     let base_url = build_base_url(remote_url, &repo_info, accounts);
     let head = match fork {
         Some(f) => format!("{f}:{branch}"),
@@ -259,12 +267,115 @@ fn capabilities_for(forge: &ForgeName) -> ForgeCapabilities {
 mod tests {
     use super::*;
 
-    // These remotes all resolve their forge from the host string, so
-    // `derive_forge_repo_info` never falls back to account storage.
+    // Recognizable hosts resolve without account storage; override tests use
+    // synthetic hosts with no matching stored accounts.
+
+    #[test]
+    fn self_hosted_base_url_built_from_override_repo_info() {
+        // On the #14319 override path, `derive_forge_repo_info` fabricates
+        // `ForgeRepoInfo` exactly as the account path would - owner/repo parsed
+        // from the URL - so `build_base_url` must produce the self-hosted web
+        // URL from it, taking the host from the remote rather than a hardcoded
+        // per-forge default.
+        let repo_info = ForgeRepoInfo {
+            forge: ForgeName::GitLab,
+            owner: "group".into(),
+            repo: "repo".into(),
+            protocol: "https".into(),
+        };
+        assert_eq!(
+            build_base_url(
+                "https://git.selfhosted.example/group/repo.git",
+                &repo_info,
+                &[]
+            ),
+            "https://git.selfhosted.example/group/repo"
+        );
+    }
+
+    #[test]
+    fn override_preserves_self_hosted_https_origin_and_encoded_namespace() {
+        let remote = "https://git.selfhosted.example:8080/group/subgroup/My%20Repo%23one.git?query=value#fragment";
+        let info = forge_info(remote, &[], Some(ForgeName::GitLab))
+            .expect("the override must identify the self-hosted GitLab repository");
+        assert_eq!(
+            info.name,
+            ForgeName::GitLab,
+            "the saved override is the fallback"
+        );
+        assert_eq!(
+            info.base_url, "https://git.selfhosted.example:8080/group/subgroup/My%20Repo%23one",
+            "the remote's origin and encoded nested path must survive the override"
+        );
+        assert_eq!(
+            compare_branch_url(remote, "main", "feat", None, &[], Some(ForgeName::GitLab)).unwrap(),
+            "https://git.selfhosted.example:8080/group/subgroup/My%20Repo%23one/-/compare/main...feat",
+            "compare URLs must honor the same override, origin, and path as forge_info"
+        );
+    }
+
+    #[test]
+    fn override_uses_configured_account_origin_for_ssh_remote() {
+        let remote = "ssh://git@git.selfhosted.example:2222/group/subgroup/My%20Repo%23one.git";
+        let accounts = [ForgeUser::GitLab(
+            but_gitlab::GitlabAccountIdentifier::selfhosted(
+                "bob",
+                "http://git.selfhosted.example:8080/api/v4",
+            ),
+        )];
+        let info = forge_info(remote, &accounts, Some(ForgeName::GitLab)).unwrap();
+        assert_eq!(
+            info.base_url, "http://git.selfhosted.example:8080/group/subgroup/My%20Repo%23one",
+            "the account's web scheme and port must replace the SSH transport origin"
+        );
+        assert_eq!(
+            compare_branch_url(
+                remote,
+                "main",
+                "feat",
+                None,
+                &accounts,
+                Some(ForgeName::GitLab)
+            )
+            .unwrap(),
+            "http://git.selfhosted.example:8080/group/subgroup/My%20Repo%23one/-/compare/main...feat",
+            "compare URLs must preserve the account origin and encoded path with an override"
+        );
+    }
+
+    #[test]
+    fn detected_azure_host_wins_over_override_with_encoded_paths() {
+        for remote in [
+            "https://dev.azure.com/org/My%20Project/_git/repo%23one",
+            "ssh://git@ssh.dev.azure.com:2222/v3/org/My%20Project/repo%23one",
+        ] {
+            let info = forge_info(remote, &[], Some(ForgeName::GitLab)).unwrap();
+            assert_eq!(
+                info.name,
+                ForgeName::Azure,
+                "the Azure host must win over a stale override"
+            );
+            assert_eq!(
+                info.base_url, "https://dev.azure.com/org/My%20Project/_git/repo%23one",
+                "Azure path parsing and browser-origin conversion must survive a stale override"
+            );
+            assert_eq!(
+                compare_branch_url(remote, "main", "feat", None, &[], Some(ForgeName::GitLab))
+                    .unwrap(),
+                "https://dev.azure.com/org/My%20Project/_git/repo%23one/branchCompare?baseVersion=GBmain&targetVersion=GBfeat",
+                "compare URLs must use Azure's path shape rather than the override's forge"
+            );
+        }
+    }
 
     #[test]
     fn azure_https_base_url_keeps_org_project_and_repo() {
-        let info = forge_info("https://dev.azure.com/myorg/myproject/_git/myrepo", &[]).unwrap();
+        let info = forge_info(
+            "https://dev.azure.com/myorg/myproject/_git/myrepo",
+            &[],
+            None,
+        )
+        .unwrap();
         assert_eq!(info.name, ForgeName::Azure);
         // Regression: the org and repo segments must both survive — the
         // GenericProvider used to drop the repo name entirely.
@@ -281,7 +392,7 @@ mod tests {
             "https://dev.azure.com/org/project/_git/repo%25one",
             "https://dev.azure.com/org/project/_git/repo%23one",
         ] {
-            let info = forge_info(remote, &[]).unwrap();
+            let info = forge_info(remote, &[], None).unwrap();
             assert_eq!(
                 info.base_url, remote,
                 "browser URLs must preserve encoded path characters in {remote}"
@@ -292,7 +403,7 @@ mod tests {
     #[test]
     fn azure_https_v3_organization_browser_url() {
         let remote = "https://dev.azure.com/v3/project/_git/repo";
-        let info = forge_info(remote, &[]).unwrap();
+        let info = forge_info(remote, &[], None).unwrap();
         assert_eq!(
             info.base_url, remote,
             "an organization named v3 must remain part of the browser URL"
@@ -301,7 +412,8 @@ mod tests {
 
     #[test]
     fn azure_ssh_base_url_uses_browsable_https_host() {
-        let info = forge_info("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo", &[]).unwrap();
+        let info =
+            forge_info("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo", &[], None).unwrap();
         assert_eq!(info.name, ForgeName::Azure);
         // ssh.dev.azure.com → dev.azure.com, and org/project/repo intact.
         assert_eq!(
@@ -318,6 +430,7 @@ mod tests {
             "feature",
             None,
             &[],
+            None,
         )
         .unwrap();
         assert_eq!(
@@ -328,13 +441,13 @@ mod tests {
 
     #[test]
     fn github_repository_name_can_contain_dot_git() {
-        let info = forge_info("git@github.com:owner/example.github.io.git", &[]).unwrap();
+        let info = forge_info("git@github.com:owner/example.github.io.git", &[], None).unwrap();
         assert_eq!(info.base_url, "https://github.com/owner/example.github.io");
     }
 
     #[test]
     fn github_ssh_base_url_and_fork_compare() {
-        let info = forge_info("git@github.com:owner/repo.git", &[]).unwrap();
+        let info = forge_info("git@github.com:owner/repo.git", &[], None).unwrap();
         assert_eq!(info.name, ForgeName::GitHub);
         assert_eq!(info.base_url, "https://github.com/owner/repo");
 
@@ -344,6 +457,7 @@ mod tests {
             "feat",
             Some("fork"),
             &[],
+            None,
         )
         .unwrap();
         assert_eq!(
@@ -354,7 +468,7 @@ mod tests {
 
     #[test]
     fn gitlab_nested_group_base_url() {
-        let info = forge_info("https://gitlab.com/group/subgroup/repo.git", &[]).unwrap();
+        let info = forge_info("https://gitlab.com/group/subgroup/repo.git", &[], None).unwrap();
         assert_eq!(info.base_url, "https://gitlab.com/group/subgroup/repo");
     }
 
@@ -366,6 +480,7 @@ mod tests {
             "feat",
             None,
             &[],
+            None,
         )
         .unwrap();
         assert_eq!(url, "https://gitlab.com/group/repo/-/compare/main...feat");
@@ -376,7 +491,7 @@ mod tests {
         // Regression for #14626: a self-hosted GitLab on a non-standard
         // port must keep the `:8080` in every generated web URL.
         let remote = "https://gitlab.example.com:8080/group/repo.git";
-        let info = forge_info(remote, &[]).unwrap();
+        let info = forge_info(remote, &[], None).unwrap();
         assert_eq!(info.name, ForgeName::GitLab);
         assert_eq!(info.base_url, "https://gitlab.example.com:8080/group/repo");
         assert_eq!(
@@ -388,14 +503,19 @@ mod tests {
             "https://gitlab.example.com:8080/group/repo/-/merge_requests/42"
         );
         assert_eq!(
-            compare_branch_url(remote, "main", "feat", None, &[]).unwrap(),
+            compare_branch_url(remote, "main", "feat", None, &[], None).unwrap(),
             "https://gitlab.example.com:8080/group/repo/-/compare/main...feat"
         );
     }
 
     #[test]
     fn ssh_remote_transport_port_is_dropped_from_web_url() {
-        let info = forge_info("ssh://git@gitlab.example.com:2222/group/repo.git", &[]).unwrap();
+        let info = forge_info(
+            "ssh://git@gitlab.example.com:2222/group/repo.git",
+            &[],
+            None,
+        )
+        .unwrap();
         assert_eq!(info.name, ForgeName::GitLab);
         assert_eq!(info.base_url, "https://gitlab.example.com/group/repo");
     }
@@ -411,10 +531,10 @@ mod tests {
                 "https://gitlab.example.com:8080",
             ),
         )];
-        let info = forge_info(remote, &accounts).unwrap();
+        let info = forge_info(remote, &accounts, None).unwrap();
         assert_eq!(info.base_url, "https://gitlab.example.com:8080/group/repo");
         assert_eq!(
-            compare_branch_url(remote, "main", "feat", None, &accounts).unwrap(),
+            compare_branch_url(remote, "main", "feat", None, &accounts, None).unwrap(),
             "https://gitlab.example.com:8080/group/repo/-/compare/main...feat"
         );
     }
@@ -427,7 +547,7 @@ mod tests {
                 "http://gitlab.example.com:8080/api/v4",
             ),
         )];
-        let info = forge_info("git@gitlab.example.com:group/repo.git", &accounts).unwrap();
+        let info = forge_info("git@gitlab.example.com:group/repo.git", &accounts, None).unwrap();
         assert_eq!(info.base_url, "http://gitlab.example.com:8080/group/repo");
     }
 
@@ -436,7 +556,7 @@ mod tests {
         let accounts = [ForgeUser::GitLab(
             but_gitlab::GitlabAccountIdentifier::selfhosted("bob", "https://gitlab.other.com:8080"),
         )];
-        let info = forge_info("git@gitlab.example.com:group/repo.git", &accounts).unwrap();
+        let info = forge_info("git@gitlab.example.com:group/repo.git", &accounts, None).unwrap();
         assert_eq!(info.base_url, "https://gitlab.example.com/group/repo");
     }
 
@@ -447,7 +567,12 @@ mod tests {
         let accounts = [ForgeUser::GitLab(
             but_gitlab::GitlabAccountIdentifier::selfhosted("bob", "gitlab.example.com"),
         )];
-        let info = forge_info("https://gitlab.example.com:8080/group/repo.git", &accounts).unwrap();
+        let info = forge_info(
+            "https://gitlab.example.com:8080/group/repo.git",
+            &accounts,
+            None,
+        )
+        .unwrap();
         assert_eq!(info.base_url, "https://gitlab.example.com:8080/group/repo");
     }
 
@@ -469,7 +594,7 @@ mod tests {
             .into_iter()
             .map(ForgeUser::GitLab)
             .collect();
-        let info = forge_info("git@gitlab.example.com:group/repo.git", &accounts).unwrap();
+        let info = forge_info("git@gitlab.example.com:group/repo.git", &accounts, None).unwrap();
         assert_eq!(info.base_url, "https://gitlab.example.com:8080/group/repo");
     }
 
@@ -481,6 +606,7 @@ mod tests {
             "feat",
             None,
             &[],
+            None,
         )
         .unwrap();
         assert_eq!(
@@ -498,13 +624,13 @@ mod tests {
 
     /// Compose what the frontend `commitUrl(forge, sha)` helper produces.
     fn composed_commit_url(remote: &str, sha: &str) -> String {
-        let info = forge_info(remote, &[]).unwrap();
+        let info = forge_info(remote, &[], None).unwrap();
         format!("{}{}{}", info.base_url, info.commit_url_path, sha)
     }
 
     /// Compose what the frontend `prUrl(forge, number)` helper produces.
     fn composed_pr_url(remote: &str, number: i64) -> String {
-        let info = forge_info(remote, &[]).unwrap();
+        let info = forge_info(remote, &[], None).unwrap();
         format!("{}{}{}", info.base_url, info.pr_url_path, number)
     }
 
@@ -522,7 +648,7 @@ mod tests {
 
     #[test]
     fn gitlab_commit_and_mr_urls() {
-        let info = forge_info("https://gitlab.com/group/repo.git", &[]).unwrap();
+        let info = forge_info("https://gitlab.com/group/repo.git", &[], None).unwrap();
         assert!(info.capabilities.checks);
         assert_eq!(
             composed_commit_url("https://gitlab.com/group/repo.git", "abc123"),

@@ -31,8 +31,11 @@ fn forge_endpoint_context(
     let ctx = ctx.into_thread_local();
     let project_meta = ctx.project_meta()?;
     let repo = ctx.repo.get()?;
-    let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?)
-        .context("No forge could be determined for this repository branch")?;
+    let forge_repo_info = but_forge::derive_forge_repo_info(
+        &remote_url(&project_meta, &repo)?,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
+    )
+    .context("No forge could be determined for this repository branch")?;
     Ok((
         but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
         forge_repo_info,
@@ -57,20 +60,31 @@ pub fn push_remote_url(project_meta: &ProjectMeta, repo: &gix::Repository) -> Re
 fn base_and_push_repo_info(
     project_meta: &ProjectMeta,
     repo: &gix::Repository,
+    override_forge: Option<ForgeName>,
 ) -> Result<(but_forge::ForgeRepoInfo, Option<but_forge::ForgeRepoInfo>)> {
     let base_remote_url = remote_url(project_meta, repo)?;
     let push_remote_url = push_remote_url(project_meta, repo)?;
-    let forge_repo_info = but_forge::derive_forge_repo_info(&base_remote_url)
-        .context("No forge could be determined for this repository branch")?;
+    let forge_repo_info =
+        but_forge::derive_forge_repo_info(&base_remote_url, override_forge.clone())
+            .context("No forge could be determined for this repository branch")?;
     let forge_push_repo_info = if base_remote_url != push_remote_url {
         Some(
-            but_forge::derive_forge_repo_info(&push_remote_url)
+            but_forge::derive_forge_repo_info(&push_remote_url, override_forge)
                 .context("Failed to derive forge information for the push repository")?,
         )
     } else {
         None
     };
     Ok((forge_repo_info, forge_push_repo_info))
+}
+
+/// Parse the project's saved forge preference (the Settings forge picker's
+/// `forge_override`) into a `ForgeName`. It's the last-resort fallback passed to
+/// `derive_forge_repo_info` so a forge the remote URL and configured accounts
+/// can't identify - e.g. self-hosted GitLab before an account is added - still
+/// resolves (#14319). `None` means no usable preference.
+fn forge_override(saved: Option<&str>) -> Option<ForgeName> {
+    saved.and_then(ForgeName::from_override_str)
 }
 
 fn review_template_content(file: FileInfo) -> Result<String> {
@@ -118,6 +132,7 @@ pub fn forge_info(ctx: &Context) -> Result<Option<but_forge::ForgeInfo>> {
     Ok(but_forge::forge_info(
         &remote_url(&project_meta, &repo)?,
         &accounts,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
     ))
 }
 
@@ -143,6 +158,7 @@ pub fn forge_compare_branch_url(
         &branch,
         fork.as_deref(),
         &accounts,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
     ))
 }
 
@@ -152,7 +168,10 @@ pub fn forge_compare_branch_url(
 pub fn list_available_review_templates(ctx: &Context) -> Result<Vec<String>> {
     let project_meta = ctx.project_meta()?;
     let repo = ctx.repo.get()?;
-    let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+    let forge_repo_info = but_forge::derive_forge_repo_info(
+        &remote_url(&project_meta, &repo)?,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
+    );
     let forge = &forge_repo_info
         .as_ref()
         .context("No forge could be determined for this repository branch")?
@@ -209,7 +228,10 @@ but_schemars::register_sdk_type!(ReviewTemplateInfo);
 pub fn review_template(ctx: &Context) -> Result<Option<ReviewTemplateInfo>> {
     let project_meta = ctx.project_meta()?;
     let repo = ctx.repo.get()?;
-    let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+    let forge_repo_info = but_forge::derive_forge_repo_info(
+        &remote_url(&project_meta, &repo)?,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
+    );
     let forge = &forge_repo_info
         .as_ref()
         .context("No forge could be determined for this repository branch")?
@@ -252,7 +274,10 @@ pub fn set_review_template(ctx: &but_ctx::Context, template_path: Option<String>
     let mut git_config = repo.git_settings()?;
 
     let project_meta = ctx.project_meta()?;
-    let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+    let forge_repo_info = but_forge::derive_forge_repo_info(
+        &remote_url(&project_meta, &repo)?,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
+    );
     let forge = &forge_repo_info
         .as_ref()
         .context("No forge could be determined for this repository branch")?
@@ -284,7 +309,10 @@ pub fn list_reviews(
     let (storage, forge_repo_info, preferred_forge_user) = {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url(&project_meta, &repo)?,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        );
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
@@ -324,8 +352,11 @@ pub fn review_apply(
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
         let remote_url = project_meta.remote_url_with_fallback(&repo)?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url)
-            .context("No supported forge could be determined for this repository")?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )
+        .context("No supported forge could be determined for this repository")?;
         let target_protocol = forge_repo_info.protocol.clone();
         (
             forge_repo_info,
@@ -451,8 +482,10 @@ fn remote_urls_match(configured: &str, candidate: &str) -> bool {
     if configured == candidate {
         return true;
     }
-    let configured_info = but_forge::derive_forge_repo_info(configured);
-    let candidate_info = but_forge::derive_forge_repo_info(candidate);
+    // This compares two arbitrary remote URLs for identity, so the project's
+    // forge override doesn't apply - resolve each purely from its URL.
+    let configured_info = but_forge::derive_forge_repo_info(configured, None);
+    let candidate_info = but_forge::derive_forge_repo_info(candidate, None);
     configured_info.is_some() && configured_info == candidate_info
 }
 
@@ -1276,9 +1309,10 @@ pub async fn delete_review_comment(ctx: ThreadSafeContext, comment_id: i64) -> R
 pub fn current_forge_login(ctx: &Context) -> Result<Option<String>> {
     let project_meta = ctx.project_meta()?;
     let repo = ctx.repo.get()?;
-    let Some(forge_repo_info) =
-        but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?)
-    else {
+    let Some(forge_repo_info) = but_forge::derive_forge_repo_info(
+        &remote_url(&project_meta, &repo)?,
+        forge_override(ctx.legacy_project.forge_override.as_deref()),
+    ) else {
         return Ok(None);
     };
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
@@ -1419,8 +1453,11 @@ pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeRev
     let (storage, forge_repo_info, preferred_forge_user) = {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?)
-            .context("No forge could be determined for this repository.")?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url(&project_meta, &repo)?,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )
+        .context("No forge could be determined for this repository.")?;
 
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
@@ -1446,8 +1483,10 @@ pub async fn get_repo_info(ctx: ThreadSafeContext) -> Result<but_forge::RepoInfo
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo_ = ctx.repo.get()?;
-        let forge_repo_info =
-            but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo_)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url(&project_meta, &repo_)?,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        );
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
@@ -1480,7 +1519,10 @@ pub fn list_ci_checks_for_ref(
     let (storage, forge_repo_info, preferred_forge_user) = {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url(&project_meta, &repo)?,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        );
 
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
@@ -1586,8 +1628,11 @@ pub async fn publish_review_only(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let (forge_repo_info, forge_push_repo_info) =
-            base_and_push_repo_info(&project_meta, &repo)?;
+        let (forge_repo_info, forge_push_repo_info) = base_and_push_repo_info(
+            &project_meta,
+            &repo,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )?;
 
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
@@ -1714,7 +1759,10 @@ pub async fn set_review_draftiness(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url(&project_meta, &repo)?,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        );
 
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
@@ -1777,8 +1825,11 @@ pub async fn update_review_footers(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let (forge_repo_info, forge_push_repo_info) =
-            base_and_push_repo_info(&project_meta, &repo)?;
+        let (forge_repo_info, forge_push_repo_info) = base_and_push_repo_info(
+            &project_meta,
+            &repo,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )?;
         let settings = repo.git_settings()?;
         let description_mode = match settings.gitbutler_review_stacking_description {
             Some(but_core::ReviewStackingDescription::Top) => {
@@ -1872,8 +1923,11 @@ pub(crate) async fn prepare_review_target_updates(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let (forge_repo_info, forge_push_repo_info) =
-            base_and_push_repo_info(&project_meta, &repo)?;
+        let (forge_repo_info, forge_push_repo_info) = base_and_push_repo_info(
+            &project_meta,
+            &repo,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )?;
         let github_stacking_mode = match repo.git_settings()?.gitbutler_github_stacking_mode {
             Some(but_core::GitHubStackingMode::Native) => but_forge::GitHubStackingMode::Native,
             Some(but_core::GitHubStackingMode::Disabled) => but_forge::GitHubStackingMode::Disabled,
@@ -2017,7 +2071,11 @@ pub(crate) async fn restore_review_targets(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let (forge_repo_info, _) = base_and_push_repo_info(&project_meta, &repo)?;
+        let (forge_repo_info, _) = base_and_push_repo_info(
+            &project_meta,
+            &repo,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        )?;
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
@@ -2535,7 +2593,10 @@ pub async fn list_reviews_for_branch(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url(&project_meta, &repo)?,
+            forge_override(ctx.legacy_project.forge_override.as_deref()),
+        );
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,

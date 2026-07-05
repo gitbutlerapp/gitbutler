@@ -11,6 +11,27 @@ pub enum ForgeName {
     Azure,
 }
 
+impl ForgeName {
+    /// Parse a project's stored `forge_override` string (the value the Settings
+    /// forge picker saves) into a `ForgeName`.
+    ///
+    /// Returns `None` for `"default"` or any unrecognized value, meaning "no
+    /// override". The accepted spellings match this enum's `lowercase` serde
+    /// representation.
+    pub fn from_override_str(value: &str) -> Option<Self> {
+        // Case- and whitespace-insensitive so any legacy spelling of a saved
+        // preference still resolves; unknown values (incl. "default") mean "no
+        // override".
+        match value.trim().to_ascii_lowercase().as_str() {
+            "github" => Some(ForgeName::GitHub),
+            "gitlab" => Some(ForgeName::GitLab),
+            "bitbucket" => Some(ForgeName::Bitbucket),
+            "azure" => Some(ForgeName::Azure),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(ForgeName);
 
