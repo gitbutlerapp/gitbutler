@@ -1,10 +1,12 @@
 import { FileChangeDropData, FolderChangeDropData, HunkDropDataV3 } from "$lib/dragging/draggables";
 import { updateStackPrs } from "$lib/forge/shared/prFooter";
 import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 import { normalizeReferenceSubject } from "$lib/stacks/commitMovePlacement";
 import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 import { UI_STATE } from "$lib/state/uiState.svelte";
 import { inject } from "@gitbutler/core/context";
+import { get } from "svelte/store";
 import type { DropResult } from "$lib/dragging/dropResult";
 import type { DropzoneHandler } from "$lib/dragging/handler";
 import type { PrService } from "$lib/forge/prService.svelte";
@@ -27,6 +29,7 @@ export class BranchDropData {
 
 export class MoveBranchDzHandler implements DropzoneHandler {
 	private readonly stackService = inject(STACK_SERVICE);
+	private readonly settingsService = inject(SETTINGS_SERVICE);
 
 	constructor(
 		private readonly prService: PrService | undefined,
@@ -58,7 +61,10 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 			targetBranch: normalizeReferenceSubject(this.branchName),
 		});
 
-		if (this.prService && this.baseBranchName) {
+		const enableStackFooter =
+			get(this.settingsService.appSettings)?.reviews.enableStackFooter ?? true;
+
+		if (enableStackFooter && this.prService && this.baseBranchName) {
 			if (!sourceStackDeleted) {
 				const branchDetails = await this.stackService.fetchBranches(this.projectId, data.stackId);
 				await updateStackPrs(

@@ -38,6 +38,7 @@ pub struct ClaudeUpdate {
 /// Update request for [`crate::app_settings::Reviews`].
 pub struct ReviewsUpdate {
     pub auto_fill_pr_description_from_commit: Option<bool>,
+    pub enable_stack_footer: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -162,6 +163,9 @@ impl AppSettingsWithDiskSync {
         {
             settings.reviews.auto_fill_pr_description_from_commit =
                 auto_fill_pr_description_from_commit;
+        }
+        if let Some(enable_stack_footer) = update.enable_stack_footer {
+            settings.reviews.enable_stack_footer = enable_stack_footer;
         }
         settings.save()
     }
