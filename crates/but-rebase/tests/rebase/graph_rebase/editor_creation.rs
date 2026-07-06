@@ -395,6 +395,191 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
     Ok(())
 }
 
+/// The most common production shape: the target `origin/main` sits at the BASE of the
+/// stacks, squarely on the mutability walk from HEAD. Remote-tracking refs must stay
+/// immutable regardless of reachability — only push/fetch may move them.
+#[test]
+fn workspace_with_target_at_stack_base() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-two-stacks")?;
+
+    add_stack_with_segments(&mut meta, 1, "stack-a", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "stack-b", StackState::InWorkspace, &[]);
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   1162583 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * afc3f8f (stack-b) B2
+    | * b3ee99c B1
+    * | 49c06ff (stack-a) A2
+    * | ff76d2f A1
+    |/  
+    * 965998b (origin/main, main) base
+    ");
+
+    let mut ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    insta::assert_snapshot!(editor.steps_ascii(), @"
+    ◎  refs/heads/gitbutler/workspace
+    ●    1162583 GitButler Workspace Commit
+    ├─╮
+    ◎ │  refs/heads/stack-a
+    ● │  49c06ff A2
+    ● │  ff76d2f A1
+    │ ◎  refs/heads/stack-b
+    │ ●  afc3f8f B2
+    │ ●  b3ee99c B1
+    ├─╯
+    ◎  refs/heads/main
+    │ ◎  refs/remotes/origin/main (immutable)
+    ├─╯
+    ●  965998b base
+    ");
+
+    Ok(())
+}
+
+/// Same shape but WITHOUT a local `main`: the target `origin/main` itself names the
+/// segment owning the integrated base history, placing it directly on the mutability
+/// walk from HEAD. It must still come out immutable.
+#[test]
+fn workspace_with_target_at_stack_base_no_local_main() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-two-stacks")?;
+    repo.find_reference("refs/heads/main")?.delete()?;
+
+    add_stack_with_segments(&mut meta, 1, "stack-a", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "stack-b", StackState::InWorkspace, &[]);
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   1162583 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * afc3f8f (stack-b) B2
+    | * b3ee99c B1
+    * | 49c06ff (stack-a) A2
+    * | ff76d2f A1
+    |/  
+    * 965998b (origin/main) base
+    ");
+
+    let mut ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    insta::assert_snapshot!(editor.steps_ascii(), @"
+    ◎  refs/heads/gitbutler/workspace
+    ●    1162583 GitButler Workspace Commit
+    ├─╮
+    ◎ │  refs/heads/stack-a
+    ● │  49c06ff A2
+    ● │  ff76d2f A1
+    │ ◎  refs/heads/stack-b
+    │ ●  afc3f8f B2
+    │ ●  b3ee99c B1
+    ├─╯
+    ◎  refs/remotes/origin/main (immutable)
+    ●  965998b base
+    ");
+
+    Ok(())
+}
+
+/// Ops that would move, rename, delete, or unhook an immutable reference fail loudly
+/// instead of succeeding session-only (materialization would refuse the write anyway).
+#[test]
+fn ops_on_immutable_refs_fail() -> Result<()> {
+    use but_rebase::graph_rebase::{
+        Step,
+        mutate::{InsertSide, SegmentDelimiter, SelectorSet},
+    };
+
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-two-stacks")?;
+    repo.find_reference("refs/heads/main")?.delete()?;
+    add_stack_with_segments(&mut meta, 1, "stack-a", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "stack-b", StackState::InWorkspace, &[]);
+
+    let mut ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let remote = editor.select_reference("refs/remotes/origin/main".try_into()?)?;
+    let stack_a = editor.select_reference("refs/heads/stack-a".try_into()?)?;
+    let expected = "reference refs/remotes/origin/main is immutable \
+                    and cannot be moved, renamed, or deleted";
+
+    // Delete and rename (replace on a ref slot).
+    insta::assert_snapshot!(
+        editor.replace(remote, Step::None).unwrap_err().to_string(),
+        @"reference refs/remotes/origin/main is immutable and cannot be moved, renamed, or deleted"
+    );
+    // Re-point (an edge FROM a reference is its downward link).
+    assert_eq!(
+        editor
+            .insert_edge(remote, stack_a, 0)
+            .unwrap_err()
+            .to_string(),
+        expected
+    );
+    // Unhook (disconnecting the lone-reference segment).
+    assert_eq!(
+        editor
+            .disconnect_segment_from(
+                SegmentDelimiter {
+                    child: remote,
+                    parent: remote,
+                },
+                SelectorSet::All,
+                SelectorSet::All,
+                false,
+            )
+            .unwrap_err()
+            .to_string(),
+        expected
+    );
+    // Move (inserting the lone-reference segment elsewhere).
+    assert_eq!(
+        editor
+            .insert_segment(
+                stack_a,
+                SegmentDelimiter {
+                    child: remote,
+                    parent: remote,
+                },
+                InsertSide::Above,
+            )
+            .unwrap_err()
+            .to_string(),
+        expected
+    );
+    // Splitting the reference off its pick (a pick inserted below re-points it).
+    let new_commit = {
+        let base = repo.rev_parse_single("refs/remotes/origin/main")?;
+        let base = base.object()?.into_commit();
+        repo.write_object(gix::objs::Commit {
+            tree: base.tree_id()?.detach(),
+            parents: Default::default(),
+            author: base.author()?.into(),
+            committer: base.committer()?.into(),
+            encoding: None,
+            message: "detached".into(),
+            extra_headers: vec![],
+        })?
+        .detach()
+    };
+    assert_eq!(
+        editor
+            .insert(remote, Step::new_pick(new_commit), InsertSide::Below)
+            .unwrap_err()
+            .to_string(),
+        expected
+    );
+
+    // A mutable ref standing beside the immutable one is untouched by the guard.
+    editor.replace(stack_a, Step::None)?;
+
+    Ok(())
+}
+
 #[test]
 fn commit_with_two_parents() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("single-commit")?;

@@ -4,8 +4,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::graph_rebase::arrangement::{
     SplitBoundary, StackSlot, carry_stack_above, land_stack_above, move_ref, place_ref,
-    readopt_dangling_refs, redirect_edges, repoint_ref, settle_chain_lower, splice_out,
-    split_chain, transfer_stack, unhook_ref,
+    readopt_dangling_refs, redirect_edges, repoint_ref, settle_group_lower, split_group,
+    transfer_stack, unhook_ref,
 };
 use crate::graph_rebase::{EditorGraph, EditorGraphIndex, positions};
 use anyhow::{Context as _, Result, anyhow, bail};
@@ -376,11 +376,11 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             .collect())
     }
 
-    /// The node-era parent view of `target`: reference chains interpose on the links into
+    /// The node-era parent view of `target`: reference groups interpose on the links into
     /// their picks, exactly as the reference NODES used to.
     ///
-    /// For a pick, each parent slot resolves to the top of the chain it carries (falling back
-    /// to the pick it points at); for a reference, the next chain member below, then the
+    /// For a pick, each parent slot resolves to the top of the group it carries (falling back
+    /// to the pick it points at); for a reference, the next group member below, then the
     /// pick. Useful for renderers that interleave references with commits.
     pub fn position_parents(&self, target: impl ToSelector) -> Result<Vec<Selector>> {
         let target = target.to_selector(self)?;
@@ -413,15 +413,15 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
     /// The node-era child view of `target` — the inverse of [`Self::position_parents`].
     ///
-    /// For a pick, its children are the bottom members of the chains sitting on it plus the
-    /// plain edges into it; for a reference, the next chain member above, else its edges.
+    /// For a pick, its children are the bottom members of the groups sitting on it plus the
+    /// plain edges into it; for a reference, the next group member above, else its edges.
     pub fn position_children(&self, target: impl ToSelector) -> Result<Vec<Selector>> {
         let target = target.to_selector(self)?;
         if let Some(stored) = self.graph.position_of(target.id) {
             let pick = positions::resolve_to_pick(&self.graph, stored.on);
             // Everything that pointed at this reference in the node era: members sitting
-            // directly on it (chain-mates and root siblings stacked above), plus — when
-            // this is the top of its chain — the edges that enter it.
+            // directly on it (group-mates and root siblings stacked above), plus — when
+            // this is the top of its group — the edges that enter it.
             let mut out: Vec<Selector> = self
                 .graph
                 .positioned_refs()
@@ -430,13 +430,13 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 .collect();
             let target_edges = positions::edges_through(&self.graph, target.id);
             let target_depth = positions::ref_depth(&self.graph, target.id);
-            let is_chain_top = !self.graph.positioned_refs().any(|(node, other)| {
+            let is_group_top = !self.graph.positioned_refs().any(|(node, other)| {
                 node != target.id
                     && positions::edges_through(&self.graph, node) == target_edges
                     && positions::ref_depth(&self.graph, node) > target_depth
                     && positions::resolve_to_pick(&self.graph, other.on) == pick
             });
-            if is_chain_top {
+            if is_group_top {
                 out.extend(
                     target_edges
                         .iter()
@@ -495,6 +495,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let target = target.to_selector(self)?;
         let old = self.graph.step_view(target.id);
         let is_ref_slot = self.graph.reference_record(target.id).is_some();
+        if is_ref_slot {
+            self.ensure_mutable_ref(target.id)?;
+        }
         match (is_ref_slot, step) {
             (false, step @ (Step::Pick(_) | Step::None)) => self.graph.set_step(target.id, step),
             (true, Step::Reference { refname, mutable }) => {
@@ -505,8 +508,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             (true, Step::None) => {
                 let was_live = self.graph.is_reference(target.id);
                 self.graph.tombstone_reference(target.id);
-                if was_live && let Some(stored) = self.graph.position_of(target.id) {
-                    splice_out(&mut self.graph, target.id, stored.below);
+                if was_live {
+                    self.graph.splice(target.id);
                 }
             }
             (false, Step::Reference { .. }) => {
@@ -551,17 +554,18 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let mut target_child = child.to_selector(self)?;
         let mut target_parent = parent.to_selector(self)?;
         // A single-node segment that is just a reference: the node-era op unhooked the
-        // reference pending a reconnect. As a position: it leaves its chain (members above
+        // reference pending a reconnect. As a position: it leaves its group (members above
         // close the gap) and gives up its edges — with a reconnect they stay as plain edges
         // onto the pick (the node-era rewire), without one they are removed outright.
         if target_child.id == target_parent.id && self.graph.position_of(target_child.id).is_some()
         {
+            self.ensure_mutable_ref(target_child.id)?;
             unhook_ref(&mut self.graph, target_child.id, skip_reconnect_step);
             return Ok(());
         }
         // A reference delimiter stands for the pick it resolves to: edges are the truth for
-        // picks, and the reference's chain rides the pick's links as position data. A
-        // reference child only owns the edges entering its own chain — plain edges into
+        // picks, and the reference's group rides the pick's links as position data. A
+        // reference child only owns the edges entering its own group — plain edges into
         // its pick belong to it and stay.
         let child_ref_stored = self.graph.position_of(target_child.id);
         let child_ref_edges = child_ref_stored
@@ -645,7 +649,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
         // Requested selectors that are references stand for the links their positions
         // decorate: a parent reference maps to its resolved pick; a child reference maps to the
-        // pick(s) entering its chain.
+        // pick(s) entering its group.
         let parents_to_disconnect = parents_to_disconnect.map(|parents| {
             parents
                 .into_iter()
@@ -658,9 +662,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 })
                 .collect::<Vec<_>>()
         });
-        // A requested child that is a reference is a chain member above the segment: its
+        // A requested child that is a reference is a group member above the segment: its
         // edges are the edges to disconnect, and the member itself (with everything above it
-        // in its chain) follows the disconnected parents.
+        // in its group) follows the disconnected parents.
         let mut moving_ref_children: Vec<EditorGraphIndex> = Vec::new();
         let children_to_disconnect = children_to_disconnect.map(|children| {
             children
@@ -712,7 +716,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let mut ledger = SlotLedger::default();
         let mut disconnected_parent_edges: Vec<(usize, EditorGraphIndex)> = Vec::new();
         let mut carried_parent_tops: Vec<EditorGraphIndex> = Vec::new();
-        // 2. Disconnect parents. Chains the removed edges carried lose them from their entering edges.
+        // 2. Disconnect parents. Groups the removed edges carried lose them from their entering edges.
         for (frame_slot, edge_target) in outgoing_edges {
             let should_disconnect = parent_ids_to_disconnect
                 .as_ref()
@@ -726,9 +730,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     .current(&self.graph, target_parent.id, frame_slot)
                     .context("BUG: disconnected parent edge vanished")?;
                 let removed = (target_parent.id, slot);
-                // Chains this edge carried — captured BEFORE it is removed, since the derived
+                // Groups this edge carried — captured BEFORE it is removed, since the derived
                 // entering set reflects the live parent arrays. Removing it then drops the edge from
-                // every derived read automatically (no chain bookkeeping needed).
+                // every derived read automatically (no group bookkeeping needed).
                 let carried: Vec<_> = self
                     .graph
                     .positioned_refs()
@@ -736,7 +740,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                         positions::edges_through(&self.graph, *node).contains(&removed)
                     })
                     .collect();
-                // The node-era parent this edge pointed at was the top of the chain it
+                // The node-era parent this edge pointed at was the top of the group it
                 // carried — remember it so disconnected child refs can stack above it.
                 if let Some(top) = carried
                     .iter()
@@ -759,7 +763,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let mut sorted_disconnected = disconnected_parent_edges.clone();
         sorted_disconnected.sort_by_key(|(slot, _)| *slot);
         // The node era resolved a rewired reference through its first (lowest-slot) parent.
-        let chain_pick = sorted_disconnected.first().map(|(_, target)| *target);
+        let group_pick = sorted_disconnected.first().map(|(_, target)| *target);
         for (edge_source, frame_slot) in incoming_edges {
             let should_disconnect = child_ids_to_disconnect
                 .as_ref()
@@ -787,10 +791,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 && child_ref_edges.is_none()
                 && !sorted_disconnected.is_empty()
             {
-                // An edge that carried the target's chain was, in the node era, an edge into
-                // the chain — it never lost its parent slot. Fan it out in place: the first
+                // An edge that carried the target's group was, in the node era, an edge into
+                // the group — it never lost its parent slot. Fan it out in place: the first
                 // disconnected parent takes the edge's slot (the statement keeps its name, so
-                // the carried chains follow), the rest slot in right after.
+                // the carried groups follow), the rest slot in right after.
                 let mut targets = sorted_disconnected.iter().map(|(_, target)| *target);
                 self.graph
                     .replace_parent(edge_source, slot, targets.next().expect("non-empty"));
@@ -801,7 +805,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 }
                 continue;
             }
-            // Remove the child edge. The chains it carried lose it from their derived entering set
+            // Remove the child edge. The groups it carried lose it from their derived entering set
             // automatically — the edge is gone.
             self.graph.remove_parent(edge_source, slot);
             ledger.note_remove(edge_source, slot);
@@ -811,20 +815,20 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             // Reconnect the child node to all the disconnected parents.
             self.reconnect_edges_to_parents(&disconnected_parent_edges, edge_source);
         }
-        // The target's chains were the node-era direct children of its pick: a full child
+        // The target's groups were the node-era direct children of its pick: a full child
         // disconnect rewires them onto the first disconnected parent, entering edges preserved. A
-        // reference child delimiter means the segment INCLUDES that reference and its chain
+        // reference child delimiter means the segment INCLUDES that reference and its group
         // at or below its rank — those stay with the segment.
-        if let Some(pick) = chain_pick {
+        if let Some(pick) = group_pick {
             for moving_node in &moving_ref_children {
                 transfer_stack(&mut self.graph, *moving_node, target_child.id, pick);
             }
         }
-        if full_child_disconnect && let Some(pick) = chain_pick {
+        if full_child_disconnect && let Some(pick) = group_pick {
             match &child_ref_stored {
                 None => {
-                    // When the disconnected parent edge carried a chain, the node-era parent
-                    // was that chain's top ref — the child refs stack above it and follow it
+                    // When the disconnected parent edge carried a group, the node-era parent
+                    // was that group's top ref — the child refs stack above it and follow it
                     // through later moves. The top's feeder was emptied in step 2; step 3's
                     // reconnect bridged fresh edges into `pick`, and the joined tower rests
                     // behind that full bridged edge set (AllLegs, correct in the merge case too).
@@ -836,8 +840,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     }
                 }
                 Some(_) => {
-                    // The delimiter and its chain at or below its depth stay with the segment;
-                    // the chain slice above it follows the pick move verbatim.
+                    // The delimiter and its group at or below its depth stay with the segment;
+                    // the group slice above it follows the pick move verbatim.
                     let delimiter_edges = child_ref_edges.clone().unwrap_or_default();
                     carry_stack_above(
                         &mut self.graph,
@@ -853,7 +857,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         // 4. References whose pick no longer resolves (it sat on the now-disconnected
         // segment) re-point to the segment's first disconnected parent — the ruled dangling
         // semantics: the position follows where the commit's place went, the entering edges
-        // stay, so a rewired child renders its chain exactly as the edge-era rewire did.
+        // stay, so a rewired child renders its group exactly as the edge-era rewire did.
         if let Some(onto) = disconnected_parent_edges.first().map(|(_, target)| *target) {
             readopt_dangling_refs(&mut self.graph, onto);
         }
@@ -877,7 +881,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     }
 
     /// Returns the parent-slot orders assigned to `new_parent_nodes`, in the given order.
-    /// Existing parent edges that get renumbered carry their chain entries along.
+    /// Existing parent edges that get renumbered carry their group entries along.
     fn add_edges_to_parents(
         &mut self,
         child_node: EditorGraphIndex,
@@ -946,21 +950,22 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let parent = parent.to_selector(self)?;
 
         // An empty segment — a lone reference — is pure position data: it slots into the
-        // target's chain, and any nodes to connect become the edges entering through it.
+        // target's group, and any nodes to connect become the edges entering through it.
         if child.id == parent.id && self.graph.position_of(child.id).is_some() {
+            self.ensure_mutable_ref(child.id)?;
             let slot = match (side, self.graph.position_of(target.id)) {
                 (InsertSide::Above, Some(_)) => StackSlot::Above(target.id),
                 (InsertSide::Below, Some(_)) => StackSlot::Below(target.id),
                 (InsertSide::Above, None) => StackSlot::Bottom(target.id),
                 (InsertSide::Below, None) => {
-                    // On top of the chain the target pick's first-parent edge enters.
+                    // On top of the group the target pick's first-parent edge enters.
                     let first_parent = self
                         .graph
                         .parents(target.id)
                         .first()
                         .copied()
                         .context("Cannot insert a reference below a parentless commit")?;
-                    StackSlot::ChainTop {
+                    StackSlot::GroupTop {
                         pick: first_parent,
                         edge: (target.id, 0),
                     }
@@ -978,10 +983,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 if let Some(nodes_to_connect) = nodes_to_connect {
                     // If there were nodes to connect defined, create edges from them into the child node of the segment
                     // being inserted. `push_edge` appends after `node`'s existing parents and
-                    // handles a reference child-most (the edge joins its chain).
+                    // handles a reference child-most (the edge joins its group).
                     self.push_edges_onto(&nodes_to_connect, child)?;
                 } else if let Some(stored) = self.graph.position_of(target.id) {
-                    // Above a reference: split the chain there. Members above move onto the
+                    // Above a reference: split the group there. Members above move onto the
                     // segment's child-most pick; the reference and members below are now
                     // entered through its parent-most pick.
                     let pick = self.resolved_pick(stored.on)?;
@@ -991,9 +996,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                         .context("Segment parent should resolve to a commit")?;
                     let target_edges = positions::edges_through(&self.graph, target.id);
                     let split =
-                        split_chain(&mut self.graph, target.id, SplitBoundary::Above, child_pick);
+                        split_group(&mut self.graph, target.id, SplitBoundary::Above, child_pick);
                     if !split.moved_any {
-                        // The chain's edges now enter through the segment's child-most pick.
+                        // The group's edges now enter through the segment's child-most pick.
                         redirect_edges(&mut self.graph, &target_edges, pick, child_pick);
                     }
                     // Connect the parent-most node to the reference's pick; a reference
@@ -1002,21 +1007,21 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     let entry_slot = if self.graph.position_of(parent.id).is_some() {
                         let pick_selector = self.new_selector(pick);
                         self.insert_edge(parent, pick_selector, 0)?;
-                        // The segment is positioned data: the split-off lower chain is
-                        // entered through the segment's chain, which ends at the pick.
+                        // The segment is positioned data: the split-off lower group is
+                        // entered through the segment's group, which ends at the pick.
                         0
                     } else {
                         let orders =
                             self.add_edges_to_parents(parent.id, [pick], parent_reparenting_order);
                         orders.first().copied().unwrap_or(0)
                     };
-                    settle_chain_lower(&mut self.graph, &split.lower, (parent_pick, entry_slot));
+                    settle_group_lower(&mut self.graph, &split.lower, (parent_pick, entry_slot));
                     return Ok(());
                 } else {
                     // The segment's child-most takes the target's place in each child's parent
                     // array: the slot — and any statement on it — is untouched.
                     self.graph.redirect_children(target.id, child.id);
-                    // The target's chains slide under the segment: refs sitting on the target
+                    // The target's groups slide under the segment: refs sitting on the target
                     // move up onto the segment's child-most pick.
                     if let Some(child_pick) = positions::resolve_to_pick(&self.graph, child.id) {
                         positions::reposition_refs(&mut self.graph, target.id, child_pick, true);
@@ -1025,7 +1030,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
                 // Connect the target to the parent-most node in the given segment according to
                 // the requested parent ordering policy. A reference target stands for its
-                // pick, with the new edge entering its chain; a reference parent-most (an
+                // pick, with the new edge entering its group; a reference parent-most (an
                 // empty segment) has no edges — it re-points onto the target instead.
                 if self.graph.position_of(parent.id).is_some() {
                     self.insert_edge(parent, target, 0)?;
@@ -1035,14 +1040,14 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                         None => target.id,
                     };
                     let join = (connect_to != target.id)
-                        .then(|| positions::prepare_chain_join(&self.graph, target.id));
+                        .then(|| positions::prepare_group_join(&self.graph, target.id));
                     let orders = self.add_edges_to_parents(
                         parent.id,
                         [connect_to],
                         parent_reparenting_order,
                     );
                     if let (Some(join), Some(order)) = (join, orders.first()) {
-                        positions::apply_chain_join(&mut self.graph, &join, (parent.id, *order));
+                        positions::apply_group_join(&mut self.graph, &join, (parent.id, *order));
                     }
                 }
             }
@@ -1054,7 +1059,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     for any_selector in nodes_to_connect.as_slice() {
                         let node = any_selector.to_selector(self)?;
                         // A reference parent: the pick edge goes to its pick and the edge
-                        // joins its chain once the final slot is known.
+                        // joins its group once the final slot is known.
                         if self.graph.position_of(node.id).is_some() {
                             let pick = self.resolved_pick(node.id)?;
                             ref_parents.push((nodes.len(), node.id));
@@ -1087,7 +1092,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 // front, so it still names the pre-re-point target position.
                 let target_is_ref = self.graph.position_of(target.id).is_some();
                 if target_is_ref {
-                    // A reference child-most stands for its pick, with the edge entering its chain.
+                    // A reference child-most stands for its pick, with the edge entering its group.
                     self.insert_edge(target, child, 0)?;
                 }
 
@@ -1102,7 +1107,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     let joins: Vec<_> = ref_parents
                         .iter()
                         .map(|(k, ref_node)| {
-                            (*k, positions::prepare_chain_join(&self.graph, *ref_node))
+                            (*k, positions::prepare_group_join(&self.graph, *ref_node))
                         })
                         .collect();
                     let new_orders = self.add_edges_to_parents(
@@ -1112,10 +1117,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     );
                     for (k, join) in &joins {
                         if let Some(order) = new_orders.get(*k) {
-                            positions::apply_chain_join(&mut self.graph, join, (parent.id, *order));
+                            positions::apply_group_join(&mut self.graph, join, (parent.id, *order));
                         }
                     }
-                    // Chains those edges carried are now entered through the segment's
+                    // Groups those edges carried are now entered through the segment's
                     // parent-most pick.
                     let renames: Vec<_> = moved_edge_orders
                         .iter()
@@ -1195,8 +1200,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let target_position = self.graph.position_of(target.id);
         match (side, target_position) {
             (InsertSide::Above, None) if !inserting_reference => {
-                // Above a pick: the interposed node slides under the pick's chains — its
-                // children rewire to the new node with slots preserved (so stored chain
+                // Above a pick: the interposed node slides under the pick's groups — its
+                // children rewire to the new node with slots preserved (so stored group
                 // edges stay valid) and every ref sitting on it moves up.
                 let new_idx = self.graph.add_node(step);
                 self.graph.redirect_children(target.id, new_idx);
@@ -1212,20 +1217,20 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 Ok(self.new_selector(new_idx))
             }
             (InsertSide::Above, Some(stored)) if !inserting_reference => {
-                // A pick above a reference splits the chain at that reference: members above
+                // A pick above a reference splits the group at that reference: members above
                 // move onto the new pick, the reference and members below are now entered
                 // through it.
                 self.interpose_pick_at_ref(target, stored.on, step, SplitBoundary::Above)
             }
             (InsertSide::Above, Some(_)) => {
-                // A reference above a reference joins its chain one rank up.
+                // A reference above a reference joins its group one rank up.
                 let new_idx = add_step_to_graph(&mut self.graph, step);
                 place_ref(&mut self.graph, new_idx, StackSlot::Above(target.id));
                 Ok(self.new_selector(new_idx))
             }
             (InsertSide::Below, None) if !inserting_reference => {
                 // Below a pick: the pick's whole parent array moves onto the new node with
-                // slots preserved, so chains carried by those edges follow the rename.
+                // slots preserved, so groups carried by those edges follow the rename.
                 let new_idx = self.graph.add_node(step);
                 self.graph.transplant_parents(target.id, new_idx);
                 self.graph.push_parent(target.id, new_idx);
@@ -1233,7 +1238,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 Ok(self.new_selector(new_idx))
             }
             (InsertSide::Below, None) => {
-                // A reference below a pick sits on top of the chain the pick's first-parent
+                // A reference below a pick sits on top of the group the pick's first-parent
                 // edge enters (or starts one).
                 let first_parent = self.graph.parents(target.id).first().copied();
                 let new_idx = add_step_to_graph(&mut self.graph, step);
@@ -1241,7 +1246,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     place_ref(
                         &mut self.graph,
                         new_idx,
-                        StackSlot::ChainTop {
+                        StackSlot::GroupTop {
                             pick: parent_pick,
                             edge: (target.id, 0),
                         },
@@ -1250,8 +1255,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 Ok(self.new_selector(new_idx))
             }
             (InsertSide::Below, Some(stored)) if !inserting_reference => {
-                // A pick below a reference splits the chain there: the reference and members
+                // A pick below a reference splits the group there: the reference and members
                 // above re-point onto the new pick, members below are entered through it.
+                self.ensure_mutable_ref(target.id)?;
                 self.interpose_pick_at_ref(target, stored.on, step, SplitBoundary::At)
             }
             (InsertSide::Below, Some(_)) => {
@@ -1262,6 +1268,21 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 Ok(self.new_selector(new_idx))
             }
         }
+    }
+
+    /// Bail when `node` is an immutable reference (e.g. a remote-tracking ref):
+    /// materialization would refuse the write, so the op fails up front instead of
+    /// succeeding session-only.
+    fn ensure_mutable_ref(&self, node: EditorGraphIndex) -> Result<()> {
+        if let Some(record) = self.graph.reference_record(node)
+            && !record.mutable
+        {
+            bail!(
+                "reference {} is immutable and cannot be moved, renamed, or deleted",
+                record.refname
+            );
+        }
+        Ok(())
     }
 
     /// The pick `node` resolves to; an error when it resolves to nothing (an unborn ref).
@@ -1280,10 +1301,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     }
 
     /// Interpose a new pick between `target` (a reference positioned `on` its pick) and that
-    /// pick: split the target's chain at `boundary`, rest the split-off lower part on the new
+    /// pick: split the target's group at `boundary`, rest the split-off lower part on the new
     /// pick, and redirect the entering edges when they should now enter through it — always
     /// for an `At` split; for an `Above` split only when nothing moved up (the target was the
-    /// chain's top, so the whole chain now rests on the new pick).
+    /// group's top, so the whole group now rests on the new pick).
     fn interpose_pick_at_ref(
         &mut self,
         target: Selector,
@@ -1298,10 +1319,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let target_edges = positions::edges_through(&self.graph, target.id);
         let new_idx = self.graph.add_node(step);
         self.graph.push_parent(new_idx, pick);
-        let split = split_chain(&mut self.graph, target.id, boundary, new_idx);
-        settle_chain_lower(&mut self.graph, &split.lower, (new_idx, 0));
+        let split = split_group(&mut self.graph, target.id, boundary, new_idx);
+        settle_group_lower(&mut self.graph, &split.lower, (new_idx, 0));
         if matches!(boundary, SplitBoundary::At) || !split.moved_any {
-            // The chain's edges now enter through the new pick, slots untouched.
+            // The group's edges now enter through the new pick, slots untouched.
             redirect_edges(&mut self.graph, &target_edges, pick, new_idx);
         }
         Ok(self.new_selector(new_idx))
@@ -1320,8 +1341,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// An edge FROM a reference is its downward link: it POSITIONS the reference at the
     /// parent, never a raw edge (references are positions). A LIVE reference re-points
     /// through the arrangement machinery; a DEAD one (which upstream-integration retention
-    /// still redirects) just re-points its retained position — no chain cascade, since its
-    /// stored position is stale. An edge INTO a reference enters its chain: the pick edge
+    /// still redirects) just re-points its retained position — no group cascade, since its
+    /// stored position is stale. An edge INTO a reference enters its group: the pick edge
     /// goes to the pick and the reference (with members below it) gains the new edge.
     pub fn insert_edge(
         &mut self,
@@ -1334,6 +1355,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         self.debug_assert_acyclic(child.id, parent.id)?;
 
         if self.graph.reference_record(child.id).is_some() {
+            // An edge FROM a reference re-points it; a reference PARENT merely gains an
+            // entering edge and may stay immutable.
+            self.ensure_mutable_ref(child.id)?;
             let onto = match self.graph.position_of(parent.id) {
                 Some(parent_stored) => self.resolved_pick(parent_stored.on)?,
                 None => parent.id,
@@ -1351,11 +1375,11 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             None => parent.id,
         };
         let slot = self.graph.insert_parent(child.id, slot, parent_pick);
-        // The chain is captured AFTER the insert: normalization and the shift rename the
+        // The group is captured AFTER the insert: normalization and the shift rename the
         // child's statements, so a pre-capture would hold stale edge names.
         if parent_ref.is_some() {
-            let join = positions::prepare_chain_join(&self.graph, parent.id);
-            positions::apply_chain_join(&mut self.graph, &join, (child.id, slot));
+            let join = positions::prepare_group_join(&self.graph, parent.id);
+            positions::apply_group_join(&mut self.graph, &join, (child.id, slot));
         }
         Ok(())
     }
@@ -1403,7 +1427,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             return Ok(if resolves_to_parent { vec![0] } else { vec![] });
         }
         let slots = match self.graph.position_of(parent.id) {
-            // Disconnecting from a reference removes the edges carrying its chain — the
+            // Disconnecting from a reference removes the edges carrying its group — the
             // node-era edge into the reference node.
             Some(stored) => {
                 let target_pick = self.resolved_pick(stored.on)?;
@@ -1419,7 +1443,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     })
                     .collect::<Vec<_>>()
             }
-            // Disconnecting from a pick removes its slots; chains riding a removed edge lose
+            // Disconnecting from a pick removes its slots; groups riding a removed edge lose
             // it from their entering edges below.
             None => self
                 .graph

@@ -21,7 +21,7 @@ use crate::graph_rebase::{
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
     /// Perform the rebase IN PLACE: each mutable pick's commit id is rewritten where it
     /// stands, in dependency order, so a pick's parent slots already hold rebased ids by the
-    /// time it is picked. Node ids never change — parent arrays, positions, chains, and every
+    /// time it is picked. Node ids never change — parent arrays, positions, groups, and every
     /// outstanding selector stay valid across the rebase.
     pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph, M>> {
         crate::graph_rebase::positions::debug_assert_positions_total(&self.graph);
@@ -111,7 +111,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             let record = graph
                 .reference_record(step_idx)
                 .expect("ref_indices only yields references");
-            if !record.live || record.position.is_none() || !record.mutable {
+            if !record.live || !record.mutable || graph.position_of(step_idx).is_none() {
                 // Dead records keep their retained name and position; immutable references
                 // are kept in the graph for traversal but never moved, created, or deleted.
                 continue;

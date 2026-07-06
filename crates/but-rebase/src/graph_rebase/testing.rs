@@ -1,7 +1,7 @@
 #![deny(missing_docs)]
 //! Testing utilities for the commit graph: the `Testing` trait's `steps_ascii` draws the
 //! graph as an ASCII DAG for snapshot tests, and `TestingDot` emits Graphviz `dot`. The rest
-//! of the module (chain grouping, head finding, topological order) supports that rendering.
+//! of the module (group grouping, head finding, topological order) supports that rendering.
 
 use std::{
     cmp::Ordering,
@@ -122,11 +122,11 @@ fn format_step(step: &Step, title: Option<String>) -> String {
     }
 }
 
-/// The reference chains, grouped by their (pick, entering-edges) position and ordered by depth —
+/// The reference groups, keyed by their (pick, entering-edges) position and ordered by depth —
 /// the render's view of positioned refs as rows.
-type ChainKey = (EditorGraphIndex, Vec<(EditorGraphIndex, usize)>);
+type GroupKey = (EditorGraphIndex, Vec<(EditorGraphIndex, usize)>);
 
-fn chains(graph: &EditorGraph) -> HashMap<ChainKey, Vec<EditorGraphIndex>> {
+fn ref_groups(graph: &EditorGraph) -> HashMap<GroupKey, Vec<EditorGraphIndex>> {
     let mut out: HashMap<_, Vec<(usize, EditorGraphIndex)>> = HashMap::new();
     for (node, stored) in graph.positioned_refs() {
         out.entry((stored.on, positions::edges_through(graph, node)))
@@ -142,16 +142,16 @@ fn chains(graph: &EditorGraph) -> HashMap<ChainKey, Vec<EditorGraphIndex>> {
 }
 
 /// Find head rows: picks (and tombstones) without incoming edges, plus the tops of root
-/// reference chains (positioned with nothing above them).
+/// reference groups (positioned with nothing above them).
 fn find_heads(graph: &EditorGraph) -> Vec<EditorGraphIndex> {
     let mut has_incoming: HashSet<EditorGraphIndex> = HashSet::new();
     for idx in graph.node_indices() {
         has_incoming.extend(graph.parents(idx));
     }
-    let chains = chains(graph);
+    let groups = ref_groups(graph);
     // Node-arena entries first, then references (the render sorts heads deterministically, so
     // seed order does not reach snapshots): a pick or tombstone with no incoming edges, or
-    // the top of a root reference chain.
+    // the top of a root reference group.
     graph
         .node_indices()
         .chain(graph.ref_indices())
@@ -159,7 +159,7 @@ fn find_heads(graph: &EditorGraph) -> Vec<EditorGraphIndex> {
             Some(stored) => {
                 let entering = positions::edges_through(graph, *idx);
                 entering.is_empty()
-                    && chains
+                    && groups
                         .get(&(stored.on, entering))
                         .and_then(|members| members.last())
                         == Some(idx)
@@ -171,22 +171,22 @@ fn find_heads(graph: &EditorGraph) -> Vec<EditorGraphIndex> {
         .collect()
 }
 
-/// Rendered parents of `node`, in order: a reference row points at the next chain member
-/// below it (or its pick); a pick's parent edges route through the chain positioned on
+/// Rendered parents of `node`, in order: a reference row points at the next group member
+/// below it (or its pick); a pick's parent edges route through the group positioned on
 /// that (parent, slot), when one exists — reproducing the interposed rows references had
 /// when they were nodes.
 fn get_sorted_parents(graph: &EditorGraph, node: EditorGraphIndex) -> Vec<EditorGraphIndex> {
-    let chains = chains(graph);
+    let groups = ref_groups(graph);
     if let Some(stored) = graph.position_of(node) {
-        let chain = chains
+        let group = groups
             .get(&(stored.on, positions::edges_through(graph, node)))
             .map(Vec::as_slice)
             .unwrap_or_default();
-        let below = chain
+        let below = group
             .iter()
             .position(|&n| n == node)
             .and_then(|ix| ix.checked_sub(1))
-            .map(|ix| chain[ix])
+            .map(|ix| group[ix])
             .unwrap_or(stored.on);
         return vec![below];
     }
@@ -196,10 +196,10 @@ fn get_sorted_parents(graph: &EditorGraph, node: EditorGraphIndex) -> Vec<Editor
         .copied()
         .enumerate()
         .map(|(order, target)| {
-            chains
+            groups
                 .iter()
                 .find(|((pick, entering), _)| *pick == target && entering.contains(&(node, order)))
-                .and_then(|(_, chain)| chain.last().copied())
+                .and_then(|(_, group)| group.last().copied())
                 .unwrap_or(target)
         })
         .collect()
@@ -306,7 +306,7 @@ where
     F: FnMut(gix::ObjectId) -> Option<String>,
 {
     let mut heads = heads.to_vec();
-    // Row-view tops without a rendered child inside the subgraph — e.g. reference chains
+    // Row-view tops without a rendered child inside the subgraph — e.g. reference groups
     // positioned above a stack's head pick, entered only from outside — are heads too.
     let mut in_degree: HashMap<EditorGraphIndex, usize> = nodes.iter().map(|&n| (n, 0)).collect();
     for &n in nodes {
@@ -320,7 +320,7 @@ where
         .iter()
         .copied()
         .filter(|n| in_degree.get(n).is_none_or(|&d| d == 0) && !heads.contains(n))
-        // A positioned reference whose pick lies outside the set is a boundary chain the
+        // A positioned reference whose pick lies outside the set is a boundary group the
         // edge-era walk never reached from this subgraph's heads — don't seed it.
         .filter(|n| {
             graph.position_of(*n).is_none_or(|stored| {
@@ -440,7 +440,7 @@ mod tests {
     }
 
     /// Add a reference POSITIONED on `on`, the way native creation authors refs — a
-    /// root chain of one.
+    /// root group of one.
     fn place_ref(graph: &mut EditorGraph, name: &str, on: EditorGraphIndex) -> EditorGraphIndex {
         let ix = add_ref(graph, name);
         graph.set_position(ix, on, &[], false, None);

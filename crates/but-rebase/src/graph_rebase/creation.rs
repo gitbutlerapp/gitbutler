@@ -70,8 +70,8 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
 ///
 /// The derivation mirrors the retired segment walk's semantics exactly, on a throwaway IR:
 /// per-segment runs (segment ref, then per commit its refs then the commit), rank-ordered
-/// inter-segment edges, the parent fixup (a commit whose chain-flattened parents disagree
-/// with its raw parent list is rewired directly, bypassing chains — the ws commit and
+/// inter-segment edges, the parent fixup (a commit whose group-flattened parents disagree
+/// with its raw parent list is rewired directly, bypassing groups — the ws commit and
 /// partially-traversed commits keep their wiring), position derivation, and the strip's
 /// slot compaction.
 fn create_native(
@@ -138,6 +138,10 @@ fn create_native(
             if Some(reference) == entrypoint.segment.ref_name() {
                 head_ref_ordinals.push(ref_table.len());
             }
+            // The target ref can name the segment owning the integrated base history when no
+            // local counterpart exists; reachability alone would mark it writable.
+            let mutable =
+                mutable && reference.category() != Some(gix::refs::Category::RemoteBranch);
             ref_table.push((reference.to_owned(), mutable));
             let n = push(&mut nodes, &mut parents, IrStep::Ref(ref_table.len() - 1));
             run.push(n);
@@ -147,6 +151,8 @@ fn create_native(
                 mutable_commits.insert(commit.id);
             }
             for r in &commit.refs {
+                let mutable = mutable
+                    && r.ref_name.as_ref().category() != Some(gix::refs::Category::RemoteBranch);
                 ref_table.push((r.ref_name.clone(), mutable));
                 let n = push(&mut nodes, &mut parents, IrStep::Ref(ref_table.len() - 1));
                 if let Some(&previous) = run.last() {
@@ -214,8 +220,8 @@ fn create_native(
         }
     }
 
-    // The fixup: flatten a commit's chain parents in slot order; on disagreement with the
-    // RAW parent list, rewire directly to present commits (chains lose their edges). The ws
+    // The fixup: flatten a commit's group parents in slot order; on disagreement with the
+    // RAW parent list, rewire directly to present commits (groups lose their edges). The ws
     // commit and partially-traversed commits keep their segment wiring.
     let commit_ids: HashSet<gix::ObjectId> = commit_table.iter().map(|(id, _)| *id).collect();
     let flatten = |nodes: &[IrStep], parents: &[Vec<usize>], start: usize| {
@@ -331,7 +337,7 @@ fn create_native(
     }
 
     // The strip's slot compaction: resolve each commit's parent entries to commits (dropping
-    // unborn chains), record the vacated slots so the captured entering edges can be renamed,
+    // unborn groups), record the vacated slots so the captured entering edges can be renamed,
     // and keep the ws commit's resolved STACK slots (one per stack, so empty stacks
     // over one base yield duplicate entries the real commit does not have).
     let resolve = |start: usize| -> Option<usize> {

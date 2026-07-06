@@ -69,7 +69,7 @@ pub struct GraphWorkspace {
     /// Membership is computed over COMMITS: references are positions, not topology, so a
     /// shared ref node (typically the target's, sitting above an excluded target commit)
     /// cannot glue two distinct stacks together. Each reference joins the stack its position
-    /// belongs to — its entering child's, else its pick's — and a chain hanging
+    /// belongs to — its entering child's, else its pick's — and a group hanging
     /// straight off the workspace commit keeps its own stack even without commits (an empty
     /// branch). A reference whose position lies outside every stack (e.g. the target's own
     /// ref) is in none of them.
@@ -622,7 +622,7 @@ fn combined_push_status<K: Copy + Eq + std::hash::Hash>(
 /// positions, not topology), so a shared ref node can no longer glue two distinct stacks
 /// together — the limitation formerly documented on [`GraphWorkspace::stacks`]. After the
 /// pick-flood, each reference joins the stack its position belongs to: the stack of its
-/// entering child, else the stack of its resolved pick, and a chain hanging directly
+/// entering child, else the stack of its resolved pick, and a group hanging directly
 /// off the workspace commit keeps its own (possibly pick-less) stack — the empty-branch case.
 fn divide_workspace_into_stacks(
     graph: &EditorGraph,
@@ -686,7 +686,7 @@ fn divide_workspace_into_stacks(
     }
 
     // Each positioned reference joins the stack its position belongs to: the entering child's
-    // stack (with a chain hanging straight off the workspace commit falling back to its
+    // stack (with a group hanging straight off the workspace commit falling back to its
     // pick's stack — the workspace commit itself is in none), else the resolved pick's stack.
     // References belonging to neither (e.g. the target's own ref above the excluded target
     // commit) stay outside every stack.
@@ -696,22 +696,22 @@ fn divide_workspace_into_stacks(
         let by_pick = |a: Option<EditorGraphIndex>| {
             a.and_then(|a| deduplicated.iter().position(|s| s.nodes.contains(&a)))
         };
-        // Every entering edge must agree on the stack; a chain entered from several stacks
-        // (or from the workspace commit itself) falls back to its pick's stack. A root chain
+        // Every entering edge must agree on the stack; a group entered from several stacks
+        // (or from the workspace commit itself) falls back to its pick's stack. A root group
         // (no entering edges) has no stack — no flood ever descended into it.
         let pick_in_region = pick.is_some_and(|a| head_not_target.nodes.contains(&a));
         let home = match entering.as_slice() {
-            // A root chain: no flood ever descended into it — no stack.
+            // A root group: no flood ever descended into it — no stack.
             [] => None,
             // A single entering edge follows its child's stack, even onto an excluded pick (a stack
-            // bottom resting on the target); a chain hanging straight off the workspace
+            // bottom resting on the target); a group hanging straight off the workspace
             // commit falls back to its pick's stack.
             [(child, _)] if *child != workspace_commit_ix && !stored.ambiguous => deduplicated
                 .iter()
                 .position(|s| s.nodes.contains(child))
                 .or_else(|| pick_in_region.then(|| by_pick(pick)).flatten()),
             [_] => pick_in_region.then(|| by_pick(pick)).flatten(),
-            // A shared chain: every edge must agree on the stack; otherwise it belongs to its
+            // A shared group: every edge must agree on the stack; otherwise it belongs to its
             // pick's stack when that is in region, or nowhere.
             many => {
                 let homes: Vec<Option<usize>> = many
@@ -760,9 +760,9 @@ fn divide_workspace_into_stacks(
 }
 
 /// Insert the positioned references a downward flood over `nodes` would have passed through
-/// when references were edges: chains entered by an in-region child, plus — when `entry`
-/// is the reference the flood started at — the entry itself and its chain below it. Root
-/// chains nothing descends into (e.g. a remote ref stacked above a local one) stay out,
+/// when references were edges: groups entered by an in-region child, plus — when `entry`
+/// is the reference the flood started at — the entry itself and its group below it. Root
+/// groups nothing descends into (e.g. a remote ref stacked above a local one) stay out,
 /// exactly like the edge-era floods never reached them.
 fn attach_flooded_refs(
     graph: &EditorGraph,
@@ -772,11 +772,11 @@ fn attach_flooded_refs(
     let mut additions: Vec<EditorGraphIndex> = graph
         .positioned_refs()
         .filter_map(|(node, _stored)| {
-            // A chain any in-region edge enters was flooded through before the walk
+            // A group any in-region edge enters was flooded through before the walk
             // stopped at a boundary — membership is broader than stack assignment, which
             // stays arity- and ambiguity-aware in `divide_workspace_into_stacks`. Co-located
-            // chain members all share the same entering edges, so a lower member is
-            // attached with the whole chain, while a root ref stacked above (its own entering set
+            // group members all share the same entering edges, so a lower member is
+            // attached with the whole group, while a root ref stacked above (its own entering set
             // empty, e.g. a remote ref over the tip) stays out.
             let followed = positions::edges_through(graph, node)
                 .iter()

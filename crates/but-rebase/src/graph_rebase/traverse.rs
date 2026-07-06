@@ -103,7 +103,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     }
 
     /// Node-era reachability over the positioned graph: picks and tombstones by edges (a
-    /// reference start descends from its pick), plus every reference chain the walk
+    /// reference start descends from its pick), plus every reference group the walk
     /// entered.
     fn reachable_ids(&self, start: EditorGraphIndex) -> Vec<EditorGraphIndex> {
         let seed = crate::graph_rebase::positions::resolve_to_pick(&self.graph, start);

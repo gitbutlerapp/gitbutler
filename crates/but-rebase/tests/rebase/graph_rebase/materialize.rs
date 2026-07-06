@@ -342,8 +342,11 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
     Ok(())
 }
 
+/// Removing an immutable ref fails at the op layer (loudly, not session-only), and the
+/// ref survives on disk. Applies to any immutable ref, not just remote-tracking ones —
+/// here an off-walk local `main`.
 #[test]
-fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()> {
+fn removing_an_immutable_ref_fails_and_disk_is_untouched() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
@@ -355,7 +358,10 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let main_sel = editor.select_reference(main_ref.as_ref())?;
-    editor.replace(main_sel, Step::None)?;
+    insta::assert_snapshot!(
+        editor.replace(main_sel, Step::None).unwrap_err().to_string(),
+        @"reference refs/heads/main is immutable and cannot be moved, renamed, or deleted"
+    );
 
     let outcome = editor.rebase()?;
     outcome.materialize()?;

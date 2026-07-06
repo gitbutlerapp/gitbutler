@@ -2,14 +2,14 @@
 //!
 //! Everything a [`RefPosition`](crate::graph_rebase::editor_graph::RefPosition) records is keyed
 //! by graph coordinates (node ids, parent slots) that churn under mutation, which is why positions
-//! need incremental maintenance (`rename_edges`, `apply_chain_join`, the preserve-vs-reclassify
+//! need incremental maintenance (`rename_edges`, `apply_group_join`, the preserve-vs-reclassify
 //! flag). The intended replacement keys the same information by REF NAMES, which mutation never
-//! churns: per pick, an ordered list of chains, each an ordered list of ref names — exactly
+//! churns: per pick, an ordered list of groups, each an ordered list of ref names — exactly
 //! the shape of workspace metadata (stack order, branch order). Pick, rank, and entering edges
 //! then become DERIVED, projection-style, from the table + live pick edges.
 //!
 //! This module provides the OP API ([`place_ref`] and friends): mutation sites speak position
-//! INTENTS ([`StackSlot`]) instead of authoring `(on, below, chain)` triples by hand. Implemented
+//! INTENTS ([`StackSlot`]) instead of authoring `(on, below, group)` triples by hand. Implemented
 //! atop the stored positions today; when the store swaps to the name-keyed table, only these
 //! ops' internals change. (An env-gated corpus census proved the swap viable — every stored
 //! position round-trips through the name-keyed table with zero divergences corpus-wide.)
@@ -21,7 +21,7 @@ use crate::graph_rebase::{EditorGraph, EditorGraphIndex};
 /// A position in a commit's reference stack, named by intent.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum StackSlot {
-    /// Directly above this reference in its chain: mates that sat on it re-hang onto the
+    /// Directly above this reference in its group: mates that sat on it re-hang onto the
     /// newcomer.
     Above(EditorGraphIndex),
     /// At this reference's position: the newcomer takes its below, and it re-hangs onto the
@@ -30,11 +30,11 @@ pub(crate) enum StackSlot {
     /// The bottom of the pick's whole stack (carrying all its edges — "the branch here");
     /// every reference that sat on the pick itself re-hangs onto the newcomer.
     Bottom(EditorGraphIndex),
-    /// The top of the chain the edge `(child, parent-slot)` carries into `pick`.
-    ChainTop {
-        /// The commit the chain sits on.
+    /// The top of the group the edge `(child, parent-slot)` carries into `pick`.
+    GroupTop {
+        /// The commit the group sits on.
         pick: EditorGraphIndex,
-        /// The child edge whose chain the reference stacks onto.
+        /// The child edge whose group the reference stacks onto.
         edge: (EditorGraphIndex, usize),
     },
     /// A fresh root above `pick`: nothing descends into it, no other position moves.
@@ -50,9 +50,9 @@ pub(crate) fn place_ref(graph: &mut EditorGraph, node: EditorGraphIndex, slot: S
             if graph.position_of(target).is_none() {
                 return;
             }
-            // Same-chain members that sat directly on the target now sit on the
-            // interposed node; cross-chain members on the target keep it (they branch).
-            let rehang: Vec<_> = positions::chain_members(graph, target)
+            // Same-group members that sat directly on the target now sit on the
+            // interposed node; cross-group members on the target keep it (they branch).
+            let rehang: Vec<_> = positions::group_members(graph, target)
                 .into_iter()
                 .filter(|(mate, m)| *mate != node && m.below == Some(target))
                 .map(|(mate, _)| mate)
@@ -60,14 +60,14 @@ pub(crate) fn place_ref(graph: &mut EditorGraph, node: EditorGraphIndex, slot: S
             for mate in rehang {
                 graph.set_below(mate, Some(node));
             }
-            graph.join_chain_of(node, target, Some(target));
+            graph.join_group_of(node, target, Some(target));
         }
         StackSlot::Below(target) => {
             let Some(stored) = graph.position_of(target) else {
                 return;
             };
             let below = stored.below;
-            graph.join_chain_of(node, target, below);
+            graph.join_group_of(node, target, below);
             graph.set_below(target, Some(node));
         }
         StackSlot::Bottom(pick) => {
@@ -87,7 +87,7 @@ pub(crate) fn place_ref(graph: &mut EditorGraph, node: EditorGraphIndex, slot: S
             }
             graph.set_position(node, pick, &entering, entering.len() > 1, None);
         }
-        StackSlot::ChainTop { pick, edge } => {
+        StackSlot::GroupTop { pick, edge } => {
             let entering = vec![edge];
             let top = graph
                 .positioned_refs()
@@ -111,21 +111,21 @@ pub(crate) fn place_ref(graph: &mut EditorGraph, node: EditorGraphIndex, slot: S
 /// Unlike [`place_ref`] (fresh placement), the reference already holds a position: the edges
 /// that entered through it follow it when it is their sole carrier (they re-point onto the new
 /// pick and merge into the slot's entering set), and — when moving above another reference —
-/// the chain members now entered through the moved reference share the merged entry set.
+/// the group members now entered through the moved reference share the merged entry set.
 pub(crate) fn move_ref(graph: &mut EditorGraph, node: EditorGraphIndex, slot: StackSlot) {
     let Some(moving) = graph.position_of(node) else {
         return;
     };
     let moving_edges = positions::edges_through(graph, node);
-    // Sole carrier = nothing in the chain sits below the mover. Measured before any shuffling
+    // Sole carrier = nothing in the group sits below the mover. Measured before any shuffling
     // (the shuffles never change which members those are).
     let moving_depth = positions::ref_depth(graph, node);
-    let sole_carrier = !positions::chain_members(graph, node)
+    let sole_carrier = !positions::group_members(graph, node)
         .into_iter()
         .any(|(mate, _)| mate != node && positions::ref_depth(graph, mate) < moving_depth);
     // The mover vacates its old spot: members stacked directly on it settle onto what it sat
     // on.
-    splice_out(graph, node, moving.below);
+    graph.splice(node);
     // Each slot yields the new position as (on, entering, below); the moving reference's
     // edges are merged into the entering set below and the whole thing classified once (all
     // carried edges are re-pointed by then, so the final `set_position` sees the complete
@@ -137,8 +137,8 @@ pub(crate) fn move_ref(graph: &mut EditorGraph, node: EditorGraphIndex, slot: St
                 return;
             };
             graph.set_below(node, Some(target));
-            // Same-chain members that sat directly on the target now sit on the mover.
-            let rehang: Vec<_> = positions::chain_members(graph, target)
+            // Same-group members that sat directly on the target now sit on the mover.
+            let rehang: Vec<_> = positions::group_members(graph, target)
                 .into_iter()
                 .filter(|(mate, m)| *mate != node && m.below == Some(target))
                 .map(|(mate, _)| mate)
@@ -182,7 +182,7 @@ pub(crate) fn move_ref(graph: &mut EditorGraph, node: EditorGraphIndex, slot: St
             }
             (pick, Vec::new(), None)
         }
-        StackSlot::ChainTop { pick, edge } => {
+        StackSlot::GroupTop { pick, edge } => {
             let entering = vec![edge];
             let top = graph
                 .positioned_refs()
@@ -202,8 +202,8 @@ pub(crate) fn move_ref(graph: &mut EditorGraph, node: EditorGraphIndex, slot: St
         }
     };
     // The edges that entered through the reference follow it (node-era edges pointed at the
-    // reference itself), entering the chain at its new position — but only when it was their
-    // sole carrier: chain members staying behind keep their entering edges.
+    // reference itself), entering the group at its new position — but only when it was their
+    // sole carrier: group members staying behind keep their entering edges.
     let old_resolved = positions::resolve_to_pick(graph, moving.on);
     let new_resolved = positions::resolve_to_pick(graph, on);
     if sole_carrier && let (Some(old_pick), Some(new_pick)) = (old_resolved, new_resolved) {
@@ -214,13 +214,13 @@ pub(crate) fn move_ref(graph: &mut EditorGraph, node: EditorGraphIndex, slot: St
             }
         }
         entering.sort();
-        // Members below in the joined chain are now entered through the moved reference:
+        // Members below in the joined group are now entered through the moved reference:
         // they share the merged entry set.
         if let StackSlot::Above(target) = slot
             && graph.position_of(target).is_some()
         {
             let t_depth = positions::ref_depth(graph, target);
-            let mates: Vec<_> = positions::chain_members(graph, target)
+            let mates: Vec<_> = positions::group_members(graph, target)
                 .into_iter()
                 .filter(|(mate, _)| *mate != node && positions::ref_depth(graph, *mate) <= t_depth)
                 .collect();
@@ -233,7 +233,7 @@ pub(crate) fn move_ref(graph: &mut EditorGraph, node: EditorGraphIndex, slot: St
 }
 
 /// Re-point the captured `edges` from `from` onto `to`: each edge keeps its slot, so its
-/// chain statement follows the name. Edges already rewired elsewhere are left alone.
+/// group statement follows the name. Edges already rewired elsewhere are left alone.
 pub(crate) fn redirect_edges(
     graph: &mut EditorGraph,
     edges: &[Edge],
@@ -247,24 +247,6 @@ pub(crate) fn redirect_edges(
         if graph.parents(child).get(slot) == Some(&from) {
             graph.replace_parent(child, slot, to);
         }
-    }
-}
-
-/// Splice `node` out of its physical stack: members sitting directly on it re-hang onto
-/// `onto` (what it sat on). Everything above closes the gap by construction — depth is
-/// derived from the below-chain.
-pub(crate) fn splice_out(
-    graph: &mut EditorGraph,
-    node: EditorGraphIndex,
-    onto: Option<EditorGraphIndex>,
-) {
-    let dependents: Vec<_> = graph
-        .positioned_refs()
-        .filter(|(mate, stored)| *mate != node && stored.below == Some(node))
-        .map(|(mate, _)| mate)
-        .collect();
-    for mate in dependents {
-        graph.set_below(mate, onto);
     }
 }
 
@@ -293,7 +275,7 @@ fn mate_below_depth(
 
 /// Re-point the reference at `node` at the commit `onto` — `git update-ref`, spoken as
 /// a position move. The edges that entered through it follow it (they re-point onto the new pick),
-/// chain members stacked above move with it, and members below lose their entering edges (they
+/// group members stacked above move with it, and members below lose their entering edges (they
 /// become roots at the old pick). An unplaced reference is placed as a fresh root; a
 /// reference already resolving there just refreshes its stored `on`.
 pub(crate) fn repoint_ref(graph: &mut EditorGraph, node: EditorGraphIndex, onto: EditorGraphIndex) {
@@ -309,10 +291,10 @@ pub(crate) fn repoint_ref(graph: &mut EditorGraph, node: EditorGraphIndex, onto:
             redirect_edges(graph, &entering, old_pick, onto);
             // Its old below stays behind; at the destination the reference sits on whatever
             // holds the depth below it there — or lands directly on the pick when that stack
-            // doesn't exist (its carried mates follow through their below-chains).
+            // doesn't exist (its carried mates follow through their below walks).
             let below = mate_below_depth(graph, node, onto, positions::ref_depth(graph, node));
             // Carried = the below-subtree stacked on the reference. Depth-tied siblings and the
-            // below-chain underneath are NOT carried — they stay at the old pick, though chain
+            // below walk underneath are NOT carried — they stay at the old pick, though group
             // mates lose their entering edges (they move with `node`) and become roots there.
             let mut carried = vec![node];
             let mut i = 0;
@@ -330,7 +312,7 @@ pub(crate) fn repoint_ref(graph: &mut EditorGraph, node: EditorGraphIndex, onto:
                     .collect();
                 carried.extend(dependents);
             }
-            let mates: Vec<_> = positions::chain_members(graph, node)
+            let mates: Vec<_> = positions::group_members(graph, node)
                 .into_iter()
                 .filter(|(mate, _)| *mate != node && !carried.contains(mate))
                 .collect();
@@ -340,7 +322,7 @@ pub(crate) fn repoint_ref(graph: &mut EditorGraph, node: EditorGraphIndex, onto:
             for &mate in &carried[1..] {
                 graph.rekey_position(mate, onto);
             }
-            // The reference's edges moved with it; re-classify its chain against `onto`'s
+            // The reference's edges moved with it; re-classify its group against `onto`'s
             // final edges (its old `Edges` statement may not exist there).
             graph.set_position(node, onto, &entering, stored.ambiguous, below);
         }
@@ -350,7 +332,7 @@ pub(crate) fn repoint_ref(graph: &mut EditorGraph, node: EditorGraphIndex, onto:
     }
 }
 
-/// Remove the reference at `node` from its chain: members above close the gap and the
+/// Remove the reference at `node` from its group: members above close the gap and the
 /// reference becomes a root at its current pick — nothing descends into it any more. With
 /// `drop_edges` the pick edges that entered through its position are removed outright; otherwise
 /// they stay on the pick for a follow-up reconnect to rewire.
@@ -358,9 +340,9 @@ pub(crate) fn unhook_ref(graph: &mut EditorGraph, node: EditorGraphIndex, drop_e
     let Some(unhooked) = graph.position_of(node) else {
         return;
     };
-    // The chain closes past the unhooked reference: mates that sat on it settle onto what it
+    // The group closes past the unhooked reference: mates that sat on it settle onto what it
     // sat on, becoming its sibling branch (the unhooked ref keeps its spot).
-    let rehang: Vec<_> = positions::chain_members(graph, node)
+    let rehang: Vec<_> = positions::group_members(graph, node)
         .into_iter()
         .filter(|(mate, m)| *mate != node && m.below == Some(node))
         .map(|(mate, _)| mate)
@@ -382,7 +364,7 @@ pub(crate) fn unhook_ref(graph: &mut EditorGraph, node: EditorGraphIndex, drop_e
     graph.set_position(node, unhooked.on, &[], false, unhooked.below);
 }
 
-/// Move the stack slice led by `lead_ref` — it and its below-subtree in its chain on
+/// Move the stack slice led by `lead_ref` — it and its below-subtree in its group on
 /// `source_pick` — onto `dest`: the lead lands at the bottom, each member is
 /// re-classified against its own edges at the destination (they come along), and stored
 /// ambiguity is preserved.
@@ -395,7 +377,7 @@ pub(crate) fn transfer_stack(
     if graph.position_of(lead_ref).is_none() {
         return;
     }
-    let chain = positions::edges_through(graph, lead_ref);
+    let lead_entering = positions::edges_through(graph, lead_ref);
     let mut moves = vec![lead_ref];
     let mut i = 0;
     while i < moves.len() {
@@ -407,7 +389,7 @@ pub(crate) fn transfer_stack(
                 stored.below == Some(current)
                     && !moves.contains(node)
                     && positions::resolve_to_pick(graph, stored.on) == Some(source_pick)
-                    && positions::edges_through(graph, *node) == chain
+                    && positions::edges_through(graph, *node) == lead_entering
             })
             .map(|(node, _)| node)
             .collect();
@@ -425,14 +407,14 @@ pub(crate) fn transfer_stack(
     }
 }
 
-/// Carry the slice of `chain` on `source_pick` strictly above depth `above_depth` onto
+/// Carry the slice of the group identified by `entering` on `source_pick` strictly above depth `above_depth` onto
 /// `dest` verbatim — same depths, same kinds; only the `on` key changes. The
-/// delimiter position below the slice stays behind. `chain`/`above_depth` are caller-captured
+/// delimiter position below the slice stays behind. `entering`/`above_depth` are caller-captured
 /// (pre-mutation) coordinates rather than live derivations.
 pub(crate) fn carry_stack_above(
     graph: &mut EditorGraph,
     source_pick: EditorGraphIndex,
-    chain: &[(EditorGraphIndex, usize)],
+    entering: &[(EditorGraphIndex, usize)],
     above_depth: usize,
     dest: EditorGraphIndex,
 ) {
@@ -440,7 +422,7 @@ pub(crate) fn carry_stack_above(
         .positioned_refs()
         .filter(|(node, stored)| {
             positions::resolve_to_pick(graph, stored.on) == Some(source_pick)
-                && positions::edges_through(graph, *node) == chain
+                && positions::edges_through(graph, *node) == entering
                 && positions::ref_depth(graph, *node) > above_depth
         })
         .map(|(node, _)| node)
@@ -462,7 +444,7 @@ pub(crate) fn carry_stack_above(
 
 /// Stack every reference on `source_pick` above `top` (a reference on another pick), the
 /// whole tower re-placed behind `bridge_node`'s full incoming edge set — the bridged edges
-/// that now descend into the joined chain. Returns false (leaving the graph untouched) when
+/// that now descend into the joined group. Returns false (leaving the graph untouched) when
 /// `top` holds no position.
 pub(crate) fn land_stack_above(
     graph: &mut EditorGraph,
@@ -512,7 +494,7 @@ pub(crate) fn readopt_dangling_refs(graph: &mut EditorGraph, onto: EditorGraphIn
     }
 }
 
-/// Which side of `at_ref` a chain split leaves with the lower part.
+/// Which side of `at_ref` a group split leaves with the lower part.
 #[derive(Clone, Copy)]
 pub(crate) enum SplitBoundary {
     /// Members strictly above the ref move up; the ref stays with the lower part.
@@ -521,35 +503,35 @@ pub(crate) enum SplitBoundary {
     At,
 }
 
-/// The result of splitting a chain around an interposed pick.
-pub(crate) struct ChainSplit {
+/// The result of splitting a group around an interposed pick.
+pub(crate) struct GroupSplit {
     /// The members left behind, with their pre-split positions — settle them with
-    /// [`settle_chain_lower`] once the edge entering the lower part is known.
+    /// [`settle_group_lower`] once the edge entering the lower part is known.
     pub lower: Vec<(EditorGraphIndex, RefPosition)>,
     /// Whether any member moved onto the upper node. When none did, `at_ref` was the top
-    /// of its chain, so the chain's carried edges belong to the caller's new pick.
+    /// of its group, so the group's carried edges belong to the caller's new pick.
     pub moved_any: bool,
 }
 
-/// Split the chain at `at_ref` around a pick interposed into it: members on the upper side
+/// Split the group at `at_ref` around a pick interposed into it: members on the upper side
 /// of `boundary` re-key onto `upper` with the boundary member landing at the bottom
 /// (carry kinds carried verbatim), and the lower members are returned untouched for the
 /// caller to settle.
-pub(crate) fn split_chain(
+pub(crate) fn split_group(
     graph: &mut EditorGraph,
     at_ref: EditorGraphIndex,
     boundary: SplitBoundary,
     upper: EditorGraphIndex,
-) -> ChainSplit {
+) -> GroupSplit {
     if graph.position_of(at_ref).is_none() {
-        return ChainSplit {
+        return GroupSplit {
             lower: Vec::new(),
             moved_any: false,
         };
     }
-    let members = positions::chain_members(graph, at_ref);
+    let members = positions::group_members(graph, at_ref);
     // The upper side is the below-subtree on the moving side of the boundary — depth-tied
-    // siblings from other stacks can share the chain's entering edges but hang elsewhere and stay.
+    // siblings from other stacks can share the group's entering edges but hang elsewhere and stay.
     let mut moved = vec![at_ref];
     let mut i = 0;
     while i < moved.len() {
@@ -580,7 +562,7 @@ pub(crate) fn split_chain(
             lower.push((node, member));
         }
     }
-    // References stacked on the moved slice but not moving with it (cross-chain roots, e.g. a
+    // References stacked on the moved slice but not moving with it (cross-group roots, e.g. a
     // remote above the moved tip) settle onto what the slice sat on: they and everything on
     // top of them close the gap by construction.
     let stranded: Vec<_> = graph
@@ -591,15 +573,15 @@ pub(crate) fn split_chain(
     for node in stranded {
         graph.set_below(node, boundary_below);
     }
-    ChainSplit {
+    GroupSplit {
         lower,
         moved_any: !moved.is_empty(),
     }
 }
 
-/// Settle the lower part of a split chain: each member keeps its `on` and stacking but is
+/// Settle the lower part of a split group: each member keeps its `on` and stacking but is
 /// now entered through `edge` — the edge descending from the interposed pick.
-pub(crate) fn settle_chain_lower(
+pub(crate) fn settle_group_lower(
     graph: &mut EditorGraph,
     lower: &[(EditorGraphIndex, RefPosition)],
     edge: (EditorGraphIndex, usize),

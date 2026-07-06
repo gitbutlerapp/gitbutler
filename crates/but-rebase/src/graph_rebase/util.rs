@@ -7,7 +7,7 @@ use crate::graph_rebase::{EditorGraph, EditorGraphIndex};
 /// Pruned depth-first search for `target`'s commit parents in parent order, descending through
 /// non-commit steps.
 ///
-/// A parent slot that carries a reference chain (the slot is a stored edge entry of a chain
+/// A parent slot that carries a reference group (the slot is a stored edge entry of a group
 /// positioned at its pick) yields to any plain slot resolving to the same pick, and only the
 /// first of several carrying slots survives — the same collapse the node-era search produced
 /// when a ref path and a direct path reached one pick. Plain duplicate slots are all kept
@@ -16,7 +16,7 @@ pub(crate) fn collect_ordered_parents(
     graph: &EditorGraph,
     target: EditorGraphIndex,
 ) -> Vec<EditorGraphIndex> {
-    let carries_chain = |slot: usize, parent: EditorGraphIndex| {
+    let carries_group = |slot: usize, parent: EditorGraphIndex| {
         graph.is_pick(parent)
             && graph.positioned_refs().any(|(node, stored)| {
                 crate::graph_rebase::positions::edges_through(graph, node).contains(&(target, slot))
@@ -28,7 +28,7 @@ pub(crate) fn collect_ordered_parents(
     let plain_targets: HashSet<EditorGraphIndex> = slot_parents
         .iter()
         .enumerate()
-        .filter(|&(slot, &parent)| graph.is_pick(parent) && !carries_chain(slot, parent))
+        .filter(|&(slot, &parent)| graph.is_pick(parent) && !carries_group(slot, parent))
         .map(|(_, &parent)| parent)
         .collect();
     let mut emitted_carrying = HashSet::new();
@@ -37,7 +37,7 @@ pub(crate) fn collect_ordered_parents(
         .iter()
         .enumerate()
         .rev()
-        .map(|(slot, &parent)| (parent, carries_chain(slot, parent)))
+        .map(|(slot, &parent)| (parent, carries_group(slot, parent)))
         .collect();
     let mut seen = potential
         .iter()

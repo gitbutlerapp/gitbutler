@@ -37,32 +37,33 @@ impl std::fmt::Display for EditorGraphIndex {
 }
 
 /// One incoming child edge of a pick, named POSITIONALLY as `(source pick, parent-slot)`.
-/// Chains state edges by this name, so an edge removed and re-created at the same coordinates is
-/// the SAME statement — see [`ChainRec::edges`].
+/// Carry statements name edges this way, so an edge removed and re-created at the same coordinates
+/// is the SAME statement — see [`Carry::Edges`].
 pub(crate) type Edge = (EditorGraphIndex, usize);
 
-/// Where a reference sits, stored explicitly: references are POSITIONS, not topology. The
-/// edges entering through it live in the reference's CHAIN (see [`EditorGraph::chain_of`]), not here.
-/// Derived reads live in `positions`: `ref_depth` (rank), `edges_through` (entering edges),
-/// `resolve_to_pick` (the node, followed through tombstones).
+/// Where a reference sits — a VIEW synthesized from the arrangement table by
+/// [`EditorGraph::position_of`], not stored data: `on` is the table key of the group holding
+/// the reference, `below` the member underneath it (the previous member in its group, or the
+/// group's attach), `ambiguous` the per-ref record flag. Derived reads live in `positions`:
+/// `ref_depth` (rank), `edges_through` (entering edges), `resolve_to_pick` (the node,
+/// followed through tombstones).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RefPosition {
     /// The node this reference resolves to (a pick, or its tombstone after deletion) — the
     /// commit the ref points at, reached lazily through tombstones at read time.
     pub on: EditorGraphIndex,
     /// The reference directly underneath in the physical stack (`None` = sits directly on the node).
-    /// Rank is DERIVED: a reference's depth is the length of its below-chain
-    /// (`positions::ref_depth`).
     pub below: Option<EditorGraphIndex>,
     /// The entry into this position converged — more than one thing (edges and/or refs stacked
-    /// above) met here (a merge). A creation-time signal distinct from `edges.len() > 1` (a position
-    /// can converge yet resolve to a single edge), so it is stored and PRESERVED, not re-derived.
+    /// above) met here (a merge). A creation-time signal distinct from the entering-edge count (a
+    /// position can converge yet resolve to a single edge), so it is stored and PRESERVED, not
+    /// re-derived.
     pub ambiguous: bool,
 }
 
-/// One reference: name, mutability, liveness, position. Deletion flips `live` and RETAINS
-/// name and position — retention is load-bearing (stale selectors normalize through dead
-/// refs, rebuilds carry them).
+/// One reference: name, mutability, liveness, convergence flag. Deletion flips `live` and
+/// RETAINS name and position — retention is load-bearing (stale selectors normalize through
+/// dead refs, rebuilds carry them).
 #[derive(Debug, Clone)]
 pub(crate) struct RefRecord {
     /// The full reference name.
@@ -71,9 +72,9 @@ pub(crate) struct RefRecord {
     pub mutable: bool,
     /// `false` once the reference is deleted; the record stays.
     pub live: bool,
-    /// The stored position, `None` until placed (creation routes connectivity through
-    /// temporary ref parent arrays first, then converts them to a position at finalize).
-    pub position: Option<RefPosition>,
+    /// See [`RefPosition::ambiguous`] — kept on the record because it is a preserved
+    /// creation-time signal, not table structure.
+    pub ambiguous: bool,
 }
 
 /// Everything a [`Pick`] carries except the commit id — the id is the arena payload itself,
@@ -136,33 +137,37 @@ impl Default for PickSettings {
     }
 }
 
-/// How much of its node's incoming edges a chain carries.
+/// How much of its pick's incoming edges a reference group carries — which edges ENTER
+/// THROUGH the group's references.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum ChainCarry {
-    /// Nothing descends into this chain (a root chain: remote above a tip, empty top).
+pub(crate) enum Carry {
+    /// Nothing descends into this group (a root group: remote above a tip, empty top).
     None,
-    /// Every edge into the node descends through this chain (a plain chain, or a shared
-    /// chain all merge chains converge on).
+    /// Every edge into the pick descends through this group (a plain stack, or the shared
+    /// group all merge groups converge on).
     All,
-    /// This chain carries exactly the edges its [`ChainRec::edges`] statement names — one chain
-    /// of a merge.
-    Edges,
+    /// Exactly these stated edges — one group of a merge. Kept sorted and deduplicated,
+    /// keyed by the full `(source-pick, parent-slot)` edge: two distinct sources can feed
+    /// one pick at the same slot (and one source at two slots), so both coordinates are
+    /// needed. Read filtered against the pick's LIVE edges, so a stale entry is inert —
+    /// and reclaims its edge by itself when surgery revives the same coordinates.
+    Edges(Vec<Edge>),
 }
 
-/// One chain above a stored node: the references sharing the same entering edges at one position.
-/// Membership only — order among members stays the below-chain's job.
+/// One group of references standing on a stored key: an ordered bottom→top run of members
+/// sharing one [`Carry`]. Order and stacking are LIST STRUCTURE — a member's below is the
+/// previous member, its rank its index plus the height of the attach walk underneath
+/// (`positions::ref_depth`).
 #[derive(Debug, Clone)]
-pub(crate) struct ChainRec {
-    /// The reference nodes in this chain, unordered (order by below-chain depth to read).
+pub(crate) struct RefGroup {
+    /// The reference nodes, bottom→top: `members[0]` sits on `attach` (or the key's pick).
     pub members: Vec<EditorGraphIndex>,
-    /// How much of the node's edges this chain carries.
-    pub carry: ChainCarry,
-    /// The edges this chain STATES it carries (`Edges` chains only). Keyed by the full
-    /// `(source-pick, parent-slot)` edge: two distinct sources can feed one node at the
-    /// same slot (and one source at two slots), so both coordinates are needed. Read
-    /// filtered against the node's LIVE edges, so a stale entry is inert — and reclaims
-    /// its edge by itself when surgery revives the same coordinates.
-    pub edges: Vec<Edge>,
+    /// How much of the pick's edges this group carries.
+    pub carry: Carry,
+    /// The reference this group's bottom member sits on — a member of ANOTHER group
+    /// resolving to the same pick (`None` = directly on the pick). Group boundaries are
+    /// carry boundaries: a branch point or a carry change starts a new group.
+    pub attach: Option<EditorGraphIndex>,
 }
 
 /// The editor's commit graph: a [`but_graph::CommitGraph`] arena where PICKS carry ordered
@@ -179,11 +184,12 @@ pub(crate) struct EditorGraph {
     /// Each node's pick options, parallel to the arena.
     settings: Vec<PickSettings>,
     refs: Vec<RefRecord>,
-    /// THE entering-edge store: chain membership per STORED (unresolved) `on` value. Which edges
-    /// descend into a reference's position lives here and only here — authored by
-    /// [`Self::set_position`]/[`Self::join_chain_of`], carried by [`Self::rekey_position`],
-    /// renamed by [`Self::rename_edges`], read via `positions::edges_through`.
-    chains: HashMap<EditorGraphIndex, Vec<ChainRec>>,
+    /// THE position store: per STORED (unresolved) key, the reference groups standing on it.
+    /// A reference's position (its `on`, its below, its rank, its entering edges) is all
+    /// list structure here — authored by [`Self::set_position`]/[`Self::join_group_of`],
+    /// carried by [`Self::rekey_position`], renamed by [`Self::rename_edges`], read via
+    /// [`Self::position_of`] and `positions::edges_through`.
+    arrangement: HashMap<EditorGraphIndex, Vec<RefGroup>>,
 }
 
 impl EditorGraph {
@@ -197,7 +203,7 @@ impl EditorGraph {
             arena,
             settings,
             refs: Vec::new(),
-            chains: HashMap::new(),
+            arrangement: HashMap::new(),
         }
     }
 
@@ -297,7 +303,7 @@ impl EditorGraph {
             refname,
             mutable,
             live: true,
-            position: None,
+            ambiguous: false,
         });
         EditorGraphIndex::Ref(self.refs.len() - 1)
     }
@@ -395,27 +401,188 @@ impl EditorGraph {
         }
     }
 
-    /// The stored position of the reference at `node`, live or dead.
+    /// The position of the reference at `node`, live or dead — synthesized from the
+    /// arrangement table (see [`RefPosition`]). `None` until placed.
     pub(crate) fn position_of(&self, node: EditorGraphIndex) -> Option<RefPosition> {
-        match node {
-            EditorGraphIndex::Ref(i) => self.refs.get(i)?.position.clone(),
-            EditorGraphIndex::Node(_) => None,
+        let (key, g, i) = self.locate(node)?;
+        let group = &self.arrangement[&key][g];
+        let below = if i > 0 {
+            Some(group.members[i - 1])
+        } else {
+            group.attach
+        };
+        let ambiguous = match node {
+            EditorGraphIndex::Ref(r) => self.refs[r].ambiguous,
+            EditorGraphIndex::Node(_) => false,
+        };
+        Some(RefPosition {
+            on: key,
+            below,
+            ambiguous,
+        })
+    }
+
+    /// Where `node` sits in the arrangement table: `(key, group index, member index)`.
+    fn locate(&self, node: EditorGraphIndex) -> Option<(EditorGraphIndex, usize, usize)> {
+        self.arrangement.iter().find_map(|(&key, groups)| {
+            groups.iter().enumerate().find_map(|(g, group)| {
+                group
+                    .members
+                    .iter()
+                    .position(|&m| m == node)
+                    .map(|i| (key, g, i))
+            })
+        })
+    }
+
+    fn set_ambiguous(&mut self, node: EditorGraphIndex, ambiguous: bool) {
+        let EditorGraphIndex::Ref(i) = node else {
+            panic!("BUG: only references hold positions");
+        };
+        self.refs[i].ambiguous = ambiguous;
+    }
+
+    /// Classify a position's entering-edge intent against `on`'s CURRENT edges: empty is a
+    /// root, the whole live set the shared `All` carry, any other set an `Edges` carry
+    /// stating exactly those edges.
+    fn classify(&self, on: EditorGraphIndex, entering: &[Edge]) -> Carry {
+        if entering.is_empty() {
+            return Carry::None;
+        }
+        let live = match crate::graph_rebase::positions::resolve_to_pick(self, on) {
+            Some(pick) => crate::graph_rebase::positions::edges_into(self, pick),
+            None => Vec::new(),
+        };
+        let edge_set: HashSet<_> = entering.iter().copied().collect();
+        let live_set: HashSet<_> = live.iter().copied().collect();
+        if edge_set == live_set {
+            Carry::All
+        } else {
+            let mut edges = entering.to_vec();
+            edges.sort_unstable();
+            edges.dedup();
+            Carry::Edges(edges)
         }
     }
 
-    fn position_slot(&mut self, node: EditorGraphIndex) -> &mut Option<RefPosition> {
-        match node {
-            EditorGraphIndex::Ref(i) => &mut self.refs[i].position,
-            EditorGraphIndex::Node(_) => panic!("BUG: only references hold positions"),
+    /// Take `node` out of the table, its dependents RIDING: members stacked above it in its
+    /// group split off as their own group attached to `node` (they keep sitting on it,
+    /// wherever it goes next), and groups attached to `node` stay attached. The caller
+    /// re-places the node immediately.
+    fn extract(&mut self, node: EditorGraphIndex) {
+        let Some((key, g, i)) = self.locate(node) else {
+            return;
+        };
+        let groups = self.arrangement.get_mut(&key).expect("just located");
+        let above = groups[g].members.split_off(i + 1);
+        groups[g].members.pop();
+        if !above.is_empty() {
+            let carry = groups[g].carry.clone();
+            groups.push(RefGroup {
+                members: above,
+                carry,
+                attach: Some(node),
+            });
+        }
+        if groups[g].members.is_empty() {
+            groups.remove(g);
+        }
+        if groups.is_empty() {
+            self.arrangement.remove(&key);
         }
     }
 
-    /// Author a FRESH position for `node`: `entering` is the chain intent — the edges meant to
-    /// enter through it — classified against
-    /// `on`'s CURRENT edges — empty opens (or joins) the root chain, the whole live set the
-    /// shared `All` chain, any other set a `Count` chain stating exactly those edges. Only
-    /// correct when the node's edges are already complete — never use to re-place an
-    /// existing position wholesale.
+    /// Put the (extracted or fresh) `node` into the table at `key`: onto `attach`'s group
+    /// when it lands on a group top with the same carry, as a fresh group otherwise.
+    fn place(
+        &mut self,
+        node: EditorGraphIndex,
+        key: EditorGraphIndex,
+        carry: Carry,
+        attach: Option<EditorGraphIndex>,
+    ) {
+        let groups = self.arrangement.entry(key).or_default();
+        let joined = attach.and_then(|b| {
+            groups
+                .iter()
+                .position(|group| group.members.last() == Some(&b) && group.carry == carry)
+        });
+        match joined {
+            Some(g) => groups[g].members.push(node),
+            None => groups.push(RefGroup {
+                members: vec![node],
+                carry,
+                attach,
+            }),
+        }
+        self.normalize(key);
+    }
+
+    /// Merge groups that stand contiguously with the same carry: a group attached to the TOP
+    /// member of another group at the same key with an equal carry is its continuation —
+    /// group boundaries stay canonical maximal same-carry runs.
+    fn normalize(&mut self, key: EditorGraphIndex) {
+        let Some(groups) = self.arrangement.get_mut(&key) else {
+            return;
+        };
+        loop {
+            let merge = groups.iter().enumerate().find_map(|(upper_idx, upper)| {
+                let b = upper.attach?;
+                groups.iter().enumerate().find_map(|(lower_idx, lower)| {
+                    (lower_idx != upper_idx
+                        && lower.members.last() == Some(&b)
+                        && lower.carry == upper.carry)
+                        .then_some((lower_idx, upper_idx))
+                })
+            });
+            let Some((lower_idx, upper_idx)) = merge else {
+                break;
+            };
+            let upper = groups.remove(upper_idx);
+            let lower_idx = lower_idx - usize::from(upper_idx < lower_idx);
+            groups[lower_idx].members.extend(upper.members);
+        }
+    }
+
+    /// Splice `node` out of the physical stack, dependents HEALING past it: members above it
+    /// in its group close the gap, and groups attached to it re-hang onto what it sat on.
+    /// The node itself stays placed as a single-member BRANCH group at the same spot (same
+    /// key, attached to its old below, carry copied) — the retained position a deletion
+    /// leaves behind.
+    pub(crate) fn splice(&mut self, node: EditorGraphIndex) {
+        let Some((key, g, i)) = self.locate(node) else {
+            return;
+        };
+        let groups = self.arrangement.get_mut(&key).expect("just located");
+        let below = if i > 0 {
+            Some(groups[g].members[i - 1])
+        } else {
+            groups[g].attach
+        };
+        groups[g].members.remove(i);
+        let carry = groups[g].carry.clone();
+        if groups[g].members.is_empty() {
+            groups.remove(g);
+        }
+        for groups in self.arrangement.values_mut() {
+            for group in groups.iter_mut() {
+                if group.attach == Some(node) {
+                    group.attach = below;
+                }
+            }
+        }
+        self.arrangement.entry(key).or_default().push(RefGroup {
+            members: vec![node],
+            carry,
+            attach: below,
+        });
+        self.normalize(key);
+    }
+
+    /// Author a position for `node`: `entering` is the carry intent — the edges meant to
+    /// enter through it — classified against `on`'s CURRENT edges (see [`Self::classify`]).
+    /// Members stacked on the node ride along; only correct when the node's edges are
+    /// already complete.
     pub(crate) fn set_position(
         &mut self,
         node: EditorGraphIndex,
@@ -424,70 +591,36 @@ impl EditorGraph {
         ambiguous: bool,
         below: Option<EditorGraphIndex>,
     ) {
-        let live = match crate::graph_rebase::positions::resolve_to_pick(self, on) {
-            Some(pick) => crate::graph_rebase::positions::edges_into(self, pick),
-            None => Vec::new(),
-        };
-        let (carry, edges) = if entering.is_empty() {
-            (ChainCarry::None, Vec::new())
-        } else {
-            let edge_set: HashSet<_> = entering.iter().copied().collect();
-            let live_set: HashSet<_> = live.iter().copied().collect();
-            if edge_set == live_set {
-                (ChainCarry::All, Vec::new())
-            } else {
-                let mut edges = entering.to_vec();
-                edges.sort_unstable();
-                edges.dedup();
-                (ChainCarry::Edges, edges)
-            }
-        };
-        if let Some(previous) = self.position_of(node) {
-            self.chain_remove(node, previous.on);
-        }
-        self.chain_insert(node, on, carry, edges);
-        *self.position_slot(node) = Some(RefPosition {
-            on,
-            ambiguous,
-            below,
-        });
+        let carry = self.classify(on, entering);
+        self.extract(node);
+        self.place(node, on, carry, below);
+        self.set_ambiguous(node, ambiguous);
     }
 
-    /// Join `node` into the chain CONTAINING `mate` — direct membership, not edges-equality —
-    /// sitting on `below`, copying the mate's `on` and ambiguity.
-    pub(crate) fn join_chain_of(
+    /// Join `node` into the group of `mate` — copying the mate's key, carry, and ambiguity —
+    /// sitting on `below`.
+    pub(crate) fn join_group_of(
         &mut self,
         node: EditorGraphIndex,
         mate: EditorGraphIndex,
         below: Option<EditorGraphIndex>,
     ) {
-        let Some(m) = self.position_of(mate) else {
+        let Some((key, g, _)) = self.locate(mate) else {
             return;
         };
-        if let Some(previous) = self.position_of(node) {
-            self.chain_remove(node, previous.on);
-        }
-        let joined = self
-            .chains
-            .entry(m.on)
-            .or_default()
-            .iter_mut()
-            .find(|chain| chain.members.contains(&mate))
-            .map(|chain| chain.members.push(node))
-            .is_some();
-        debug_assert!(joined, "positioned mate {mate} must own a chain");
-        if !joined {
-            self.chain_insert(node, m.on, ChainCarry::All, Vec::new());
-        }
-        *self.position_slot(node) = Some(RefPosition {
-            on: m.on,
-            ambiguous: m.ambiguous,
-            below,
-        });
+        let carry = self.arrangement[&key][g].carry.clone();
+        let ambiguous = match mate {
+            EditorGraphIndex::Ref(i) => self.refs[i].ambiguous,
+            EditorGraphIndex::Node(_) => false,
+        };
+        self.extract(node);
+        self.place(node, key, carry, below);
+        self.set_ambiguous(node, ambiguous);
     }
 
-    /// Re-key `node`'s position onto `onto`, carrying its CURRENT chain record — the
-    /// carry and edges as maintained through edge surgery. Below and ambiguity are preserved.
+    /// Re-key `node`'s position onto `onto`, carrying its CURRENT carry — as maintained
+    /// through edge surgery. Below and ambiguity are preserved; members stacked on the node
+    /// ride along.
     pub(crate) fn rekey_position(&mut self, node: EditorGraphIndex, onto: EditorGraphIndex) {
         let Some(stored) = self.position_of(node) else {
             return;
@@ -495,127 +628,75 @@ impl EditorGraph {
         if stored.on == onto {
             return;
         }
-        let chain_data = self.chains.get(&stored.on).and_then(|chains| {
-            chains
-                .iter()
-                .find(|chain| chain.members.contains(&node))
-                .map(|chain| (chain.carry.clone(), chain.edges.clone()))
-        });
-        self.chain_remove(node, stored.on);
-        match chain_data {
-            Some((carry, edges)) => self.chain_insert(node, onto, carry, edges),
-            None => {
-                debug_assert!(false, "positioned node {node} must own a chain");
-                self.chain_insert(node, onto, ChainCarry::All, Vec::new());
-            }
-        }
-        if let Some(a) = self.position_slot(node).as_mut() {
-            a.on = onto;
-        }
+        let carry = self.carry_of(node).cloned().unwrap_or(Carry::All);
+        self.extract(node);
+        self.place(node, onto, carry, stored.below);
     }
 
-    /// Re-hang `node` onto `below` — an adjacency statement only; `on` and chain
-    /// membership are untouched.
+    /// Re-hang `node` onto `below` — an adjacency statement only; its key, carry, and
+    /// ambiguity are untouched, and members stacked on the node ride along.
     pub(crate) fn set_below(&mut self, node: EditorGraphIndex, below: Option<EditorGraphIndex>) {
-        if let Some(stored) = self.position_slot(node).as_mut() {
-            stored.below = below;
+        let Some(stored) = self.position_of(node) else {
+            return;
+        };
+        if stored.below == below {
+            return;
         }
+        let carry = self.carry_of(node).cloned().unwrap_or(Carry::All);
+        self.extract(node);
+        self.place(node, stored.on, carry, below);
     }
 
     /// Point a DEAD reference's retained position at `on` — the bare retention pointer
-    /// stale selectors normalize through. Chain membership, below, and ambiguity are dropped;
-    /// live references re-place via the arrangement machinery instead.
+    /// stale selectors normalize through. Its old spot heals (dependents re-hang past it),
+    /// and it lands as a bare root; live references re-place via the arrangement machinery
+    /// instead.
     pub(crate) fn set_retained_position(&mut self, node: EditorGraphIndex, on: EditorGraphIndex) {
         debug_assert!(
             !self.is_reference(node) && matches!(node, EditorGraphIndex::Ref(_)),
             "retained positions belong to dead references"
         );
-        if let Some(stored) = self.position_of(node) {
-            self.chain_remove(node, stored.on);
-        }
-        *self.position_slot(node) = Some(RefPosition {
-            on,
-            below: None,
-            ambiguous: false,
-        });
+        self.splice(node);
+        self.extract(node);
+        self.place(node, on, Carry::None, None);
+        self.set_ambiguous(node, false);
     }
 
-    fn chain_remove(&mut self, node: EditorGraphIndex, key: EditorGraphIndex) {
-        let Some(chains) = self.chains.get_mut(&key) else {
-            return;
-        };
-        for chain in chains.iter_mut() {
-            chain.members.retain(|&member| member != node);
-        }
-        chains.retain(|chain| !chain.members.is_empty());
-        if chains.is_empty() {
-            self.chains.remove(&key);
-        }
-    }
-
-    fn chain_insert(
-        &mut self,
-        node: EditorGraphIndex,
-        key: EditorGraphIndex,
-        carry: ChainCarry,
-        edges: Vec<(EditorGraphIndex, usize)>,
-    ) {
-        let chains = self.chains.entry(key).or_default();
-        let existing = chains.iter_mut().find(|chain| {
-            // `Edges` chains are identified by their stated edges (same edges => same chain);
-            // one `None` and one `All` chain per key.
-            chain.carry == carry && (carry != ChainCarry::Edges || chain.edges == edges)
-        });
-        match existing {
-            Some(chain) => chain.members.push(node),
-            None => chains.push(ChainRec {
-                members: vec![node],
-                carry,
-                edges,
-            }),
-        }
-    }
-
-    /// The chain containing the reference at `node`, if it holds a position.
-    pub(crate) fn chain_of(&self, node: EditorGraphIndex) -> Option<&ChainRec> {
-        let stored = match node {
-            EditorGraphIndex::Ref(i) => self.refs.get(i)?.position.as_ref()?,
-            EditorGraphIndex::Node(_) => return None,
-        };
-        self.chains
-            .get(&stored.on)?
-            .iter()
-            .find(|chain| chain.members.contains(&node))
+    /// The carry of the group holding the reference at `node`, if it holds a position.
+    pub(crate) fn carry_of(&self, node: EditorGraphIndex) -> Option<&Carry> {
+        let (key, g, _) = self.locate(node)?;
+        Some(&self.arrangement[&key][g].carry)
     }
 
     /// All positioned references — live AND dead — ascending by id.
     pub(crate) fn positioned_refs(
         &self,
     ) -> impl Iterator<Item = (EditorGraphIndex, RefPosition)> + '_ {
-        self.refs.iter().enumerate().filter_map(|(i, record)| {
-            record
-                .position
-                .clone()
-                .map(|p| (EditorGraphIndex::Ref(i), p))
+        (0..self.refs.len()).filter_map(|i| {
+            let node = EditorGraphIndex::Ref(i);
+            self.position_of(node).map(|p| (node, p))
         })
     }
 
-    /// Apply several edge renames SIMULTANEOUSLY: every chain edge is matched against the
-    /// pre-rename names once, so shifting slots in a renumber can't collide mid-flight.
+    /// Apply several edge renames SIMULTANEOUSLY: every stated carry edge is matched against
+    /// the pre-rename names once, so shifting slots in a renumber can't collide mid-flight.
     /// Each renamed edge is `(old, new)` — a slot renumbered or re-sourced onto another pick.
     pub(crate) fn rename_edges(&mut self, renames: &[(Edge, Edge)]) {
-        for chains in self.chains.values_mut() {
-            for chain in chains.iter_mut() {
+        for groups in self.arrangement.values_mut() {
+            for group in groups.iter_mut() {
+                let Carry::Edges(edges) = &mut group.carry else {
+                    continue;
+                };
                 let mut changed = false;
-                for edge in chain.edges.iter_mut() {
+                for edge in edges.iter_mut() {
                     if let Some((_, new)) = renames.iter().find(|(old, _)| old == edge) {
                         *edge = *new;
                         changed = true;
                     }
                 }
                 if changed {
-                    chain.edges.sort_unstable();
-                    chain.edges.dedup();
+                    edges.sort_unstable();
+                    edges.dedup();
                 }
             }
         }
@@ -743,7 +824,7 @@ impl EditorGraph {
     }
 
     /// Re-point `child`'s parent at `slot` onto `new_parent`. The slot — and so the
-    /// statement name — is untouched: chains stated on the edge follow it to its new target.
+    /// statement name — is untouched: groups stated on the edge follow it to its new target.
     pub(crate) fn replace_parent(
         &mut self,
         child: EditorGraphIndex,
@@ -788,18 +869,20 @@ impl EditorGraph {
         }
     }
 
-    /// Empty `child`'s parent array, returning it. Chain statements naming the drained slots
+    /// Empty `child`'s parent array, returning it. Group statements naming the drained slots
     /// are DELIBERATELY untouched: the caller re-states the orphaned names onto their new
     /// carrier itself (the below-insert path renames them onto the segment's parent-most).
     pub(crate) fn drain_parents(&mut self, child: EditorGraphIndex) -> Vec<EditorGraphIndex> {
         self.update_parents(child, std::mem::take)
     }
 
-    /// Drop every chain statement `keep` rejects.
+    /// Drop every stated carry edge `keep` rejects.
     fn retain_edges(&mut self, keep: impl Fn(&Edge) -> bool) {
-        for chains in self.chains.values_mut() {
-            for chain in chains.iter_mut() {
-                chain.edges.retain(&keep);
+        for groups in self.arrangement.values_mut() {
+            for group in groups.iter_mut() {
+                if let Carry::Edges(edges) = &mut group.carry {
+                    edges.retain(&keep);
+                }
             }
         }
     }
