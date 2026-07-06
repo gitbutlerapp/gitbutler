@@ -1183,29 +1183,34 @@ const PullRequestPrimaryAction: FC<{
 
 	const mergeReview = useMergeReview();
 	const setReviewDraftiness = useSetReviewDraftiness();
-	const isPending = mergeReview.isPending || setReviewDraftiness.isPending;
 
-	const canUsePrimaryAction = (review.draft || mergeStatus.isMergeable) && !isPending;
-
-	const primaryAction = () => {
-		if (!canUsePrimaryAction) return;
-		if (review.draft) {
-			setReviewDraftiness.mutate({ projectId, reviewId, draft: false });
-			return;
-		}
-		mergeReview.mutate({ projectId, reviewId, mergeMethod: null });
-	};
+	const isAnyPending = mergeReview.isPending || setReviewDraftiness.isPending;
+	const canMerge = !review.draft;
 
 	return (
-		<button
-			className={getButtonClassName({ variant: "pop" })}
-			disabled={!canUsePrimaryAction}
-			onClick={primaryAction}
-			type="button"
-		>
-			{isPending && <Icon name="spinner" />}
-			{review.draft ? "Mark as Ready" : "Merge"}
-		</button>
+		<div className={styles.prActions}>
+			<button
+				className={getButtonClassName({ variant: canMerge ? "outline" : "pop" })}
+				disabled={isAnyPending}
+				onClick={() => setReviewDraftiness.mutate({ projectId, reviewId, draft: !review.draft })}
+				type="button"
+			>
+				{setReviewDraftiness.isPending && <Icon name="spinner" />}
+				{review.draft ? "Mark as Ready" : "Convert to draft"}
+			</button>
+
+			{canMerge && (
+				<button
+					className={getButtonClassName({ variant: "pop" })}
+					disabled={isAnyPending || !mergeStatus.isMergeable}
+					onClick={() => mergeReview.mutate({ projectId, reviewId, mergeMethod: null })}
+					type="button"
+				>
+					{mergeReview.isPending && <Icon name="spinner" />}
+					Merge
+				</button>
+			)}
+		</div>
 	);
 };
 

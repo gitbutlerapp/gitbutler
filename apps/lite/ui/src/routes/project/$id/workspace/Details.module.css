@@ -41,6 +41,11 @@
 	}
 }
 
+.prActions {
+	display: flex;
+	gap: 6px;
+}
+
 .actions {
 	display: flex;
 	align-items: center;
