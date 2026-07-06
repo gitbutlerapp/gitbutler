@@ -836,6 +836,34 @@ pub(crate) fn integrate_upstream(
             // Update the branch heads, filtering out references for archived
             // heads so the validation in `set_all_heads` sees a consistent set.
             if let Some(output) = rebase_output {
+                // A persisted head at/below the merge base is invisible to the graph:
+                // the rebase yields no reference for it and `for_archival` misses it.
+                // Archive it here instead of letting `set_all_heads` fail on the mismatch.
+                let reference_names: HashSet<String> = output
+                    .references
+                    .iter()
+                    .map(|r| r.reference.to_string())
+                    .collect();
+                let stale_heads: Vec<Reference> = stack
+                    .heads
+                    .iter()
+                    .filter(|h| !h.archived && !reference_names.contains(h.name()))
+                    .filter(|h| {
+                        h.head_oid(&repo).is_ok_and(|head_oid| {
+                            repo.merge_base(head_oid, context.new_target)
+                                .is_ok_and(|base| base.detach() == head_oid)
+                        })
+                    })
+                    .map(|h| Reference::Virtual(h.name().clone()))
+                    .collect();
+                if !stale_heads.is_empty() {
+                    tracing::warn!(
+                        ?stale_heads,
+                        "archiving stale heads with no rebase reference at/below the merge base"
+                    );
+                    stack.archive_integrated_heads(ctx, &repo, &stale_heads, false)?;
+                }
+
                 let archived_names: HashSet<&str> = stack
                     .heads
                     .iter()

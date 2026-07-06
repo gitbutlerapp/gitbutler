@@ -626,6 +626,93 @@ fn integrate_upstream_with_fully_integrated_branch_in_stack() {
     assert_eq!(stacks[0].1.branch_details[0].name, "branch3");
 }
 
+/// Regression test: a persisted, non-archived head pinned below the workspace
+/// merge base is invisible to the graph, so the rebase yields no reference for
+/// it and `for_archival` misses it. `integrate_upstream` must archive it
+/// instead of failing with "The new head names do not match the current heads".
+#[test]
+fn integrate_upstream_archives_stale_head_below_merge_base() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    // Remote history: base -> initial -> upstream. Local resets to "initial",
+    // so "base" sits below the workspace merge base.
+    let base_oid = {
+        fs::write(repo.path().join("file.txt"), "base").unwrap();
+        let base_oid = repo.commit_all("base commit");
+        fs::write(repo.path().join("file.txt"), "initial").unwrap();
+        let initial = repo.commit_all("initial commit");
+        fs::write(repo.path().join("file.txt"), "upstream").unwrap();
+        repo.commit_all("upstream commit");
+        repo.push();
+        repo.reset_hard(Some(initial));
+        base_oid
+    };
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    let stack_id = {
+        let mut guard = ctx.exclusive_worktree_access();
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+            ctx,
+            &BranchCreateRequest {
+                name: Some("feature-branch".to_string()),
+                ..Default::default()
+            },
+            guard.write_permission(),
+        )
+        .unwrap();
+        drop(guard);
+
+        fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
+        super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
+
+        stack_entry.id
+    };
+
+    // Fabricate the stale head: a real ref at "base", persisted as a
+    // non-archived bottom head. This mirrors state left behind by moving all
+    // of a branch's commits elsewhere before the base advanced past it.
+    {
+        let repo = ctx.repo.get().unwrap();
+        let mut vb_state = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
+        let mut stack = vb_state.get_stack(stack_id).unwrap();
+        let stale =
+            gitbutler_stack::StackBranch::new(base_oid, "stale-branch".to_string(), &repo).unwrap();
+        stack.heads.insert(0, stale);
+        vb_state.set_stack(stack).unwrap();
+    }
+
+    let resolutions = vec![Resolution {
+        stack_id,
+        approach: ResolutionApproach::Rebase,
+        delete_integrated_branches: false,
+    }];
+    gitbutler_branch_actions::integrate_upstream(ctx, &resolutions, None, &Default::default())
+        .expect("integrate_upstream should archive the stale head instead of failing");
+
+    let vb_state = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
+    let stack = vb_state.get_stack(stack_id).unwrap();
+    let stale = stack
+        .heads
+        .iter()
+        .find(|h| h.name == "stale-branch")
+        .expect("stale head should still be persisted");
+    assert!(stale.archived, "stale head should be archived");
+    let feature = stack
+        .heads
+        .iter()
+        .find(|h| h.name == "feature-branch")
+        .expect("feature head should remain");
+    assert!(!feature.archived, "feature head should stay active");
+}
+
 /// Regression test for the scenario where stacks carry different amounts of
 /// upstream history, causing `merge_workspace` to fail during `integrate_upstream`.
 ///

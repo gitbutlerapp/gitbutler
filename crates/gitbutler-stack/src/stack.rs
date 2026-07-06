@@ -611,15 +611,17 @@ impl Stack {
         let mut state = branch_state_from_project_data_dir(project_data_dir);
 
         // same heads, just different commits
-        if self
+        let current_names: HashSet<&String> = self
             .heads
             .iter()
             .filter(|h| !h.archived)
             .map(|h| h.name())
-            .collect::<HashSet<_>>()
-            != new_heads.keys().collect::<HashSet<_>>()
-        {
-            return Err(anyhow!("The new head names do not match the current heads"));
+            .collect();
+        let new_names: HashSet<&String> = new_heads.keys().collect();
+        if current_names != new_names {
+            return Err(anyhow!(
+                "The new head names do not match the current heads (current: {current_names:?}, new: {new_names:?})"
+            ));
         }
         for head in &mut self.heads {
             if let Some(commit) = new_heads.get(head.name()) {
