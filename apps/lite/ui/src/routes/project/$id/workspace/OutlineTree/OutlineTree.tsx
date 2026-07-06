@@ -510,6 +510,7 @@ const Stacks: FC<{
 }> = ({ projectId, commitTarget }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
@@ -520,6 +521,7 @@ const Stacks: FC<{
 						source: mode.source,
 						target: mode.target,
 						operationType: mode.operationType,
+						headInfoIndex,
 					})?.operation
 				: undefined,
 		),
@@ -529,6 +531,7 @@ const Stacks: FC<{
 						source: mode.source,
 						target: selection,
 						operationType: mode.operationType,
+						headInfoIndex,
 					})?.operation
 				: undefined,
 		),

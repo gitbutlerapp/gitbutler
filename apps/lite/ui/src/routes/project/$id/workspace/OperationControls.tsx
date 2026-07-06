@@ -301,7 +301,7 @@ const TransferKeyboardOperationControls: FC<{
 
 	const target = selection;
 
-	const operations = getOperations(mode.source, target);
+	const operations = getOperations(mode.source, target, { headInfoIndex });
 	const operation = operations[mode.operationType];
 
 	const run = () => {

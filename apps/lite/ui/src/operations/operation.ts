@@ -18,6 +18,8 @@ import { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { Operand, operandEquals, operandFileParent } from "#ui/operands.ts";
 import { resolveDiffSpecs, useResolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
+import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
+import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { useParams } from "@tanstack/react-router";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -58,6 +60,9 @@ type Operation =
 	| ({ _tag: "MoveBranch" } & MoveBranchOperation);
 
 type OperationWithLabel = { operation: Operation; label: string };
+type OperationContext = {
+	headInfoIndex?: HeadInfoIndex;
+};
 
 const commitAmendOperation = (operation: CommitAmendOperation): Operation => ({
 	_tag: "CommitAmend",
@@ -423,11 +428,12 @@ const moveOperation = ({
 	source,
 	target,
 	side,
+	headInfoIndex,
 }: {
 	source: Operand;
 	target: Operand;
 	side: InsertSide;
-}): OperationWithLabel | null => {
+} & OperationContext): OperationWithLabel | null => {
 	const branchMoveOperation = Match.value({ source, target, side }).pipe(
 		// This should support `relativeTo`:
 		// https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
@@ -460,13 +466,19 @@ const moveOperation = ({
 		Match.when(
 			{
 				target: { _tag: "Branch" },
-				// We use the branch operand as the source/target for the branch
-				// contents. However, `RelativeTo` is interpreted to mean just the
-				// branch reference rather than the branch bucket, meaning `side:
-				// "below"` won't work as expected.
 				side: "above",
 			},
 			({ target }): RelativeTo | null => ({ type: "referenceBytes", subject: target.branchRef }),
+		),
+		Match.when(
+			{
+				target: { _tag: "Branch" },
+				side: "below",
+			},
+			({ target }): RelativeTo | null => {
+				const segment = headInfoIndex?.branchContextByRefBytes(target.branchRef)?.segment;
+				return segment ? segmentBottomRelativeTo(segment) : null;
+			},
 		),
 		Match.orElse((): RelativeTo | null => null),
 	);
@@ -474,20 +486,21 @@ const moveOperation = ({
 	if (!relativeTo) return null;
 
 	return Match.value({ source, sourceFileParent: operandFileParent(source) }).pipe(
-		Match.when(
-			{ source: { _tag: "Commit" } },
-			({ source }): OperationWithLabel => ({
-				operation: commitMoveOperation({
-					subjectCommitIds: [source.commitId],
-					relativeTo,
-					side,
-				}),
-				label: Match.value(side).pipe(
-					Match.when("above", () => "Move above"),
-					Match.when("below", () => "Move below"),
-					Match.exhaustive,
-				),
-			}),
+		Match.when({ source: { _tag: "Commit" } }, ({ source }): OperationWithLabel | null =>
+			relativeTo.type === "commit" && relativeTo.subject === source.commitId
+				? null
+				: {
+						operation: commitMoveOperation({
+							subjectCommitIds: [source.commitId],
+							relativeTo,
+							side,
+						}),
+						label: Match.value(side).pipe(
+							Match.when("above", () => "Move above"),
+							Match.when("below", () => "Move below"),
+							Match.exhaustive,
+						),
+					},
 		),
 		Match.when(
 			{ sourceFileParent: { _tag: "UncommittedChanges" } },
@@ -535,7 +548,11 @@ const isOperationSourceEnabled = (source: Operand): boolean =>
 
 export type OperationsByType = Record<OperationType, OperationWithLabel | null>;
 
-export const getOperations = (source: Operand, target: Operand): OperationsByType => {
+export const getOperations = (
+	source: Operand,
+	target: Operand,
+	context: OperationContext = {},
+): OperationsByType => {
 	if (operandEquals(source, target) || !isOperationSourceEnabled(source))
 		return {
 			into: null,
@@ -544,17 +561,19 @@ export const getOperations = (source: Operand, target: Operand): OperationsByTyp
 		};
 	return {
 		into: intoOperation({ source, target }),
-		above: moveOperation({ source, target, side: "above" }),
-		below: moveOperation({ source, target, side: "below" }),
+		above: moveOperation({ source, target, side: "above", ...context }),
+		below: moveOperation({ source, target, side: "below", ...context }),
 	};
 };
 
-export const getOperation = (x: {
-	source: Operand;
-	target: Operand;
-	operationType: OperationType;
-}): OperationWithLabel | null => {
-	const { into, above, below } = getOperations(x.source, x.target);
+export const getOperation = (
+	x: {
+		source: Operand;
+		target: Operand;
+		operationType: OperationType;
+	} & OperationContext,
+): OperationWithLabel | null => {
+	const { into, above, below } = getOperations(x.source, x.target, x);
 	return Match.value(x.operationType).pipe(
 		Match.when("into", () => into),
 		Match.when("above", () => above),

@@ -59,6 +59,7 @@ import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-
 import { reverse } from "effect/Array";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { WorkspacePageErrorBoundary } from "./WorkspacePageErrorBoundary.tsx";
+import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -185,8 +186,8 @@ const outlineNavigationItems = ({
 	];
 };
 
-const hasAnyOperation = (source: Operand, target: Operand) => {
-	const operations = getOperations(source, target);
+const hasAnyOperation = (source: Operand, target: Operand, headInfoIndex?: HeadInfoIndex) => {
+	const operations = getOperations(source, target, { headInfoIndex });
 	return !!operations.into || !!operations.above || !!operations.below;
 };
 
@@ -199,6 +200,7 @@ const useOutlineNavigationIndex = ({
 }): NavigationIndex<Operand> => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
@@ -219,7 +221,7 @@ const useOutlineNavigationIndex = ({
 				items.filter(
 					(operand) =>
 						operandContains(operand, activeMode.value.source) ||
-						hasAnyOperation(activeMode.value.source, operand),
+						hasAnyOperation(activeMode.value.source, operand, headInfoIndex),
 				),
 			RenameBranch: (x) =>
 				items.filter((operand) => operandEquals(operand, branchOperand(x.operand))),

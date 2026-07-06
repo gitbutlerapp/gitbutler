@@ -1,4 +1,6 @@
 import { operandEquals, type Operand } from "#ui/operands.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
+import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { parseDragData } from "./DragData.ts";
 import styles from "./OperationTarget.module.css";
 import {
@@ -19,6 +21,7 @@ import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { Match, pipe } from "effect";
 import { FC, useEffect, useEffectEvent, useRef } from "react";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { useQuery } from "@tanstack/react-query";
 
 type DropTargetParams = Parameters<typeof dropTargetForElements>[0];
 type GetDataArgs = Parameters<NonNullable<DropTargetParams["getData"]>>[0];
@@ -51,12 +54,16 @@ const useOperationDropTarget = ({
 	const dispatch = useAppDispatch();
 	const { mutate: runOperation } = useRunOperation();
 	const dropRef = useRef<HTMLElement>(null);
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 
 	const getData = useEffectEvent(({ input, element, source }: GetDataArgs) => {
 		const dragData = parseDragData(source.data);
 		if (!dragData) return {};
 
-		const { into, above, below } = getOperations(dragData.source, target);
+		const { into, above, below } = getOperations(dragData.source, target, { headInfoIndex });
 		return attachInstruction(
 			{},
 			{
@@ -120,6 +127,7 @@ const useOperationDropTarget = ({
 								source: dragData.source,
 								target,
 								operationType,
+								headInfoIndex,
 							})
 						: null;
 
@@ -132,9 +140,9 @@ const useOperationDropTarget = ({
 				runOperation(operation.operation);
 			},
 		});
-	}, [dispatch, projectId, runOperation, target]);
+	}, [dispatch, headInfoIndex, projectId, runOperation, target]);
 
-	return { dropRef };
+	return { dropRef, headInfoIndex };
 };
 
 export type OperationTargetOutline = "inside" | "outside";
@@ -149,7 +157,7 @@ export const OperationTarget: FC<
 		outline: OperationTargetOutline;
 	} & useRender.ComponentProps<"div">
 > = ({ enabled, target, projectId, isSelected, isAbsorptionTarget, outline, render, ...props }) => {
-	const { dropRef } = useOperationDropTarget({ enabled, target, projectId });
+	const { dropRef, headInfoIndex } = useOperationDropTarget({ enabled, target, projectId });
 
 	const activeTargetOperationType = useAppSelector((state) => {
 		const outlineMode = selectProjectOutlineModeState(state, projectId);
@@ -203,6 +211,7 @@ export const OperationTarget: FC<
 									source: mode.source,
 									target: mode.target,
 									operationType: mode.operationType,
+									headInfoIndex,
 								})?.label
 							: undefined,
 					),
@@ -213,6 +222,7 @@ export const OperationTarget: FC<
 								source: mode.source,
 								target,
 								operationType: mode.operationType,
+								headInfoIndex,
 							})?.label,
 					),
 					Match.orElse(() => undefined),
