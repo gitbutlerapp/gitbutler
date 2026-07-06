@@ -106,17 +106,17 @@ impl Graph {
         ws.mark_remote_reachability(self)?;
         ws.add_commits_on_remote(self);
         ws.truncate_single_stack_to_match_base();
-        self.debug_assert_applied_stacks_have_lanes(&ws);
+        self.debug_assert_applied_stacks_projected(&ws);
         Ok(ws)
     }
 
     /// Test-build tripwire for the most dangerous projection failure: an APPLIED metadata stack
     /// silently disappearing from `stacks`. Operations rebuild the workspace merge and metadata
-    /// heads from the projection, so a vanished lane does not just render wrong — it gets
+    /// heads from the projection, so a vanished stack does not just render wrong — it gets
     /// PERSISTED by the next write. Scoped to managed workspaces; a stack counts only when at
     /// least one non-archived branch of it actually names a segment in this graph.
     #[cfg(debug_assertions)]
-    fn debug_assert_applied_stacks_have_lanes(&self, ws: &WorkspaceState) {
+    fn debug_assert_applied_stacks_projected(&self, ws: &WorkspaceState) {
         use but_core::ref_metadata::StackKind::Applied;
         if !matches!(ws.kind, WorkspaceKind::Managed { .. }) {
             return;
@@ -133,7 +133,7 @@ impl Graph {
         // Only segments REACHABLE from the workspace tip count: metadata is the DESIRED state
         // and legitimately runs ahead of the graph mid-operation (apply writes metadata before
         // the workspace merge is rebuilt). The failure class is a branch that IS in the
-        // workspace's reach and still lost its lane.
+        // workspace's reach and still lost its stack.
         let mut reachable = std::collections::HashSet::new();
         self.visit_all_segments_including_start_until(ws.id, crate::Direction::Outgoing, |s| {
             reachable.insert(s.id);
@@ -151,7 +151,7 @@ impl Graph {
                             // A stack anchored on INTEGRATED territory away from the workspace
                             // lower bound is deliberately not overzealously materialized; one
                             // resting ON the lower bound (or holding live commits, or empty)
-                            // must keep its lane.
+                            // must keep its stack.
                             && s.commits.first().is_none_or(|c| {
                                 !c.flags.contains(crate::CommitFlags::Integrated)
                                     || Some(c.id) == ws.lower_bound
@@ -167,7 +167,7 @@ impl Graph {
                 represented_branches
                     .iter()
                     .any(|b| projected.contains(b.as_ref())),
-                "applied metadata stack {:?} (branches {:?}) vanished from the projection —                  operations writing from this projection would drop the lane on disk",
+                "applied metadata stack {:?} (branches {:?}) vanished from the projection —                  operations writing from this projection would drop the stack on disk",
                 stack.id,
                 represented_branches
                     .iter()
@@ -178,7 +178,7 @@ impl Graph {
     }
 
     #[cfg(not(debug_assertions))]
-    fn debug_assert_applied_stacks_have_lanes(&self, _ws: &WorkspaceState) {}
+    fn debug_assert_applied_stacks_projected(&self, _ws: &WorkspaceState) {}
 
     fn workspace_frame(&self) -> anyhow::Result<WorkspaceFrame> {
         let (
@@ -827,7 +827,7 @@ enum ComputeBaseTip {
 /// the first metadata stack mentioning it, and stack ids already claimed by an earlier projection
 /// stack are skipped. Returns the id plus whether that metadata stack is applied.
 ///
-/// This works because every applied metadata branch names a segment by construction (the lane
+/// This works because every applied metadata branch names a segment by construction (the chain
 /// plan mints empty segments for branches without commits), so the first name in segment order
 /// is the authoritative one — a weighted global ranking censused corpus-equivalent to this.
 fn find_matching_stack_id(
@@ -1197,10 +1197,10 @@ impl WorkspaceState {
         let keep_if_fully_integrated =
             upstream_advanced_past_target && !matches!(self.kind, WorkspaceKind::AdHoc);
         // The target's LOCAL tracking branch is exempt from integrated pruning when METADATA
-        // applies it as a lane in a MANAGED workspace: caught up with the target, ALL its
-        // commits are integrated by definition, so pruning would empty the lane by construction
+        // applies it as a stack in a MANAGED workspace: caught up with the target, ALL its
+        // commits are integrated by definition, so pruning would empty the stack by construction
         // and slide its base to the workspace lower bound (`ref_target=M2, base=M1` — an
-        // incoherent segment). An applied main keeps its commits: its lane IS the base
+        // incoherent segment). An applied main keeps its commits: its stack IS the base
         // indicator. The single-branch view of a checked-out main keeps pruning its integrated
         // base as before — membership, and thus the exemption, is metadata-explicit.
         let target_local = self
@@ -1214,12 +1214,12 @@ impl WorkspaceState {
             })
             .flatten();
         for stack in &mut self.stacks {
-            let is_target_local_lane =
+            let is_target_local_stack =
                 stack.id.is_some() && stack.ref_name().is_some_and(|rn| Some(rn) == target_local);
             // Upstream advanced: floor the stack at its fork point but keep a fully-integrated
             // tip in managed workspaces so it survives for `integrate_upstream`. Single-branch
             // mode keeps the branch shell, but prunes integrated target/base commits from it.
-            if !is_target_local_lane {
+            if !is_target_local_stack {
                 prune_integrated_stack_segments(stack, &prune_segments, keep_if_fully_integrated);
             }
             remove_empty_branches(stack, metadata, &keep_empty_segment_ids);

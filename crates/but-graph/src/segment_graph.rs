@@ -223,6 +223,32 @@ impl SegmentGraph {
             .push(connection);
     }
 
+    /// Add a connection `source -> target` at position `slot` of `source`'s connections
+    /// (clamped to the end). The position matters where connection order is data, like the
+    /// workspace segment, whose connection order is the projection's stack order.
+    pub(crate) fn insert_edge_at(
+        &mut self,
+        source: SegmentIndex,
+        slot: usize,
+        connection: Connection,
+    ) {
+        debug_assert!(
+            self.node(source).is_some(),
+            "connection source must be live"
+        );
+        debug_assert!(
+            self.node(connection.target).is_some(),
+            "connection target must be live"
+        );
+        self.incoming[connection.target].push(source);
+        let connections = &mut self.segments[source]
+            .as_mut()
+            .expect("live source")
+            .connections;
+        let slot = slot.min(connections.len());
+        connections.insert(slot, connection);
+    }
+
     /// Remove the first connection leaving `source` that equals `weight`, returning it.
     /// Connections have no global id; they are identified by source plus value.
     pub fn remove_edge(&mut self, source: SegmentIndex, weight: &Connection) -> Option<Connection> {

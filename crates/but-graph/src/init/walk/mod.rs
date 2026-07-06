@@ -260,7 +260,7 @@ pub fn find(
     };
 
     // Collapse EXACT duplicate parents right after reading the commit (a GitButler workspace merge
-    // encodes empty lanes as repeated parents, e.g. `[base, base]`). Lanes are derived from workspace
+    // encodes empty stacks as repeated parents, e.g. `[base, base]`). Stacks are derived from workspace
     // metadata, so the repeated edge is pure redundancy; dropping it here keeps the graph from emitting
     // a second connection to the same segment. Distinct parents (real merges) are preserved in order.
     // Matches the `CommitGraph` reader so both builders agree.

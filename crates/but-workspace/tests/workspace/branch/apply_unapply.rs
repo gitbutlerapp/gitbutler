@@ -730,14 +730,14 @@ mod workspace_disposition {
             ");
             insta::assert_snapshot!(graph_workspace(&ws), @"
             📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+            ├── ≡📙:4:virtual-base on 85efbe4 {1}
+            │   └── 📙:4:virtual-base
             ├── ≡📙:1:A on 85efbe4 {2}
             │   └── 📙:1:A
             │       └── ·09d8e52 (🏘️)
-            ├── ≡📙:2:B on 85efbe4 {3}
-            │   └── 📙:2:B
-            │       └── ·c813d8d (🏘️)
-            └── ≡📙:4:virtual-base on 85efbe4 {1}
-                └── 📙:4:virtual-base
+            └── ≡📙:2:B on 85efbe4 {3}
+                └── 📙:2:B
+                    └── ·c813d8d (🏘️)
             ");
         }
         Ok((tmp, repo, meta, ws))

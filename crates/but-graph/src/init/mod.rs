@@ -36,7 +36,7 @@ pub(crate) type Entrypoint = Option<(gix::ObjectId, Option<gix::refs::FullName>)
 /// ancestor segments (*AS*), which are ancestors of *TS* and connected to them by outgoing
 /// connections.
 ///
-/// - Virtual segments (*VS*) are minted by lane materialization to represent refs
+/// - Virtual segments (*VS*) are minted by chain materialization to represent refs
 ///   which are described in [but_core::ref_metadata::Workspace]. They are [named](crate::Segment::ref_name())
 ///   and always empty graph nodes, and ordinary virtual segments have *exactly one*
 ///   outgoing connection that lets `Graph::resolve_to_unambiguously_pointed_to_commit()`
@@ -473,7 +473,7 @@ impl Options {
 
 /// Builder
 impl Options {
-    /// Set the maximum amount of commits that each lane in a tip may traverse, but that's less important
+    /// Set the maximum amount of commits that each tip's walk may traverse, but that's less important
     /// than building consistent, connected graphs.
     pub fn with_limit_hint(mut self, limit: usize) -> Self {
         self.commits_limit_hint = Some(limit);

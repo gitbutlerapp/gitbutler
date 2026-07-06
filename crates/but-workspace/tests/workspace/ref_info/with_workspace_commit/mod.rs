@@ -1288,6 +1288,27 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
         stacks: [
             Stack {
                 id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    ref_info::ui::Segment {
+                        id: 4,
+                        ref_name: "►lane",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
+                        commits_on_remote: [],
+                        commits_outside: None,
+                        metadata: Branch,
+                        push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
+                    },
+                ],
+            },
+            Stack {
+                id: Some(
                     00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
@@ -1324,27 +1345,6 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                         commits: [
                             LocalCommit(cbc6713, "change\n", local),
                         ],
-                        commits_on_remote: [],
-                        commits_outside: None,
-                        metadata: Branch,
-                        push_status: CompletelyUnpushed,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-            Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000000,
-                ),
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: 4,
-                        ref_name: "►lane",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -1586,6 +1586,49 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
         stacks: [
             Stack {
                 id: Some(
+                    00000000-0000-0000-0000-000000000000,
+                ),
+                base: Some(
+                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                ),
+                segments: [
+                    ref_info::ui::Segment {
+                        id: 3,
+                        ref_name: "►lane-2",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
+                        commits_on_remote: [],
+                        commits_outside: None,
+                        metadata: Branch,
+                        push_status: CompletelyUnpushed,
+                        base: "None",
+                    },
+                    ref_info::ui::Segment {
+                        id: 4,
+                        ref_name: "►lane-2-segment-01",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
+                        commits_on_remote: [],
+                        commits_outside: None,
+                        metadata: Branch,
+                        push_status: CompletelyUnpushed,
+                        base: "None",
+                    },
+                    ref_info::ui::Segment {
+                        id: 5,
+                        ref_name: "►lane-2-segment-02",
+                        remote_tracking_ref_name: "None",
+                        commits: [],
+                        commits_on_remote: [],
+                        commits_outside: None,
+                        metadata: Branch,
+                        push_status: CompletelyUnpushed,
+                        base: "fafd9d0",
+                    },
+                ],
+            },
+            Stack {
+                id: Some(
                     00000000-0000-0000-0000-000000000001,
                 ),
                 base: Some(
@@ -1619,49 +1662,6 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                     ref_info::ui::Segment {
                         id: 7,
                         ref_name: "►lane-segment-02",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
-                        commits_on_remote: [],
-                        commits_outside: None,
-                        metadata: Branch,
-                        push_status: CompletelyUnpushed,
-                        base: "fafd9d0",
-                    },
-                ],
-            },
-            Stack {
-                id: Some(
-                    00000000-0000-0000-0000-000000000000,
-                ),
-                base: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                segments: [
-                    ref_info::ui::Segment {
-                        id: 3,
-                        ref_name: "►lane-2",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
-                        commits_on_remote: [],
-                        commits_outside: None,
-                        metadata: Branch,
-                        push_status: CompletelyUnpushed,
-                        base: "None",
-                    },
-                    ref_info::ui::Segment {
-                        id: 4,
-                        ref_name: "►lane-2-segment-01",
-                        remote_tracking_ref_name: "None",
-                        commits: [],
-                        commits_on_remote: [],
-                        commits_outside: None,
-                        metadata: Branch,
-                        push_status: CompletelyUnpushed,
-                        base: "None",
-                    },
-                    ref_info::ui::Segment {
-                        id: 5,
-                        ref_name: "►lane-2-segment-02",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],

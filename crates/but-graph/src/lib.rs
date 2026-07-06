@@ -109,8 +109,8 @@
 //!     - walk the git commit graph into a [`CommitGraph`]: an arena of commits with ordered
 //!       parent arrays and every encountered ref attached as data.
 //! * **planning**
-//!     - pure decision layers over the commit-graph (`facts`, the lane plan): boundaries,
-//!       lane structure from workspace metadata, and the complete name lifecycle are computed
+//!     - pure decision layers over the commit-graph (`facts`, the chain plan): boundaries,
+//!       chain structure from workspace metadata, and the complete name lifecycle are computed
 //!       as data before any segment exists.
 //! * **materialization**
 //!     - mint the segmented graph directly in its final shape. Segments are FINAL at creation:
@@ -126,7 +126,7 @@
 //! effectively representing a reference.
 //! Which of these references gets to own a commit is a *planning* decision.
 //!
-//! #### Planning lanes from metadata
+//! #### Planning chains from metadata
 //!
 //! *The Graph* is created from traversing the Git commit graph. Thus, information that is not contained in it,
 //! like workspace metadata, has to shape the segmented graph as it is built.
@@ -158,8 +158,8 @@
 //! This is because `gitbutler/workspace` owns `73a30f8`, with `origin/main` merely pointing to
 //! that commit; the other references would be plain refs on it.
 //!
-//! The lane plan instead reads [workspace metadata](but_core::ref_metadata::Workspace::stacks) before any
-//! segment exists and decides which refs form lanes of empty segments. Materialization then mints this
+//! The chain plan instead reads [workspace metadata](but_core::ref_metadata::Workspace::stacks) before any
+//! segment exists and decides which refs form chains of empty segments. Materialization then mints this
 //! shape directly:
 //!
 //! ```text
@@ -266,7 +266,7 @@ pub struct Graph {
     /// longer be resolved in the overlay/repository.
     entrypoint: Option<(SegmentIndex, EntryPointCommit)>,
     /// The ref_name used when starting the graph traversal. It is set to help assure that the entrypoint stays
-    /// on the correctly named segment, as lane creation can splice empty segments for independent and
+    /// on the correctly named segment, as chain creation can splice empty segments for independent and
     /// dependent branches around the entrypoint's position.
     entrypoint_ref: Option<gix::refs::FullName>,
     /// Effective initial traversal tips, in segment creation order.
@@ -364,7 +364,7 @@ impl EntryPointCommit {
 impl Graph {
     /// Return the entrypoint as a segment plus the optional position of its tip commit in that segment.
     ///
-    /// The graph stores the tip as an object id so it stays valid when lane creation places the entrypoint
+    /// The graph stores the tip as an object id so it stays valid when chain creation places the entrypoint
     /// on an empty or otherwise synthetic segment. Some graph-local consumers, like debug rendering and
     /// statistics, still need the segment-relative commit position to mark where the entrypoint appears in
     /// the current graph shape, so it is derived here instead of being stored as mutable state.
