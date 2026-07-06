@@ -157,6 +157,25 @@ export const useBranchCreate = () => {
 	});
 };
 
+export const usePublishReview = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.publishReview,
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to create pull request",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
 export const useUpdateReview = () => {
 	const toastManager = Toast.useToastManager();
 

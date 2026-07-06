@@ -1,6 +1,11 @@
 import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
-import { useMergeReview, useSetReviewDraftiness, useUpdateReview } from "#ui/api/mutations.ts";
+import {
+	useMergeReview,
+	usePublishReview,
+	useSetReviewDraftiness,
+	useUpdateReview,
+} from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
@@ -8,6 +13,7 @@ import {
 	commitDetailsWithLineStatsQueryOptions,
 	getReviewMergeStatusQueryOptions,
 	getReviewQueryOptions,
+	headInfoQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
@@ -63,7 +69,7 @@ import {
 	parsePatchFiles,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Hash, identity, Match } from "effect";
 import {
@@ -104,6 +110,7 @@ import { buildIndexByKey, NavigationIndex } from "#ui/workspace/navigation-index
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 
 type BranchTab = "diff" | "pr";
 
@@ -1089,15 +1096,24 @@ const Diff: FC<{
 
 const PullRequestForm: FC<{
 	projectId: string;
-	reviewId: number;
-	title: string;
+	sourceBranch: string;
+	targetBranch: string;
+	reviewId: number | null;
+	title: string | null;
 	body: string | null;
-}> = ({ projectId, reviewId, title, body }) => {
+}> = ({ projectId, sourceBranch, targetBranch, reviewId, title, body }) => {
+	const publishReview = usePublishReview();
 	const updateReview = useUpdateReview();
 	const formRef = useRef<HTMLFormElement | null>(null);
 	const [draftTitle, setDraftTitle] = useState<string | null>(null);
 	const [draftBody, setDraftBody] = useState<string | null>(null);
-	const canSubmit = (draftTitle === null || draftTitle.trim() !== "") && !updateReview.isPending;
+
+	const derivedTitle = draftTitle ?? title ?? "";
+	const derivedBody = draftBody ?? body ?? "";
+
+	const isNew = reviewId === null;
+	const isAnyPending = publishReview.isPending || updateReview.isPending;
+	const canSubmit = !isAnyPending && derivedTitle.trim() !== "";
 
 	const reset = () => {
 		setDraftTitle(title);
@@ -1108,14 +1124,26 @@ const PullRequestForm: FC<{
 		event.preventDefault();
 		if (!canSubmit) return;
 
-		updateReview.mutate({
-			projectId,
-			reviewId,
-			title: draftTitle,
-			body: draftBody,
-			state: null,
-			targetBase: null,
-		});
+		if (reviewId === null)
+			publishReview.mutate({
+				projectId,
+				params: {
+					title: derivedTitle,
+					body: derivedBody,
+					draft: true,
+					sourceBranch,
+					targetBranch,
+				},
+			});
+		else
+			updateReview.mutate({
+				projectId,
+				reviewId,
+				title: derivedTitle,
+				body: derivedBody,
+				state: null,
+				targetBase: null,
+			});
 	};
 
 	useHotkey(pullRequestHotkeys.update.hotkey, () => formRef.current?.requestSubmit(), {
@@ -1133,7 +1161,7 @@ const PullRequestForm: FC<{
 					onChange={(event) => setDraftTitle(event.currentTarget.value)}
 					placeholder="Title"
 					required
-					value={draftTitle ?? title}
+					value={derivedTitle}
 				/>
 			</Field.Root>
 
@@ -1144,14 +1172,14 @@ const PullRequestForm: FC<{
 					className="text-14 text-body text-monospace"
 					onChange={(event) => setDraftBody(event.currentTarget.value)}
 					placeholder="Description"
-					value={draftBody ?? body ?? ""}
+					value={derivedBody}
 				/>
 			</Field.Root>
 
 			<div className={styles.prFormActions}>
 				<button
 					className={getButtonClassName({})}
-					disabled={updateReview.isPending}
+					disabled={isAnyPending}
 					onClick={reset}
 					type="button"
 				>
@@ -1162,8 +1190,8 @@ const PullRequestForm: FC<{
 					disabled={!canSubmit}
 					type="submit"
 				>
-					{updateReview.isPending && <Icon name="spinner" />}
-					Update
+					{isAnyPending && <Icon name="spinner" />}
+					{isNew ? "Submit" : "Update"}
 				</button>
 			</div>
 		</form>
@@ -1220,6 +1248,8 @@ export const Details: FC<
 	} & ComponentProps<"div">
 > = ({ outlineSelection, ...restProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
 	const dispatch = useAppDispatch();
 	const detailsFullWindow = useAppSelector((state) =>
 		selectProjectDetailsFullWindow(state, projectId),
@@ -1385,12 +1415,40 @@ export const Details: FC<
 									})}
 								>
 									{({ data: branchDetails }) => {
+										// Use push status of segment, not branch details; something about remote
+										// tracking refs.
+										const branchCtx = headInfoIndex?.branchContextByRefBytes(branchRef);
+
+										const sourceBranch = branchCtx?.segment.refName?.displayName;
+
+										const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
+										const targetBranch =
+											!parentSegment || parentSegment.pushStatus === "integrated"
+												? headInfo?.target?.remoteTrackingRef.displayName
+												: parentSegment.pushStatus === "completelyUnpushed"
+													? undefined
+													: parentSegment.refName?.displayName;
+
 										const reviewId = branchDetails.prNumber;
 
 										return (
 											<div className={styles.prTab}>
-												{reviewId === null ? (
-													<p className="text-13">No pull request found.</p>
+												{targetBranch === undefined ? (
+													<p className="text-13">No remote target branch.</p>
+												) : sourceBranch === undefined ? (
+													<p className="text-13">No source branch.</p>
+												) : branchCtx?.segment.pushStatus === "completelyUnpushed" ? (
+													<p className="text-13">Branch must be pushed to create PR.</p>
+												) : reviewId === null ? (
+													<PullRequestForm
+														key={reviewId}
+														body={null}
+														projectId={projectId}
+														reviewId={reviewId}
+														sourceBranch={sourceBranch}
+														targetBranch={targetBranch}
+														title={null}
+													/>
 												) : (
 													<SuspenseQuery {...getReviewQueryOptions({ projectId, reviewId })}>
 														{({ data: review }) => (
@@ -1399,6 +1457,8 @@ export const Details: FC<
 																body={review.body}
 																projectId={projectId}
 																reviewId={reviewId}
+																sourceBranch={sourceBranch}
+																targetBranch={targetBranch}
 																title={review.title}
 															/>
 														)}
