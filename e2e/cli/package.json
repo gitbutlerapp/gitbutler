@@ -1,0 +1,15 @@
+{
+	"name": "@gitbutler/e2e-cli",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"test:e2e:cli": "vitest run --reporter=default --reporter=junit --outputFile.junit=test-results/results.xml"
+	},
+	"devDependencies": {
+		"vitest": "catalog:"
+	},
+	"dependencies": {
+		"@octokit/rest": "^22.0.0",
+		"tmp-promise": "^3.0.3"
+	}
+}
