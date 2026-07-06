@@ -12,8 +12,8 @@ import {
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	getReviewMergeStatusQueryOptions,
-	getReviewQueryOptions,
 	headInfoQueryOptions,
+	listReviewsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
@@ -1201,30 +1201,28 @@ const PullRequestForm: FC<{
 const PullRequestPrimaryAction: FC<{
 	projectId: string;
 	reviewId: number;
-}> = ({ projectId, reviewId }) => {
-	const [{ data: review }, { data: mergeStatus }] = useSuspenseQueries({
-		queries: [
-			getReviewQueryOptions({ projectId, reviewId }),
-			getReviewMergeStatusQueryOptions({ projectId, reviewId }),
-		],
-	});
+	isDraft: boolean;
+}> = ({ projectId, reviewId, isDraft }) => {
+	const { data: mergeStatus } = useSuspenseQuery(
+		getReviewMergeStatusQueryOptions({ projectId, reviewId }),
+	);
 
 	const mergeReview = useMergeReview();
 	const setReviewDraftiness = useSetReviewDraftiness();
 
 	const isAnyPending = mergeReview.isPending || setReviewDraftiness.isPending;
-	const canMerge = !review.draft;
+	const canMerge = !isDraft;
 
 	return (
 		<div className={styles.prActions}>
 			<button
 				className={getButtonClassName({ variant: canMerge ? "outline" : "pop" })}
 				disabled={isAnyPending}
-				onClick={() => setReviewDraftiness.mutate({ projectId, reviewId, draft: !review.draft })}
+				onClick={() => setReviewDraftiness.mutate({ projectId, reviewId, draft: !isDraft })}
 				type="button"
 			>
 				{setReviewDraftiness.isPending && <Icon name="spinner" />}
-				{review.draft ? "Mark as Ready" : "Convert to draft"}
+				{isDraft ? "Mark as Ready" : "Convert to draft"}
 			</button>
 
 			{canMerge && (
@@ -1302,23 +1300,28 @@ export const Details: FC<
 
 						<Suspense>
 							<SuspenseQuery
-								{...branchDetailsQueryOptions({
+								{...listReviewsQueryOptions({
 									projectId,
-									// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-									branchName: decodeBytes(outlineSelection.branchRef).replace(/^refs\/heads\//, ""),
-									remote: null,
+									cacheConfig: "noCache",
 								})}
 							>
-								{({ data: branchDetails }) =>
-									branchDetails.prNumber !== null && (
+								{({ data: { reviewsBySourceBranch } }) => {
+									const review = reviewsBySourceBranch.get(
+										// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+										decodeBytes(outlineSelection.branchRef).replace(/^refs\/heads\//, ""),
+									);
+									if (!review) return null;
+
+									return (
 										<div className={styles.tabsRowRight}>
 											<PullRequestPrimaryAction
 												projectId={projectId}
-												reviewId={branchDetails.prNumber}
+												reviewId={review.number}
+												isDraft={review.draft}
 											/>
 										</div>
-									)
-								}
+									);
+								}}
 							</SuspenseQuery>
 						</Suspense>
 					</div>
@@ -1407,20 +1410,16 @@ export const Details: FC<
 						Match.tag("Branch", ({ branchRef }) =>
 							branchTab === "pr" ? (
 								<SuspenseQuery
-									{...branchDetailsQueryOptions({
+									{...listReviewsQueryOptions({
 										projectId,
-										// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-										branchName: decodeBytes(branchRef).replace(/^refs\/heads\//, ""),
-										remote: null,
+										cacheConfig: "noCache",
 									})}
 								>
-									{({ data: branchDetails }) => {
+									{({ data: { reviewsBySourceBranch } }) => {
 										// Use push status of segment, not branch details; something about remote
 										// tracking refs.
 										const branchCtx = headInfoIndex?.branchContextByRefBytes(branchRef);
-
 										const sourceBranch = branchCtx?.segment.refName?.displayName;
-
 										const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
 										const targetBranch =
 											!parentSegment || parentSegment.pushStatus === "integrated"
@@ -1429,7 +1428,10 @@ export const Details: FC<
 													? undefined
 													: parentSegment.refName?.displayName;
 
-										const reviewId = branchDetails.prNumber;
+										const review =
+											sourceBranch !== undefined
+												? reviewsBySourceBranch.get(sourceBranch)
+												: undefined;
 
 										return (
 											<div className={styles.prTab}>
@@ -1439,30 +1441,25 @@ export const Details: FC<
 													<p className="text-13">No source branch.</p>
 												) : branchCtx?.segment.pushStatus === "completelyUnpushed" ? (
 													<p className="text-13">Branch must be pushed to create PR.</p>
-												) : reviewId === null ? (
+												) : review === undefined ? (
 													<PullRequestForm
-														key={reviewId}
 														body={null}
 														projectId={projectId}
-														reviewId={reviewId}
+														reviewId={null}
 														sourceBranch={sourceBranch}
 														targetBranch={targetBranch}
 														title={null}
 													/>
 												) : (
-													<SuspenseQuery {...getReviewQueryOptions({ projectId, reviewId })}>
-														{({ data: review }) => (
-															<PullRequestForm
-																key={reviewId}
-																body={review.body}
-																projectId={projectId}
-																reviewId={reviewId}
-																sourceBranch={sourceBranch}
-																targetBranch={targetBranch}
-																title={review.title}
-															/>
-														)}
-													</SuspenseQuery>
+													<PullRequestForm
+														key={review.number}
+														body={review.body}
+														projectId={projectId}
+														reviewId={review.number}
+														sourceBranch={sourceBranch}
+														targetBranch={targetBranch}
+														title={review.title}
+													/>
 												)}
 											</div>
 										);

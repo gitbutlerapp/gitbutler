@@ -5,6 +5,7 @@ import {
 	getReviewMergeStatusQueryOptions,
 	getReviewQueryOptions,
 	headInfoQueryOptions,
+	type QueryKey,
 } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -162,6 +163,11 @@ export const usePublishReview = () => {
 
 	return useMutation({
 		mutationFn: window.lite.publishReview,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: ["reviews" satisfies QueryKey, input.projectId],
+			});
+		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
@@ -182,10 +188,15 @@ export const useUpdateReview = () => {
 	return useMutation({
 		mutationFn: window.lite.updateReview,
 		onSuccess: async (_response, input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
-					.queryKey,
-			});
+			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: ["reviews" satisfies QueryKey, input.projectId],
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
+						.queryKey,
+				}),
+			]);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -208,6 +219,9 @@ export const useMergeReview = () => {
 		mutationFn: window.lite.mergeReview,
 		onSuccess: async (_response, input, _context, mutation) => {
 			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: ["reviews" satisfies QueryKey, input.projectId],
+				}),
 				mutation.client.invalidateQueries({
 					queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
 						.queryKey,
@@ -241,6 +255,9 @@ export const useSetReviewDraftiness = () => {
 		mutationFn: window.lite.setReviewDraftiness,
 		onSuccess: async (_response, input, _context, mutation) => {
 			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: ["reviews" satisfies QueryKey, input.projectId],
+				}),
 				mutation.client.invalidateQueries({
 					queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
 						.queryKey,

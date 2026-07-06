@@ -6,9 +6,11 @@ import type {
 	GetReviewParams,
 	ListBranchesParams,
 	ListCiChecksParams,
+	ListReviewsParams,
 	TreeChangeDiffParams,
 } from "#electron/ipc.ts";
 import { aggregateCIChecks } from "#ui/ci.ts";
+import type { ForgeReview } from "@gitbutler/but-sdk";
 import { queryOptions } from "@tanstack/react-query";
 
 export type QueryKey =
@@ -21,6 +23,7 @@ export type QueryKey =
 	| "headInfo"
 	| "review"
 	| "reviewMergeStatus"
+	| "reviews"
 	| "branches"
 	| "editors"
 	| "projects"
@@ -77,6 +80,21 @@ export const getReviewMergeStatusQueryOptions = ({ projectId, reviewId }: GetRev
 	queryOptions({
 		queryKey: ["reviewMergeStatus" satisfies QueryKey, projectId, reviewId],
 		queryFn: () => window.lite.getReviewMergeStatus({ projectId, reviewId }),
+	});
+
+export const listReviewsQueryOptions = ({ projectId, ...params }: ListReviewsParams) =>
+	queryOptions({
+		queryKey: ["reviews" satisfies QueryKey, projectId, params],
+		queryFn: () => window.lite.listReviews({ projectId, ...params }),
+		select: (reviews) => {
+			const reviewsBySourceBranch = new Map<string, ForgeReview>();
+			for (const review of reviews) reviewsBySourceBranch.set(review.sourceBranch, review);
+			return {
+				reviews,
+				reviewsBySourceBranch,
+			};
+		},
+		staleTime: 60_000,
 	});
 
 /** @public */
