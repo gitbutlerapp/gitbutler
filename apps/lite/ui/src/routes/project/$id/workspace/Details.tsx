@@ -1203,20 +1203,21 @@ const PullRequestPrimaryAction: FC<{
 	reviewId: number;
 	isDraft: boolean;
 }> = ({ projectId, reviewId, isDraft }) => {
-	const { data: mergeStatus } = useSuspenseQuery(
-		getReviewMergeStatusQueryOptions({ projectId, reviewId }),
-	);
+	const { data: mergeStatus } = useQuery({
+		...getReviewMergeStatusQueryOptions({ projectId, reviewId }),
+		// Minimise API calls.
+		enabled: !isDraft,
+	});
 
 	const mergeReview = useMergeReview();
 	const setReviewDraftiness = useSetReviewDraftiness();
 
 	const isAnyPending = mergeReview.isPending || setReviewDraftiness.isPending;
-	const canMerge = !isDraft;
 
 	return (
 		<div className={styles.prActions}>
 			<button
-				className={getButtonClassName({ variant: canMerge ? "outline" : "pop" })}
+				className={getButtonClassName({ variant: !isDraft ? "outline" : "pop" })}
 				disabled={isAnyPending}
 				onClick={() => setReviewDraftiness.mutate({ projectId, reviewId, draft: !isDraft })}
 				type="button"
@@ -1225,10 +1226,10 @@ const PullRequestPrimaryAction: FC<{
 				{isDraft ? "Mark as Ready" : "Convert to draft"}
 			</button>
 
-			{canMerge && (
+			{!isDraft && (
 				<button
 					className={getButtonClassName({ variant: "pop" })}
-					disabled={isAnyPending || !mergeStatus.isMergeable}
+					disabled={isAnyPending || mergeStatus?.isMergeable !== true}
 					onClick={() => mergeReview.mutate({ projectId, reviewId, mergeMethod: null })}
 					type="button"
 				>
