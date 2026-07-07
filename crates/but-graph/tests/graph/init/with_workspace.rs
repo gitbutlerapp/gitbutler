@@ -7699,3 +7699,46 @@ fn remote_ref_as_stack_top() -> anyhow::Result<()> {
     ");
     Ok(())
 }
+
+/// `git switch main --detach` with a configured target produces a stack whose single
+/// segment has neither a ref name (`HEAD` is detached so the segment is anonymized)
+/// nor any commits (they are all integrated), while still carrying the remote tracking
+/// branch of the ref it was detached from.
+/// Ideally, such a segment would either be named or have at least one commit.
+#[test]
+fn detached_head_at_target() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/detached-head-at-target")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 3183e43 (HEAD, origin/main, main) M1");
+
+    add_workspace(&mut meta);
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    └── ►:1[0]:origin/main →:0:
+        └── ►:0[1]:anon: <> origin/main →:1:
+            └── 👉🏁·3183e43 (⌂|1) ►main
+    ");
+
+    let ws = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    ⌂:0:DETACHED <> ✓refs/remotes/origin/main on 3183e43
+    └── ≡:0:anon: <> origin/main →:1: {1}
+        └── :0:anon: <> origin/main →:1:
+    ");
+
+    let segment = &ws.stacks[0].segments[0];
+    assert!(
+        segment.ref_name().is_none() && segment.commits.is_empty(),
+        "the current behavior: a segment with neither a name nor commits"
+    );
+    assert_eq!(
+        segment
+            .remote_tracking_ref_name
+            .as_ref()
+            .map(|rn| rn.as_bstr()),
+        Some("refs/remotes/origin/main".into()),
+        "but it kept the remote tracking branch of the ref HEAD was detached from"
+    );
+    Ok(())
+}

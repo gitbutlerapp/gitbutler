@@ -462,9 +462,9 @@ impl RevisionHistory {
     }
 
     /// The commit mappings starts empty, and gets updated when we perform a cherry pick.
-    /// If there is no entry whose old `to` that cooresponds with the new
+    /// If there is no entry whose old `to` that corresponds with the new
     /// `from`, then we just add a `to <- from` entry.
-    /// If there is an entry whose old `to` that cooresponds with the new
+    /// If there is an entry whose old `to` that corresponds with the new
     /// `from`, then we replace `old_to <- old_from` with `new_to <- old_from`
     pub(crate) fn update_mapping(&mut self, from: gix::ObjectId, to: gix::ObjectId) {
         if let Some(value) = self.commit_mappings.remove(&from) {

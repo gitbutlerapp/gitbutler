@@ -1671,4 +1671,13 @@ EOF
        commit x2
      create_workspace_commit_once X
   )
+
+  # HEAD is detached at the tip of the target's local tracking branch,
+  # like after `git switch main --detach`.
+  git init detached-head-at-target
+  (cd detached-head-at-target
+     commit M1
+     setup_target_to_match_main
+     git checkout --detach main
+  )
 )
