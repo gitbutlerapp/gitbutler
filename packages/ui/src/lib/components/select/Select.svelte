@@ -93,12 +93,36 @@
 		),
 	);
 
+	// Rendering every option eagerly freezes the app when the list is huge
+	// (e.g. selecting a target branch in a repo with tens of thousands of
+	// remote branches), so render in chunks that grow as the list scrolls.
+	const RENDER_CHUNK = 100;
+	const RENDER_MORE_THRESHOLD = 200; // px left to scroll before rendering more
+	let renderLimit = $state(RENDER_CHUNK);
+	const renderedOptions = $derived(filteredOptions.slice(0, renderLimit));
+
+	let lastSearchValue = untrack(() => searchValue);
+	$effect(() => {
+		if (searchValue !== lastSearchValue) {
+			lastSearchValue = searchValue;
+			renderLimit = RENDER_CHUNK;
+		}
+	});
+
+	function renderMoreOnScroll(e: Event) {
+		if (renderLimit >= filteredOptions.length) return;
+		const { scrollTop, scrollHeight, clientHeight } = e.target as HTMLElement;
+		if (scrollHeight - scrollTop - clientHeight < RENDER_MORE_THRESHOLD) {
+			renderLimit += RENDER_CHUNK;
+		}
+	}
+
 	// Group options by separators
 	const groupedOptions = $derived.by(() => {
 		const groups: SelectItem<T>[][] = [];
 		let currentGroup: SelectItem<T>[] = [];
 
-		for (const option of filteredOptions) {
+		for (const option of renderedOptions) {
 			if (option.separator) {
 				if (currentGroup.length > 0) {
 					groups.push(currentGroup);
@@ -118,7 +142,7 @@
 
 	// Flatten grouped options for navigation while preserving order
 	const selectableOptions = $derived.by(
-		() => filteredOptions.filter((item) => !item.separator) as SelectItem<T>[],
+		() => renderedOptions.filter((item) => !item.separator) as SelectItem<T>[],
 	);
 
 	// Auto-highlight first option when search results change, reset when search is cleared
@@ -379,7 +403,7 @@
 				tabindex="-1"
 				onkeydown={(ev: KeyboardEvent) => handleKeyDown(ev)}
 			>
-				<ScrollableContainer whenToShow="scroll">
+				<ScrollableContainer whenToShow="scroll" onscroll={renderMoreOnScroll}>
 					{#if searchable && options.length > 5}
 						<SearchItem bind:this={searchItemEl} bind:searchValue />
 					{/if}
