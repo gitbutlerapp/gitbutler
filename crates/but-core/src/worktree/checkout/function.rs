@@ -52,7 +52,7 @@ pub fn safe_checkout(
     repo: &gix::Repository,
     Options {
         skip_head_update,
-        merge_base_override,
+        merge_base_override: _merge_base_override,
         allow_conflicted_commit_checkout,
     }: Options,
 ) -> anyhow::Result<Outcome> {
@@ -83,7 +83,7 @@ pub fn safe_checkout(
         source_tree.id,
         destination_tree.id,
         &mut opts,
-        merge_base_override,
+        None,
     )?
     .map(|(snapshot_id, new_destination_id)| {
         if let Some(id) = new_destination_id {
