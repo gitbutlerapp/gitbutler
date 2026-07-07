@@ -32,6 +32,7 @@ use crate::{
     CliId, IdMap,
     id::{ShortId, UncommittedHunk, UncommittedHunkOrFile},
     theme::Theme,
+    tui::image_diff::{self, ImageDiffData},
     utils::string_interning::{SharedStrings, Strings},
 };
 
@@ -76,6 +77,21 @@ impl IdGen<'_> {
 
 pub trait DiffLineWriter {
     fn write(&mut self, line: DetailsLine) -> anyhow::Result<()>;
+
+    /// Whether this writer can display [`DetailsLine::Image`] lines. When `false`, image
+    /// changes are not decoded and render as the usual binary-file placeholder text.
+    fn supports_images(&self) -> bool {
+        false
+    }
+
+    fn write_image(
+        &mut self,
+        id: SectionId,
+        cli_id: Option<Arc<CliId>>,
+        image: Arc<ImageDiffData>,
+    ) -> anyhow::Result<()> {
+        self.write(DetailsLine::Image(DetailsImageLine { id, cli_id, image }))
+    }
 
     fn write_selectable_text(
         &mut self,
@@ -186,6 +202,10 @@ impl<T> DiffLineWriter for WithSyntaxHighlighting<'_, T>
 where
     T: DiffLineWriter,
 {
+    fn supports_images(&self) -> bool {
+        self.inner.supports_images()
+    }
+
     fn write(&mut self, line: DetailsLine) -> anyhow::Result<()> {
         match line {
             DetailsLine::Code(code_line) => {
@@ -233,7 +253,17 @@ pub enum DetailsLine {
         text: String,
     },
     Code(DetailsCodeLine),
+    /// An image change, rendered as pictures by writers that support it.
+    Image(DetailsImageLine),
     SectionSeparator,
+}
+
+#[derive(Debug, Clone)]
+pub struct DetailsImageLine {
+    pub id: SectionId,
+    pub cli_id: Option<Arc<CliId>>,
+    /// Shared so cloning lines into the details cache stays cheap.
+    pub image: Arc<ImageDiffData>,
 }
 
 #[derive(Debug, Clone)]
@@ -497,7 +527,7 @@ pub fn render_commit(
         out.write_section_separator()?;
     }
 
-    render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
+    render_tree_changes(tree_changes, ctx, theme, &mut id_gen, out)?;
 
     Ok(())
 }
@@ -527,7 +557,7 @@ pub fn render_branch(
         out.write_section_separator()?;
     }
 
-    render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
+    render_tree_changes(tree_changes, ctx, theme, &mut id_gen, out)?;
 
     Ok(())
 }
@@ -542,6 +572,7 @@ pub fn render_uncommitted(
     let mut id_gen = id_gen.scoped("uncommitted");
 
     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
+    let worktree_changes = wt_changes.worktree_changes.changes;
     let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
     let uncommitted_hunks = filter_uncommitted_hunks(ctx, &id_map, |hunk_assignment| {
         hunk_assignment.stack_id.is_none()
@@ -569,7 +600,20 @@ pub fn render_uncommitted(
             theme,
         )?;
 
-        render_hunk_assignment(id, Some(Arc::clone(&cli_id)), hunk_assignment, theme, out)?;
+        let image = (out.supports_images() && hunk_assignment.diff.is_none())
+            .then(|| {
+                image_for_worktree_path(
+                    ctx,
+                    &worktree_changes,
+                    hunk_assignment.path_bytes.as_bstr(),
+                )
+            })
+            .flatten();
+        if let Some(image) = image {
+            out.write_image(id, Some(Arc::clone(&cli_id)), image)?;
+        } else {
+            render_hunk_assignment(id, Some(Arc::clone(&cli_id)), hunk_assignment, theme, out)?;
+        }
 
         if pos.needs_padding_below() {
             out.write_section_separator()?;
@@ -591,6 +635,7 @@ pub fn render_uncommitted_hunk(
     let mut id_gen = id_gen.scoped(&hunk.id);
 
     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
+    let worktree_changes = wt_changes.worktree_changes.changes;
     let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
     let uncommitted_hunks = filter_uncommitted_hunks(ctx, &id_map, |hunk_assignment| {
         uncommitted_hunk_matches_selection(hunk_assignment, &hunk)
@@ -618,7 +663,20 @@ pub fn render_uncommitted_hunk(
             theme,
         )?;
 
-        render_hunk_assignment(id, Some(Arc::clone(&cli_id)), hunk_assignment, theme, out)?;
+        let image = (out.supports_images() && hunk_assignment.diff.is_none())
+            .then(|| {
+                image_for_worktree_path(
+                    ctx,
+                    &worktree_changes,
+                    hunk_assignment.path_bytes.as_bstr(),
+                )
+            })
+            .flatten();
+        if let Some(image) = image {
+            out.write_image(id, Some(Arc::clone(&cli_id)), image)?;
+        } else {
+            render_hunk_assignment(id, Some(Arc::clone(&cli_id)), hunk_assignment, theme, out)?;
+        }
 
         if pos.needs_padding_below() {
             out.write_section_separator()?;
@@ -665,7 +723,7 @@ pub fn render_committed_file(
         out.write_section_separator()?;
     }
 
-    render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
+    render_tree_changes(tree_changes, ctx, theme, &mut id_gen, out)?;
 
     Ok(())
 }
@@ -733,6 +791,25 @@ fn render_hunk_assignment(
     Ok(())
 }
 
+/// Decode both sides of `change` when its path looks like a renderable image.
+fn image_for_tree_change(ctx: &Context, change: &TreeChange) -> Option<Arc<ImageDiffData>> {
+    if !image_diff::is_image_path(&change.path_bytes) {
+        return None;
+    }
+    let repo = ctx.repo.get().ok()?;
+    image_diff::from_change(&repo, change)
+}
+
+/// Find the worktree change for `path` and decode it when it is an image.
+fn image_for_worktree_path(
+    ctx: &Context,
+    changes: &[TreeChange],
+    path: &BStr,
+) -> Option<Arc<ImageDiffData>> {
+    let change = changes.iter().find(|c| c.path_bytes.as_bstr() == path)?;
+    image_for_tree_change(ctx, change)
+}
+
 fn compute_line_stats_from_tree_changes(
     tree_changes: &[(TreeChange, UnifiedPatch)],
     line_stats: &mut LineStats,
@@ -756,6 +833,7 @@ fn compute_line_stats_from_tree_changes(
 
 fn render_tree_changes(
     tree_changes: Vec<(TreeChange, UnifiedPatch)>,
+    ctx: &Context,
     theme: &'static Theme,
     id_gen: &mut IdGen<'_>,
     out: &mut dyn DiffLineWriter,
@@ -817,11 +895,19 @@ fn render_tree_changes(
                     theme,
                 )?;
 
-                out.write_selectable_text(
-                    patch_id,
-                    None,
-                    "Binary file - no diff available".into(),
-                )?;
+                if let Some(image) = out
+                    .supports_images()
+                    .then(|| image_for_tree_change(ctx, &tree_change))
+                    .flatten()
+                {
+                    out.write_image(patch_id, None, image)?;
+                } else {
+                    out.write_selectable_text(
+                        patch_id,
+                        None,
+                        "Binary file - no diff available".into(),
+                    )?;
+                }
 
                 if tree_change_pos.needs_padding_below() {
                     out.write_section_separator()?;

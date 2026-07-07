@@ -132,6 +132,8 @@ pub fn render_tui(
         let (_watcher_handle, received_watcher_event) =
             start_watcher(ctx).context("failed to start filesystem watcher")?;
 
+        app.details.set_graphics_picker(query_graphics_picker());
+
         let mut terminal_guard = CrosstermTerminalGuard::alt_screen(true)?;
         let mut event_polling = CrosstermEventPolling::default();
 
@@ -149,6 +151,44 @@ pub fn render_tui(
     };
 
     Ok((app.status_lines, outcome))
+}
+
+/// Detect the terminal's image graphics protocol for the details pane, or `None` when the
+/// terminal gives no sign of supporting one.
+///
+/// Detection queries the terminal over stdio, so it must run before raw mode and the
+/// alternate screen are entered. The query is only sent when environment variables suggest
+/// a graphics-capable terminal: those terminals reliably answer it, while querying an
+/// arbitrary terminal risks its unanswered-query reader thread swallowing the first
+/// keystroke and breaking raw mode (see `query_with_timeout` in `ratatui_image`).
+fn query_graphics_picker() -> Option<ratatui_image::picker::Picker> {
+    let env_is_set = |name: &str| std::env::var(name).is_ok_and(|value| !value.is_empty());
+    let term = std::env::var("TERM").unwrap_or_default();
+    let term_program = std::env::var("TERM_PROGRAM").unwrap_or_default();
+
+    let likely_supported = env_is_set("KITTY_WINDOW_ID")
+        || env_is_set("GHOSTTY_RESOURCES_DIR")
+        || env_is_set("WEZTERM_EXECUTABLE")
+        || env_is_set("KONSOLE_VERSION")
+        || env_is_set("XTERM_VERSION")
+        || term.contains("kitty")
+        || term.contains("ghostty")
+        || term.starts_with("foot")
+        || matches!(
+            term_program.as_str(),
+            "ghostty" | "WezTerm" | "iTerm.app" | "WarpTerminal" | "rio"
+        );
+    if !likely_supported {
+        return None;
+    }
+
+    ratatui_image::picker::Picker::from_query_stdio_with_options(
+        ratatui_image::picker::cap_parser::QueryStdioOptions {
+            timeout: std::time::Duration::from_millis(500),
+            ..Default::default()
+        },
+    )
+    .ok()
 }
 
 fn render_loop<T, E>(
@@ -374,10 +414,16 @@ where
 {
     if std::mem::take(&mut app.should_render) {
         let _span = tracing::trace_span!("render").entered();
-        terminal_guard.terminal_mut().draw(|frame| {
-            app.renders += 1;
-            count_allocations("render", || render_app(app, frame))
-        })?;
+        terminal_guard.begin_synchronized_update();
+        let drawn = terminal_guard
+            .terminal_mut()
+            .draw(|frame| {
+                app.renders += 1;
+                count_allocations("render", || render_app(app, frame))
+            })
+            .map(|_| ());
+        terminal_guard.end_synchronized_update();
+        drawn?;
     }
 
     Ok(())

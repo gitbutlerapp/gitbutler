@@ -11,6 +11,7 @@ pub mod get_text;
 
 pub(crate) mod diff_viewer;
 pub mod editor;
+pub(crate) mod image_diff;
 pub(crate) mod stage_viewer;
 
 mod picker;
@@ -222,6 +223,15 @@ pub(crate) trait TerminalGuard {
 
     /// Get a mutable reference to the guard's terminal.
     fn terminal_mut(&mut self) -> &mut Terminal<Self::Backend>;
+
+    /// Mark the start of a frame so the terminal presents it atomically, avoiding
+    /// tearing and flicker, notably with inline graphics. Terminals without support
+    /// ignore it. No-op unless the guard targets a real terminal.
+    fn begin_synchronized_update(&mut self) {}
+
+    /// Mark the end of a frame started with
+    /// [`begin_synchronized_update`](Self::begin_synchronized_update).
+    fn end_synchronized_update(&mut self) {}
 }
 
 impl TerminalGuard for CrosstermTerminalGuard {
@@ -238,6 +248,20 @@ impl TerminalGuard for CrosstermTerminalGuard {
 
     fn terminal_mut(&mut self) -> &mut Terminal<CrosstermBackend<io::Stdout>> {
         &mut self.terminal
+    }
+
+    fn begin_synchronized_update(&mut self) {
+        let _ = crossterm::execute!(
+            self.terminal.backend_mut(),
+            crossterm::terminal::BeginSynchronizedUpdate
+        );
+    }
+
+    fn end_synchronized_update(&mut self) {
+        let _ = crossterm::execute!(
+            self.terminal.backend_mut(),
+            crossterm::terminal::EndSynchronizedUpdate
+        );
     }
 }
 
