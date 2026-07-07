@@ -6,7 +6,7 @@ use bstr::{BString, ByteSlice, ByteVec};
 use gix::reference::Category;
 
 use crate::{
-    CommitFlags, Graph, Segment, SegmentIndex, SegmentMetadata, StopCondition, init::PetGraph,
+    CommitFlags, Graph, Segment, SegmentGraph, SegmentIndex, SegmentMetadata, StopCondition,
 };
 
 /// Debugging
@@ -108,17 +108,17 @@ impl Graph {
             }
             Ok(())
         };
-        for node in self.inner.node_weights_mut() {
-            if let Some(ri) = node.ref_info.as_mut() {
+        for segment in self.inner.segments_mut() {
+            if let Some(ri) = segment.ref_info.as_mut() {
                 anon(&mut ri.ref_name)?;
             }
-            if let Some(rn) = node.remote_tracking_ref_name.as_mut() {
+            if let Some(rn) = segment.remote_tracking_ref_name.as_mut() {
                 anon(rn)?;
             }
-            for ri in node.commits.iter_mut().flat_map(|c| c.refs.iter_mut()) {
+            for ri in segment.commits.iter_mut().flat_map(|c| c.refs.iter_mut()) {
                 anon(&mut ri.ref_name)?;
             }
-            if let Some(SegmentMetadata::Workspace(md)) = node.metadata.as_mut() {
+            if let Some(SegmentMetadata::Workspace(md)) = segment.metadata.as_mut() {
                 for rn in md
                     .stacks
                     .iter_mut()
@@ -390,7 +390,7 @@ impl Graph {
     /// This relates to the amount of commits who were tracked for reachability, i.e. allowing an ancestor to see
     /// if a particular commit is in its future.
     pub fn max_goals(&self) -> Option<usize> {
-        self.node_weights()
+        self.segments()
             .filter_map(|s| s.commits.iter().map(|c| c.flags.num_goals()).max())
             .max()
     }
@@ -398,7 +398,7 @@ impl Graph {
     /// Return `true` if more than one unique worktree is referenced by the graph.
     pub(crate) fn has_multiple_worktrees(&self) -> bool {
         let mut first: Option<&crate::WorktreeKind> = None;
-        self.node_weights()
+        self.segments()
             .flat_map(|segment| {
                 segment
                     .ref_info
@@ -438,7 +438,7 @@ impl Graph {
         let max_goals = self.max_goals();
         let show_owned_by_repo = self.has_multiple_worktrees();
         let generations = self.derived_generations();
-        let node_attrs = |_: &PetGraph, (sidx, s): (SegmentIndex, &Segment)| {
+        let segment_attrs = |_: &SegmentGraph, (sidx, s): (SegmentIndex, &Segment)| {
             let name = format!(
                 "{ref_name_and_remote}{maybe_centering_newline}",
                 ref_name_and_remote = Self::ref_and_remote_debug_string_inner(
@@ -504,9 +504,9 @@ impl Graph {
             )
         };
 
-        let edge_attrs = &|g: &PetGraph, e: EdgeRef<'_>| {
-            let src = &g[e.source()];
-            let dst = &g[e.target()];
+        let edge_attrs = &|g: &SegmentGraph, e: EdgeRef<'_>| {
+            let src = &g[e.source];
+            let dst = &g[e.target];
             // Graphs may be half-baked, let's not worry about it then.
             if self.hard_limit_hit {
                 return ", label = \"\"".into();
@@ -516,7 +516,7 @@ impl Graph {
             let Err(err) = Self::check_edge(g, e, true) else {
                 return ", label = \"\"".into();
             };
-            let e = e.weight();
+            let e = e.connection;
             let src = src
                 .commit_id_by_index(e.src)
                 .map(|c| c.to_hex_with_len(HEX).to_string())
@@ -528,12 +528,12 @@ impl Graph {
             format!(", label = \"⚠{src} → {dst} ({err})\", fontname = Courier")
         };
         let mut dot = String::from("digraph {\n");
-        for sidx in self.inner.node_ids() {
-            let attrs = node_attrs(&self.inner, (sidx, &self.inner[sidx]));
+        for sidx in self.inner.segment_ids() {
+            let attrs = segment_attrs(&self.inner, (sidx, &self.inner[sidx]));
             dot.push_str(&format!("    {sidx} [ label = \"{sidx}\"{attrs} ]\n"));
         }
         for e in self.inner.edge_references() {
-            let (src, dst) = (e.source(), e.target());
+            let (src, dst) = (e.source, e.target);
             let attrs = edge_attrs(&self.inner, e);
             dot.push_str(&format!("    {src} -> {dst} [ label = \"\"{attrs} ]\n"));
         }
@@ -543,10 +543,7 @@ impl Graph {
 
     // WARNING: should only be run on a fresh clone as it probably leaves the graph unusable.
     fn prune_for_dot_graph(&mut self) {
-        let lower_bound_segment_id = self
-            .to_workspace_state()
-            .ok()
-            .and_then(|state| state.lower_bound_segment_id);
+        let lower_bound_segment_id = self.workspace_lower_bound_segment_id();
         if let Some(lower_bound_segment_id) = lower_bound_segment_id {
             self.remove_in_workspace_flag_below_lower_bound(lower_bound_segment_id);
         }
@@ -556,7 +553,7 @@ impl Graph {
         let mut to_remove = self.num_segments().saturating_sub(LIMIT);
         if to_remove > 0 {
             tracing::warn!(
-                "Pruning at most {to_remove} nodes from the bottom to assure 'dot' won't hang",
+                "Pruning at most {to_remove} segments from the bottom to assure 'dot' won't hang",
             );
             let mut next = VecDeque::new();
             next.extend(self.base_segments());
@@ -565,7 +562,7 @@ impl Graph {
                 if to_remove == 0 {
                     break;
                 }
-                if let Some(s) = self.node_weight(sidx) {
+                if let Some(s) = self.segment(sidx) {
                     if lower_bound_segment_id.is_some()
                         && s.non_empty_flags_of_first_commit()
                             .is_some_and(|flags| flags.contains(CommitFlags::InWorkspace))
@@ -583,12 +580,12 @@ impl Graph {
                     self.neighbors_directed(sidx, crate::Direction::Incoming)
                         .filter(|n| seen.insert_unseen(*n)),
                 );
-                self.remove_node(sidx);
+                self.remove_segment(sidx);
                 to_remove -= 1;
             }
             if to_remove != 0 {
                 tracing::warn!(
-                    "{to_remove} extra nodes were kept to keep vital portions of the graph"
+                    "{to_remove} extra segments were kept to keep vital portions of the graph"
                 );
             }
             self.set_hard_limit_hit();
@@ -605,7 +602,7 @@ impl Graph {
                 .filter(|n| seen.insert_unseen(*n))
                 .collect();
             for below_sidx in below_segments {
-                if let Some(segment) = self.node_weight_mut(below_sidx)
+                if let Some(segment) = self.segment_mut(below_sidx)
                     && let Some(first_commit) = segment.commits.first_mut()
                 {
                     first_commit.flags.remove(CommitFlags::InWorkspace);

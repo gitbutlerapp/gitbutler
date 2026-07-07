@@ -33,7 +33,7 @@ impl Graph {
             commits_at_cutoff,
         } = &mut out;
 
-        *segments = self.inner.node_count();
+        *segments = self.inner.segment_count();
         *connections = self.inner.edge_count();
         *top_segments = self
             .tip_segments()
@@ -83,7 +83,7 @@ impl Graph {
             }
         }
 
-        for n in self.inner.node_indices().map(|n| &self[n]) {
+        for n in self.inner.segment_ids().map(|n| &self[n]) {
             *commits += n.commits.len();
 
             if n.ref_info.is_none() {
@@ -127,7 +127,7 @@ impl Graph {
             *commit_references += n.commits.iter().map(|c| c.refs.len()).sum::<usize>();
         }
 
-        for sidx in self.inner.node_indices() {
+        for sidx in self.inner.segment_ids() {
             *commits_at_cutoff += usize::from(
                 self.stop_condition(sidx)
                     .is_some_and(|condition| condition.is_unnatural()),

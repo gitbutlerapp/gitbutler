@@ -158,7 +158,7 @@ impl Workspace {
         commit_to_merge: impl Into<gix::ObjectId>,
     ) -> Option<(gix::ObjectId, gix::ObjectId)> {
         let commit_to_merge = commit_to_merge.into();
-        let commit_segment_index = self.graph.node_weights().find_map(|s| {
+        let commit_segment_index = self.graph.segments().find_map(|s| {
             s.commits
                 .first()
                 .is_some_and(|c| c.id == commit_to_merge)

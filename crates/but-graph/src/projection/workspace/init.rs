@@ -19,7 +19,7 @@ use crate::{
     utils::SeenTable,
     workspace::{
         Stack, StackCommit, StackCommitFlags, StackSegment, TargetCommit, TargetRef, WorkspaceKind,
-        workspace::{WorkspaceState, find_segment_owner_indexes_by_refname},
+        workspace::find_segment_owner_indexes_by_refname,
     },
 };
 
@@ -27,7 +27,7 @@ use crate::{
 ///
 /// `WorkspaceFrame` identifies the workspace tip, entrypoint relationship,
 /// target-side traversal context, and lower bound. Final projection turns it
-/// into [`WorkspaceState`] by collecting stacks and then applying display-only
+/// into [`Workspace`] by collecting stacks and then applying display-only
 /// pruning/enrichment.
 struct WorkspaceFrame {
     /// Workspace classifier derived from the entrypoint or containing workspace segment.
@@ -77,20 +77,15 @@ impl Graph {
         err(Debug)
     )]
     pub fn into_workspace(self) -> anyhow::Result<Workspace> {
-        let state = self.to_workspace_state()?;
-        Ok(Workspace::from_state(self, state))
-    }
-
-    pub(crate) fn to_workspace_state(&self) -> anyhow::Result<WorkspaceState> {
         let frame = self.workspace_frame()?;
         let stacks = self.workspace_stacks(&frame)?;
         let mut target_ref = frame.target_ref;
 
         if let Some(target) = target_ref.as_mut() {
-            target.compute_and_set_commits_ahead(self, frame.lower_bound_segment_id);
+            target.compute_and_set_commits_ahead(&self, frame.lower_bound_segment_id);
         }
 
-        let mut ws = WorkspaceState {
+        let mut ws = Workspace {
             id: frame.ws_tip_segment_id,
             kind: frame.kind,
             stacks,
@@ -99,15 +94,21 @@ impl Graph {
             target_ref,
             target_commit: frame.target_commit,
             metadata: frame.metadata,
+            graph: self,
         };
 
         ws.prune_archived_segments();
-        ws.prune_integrated_segments(self);
-        ws.mark_remote_reachability(self)?;
-        ws.add_commits_on_remote(self);
+        ws.prune_integrated_segments();
+        ws.mark_remote_reachability()?;
+        ws.add_commits_on_remote();
         ws.truncate_single_stack_to_match_base();
-        self.debug_assert_applied_stacks_projected(&ws);
+        ws.graph.debug_assert_applied_stacks_projected(&ws);
         Ok(ws)
+    }
+
+    /// The lower-bound segment of the workspace frame, for debug-graph pruning.
+    pub(crate) fn workspace_lower_bound_segment_id(&self) -> Option<SegmentIndex> {
+        self.workspace_frame().ok()?.lower_bound_segment_id
     }
 
     /// Test-build tripwire for the most dangerous projection failure: an APPLIED metadata stack
@@ -116,7 +117,7 @@ impl Graph {
     /// PERSISTED by the next write. Scoped to managed workspaces; a stack counts only when at
     /// least one non-archived branch of it actually names a segment in this graph.
     #[cfg(debug_assertions)]
-    fn debug_assert_applied_stacks_projected(&self, ws: &WorkspaceState) {
+    fn debug_assert_applied_stacks_projected(&self, ws: &Workspace) {
         use but_core::ref_metadata::StackKind::Applied;
         if !matches!(ws.kind, WorkspaceKind::Managed { .. }) {
             return;
@@ -178,7 +179,7 @@ impl Graph {
     }
 
     #[cfg(not(debug_assertions))]
-    fn debug_assert_applied_stacks_projected(&self, _ws: &WorkspaceState) {}
+    fn debug_assert_applied_stacks_projected(&self, _ws: &Workspace) {}
 
     fn workspace_frame(&self) -> anyhow::Result<WorkspaceFrame> {
         let (
@@ -377,7 +378,7 @@ impl Graph {
             let stack_tops: Vec<_> = self
                 .inner
                 .edges_directed(frame.ws_tip_segment_id, Direction::Outgoing)
-                .map(|edge| edge.target())
+                .map(|edge| edge.target)
                 .collect();
             for stack_top_sidx in stack_tops {
                 let stack_segment = &self[stack_top_sidx];
@@ -685,7 +686,7 @@ impl Graph {
             .max_by_key(|target| {
                 std::cmp::Reverse(
                     self.commit_graph()
-                        .and_then(|cg| cg.node(target.commit_id))
+                        .and_then(|cg| cg.row(target.commit_id))
                         .map(|n| n.generation)
                         .unwrap_or_default(),
                 )
@@ -798,14 +799,14 @@ impl Graph {
         for edge in self.inner.edges_directed(current, Direction::Outgoing) {
             let before = out.len();
             if self.collect_preferred_next_segment_by_commit(
-                edge.target(),
+                edge.target,
                 entrypoint,
                 lower_bound,
                 seen,
                 out,
             ) {
-                if let Some(src_id) = edge.weight().src_id {
-                    out.push((src_id, edge.target()));
+                if let Some(src_id) = edge.connection.src_id {
+                    out.push((src_id, edge.target));
                 }
                 return true;
             }
@@ -950,7 +951,7 @@ impl Graph {
         self.inner
             .edges_directed(segment, Direction::Outgoing)
             .next()
-            .map(|edge| edge.target())
+            .map(|edge| edge.target)
     }
 
     /// Visit all segments from `start`, excluding, and return once `find` returns something mapped from the
@@ -1062,8 +1063,8 @@ impl Graph {
     }
 }
 
-/// More processing
-impl WorkspaceState {
+/// Projection-only pruning and enrichment, applied right after construction.
+impl Workspace {
     /// Match the archived flag from our workspace metadata by name with actual segments and prune them,
     /// top to bottom, but only if they are empty all the way down for safety.
     /// Doing so naturally shows segments that we have to show, independently of the archived flag.
@@ -1120,7 +1121,8 @@ impl WorkspaceState {
     /// the target via upstream integration.
     // TODO: the per-stack fork point is recomputed on every projection rather than
     //       stored; persisting it would avoid re-deriving the target trunk each build.
-    fn prune_integrated_segments(&mut self, graph: &Graph) {
+    fn prune_integrated_segments(&mut self) {
+        let graph = &self.graph;
         // Integrated-commit pruning only applies to workspaces tracking an upstream
         // target ref; without one, leave the stacks untouched.
         if self.target_ref.is_none() {
@@ -1182,7 +1184,7 @@ impl WorkspaceState {
                 .map(|ref_name| ref_name.as_ref())
                 .collect::<BTreeSet<_>>();
             graph
-                .node_weights()
+                .segments()
                 .filter_map(|segment| {
                     (segment.id == self.id
                         || segment
@@ -1233,7 +1235,8 @@ impl WorkspaceState {
 
     /// Trace the remotes of each segments down to their segment or other segments and set the commit flags accordingly
     /// to indicate if a commit in the workspace is reachable, and how.
-    fn mark_remote_reachability(&mut self, graph: &Graph) -> anyhow::Result<()> {
+    fn mark_remote_reachability(&mut self) -> anyhow::Result<()> {
+        let graph = &self.graph;
         let remote_refs: Vec<_> = self
             .stacks
             .iter()
@@ -1304,7 +1307,8 @@ impl WorkspaceState {
     /// - non-integrated commits from upper stack segments that are still on the
     ///   remote (the "branch split" case — a previously combined push left the
     ///   remote pointing at commits that now belong to branch above it).
-    fn add_commits_on_remote(&mut self, graph: &Graph) {
+    fn add_commits_on_remote(&mut self) {
+        let graph = &self.graph;
         for stack in &mut self.stacks {
             let mut above_commit_ids = HashSet::new();
             for seg_idx in 0..stack.segments.len() {

@@ -66,12 +66,12 @@ fn insert_single_node_segment_above() -> Result<()> {
         .select_reference(b)
         .context("Failed to find reference b in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: a_selector,
         parent: a_selector,
     };
 
-    editor.insert_segment(b_selector, delimiter, mutate::InsertSide::Above)?;
+    editor.insert_range(b_selector, range, mutate::InsertSide::Above)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
@@ -160,12 +160,12 @@ fn insert_single_node_segment_below() -> Result<()> {
         .select_commit(b)
         .context("Failed to find commit b in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: a_selector,
         parent: a_selector,
     };
 
-    editor.insert_segment(b_selector, delimiter, mutate::InsertSide::Below)?;
+    editor.insert_range(b_selector, range, mutate::InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
@@ -261,12 +261,12 @@ fn insert_multi_node_segment_above() -> Result<()> {
         .select_commit(b_parent)
         .context("Failed to find parent of commit b in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: b_selector,
         parent: b_parent_selector,
     };
 
-    editor.insert_segment(a_selector, delimiter, mutate::InsertSide::Above)?;
+    editor.insert_range(a_selector, range, mutate::InsertSide::Above)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
@@ -361,12 +361,12 @@ fn insert_multi_node_segment_below() -> Result<()> {
         .select_commit(b_parent)
         .context("Failed to find parent of commit b in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: b_selector,
         parent: b_parent_selector,
     };
 
-    editor.insert_segment(a_selector, delimiter, mutate::InsertSide::Below)?;
+    editor.insert_range(a_selector, range, mutate::InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
@@ -460,14 +460,14 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
         .select_commit(c)
         .context("Failed to find commit c in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: a_selector,
         parent: a_selector,
     };
 
-    editor.insert_segment_into(
+    editor.insert_range_into(
         b_selector,
-        delimiter,
+        range,
         mutate::InsertSide::Above,
         Some(mutate::SomeSelectors::new(vec![c_selector])?),
         mutate::ParentReparentingOrder::Prepend,
@@ -574,14 +574,14 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
         .select_commit(c)
         .context("Failed to find commit c in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: b_selector,
         parent: b_selector,
     };
 
-    editor.insert_segment_into(
+    editor.insert_range_into(
         a_selector,
-        delimiter,
+        range,
         mutate::InsertSide::Below,
         Some(mutate::SomeSelectors::new(vec![c_selector])?),
         mutate::ParentReparentingOrder::Prepend,
@@ -679,14 +679,14 @@ fn insert_single_node_segment_below_can_append_reparented_parent() -> Result<()>
         .select_commit(c)
         .context("Failed to find commit c in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: b_selector,
         parent: b_selector,
     };
 
-    editor.insert_segment_into(
+    editor.insert_range_into(
         a_selector,
-        delimiter,
+        range,
         mutate::InsertSide::Below,
         Some(mutate::SomeSelectors::new(vec![c_selector])?),
         mutate::ParentReparentingOrder::Append,

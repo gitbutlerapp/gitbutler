@@ -248,7 +248,7 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
     ");
     let (boundary_sidx, boundary_cidx) = ws
         .graph
-        .segments()
+        .segment_ids()
         .find_map(|sidx| {
             ws.graph[sidx]
                 .commits
@@ -268,7 +268,7 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
         .copied()
         .expect("shallow boundary commit still records its grafted parent");
     assert!(
-        ws.graph.segments().all(|sidx| ws.graph[sidx]
+        ws.graph.segment_ids().all(|sidx| ws.graph[sidx]
             .commits
             .iter()
             .all(|commit| commit.id != missing_parent)),

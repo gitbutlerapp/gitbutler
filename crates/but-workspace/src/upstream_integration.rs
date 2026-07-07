@@ -10,7 +10,7 @@ use but_rebase::{
     commit::DateMode,
     graph_rebase::{
         Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector,
-        mutate::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet},
+        mutate::{InsertSide, RelativeTo, SelectorSet, StepRange},
     },
 };
 
@@ -912,7 +912,7 @@ fn selector_commit_id<M: RefMetadata>(
 /// and point it at the latest target commit.
 ///
 /// The old checkout reference can be on the target ancestry path. Before repointing the step to
-/// the target tip, `disconnect_segment_from()` rewires its children around the old reference to
+/// the target tip, `disconnect_range_from()` rewires its children around the old reference to
 /// preserve the existing graph and avoid introducing a cycle.
 fn replace_direct_checkout_ref_with_fallback<M: RefMetadata>(
     editor: &mut Editor<'_, M>,
@@ -928,8 +928,8 @@ fn replace_direct_checkout_ref_with_fallback<M: RefMetadata>(
         Step::new_reference(fallback_ref_name.clone()),
     )?;
 
-    editor.disconnect_segment_from(
-        SegmentDelimiter {
+    editor.disconnect_range_from(
+        StepRange {
             child: head_ref_selector,
             parent: head_ref_selector,
         },

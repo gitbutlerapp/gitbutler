@@ -7,7 +7,7 @@ use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::Headers};
 use but_rebase::graph_rebase::{
     Editor, LookupStep, SuccessfulRebase, ToSelector,
-    mutate::{SegmentDelimiter, SelectorSet},
+    mutate::{SelectorSet, StepRange},
 };
 
 use crate::graph_manipulation::{EdgeSelection, connect_segment_to_edges, selected_edges_from_set};
@@ -141,7 +141,7 @@ pub fn integrate_branch_with_steps<'meta, M: RefMetadata>(
         };
     // Segment, from local-ref to the parent-most non-integrated local commit.
     // This represents the bounds of the commit chain we're about to manipulate and rebuild.
-    let segment_delimiter = SegmentDelimiter {
+    let range = StepRange {
         child: delimiter_child,
         parent: delimiter_parent,
     };
@@ -153,7 +153,7 @@ pub fn integrate_branch_with_steps<'meta, M: RefMetadata>(
 
     let children_to_reconnect = selected_edges_from_set(
         &editor,
-        segment_delimiter.child,
+        range.child,
         &children_to_disconnect,
         EdgeSelection::Children,
     )?;
@@ -167,7 +167,7 @@ pub fn integrate_branch_with_steps<'meta, M: RefMetadata>(
         .collect::<Vec<_>>();
     let parents_to_reconnect = selected_edges_from_set(
         &editor,
-        segment_delimiter.parent,
+        range.parent,
         &parents_to_disconnect,
         EdgeSelection::Parents,
     )?
@@ -184,12 +184,7 @@ pub fn integrate_branch_with_steps<'meta, M: RefMetadata>(
     .collect::<Result<Vec<_>>>()?;
 
     // Step 3: Disconnect the segment, isolating it so that we can freely manipulate it.
-    editor.disconnect_segment_from(
-        segment_delimiter,
-        children_to_disconnect,
-        parents_to_disconnect,
-        true,
-    )?;
+    editor.disconnect_range_from(range, children_to_disconnect, parents_to_disconnect, true)?;
 
     // Step 4: Based on the prepared steps, we rebuild the chain.
     let new_segment_delimiter =

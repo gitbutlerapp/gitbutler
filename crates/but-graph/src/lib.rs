@@ -225,7 +225,7 @@ pub use segment_graph::{Connection, Direction, SegmentGraph};
 /// The commit-first graph flattened out of the raw traversal — the substrate every graph build
 /// starts from. See the module docs.
 mod commit_graph;
-pub use commit_graph::{CommitGraph, CommitNode};
+pub use commit_graph::{CommitGraph, CommitRow};
 /// Remote-tracking deduction for the graph builders, plus the historical commit-first display
 mod commit_graph_to_segment_graph;
 /// The metadata-driven ref placement table stored on the commit graph. See the module docs.
@@ -251,7 +251,7 @@ pub type CommitIndex = usize;
 #[derive(Default, Clone)]
 #[must_use]
 pub struct Graph {
-    inner: init::PetGraph,
+    inner: SegmentGraph,
     /// From where the graph was created. This is useful if one wants to focus on a subset of the graph.
     ///
     /// This is `None` only for a freshly default-initialized graph, or while a graph is being assembled before
@@ -372,7 +372,7 @@ impl Graph {
     /// the current graph shape, so it is derived here instead of being stored as mutable state.
     fn entrypoint_location(&self) -> Option<(SegmentIndex, Option<CommitIndex>)> {
         let (segment_index, commit) = self.entrypoint?;
-        let segment = self.inner.node_weight(segment_index)?;
+        let segment = self.inner.segment(segment_index)?;
         Some((segment_index, commit.index_in(segment)))
     }
 }

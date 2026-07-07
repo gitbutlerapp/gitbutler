@@ -344,14 +344,14 @@ pub type QueueItem = (super::walk::TraverseInfo, CommitFlags, Instruction, Limit
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct EdgeOwned {
     pub source: SegmentIndex,
-    pub weight: Connection,
+    pub connection: Connection,
 }
 
 impl From<crate::segment_graph::EdgeRef<'_>> for EdgeOwned {
     fn from(e: crate::segment_graph::EdgeRef<'_>) -> Self {
         EdgeOwned {
-            source: e.source(),
-            weight: *e.weight(),
+            source: e.source,
+            connection: *e.connection,
         }
     }
 }
@@ -417,7 +417,7 @@ impl TopoWalk {
     /// of all available commits.
     pub fn next(
         &mut self,
-        graph: &crate::init::PetGraph,
+        graph: &crate::SegmentGraph,
     ) -> Option<(SegmentIndex, Range<CommitIndex>)> {
         while !self.next.is_empty() {
             let res = self.next_inner(graph);
@@ -433,7 +433,7 @@ impl TopoWalk {
 
     fn next_inner(
         &mut self,
-        graph: &crate::init::PetGraph,
+        graph: &crate::SegmentGraph,
     ) -> Option<(SegmentIndex, Range<CommitIndex>)> {
         let (segment, first_commit_index) = self.next.pop_front()?;
         let available_range = self.select_range(graph, segment, first_commit_index)?;
@@ -444,24 +444,24 @@ impl TopoWalk {
             match self.direction {
                 Direction::Outgoing => {
                     if edge
-                        .weight()
+                        .connection
                         .src
                         .is_some_and(|src_cidx| !available_range.contains(&src_cidx))
                     {
                         continue;
                     }
-                    self.next.push_back((edge.target(), edge.weight().dst));
+                    self.next.push_back((edge.target, edge.connection.dst));
                 }
                 Direction::Incoming => {
                     if edge
-                        .weight()
+                        .connection
                         .dst
                         .is_some_and(|dst_cidx| !available_range.contains(&dst_cidx))
                     {
                         continue;
                     }
                     self.next
-                        .push_back((edge.source(), edge.weight().src.map(|cidx| cidx + 1)));
+                        .push_back((edge.source, edge.connection.src.map(|cidx| cidx + 1)));
                 }
             }
         }
@@ -473,7 +473,7 @@ impl TopoWalk {
 
     fn select_range(
         &mut self,
-        graph: &crate::init::PetGraph,
+        graph: &crate::SegmentGraph,
         segment: SegmentIndex,
         first_commit_index: Option<CommitIndex>,
     ) -> Option<Range<CommitIndex>> {

@@ -6,7 +6,7 @@ use bitflags::bitflags;
 use but_core::{ref_metadata, ref_metadata::StackId};
 use gix::prelude::ObjectIdExt;
 
-use crate::{CommitFlags, Graph, SegmentIndex, SegmentMetadata, init::PetGraph};
+use crate::{CommitFlags, Graph, SegmentGraph, SegmentIndex, SegmentMetadata};
 
 /// A list of segments that together represent a list of dependent branches, stacked on top of each other.
 #[derive(Clone)]
@@ -51,7 +51,7 @@ impl Stack {
 
 impl Stack {
     pub(crate) fn from_base_and_segments(
-        graph: &PetGraph,
+        graph: &SegmentGraph,
         mut segments: Vec<StackSegment>,
         id: Option<StackId>,
     ) -> Self {
@@ -70,7 +70,7 @@ impl Stack {
     ///
     /// Needed after the stack's bottom is truncated (e.g. by integrated-trunk pruning),
     /// which leaves the collection-time base pointing at a segment no longer in the stack.
-    pub(crate) fn recompute_last_segment_base(&mut self, graph: &PetGraph) {
+    pub(crate) fn recompute_last_segment_base(&mut self, graph: &SegmentGraph) {
         let Some((last_segment, last_aggregated_sidx)) = self.segments.last_mut().and_then(|s| {
             let sidx = s.commits_by_segment.last().map(|t| t.0)?;
             Some((s, sidx))

@@ -21,7 +21,7 @@ use crate::graph_rebase::{
 impl<'meta, M: RefMetadata> Editor<'meta, M> {
     /// Perform the rebase IN PLACE: each mutable pick's commit id is rewritten where it
     /// stands, in dependency order, so a pick's parent slots already hold rebased ids by the
-    /// time it is picked. Node ids never change — parent arrays, positions, groups, and every
+    /// time it is picked. Entry ids never change — parent arrays, positions, groups, and every
     /// outstanding selector stay valid across the rebase.
     pub fn rebase(self) -> Result<SuccessfulRebase<'meta, M>> {
         crate::graph_rebase::positions::debug_assert_positions_total(&self.graph);
@@ -31,7 +31,7 @@ impl<'meta, M: RefMetadata> Editor<'meta, M> {
         let mut ref_edits = vec![];
         let mut unchanged_references = vec![];
 
-        // Every tip (a node with no children) seeds the traversal so every commit is
+        // Every tip (a entry with no children) seeds the traversal so every commit is
         // visited — immutable picks and tombstones are left untouched where they stand.
         let rebase_heads = graph.tips().collect::<Vec<_>>();
         let steps_to_pick = order_steps_picking(&graph, &rebase_heads);
@@ -104,7 +104,7 @@ impl<'meta, M: RefMetadata> Editor<'meta, M> {
             }
         }
 
-        // References need no rewrite at all — their position's `on` node now carries the
+        // References need no rewrite at all — their position's `on` entry now carries the
         // rebased id. All that remains is emitting the ref transaction: every live, mutable,
         // positioned reference moves to its pick's new commit.
         for step_idx in graph.ref_indices() {
@@ -194,7 +194,7 @@ impl<'meta, M: RefMetadata> Editor<'meta, M> {
 /// Then, we do a second traversal up from those bottom most
 /// steps.
 ///
-/// This second traversal ensures that all the parents of any given node have
+/// This second traversal ensures that all the parents of any given entry have
 /// been seen, before traversing it.
 fn order_steps_picking(
     graph: &EditorGraph,
@@ -210,7 +210,7 @@ fn order_steps_picking(
         .filter(|h| !graph.is_reference(*h))
         .collect();
     let mut seen = heads.iter().cloned().collect::<HashSet<EditorGraphIndex>>();
-    // Reachable nodes with no outgoing nodes.
+    // Reachable entries with no outgoing entries.
     let mut bases = VecDeque::new();
 
     while let Some(head) = heads.pop() {
@@ -235,7 +235,7 @@ fn order_steps_picking(
 
     while let Some(base) = bases.pop_front() {
         for (s, _) in graph.incoming_edges(base) {
-            // We only want to queue nodes for traversing that have had all of their parents traversed.
+            // We only want to queue entries for traversing that have had all of their parents traversed.
             let all_parents_seen = graph.parents(s).iter().all(|t| retraversed.contains(t));
             if all_parents_seen && seen.contains(&s) && retraversed.insert(s) {
                 bases.push_back(s);
@@ -306,13 +306,13 @@ mod test {
         #[test]
         fn basic_scenario() -> Result<()> {
             let mut graph = EditorGraph::default();
-            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let a = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));
-            let b = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let b = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "2000000000000000000000000000000000000000",
             )?));
-            let c = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let c = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "3000000000000000000000000000000000000000",
             )?));
 
@@ -338,34 +338,34 @@ mod test {
         #[test]
         fn complex_scenario() -> Result<()> {
             let mut graph = EditorGraph::default();
-            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let a = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));
-            let b = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let b = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "2000000000000000000000000000000000000000",
             )?));
-            let c = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let c = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "3000000000000000000000000000000000000000",
             )?));
-            let d = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let d = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "4000000000000000000000000000000000000000",
             )?));
-            let e = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let e = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "5000000000000000000000000000000000000000",
             )?));
-            let f = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let f = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "6000000000000000000000000000000000000000",
             )?));
-            let g = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let g = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "7000000000000000000000000000000000000000",
             )?));
-            let h = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let h = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "8000000000000000000000000000000000000000",
             )?));
-            let i = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let i = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "9000000000000000000000000000000000000000",
             )?));
-            let j = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let j = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "1100000000000000000000000000000000000000",
             )?));
 
@@ -405,19 +405,19 @@ mod test {
         #[test]
         fn merge_scenario() -> Result<()> {
             let mut graph = EditorGraph::default();
-            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let a = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));
-            let b = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let b = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "2000000000000000000000000000000000000000",
             )?));
-            let c = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let c = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "3000000000000000000000000000000000000000",
             )?));
-            let d = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let d = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "4000000000000000000000000000000000000000",
             )?));
-            let e = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let e = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "5000000000000000000000000000000000000000",
             )?));
 
@@ -447,19 +447,19 @@ mod test {
         #[test]
         fn merge_flipped_scenario() -> Result<()> {
             let mut graph = EditorGraph::default();
-            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let a = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "1000000000000000000000000000000000000000",
             )?));
-            let b = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let b = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "2000000000000000000000000000000000000000",
             )?));
-            let c = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let c = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "3000000000000000000000000000000000000000",
             )?));
-            let d = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let d = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "4000000000000000000000000000000000000000",
             )?));
-            let e = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
+            let e = graph.add_row(Step::new_pick(gix::ObjectId::from_str(
                 "5000000000000000000000000000000000000000",
             )?));
 

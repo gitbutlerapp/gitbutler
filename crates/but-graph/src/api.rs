@@ -9,8 +9,7 @@ use anyhow::{Context as _, bail, ensure};
 
 use crate::{
     Commit, CommitFlags, CommitIndex, EntryPoint, EntryPointCommit, Graph, Segment, SegmentFlags,
-    SegmentIndex, StopCondition,
-    init::PetGraph,
+    SegmentGraph, SegmentIndex, StopCondition,
     utils::{SegmentTable, SegmentVisitScratch},
     workspace::commit::is_managed_workspace_by_message,
 };
@@ -63,7 +62,7 @@ impl Graph {
 
     /// Insert `segment` to the graph so that it's not connected to any other segment, and return its index.
     pub fn insert_segment(&mut self, segment: Segment) -> SegmentIndex {
-        let index = self.inner.add_node(segment);
+        let index = self.inner.add_segment(segment);
         self.inner[index].id = index;
         index
     }
@@ -88,7 +87,7 @@ impl Graph {
         dst_commit: impl Into<Option<CommitIndex>>,
         dst_commit_id: impl Into<Option<gix::ObjectId>>,
     ) -> SegmentIndex {
-        let dst = self.inner.add_node(dst);
+        let dst = self.inner.add_segment(dst);
         self.inner[dst].id = dst;
         self.connect_segments_with_ids(
             src,
@@ -116,7 +115,7 @@ impl Graph {
             return Some(a);
         }
 
-        let mut flags = SegmentTable::new(self.inner.node_bound(), SegmentFlags::empty());
+        let mut flags = SegmentTable::new(self.inner.id_bound(), SegmentFlags::empty());
         let generations = self.derived_generations();
         let bases = self.paint_down_to_common(a, b, &mut flags, &generations);
 
@@ -172,7 +171,7 @@ impl Graph {
         first_parent: FirstParent,
     ) -> impl Iterator<Item = &Segment> {
         let first_parent: bool = first_parent.into();
-        let mut flags = SegmentTable::new(self.inner.node_bound(), SegmentFlags::empty());
+        let mut flags = SegmentTable::new(self.inner.id_bound(), SegmentFlags::empty());
         let generations = self.derived_generations();
         let mut queue = BinaryHeap::new();
         let mut sequence = 0;
@@ -304,7 +303,7 @@ impl Graph {
         let max_edges = if first_parent_only { 1 } else { usize::MAX };
         self.inner
             .edges_directed(segment_id, Direction::Outgoing)
-            .map(|edge| edge.target())
+            .map(|edge| edge.target)
             .take(max_edges)
     }
 
@@ -446,7 +445,7 @@ impl Graph {
     /// That is unexpected as the traversal is supposed to find all commits of interest.
     pub fn segment_by_commit_id(&self, commit_id: gix::ObjectId) -> anyhow::Result<&Segment> {
         self.inner
-            .node_weights()
+            .segments()
             .find(|s| s.commits.iter().any(|c| c.id == commit_id))
             .with_context(|| {
                 format!("Commit {commit_id} not found in any segment, it wasn't traversed")
@@ -458,11 +457,11 @@ impl Graph {
     /// the graph (formerly a stored per-segment field maintained by the builder). Used as the
     /// walk priority of the merge-base family: lower = closer to the tips.
     pub(crate) fn derived_generations(&self) -> SegmentTable<usize> {
-        let mut depth = SegmentTable::new(self.inner.node_bound(), 0usize);
+        let mut depth = SegmentTable::new(self.inner.id_bound(), 0usize);
         for sidx in self.inner.toposort() {
             let g = depth.get(sidx);
             for edge in self.inner.edges_directed(sidx, Direction::Outgoing) {
-                let e = depth.get_mut(edge.target());
+                let e = depth.get_mut(edge.target);
                 *e = (*e).max(g + 1);
             }
         }
@@ -686,7 +685,7 @@ impl Graph {
         let (segment_index, commit) = self
             .entrypoint
             .context("BUG: must always set the entrypoint")?;
-        let segment = self.inner.node_weight(segment_index).with_context(|| {
+        let segment = self.inner.segment(segment_index).with_context(|| {
             format!("BUG: entrypoint segment at {segment_index:?} wasn't present")
         })?;
         let commit_and_owner = match commit {
@@ -728,12 +727,12 @@ impl Graph {
     ///
     /// ### Performance
     ///
-    /// This is a brute-force search through all nodes and all data in the graph - beware of hot-loop usage.
+    /// This is a brute-force search through all segments and all data in the graph - beware of hot-loop usage.
     pub fn segment_and_commit_by_ref_name(
         &self,
         name: &gix::refs::FullNameRef,
     ) -> Option<(&Segment, &Commit)> {
-        self.inner.node_weights().find_map(|s| {
+        self.inner.segments().find_map(|s| {
             if s.ref_name().is_some_and(|rn| rn == name) {
                 self.tip_skip_empty(s.id).map(|c| (s, c))
             } else {
@@ -753,10 +752,10 @@ impl Graph {
     ///
     /// ### Performance
     ///
-    /// This is a brute-force search through all nodes and all data in the graph - beware of hot-loop usage.
+    /// This is a brute-force search through all segments and all data in the graph - beware of hot-loop usage.
     pub fn segment_by_ref_name(&self, name: &gix::refs::FullNameRef) -> Option<&Segment> {
         self.inner
-            .node_weights()
+            .segments()
             .find(|s| s.ref_name().is_some_and(|rn| rn == name))
     }
 
@@ -806,7 +805,7 @@ impl Graph {
             self.inner
                 .edges_directed(start, Direction::Outgoing)
                 .next()
-                .map(|edge| edge.target())
+                .map(|edge| edge.target)
         };
         let mut seen = self.seen_table();
         while let Some(sidx) = next {
@@ -818,7 +817,7 @@ impl Graph {
                 self.inner
                     .edges_directed(sidx, Direction::Outgoing)
                     .next()
-                    .map(|edge| edge.target())
+                    .map(|edge| edge.target)
             } else {
                 None
             };
@@ -843,7 +842,7 @@ impl Graph {
 
     /// Lookup the segment of `sidx` and then find its sibling segment, if it has one.
     pub(crate) fn lookup_sibling_segment(&self, sidx: SegmentIndex) -> Option<&Segment> {
-        self.inner.node_weight(sidx)?.sibling_segment(self)
+        self.inner.segment(sidx)?.sibling_segment(self)
     }
 
     /// Return all segments which have no other segments *above* them, making them tips.
@@ -890,9 +889,9 @@ impl Graph {
         self.inner
             .edges_directed(sidx, Direction::Outgoing)
             .filter_map(|edge| {
-                let dst = edge.weight().dst;
+                let dst = edge.connection.dst;
                 dst.is_none_or(|dst| dst == 0)
-                    .then_some((edge.weight().src, edge.target()))
+                    .then_some((edge.connection.src, edge.target))
             })
     }
 
@@ -923,7 +922,7 @@ impl Graph {
 
     /// Return the number of segments stored within the graph.
     pub fn num_segments(&self) -> usize {
-        self.inner.node_count()
+        self.inner.segment_count()
     }
 
     /// Return the number of edges that are connecting segments.
@@ -934,14 +933,9 @@ impl Graph {
     /// Return the number of commits in all segments.
     pub fn num_commits(&self) -> usize {
         self.inner
-            .node_indices()
+            .segment_ids()
             .map(|n| self[n].commits.len())
             .sum::<usize>()
-    }
-
-    /// Return an iterator over all indices of segments in the graph.
-    pub fn segments(&self) -> impl Iterator<Item = SegmentIndex> {
-        self.inner.node_indices()
     }
 
     /// Visit all segments, including `start`, until `visit_and_prune(segment)` returns `true`.
@@ -980,7 +974,7 @@ impl Graph {
     pub fn validated(self) -> anyhow::Result<Self> {
         if !self.hard_limit_hit {
             self.check_entrypoint_invariants()?;
-            for segment_index in self.inner.node_indices() {
+            for segment_index in self.inner.segment_ids() {
                 let segment = &self.inner[segment_index];
                 let outgoing = self
                     .inner
@@ -1017,7 +1011,7 @@ impl Graph {
     /// - The graph entrypoint exists, points to an existing segment, matches the
     ///   remembered entrypoint ref when one exists, and remembers a commit id
     ///   that is still represented in the graph.
-    /// - Virtual segments are empty, named graph nodes for real Git refs whose
+    /// - Virtual segments are empty, named segments for real Git refs whose
     ///   commit is owned elsewhere, and connected according to their
     ///   GitButler-only role.
     /// - Tip and ancestor segments with multiple parents own at least one commit.
@@ -1025,12 +1019,12 @@ impl Graph {
     ///
     /// This always checks:
     ///
-    /// - Edge weights still match the source and destination segment endpoints.
+    /// - Edge connections still match the source and destination segment endpoints.
     pub fn validation_errors(&self) -> Vec<anyhow::Error> {
         let mut out = Vec::new();
         if !self.hard_limit_hit {
             out.extend(self.check_entrypoint_invariants().err());
-            for segment_index in self.inner.node_indices() {
+            for segment_index in self.inner.segment_ids() {
                 let segment = &self.inner[segment_index];
                 let outgoing = self
                     .inner
@@ -1088,7 +1082,7 @@ impl Graph {
             .context("completed graph must have an entrypoint")?;
         let segment = self
             .inner
-            .node_weight(entrypoint_sidx)
+            .segment(entrypoint_sidx)
             .with_context(|| format!("entrypoint segment at {entrypoint_sidx:?} wasn't present"))?;
 
         if let Some(entrypoint_ref) = self.entrypoint_ref.as_ref() {
@@ -1136,7 +1130,7 @@ impl Graph {
         Ok(())
     }
 
-    /// Virtual segments are empty graph nodes that correspond to real Git
+    /// Virtual segments are empty segments that correspond to real Git
     /// references whose commits are owned by another segment.
     ///
     /// Ordinary virtual segments can resolve to the commit named by their refs by
@@ -1260,7 +1254,7 @@ impl Graph {
     fn check_ref_names_unique_and_unannotated(&self) -> anyhow::Result<()> {
         let mut seen: std::collections::HashMap<&gix::refs::FullNameRef, SegmentIndex> =
             std::collections::HashMap::new();
-        for sidx in self.inner.node_indices() {
+        for sidx in self.inner.segment_ids() {
             if let Some(name) = self.inner[sidx].ref_name()
                 && let Some(prev) = seen.insert(name, sidx)
             {
@@ -1270,7 +1264,7 @@ impl Graph {
                 );
             }
         }
-        for sidx in self.inner.node_indices() {
+        for sidx in self.inner.segment_ids() {
             for commit in &self.inner[sidx].commits {
                 for r in &commit.refs {
                     ensure!(
@@ -1293,7 +1287,7 @@ impl Graph {
     fn check_first_commits_unique(&self) -> anyhow::Result<()> {
         let mut seen: std::collections::HashMap<gix::ObjectId, SegmentIndex> =
             std::collections::HashMap::new();
-        for sidx in self.inner.node_indices() {
+        for sidx in self.inner.segment_ids() {
             if let Some(first) = self.inner[sidx]
                 .commits
                 .first()
@@ -1311,12 +1305,12 @@ impl Graph {
     /// remote segment is named by the local's remote-tracking ref and points back via its
     /// sibling link (the reconcile class — naming passes used to break these silently).
     fn check_remote_links(&self) -> anyhow::Result<()> {
-        for sidx in self.inner.node_indices() {
+        for sidx in self.inner.segment_ids() {
             let s = &self.inner[sidx];
             let Some(remote_sidx) = s.remote_tracking_branch_segment_id else {
                 continue;
             };
-            let Some(remote) = self.inner.node_weight(remote_sidx) else {
+            let Some(remote) = self.inner.segment(remote_sidx) else {
                 bail!(
                     "segment {sidx:?} links remote-tracking segment {remote_sidx:?} which does not exist"
                 );
@@ -1342,15 +1336,15 @@ impl Graph {
 
     /// Fail with an error if the `edge` isn't consistent.
     pub(crate) fn check_edge(
-        graph: &PetGraph,
+        graph: &SegmentGraph,
         edge: EdgeRef<'_>,
-        weight_only: bool,
+        connection_only: bool,
     ) -> anyhow::Result<()> {
         let e = edge;
-        let src = &graph[e.source()];
-        let dst = &graph[e.target()];
-        let w = e.weight();
-        let display = if weight_only {
+        let src = &graph[e.source];
+        let dst = &graph[e.target];
+        let w = e.connection;
+        let display = if connection_only {
             w as &dyn std::fmt::Debug
         } else {
             &e as &dyn std::fmt::Debug
@@ -1397,7 +1391,7 @@ impl IndexMut<SegmentIndex> for Graph {
 }
 
 impl Deref for Graph {
-    type Target = PetGraph;
+    type Target = SegmentGraph;
 
     fn deref(&self) -> &Self::Target {
         &self.inner

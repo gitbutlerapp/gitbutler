@@ -76,7 +76,7 @@ impl<'meta, M: RefMetadata> Editor<'meta, M> {
 /// [`but_graph::CommitGraph`] — no segment is read. The arena is the commit graph cloned
 /// wholesale — full commit payloads (flags, refs, generation) survive, which the
 /// write-through put-back depends on — then normalized to editor shape (every parent slot
-/// present, the ws commit on its stack slots), dressed with pick settings, and the reference
+/// present, the ws commit on its chain slots), dressed with pick settings, and the reference
 /// table translated 1:1 from the stored ref layout
 /// ([`RefPositions`](but_graph::ref_arrangement::RefPositions)).
 fn create_native(
@@ -87,29 +87,29 @@ fn create_native(
         bail!("native creation requires the ref layout the builder stores on the CommitGraph");
     };
 
-    let workspace_commit_id = stored.ws_stack_slots.as_ref().map(|(id, _)| *id);
+    let workspace_commit_id = stored.ws_chain_slots.as_ref().map(|(id, _)| *id);
 
     // A parent outside the graph means the traversal was partial here: the editor's slots
     // must all be present, so those slots are dropped — the raw parent list is preserved so
     // the rebase keeps the commit's real ancestry.
     let traversal_was_partial_at = |id: gix::ObjectId| {
-        let raw_parents = &cg.node(id).expect("iterating graph ids").commit.parent_ids;
-        (!raw_parents.is_empty() && raw_parents.iter().any(|p| cg.node(*p).is_none()))
+        let raw_parents = &cg.row(id).expect("iterating graph ids").commit.parent_ids;
+        (!raw_parents.is_empty() && raw_parents.iter().any(|p| cg.row(*p).is_none()))
             .then(|| raw_parents.clone())
     };
     let node_of = |id: gix::ObjectId| -> Result<EditorGraphIndex> {
         cg.index_of(id)
-            .map(EditorGraphIndex::Node)
+            .map(EditorGraphIndex::Row)
             .ok_or_else(|| anyhow!("stored position {id} is not a commit in the graph"))
     };
 
     let mut arena = cg.clone();
     for (i, id) in cg.commit_ids().enumerate() {
-        // The ws commit takes its STACK slots from the stored layout (dups and all); everything
+        // The ws commit takes its CHAIN slots from the stored layout (dups and all); everything
         // else keeps the PRESENT parents in slot order.
         if workspace_commit_id == Some(id) {
             let slots = stored
-                .ws_stack_slots
+                .ws_chain_slots
                 .as_ref()
                 .map(|(_, slots)| slots.as_slice())
                 .unwrap_or_default();
@@ -127,7 +127,7 @@ fn create_native(
     }
 
     // MUTABILITY: the stored entrypoint reach, extended by flooding the stored position
-    // topology from every extra mutable ref — down each ref stack, through the on-commit's
+    // topology from every extra mutable ref — down each ref's below-links, through the on-commit's
     // parent slots (crossing the refs entering them), over the NORMALIZED arena parents.
     let mut mutable_refs: Vec<bool> = stored.refs.iter().map(|r| r.reachable).collect();
     let mut mutable_commits: HashSet<gix::ObjectId> =
@@ -184,7 +184,7 @@ fn create_native(
                         for &r in entering_index.get(&(id, slot)).into_iter().flatten() {
                             queue.push(Visit::Ref(r));
                         }
-                        if let Some(parent_id) = arena.node_payload(parent) {
+                        if let Some(parent_id) = arena.row_payload(parent) {
                             queue.push(Visit::Commit(parent_id));
                         }
                     }
@@ -195,7 +195,7 @@ fn create_native(
 
     let mut editor_graph = EditorGraph::adopt(arena);
     for (i, id) in cg.commit_ids().enumerate() {
-        let ix = EditorGraphIndex::Node(i);
+        let ix = EditorGraphIndex::Row(i);
         let mut pick = if workspace_commit_id == Some(id) {
             Pick::new_workspace_pick(id)
         } else {
@@ -221,7 +221,7 @@ fn create_native(
         })
         .collect();
     // Two passes: refs stack top-down in the stored layout (a ref's `below` has a HIGHER
-    // ordinal), so every node must exist before positions can name it.
+    // ordinal), so every entry must exist before positions can name it.
     let ref_ixs: Vec<EditorGraphIndex> = stored
         .refs
         .iter()

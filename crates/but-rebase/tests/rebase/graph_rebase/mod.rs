@@ -13,7 +13,7 @@ mod edge;
 mod editor_creation;
 mod graph_workspace;
 mod insert;
-mod insert_segment;
+mod insert_range;
 mod materialize;
 mod merge_commit_changes;
 mod multiple_operations;

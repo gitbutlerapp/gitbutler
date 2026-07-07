@@ -540,7 +540,7 @@ fn workspace_with_target_at_stack_base_no_local_main() -> Result<()> {
 fn ops_on_immutable_refs_fail() -> Result<()> {
     use but_rebase::graph_rebase::{
         Step,
-        mutate::{InsertSide, SegmentDelimiter, SelectorSet},
+        mutate::{InsertSide, SelectorSet, StepRange},
     };
 
     let (repo, _tmpdir, mut meta) = fixture_writable("workspace-two-stacks")?;
@@ -578,8 +578,8 @@ fn ops_on_immutable_refs_fail() -> Result<()> {
     // Unhook (disconnecting the lone-reference segment).
     assert_eq!(
         editor
-            .disconnect_segment_from(
-                SegmentDelimiter {
+            .disconnect_range_from(
+                StepRange {
                     child: remote,
                     parent: remote,
                 },
@@ -594,9 +594,9 @@ fn ops_on_immutable_refs_fail() -> Result<()> {
     // Move (inserting the lone-reference segment elsewhere).
     assert_eq!(
         editor
-            .insert_segment(
+            .insert_range(
                 stack_a,
-                SegmentDelimiter {
+                StepRange {
                     child: remote,
                     parent: remote,
                 },

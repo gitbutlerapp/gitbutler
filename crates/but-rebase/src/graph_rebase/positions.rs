@@ -6,18 +6,18 @@
 //! references sharing one [`Carry`] — none of the pick's incoming edges, all of them, or an
 //! explicit edge list. A reference's position is read back as a [`RefPosition`] view:
 //!
-//! - `on` — the node the reference points at (followed through tombstones to a live pick);
+//! - `on` — the entry the reference points at (followed through tombstones to a live pick);
 //! - `below`  — the reference directly underneath in the physical stack (`None` = on the pick):
 //!   the previous member in its group, or the group's attach;
 //! - `ambiguous` — whether more than one thing converged here (i.e. this position is a merge).
 //!
 //! Keeping references out of the edge graph is deliberate: an edge running THROUGH a reference
-//! node would make the reference bear connectivity it shouldn't — gluing a commit's history onto
+//! would make the reference bear connectivity it shouldn't — gluing a commit's history onto
 //! whatever else the reference happens to touch. The functions here read and maintain positions.
 //!
 //! Vocabulary used throughout this module:
 //! - **edge** — a parent edge of the commit graph, named from its child side as
-//!   `(child node, parent-slot)` — the canonical identity, since edges live in parent arrays.
+//!   `(child entry, parent-slot)` — the canonical identity, since edges live in parent arrays.
 //!   A commit has one parent edge per parent; a pick's INCOMING edges are its children's
 //!   edges pointing at it.
 //! - **enters through** — an incoming edge of a pick ENTERS THROUGH a reference when it
@@ -31,13 +31,13 @@ use crate::graph_rebase::{EditorGraph, EditorGraphIndex};
 
 /// The reference's depth above its pick — the length of its below walk (0 = directly on
 /// the pick). This IS the rank: order among co-located references is adjacency, not a number.
-pub(crate) fn ref_depth(graph: &EditorGraph, node: EditorGraphIndex) -> usize {
+pub(crate) fn ref_depth(graph: &EditorGraph, entry: EditorGraphIndex) -> usize {
     let mut depth = 0usize;
-    let mut cursor = graph.position_of(node).and_then(|s| s.below);
+    let mut cursor = graph.position_of(entry).and_then(|s| s.below);
     while let Some(b) = cursor {
         depth += 1;
         if depth > 10_000 {
-            debug_assert!(false, "below walk cycle at ref {node}");
+            debug_assert!(false, "below walk cycle at ref {entry}");
             return depth;
         }
         cursor = graph.position_of(b).and_then(|s| s.below);
@@ -45,18 +45,18 @@ pub(crate) fn ref_depth(graph: &EditorGraph, node: EditorGraphIndex) -> usize {
     depth
 }
 
-/// The edges currently entering through the reference at `node` — the DIRECT carry read: the
-/// node's group carries its own edge statement, kept aligned by the slot mutators
+/// The edges currently entering through the reference at `entry` — the DIRECT carry read: the
+/// entry's group carries its own edge statement, kept aligned by the slot mutators
 /// (`EditorGraph::remove_parent` / `insert_parent` / `replace_parent`), ordered and filtered by
 /// the resolved pick's live edges so a stale carry edge never reaches a consumer.
 pub(crate) fn edges_through(
     graph: &EditorGraph,
-    node: EditorGraphIndex,
+    entry: EditorGraphIndex,
 ) -> Vec<(EditorGraphIndex, usize)> {
-    let Some(stored) = graph.position_of(node) else {
+    let Some(stored) = graph.position_of(entry) else {
         return Vec::new();
     };
-    let Some(carry) = graph.carry_of(node) else {
+    let Some(carry) = graph.carry_of(entry) else {
         return Vec::new();
     };
     let edges = match resolve_to_pick(graph, stored.on) {
@@ -74,15 +74,15 @@ pub(crate) fn edges_through(
 }
 
 /// Every reference that RESOLVES to `pick` — its stored `on`, followed through tombstones,
-/// ends at it. Order is unspecified (ascending node id), like the node-walking predecessor.
+/// ends at it. Order is unspecified (ascending entry id), like the arena-era predecessor.
 pub(crate) fn refs_resolving_to(
     graph: &EditorGraph,
     pick: EditorGraphIndex,
 ) -> Vec<EditorGraphIndex> {
     graph
         .positioned_refs()
-        .filter_map(|(node, stored)| {
-            (resolve_to_pick(graph, stored.on) == Some(pick)).then_some(node)
+        .filter_map(|(entry, stored)| {
+            (resolve_to_pick(graph, stored.on) == Some(pick)).then_some(entry)
         })
         .collect()
 }
@@ -108,22 +108,22 @@ pub(crate) fn debug_assert_positions_total(graph: &EditorGraph) {
     );
     let mut seen: std::collections::HashMap<OrderedPositionKey, EditorGraphIndex> =
         Default::default();
-    for node in graph.references().map(|(node, _, _)| node) {
+    for entry in graph.references().map(|(entry, _, _)| entry) {
         // A reference without a stored position is only legitimate when the graph holds no
         // pick below it at creation (unborn); it resolves to nothing.
-        let Some(stored) = graph.position_of(node) else {
+        let Some(stored) = graph.position_of(entry) else {
             continue;
         };
-        let entering = edges_through(graph, node);
+        let entering = edges_through(graph, entry);
         if entering.is_empty() {
             continue;
         }
         let pick = resolve_to_pick(graph, stored.on);
-        let rank = ref_depth(graph, node);
-        if let Some(previous) = seen.insert((pick, entering.clone(), rank), node) {
+        let rank = ref_depth(graph, entry);
+        if let Some(previous) = seen.insert((pick, entering.clone(), rank), entry) {
             debug_assert!(
                 false,
-                "reference nodes {previous} and {node} collide at position \
+                "references {previous} and {entry} collide at position \
                  (pick {pick:?}, entering {entering:?}, rank {rank})"
             );
         }
@@ -134,12 +134,12 @@ pub(crate) fn debug_assert_positions_total(graph: &EditorGraph) {
 /// pick, and the below walk is acyclic. Tombstoned refs keep their stored position for
 /// retention reads but are spliced out of the physical stack, so only live refs are graded.
 fn debug_assert_below_wellformed(graph: &EditorGraph) {
-    let name = |node: EditorGraphIndex| match graph.reference(node) {
+    let name = |entry: EditorGraphIndex| match graph.reference(entry) {
         Some((refname, _)) => refname.to_string(),
-        None => format!("{:?}", graph.step_view(node)),
+        None => format!("{:?}", graph.step_view(entry)),
     };
-    for (node, stored) in graph.positioned_refs() {
-        if !graph.is_reference(node) {
+    for (entry, stored) in graph.positioned_refs() {
+        if !graph.is_reference(entry) {
             continue;
         }
         let pick = resolve_to_pick(graph, stored.on);
@@ -147,18 +147,21 @@ fn debug_assert_below_wellformed(graph: &EditorGraph) {
         let mut cursor = stored.below;
         while let Some(b) = cursor {
             let Some(mate) = graph.position_of(b) else {
-                debug_assert!(false, "ref {node}: below {b} is not a positioned reference");
+                debug_assert!(
+                    false,
+                    "ref {entry}: below {b} is not a positioned reference"
+                );
                 return;
             };
             debug_assert_eq!(
                 resolve_to_pick(graph, mate.on),
                 pick,
-                "ref {node} ({}): below {b} ({}) resolves to a different pick",
-                name(node),
+                "ref {entry} ({}): below {b} ({}) resolves to a different pick",
+                name(entry),
                 name(b)
             );
             depth += 1;
-            debug_assert!(depth <= 10_000, "ref {node}: below walk cycle");
+            debug_assert!(depth <= 10_000, "ref {entry}: below walk cycle");
             if depth > 10_000 {
                 return;
             }
@@ -167,7 +170,7 @@ fn debug_assert_below_wellformed(graph: &EditorGraph) {
     }
 }
 
-/// The references the node-era traversal from `start` would have walked through, given the
+/// The references the arena-era traversal from `start` would have walked through, given the
 /// PICK set it reached: a group is entered when one of its edges was visited (the edge from
 /// edge to group top), and when `start` is itself a reference, it and its group below count.
 pub(crate) fn refs_reachable_with(
@@ -175,17 +178,17 @@ pub(crate) fn refs_reachable_with(
     start: EditorGraphIndex,
     picks: &std::collections::HashSet<EditorGraphIndex>,
 ) -> Vec<EditorGraphIndex> {
-    // Reached commits by ID as well as node: a graph can hold one commit twice (a stack group
-    // and a target group), and the node era's shared reference nodes made reachability
+    // Reached commits by ID as well as entry: a graph can hold one commit twice (a stack group
+    // and a target group), and the arena era's shared reference entries made reachability
     // commit-equivalent across such groups.
     let reached_ids: std::collections::HashSet<gix::ObjectId> = picks
         .iter()
-        .filter_map(|node| graph.commit_id(*node))
+        .filter_map(|entry| graph.commit_id(*entry))
         .collect();
     let mut out = Vec::new();
-    for (node, stored) in graph.positioned_refs() {
+    for (entry, stored) in graph.positioned_refs() {
         // A group whose pick is reached lies on reached history — pick-based
-        // reachability, exactly what the node-era walk through interposed reference nodes
+        // reachability, exactly what the arena-era walk through interposed reference entries
         // computed (and the ruling the merge-bypass deletion rests on).
         let pick_reached = resolve_to_pick(graph, stored.on).is_some_and(|pick| {
             picks.contains(&pick)
@@ -193,8 +196,8 @@ pub(crate) fn refs_reachable_with(
                     .commit_id(pick)
                     .is_some_and(|id| reached_ids.contains(&id))
         });
-        if pick_reached || node == start {
-            out.push(node);
+        if pick_reached || entry == start {
+            out.push(entry);
         }
     }
     out
@@ -232,7 +235,7 @@ pub(crate) fn prepare_group_join(graph: &EditorGraph, ref_node: EditorGraphIndex
             let Some(m) = graph.position_of(b) else {
                 break;
             };
-            if group.iter().any(|(node, _)| *node == b) {
+            if group.iter().any(|(entry, _)| *entry == b) {
                 members.push((b, m.clone()));
             }
             cursor = m.below;
@@ -253,13 +256,13 @@ pub(crate) fn apply_group_join(
     join: &GroupJoin,
     edge: (EditorGraphIndex, usize),
 ) {
-    for (node, member) in &join.members {
+    for (entry, member) in &join.members {
         let mut entering = join.entering.clone();
         if !entering.contains(&edge) {
             entering.push(edge);
         }
         let ambiguous = member.ambiguous || entering.len() > 1;
-        graph.set_position(*node, member.on, &entering, ambiguous, member.below);
+        graph.set_position(*entry, member.on, &entering, ambiguous, member.below);
     }
 }
 
@@ -280,16 +283,16 @@ pub(crate) fn reposition_refs(
 ) {
     let moves: Vec<_> = graph
         .positioned_refs()
-        .filter_map(|(node, stored)| {
-            (resolve_to_pick(graph, stored.on) == Some(from_pick)).then_some((node, stored))
+        .filter_map(|(entry, stored)| {
+            (resolve_to_pick(graph, stored.on) == Some(from_pick)).then_some((entry, stored))
         })
         .collect();
-    for (node, stored) in moves {
+    for (entry, stored) in moves {
         if reclassify {
-            let entering = edges_through(graph, node);
-            graph.set_position(node, to_pick, &entering, stored.ambiguous, stored.below);
+            let entering = edges_through(graph, entry);
+            graph.set_position(entry, to_pick, &entering, stored.ambiguous, stored.below);
         } else {
-            graph.rekey_position(node, to_pick);
+            graph.rekey_position(entry, to_pick);
         }
     }
 }
@@ -310,9 +313,9 @@ pub(crate) fn group_members(
     let entering = edges_through(graph, ref_node);
     graph
         .positioned_refs()
-        .filter_map(|(node, other)| {
-            (edges_through(graph, node) == entering && resolve_to_pick(graph, other.on) == pick)
-                .then(|| (node, other.clone()))
+        .filter_map(|(entry, other)| {
+            (edges_through(graph, entry) == entering && resolve_to_pick(graph, other.on) == pick)
+                .then(|| (entry, other.clone()))
         })
         .collect()
 }
@@ -331,15 +334,15 @@ pub(crate) fn edges_into(
         .collect()
 }
 
-/// Resolve `node` to the current pick it stands for: a pick resolves to itself, a tombstone
+/// Resolve `entry` to the current pick it stands for: a pick resolves to itself, a tombstone
 /// follows its (preserved) first edge downward, and a reference resolves via its stored
 /// position — dead references via their RETAINED position, the retention pointer stale
 /// selectors normalize through (unborn refs carry none and resolve to nothing).
 pub(crate) fn resolve_to_pick(
     graph: &EditorGraph,
-    node: EditorGraphIndex,
+    entry: EditorGraphIndex,
 ) -> Option<EditorGraphIndex> {
-    let mut cursor = node;
+    let mut cursor = entry;
     for _ in 0..10_000 {
         if graph.is_pick(cursor) {
             return Some(cursor);

@@ -103,12 +103,12 @@ pub(super) mod function {
             .context("Failed to find target reference in graph.")?;
 
         let DisconnectParameters {
-            delimiter: subject_delimiter,
+            range: subject_delimiter,
             children_to_disconnect,
             parents_to_disconnect,
         } = get_disconnect_parameters(&editor, source_stack, subject_segment, workspace_head)?;
 
-        editor.disconnect_segment_from(
+        editor.disconnect_range_from(
             subject_delimiter.clone(),
             children_to_disconnect,
             parents_to_disconnect,
@@ -117,7 +117,7 @@ pub(super) mod function {
 
         let selectors = SomeSelectors::new(vec![head_selector])?;
 
-        editor.insert_segment_into(
+        editor.insert_range_into(
             target_selector,
             subject_delimiter,
             but_rebase::graph_rebase::mutate::InsertSide::Above,
@@ -220,19 +220,19 @@ pub(super) mod function {
             .context("Failed to find target reference in graph.")?;
 
         let DisconnectParameters {
-            delimiter: subject_delimiter,
+            range: subject_delimiter,
             children_to_disconnect,
             parents_to_disconnect,
         } = get_disconnect_parameters(&editor, &source_stack, &subject_segment, workspace_head)?;
 
         let skip_reconnect_step = source_stack.segments.len() == 1;
-        editor.disconnect_segment_from(
+        editor.disconnect_range_from(
             subject_delimiter.clone(),
             children_to_disconnect,
             parents_to_disconnect,
             skip_reconnect_step,
         )?;
-        editor.insert_segment(
+        editor.insert_range(
             target_selector,
             subject_delimiter,
             but_rebase::graph_rebase::mutate::InsertSide::Above,

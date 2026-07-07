@@ -58,18 +58,6 @@ pub struct Workspace {
     pub metadata: Option<ref_metadata::Workspace>,
 }
 
-/// A copy of all workspace state, to pass it around internally.
-pub(crate) struct WorkspaceState {
-    pub id: SegmentIndex,
-    pub kind: WorkspaceKind,
-    pub stacks: Vec<Stack>,
-    pub lower_bound: Option<gix::ObjectId>,
-    pub lower_bound_segment_id: Option<SegmentIndex>,
-    pub target_ref: Option<TargetRef>,
-    pub target_commit: Option<TargetCommit>,
-    pub metadata: Option<ref_metadata::Workspace>,
-}
-
 /// Construction: the workspace-level entry points, mirroring the graph traversals. These are
 /// what operations use — the segment [`Graph`] is carried as [`Workspace::graph`], but nothing
 /// outside the crate needs to build one. (The fold: builder and projection fuse behind these.)
@@ -126,34 +114,6 @@ impl Workspace {
     pub fn validated(mut self) -> anyhow::Result<Self> {
         self.graph = self.graph.validated()?;
         Ok(self)
-    }
-}
-
-impl Workspace {
-    fn from_state(
-        graph: Graph,
-        WorkspaceState {
-            id,
-            kind,
-            stacks,
-            lower_bound,
-            lower_bound_segment_id,
-            target_ref,
-            target_commit,
-            metadata,
-        }: WorkspaceState,
-    ) -> Self {
-        Workspace {
-            graph,
-            id,
-            kind,
-            stacks,
-            lower_bound,
-            lower_bound_segment_id,
-            target_ref,
-            target_commit,
-            metadata,
-        }
     }
 }
 

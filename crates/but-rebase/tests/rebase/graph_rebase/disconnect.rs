@@ -40,12 +40,12 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
         .select_commit(b)
         .context("Failed to find commit b in editor graph")?;
 
-    let target = mutate::SegmentDelimiter {
+    let target = mutate::StepRange {
         child: b_selector,
         parent: b_selector,
     };
 
-    editor.disconnect_segment_from(
+    editor.disconnect_range_from(
         target,
         mutate::SelectorSet::All,
         mutate::SelectorSet::All,
@@ -116,13 +116,13 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
         .select_commit(a)
         .context("Failed to find commit a in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: b_selector,
         parent: a_selector,
     };
 
-    editor.disconnect_segment_from(
-        delimiter,
+    editor.disconnect_range_from(
+        range,
         mutate::SelectorSet::All,
         mutate::SelectorSet::All,
         false,
@@ -190,13 +190,13 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
         .select_commit(a)
         .context("Failed to find commit a in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: a_selector,
         parent: a_selector,
     };
 
-    editor.disconnect_segment_from(
-        delimiter,
+    editor.disconnect_range_from(
+        range,
         mutate::SelectorSet::All,
         mutate::SelectorSet::All,
         false,
@@ -281,13 +281,13 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         .select_commit(merge)
         .context("Failed to find merge commit M in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: merge_selector,
         parent: merge_selector,
     };
 
-    editor.disconnect_segment_from(
-        delimiter,
+    editor.disconnect_range_from(
+        range,
         mutate::SelectorSet::All,
         mutate::SelectorSet::All,
         false,
@@ -423,13 +423,13 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         .select_reference(parent_one)
         .context("Failed to find P1 reference in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: m_reference_selector,
         parent: merge_commit_selector,
     };
 
-    editor.disconnect_segment_from(
-        delimiter,
+    editor.disconnect_range_from(
+        range,
         mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
         mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
         false,
@@ -556,13 +556,13 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         .select_reference(parent_one)
         .context("Failed to find P1 reference in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: m_reference_selector,
         parent: merge_commit_selector,
     };
 
-    editor.disconnect_segment_from(
-        delimiter,
+    editor.disconnect_range_from(
+        range,
         mutate::SelectorSet::None,
         mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
         false,
@@ -700,14 +700,14 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
         .select_commit(child_one)
         .context("Failed to find C1 referent in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: m_reference_selector,
         parent: merge_commit_selector,
     };
 
     let err = editor
-        .disconnect_segment_from(
-            delimiter,
+        .disconnect_range_from(
+            range,
             mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
             mutate::SelectorSet::None,
             false,
@@ -788,14 +788,14 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
         .select_commit(child_one)
         .context("Failed to find C1 referent in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: m_reference_selector,
         parent: merge_commit_selector,
     };
 
     let err = editor
-        .disconnect_segment_from(
-            delimiter,
+        .disconnect_range_from(
+            range,
             mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
             mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
             false,
@@ -876,14 +876,14 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
         .select_reference(parent_one)
         .context("Failed to find P1 reference in editor graph")?;
 
-    let delimiter = mutate::SegmentDelimiter {
+    let range = mutate::StepRange {
         child: m_reference_selector,
         parent: merge_commit_selector,
     };
 
     let err = editor
-        .disconnect_segment_from(
-            delimiter,
+        .disconnect_range_from(
+            range,
             mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
             mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
             false,

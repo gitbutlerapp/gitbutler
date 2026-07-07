@@ -290,7 +290,7 @@ pub struct Options<'db> {
     pub gerrit_mode: GerritMode<'db>,
 }
 
-/// A segment of a commit graph, representing a set of commits exclusively.
+/// A segment of the commit history, representing a set of commits exclusively.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Segment {
     /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit,
@@ -495,7 +495,7 @@ pub(crate) fn find_ancestor_workspace_commit(
     let cg_bound = graph.commit_graph().zip(lower_bound_segment_id).and_then(
         |(cg, sidx)| -> Option<(u32, &but_graph::CommitGraph)> {
             let lb = graph[sidx].commits.first()?.id;
-            Some((cg.node(lb)?.generation, cg))
+            Some((cg.row(lb)?.generation, cg))
         },
     );
 
@@ -505,7 +505,7 @@ pub(crate) fn find_ancestor_workspace_commit(
         let beyond_bound = cg_bound.is_some_and(|(bound, cg)| {
             s.commits
                 .first()
-                .and_then(|c| cg.node(c.id))
+                .and_then(|c| cg.row(c.id))
                 .is_some_and(|n| n.generation < bound)
         });
         if sidx_and_cidx.is_some() || beyond_bound {

@@ -9,9 +9,7 @@ use super::facts::Facts;
 use super::remotes::remote_name_in_play;
 use super::{IdMap, IdSet, disambiguated_ref, is_plain_local_branch};
 use crate::CommitGraph;
-use crate::ref_arrangement::{
-    ArrangedGroup, GroupNamer, GroupPlacement, RefArrangement, StackLane,
-};
+use crate::ref_arrangement::{ArrangedGroup, Chain, GroupNamer, GroupPlacement, RefArrangement};
 
 /// One floated chain placeholder decided by [`chain_plan`]: `tip`'s segment goes anonymous, an
 /// empty segment named `name` splices in between the workspace and it, and `displaced` (a
@@ -399,7 +397,7 @@ fn float_shared_stack_tips(
             c != workspace_commit
                 && cg.first_parent(c) == Some(parent)
                 && cg
-                    .node(c)
+                    .row(c)
                     .is_some_and(|n| n.commit.flags.contains(crate::CommitFlags::InWorkspace))
         });
         if !shared {
@@ -514,7 +512,7 @@ fn floats_at_lower_bound(
             Some(c) if c == lb => at_lb = true,
             Some(c)
                 if cg
-                    .node(c)
+                    .row(c)
                     .is_some_and(|n| !n.commit.flags.contains(crate::CommitFlags::Integrated)) =>
             {
                 return false;
@@ -555,14 +553,14 @@ fn names_in_use<T: but_core::RefMetadata>(
     for t in cg.traversal_tips.iter().filter(|_| cg.explicit_tips) {
         if let Some(rn) = t.ref_name.clone()
             && !but_core::is_workspace_ref_name(rn.as_ref())
-            && cg.node(t.id).is_some()
+            && cg.row(t.id).is_some()
         {
             used.insert(rn);
         }
     }
     // An extra target outside every region is surfaced named by the unique plain local on it.
     if let Some(extra) = extra_target
-        && cg.node(extra).is_some()
+        && cg.row(extra).is_some()
         && !facts.in_set.contains(&extra)
     {
         let mut locals = cg.refs_at(extra).into_iter().filter(is_plain_local_branch);
@@ -684,7 +682,7 @@ fn thread_ref_groups(
                     .get(&anchor)
                     .is_some_and(|n| !list.contains(n) && lists.iter().any(|l| l.contains(n)));
             let anchor_not_integrated = cg
-                .node(anchor)
+                .row(anchor)
                 .is_some_and(|n| !n.commit.flags.contains(crate::CommitFlags::Integrated));
             // ── The RefOrder: which members become empties, and how the group lands. The
             // `used` set at THIS point models materialization's "already names a segment"
@@ -771,14 +769,14 @@ pub(super) fn materialize_tip_name<T: but_core::RefMetadata>(
 }
 
 /// Project the plan's ref decisions into the STORED table shape (see `crate::ref_arrangement`):
-/// per-lane group threading becomes commit-keyed groups plus lane anchors. Stored on the
+/// per-chain group threading becomes commit-keyed groups plus chain anchors. Stored on the
 /// commit graph and consumed by the chain-structure pass —
 /// `debug_assert_arrangement_matches_plan` proves the shape carries the plan losslessly on
 /// every build.
 pub(super) fn author_arrangement(plan: &ChainPlan) -> RefArrangement {
     let mut arrangement = RefArrangement::default();
     for (li, chain) in plan.ref_order.iter().enumerate() {
-        let mut lane = StackLane::default();
+        let mut stored = Chain::default();
         for group in chain {
             let namer = plan
                 .group_names
@@ -793,9 +791,9 @@ pub(super) fn author_arrangement(plan: &ChainPlan) -> RefArrangement {
                 empties: group.empties.clone(),
                 placement: group.placement,
             });
-            lane.anchors.push((group.commit, groups.len() - 1));
+            stored.anchors.push((group.commit, groups.len() - 1));
         }
-        arrangement.stacks.push(lane);
+        arrangement.chains.push(stored);
     }
     arrangement.demoted = plan.demoted.iter().copied().collect();
     arrangement.demoted.sort();
@@ -803,10 +801,10 @@ pub(super) fn author_arrangement(plan: &ChainPlan) -> RefArrangement {
 }
 
 /// The stage-A parity oracle: reconstruct the plan's ref decisions FROM the stored table and
-/// require exact equality — lane count and threading order, per-group empties and placement,
+/// require exact equality — chain count and threading order, per-group empties and placement,
 /// namers (with their displacement flag), and demotions. Non-trivial precisely where the shape
-/// changes: several lanes anchoring groups on the SAME commit must stay apart via the anchor
-/// index, and no stored group may be orphaned from every lane.
+/// changes: several chains anchoring groups on the SAME commit must stay apart via the anchor
+/// index, and no stored group may be orphaned from every chain.
 pub(super) fn debug_assert_arrangement_matches_plan(
     arrangement: &RefArrangement,
     plan: &ChainPlan,
@@ -815,13 +813,13 @@ pub(super) fn debug_assert_arrangement_matches_plan(
         return;
     }
     assert_eq!(
-        arrangement.stacks.len(),
+        arrangement.chains.len(),
         plan.ref_order.len(),
-        "arrangement lanes must mirror the plan's stack lists"
+        "arrangement chains must mirror the plan's stack lists"
     );
     let mut group_names = HashMap::new();
-    for (li, lane) in arrangement.stacks.iter().enumerate() {
-        let chain: Vec<RefGroup> = lane
+    for (li, stored) in arrangement.chains.iter().enumerate() {
+        let chain: Vec<RefGroup> = stored
             .anchors
             .iter()
             .map(|&(commit, gi)| {
@@ -838,12 +836,12 @@ pub(super) fn debug_assert_arrangement_matches_plan(
             .collect();
         assert_eq!(
             chain, plan.ref_order[li],
-            "lane {li} must reconstruct the plan's group threading"
+            "chain {li} must reconstruct the plan's group threading"
         );
     }
     assert_eq!(
         group_names, plan.group_names,
-        "lane anchors must reconstruct the plan's group naming"
+        "chain anchors must reconstruct the plan's group naming"
     );
     let mut demoted: Vec<_> = plan.demoted.iter().copied().collect();
     demoted.sort();
@@ -851,7 +849,7 @@ pub(super) fn debug_assert_arrangement_matches_plan(
         arrangement.demoted, demoted,
         "the table's demotions must match the plan's"
     );
-    let anchored: usize = arrangement.stacks.iter().map(|l| l.anchors.len()).sum();
+    let anchored: usize = arrangement.chains.iter().map(|c| c.anchors.len()).sum();
     let stored: usize = arrangement.at_commit.values().map(Vec::len).sum();
-    assert_eq!(anchored, stored, "every stored group belongs to a lane");
+    assert_eq!(anchored, stored, "every stored group belongs to a chain");
 }

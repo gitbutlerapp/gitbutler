@@ -449,8 +449,8 @@ fn orders_commit_disconnected_from_checkout_roots_if_still_in_editor_graph() -> 
     let b = repo.rev_parse_single("HEAD~1")?.detach();
     let b_selector = editor.select_commit(b)?;
 
-    editor.disconnect_segment_from(
-        mutate::SegmentDelimiter {
+    editor.disconnect_range_from(
+        mutate::StepRange {
             child: b_selector,
             parent: b_selector,
         },
@@ -524,8 +524,8 @@ fn orders_all_commits_in_y_shaped_two_branch_fixture() -> Result<()> {
 
     // Disconnect the 'right' branch from the merge commit, making it a leaf node, but keeping it in the editor
     // graph.
-    editor.disconnect_segment_from(
-        mutate::SegmentDelimiter {
+    editor.disconnect_range_from(
+        mutate::StepRange {
             child: right_ref_selector,
             parent: right_selector,
         },

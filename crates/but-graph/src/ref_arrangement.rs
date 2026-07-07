@@ -1,5 +1,5 @@
-//! The metadata-driven REF PLACEMENT table: which references stack on which commit, grouped
-//! and ordered, one lane per workspace stack list.
+//! The metadata-driven REF PLACEMENT table: which references sit on which commit, grouped
+//! and ordered, one chain per metadata stack list.
 //!
 //! Authored by the builder's chain plan and stored on the [`CommitGraph`](crate::CommitGraph),
 //! so the placement decisions survive the build instead of dying with it. The segment builder's
@@ -19,7 +19,7 @@ pub enum GroupPlacement {
     Dependent,
     /// The group anchors its own chain from the workspace (shared base or integrated anchor).
     OwnChain,
-    /// Another stack owns the (non-integrated) commit: the refs stay passive on it.
+    /// Another chain owns the (non-integrated) commit: the refs stay passive on it.
     Passive,
     /// The group is outside the workspace or co-located with a managed merge commit — nothing
     /// is created. Kept so group ordinals stay aligned between plan and build.
@@ -47,24 +47,24 @@ pub struct ArrangedGroup {
     pub placement: GroupPlacement,
 }
 
-/// One workspace stack list's groups, in metadata order (top → bottom of the stack). Each
-/// anchor is `(commit, index into RefArrangement::at_commit[commit])` — the index keeps lanes
-/// apart when several stacks anchor groups on the same commit.
+/// One metadata stack list's groups, in metadata order (top → bottom). Each anchor is
+/// `(commit, index into RefArrangement::at_commit[commit])` — the index keeps chains
+/// apart when several chains anchor groups on the same commit.
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct StackLane {
-    /// The lane's anchors in metadata order.
+pub struct Chain {
+    /// The chain's anchors in metadata order.
     pub anchors: Vec<(gix::ObjectId, usize)>,
 }
 
 /// The ref placement table.
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct RefArrangement {
-    /// The groups anchored on each commit, in lane-threading order.
+    /// The groups anchored on each commit, in chain-threading order.
     pub at_commit: HashMap<gix::ObjectId, Vec<ArrangedGroup>>,
-    /// One lane per metadata stack list, in metadata order.
-    pub stacks: Vec<StackLane>,
+    /// One chain per metadata stack list, in metadata order.
+    pub chains: Vec<Chain>,
     /// Commits whose build-time name is suppressed (sorted): a shared base stays anonymous
-    /// while every stack's branches float above it as their own chain.
+    /// while every chain's branches float above it as their own chain.
     pub demoted: Vec<gix::ObjectId>,
     /// The DERIVED editor-grade layout over the full ref universe (see [`RefPositions`]).
     /// `None` until the assembler authors it from the finished segment graph.
@@ -81,10 +81,10 @@ pub struct RefPositions {
     /// The references in segment order — the order fixes the editor's reference table (and
     /// with it render sibling order).
     pub refs: Vec<PositionedRef>,
-    /// The managed entrypoint commit and its resolved STACK slots, one per lane top→bottom —
-    /// empty lanes over one base yield duplicate entries the real commit does not have.
+    /// The managed entrypoint commit and its resolved CHAIN slots, one per chain top→bottom —
+    /// empty chains over one base yield duplicate entries the real commit does not have.
     /// `None` without a managed entrypoint commit.
-    pub ws_stack_slots: Option<(gix::ObjectId, Vec<gix::ObjectId>)>,
+    pub ws_chain_slots: Option<(gix::ObjectId, Vec<gix::ObjectId>)>,
     /// Ordinals (into [`Self::refs`]) of the entrypoint's ref — the editor's HEAD checkouts.
     pub head_refs: Vec<usize>,
     /// Commits reachable from the entrypoint (sorted) — the editor's mutable commits.
@@ -108,8 +108,8 @@ pub struct PositionedRef {
 pub struct RefPosition {
     /// The commit the ref sits on.
     pub on: gix::ObjectId,
-    /// The ordinal (into [`RefPositions::refs`]) of the next ref BELOW this one in the same
-    /// stack of refs, when any.
+    /// The ordinal (into [`RefPositions::refs`]) of the next ref BELOW this one on the same
+    /// commit run, when any.
     pub below: Option<usize>,
     /// The edges entering the ref from above, sorted: `(child commit, parent slot)` — the
     /// child reaches its parent slot's commit through this ref.

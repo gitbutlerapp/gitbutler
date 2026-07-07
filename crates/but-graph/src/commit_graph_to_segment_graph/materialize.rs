@@ -54,7 +54,7 @@ use crate::{Commit, CommitGraph, RefInfo, Segment, SegmentIndex, segment_graph::
     name = "graph_from_commit_graph",
     level = "trace",
     skip_all,
-    fields(commits = cg.node_count())
+    fields(commits = cg.row_count())
 )]
 pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
     cg: &CommitGraph,
@@ -378,7 +378,7 @@ fn mint_tip_segments(
         let remote_tracking_ref_name = ref_info
             .as_ref()
             .and_then(|ri| remote_tracking.get(&ri.ref_name).cloned());
-        let sidx = sg.add_node(Segment {
+        let sidx = sg.add_segment(Segment {
             id: 0,
             ref_info,
             remote_tracking_ref_name,
@@ -388,7 +388,7 @@ fn mint_tip_segments(
             metadata: None,
             connections: Vec::new(),
         });
-        sg.node_mut(sidx).expect("just added").id = sidx;
+        sg.segment_mut(sidx).expect("just added").id = sidx;
         seg_of_tip.insert(tip, sidx);
     }
     seg_of_tip
@@ -404,7 +404,7 @@ fn mint_float_placeholders(
 ) -> IdMap<SegmentIndex> {
     let mut placeholder_of: IdMap<SegmentIndex> = IdMap::default();
     for float in &plan.floats {
-        let sidx = sg.add_node(Segment {
+        let sidx = sg.add_segment(Segment {
             id: 0,
             ref_info: Some(RefInfo {
                 ref_name: float.name.clone(),
@@ -421,7 +421,7 @@ fn mint_float_placeholders(
             metadata: None,
             connections: Vec::new(),
         });
-        sg.node_mut(sidx).expect("just added").id = sidx;
+        sg.segment_mut(sidx).expect("just added").id = sidx;
         placeholder_of.insert(float.tip, sidx);
     }
     placeholder_of
@@ -444,7 +444,7 @@ fn connect_parents(
     for &tip in tips {
         let src = seg_of_tip[&tip];
         let bottom = sg
-            .node(src)
+            .segment(src)
             .expect("present")
             .commits
             .last()
@@ -499,7 +499,7 @@ fn build_chain_structure<T: but_core::RefMetadata>(
     arrangement: &crate::ref_arrangement::RefArrangement,
 ) -> (Option<SegmentIndex>, HashSet<SegmentIndex>) {
     let mut ws_empty_sidx = None;
-    let before_chains: HashSet<SegmentIndex> = sg.node_indices().collect();
+    let before_chains: HashSet<SegmentIndex> = sg.segment_ids().collect();
     if managed {
         if empty_ws_case {
             ws_empty_sidx = insert_empty_workspace_segment(sg, seg_of_tip, cg, workspace_commit);
@@ -519,7 +519,7 @@ fn build_chain_structure<T: but_core::RefMetadata>(
         insert_empty_branches(sg, ws_sidx, arrangement, remote_tracking);
     }
     let chain_created: HashSet<SegmentIndex> = sg
-        .node_indices()
+        .segment_ids()
         .filter(|sidx| !before_chains.contains(sidx))
         .collect();
     (ws_empty_sidx, chain_created)
@@ -604,12 +604,12 @@ fn surface_target_remote(
                     segment_by_commit(sg, lc).filter(|&sidx| {
                         sidx != owner_sidx
                             && sg
-                                .node(sidx)
+                                .segment(sidx)
                                 .is_some_and(|s| s.commits.first().is_some_and(|c| c.id == lc))
                     })
                 });
             if let Some(local_sidx) = local_sidx
-                && let Some(s) = sg.node_mut(owner_sidx)
+                && let Some(s) = sg.segment_mut(owner_sidx)
             {
                 s.sibling_segment_id = Some(local_sidx);
             }
@@ -643,12 +643,12 @@ fn surface_target_remote(
             .map(|(local, _)| local.clone());
         if let Some(local) = local_on_tip
             && let Some(owner_sidx) = segment_by_commit(sg, tip)
-            && sg.node(owner_sidx).is_some_and(|s| {
+            && sg.segment(owner_sidx).is_some_and(|s| {
                 s.ref_info.as_ref().is_some_and(|ri| &ri.ref_name == tr)
                     && s.commits.first().is_some_and(|c| c.id == tip)
             })
         {
-            if let Some(s) = sg.node_mut(owner_sidx) {
+            if let Some(s) = sg.segment_mut(owner_sidx) {
                 s.ref_info = Some(RefInfo {
                     ref_name: local,
                     commit_id: Some(tip),
@@ -656,7 +656,7 @@ fn surface_target_remote(
                 });
                 s.remote_tracking_ref_name = Some(tr.clone());
             }
-            let remote_sidx = sg.add_node(Segment {
+            let remote_sidx = sg.add_segment(Segment {
                 id: 0,
                 ref_info: Some(RefInfo {
                     ref_name: tr.clone(),
@@ -670,8 +670,8 @@ fn surface_target_remote(
                 metadata: None,
                 connections: Vec::new(),
             });
-            sg.node_mut(remote_sidx).expect("just added").id = remote_sidx;
-            if let Some(s) = sg.node_mut(owner_sidx) {
+            sg.segment_mut(remote_sidx).expect("just added").id = remote_sidx;
+            if let Some(s) = sg.segment_mut(owner_sidx) {
                 s.remote_tracking_branch_segment_id = Some(remote_sidx);
             }
             connect(sg, remote_sidx, owner_sidx);
@@ -697,7 +697,7 @@ fn add_extra_target_region(
     pending_edges: &mut Vec<(SegmentIndex, gix::ObjectId)>,
 ) {
     if let Some(extra) = extra_target
-        && cg.node(extra).is_some()
+        && cg.row(extra).is_some()
         && segment_by_commit_excluding(sg, extra, chain_created).is_none()
     {
         segment_ahead_region(
@@ -738,7 +738,7 @@ fn add_outside_entrypoint_region(
     pending_edges: &mut Vec<(SegmentIndex, gix::ObjectId)>,
 ) {
     if !in_set.contains(&entrypoint)
-        && cg.node(entrypoint).is_some()
+        && cg.row(entrypoint).is_some()
         && segment_by_commit_excluding(sg, entrypoint, chain_created).is_none()
     {
         segment_ahead_region(
@@ -778,7 +778,7 @@ fn cover_explicit_tips(
     pending_edges: &mut Vec<(SegmentIndex, gix::ObjectId)>,
 ) {
     for t in cg.traversal_tips.iter().filter(|_| cg.explicit_tips) {
-        if cg.node(t.id).is_none() {
+        if cg.row(t.id).is_none() {
             continue;
         }
         match segment_by_commit_excluding(sg, t.id, chain_created) {
@@ -806,7 +806,7 @@ fn cover_explicit_tips(
                     continue;
                 }
                 if segment_by_ref(sg, &ref_name).is_some()
-                    || sg.node(owner_sidx).is_some_and(|s| {
+                    || sg.segment(owner_sidx).is_some_and(|s| {
                         s.ref_info
                             .as_ref()
                             .is_some_and(|ri| ri.ref_name == ref_name)
@@ -817,7 +817,7 @@ fn cover_explicit_tips(
                 // An ANONYMOUS segment starting at the tip takes the tip's name — applied by
                 // MATERIALIZATION from the plan's renames; a still-anonymous tip start here
                 // means the plan and the build disagree.
-                if sg.node(owner_sidx).is_some_and(|s| {
+                if sg.segment(owner_sidx).is_some_and(|s| {
                     s.commits.first().is_some_and(|c| c.id == t.id) && s.ref_info.is_none()
                 }) {
                     debug_assert!(
@@ -827,7 +827,7 @@ fn cover_explicit_tips(
                     );
                     continue;
                 }
-                let empty_sidx = sg.add_node(Segment {
+                let empty_sidx = sg.add_segment(Segment {
                     id: 0,
                     ref_info: Some(RefInfo {
                         ref_name: ref_name.clone(),
@@ -841,7 +841,7 @@ fn cover_explicit_tips(
                     metadata: None,
                     connections: Vec::new(),
                 });
-                sg.node_mut(empty_sidx).expect("just added").id = empty_sidx;
+                sg.segment_mut(empty_sidx).expect("just added").id = empty_sidx;
                 connect(sg, empty_sidx, owner_sidx);
             }
         }
@@ -853,8 +853,8 @@ fn cover_explicit_tips(
 /// or a mid-run commit of one).
 fn wire_pending_edges(sg: &mut SegmentGraph, pending_edges: Vec<(SegmentIndex, gix::ObjectId)>) {
     for (src, parent) in pending_edges {
-        let Some(dst) = sg.node_indices().find(|&sidx| {
-            sg.node(sidx)
+        let Some(dst) = sg.segment_ids().find(|&sidx| {
+            sg.segment(sidx)
                 .is_some_and(|s| s.commits.iter().any(|c| c.id == parent))
         }) else {
             continue;
@@ -877,7 +877,7 @@ fn float_remote_named_checkout(
     if entrypoint_ref.is_none()
         && entrypoint != workspace_commit
         && let Some(ep_sidx) = segment_by_commit(sg, entrypoint)
-        && sg.node(ep_sidx).is_some_and(|s| {
+        && sg.segment(ep_sidx).is_some_and(|s| {
             s.ref_info
                 .as_ref()
                 .is_some_and(|ri| ri.ref_name.as_ref().category() == Some(Category::RemoteBranch))
@@ -885,7 +885,7 @@ fn float_remote_named_checkout(
         })
     {
         let (ref_info, rt_name, sibling, rt_seg) = {
-            let s = sg.node_mut(ep_sidx).expect("present");
+            let s = sg.segment_mut(ep_sidx).expect("present");
             (
                 s.ref_info.take(),
                 s.remote_tracking_ref_name.take(),
@@ -893,7 +893,7 @@ fn float_remote_named_checkout(
                 s.remote_tracking_branch_segment_id.take(),
             )
         };
-        let floated = sg.add_node(Segment {
+        let floated = sg.add_segment(Segment {
             id: 0,
             ref_info,
             remote_tracking_ref_name: rt_name,
@@ -903,13 +903,13 @@ fn float_remote_named_checkout(
             metadata: None,
             connections: Vec::new(),
         });
-        sg.node_mut(floated).expect("just added").id = floated;
+        sg.segment_mut(floated).expect("just added").id = floated;
         // Links and edges aimed at the named segment now belong to its floated name.
-        for sidx in sg.node_indices().collect::<Vec<_>>() {
+        for sidx in sg.segment_ids().collect::<Vec<_>>() {
             if sidx == floated {
                 continue;
             }
-            if let Some(s) = sg.node_mut(sidx) {
+            if let Some(s) = sg.segment_mut(sidx) {
                 if s.sibling_segment_id == Some(ep_sidx) {
                     s.sibling_segment_id = Some(floated);
                 }
@@ -936,7 +936,7 @@ fn drop_suppressed_tip_links(
         .map(|fl| fl.tip)
         .chain(plan.demoted.iter().copied())
     {
-        if let Some(s) = seg_of_tip.get(&tip).and_then(|&sidx| sg.node_mut(sidx)) {
+        if let Some(s) = seg_of_tip.get(&tip).and_then(|&sidx| sg.segment_mut(sidx)) {
             s.remote_tracking_ref_name = None;
             s.remote_tracking_branch_segment_id = None;
         }
@@ -976,14 +976,14 @@ fn resolve_entrypoint_segment(
 /// Classify each named segment by its ref's metadata: the workspace ref → Workspace, a tracked
 /// branch → Branch, others → None. Matches the walk's `extract_local_branch_metadata`.
 fn classify_segment_metadata<T: but_core::RefMetadata>(sg: &mut SegmentGraph, meta: &T) {
-    for sidx in sg.node_indices().collect::<Vec<_>>() {
+    for sidx in sg.segment_ids().collect::<Vec<_>>() {
         let ref_name = sg
-            .node(sidx)
+            .segment(sidx)
             .and_then(|s| s.ref_info.as_ref())
             .map(|ri| ri.ref_name.clone());
         if let Some(ref_name) = ref_name {
             let md = segment_metadata(ref_name.as_ref(), meta);
-            if let Some(s) = sg.node_mut(sidx) {
+            if let Some(s) = sg.segment_mut(sidx) {
                 s.metadata = md;
             }
         }
@@ -995,9 +995,9 @@ fn classify_segment_metadata<T: but_core::RefMetadata>(sg: &mut SegmentGraph, me
 /// segment's commit (the walk does the same, avoiding showing it twice).
 fn strip_segment_named_refs(sg: &mut SegmentGraph) {
     let segment_names: HashSet<gix::refs::FullName> = sg
-        .node_indices()
+        .segment_ids()
         .flat_map(|sidx| {
-            sg.node(sidx)
+            sg.segment(sidx)
                 .map(|s| {
                     s.ref_info
                         .as_ref()
@@ -1009,8 +1009,8 @@ fn strip_segment_named_refs(sg: &mut SegmentGraph) {
                 .unwrap_or_default()
         })
         .collect();
-    for sidx in sg.node_indices().collect::<Vec<_>>() {
-        if let Some(s) = sg.node_mut(sidx) {
+    for sidx in sg.segment_ids().collect::<Vec<_>>() {
+        if let Some(s) = sg.segment_mut(sidx) {
             for commit in &mut s.commits {
                 // Also drop remote-tracking refs: a remote is only ever shown as its own segment, never
                 // annotated on a commit.
@@ -1039,8 +1039,10 @@ fn annotate_worktrees(
             ri.worktree = Some(wt.clone());
         }
     };
-    for sidx in sg.node_indices().collect::<Vec<_>>() {
-        let Some(s) = sg.node_mut(sidx) else { continue };
+    for sidx in sg.segment_ids().collect::<Vec<_>>() {
+        let Some(s) = sg.segment_mut(sidx) else {
+            continue;
+        };
         if let Some(ri) = s.ref_info.as_mut() {
             annotate(ri);
         }
@@ -1063,8 +1065,8 @@ fn name_entrypoint_segment(
     entrypoint_ref: Option<&gix::refs::FullName>,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) -> Option<SegmentIndex> {
-    let (sidx, pos) = sg.node_indices().find_map(|sidx| {
-        sg.node(sidx)
+    let (sidx, pos) = sg.segment_ids().find_map(|sidx| {
+        sg.segment(sidx)
             .and_then(|s| s.commits.iter().position(|c| c.id == entrypoint))
             .map(|pos| (sidx, pos))
     })?;
@@ -1077,12 +1079,12 @@ fn name_entrypoint_segment(
     }
     if let Some(ep_ref) = entrypoint_ref {
         let current = sg
-            .node(sidx)
+            .segment(sidx)
             .and_then(|s| s.ref_info.as_ref())
             .map(|ri| ri.ref_name.clone());
         match current {
             None => {
-                if let Some(s) = sg.node_mut(sidx) {
+                if let Some(s) = sg.segment_mut(sidx) {
                     s.ref_info = Some(RefInfo {
                         ref_name: ep_ref.clone(),
                         commit_id: Some(entrypoint),
@@ -1092,7 +1094,7 @@ fn name_entrypoint_segment(
                 }
             }
             Some(existing) if existing != *ep_ref => {
-                let empty = sg.add_node(Segment {
+                let empty = sg.add_segment(Segment {
                     id: 0,
                     ref_info: Some(RefInfo {
                         ref_name: ep_ref.clone(),
@@ -1106,9 +1108,9 @@ fn name_entrypoint_segment(
                     connections: Vec::new(),
                     metadata: None,
                 });
-                sg.node_mut(empty).expect("just added").id = empty;
+                sg.segment_mut(empty).expect("just added").id = empty;
                 // Incoming edges now route through the entrypoint's empty segment.
-                for other in sg.node_indices().collect::<Vec<_>>() {
+                for other in sg.segment_ids().collect::<Vec<_>>() {
                     if other == empty {
                         continue;
                     }
@@ -1133,7 +1135,7 @@ pub(super) fn commit_run(
 ) -> Vec<Commit> {
     commit_run_ids(cg, tip, in_set, is_boundary)
         .into_iter()
-        .filter_map(|c| cg.node(c).map(|node| node.commit.clone()))
+        .filter_map(|c| cg.row(c).map(|row| row.commit.clone()))
         .collect()
 }
 

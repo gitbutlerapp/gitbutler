@@ -6,7 +6,7 @@ use crate::{Graph, Segment, SegmentIndex};
 
 impl Graph {
     pub(crate) fn seen_table(&self) -> SeenTable {
-        SeenTable::new(self.inner.node_bound())
+        SeenTable::new(self.inner.id_bound())
     }
 }
 
@@ -179,7 +179,7 @@ impl SegmentVisitScratch {
     /// Create scratch storage initially sized for the current graph.
     pub(crate) fn new(graph: &Graph) -> Self {
         SegmentVisitScratch {
-            seen: GrowingSegmentTable::new(graph.inner.node_bound(), false),
+            seen: GrowingSegmentTable::new(graph.inner.id_bound(), false),
             next: VecDeque::new(),
         }
     }

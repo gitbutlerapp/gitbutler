@@ -12,8 +12,8 @@ impl<M: RefMetadata> Editor<'_, M> {
     ///
     /// Duplicate selectors are deduplicated by commit-id with first occurrence winning.
     ///
-    /// Ordering is derived from a deterministic rank map built from the editor commit graph.
-    /// The rank is computed by traversing from all child-most graph nodes in ordered-parent
+    /// Ordering is derived from a deterministic rank map built from the editor graph.
+    /// The rank is computed by traversing from all child-most graph entries in ordered-parent
     /// post-order (parents are pushed in `collect_ordered_parents` order, without reversing),
     /// then sorting selected commits by `(rank, input_order)`.
     ///
@@ -47,21 +47,21 @@ impl<M: RefMetadata> Editor<'_, M> {
             .iter()
             .map(|commit| commit.id)
             .collect::<HashSet<_>>();
-        let commit_graph_rank = commit_graph_parent_to_child_rank(self, &selected_ids)?;
+        let graph_rank = parent_to_child_rank(self, &selected_ids)?;
 
         // Preserve the Result contract: unreachable selected commits are a runtime error,
         // not an internal panic.
         for commit in &selected {
-            if !commit_graph_rank.contains_key(&commit.id) {
+            if !graph_rank.contains_key(&commit.id) {
                 bail!(
-                    "Cannot order selected commits by parentage: selected commit {} could not be ranked from editor graph nodes",
+                    "Cannot order selected commits by parentage: selected commit {} could not be ranked from editor graph entries",
                     commit.id
                 );
             }
         }
 
         // The rank map is the sole source of truth for deterministic parent-before-child ordering.
-        selected.sort_by_key(|commit| (commit_graph_rank[&commit.id], commit.input_order));
+        selected.sort_by_key(|commit| (graph_rank[&commit.id], commit.input_order));
 
         Ok(selected.into_iter().map(|s| s.selector).collect())
     }
@@ -74,7 +74,7 @@ struct SelectedCommit {
     input_order: usize,
 }
 
-fn commit_graph_parent_to_child_rank<M: RefMetadata>(
+fn parent_to_child_rank<M: RefMetadata>(
     editor: &Editor<'_, M>,
     selected_ids: &HashSet<gix::ObjectId>,
 ) -> Result<HashMap<gix::ObjectId, usize>> {
@@ -85,9 +85,9 @@ fn commit_graph_parent_to_child_rank<M: RefMetadata>(
     let mut roots = editor.graph.tips().collect::<Vec<EditorGraphIndex>>();
     roots.sort_unstable();
 
-    // Traverse from all child-most entrypoints (graph nodes without children), assigning
+    // Traverse from all child-most entrypoints (graph entries without children), assigning
     // rank in post-order so parent commits always rank before descendants. Parents are
-    // pushed in collect_ordered_parents order (not reversed). The seen-set handles nodes
+    // pushed in collect_ordered_parents order (not reversed). The seen-set handles entries
     // reachable from multiple entrypoints, and traversal stops once all selected commits
     // have ranks.
     for root in roots {
@@ -96,13 +96,13 @@ fn commit_graph_parent_to_child_rank<M: RefMetadata>(
         }
 
         let mut stack = vec![(root, false)];
-        while let Some((node, expanded)) = stack.pop() {
+        while let Some((entry, expanded)) = stack.pop() {
             if rank_by_id.len() == selected_ids.len() {
                 break;
             }
 
             if expanded {
-                if let Some(id) = editor.graph.commit_id(node)
+                if let Some(id) = editor.graph.commit_id(entry)
                     && selected_ids.contains(&id)
                 {
                     rank_by_id.entry(id).or_insert_with(|| {
@@ -114,12 +114,12 @@ fn commit_graph_parent_to_child_rank<M: RefMetadata>(
                 continue;
             }
 
-            if !seen.insert(node) {
+            if !seen.insert(entry) {
                 continue;
             }
 
-            let parents = util::collect_ordered_parents(&editor.graph, node);
-            stack.push((node, true));
+            let parents = util::collect_ordered_parents(&editor.graph, entry);
+            stack.push((entry, true));
             for parent_idx in parents.into_iter() {
                 stack.push((parent_idx, false));
             }

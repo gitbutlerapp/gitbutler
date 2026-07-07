@@ -126,7 +126,7 @@ fn stack_rows<M: RefMetadata>(
     commit_state: &HashMap<Selector, CommitState>,
 ) -> Result<Stack> {
     let mut visible_nodes = HashSet::new();
-    for selector in &stack.nodes {
+    for selector in &stack.entries {
         if is_visible_step(editor, *selector)? {
             visible_nodes.insert(*selector);
         }
@@ -134,7 +134,7 @@ fn stack_rows<M: RefMetadata>(
     let parents_by_node = visible_nodes
         .iter()
         .copied()
-        .map(|node| Ok((node, visible_parents(editor, &stack.nodes, node)?)))
+        .map(|node| Ok((node, visible_parents(editor, &stack.entries, node)?)))
         .collect::<Result<HashMap<_, _>>>()?;
 
     // Seed the traversal from the stack's visible tips (nodes no visible child

@@ -4214,7 +4214,7 @@ fn local_branch_tracking_the_target_does_not_duplicate_the_target_segment() -> a
     let graph =
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let target_segments = graph
-        .segments()
+        .segment_ids()
         .filter(|sidx| {
             graph[*sidx]
                 .ref_name()
@@ -7722,7 +7722,7 @@ fn graph_structure(graph: &but_graph::Graph) -> Vec<String> {
             .unwrap_or_else(|| "∅".into())
     };
     let mut lines: Vec<String> = graph
-        .segments()
+        .segment_ids()
         .map(|sidx| {
             let s = &graph[sidx];
             let name = s
@@ -7800,7 +7800,7 @@ fn build_cg_graph(
 /// other graph-shaping differences.
 fn worktree_annotations(graph: &but_graph::Graph) -> Vec<String> {
     let mut out: Vec<String> = graph
-        .segments()
+        .segment_ids()
         .map(|sidx| &graph[sidx])
         .flat_map(|s| {
             s.ref_info

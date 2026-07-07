@@ -100,7 +100,7 @@ pub fn workspace_from_commit_graph<T: but_core::RefMetadata>(
         .try_find_reference(ws_ref.as_ref())?
         .and_then(|mut r| r.peel_to_commit().ok())
         .map(|c| c.id().detach());
-    let ws_commit = ws_tip_on_disk.filter(|c| cg.node(*c).is_some());
+    let ws_commit = ws_tip_on_disk.filter(|c| cg.row(*c).is_some());
     // The walk seeds `InWorkspace` and the project target only for a workspace with METADATA
     // whose ref resolves — a bare `gitbutler/workspace` ref without it walks (and projects)
     // as a plain branch.
@@ -138,7 +138,7 @@ pub fn workspace_from_commit_graph<T: but_core::RefMetadata>(
     if let Some(tip) = head_tip {
         ensure_tip_region(&mut cg, &overlay_repo, tip, crate::CommitFlags::empty())?;
     }
-    let head_tip = head_tip.filter(|c| cg.node(*c).is_some());
+    let head_tip = head_tip.filter(|c| cg.row(*c).is_some());
     // Reconcile edges LAST: the region steps above revive tombstones, and a revival flips
     // effective parents that must then be re-validated against the odb.
     complete_parents_from_odb(&mut cg, &overlay_repo)?;
@@ -241,18 +241,18 @@ pub fn workspace_from_commit_graph<T: but_core::RefMetadata>(
     .map(Some)
 }
 
-/// Reconcile every live node's parents with the odb — the write-through seam's edge refresh.
+/// Reconcile every live row's parents with the odb — the write-through seam's edge refresh.
 /// After materialization the odb is authoritative for every kept id: an editor pick applied
 /// AS-IS carries no arena edges at all (parents implied by the odb), and a `preserved_parents`
 /// pick was WRITTEN with parents its arena position never had (edit mode's parent override).
-/// A node is kept only when its RAW recorded parents equal its odb parents AND no connected
+/// A row is kept only when its RAW recorded parents equal its odb parents AND no connected
 /// slot targets a tombstone — the projection reads the raw payload, so a stale id left behind
 /// by an editor drop is as much a divergence as a wrong edge. Walk cuts (absent slots with
 /// odb-true payload) survive. Anything else is rewired to the odb parents, adding (or
 /// reviving) missing commits recursively, each reconciled the same way.
 fn complete_parents_from_odb(cg: &mut CommitGraph, repo: &OverlayRepo<'_>) -> anyhow::Result<()> {
-    let mut queue: Vec<gix::ObjectId> = (0..cg.node_count())
-        .filter_map(|idx| cg.node_payload(idx))
+    let mut queue: Vec<gix::ObjectId> = (0..cg.row_count())
+        .filter_map(|idx| cg.row_payload(idx))
         .collect();
     while let Some(id) = queue.pop() {
         let idx = cg.index_of(id).expect("queued ids are live");
@@ -283,22 +283,22 @@ fn complete_parents_from_odb(cg: &mut CommitGraph, repo: &OverlayRepo<'_>) -> an
                 }
                 cg.index_of(p).unwrap_or_else(|| {
                     queue.push(p);
-                    cg.add_node(Some(p))
+                    cg.add_row(Some(p))
                 })
             })
             .collect();
         cg.set_parents(idx, parent_indices);
-        // A revived node is newly live — it wasn't in the initial sweep, so validate it now.
+        // A revived row is newly live — it wasn't in the initial sweep, so validate it now.
         // (Its children need no re-queue: any child kept earlier already passed the
-        // tombstone-free check, so it can't have been substituting through this node.)
+        // tombstone-free check, so it can't have been substituting through this row.)
         queue.extend(revived);
     }
     Ok(())
 }
 
 /// The write-through seam's external-context refresh: `tip` (a stored/extra target, or a
-/// remote-tracking tip) still exists on disk even when the editor dropped its node (tombstoned)
-/// or rewrote it in place (the node now holds the rewritten id, while e.g. the remote ref still
+/// remote-tracking tip) still exists on disk even when the editor dropped its row (tombstoned)
+/// or rewrote it in place (the row now holds the rewritten id, while e.g. the remote ref still
 /// points at the old commit). Revive tombstones, and append any missing region — walking the odb
 /// from `tip` down to commits the graph knows — with `flags` (Integrated for target-seeded
 /// tips, empty for remote-ahead regions, the walk's conventions). A stale tip (unresolvable
@@ -327,10 +327,7 @@ fn ensure_tip_region(
         queue.extend(parents.iter().copied());
         to_add.push((id, parents));
     }
-    let indices: Vec<_> = to_add
-        .iter()
-        .map(|(id, _)| cg.add_node(Some(*id)))
-        .collect();
+    let indices: Vec<_> = to_add.iter().map(|(id, _)| cg.add_row(Some(*id))).collect();
     for ((_, parents), &idx) in to_add.iter().zip(&indices) {
         let parent_indices = parents
             .iter()
@@ -531,7 +528,7 @@ pub(crate) fn graph_from_repository_tips<T: but_core::RefMetadata>(
         .try_find_reference(ws_ref.as_ref())?
         .and_then(|mut r| r.peel_to_commit().ok())
         .map(|c| c.id().detach())
-        .filter(|c| cg.node(*c).is_some());
+        .filter(|c| cg.row(*c).is_some());
 
     let mut graph = if let Some(ws_commit) = ws_commit {
         // A workspace-ref entrypoint is the plain from_head case: no explicit entrypoint ref.
@@ -728,8 +725,8 @@ fn assemble_unmanaged<T: but_core::RefMetadata>(
 
 /// Find the segment named exactly `ref_name`, if any.
 fn segment_by_ref(sg: &SegmentGraph, ref_name: &gix::refs::FullName) -> Option<SegmentIndex> {
-    sg.node_indices().find(|&sidx| {
-        sg.node(sidx)
+    sg.segment_ids().find(|&sidx| {
+        sg.segment(sidx)
             .and_then(|s| s.ref_info.as_ref())
             .is_some_and(|ri| &ri.ref_name == ref_name)
     })
@@ -742,18 +739,18 @@ fn segment_by_commit_excluding(
     commit: gix::ObjectId,
     exclude: &HashSet<SegmentIndex>,
 ) -> Option<SegmentIndex> {
-    sg.node_indices().find(|&sidx| {
+    sg.segment_ids().find(|&sidx| {
         !exclude.contains(&sidx)
             && sg
-                .node(sidx)
+                .segment(sidx)
                 .is_some_and(|s| s.commits.iter().any(|c| c.id == commit))
     })
 }
 
 /// Find the segment that holds `commit`, if any.
 fn segment_by_commit(sg: &SegmentGraph, commit: gix::ObjectId) -> Option<SegmentIndex> {
-    sg.node_indices().find(|&sidx| {
-        sg.node(sidx)
+    sg.segment_ids().find(|&sidx| {
+        sg.segment(sidx)
             .is_some_and(|s| s.commits.iter().any(|c| c.id == commit))
     })
 }
@@ -771,7 +768,7 @@ fn ancestors(cg: &CommitGraph, start: gix::ObjectId) -> IdSet {
     let mut seen = IdSet::default();
     let mut stack = vec![start];
     while let Some(c) = stack.pop() {
-        if cg.node(c).is_none() {
+        if cg.row(c).is_none() {
             continue;
         }
         if seen.insert(c) {
@@ -799,8 +796,8 @@ fn disambiguated_ref<T: but_core::RefMetadata>(
     workspace_commit: Option<gix::ObjectId>,
     target_ref: Option<&gix::refs::FullName>,
 ) -> Option<gix::refs::FullName> {
-    let node = cg.node(c)?;
-    let branches: Vec<&gix::refs::FullName> = node
+    let row = cg.row(c)?;
+    let branches: Vec<&gix::refs::FullName> = row
         .commit
         .refs
         .iter()
@@ -815,7 +812,7 @@ fn disambiguated_ref<T: but_core::RefMetadata>(
         let mut it = branches.iter().copied().filter(|r| pred(r));
         it.next().filter(|_| it.next().is_none()).cloned()
     };
-    let integrated = node.commit.flags.contains(crate::CommitFlags::Integrated);
+    let integrated = row.commit.flags.contains(crate::CommitFlags::Integrated);
     (!integrated)
         .then(|| unique(&|r| segment_metadata(r.as_ref(), meta).is_some()))
         .flatten()

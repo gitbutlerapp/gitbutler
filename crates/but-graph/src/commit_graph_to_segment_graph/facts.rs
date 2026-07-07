@@ -51,7 +51,7 @@ pub(super) fn facts<T: but_core::RefMetadata>(
     let mut in_set: IdSet = ancestors(cg, workspace_commit);
     if let Some(t) = target
         && cg
-            .node(t)
+            .row(t)
             .is_some_and(|n| n.commit.flags.contains(crate::CommitFlags::NotInRemote))
     {
         in_set.extend(ancestors(cg, t));
@@ -153,7 +153,7 @@ pub(super) fn facts<T: but_core::RefMetadata>(
         .target_commit_id
         .into_iter()
         .chain(options.extra_target_commit_id)
-        .filter(|&c| cg.node(c).is_some())
+        .filter(|&c| cg.row(c).is_some())
         .collect();
     // EXPLICIT tips split ahead regions too (e.g. an integrated target riding inside a remote's
     // ahead run must start its own segment there, like the walk's tip-seeded segments).
@@ -212,7 +212,7 @@ pub(super) fn facts<T: but_core::RefMetadata>(
     tips.sort_by_cached_key(|&t| {
         (
             t != workspace_commit,
-            std::cmp::Reverse(cg.node(t).map(|n| n.generation).unwrap_or(0)),
+            std::cmp::Reverse(cg.row(t).map(|n| n.generation).unwrap_or(0)),
             t,
         )
     });

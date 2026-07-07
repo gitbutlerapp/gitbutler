@@ -12,7 +12,7 @@
 //! `Editor::rebase` replays it — cherry-picking every mutable pick onto its new parents and
 //! producing the reference updates to write.
 //!
-//! References are POSITIONS, not nodes with edges — see the `positions` module for the model.
+//! References are POSITIONS, not entries with edges — see the `positions` module for the model.
 
 mod arrangement;
 mod creation;
@@ -141,7 +141,7 @@ pub enum Step {
     },
     /// A tombstone left behind when a pick or reference is removed.
     ///
-    /// The node is never deleted from the arena — that would invalidate every node id after it.
+    /// The entry is never deleted from the arena — that would invalidate every entry id after it.
     /// Instead the slot becomes `None`, keeping ids stable. It retains its first
     /// outgoing edge so that resolving a reference downward walks THROUGH it to the next live
     /// pick. A tombstone must not survive into materialized output.

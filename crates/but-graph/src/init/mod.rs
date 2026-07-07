@@ -38,7 +38,7 @@ pub(crate) type Entrypoint = Option<(gix::ObjectId, Option<gix::refs::FullName>)
 ///
 /// - Virtual segments (*VS*) are minted by chain materialization to represent refs
 ///   which are described in [but_core::ref_metadata::Workspace]. They are [named](crate::Segment::ref_name())
-///   and always empty graph nodes, and ordinary virtual segments have *exactly one*
+///   and always empty, and ordinary virtual segments have *exactly one*
 ///   outgoing connection that lets `Graph::resolve_to_unambiguously_pointed_to_commit()`
 ///   find the commit named by the ref. The commit is owned by another segment, sometimes
 ///   because another segment was prioritized when multiple refs point to the same commit.
@@ -51,7 +51,7 @@ pub(crate) type Entrypoint = Option<(gix::ObjectId, Option<gix::refs::FullName>)
 /// - Forks and joins of the underlying
 ///   commit graph are represented by segments. This allows traversals or
 ///   graph computations, like merge-bases, to work the same as on the commit-graph, but
-///   possibly with less jumps among nodes as segments may contain more than one commit,
+///   possibly with fewer jumps as segments may contain more than one commit,
 ///   allowing to skip over uninteresting commits naturally.
 /// - The built graph may not fully represent the commit-graph
 ///   due to the creation of *VS*. What makes a *VS* virtual is not the ref itself,
@@ -410,8 +410,6 @@ pub struct Overlay {
     branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
     workspace: Option<(gix::refs::FullName, ref_metadata::Workspace)>,
 }
-
-pub(super) type PetGraph = crate::SegmentGraph;
 
 /// Options for use in [`Graph::from_head()`] and [`Graph::from_commit_traversal()`].
 #[derive(Default, Debug, Clone)]
@@ -797,7 +795,7 @@ impl Graph {
                     .context("BUG: entrypoint must always be set")?;
                 let entrypoint_segment = self
                     .inner
-                    .node_weight(entrypoint_sidx)
+                    .segment(entrypoint_sidx)
                     .context("BUG: entrypoint segment must be present")?;
                 let mut ref_name = entrypoint_segment.ref_info.clone().map(|ri| ri.ref_name);
                 let tip = if let Some(name) = ref_name.as_ref() {

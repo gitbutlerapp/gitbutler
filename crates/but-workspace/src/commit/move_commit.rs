@@ -4,7 +4,7 @@ use anyhow::bail;
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _, SuccessfulRebase, ToCommitSelector, ToSelector,
-    mutate::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet},
+    mutate::{InsertSide, RelativeTo, SelectorSet, StepRange},
 };
 
 use crate::graph_manipulation::determine_parent_selector;
@@ -95,7 +95,7 @@ pub fn move_commit_no_rebase<'meta, M: RefMetadata>(
 ) -> anyhow::Result<Editor<'meta, M>> {
     let (subject_commit_selector, _) = editor.find_selectable_commit(subject_commit)?;
 
-    let commit_delimiter = SegmentDelimiter {
+    let commit_range = StepRange {
         child: subject_commit_selector,
         parent: subject_commit_selector,
     };
@@ -104,14 +104,14 @@ pub fn move_commit_no_rebase<'meta, M: RefMetadata>(
     let parent_to_disconnect = determine_parent_selector(&editor, subject_commit_selector)?;
 
     // Step 2: Disconnect
-    editor.disconnect_segment_from(
-        commit_delimiter.clone(),
+    editor.disconnect_range_from(
+        commit_range.clone(),
         SelectorSet::All,
         parent_to_disconnect,
         false,
     )?;
 
     // Step 3: Insert
-    editor.insert_segment(anchor, commit_delimiter, side)?;
+    editor.insert_range(anchor, commit_range, side)?;
     Ok(editor)
 }

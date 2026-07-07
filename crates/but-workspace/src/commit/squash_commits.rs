@@ -7,7 +7,7 @@ use but_rebase::{
     graph_rebase::{
         Editor, LookupStep as _, Selector, Step, SuccessfulRebase, ToCommitSelector,
         merge_commit_changes::MergeCommitChangesOutcome,
-        mutate::{SegmentDelimiter, SelectorSet},
+        mutate::{SelectorSet, StepRange},
     },
 };
 
@@ -199,11 +199,11 @@ pub fn squash_commits<'meta, M: RefMetadata, S: ToCommitSelector, T: ToCommitSel
 
     let mut editor = editor;
     for commit_selector in subject_selectors {
-        let delimiter = SegmentDelimiter {
+        let range = StepRange {
             child: commit_selector,
             parent: commit_selector,
         };
-        editor.disconnect_segment_from(delimiter, SelectorSet::All, SelectorSet::All, false)?;
+        editor.disconnect_range_from(range, SelectorSet::All, SelectorSet::All, false)?;
         let (selector, _) = editor.find_selectable_commit(commit_selector)?;
         editor.replace(selector, Step::None)?;
     }

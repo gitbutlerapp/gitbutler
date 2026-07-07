@@ -13,7 +13,7 @@ use but_rebase::{
     graph_rebase::{
         Editor, LookupStep, Selector, Step,
         merge_commit_changes::MergeCommitChangesOutcome,
-        mutate::{SegmentDelimiter, SelectorSet},
+        mutate::{SelectorSet, StepRange},
     },
 };
 
@@ -333,13 +333,13 @@ fn apply_merge_commit_changes_outcome(
 /// `steps` is the prepared execution plan to insert under `ref_name`, ending
 /// at the deepest rebuilt parent step.
 ///
-/// Returns the delimiter spanning from the reference node to the deepest
+/// Returns the range spanning from the reference node to the deepest
 /// inserted parent.
 pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
     editor: &mut Editor<'_, M>,
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
-) -> Result<SegmentDelimiter<Selector, Selector>> {
+) -> Result<StepRange<Selector, Selector>> {
     // Step 1: We interpret the integration steps and transform them into graph steps disconnected from their parents.
     // We disconnect them in order to be able to allow for reordering.
     let segment_steps = integration_steps_to_segment_steps_for_editor(editor, ref_name, steps)?;
@@ -362,7 +362,7 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
         parent_most = connect_parent_step(editor, parent_most, step)?;
     }
 
-    Ok(SegmentDelimiter {
+    Ok(StepRange {
         child: child_most,
         parent: parent_most,
     })
@@ -442,8 +442,8 @@ fn existing_or_new_pick_step<M: RefMetadata>(
 ) -> Result<Step> {
     if let Some(existing) = editor.try_select_commit(commit_id) {
         let parents_to_disconnect = determine_parent_selector(editor, existing)?;
-        editor.disconnect_segment_from(
-            SegmentDelimiter {
+        editor.disconnect_range_from(
+            StepRange {
                 child: existing,
                 parent: existing,
             },

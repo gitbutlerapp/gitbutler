@@ -34,7 +34,7 @@ pub(super) fn insert_empty_workspace_segment(
         .or_else(|| but_core::WORKSPACE_REF_NAME.try_into().ok())?;
     // The worktree annotation comes from the shared `worktree_by_branch` pass — HEAD may well be on
     // a stack branch, not the workspace ref.
-    let ws_seg = sg.add_node(Segment {
+    let ws_seg = sg.add_segment(Segment {
         id: 0,
         ref_info: Some(RefInfo {
             ref_name: ws_ref,
@@ -48,7 +48,7 @@ pub(super) fn insert_empty_workspace_segment(
         metadata: None,
         connections: Vec::new(),
     });
-    sg.node_mut(ws_seg).expect("just added").id = ws_seg;
+    sg.segment_mut(ws_seg).expect("just added").id = ws_seg;
     connect(sg, ws_seg, stack_sidx);
     Some(ws_seg)
 }
@@ -97,8 +97,8 @@ pub(super) fn add_advanced_outside_branches<T: but_core::RefMetadata>(
                 rejoin = Some(id);
                 break;
             }
-            if let Some(node) = cg.node(id) {
-                commits.push(node.commit.clone());
+            if let Some(row) = cg.row(id) {
+                commits.push(row.commit.clone());
             }
             cursor = cg.first_parent(id);
         }
@@ -127,7 +127,7 @@ pub(super) fn add_advanced_outside_branches<T: but_core::RefMetadata>(
         let remote_tracking_ref_name = ref_info
             .as_ref()
             .and_then(|ri| remote_tracking.get(&ri.ref_name).cloned());
-        let seg = sg.add_node(Segment {
+        let seg = sg.add_segment(Segment {
             id: 0,
             ref_info,
             remote_tracking_ref_name,
@@ -137,14 +137,14 @@ pub(super) fn add_advanced_outside_branches<T: but_core::RefMetadata>(
             metadata: None,
             connections: Vec::new(),
         });
-        sg.node_mut(seg).expect("just added").id = seg;
+        sg.segment_mut(seg).expect("just added").id = seg;
         connect(sg, seg, owner_sidx);
         // Only a NAMED advanced branch is the in-workspace segment's sibling (the projection shows
         // that segment under the advanced branch's name); a floating anonymous run stays unlinked,
         // and the workspace position itself never links to outside content.
         if named
             && rejoin != workspace_commit
-            && let Some(owner) = sg.node_mut(owner_sidx)
+            && let Some(owner) = sg.segment_mut(owner_sidx)
             && owner.sibling_segment_id.is_none()
         {
             owner.sibling_segment_id = Some(seg);
@@ -152,7 +152,7 @@ pub(super) fn add_advanced_outside_branches<T: but_core::RefMetadata>(
     }
 }
 
-/// Materialize the [table](RefArrangement)'s lanes: per metadata stack list, thread the
+/// Materialize the [table](RefArrangement)'s chains: per metadata stack list, thread the
 /// same-commit groups top→bottom — the table-decided namer takes the anchor, the table-decided
 /// empties splice above it in metadata order — producing
 /// `ws → [empties] → seg(c1) → [empties] → seg(c2) → … → [empties] → base`.
@@ -165,24 +165,24 @@ pub(super) fn insert_empty_branches(
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) {
     // DEMOTIONS, decided by `chain_plan`: a shared base at/below the bound stays anonymous while
-    // every stack's branches float above as their own chain; the lower-bound anchor of an
-    // otherwise-unrepresented stack floats likewise. Remote links of a demoted name are
+    // every chain's branches float above as their own chain; the lower-bound anchor of an
+    // otherwise-unrepresented chain floats likewise. Remote links of a demoted name are
     // established on the floated segment by the remote creators.
     for &tip in &arrangement.demoted {
         let Some(anchor) = segment_by_commit(sg, tip) else {
             continue;
         };
-        if let Some(s) = sg.node_mut(anchor) {
+        if let Some(s) = sg.segment_mut(anchor) {
             s.ref_info = None;
             s.remote_tracking_ref_name = None;
             s.remote_tracking_branch_segment_id = None;
         }
     }
-    for (li, lane) in arrangement.stacks.iter().enumerate() {
-        // `from_sidx` feeds the top of the stack: the workspace segment for the first group, then each
+    for (li, chain) in arrangement.chains.iter().enumerate() {
+        // `from_sidx` feeds the top of the chain: the workspace segment for the first group, then each
         // group's anchor for the next (so its empties splice into the edge coming from above).
         let mut from_sidx = ws_sidx;
-        for &(commit, gi) in &lane.anchors {
+        for &(commit, gi) in &chain.anchors {
             let group = &arrangement.at_commit[&commit][gi];
             // Outside the workspace or co-located with a managed merge commit: nothing to place.
             if group.placement == GroupPlacement::Skipped {
@@ -195,7 +195,7 @@ pub(super) fn insert_empty_branches(
             // anchor; metadata order overrides a build-time name that belongs to the group (its
             // remote links are cleared, the remote creators link its floated empty instead).
             if let Some(namer) = &group.namer
-                && let Some(s) = sg.node_mut(anchor)
+                && let Some(s) = sg.segment_mut(anchor)
             {
                 s.ref_info = Some(RefInfo {
                     ref_name: namer.name.clone(),
@@ -320,7 +320,7 @@ pub(super) fn insert_empty_chain_above(
     let seg_ids: Vec<SegmentIndex> = empties
         .iter()
         .map(|b| {
-            let s = sg.add_node(Segment {
+            let s = sg.add_segment(Segment {
                 id: 0,
                 ref_info: Some(RefInfo {
                     ref_name: b.clone(),
@@ -336,7 +336,7 @@ pub(super) fn insert_empty_chain_above(
                 metadata: None,
                 connections: Vec::new(),
             });
-            sg.node_mut(s).expect("just added").id = s;
+            sg.segment_mut(s).expect("just added").id = s;
             s
         })
         .collect();
@@ -353,7 +353,7 @@ pub(super) fn insert_empty_chain_above(
     if let Some(from_sidx) = from_sidx {
         let mut redirected = false;
         let redirect_sources: Vec<SegmentIndex> = if redirect_all {
-            sg.node_indices()
+            sg.segment_ids()
                 .filter(|&s| !seg_ids.contains(&s) && !is_remote_segment(sg, s))
                 .collect()
         } else {
@@ -368,10 +368,10 @@ pub(super) fn insert_empty_chain_above(
             // chain, so a further dependent branch slots in underneath it rather than minting a
             // fresh chain.
             let find_parent = |require_commits: bool| {
-                sg.node_indices().find(|&sidx| {
+                sg.segment_ids().find(|&sidx| {
                     sidx != from_sidx
                         && !is_remote_segment(sg, sidx)
-                        && sg.node(sidx).is_some_and(|s| {
+                        && sg.segment(sidx).is_some_and(|s| {
                             (!require_commits || !s.commits.is_empty())
                                 && s.connections.iter().any(|c| c.target == anchor)
                         })

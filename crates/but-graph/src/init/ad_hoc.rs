@@ -140,7 +140,7 @@ fn ad_hoc_order_bottom_segment_id(
     bottom_commit_id: gix::ObjectId,
 ) -> Option<SegmentIndex> {
     graph
-        .node_weights()
+        .segments()
         .find(|segment| {
             segment
                 .ref_name()
@@ -148,7 +148,7 @@ fn ad_hoc_order_bottom_segment_id(
         })
         .or_else(|| {
             graph
-                .node_weights()
+                .segments()
                 .find(|segment| segment.tip() == Some(bottom_commit_id))
         })
         .map(|segment| segment.id)
@@ -176,7 +176,7 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
     }
 
     let mut empty_segment_by_ref = BTreeMap::new();
-    for segment in graph.node_weights() {
+    for segment in graph.segments() {
         if segment.commits.is_empty()
             && let Some(ref_name) = segment.ref_name()
             && empty_refs
@@ -255,7 +255,7 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
     for edge in incoming_edges {
         graph
             .inner
-            .retarget_edges(edge.source, edge.weight.target, top_segment_id);
+            .retarget_edges(edge.source, edge.connection.target, top_segment_id);
     }
     // Drop the involved segments' own outgoing connections — except the bottom segment's
     // connections leading outside — then re-chain the segments in the desired order.
@@ -266,14 +266,14 @@ fn rebuild_same_tip_segment_chain_by_branch_order<T: RefMetadata>(
                 .inner
                 .edges_directed(*segment_id, Direction::Outgoing)
                 .filter(|edge| {
-                    *segment_id != bottom_segment_id || involved_segments.contains(&edge.target())
+                    *segment_id != bottom_segment_id || involved_segments.contains(&edge.target)
                 })
                 .map(EdgeOwned::from)
                 .collect::<Vec<_>>()
         })
         .collect();
     for edge in outgoing_edges_to_remove {
-        graph.inner.remove_edge(edge.source, &edge.weight);
+        graph.inner.remove_edge(edge.source, &edge.connection);
     }
 
     for pair in ordered_segment_ids.windows(2) {

@@ -710,7 +710,7 @@ pub(crate) mod function {
             };
             let generation = cg
                 .zip(anchor)
-                .and_then(|(cg, anchor)| cg.node(anchor))
+                .and_then(|(cg, anchor)| cg.row(anchor))
                 .map(|n| n.generation)
                 .unwrap_or(0);
             let ref_to_checkout = RefToCheckout::from_segment_ref_info(ws, sidx, ref_info)?;

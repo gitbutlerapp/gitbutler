@@ -5,14 +5,14 @@ use but_core::RefMetadata;
 use but_graph::workspace::{Stack, StackSegment};
 use but_rebase::graph_rebase::{
     Editor, LookupStep, Selector, Step, ToSelector,
-    mutate::{SegmentDelimiter, SelectorSet, SomeSelectors},
+    mutate::{SelectorSet, SomeSelectors, StepRange},
 };
 use std::collections::HashSet;
 
 /// Payload containing information about how to disconnect a segment in the graph.
 pub struct DisconnectParameters {
     /// The bounds of the segment to disconnect.
-    pub(crate) delimiter: SegmentDelimiter<Selector, Selector>,
+    pub(crate) range: StepRange<Selector, Selector>,
     /// The children of the child-most segment bound to disconnect.
     pub(crate) children_to_disconnect: SelectorSet,
     /// The parents of the parent-most segment bound to disconnect.
@@ -22,7 +22,7 @@ pub struct DisconnectParameters {
 /// Get the right disconnect parameters for the given subject segment and source stack.
 ///
 /// This function determines which are the right parents and children to disconnect,
-/// as well as the right segment delimiter to move.
+/// as well as the right segment range to move.
 pub fn get_disconnect_parameters<'meta, M: RefMetadata>(
     editor: &Editor<'meta, M>,
     source_stack: &Stack,
@@ -51,24 +51,24 @@ pub fn get_disconnect_parameters<'meta, M: RefMetadata>(
         }
     };
 
-    // The delimiter for the segment we want to move, is the reference selector
+    // The range for the segment we want to move, is the reference selector
     // as the child, and the last commit inside the branch as the parent.
     // If the branch is empty, we take the reference selector as the parent as well.
-    let delimiter = SegmentDelimiter {
+    let range = StepRange {
         child: delimiter_child,
         parent: delimiter_parent,
     };
 
-    // Disconnect the subject from the base directly below its parent-delimiter — the branch's last
+    // Disconnect the subject from the base directly below its parent-range — the branch's last
     // commit, or its reference when the branch is empty. The base is the first-parent edge (lowest
     // edge order); if the bottom commit is a merge, its higher-order parents must travel with the
     // subject rather than be cut. We read this from the rebase editor graph (which
-    // `disconnect_segment_from` validates against) rather than the workspace projection: when the
+    // `disconnect_range_from` validates against) rather than the workspace projection: when the
     // target is ahead of the merge base the projection's base segment is anonymous and resolves to
     // the base commit, while the editor graph keeps the target reference node between the branch and
     // that commit, so only the editor-graph first parent matches the edge being checked.
     let parents_to_disconnect = match editor
-        .direct_parents(delimiter.parent)?
+        .direct_parents(range.parent)?
         .into_iter()
         .min_by_key(|(_, order)| *order)
     {
@@ -85,7 +85,7 @@ pub fn get_disconnect_parameters<'meta, M: RefMetadata>(
         let children_to_disconnect = SelectorSet::Some(selectors);
 
         return Ok(DisconnectParameters {
-            delimiter,
+            range,
             children_to_disconnect,
             parents_to_disconnect,
         });
@@ -117,7 +117,7 @@ pub fn get_disconnect_parameters<'meta, M: RefMetadata>(
     let children_to_disconnect = SelectorSet::Some(selectors);
 
     Ok(DisconnectParameters {
-        delimiter,
+        range,
         children_to_disconnect,
         parents_to_disconnect,
     })
@@ -177,8 +177,8 @@ pub(crate) fn disconnect_selector_from_all_parents<M: RefMetadata>(
     editor: &mut Editor<'_, M>,
     selector: Selector,
 ) -> Result<()> {
-    editor.disconnect_segment_from(
-        SegmentDelimiter {
+    editor.disconnect_range_from(
+        StepRange {
             child: selector,
             parent: selector,
         },
@@ -239,24 +239,24 @@ pub(crate) fn selected_edges_from_set<M: RefMetadata>(
 ///
 /// `editor` is the mutable graph editor whose edges will be recreated.
 ///
-/// `delimiter` identifies the rebuilt segment's child-most and parent-most
+/// `range` identifies the rebuilt segment's child-most and parent-most
 /// selectors.
 ///
 /// `children` are the previously captured child edges that should point back to
-/// `delimiter.child`. If the child is already connected to `delimiter.child`, no
+/// `range.child`. If the child is already connected to `range.child`, no
 /// new edge is added. Otherwise, the edge is inserted at the captured parent
 /// slot (clamped to the end), restoring the child's original parent order.
 ///
 /// `parents` are the previously captured parent edges that should be restored
-/// from `delimiter.parent`, appended after any existing parents already
+/// from `range.parent`, appended after any existing parents already
 /// connected there in their captured relative order. If a parent is already
-/// connected to `delimiter.parent`, no new edge is added.
+/// connected to `range.parent`, no new edge is added.
 ///
 /// Returns `Ok(())` after the captured child and parent edges have been
 /// reattached to the rebuilt segment.
 pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
     editor: &mut Editor<'_, M>,
-    delimiter: SegmentDelimiter<Selector, Selector>,
+    range: StepRange<Selector, Selector>,
     children: &[(Selector, usize)],
     parents: &[(Selector, usize)],
 ) -> Result<()> {
@@ -264,24 +264,24 @@ pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
         let direct_parents = editor.direct_parents(*child)?;
         if direct_parents
             .iter()
-            .any(|(parent, _)| *parent == delimiter.child)
+            .any(|(parent, _)| *parent == range.child)
         {
             continue;
         }
-        editor.insert_edge(*child, delimiter.child, *slot)?;
+        editor.insert_edge(*child, range.child, *slot)?;
     }
 
     let mut parents = parents.to_vec();
     parents.sort_by_key(|(_, slot)| *slot);
     for (parent, _) in parents {
-        let direct_parents = editor.direct_parents(delimiter.parent)?;
+        let direct_parents = editor.direct_parents(range.parent)?;
         if direct_parents
             .iter()
             .any(|(existing_parent, _)| *existing_parent == parent)
         {
             continue;
         }
-        editor.push_edge(delimiter.parent, parent)?;
+        editor.push_edge(range.parent, parent)?;
     }
 
     Ok(())

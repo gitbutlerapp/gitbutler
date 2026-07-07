@@ -102,7 +102,7 @@ impl<M: RefMetadata> Editor<'_, M> {
             .map(|id| self.new_selector(id)))
     }
 
-    /// Node-era reachability over the positioned graph: picks and tombstones by edges (a
+    /// Arena-era reachability over the positioned graph: picks and tombstones by edges (a
     /// reference start descends from its pick), plus every reference group the walk
     /// entered.
     fn reachable_ids(&self, start: EditorGraphIndex) -> Vec<EditorGraphIndex> {
@@ -178,7 +178,7 @@ mod test {
 
     fn pick(graph: &mut EditorGraph) -> EditorGraphIndex {
         let id = gix::ObjectId::from_str("1000000000000000000000000000000000000000").unwrap();
-        graph.add_node(Step::new_pick(id))
+        graph.add_row(Step::new_pick(id))
     }
 
     /// `a -> b -> base` and `c -> base` (edges point child -> parent).
@@ -216,7 +216,7 @@ mod test {
     fn count_picks_ignores_non_pick_steps() {
         let mut g = EditorGraph::default();
         let a = pick(&mut g);
-        let none = g.add_node(Step::None);
+        let none = g.add_row(Step::None);
         let b = pick(&mut g);
         let base = pick(&mut g);
         let c = pick(&mut g);

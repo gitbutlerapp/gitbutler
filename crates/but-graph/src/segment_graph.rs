@@ -7,7 +7,7 @@
 //!
 //! Outgoing connections are kept in first-parent order (see
 //! `order_outgoing_connections_by_first_parent`), which is the order traversal wants. The reverse
-//! direction is a maintained index (`incoming`: one source entry per connection), so per-node
+//! direction is a maintained index (`incoming`: one source entry per connection), so per-segment
 //! incoming queries are O(degree) even on graphs with hundreds of thousands of segments.
 
 use crate::{CommitIndex, Segment, SegmentIndex};
@@ -99,9 +99,6 @@ impl Connection {
 }
 
 /// A connection together with the segment it leaves, yielded while iterating a segment's edges.
-///
-/// Mirrors the accessor shape the call sites used when edges were a separate graph element, so they
-/// read the same: `e.source()`, `e.target()`, `e.weight()`.
 #[derive(Debug, Clone, Copy)]
 pub struct EdgeRef<'a> {
     /// The segment this connection leaves.
@@ -109,19 +106,7 @@ pub struct EdgeRef<'a> {
     /// The segment this connection points to.
     pub target: SegmentIndex,
     /// The connection payload.
-    pub weight: &'a Connection,
-}
-
-impl<'a> EdgeRef<'a> {
-    pub fn source(&self) -> SegmentIndex {
-        self.source
-    }
-    pub fn target(&self) -> SegmentIndex {
-        self.target
-    }
-    pub fn weight(&self) -> &'a Connection {
-        self.weight
-    }
+    pub connection: &'a Connection,
 }
 
 /// The segment arena. Removing a segment tombstones its slot, which is reused (LIFO) before a fresh
@@ -150,13 +135,13 @@ impl SegmentGraph {
     }
 
     /// Number of live (non-tombstoned) segments.
-    pub(crate) fn node_count(&self) -> usize {
+    pub(crate) fn segment_count(&self) -> usize {
         self.segments.iter().filter(|n| n.is_some()).count()
     }
 
     /// Insert `segment` and return its id, reusing a tombstoned slot if available.
     /// The caller is responsible for having set `segment.id` to the returned id where it matters.
-    pub fn add_node(&mut self, segment: Segment) -> SegmentIndex {
+    pub fn add_segment(&mut self, segment: Segment) -> SegmentIndex {
         if let Some(id) = self.free.pop() {
             debug_assert!(self.incoming[id].is_empty(), "tombstones have no edges");
             self.segments[id] = Some(segment);
@@ -170,26 +155,17 @@ impl SegmentGraph {
     }
 
     /// The segment at `id`, if live.
-    pub fn node(&self, id: SegmentIndex) -> Option<&Segment> {
+    pub fn segment(&self, id: SegmentIndex) -> Option<&Segment> {
         self.segments.get(id).and_then(Option::as_ref)
     }
 
     /// The segment at `id` mutably, if live.
-    pub(crate) fn node_mut(&mut self, id: SegmentIndex) -> Option<&mut Segment> {
+    pub(crate) fn segment_mut(&mut self, id: SegmentIndex) -> Option<&mut Segment> {
         self.segments.get_mut(id).and_then(Option::as_mut)
     }
 
-    /// Alias for [`Self::node`].
-    pub(crate) fn node_weight(&self, id: SegmentIndex) -> Option<&Segment> {
-        self.node(id)
-    }
-    /// Alias for [`Self::node_mut`].
-    pub(crate) fn node_weight_mut(&mut self, id: SegmentIndex) -> Option<&mut Segment> {
-        self.node_mut(id)
-    }
-
     /// Tombstone `id` and drop every connection incident to it (its own, and those pointing at it).
-    pub(crate) fn remove_node(&mut self, id: SegmentIndex) -> Option<Segment> {
+    pub(crate) fn remove_segment(&mut self, id: SegmentIndex) -> Option<Segment> {
         let removed = self.segments.get_mut(id)?.take()?;
         for c in &removed.connections {
             let inc = &mut self.incoming[c.target];
@@ -208,11 +184,11 @@ impl SegmentGraph {
     /// Add a connection `source -> target`, appended to `source`'s connections.
     pub fn add_edge(&mut self, source: SegmentIndex, connection: Connection) {
         debug_assert!(
-            self.node(source).is_some(),
+            self.segment(source).is_some(),
             "connection source must be live"
         );
         debug_assert!(
-            self.node(connection.target).is_some(),
+            self.segment(connection.target).is_some(),
             "connection target must be live"
         );
         self.incoming[connection.target].push(source);
@@ -233,11 +209,11 @@ impl SegmentGraph {
         connection: Connection,
     ) {
         debug_assert!(
-            self.node(source).is_some(),
+            self.segment(source).is_some(),
             "connection source must be live"
         );
         debug_assert!(
-            self.node(connection.target).is_some(),
+            self.segment(connection.target).is_some(),
             "connection target must be live"
         );
         self.incoming[connection.target].push(source);
@@ -249,11 +225,15 @@ impl SegmentGraph {
         connections.insert(slot, connection);
     }
 
-    /// Remove the first connection leaving `source` that equals `weight`, returning it.
+    /// Remove the first connection leaving `source` that equals `connection`, returning it.
     /// Connections have no global id; they are identified by source plus value.
-    pub fn remove_edge(&mut self, source: SegmentIndex, weight: &Connection) -> Option<Connection> {
-        let conns = &mut self.node_mut(source)?.connections;
-        let pos = conns.iter().position(|c| c == weight)?;
+    pub fn remove_edge(
+        &mut self,
+        source: SegmentIndex,
+        connection: &Connection,
+    ) -> Option<Connection> {
+        let conns = &mut self.segment_mut(source)?.connections;
+        let pos = conns.iter().position(|c| c == connection)?;
         let removed = conns.remove(pos);
         let inc = &mut self.incoming[removed.target];
         let pos = inc
@@ -298,50 +278,45 @@ impl SegmentGraph {
     }
 
     /// Live segment ids, ascending.
-    pub(crate) fn node_ids(&self) -> impl Iterator<Item = SegmentIndex> + '_ {
+    pub fn segment_ids(&self) -> impl Iterator<Item = SegmentIndex> + '_ {
         self.segments
             .iter()
             .enumerate()
             .filter_map(|(i, n)| n.as_ref().map(|_| i))
     }
 
-    /// Alias for `Self::node_ids` under the petgraph-era name callers still use.
-    pub fn node_indices(&self) -> impl Iterator<Item = SegmentIndex> + '_ {
-        self.node_ids()
-    }
-
     /// Connections leaving (`Outgoing`, in stored first-parent order) or entering (`Incoming`,
-    /// via the incoming index, in ascending source order) `node`.
+    /// via the incoming index, in ascending source order) `segment`.
     pub fn edges_directed(
         &self,
-        node: SegmentIndex,
+        segment: SegmentIndex,
         dir: Direction,
     ) -> impl Iterator<Item = EdgeRef<'_>> + '_ {
         // Collect so the two directions share a return type without boxing.
         let mut out = Vec::new();
         match dir {
             Direction::Outgoing => {
-                if let Some(seg) = self.node(node) {
+                if let Some(seg) = self.segment(segment) {
                     for c in &seg.connections {
                         out.push(EdgeRef {
-                            source: node,
+                            source: segment,
                             target: c.target,
-                            weight: c,
+                            connection: c,
                         });
                     }
                 }
             }
             Direction::Incoming => {
-                let mut sources = self.incoming.get(node).cloned().unwrap_or_default();
+                let mut sources = self.incoming.get(segment).cloned().unwrap_or_default();
                 sources.sort_unstable();
                 sources.dedup();
                 for src in sources {
                     for c in &self.segments[src].as_ref().expect("live").connections {
-                        if c.target == node {
+                        if c.target == segment {
                             out.push(EdgeRef {
                                 source: src,
                                 target: c.target,
-                                weight: c,
+                                connection: c,
                             });
                         }
                     }
@@ -354,10 +329,10 @@ impl SegmentGraph {
     /// Neighboring segment ids in the given direction.
     pub(crate) fn neighbors_directed(
         &self,
-        node: SegmentIndex,
+        segment: SegmentIndex,
         dir: Direction,
     ) -> impl Iterator<Item = SegmentIndex> + '_ {
-        self.edges_directed(node, dir)
+        self.edges_directed(segment, dir)
             .map(move |e| match dir {
                 Direction::Outgoing => e.target,
                 Direction::Incoming => e.source,
@@ -367,12 +342,14 @@ impl SegmentGraph {
     }
 
     /// Topological order (Kahn's algorithm): every connection's source precedes its target.
-    /// Assumes a DAG; nodes left over after a cycle are omitted.
+    /// Assumes a DAG; segments left over after a cycle are omitted.
     pub(crate) fn toposort(&self) -> Vec<SegmentIndex> {
         let mut in_degree: Vec<usize> = self.incoming.iter().map(Vec::len).collect();
-        let mut queue: std::collections::VecDeque<SegmentIndex> =
-            self.node_ids().filter(|&id| in_degree[id] == 0).collect();
-        let mut order = Vec::with_capacity(self.node_count());
+        let mut queue: std::collections::VecDeque<SegmentIndex> = self
+            .segment_ids()
+            .filter(|&id| in_degree[id] == 0)
+            .collect();
+        let mut order = Vec::with_capacity(self.segment_count());
         while let Some(id) = queue.pop_front() {
             order.push(id);
             for c in &self.segments[id].as_ref().expect("live").connections {
@@ -387,7 +364,7 @@ impl SegmentGraph {
 
     /// Live segments with no connections in `dir` — sinks for `Outgoing`, roots for `Incoming`.
     pub fn externals(&self, dir: Direction) -> impl Iterator<Item = SegmentIndex> + '_ {
-        self.node_ids()
+        self.segment_ids()
             .filter(move |&id| match dir {
                 Direction::Outgoing => self.segments[id]
                     .as_ref()
@@ -409,20 +386,15 @@ impl SegmentGraph {
             .sum()
     }
 
-    /// A node's outgoing connections.
-    pub fn edges(&self, node: SegmentIndex) -> impl Iterator<Item = EdgeRef<'_>> + '_ {
-        self.edges_directed(node, Direction::Outgoing)
-    }
-
     /// All live connections, in ascending source order.
     pub fn edge_references(&self) -> impl Iterator<Item = EdgeRef<'_>> + '_ {
         let mut out = Vec::new();
-        for src in self.node_ids() {
+        for src in self.segment_ids() {
             for c in &self.segments[src].as_ref().expect("live").connections {
                 out.push(EdgeRef {
                     source: src,
                     target: c.target,
-                    weight: c,
+                    connection: c,
                 });
             }
         }
@@ -430,17 +402,17 @@ impl SegmentGraph {
     }
 
     /// One past the largest segment id ever handed out (tombstoned slots included).
-    pub(crate) fn node_bound(&self) -> usize {
+    pub(crate) fn id_bound(&self) -> usize {
         self.segments.len()
     }
 
     /// All live segments, ascending by id.
-    pub(crate) fn node_weights(&self) -> impl Iterator<Item = &Segment> + '_ {
+    pub(crate) fn segments(&self) -> impl Iterator<Item = &Segment> + '_ {
         self.segments.iter().filter_map(Option::as_ref)
     }
 
     /// All live segments mutably, ascending by id.
-    pub(crate) fn node_weights_mut(&mut self) -> impl Iterator<Item = &mut Segment> + '_ {
+    pub(crate) fn segments_mut(&mut self) -> impl Iterator<Item = &mut Segment> + '_ {
         self.segments.iter_mut().filter_map(Option::as_mut)
     }
 }
@@ -448,13 +420,14 @@ impl SegmentGraph {
 impl std::ops::Index<SegmentIndex> for SegmentGraph {
     type Output = Segment;
     fn index(&self, id: SegmentIndex) -> &Segment {
-        self.node(id).expect("segment id refers to a live segment")
+        self.segment(id)
+            .expect("segment id refers to a live segment")
     }
 }
 
 impl std::ops::IndexMut<SegmentIndex> for SegmentGraph {
     fn index_mut(&mut self, id: SegmentIndex) -> &mut Segment {
-        self.node_mut(id)
+        self.segment_mut(id)
             .expect("segment id refers to a live segment")
     }
 }
@@ -471,23 +444,23 @@ mod tests {
     #[test]
     fn add_remove_and_lifo_id_reuse() {
         let mut g = SegmentGraph::new();
-        let a = g.add_node(Segment::default());
-        let b = g.add_node(Segment::default());
-        assert_eq!(g.node_count(), 2);
-        assert!(g.remove_node(a).is_some());
-        assert_eq!(g.node_count(), 1);
+        let a = g.add_segment(Segment::default());
+        let b = g.add_segment(Segment::default());
+        assert_eq!(g.segment_count(), 2);
+        assert!(g.remove_segment(a).is_some());
+        assert_eq!(g.segment_count(), 1);
         // The freed slot is reused before a fresh id is handed out.
-        let c = g.add_node(Segment::default());
+        let c = g.add_segment(Segment::default());
         assert_eq!(c, a, "freed slot reused");
-        assert!(g.node(b).is_some(), "other ids stay stable");
+        assert!(g.segment(b).is_some(), "other ids stay stable");
     }
 
     #[test]
     fn outgoing_is_stored_order_and_incoming_is_scanned() {
         let mut g = SegmentGraph::new();
-        let a = g.add_node(Segment::default());
-        let b = g.add_node(Segment::default());
-        let c = g.add_node(Segment::default());
+        let a = g.add_segment(Segment::default());
+        let b = g.add_segment(Segment::default());
+        let c = g.add_segment(Segment::default());
         g.add_edge(a, conn(b));
         g.add_edge(a, conn(c));
         // Outgoing keeps insertion (stored) order — no newest-first reversal.
@@ -505,24 +478,24 @@ mod tests {
     }
 
     #[test]
-    fn remove_node_drops_incident_connections() {
+    fn remove_segment_drops_incident_connections() {
         let mut g = SegmentGraph::new();
-        let a = g.add_node(Segment::default());
-        let b = g.add_node(Segment::default());
-        let c = g.add_node(Segment::default());
+        let a = g.add_segment(Segment::default());
+        let b = g.add_segment(Segment::default());
+        let c = g.add_segment(Segment::default());
         g.add_edge(a, conn(b));
         g.add_edge(b, conn(c));
-        g.remove_node(b);
+        g.remove_segment(b);
         assert_eq!(g.neighbors_directed(a, Direction::Outgoing).count(), 0);
         assert_eq!(g.neighbors_directed(c, Direction::Incoming).count(), 0);
-        assert!(g.node(b).is_none());
+        assert!(g.segment(b).is_none());
     }
 
     #[test]
     fn remove_edge_by_value() {
         let mut g = SegmentGraph::new();
-        let a = g.add_node(Segment::default());
-        let b = g.add_node(Segment::default());
+        let a = g.add_segment(Segment::default());
+        let b = g.add_segment(Segment::default());
         let e = conn(b);
         g.add_edge(a, e);
         assert_eq!(g.edge_count(), 1);
@@ -534,10 +507,10 @@ mod tests {
     fn toposort_orders_sources_before_targets() {
         // Diamond: a -> b, a -> c, b -> d, c -> d.
         let mut g = SegmentGraph::new();
-        let a = g.add_node(Segment::default());
-        let b = g.add_node(Segment::default());
-        let c = g.add_node(Segment::default());
-        let d = g.add_node(Segment::default());
+        let a = g.add_segment(Segment::default());
+        let b = g.add_segment(Segment::default());
+        let c = g.add_segment(Segment::default());
+        let d = g.add_segment(Segment::default());
         g.add_edge(a, conn(b));
         g.add_edge(a, conn(c));
         g.add_edge(b, conn(d));
@@ -551,9 +524,9 @@ mod tests {
     #[test]
     fn externals_finds_roots_and_sinks() {
         let mut g = SegmentGraph::new();
-        let a = g.add_node(Segment::default());
-        let b = g.add_node(Segment::default());
-        let c = g.add_node(Segment::default());
+        let a = g.add_segment(Segment::default());
+        let b = g.add_segment(Segment::default());
+        let c = g.add_segment(Segment::default());
         g.add_edge(a, conn(b));
         g.add_edge(b, conn(c));
         assert_eq!(

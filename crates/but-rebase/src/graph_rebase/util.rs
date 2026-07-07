@@ -9,7 +9,7 @@ use crate::graph_rebase::{EditorGraph, EditorGraphIndex};
 ///
 /// A parent slot that carries a reference group (the slot is a stored edge entry of a group
 /// positioned at its pick) yields to any plain slot resolving to the same pick, and only the
-/// first of several carrying slots survives — the same collapse the node-era search produced
+/// first of several carrying slots survives — the same collapse the entry-era search produced
 /// when a ref path and a direct path reached one pick. Plain duplicate slots are all kept
 /// (dup-parents workspace commits).
 pub(crate) fn collect_ordered_parents(
@@ -18,8 +18,9 @@ pub(crate) fn collect_ordered_parents(
 ) -> Vec<EditorGraphIndex> {
     let carries_group = |slot: usize, parent: EditorGraphIndex| {
         graph.is_pick(parent)
-            && graph.positioned_refs().any(|(node, stored)| {
-                crate::graph_rebase::positions::edges_through(graph, node).contains(&(target, slot))
+            && graph.positioned_refs().any(|(entry, stored)| {
+                crate::graph_rebase::positions::edges_through(graph, entry)
+                    .contains(&(target, slot))
                     && crate::graph_rebase::positions::resolve_to_pick(graph, stored.on)
                         == Some(parent)
             })
@@ -46,17 +47,17 @@ pub(crate) fn collect_ordered_parents(
 
     let mut parents = vec![];
 
-    while let Some((node, carrying)) = potential.pop() {
-        if graph.is_pick(node) {
-            if carrying && (plain_targets.contains(&node) || !emitted_carrying.insert(node)) {
+    while let Some((entry, carrying)) = potential.pop() {
+        if graph.is_pick(entry) {
+            if carrying && (plain_targets.contains(&entry) || !emitted_carrying.insert(entry)) {
                 continue;
             }
-            parents.push(node);
+            parents.push(entry);
             // Don't pursue the children
             continue;
         };
 
-        for &parent in graph.parents(node).iter().rev() {
+        for &parent in graph.parents(entry).iter().rev() {
             if seen.insert(parent) {
                 potential.push((parent, false));
             }
@@ -79,21 +80,21 @@ mod test {
         fn basic_scenario() -> Result<()> {
             let mut graph = EditorGraph::default();
             let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let a = graph.add_node(Step::new_pick(a_id));
+            let a = graph.add_row(Step::new_pick(a_id));
             // First parent
             let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let b = graph.add_node(Step::new_pick(b_id));
+            let b = graph.add_row(Step::new_pick(b_id));
             // Second parent - is a tombstone, so it flattens to its own parents
-            let c = graph.add_node(Step::None);
+            let c = graph.add_row(Step::None);
             // Second parent's first child
             let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
-            let d = graph.add_node(Step::new_pick(d_id));
+            let d = graph.add_row(Step::new_pick(d_id));
             // Second parent's second child
             let e_id = gix::ObjectId::from_str("4000000000000000000000000000000000000000")?;
-            let e = graph.add_node(Step::new_pick(e_id));
+            let e = graph.add_row(Step::new_pick(e_id));
             // Third parent
             let f_id = gix::ObjectId::from_str("5000000000000000000000000000000000000000")?;
-            let f = graph.add_node(Step::new_pick(f_id));
+            let f = graph.add_row(Step::new_pick(f_id));
 
             // A's parents
             graph.push_parent(a, b);

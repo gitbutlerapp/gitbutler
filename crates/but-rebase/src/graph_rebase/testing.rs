@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-//! Testing utilities for the commit graph: the `Testing` trait's `steps_ascii` draws the
+//! Testing utilities for the editor graph: the `Testing` trait's `steps_ascii` draws the
 //! graph as an ASCII DAG for snapshot tests, and `TestingDot` emits Graphviz `dot`. The rest
 //! of the module (group grouping, head finding, topological order) supports that rendering.
 
@@ -55,7 +55,7 @@ impl<M: RefMetadata> TestingDot for SuccessfulRebase<'_, M> {
 impl TestingDot for EditorGraph {
     fn steps_dot(&self) -> String {
         let mut out = String::from("digraph {\n");
-        for idx in self.node_indices().chain(self.ref_indices()) {
+        for idx in self.row_ids().chain(self.ref_indices()) {
             let label = match self.step_view(idx) {
                 Step::Pick(Pick { id, .. }) => format!("pick: {id}"),
                 Step::Reference { refname, .. } => {
@@ -65,7 +65,7 @@ impl TestingDot for EditorGraph {
             };
             out.push_str(&format!("    {idx} [ label=\"{label}\"]\n"));
         }
-        for idx in self.node_indices() {
+        for idx in self.row_ids() {
             for (order, parent) in self.parents(idx).iter().enumerate() {
                 out.push_str(&format!(
                     "    {idx} -> {parent} [ label=\"order: {order}\"]\n"
@@ -128,15 +128,15 @@ type GroupKey = (EditorGraphIndex, Vec<(EditorGraphIndex, usize)>);
 
 fn ref_groups(graph: &EditorGraph) -> HashMap<GroupKey, Vec<EditorGraphIndex>> {
     let mut out: HashMap<_, Vec<(usize, EditorGraphIndex)>> = HashMap::new();
-    for (node, stored) in graph.positioned_refs() {
-        out.entry((stored.on, positions::edges_through(graph, node)))
+    for (entry, stored) in graph.positioned_refs() {
+        out.entry((stored.on, positions::edges_through(graph, entry)))
             .or_default()
-            .push((positions::ref_depth(graph, node), node));
+            .push((positions::ref_depth(graph, entry), entry));
     }
     out.into_iter()
         .map(|(key, mut members)| {
             members.sort_by_key(|(depth, _)| *depth);
-            (key, members.into_iter().map(|(_, node)| node).collect())
+            (key, members.into_iter().map(|(_, entry)| entry).collect())
         })
         .collect()
 }
@@ -145,15 +145,15 @@ fn ref_groups(graph: &EditorGraph) -> HashMap<GroupKey, Vec<EditorGraphIndex>> {
 /// reference groups (positioned with nothing above them).
 fn find_heads(graph: &EditorGraph) -> Vec<EditorGraphIndex> {
     let mut has_incoming: HashSet<EditorGraphIndex> = HashSet::new();
-    for idx in graph.node_indices() {
+    for idx in graph.row_ids() {
         has_incoming.extend(graph.parents(idx));
     }
     let groups = ref_groups(graph);
-    // Node-arena entries first, then references (the render sorts heads deterministically, so
+    // Row-arena entries first, then references (the render sorts heads deterministically, so
     // seed order does not reach snapshots): a pick or tombstone with no incoming edges, or
     // the top of a root reference group.
     graph
-        .node_indices()
+        .row_ids()
         .chain(graph.ref_indices())
         .filter(|idx| match graph.position_of(*idx) {
             Some(stored) => {
@@ -164,48 +164,48 @@ fn find_heads(graph: &EditorGraph) -> Vec<EditorGraphIndex> {
                         .and_then(|members| members.last())
                         == Some(idx)
             }
-            // Positionless nodes (picks, tombstones, and hand-built reference nodes that never
+            // Positionless entries (picks, tombstones, and hand-built reference entries that never
             // went through creation's finalize pass) keep the edge-era rule.
             None => !has_incoming.contains(idx),
         })
         .collect()
 }
 
-/// Rendered parents of `node`, in order: a reference row points at the next group member
+/// Rendered parents of `entry`, in order: a reference row points at the next group member
 /// below it (or its pick); a pick's parent edges route through the group positioned on
 /// that (parent, slot), when one exists — reproducing the interposed rows references had
-/// when they were nodes.
-fn get_sorted_parents(graph: &EditorGraph, node: EditorGraphIndex) -> Vec<EditorGraphIndex> {
+/// when they were entries.
+fn get_sorted_parents(graph: &EditorGraph, entry: EditorGraphIndex) -> Vec<EditorGraphIndex> {
     let groups = ref_groups(graph);
-    if let Some(stored) = graph.position_of(node) {
+    if let Some(stored) = graph.position_of(entry) {
         let group = groups
-            .get(&(stored.on, positions::edges_through(graph, node)))
+            .get(&(stored.on, positions::edges_through(graph, entry)))
             .map(Vec::as_slice)
             .unwrap_or_default();
         let below = group
             .iter()
-            .position(|&n| n == node)
+            .position(|&n| n == entry)
             .and_then(|ix| ix.checked_sub(1))
             .map(|ix| group[ix])
             .unwrap_or(stored.on);
         return vec![below];
     }
     graph
-        .parents(node)
+        .parents(entry)
         .iter()
         .copied()
         .enumerate()
         .map(|(order, target)| {
             groups
                 .iter()
-                .find(|((pick, entering), _)| *pick == target && entering.contains(&(node, order)))
+                .find(|((pick, entering), _)| *pick == target && entering.contains(&(entry, order)))
                 .and_then(|(_, group)| group.last().copied())
                 .unwrap_or(target)
         })
         .collect()
 }
 
-/// A deterministic ordering for the head nodes so snapshots are stable: picks
+/// A deterministic ordering for the head entries so snapshots are stable: picks
 /// before references, then by id / refname.
 fn compare_heads(graph: &EditorGraph, a: EditorGraphIndex, b: EditorGraphIndex) -> Ordering {
     match (&graph.step_view(a), &graph.step_view(b)) {
@@ -224,19 +224,19 @@ fn compare_heads(graph: &EditorGraph, a: EditorGraphIndex, b: EditorGraphIndex) 
     }
 }
 
-/// Children-first topological order over `nodes`, seeded from `heads`.
+/// Children-first topological order over `entries`, seeded from `heads`.
 ///
-/// Only edges between nodes in `nodes` are followed, so this works for a full
-/// graph (where `nodes` is every index) as well as a subgraph that doesn't
+/// Only edges between entries in `entries` are followed, so this works for a full
+/// graph (where `entries` is every index) as well as a subgraph that doesn't
 /// include its parents.
 fn topological_order(
     graph: &EditorGraph,
-    nodes: &HashSet<EditorGraphIndex>,
+    entries: &HashSet<EditorGraphIndex>,
     heads: &[EditorGraphIndex],
 ) -> Vec<EditorGraphIndex> {
-    // Incoming edges from *within* the node set.
-    let mut in_degree: HashMap<EditorGraphIndex, usize> = nodes.iter().map(|&n| (n, 0)).collect();
-    for &n in nodes {
+    // Incoming edges from *within* the entry set.
+    let mut in_degree: HashMap<EditorGraphIndex, usize> = entries.iter().map(|&n| (n, 0)).collect();
+    for &n in entries {
         for parent in get_sorted_parents(graph, n) {
             if let Some(deg) = in_degree.get_mut(&parent) {
                 *deg += 1;
@@ -248,23 +248,23 @@ fn topological_order(
     let mut visited: HashSet<EditorGraphIndex> = HashSet::new();
 
     fn dfs(
-        node: EditorGraphIndex,
+        entry: EditorGraphIndex,
         graph: &EditorGraph,
-        nodes: &HashSet<EditorGraphIndex>,
+        entries: &HashSet<EditorGraphIndex>,
         visited: &mut HashSet<EditorGraphIndex>,
         in_degree: &mut HashMap<EditorGraphIndex, usize>,
         result: &mut Vec<EditorGraphIndex>,
     ) {
-        if visited.contains(&node) || in_degree.get(&node).is_some_and(|&d| d > 0) {
+        if visited.contains(&entry) || in_degree.get(&entry).is_some_and(|&d| d > 0) {
             return;
         }
 
-        visited.insert(node);
-        result.push(node);
+        visited.insert(entry);
+        result.push(entry);
 
-        let parents: Vec<_> = get_sorted_parents(graph, node)
+        let parents: Vec<_> = get_sorted_parents(graph, entry)
             .into_iter()
-            .filter(|p| nodes.contains(p))
+            .filter(|p| entries.contains(p))
             .collect();
         for parent in &parents {
             if let Some(deg) = in_degree.get_mut(parent) {
@@ -272,7 +272,7 @@ fn topological_order(
             }
         }
         for parent in parents {
-            dfs(parent, graph, nodes, visited, in_degree, result);
+            dfs(parent, graph, entries, visited, in_degree, result);
         }
     }
 
@@ -280,7 +280,7 @@ fn topological_order(
         dfs(
             head,
             graph,
-            nodes,
+            entries,
             &mut visited,
             &mut in_degree,
             &mut result,
@@ -293,12 +293,12 @@ fn topological_order(
 /// Render a (sub)graph of steps as a box-drawing DAG (à la `git log --graph`)
 /// using `sapling-renderdag`.
 ///
-/// `nodes` is the set of steps to draw and `heads` are the tips to seed the
-/// ordering from; parents outside `nodes` are simply dropped, so this renders
+/// `entries` is the set of steps to draw and `heads` are the tips to seed the
+/// ordering from; parents outside `entries` are simply dropped, so this renders
 /// both full graphs and subgraphs.
-fn render_commit_graph<F>(
+fn render_editor_graph<F>(
     graph: &EditorGraph,
-    nodes: &HashSet<EditorGraphIndex>,
+    entries: &HashSet<EditorGraphIndex>,
     heads: &[EditorGraphIndex],
     mut get_title: F,
 ) -> String
@@ -308,15 +308,15 @@ where
     let mut heads = heads.to_vec();
     // Row-view tops without a rendered child inside the subgraph — e.g. reference groups
     // positioned above a stack's head pick, entered only from outside — are heads too.
-    let mut in_degree: HashMap<EditorGraphIndex, usize> = nodes.iter().map(|&n| (n, 0)).collect();
-    for &n in nodes {
+    let mut in_degree: HashMap<EditorGraphIndex, usize> = entries.iter().map(|&n| (n, 0)).collect();
+    for &n in entries {
         for parent in get_sorted_parents(graph, n) {
             if let Some(deg) = in_degree.get_mut(&parent) {
                 *deg += 1;
             }
         }
     }
-    let mut extra: Vec<EditorGraphIndex> = nodes
+    let mut extra: Vec<EditorGraphIndex> = entries
         .iter()
         .copied()
         .filter(|n| in_degree.get(n).is_none_or(|&d| d == 0) && !heads.contains(n))
@@ -325,7 +325,7 @@ where
         .filter(|n| {
             graph.position_of(*n).is_none_or(|stored| {
                 crate::graph_rebase::positions::resolve_to_pick(graph, stored.on)
-                    .is_some_and(|pick| nodes.contains(&pick))
+                    .is_some_and(|pick| entries.contains(&pick))
             })
         })
         .collect();
@@ -340,19 +340,19 @@ where
         .build_box_drawing();
 
     let mut out = String::new();
-    for node in topological_order(graph, nodes, &heads) {
-        let step = graph.step_view(node);
+    for entry in topological_order(graph, entries, &heads) {
+        let step = graph.step_view(entry);
         let title = match &step {
             Step::Pick(Pick { id, .. }) => get_title(*id),
             _ => None,
         };
-        let parents = get_sorted_parents(graph, node)
+        let parents = get_sorted_parents(graph, entry)
             .into_iter()
-            .filter(|p| nodes.contains(p))
+            .filter(|p| entries.contains(p))
             .map(Ancestor::Parent)
             .collect();
         out.push_str(&renderer.next_row(
-            node,
+            entry,
             parents,
             step.to_symbol().to_string(),
             format_step(&step, title),
@@ -361,24 +361,23 @@ where
     out.trim_end().to_string()
 }
 
-/// Render the full commit graph as a box-drawing DAG.
+/// Render the full editor graph as a box-drawing DAG.
 pub(crate) fn render_ascii_graph<F>(graph: &EditorGraph, get_title: F) -> String
 where
     F: FnMut(gix::ObjectId) -> Option<String>,
 {
-    let nodes: HashSet<EditorGraphIndex> =
-        graph.node_indices().chain(graph.ref_indices()).collect();
+    let entries: HashSet<EditorGraphIndex> = graph.row_ids().chain(graph.ref_indices()).collect();
     let heads = find_heads(graph);
-    render_commit_graph(graph, &nodes, &heads, get_title)
+    render_editor_graph(graph, &entries, &heads, get_title)
 }
 
 impl<M: RefMetadata> Editor<'_, M> {
     /// Render a [`Subgraph`] (e.g. one of the parts of [`Editor::graph_workspace`])
     /// as a box-drawing DAG, in the same style as [`Testing::steps_ascii`].
     pub fn subgraph_ascii(&self, subgraph: &Subgraph) -> String {
-        let nodes: HashSet<EditorGraphIndex> = subgraph.nodes.iter().map(|s| s.id).collect();
+        let entries: HashSet<EditorGraphIndex> = subgraph.entries.iter().map(|s| s.id).collect();
         let heads: Vec<EditorGraphIndex> = subgraph.heads.iter().map(|s| s.id).collect();
-        render_commit_graph(&self.graph, &nodes, &heads, |id| {
+        render_editor_graph(&self.graph, &entries, &heads, |id| {
             lookup_commit_title(&self.repo, id)
         })
     }
@@ -403,7 +402,7 @@ impl<M: RefMetadata> Editor<'_, M> {
 
         let workspace_commit = ws.workspace_commit.map(|selector| Subgraph {
             heads: vec![selector],
-            nodes: [selector].into(),
+            entries: [selector].into(),
         });
         sections.push(format!(
             "# Workspace commit\n{}",
@@ -463,10 +462,10 @@ mod tests {
     fn linear_graph() {
         // Simple linear: main on B -> C -> D
         let mut graph = EditorGraph::default();
-        let b = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
-        let c = graph.add_node(make_pick("2222222222222222222222222222222222222222"));
-        let d = graph.add_node(make_pick("3333333333333333333333333333333333333333"));
-        let none = graph.add_node(Step::None);
+        let b = graph.add_row(make_pick("1111111111111111111111111111111111111111"));
+        let c = graph.add_row(make_pick("2222222222222222222222222222222222222222"));
+        let d = graph.add_row(make_pick("3333333333333333333333333333333333333333"));
+        let none = graph.add_row(Step::None);
         place_ref(&mut graph, "main", b);
 
         add_edge(&mut graph, b, c, 0);
@@ -492,10 +491,10 @@ mod tests {
         //  \ /
         //   C
         let mut graph = EditorGraph::default();
-        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
-        let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
-        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
-        let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        let m = graph.add_row(make_pick("9999999999999999999999999999999999999999"));
+        let a = graph.add_row(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let b = graph.add_row(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let c = graph.add_row(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
         place_ref(&mut graph, "main", m);
 
         // M has two parents: A (first) and B (second)
@@ -526,11 +525,11 @@ mod tests {
         //   \ | /
         //     D
         let mut graph = EditorGraph::default();
-        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
-        let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
-        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
-        let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
-        let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
+        let m = graph.add_row(make_pick("9999999999999999999999999999999999999999"));
+        let a = graph.add_row(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let b = graph.add_row(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let c = graph.add_row(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        let d = graph.add_row(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
         place_ref(&mut graph, "main", m);
 
         // M has three parents
@@ -567,13 +566,13 @@ mod tests {
         //   \ | /   |
         //     C-----+
         let mut graph = EditorGraph::default();
-        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
-        let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff")); // fork point
-        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
-        let x = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
-        let y = graph.add_node(make_pick("2222222222222222222222222222222222222222"));
-        let z = graph.add_node(make_pick("3333333333333333333333333333333333333333"));
-        let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        let m = graph.add_row(make_pick("9999999999999999999999999999999999999999"));
+        let f = graph.add_row(make_pick("ffffffffffffffffffffffffffffffffffffffff")); // fork point
+        let b = graph.add_row(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let x = graph.add_row(make_pick("1111111111111111111111111111111111111111"));
+        let y = graph.add_row(make_pick("2222222222222222222222222222222222222222"));
+        let z = graph.add_row(make_pick("3333333333333333333333333333333333333333"));
+        let c = graph.add_row(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
         place_ref(&mut graph, "main", m);
 
         // M has two parents: F (first) and B (second)
@@ -615,12 +614,12 @@ mod tests {
     fn four_way_merge() {
         // Four-way merge
         let mut graph = EditorGraph::default();
-        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
-        let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
-        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
-        let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
-        let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
-        let base = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
+        let m = graph.add_row(make_pick("9999999999999999999999999999999999999999"));
+        let a = graph.add_row(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let b = graph.add_row(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let c = graph.add_row(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        let d = graph.add_row(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
+        let base = graph.add_row(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
         place_ref(&mut graph, "main", m);
 
         add_edge(&mut graph, m, a, 0);
@@ -662,12 +661,12 @@ mod tests {
         //  \ /
         //   C
         let mut graph = EditorGraph::default();
-        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
-        let a1 = graph.add_node(make_pick("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"));
-        let a2 = graph.add_node(make_pick("a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2"));
-        let a3 = graph.add_node(make_pick("a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3"));
-        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
-        let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        let m = graph.add_row(make_pick("9999999999999999999999999999999999999999"));
+        let a1 = graph.add_row(make_pick("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"));
+        let a2 = graph.add_row(make_pick("a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2"));
+        let a3 = graph.add_row(make_pick("a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3"));
+        let b = graph.add_row(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let c = graph.add_row(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
         place_ref(&mut graph, "main", m);
 
         add_edge(&mut graph, m, a1, 0);
@@ -702,12 +701,12 @@ mod tests {
         //    \ /    |
         //     F-----+
         let mut graph = EditorGraph::default();
-        let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
-        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
-        let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
-        let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
-        let e = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
-        let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
+        let a = graph.add_row(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let b = graph.add_row(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let c = graph.add_row(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        let d = graph.add_row(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
+        let e = graph.add_row(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
+        let f = graph.add_row(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
         place_ref(&mut graph, "main", a);
 
         // A forks to B, C
@@ -751,14 +750,14 @@ mod tests {
         //      \|/    |
         //       D-----+
         let mut graph = EditorGraph::default();
-        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
-        let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
-        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
-        let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
-        let x = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
-        let y = graph.add_node(make_pick("2222222222222222222222222222222222222222"));
-        let z = graph.add_node(make_pick("3333333333333333333333333333333333333333"));
-        let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
+        let m = graph.add_row(make_pick("9999999999999999999999999999999999999999"));
+        let f = graph.add_row(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
+        let b = graph.add_row(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let c = graph.add_row(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        let x = graph.add_row(make_pick("1111111111111111111111111111111111111111"));
+        let y = graph.add_row(make_pick("2222222222222222222222222222222222222222"));
+        let z = graph.add_row(make_pick("3333333333333333333333333333333333333333"));
+        let d = graph.add_row(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
         place_ref(&mut graph, "main", m);
 
         // M forks to F, B, C
@@ -813,14 +812,14 @@ mod tests {
         //    \ /
         //     base
         let mut graph = EditorGraph::default();
-        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
-        let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
-        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
-        let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
-        let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
-        let e = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
-        let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
-        let base = graph.add_node(make_pick("0000000000000000000000000000000000000000"));
+        let m = graph.add_row(make_pick("9999999999999999999999999999999999999999"));
+        let a = graph.add_row(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let b = graph.add_row(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let c = graph.add_row(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        let d = graph.add_row(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
+        let e = graph.add_row(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
+        let f = graph.add_row(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
+        let base = graph.add_row(make_pick("0000000000000000000000000000000000000000"));
         place_ref(&mut graph, "main", m);
 
         // M forks to A, B, C
@@ -880,14 +879,14 @@ mod tests {
         //    \   /
         //      F        <- E and G merge at F
         let mut graph = EditorGraph::default();
-        let m = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
-        let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
-        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
-        let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
-        let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
-        let e = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
-        let g = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
-        let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
+        let m = graph.add_row(make_pick("1111111111111111111111111111111111111111"));
+        let a = graph.add_row(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let b = graph.add_row(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let c = graph.add_row(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        let d = graph.add_row(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
+        let e = graph.add_row(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
+        let g = graph.add_row(make_pick("9999999999999999999999999999999999999999"));
+        let f = graph.add_row(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
         place_ref(&mut graph, "main", m);
 
         // M forks to A, B, C
@@ -944,15 +943,15 @@ mod tests {
         //   \|/
         //    base
         let mut graph = EditorGraph::default();
-        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
-        let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
-        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
-        let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
-        let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
-        let e = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
-        let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
-        let shared = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
-        let base = graph.add_node(make_pick("0000000000000000000000000000000000000000"));
+        let m = graph.add_row(make_pick("9999999999999999999999999999999999999999"));
+        let a = graph.add_row(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let b = graph.add_row(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let c = graph.add_row(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        let d = graph.add_row(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
+        let e = graph.add_row(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
+        let f = graph.add_row(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
+        let shared = graph.add_row(make_pick("1111111111111111111111111111111111111111"));
+        let base = graph.add_row(make_pick("0000000000000000000000000000000000000000"));
         place_ref(&mut graph, "main", m);
 
         // M forks to A, B, C
@@ -1002,16 +1001,16 @@ mod tests {
         // `main` (positioned on `a`) and `base` (a parent of `b`) are outside
         // the set, so neither is drawn and `b` renders as a root.
         let mut graph = EditorGraph::default();
-        let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
-        let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
-        let base = graph.add_node(make_pick("0000000000000000000000000000000000000000"));
+        let a = graph.add_row(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        let b = graph.add_row(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
+        let base = graph.add_row(make_pick("0000000000000000000000000000000000000000"));
         place_ref(&mut graph, "main", a);
 
         add_edge(&mut graph, a, b, 0);
         add_edge(&mut graph, b, base, 0);
 
-        let nodes: HashSet<EditorGraphIndex> = [a, b].into_iter().collect();
-        let output = render_commit_graph(&graph, &nodes, &[a], |_| None);
+        let entries: HashSet<EditorGraphIndex> = [a, b].into_iter().collect();
+        let output = render_editor_graph(&graph, &entries, &[a], |_| None);
         insta::assert_snapshot!(output, @"
         ●  aaaaaaa
         ●  bbbbbbb

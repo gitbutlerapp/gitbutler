@@ -28,10 +28,10 @@ pub(super) fn link_remote_to_local(
     let Some(local_sidx) = segment_by_ref(sg, local_name) else {
         return;
     };
-    if let Some(s) = sg.node_mut(remote_sidx) {
+    if let Some(s) = sg.segment_mut(remote_sidx) {
         s.sibling_segment_id = Some(local_sidx);
     }
-    if let Some(s) = sg.node_mut(local_sidx) {
+    if let Some(s) = sg.segment_mut(local_sidx) {
         s.remote_tracking_ref_name = Some(remote_ref.clone());
         s.remote_tracking_branch_segment_id = Some(remote_sidx);
     }
@@ -84,10 +84,10 @@ pub(super) fn add_remote_segments(
                 .get(&owner)
                 .is_some_and(|(name, _)| name == &remote_ref);
             if named_by_this {
-                if let Some(s) = sg.node_mut(owner_sidx) {
+                if let Some(s) = sg.segment_mut(owner_sidx) {
                     s.sibling_segment_id = Some(local_sidx);
                 }
-                sg.node_mut(local_sidx)
+                sg.segment_mut(local_sidx)
                     .expect("present")
                     .remote_tracking_branch_segment_id = Some(owner_sidx);
             } else {
@@ -211,8 +211,8 @@ pub(super) fn segment_ahead_region(
     let mut stop: Option<gix::ObjectId> = None;
     if root_is_remote {
         let existing_remote_tip = |c: gix::ObjectId| {
-            sg.node_indices().any(|sidx| {
-                sg.node(sidx).is_some_and(|s| {
+            sg.segment_ids().any(|sidx| {
+                sg.segment(sidx).is_some_and(|s| {
                     s.commits.first().is_some_and(|f| f.id == c)
                         && s.ref_info.as_ref().is_some_and(|ri| {
                             ri.ref_name.as_ref().category() == Some(Category::RemoteBranch)
@@ -258,7 +258,7 @@ pub(super) fn segment_ahead_region(
     tips.sort_by_cached_key(|&t| {
         (
             t != remote_tip,
-            std::cmp::Reverse(cg.node(t).map(|n| n.generation).unwrap_or(0)),
+            std::cmp::Reverse(cg.row(t).map(|n| n.generation).unwrap_or(0)),
             t,
         )
     });
@@ -281,8 +281,8 @@ pub(super) fn segment_ahead_region(
         // dangling twin. Roots keep their own identity (their name and sibling links belong to
         // THIS region's ref).
         if !is_root
-            && let Some(existing) = sg.node_indices().find(|&sidx| {
-                sg.node(sidx)
+            && let Some(existing) = sg.segment_ids().find(|&sidx| {
+                sg.segment(sidx)
                     .is_some_and(|s| s.commits.first().is_some_and(|c| c.id == tip))
             })
         {
@@ -325,7 +325,7 @@ pub(super) fn segment_ahead_region(
             .as_ref()
             .filter(|ri| is_plain_local_branch(&ri.ref_name))
             .and_then(|ri| remote_tracking.get(&ri.ref_name).cloned());
-        let sidx = sg.add_node(Segment {
+        let sidx = sg.add_segment(Segment {
             id: 0,
             ref_info,
             remote_tracking_ref_name,
@@ -335,10 +335,10 @@ pub(super) fn segment_ahead_region(
             metadata: None,
             connections: Vec::new(),
         });
-        sg.node_mut(sidx).expect("just added").id = sidx;
+        sg.segment_mut(sidx).expect("just added").id = sidx;
         ahead_seg.insert(tip, sidx);
         if is_root && let Some(local_sidx) = local_sidx {
-            sg.node_mut(local_sidx)
+            sg.segment_mut(local_sidx)
                 .expect("present")
                 .remote_tracking_branch_segment_id = Some(sidx);
         }
@@ -357,7 +357,7 @@ pub(super) fn segment_ahead_region(
         }
         let src = ahead_seg[&tip];
         let bottom = sg
-            .node(src)
+            .segment(src)
             .and_then(|s| s.commits.last().map(|c| c.id))
             .unwrap_or(tip);
         for parent in cg.all_parent_ids(bottom) {
@@ -431,7 +431,7 @@ pub(super) fn add_untracked_remote_segments(
             && let Some(&owner) = owner_of.get(&tip)
             && let Some(&owner_sidx) = seg_of_tip.get(&owner)
         {
-            let remote_sidx = sg.add_node(Segment {
+            let remote_sidx = sg.add_segment(Segment {
                 id: 0,
                 ref_info: Some(RefInfo {
                     ref_name: r.clone(),
@@ -445,7 +445,7 @@ pub(super) fn add_untracked_remote_segments(
                 metadata: None,
                 connections: Vec::new(),
             });
-            sg.node_mut(remote_sidx).expect("just added").id = remote_sidx;
+            sg.segment_mut(remote_sidx).expect("just added").id = remote_sidx;
             connect(sg, remote_sidx, owner_sidx);
             link_remote_to_local(sg, remote_sidx, &r, remote_tracking);
         }
@@ -461,15 +461,15 @@ pub(super) fn add_co_located_remote_empties(
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) {
     let is_remote = |sg: &SegmentGraph, sidx: SegmentIndex| {
-        sg.node(sidx)
+        sg.segment(sidx)
             .and_then(|s| s.ref_info.as_ref())
             .is_some_and(|ri| ri.ref_name.as_ref().category() == Some(Category::RemoteBranch))
     };
-    for sidx in sg.node_indices().collect::<Vec<_>>() {
+    for sidx in sg.segment_ids().collect::<Vec<_>>() {
         if !is_remote(sg, sidx) {
             continue;
         }
-        let Some(first) = sg.node(sidx).and_then(|s| s.commits.first().cloned()) else {
+        let Some(first) = sg.segment(sidx).and_then(|s| s.commits.first().cloned()) else {
             continue;
         };
         for ri in &first.refs {
@@ -478,7 +478,7 @@ pub(super) fn add_co_located_remote_empties(
             {
                 continue;
             }
-            let empty = sg.add_node(Segment {
+            let empty = sg.add_segment(Segment {
                 id: 0,
                 ref_info: Some(RefInfo {
                     ref_name: ri.ref_name.clone(),
@@ -492,7 +492,7 @@ pub(super) fn add_co_located_remote_empties(
                 metadata: None,
                 connections: Vec::new(),
             });
-            sg.node_mut(empty).expect("just added").id = empty;
+            sg.segment_mut(empty).expect("just added").id = empty;
             connect(sg, empty, sidx);
             let name = ri.ref_name.clone();
             link_remote_to_local(sg, empty, &name, remote_tracking);
@@ -508,7 +508,7 @@ pub(super) fn add_empty_remote_root(
     remote_tip: gix::ObjectId,
     local_sidx: SegmentIndex,
 ) -> SegmentIndex {
-    let remote_sidx = sg.add_node(Segment {
+    let remote_sidx = sg.add_segment(Segment {
         id: 0,
         ref_info: Some(RefInfo {
             ref_name: remote_ref.clone(),
@@ -522,8 +522,8 @@ pub(super) fn add_empty_remote_root(
         metadata: None,
         connections: Vec::new(),
     });
-    sg.node_mut(remote_sidx).expect("just added").id = remote_sidx;
-    sg.node_mut(local_sidx)
+    sg.segment_mut(remote_sidx).expect("just added").id = remote_sidx;
+    sg.segment_mut(local_sidx)
         .expect("present")
         .remote_tracking_branch_segment_id = Some(remote_sidx);
     remote_sidx
@@ -531,7 +531,7 @@ pub(super) fn add_empty_remote_root(
 
 /// Does the segment name a remote-tracking branch?
 pub(super) fn is_remote_segment(sg: &SegmentGraph, sidx: SegmentIndex) -> bool {
-    sg.node(sidx)
+    sg.segment(sidx)
         .and_then(|s| s.ref_info.as_ref())
         .is_some_and(|ri| ri.ref_name.as_ref().category() == Some(Category::RemoteBranch))
 }

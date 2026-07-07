@@ -345,7 +345,7 @@ impl Segment {
     /// The sibling id is graph-local, so the lookup must happen in the `graph`
     /// that owns this segment.
     pub(crate) fn sibling_segment<'graph>(&self, graph: &'graph Graph) -> Option<&'graph Segment> {
-        graph.inner.node_weight(self.sibling_segment_id?)
+        graph.inner.segment(self.sibling_segment_id?)
     }
 
     /// Return the top-most commit id of the segment.

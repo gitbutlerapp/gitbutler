@@ -80,7 +80,7 @@ fn tree_for_stack_segment(
 /// Derived at render time from the graph's connections — the render's `[N]` markers do not
 /// depend on any stored value.
 fn generations(graph: &Graph) -> BTreeMap<SegmentIndex, usize> {
-    let all: Vec<SegmentIndex> = graph.segments().collect();
+    let all: Vec<SegmentIndex> = graph.segment_ids().collect();
     let mut indegree = BTreeMap::<SegmentIndex, usize>::new();
     for &sidx in &all {
         indegree.entry(sidx).or_insert(0);
@@ -132,7 +132,7 @@ pub fn graph_tree(graph: &Graph) -> StringTree {
             "ERROR: disconnected {missing} nodes unreachable through base"
         ));
         let mut newly_seen = Default::default();
-        for sidx in graph.segments().filter(|sidx| !seen.contains(sidx)) {
+        for sidx in graph.segment_ids().filter(|sidx| !seen.contains(sidx)) {
             missing.push(recurse_segment(
                 graph,
                 sidx,
