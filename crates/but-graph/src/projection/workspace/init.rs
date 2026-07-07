@@ -418,6 +418,7 @@ impl Graph {
         } else {
             let start = &self[frame.ws_tip_segment_id];
             let has_seen_base = RefCell::new(false);
+            let discarded_base_only_stack = RefCell::new(false);
             let maybe_stack = self
                 .collect_stack_segments(
                     start.id,
@@ -443,8 +444,15 @@ impl Graph {
                         }
                     },
                     |_s| !*has_seen_base.borrow(),
-                    // Never discard stacks
-                    |_s| false,
+                    // A detached HEAD parked exactly on the base has no branch container
+                    // to show - don't mint a stack for it, mirroring the managed path's
+                    // base-segment discard.
+                    |s| {
+                        let discard =
+                            Some(s.id) == frame.lower_bound_segment_id && s.ref_info.is_none();
+                        discarded_base_only_stack.replace(discard);
+                        discard
+                    },
                 )?
                 .map(|segments| {
                     Stack::from_base_and_segments(
@@ -455,7 +463,7 @@ impl Graph {
                 });
             if let Some(stack) = maybe_stack {
                 stacks.push(stack);
-            } else {
+            } else if !*discarded_base_only_stack.borrow() {
                 tracing::warn!(
                     "Didn't get a single stack for AdHoc workspace - this is unexpected"
                 );

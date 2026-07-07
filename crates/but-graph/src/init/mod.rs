@@ -1038,6 +1038,10 @@ impl Graph {
             .and_then(|first_commit| s.ref_info.take().map(|rn| (rn, first_commit)))
         {
             first_commit.refs.push(rn);
+            // The upstream belonged to the ref that now lives on the commit -
+            // a detached HEAD has none.
+            s.remote_tracking_ref_name = None;
+            s.remote_tracking_branch_segment_id = None;
         }
         Ok(())
     }
