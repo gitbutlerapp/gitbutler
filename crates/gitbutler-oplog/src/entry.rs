@@ -460,6 +460,9 @@ pub enum Trailer {
     RestoredDate(i64),
     File(String),
     Name(String),
+    /// The prior name in a rename (e.g. the branch name before an `UpdateBranchName`), paired with
+    /// [`Name`](Self::Name) which carries the new name. A distinct key so the two don't collide.
+    PreviousName(String),
     Error(String),
     Message(String),
     Branch(String),
@@ -482,6 +485,7 @@ impl Trailer {
     const RESTORED_DATE_KEY: &str = "restored_date";
     const FILE_KEY: &str = "file";
     const NAME_KEY: &str = "name";
+    const PREVIOUS_NAME_KEY: &str = "previous_name";
     const ERROR_KEY: &str = "error";
     const BEFORE_KEY: &str = "before";
     const AFTER_KEY: &str = "after";
@@ -499,6 +503,7 @@ impl Trailer {
             Trailer::RestoredDate(..) => Self::RESTORED_DATE_KEY,
             Trailer::File(..) => Self::FILE_KEY,
             Trailer::Name(..) => Self::NAME_KEY,
+            Trailer::PreviousName(..) => Self::PREVIOUS_NAME_KEY,
             Trailer::Error(..) => Self::ERROR_KEY,
             Trailer::Message(..) => Self::MESSAGE_KEY,
             Trailer::Branch(..) => Self::BRANCH_KEY,
@@ -518,6 +523,7 @@ impl Trailer {
             Trailer::RestoredDate(timestamp) => timestamp.to_string().into(),
             Trailer::File(name) => name.as_str().into(),
             Trailer::Name(name) => name.as_str().into(),
+            Trailer::PreviousName(name) => name.as_str().into(),
             Trailer::Error(error) => error.as_str().into(),
             Trailer::Message(message) => message.as_str().into(),
             Trailer::Branch(branch) => branch.as_str().into(),
@@ -613,6 +619,11 @@ impl FromStr for Trailer {
                         return Ok(Self::Name(unescaped_value));
                     }
                 }
+                TrailerDiscriminants::PreviousName => {
+                    if key == Self::PREVIOUS_NAME_KEY {
+                        return Ok(Self::PreviousName(unescaped_value));
+                    }
+                }
                 TrailerDiscriminants::Error => {
                     if key == Self::ERROR_KEY {
                         return Ok(Self::Error(unescaped_value));
@@ -702,5 +713,21 @@ mod tests {
             let s = kind.as_persisted_str();
             assert_eq!(kind, OperationKind::parse_persisted_str(s).unwrap());
         }
+    }
+
+    #[test]
+    fn previous_name_trailer_has_a_distinct_key_and_roundtrips() {
+        use super::Trailer;
+
+        let previous = Trailer::PreviousName("old-name".to_owned());
+        // A key distinct from `Name` so a rename's two names don't collide under `.find(key)`.
+        assert_eq!(previous.key(), "previous_name");
+        assert_ne!(previous.key(), Trailer::Name(String::new()).key());
+
+        let parsed: Trailer = previous
+            .to_string()
+            .parse()
+            .expect("roundtrips through Display");
+        assert_eq!(parsed, previous);
     }
 }

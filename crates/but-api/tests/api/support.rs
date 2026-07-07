@@ -47,6 +47,25 @@ pub fn set_project_target_to_feature(repo: &gix::Repository) -> anyhow::Result<g
     Ok(target_commit_id)
 }
 
+/// Add a linked worktree with `branch` checked out, and return the temp dir holding it (kept alive
+/// by the caller to preserve the checkout). Used to exercise the "checked out elsewhere" guard.
+pub fn checkout_branch_in_linked_worktree(
+    main_worktree: &std::path::Path,
+    branch: &str,
+) -> anyhow::Result<TempDir> {
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join("wt");
+    git_at_dir(main_worktree)
+        .args([
+            "worktree",
+            "add",
+            path.to_str().expect("utf-8 path"),
+            branch,
+        ])
+        .run();
+    Ok(dir)
+}
+
 pub fn write_file(
     root: &std::path::Path,
     relative_path: &str,

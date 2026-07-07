@@ -566,6 +566,39 @@ export class StackService {
 		return this.backendApi.endpoints.branchRemove.useMutation();
 	}
 
+	get branchRename() {
+		return this.backendApi.endpoints.branchRename.useMutation({
+			// Optimistically follow the rename in the UI, mirroring `updateBranchName`. `laneId` and
+			// `branchName` are carried on the args purely for this side effect (they aren't sent to
+			// the backend); when absent there's nothing to reconcile.
+			sideEffect: (_, args) => {
+				if (!args.laneId || !args.branchName || !args.newName) return;
+				const laneState = this.uiState.lane(args.laneId);
+				const projectState = this.uiState.project(args.projectId);
+				const exclusiveAction = projectState.exclusiveAction.current;
+				const previousSelection = laneState.selection.current;
+
+				if (previousSelection) {
+					laneState.selection.set(
+						replaceBranchInStackSelection(previousSelection, args.branchName, args.newName),
+					);
+				}
+
+				if (exclusiveAction) {
+					projectState.exclusiveAction.set(
+						replaceBranchInExclusiveAction(exclusiveAction, args.branchName, args.newName),
+					);
+				}
+			},
+			onError: (_, args) => {
+				if (!args.laneId || !args.branchName) return;
+				const state = this.uiState.lane(args.laneId);
+				const previewOpen = state.selection.current?.previewOpen ?? false;
+				state.selection.set({ branchName: args.branchName, previewOpen });
+			},
+		});
+	}
+
 	async uncommit(args: { projectId: string; stackId?: string; commitIds: string[] }) {
 		const result = await this.backendApi.endpoints.uncommit.mutate(args);
 		if (args.stackId) {

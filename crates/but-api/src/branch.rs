@@ -22,6 +22,7 @@ use but_workspace::branch::{
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
     integrate_branch_upstream::InteractiveIntegration,
 };
+use gix::refs::Target;
 use gix::refs::transaction::PreviousValue;
 use tracing::instrument;
 
@@ -1071,6 +1072,17 @@ pub fn branch_rename_with_perm(
     new_name: String,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchRenameResult> {
+    // This only renames local branches. Reject anything else up front (mirroring
+    // `branch_checkout_with_perm`) so an SDK/server caller can't pass e.g.
+    // `refs/remotes/origin/foo` and have us create a local branch while deleting the
+    // remote-tracking ref.
+    if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
+        bail!(
+            "Can only rename local branches under refs/heads, got '{}'",
+            ref_name.as_bstr()
+        );
+    }
+
     // Normalize the requested name into a valid local branch reference. This is the non-legacy
     // counterpart to the old `normalize_branch_name`, so any caller can pass a raw, human-entered
     // name and get a valid ref.
@@ -1088,7 +1100,9 @@ pub fn branch_rename_with_perm(
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers([
-            Trailer::Name(ref_name.to_string()),
+            // Distinct keys (`previous_name` / `name`) so both survive `.find(key)` lookups on the
+            // consumer side; two `Name` trailers would collide and drop the second.
+            Trailer::PreviousName(ref_name.to_string()),
             Trailer::Name(new_ref.to_string()),
         ]),
         perm.read_permission(),
@@ -1109,41 +1123,104 @@ pub fn branch_rename_with_perm(
             bail_precondition!("A branch named '{}' already exists", new_ref.shorten());
         }
 
-        // Create the new reference at the same commit as the old one.
-        repo.reference(
-            new_ref.as_ref(),
-            target_id,
-            gix::refs::transaction::PreviousValue::MustNotExist,
-            "rename branch",
-        )
-        .with_context(|| format!("Could not create branch '{}'", new_ref.as_bstr()))?;
+        // Also reject a destination that is free at the git level but still occupied in workspace
+        // metadata (e.g. a stale managed head or `branch_order` entry left behind after an external
+        // branch deletion). `meta.rename()` performs these same checks, but only *after* we would
+        // have moved the refs — bailing there would leave the repository renamed while the metadata
+        // stayed keyed by the old name. Preflighting here keeps the ref and metadata steps from
+        // diverging.
+        if meta.branch_opt(new_ref.as_ref())?.is_some()
+            || meta.branch_stack_order(new_ref.as_ref())?.is_some()
+        {
+            bail_precondition!("A branch named '{}' already exists", new_ref.shorten());
+        }
 
-        // If HEAD points at the old branch, move it to the new one first. The commit is
-        // unchanged, so there is no worktree/index update to do — only the symbolic ref moves.
+        // Bail *before* mutating any refs if the branch is checked out in another worktree:
+        // otherwise the delete below would silently no-op and leave a partially-applied rename
+        // (new ref created, old ref still present). The current worktree is excluded here — if its
+        // HEAD is on the old branch it gets repointed below rather than blocking the rename.
+        let checkout_probe = but_core::branch::SafeDelete::new(&repo)?;
+        if let Some(dirs) = checkout_probe.worktree_dirs_with_ref(&old_reference) {
+            let current_workdir = repo.workdir();
+            let elsewhere: Vec<_> = dirs
+                .iter()
+                .filter(|dir| Some(dir.as_path()) != current_workdir)
+                .collect();
+            if !elsewhere.is_empty() {
+                bail_precondition!(
+                    "Refusing to rename a branch that is checked out elsewhere. Worktrees are: {elsewhere:?}"
+                );
+            }
+        }
+
+        // Whether HEAD (in this worktree) points at the old branch. If so it has to follow the
+        // rename to the new name; the commit is unchanged, so there is no worktree/index update to
+        // do — only the symbolic ref moves.
         let head_on_old = repo
             .head_name()
             .ok()
             .flatten()
             .is_some_and(|head| head.as_ref() == ref_name.as_ref());
-        if head_on_old {
-            update_head_reference(
-                &repo,
-                gix::refs::Target::Symbolic(new_ref.clone()),
-                false,
-                "rename",
-                new_ref.as_bstr(),
-                repo.find_commit(target_id)?.parent_ids().count(),
-            )
-            .with_context(|| format!("Could not update HEAD to '{}'", new_ref.as_bstr()))?;
-        }
 
-        // Delete the old reference (HEAD has already moved off it, so this is allowed).
-        let safe_delete = but_core::branch::SafeDelete::new(&repo)?;
-        let out = safe_delete.delete_reference(&old_reference)?;
-        if let Some(paths) = out.checked_out_in_worktree_dirs {
-            bail_precondition!(
-                "Refusing to rename a branch that is checked out elsewhere. Worktrees are: {paths:?}"
-            );
+        if refs_are_prefix_related(ref_name.as_ref(), new_ref.as_ref()) {
+            // One name is a directory prefix of the other (e.g. `foo` -> `foo/bar`), so the two refs
+            // cannot exist at the same time on disk. The usual create-then-delete order hits a
+            // directory/file conflict, so delete the old ref *first* and then create the new one
+            // (gix prunes the now-empty ref/reflog directories, so the reverse `foo/bar` -> `foo`
+            // works too). We've already confirmed above that no *other* worktree has the branch
+            // checked out; if this worktree's HEAD is on it, deleting the ref just leaves HEAD
+            // momentarily unborn until we repoint it at the new name below.
+            old_reference
+                .delete()
+                .with_context(|| format!("Could not delete branch '{}'", ref_name.as_bstr()))?;
+            repo.reference(
+                new_ref.as_ref(),
+                target_id,
+                PreviousValue::MustNotExist,
+                "rename branch",
+            )
+            .with_context(|| format!("Could not create branch '{}'", new_ref.as_bstr()))?;
+            if head_on_old {
+                update_head_reference(
+                    &repo,
+                    Target::Symbolic(new_ref.clone()),
+                    false,
+                    "rename",
+                    new_ref.as_bstr(),
+                    repo.find_commit(target_id)?.parent_ids().count(),
+                )
+                .with_context(|| format!("Could not update HEAD to '{}'", new_ref.as_bstr()))?;
+            }
+        } else {
+            // Create the new reference at the same commit as the old one.
+            repo.reference(
+                new_ref.as_ref(),
+                target_id,
+                PreviousValue::MustNotExist,
+                "rename branch",
+            )
+            .with_context(|| format!("Could not create branch '{}'", new_ref.as_bstr()))?;
+
+            if head_on_old {
+                update_head_reference(
+                    &repo,
+                    Target::Symbolic(new_ref.clone()),
+                    false,
+                    "rename",
+                    new_ref.as_bstr(),
+                    repo.find_commit(target_id)?.parent_ids().count(),
+                )
+                .with_context(|| format!("Could not update HEAD to '{}'", new_ref.as_bstr()))?;
+            }
+
+            // Delete the old reference (HEAD has already moved off it, so this is allowed).
+            let safe_delete = but_core::branch::SafeDelete::new(&repo)?;
+            let out = safe_delete.delete_reference(&old_reference)?;
+            if let Some(paths) = out.checked_out_in_worktree_dirs {
+                bail_precondition!(
+                    "Refusing to rename a branch that is checked out elsewhere. Worktrees are: {paths:?}"
+                );
+            }
         }
 
         // Move all metadata (per-branch blob + branch-order entry) to the new name.
@@ -1161,6 +1238,19 @@ pub fn branch_rename_with_perm(
     let (repo, ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let workspace = WorkspaceState::from_workspace(&ws, &mut meta, &repo, BTreeMap::new())?;
     Ok(BranchRenameResult { workspace, new_ref })
+}
+
+/// Whether `a` and `b` are in a directory/file prefix relationship, i.e. one full ref name is a
+/// path-component prefix of the other (`refs/heads/foo` vs `refs/heads/foo/bar`). Such refs cannot
+/// coexist on disk, so a rename between them must delete the old ref *before* creating the new one,
+/// rather than the usual create-then-delete order. A shared prefix that is not on a `/` boundary
+/// (`foo` vs `foobar`) is not prefix-related.
+fn refs_are_prefix_related(a: &gix::refs::FullNameRef, b: &gix::refs::FullNameRef) -> bool {
+    fn is_dir_prefix(prefix: &bstr::BStr, full: &bstr::BStr) -> bool {
+        full.len() > prefix.len() && full.starts_with(prefix) && full[prefix.len()] == b'/'
+    }
+    let (a, b) = (a.as_bstr(), b.as_bstr());
+    is_dir_prefix(a, b) || is_dir_prefix(b, a)
 }
 
 /// Checks out an existing local branch and returns the resulting workspace state.

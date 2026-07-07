@@ -14,10 +14,10 @@
 	import { inject } from "@gitbutler/core/context";
 	import { Button, ElementId, Modal, TestId } from "@gitbutler/ui";
 
-	const { projectId, stackId, laneId, branchName, isPushed }: BranchRenameModalProps = $props();
+	const { projectId, laneId, branchName, isPushed }: BranchRenameModalProps = $props();
 	const stackService = inject(STACK_SERVICE);
 
-	const [renameBranch, renameQuery] = stackService.updateBranchName;
+	const [branchRename, branchRenameQuery] = stackService.branchRename;
 
 	let newName: string | undefined = $state();
 	let normalizedRefName: string | undefined = $state();
@@ -42,7 +42,15 @@
 	bind:this={modal}
 	onSubmit={async (close) => {
 		if (normalizedRefName) {
-			renameBranch({ projectId, stackId, laneId, branchName, newName: normalizedRefName });
+			// The backend re-normalizes; we pass the client-normalized name so the optimistic
+			// selection update lands on the name the branch will actually have.
+			await branchRename({
+				projectId,
+				refName: [...new TextEncoder().encode(`refs/heads/${branchName}`)],
+				newName: normalizedRefName,
+				laneId,
+				branchName,
+			});
 		}
 		close();
 	}}
@@ -71,7 +79,7 @@
 			style="pop"
 			type="submit"
 			disabled={!isBranchNameValid}
-			loading={renameQuery.current.isLoading}>Rename</Button
+			loading={branchRenameQuery.current.isLoading}>Rename</Button
 		>
 	{/snippet}
 </Modal>

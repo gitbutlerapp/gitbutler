@@ -295,6 +295,87 @@ test("can remove an empty branch from the bottom of a two-branch stack", async (
 	expect(localBranches(localClone)).not.toContain(emptyBottom);
 });
 
+test("can rename the branch we've directly checked out", async ({ page, gitbutler }) => {
+	const localClone = await setupSingleBranchProject(gitbutler, page);
+	// HEAD is directly on `single-branch-fixture`, which owns commits.
+	await expectCurrentBranchChip(page, SINGLE_BRANCH_NAME);
+
+	await renameBranchFromHeader(page, SINGLE_BRANCH_NAME, "renamed-checked-out");
+
+	// Renaming the checked-out branch carries HEAD over to the new name.
+	await expect(branchHeader(page, SINGLE_BRANCH_NAME)).toBeHidden();
+	await expectCurrentBranchChip(page, "renamed-checked-out");
+	await assertBranch("renamed-checked-out", localClone);
+	expect(localBranches(localClone)).toContain("renamed-checked-out");
+	expect(localBranches(localClone)).not.toContain(SINGLE_BRANCH_NAME);
+});
+
+test("can rename branches stacked under the directly checked-out branch", async ({
+	page,
+	gitbutler,
+}) => {
+	const localClone = await setupSingleBranchProject(gitbutler, page);
+	// Stack empty branches above the base: [empty-top, empty-lower, single-branch-fixture],
+	// with HEAD directly on `empty-top`.
+	await createDependentBranch(page, "empty-lower");
+	await createDependentBranch(page, "empty-top");
+	await expectCurrentBranchChip(page, "empty-top");
+	await expectBranchHeaderOrder(page, ["empty-top", "empty-lower", SINGLE_BRANCH_NAME]);
+
+	// Rename a middle branch below the checked-out tip.
+	await renameBranchFromHeader(page, "empty-lower", "empty-lower-renamed");
+	await expectCurrentBranchChip(page, "empty-top");
+	await assertBranch("empty-top", localClone);
+	await expectBranchHeaderOrder(page, ["empty-top", "empty-lower-renamed", SINGLE_BRANCH_NAME]);
+
+	// Rename the base branch below the checked-out tip.
+	await renameBranchFromHeader(page, SINGLE_BRANCH_NAME, "base-renamed");
+	await expectCurrentBranchChip(page, "empty-top");
+	await assertBranch("empty-top", localClone);
+	await expectBranchHeaderOrder(page, ["empty-top", "empty-lower-renamed", "base-renamed"]);
+
+	// The renames landed on disk and HEAD stayed on the tip throughout.
+	const branches = localBranches(localClone);
+	expect(branches).toEqual(
+		expect.arrayContaining(["empty-top", "empty-lower-renamed", "base-renamed"]),
+	);
+	expect(branches).not.toContain("empty-lower");
+	expect(branches).not.toContain(SINGLE_BRANCH_NAME);
+});
+
+test("can rename the directly checked-out branch inline", async ({ page, gitbutler }) => {
+	const localClone = await setupSingleBranchProject(gitbutler, page);
+	await expectCurrentBranchChip(page, SINGLE_BRANCH_NAME);
+
+	await renameBranchInline(page, SINGLE_BRANCH_NAME, "inline-renamed");
+
+	// Editing the name in place on the checked-out branch carries HEAD to the new name.
+	await expect(branchHeader(page, SINGLE_BRANCH_NAME)).toBeHidden();
+	await expectCurrentBranchChip(page, "inline-renamed");
+	await assertBranch("inline-renamed", localClone);
+	expect(localBranches(localClone)).toContain("inline-renamed");
+	expect(localBranches(localClone)).not.toContain(SINGLE_BRANCH_NAME);
+});
+
+test("can rename a branch stacked under the checked-out branch inline", async ({
+	page,
+	gitbutler,
+}) => {
+	const localClone = await setupSingleBranchProject(gitbutler, page);
+	// [empty-top, single-branch-fixture] with HEAD directly on `empty-top`.
+	await createDependentBranch(page, "empty-top");
+	await expectCurrentBranchChip(page, "empty-top");
+
+	// Rename the base branch (under the checked-out tip) in place.
+	await renameBranchInline(page, SINGLE_BRANCH_NAME, "base-inline-renamed");
+
+	await expectCurrentBranchChip(page, "empty-top");
+	await assertBranch("empty-top", localClone);
+	await expectBranchHeaderOrder(page, ["empty-top", "base-inline-renamed"]);
+	expect(localBranches(localClone)).toContain("base-inline-renamed");
+	expect(localBranches(localClone)).not.toContain(SINGLE_BRANCH_NAME);
+});
+
 test("can edit a commit message on the checked-out branch", async ({ page, gitbutler }) => {
 	const localClone = await setupSingleBranchProject(gitbutler, page);
 
@@ -365,6 +446,25 @@ async function deleteBranchFromHeader(page: Page, branchName: string): Promise<v
 	const modal = await waitForTestId(page, "branch-header-delete-modal");
 	await clickByTestId(page, "branch-header-delete-modal-action-button");
 	await expect(modal).toBeHidden();
+}
+
+async function renameBranchFromHeader(page: Page, oldName: string, newName: string): Promise<void> {
+	await branchHeader(page, oldName).click({ button: "right" });
+	await clickByTestId(page, "branch-header-context-menu-rename");
+	const modal = await waitForTestId(page, "branch-header-rename-modal");
+	await modal.locator("input").fill(newName);
+	await clickByTestId(page, "branch-header-rename-modal-action-button");
+	await expect(modal).toBeHidden();
+	await expect(branchHeader(page, newName)).toBeVisible();
+}
+
+async function renameBranchInline(page: Page, oldName: string, newName: string): Promise<void> {
+	const input = branchHeader(page, oldName).locator("input.branch-name-input");
+	await input.click();
+	await input.fill(newName);
+	// Enter blurs the field, which commits the rename.
+	await input.press("Enter");
+	await expect(branchHeader(page, newName)).toBeVisible();
 }
 
 async function expectBranchHeaderOrder(page: Page, expectedBranchNames: string[]): Promise<void> {

@@ -88,7 +88,7 @@
 			// EDIT
 			case "UpdateBranchName":
 				return {
-					text: `Renamed branch "${trailer("before")}" to "${trailer("after")}"`,
+					text: `Renamed branch "${trailer("previous_name")}" to "${trailer("name")}"`,
 					icon: "edit",
 				};
 			case "UpdateBranchRemoteName":

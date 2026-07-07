@@ -103,7 +103,10 @@
 	const prUnit = $derived(forgeInfo?.unit);
 	const checksEnabled = $derived(!!forgeInfo?.capabilities.checks);
 
-	const [updateName, nameUpdate] = stackService.updateBranchName;
+	const [renameReference, referenceRename] = stackService.branchRename;
+
+	const isUpdatingName = $derived(referenceRename.current.isLoading);
+	const failedToUpdateName = $derived(referenceRename.current.isError);
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -149,12 +152,16 @@
 	async function updateBranchName(title: string) {
 		if (args.type === "stack-branch") {
 			if (!args.stackId) return;
-			updateName({
+			// The backend re-normalizes, but we normalize here too so the optimistic selection
+			// update in `branchRename` lands on the name the branch will actually have.
+			const normalized = await stackService.normalizeBranchName(title);
+			if (!normalized || normalized === branchName) return;
+			await renameReference({
 				projectId,
-				stackId: args.stackId,
+				refName: [...new TextEncoder().encode(`refs/heads/${branchName}`)],
+				newName: normalized,
 				laneId: args.laneId,
 				branchName,
-				newName: title,
 			});
 		}
 	}
@@ -209,8 +216,8 @@
 					});
 				}}
 				{updateBranchName}
-				isUpdatingName={nameUpdate.current.isLoading}
-				failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
+				{isUpdatingName}
+				failedMisserablyToUpdateBranchName={failedToUpdateName}
 				roundedBottom={isRoundedBottom}
 				{readonly}
 				{isPushed}
@@ -318,8 +325,8 @@
 			branchColor={lineColor}
 			iconName={args.iconName}
 			{updateBranchName}
-			isUpdatingName={nameUpdate.current.isLoading}
-			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
+			{isUpdatingName}
+			failedMisserablyToUpdateBranchName={failedToUpdateName}
 			readonly
 			{isPushed}
 			onclick={args.disableClick ? undefined : args.onclick}
@@ -340,8 +347,8 @@
 			branchColor={lineColor}
 			iconName="branch"
 			{updateBranchName}
-			isUpdatingName={nameUpdate.current.isLoading}
-			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
+			{isUpdatingName}
+			failedMisserablyToUpdateBranchName={failedToUpdateName}
 			readonly
 			isPushed
 		/>
