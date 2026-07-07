@@ -1,6 +1,75 @@
 #[cfg(not(feature = "graph-workspace"))]
 use snapbox::IntoData;
 
+use crate::support::{
+    assert_workspace_ref, repo_with_feature_branch, set_project_target_to_feature,
+};
+
+#[test]
+fn checkout_branch_switches_head_and_returns_workspace() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let branch = gix::refs::FullName::try_from("refs/heads/feature")?;
+    let result = but_api::branch::branch_checkout(&mut ctx, branch)?;
+
+    let repo = ctx.repo.get()?;
+    let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
+    assert_eq!(head_name.as_bstr(), "refs/heads/feature");
+    assert_workspace_ref(&result.workspace, "refs/heads/feature");
+
+    Ok(())
+}
+
+#[test]
+fn checkout_branch_rejects_remote_refs() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let branch = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+
+    let err = but_api::branch::branch_checkout(&mut ctx, branch)
+        .expect_err("only local branch refs can be checked out");
+    assert_eq!(
+        err.to_string(),
+        "Can only check out local branches under refs/heads, got 'refs/remotes/origin/main'"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn branch_checkout_new_creates_named_branch_at_target_and_checks_it_out() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    let target_commit_id = set_project_target_to_feature(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+
+    let result = but_api::branch::branch_checkout_new(&mut ctx, Some("new branch".into()))?;
+
+    let repo = ctx.repo.get()?;
+    let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
+    assert_eq!(head_name.as_bstr(), "refs/heads/new-branch");
+    let mut created = repo.find_reference("refs/heads/new-branch")?;
+    assert_eq!(created.peel_to_id()?.detach(), target_commit_id);
+    assert_workspace_ref(&result.workspace, "refs/heads/new-branch");
+
+    Ok(())
+}
+
+#[test]
+fn branch_checkout_new_rejects_existing_explicit_name() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    set_project_target_to_feature(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+
+    let err = but_api::branch::branch_checkout_new(&mut ctx, Some("feature".into()))
+        .expect_err("explicit names must not be uniquified");
+    assert_eq!(
+        err.to_string(),
+        "Branch 'refs/heads/feature' already exists"
+    );
+
+    Ok(())
+}
+
 #[test]
 fn checkout_returns_head_info_matching_fresh_head_info() -> anyhow::Result<()> {
     let (repo, _tmp) = crate::support::writable_scenario("checkout-head-info");

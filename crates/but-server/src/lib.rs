@@ -557,6 +557,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(but_api::branch::branch_remove_cmd),
         )
         .route(
+            "/branch_rename",
+            but_post(but_api::branch::branch_rename_cmd),
+        )
+        .route(
             "/get_initial_branch_integration",
             but_post(but_api::branch::get_initial_branch_integration_cmd),
         )
@@ -1189,6 +1193,8 @@ async fn handle_command(
         "commit_uncommit_changes_from_commits" => {
             commit::uncommit::commit_uncommit_changes_from_commits_cmd(request.params)
         }
+        "branch_rename" => deserialize_json(request.params)
+            .and_then(|params| but_api::branch::branch_rename_cmd(params).map(|r| json!(r))),
         // Async virtual branches commands (not yet migrated due to different pattern)
         "upstream_integration_statuses" => {
             let params = deserialize_json(request.params);
