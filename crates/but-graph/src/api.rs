@@ -25,6 +25,13 @@ impl Graph {
         self.commit_graph.as_ref()
     }
 
+    /// Like [`Self::commit_graph`], but expects it to be carried, as every
+    /// builder-produced graph carries one.
+    pub fn require_commit_graph(&self) -> anyhow::Result<&crate::CommitGraph> {
+        self.commit_graph()
+            .context("BUG: the graph carries no CommitGraph")
+    }
+
     /// The LOCAL branch tracking `remote`, as the builder derived it from the repository
     /// (a git-configured binding, or name-deduction against the workspace's symbolic remotes).
     /// `None` when no local tracks `remote`, or for graphs not born from the builders.

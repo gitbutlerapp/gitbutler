@@ -39,11 +39,16 @@ pub fn commit_discard_only_with_perm(
 ) -> anyhow::Result<CommitDiscardResult> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
 
     let rebase = but_workspace::commit::discard_commits(editor, [subject_commit_id])?;
 
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    let workspace = WorkspaceState::from_successful_rebase(&mut ws, rebase, &repo, dry_run)?;
 
     Ok(CommitDiscardResult {
         discarded_commit: subject_commit_id,
@@ -142,11 +147,17 @@ pub fn commit_discard_changes_only_with_perm(
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
 
     let outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
-    let workspace = WorkspaceState::from_successful_rebase(outcome.rebase, &repo, dry_run)?;
+    let workspace =
+        WorkspaceState::from_successful_rebase(&mut ws, outcome.rebase, &repo, dry_run)?;
 
     Ok(MoveChangesResult { workspace })
 }

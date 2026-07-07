@@ -35,7 +35,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -67,7 +67,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
     let remote_tip_before = repo.rev_parse_single("origin/master")?.detach();
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -117,7 +117,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -148,7 +148,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
 
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -197,7 +197,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -238,7 +238,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     ");
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -280,7 +280,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -309,7 +309,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
 
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -357,7 +357,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
         sha: target_sha,
         push_remote_name: None,
     });
-    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
+    let workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -392,7 +392,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
     ");
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -440,7 +440,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
         sha: target_sha,
         push_remote_name: None,
     });
-    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
+    let workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -459,7 +459,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
     let project_meta = workspace.graph.project_meta.clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -502,7 +502,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         sha: target_sha,
         push_remote_name: None,
     });
-    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
+    let workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -537,7 +537,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     ");
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -593,7 +593,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -613,7 +613,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
 
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -882,7 +882,7 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -893,7 +893,7 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
     )?;
     let project_meta = project_meta(&meta)?;
     let out = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta.clone(),
         &repo,
@@ -1027,7 +1027,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         sha: target_sha,
         push_remote_name: None,
     });
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1039,7 +1039,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
     let project_meta = workspace.graph.project_meta.clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -1049,7 +1049,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         }],
     )?;
 
-    let preview = rebase.overlayed_workspace()?;
+    let preview = but_workspace::workspace::overlayed_workspace(&workspace, &rebase)?;
     assert_eq!(
         preview.ref_name(),
         Some(branch_2.as_ref()),
@@ -1122,7 +1122,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         sha: target_sha,
         push_remote_name: None,
     });
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1134,7 +1134,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
     let project_meta = workspace.graph.project_meta.clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -1144,7 +1144,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         }],
     )?;
 
-    let preview = rebase.overlayed_workspace()?;
+    let preview = but_workspace::workspace::overlayed_workspace(&workspace, &rebase)?;
     assert_eq!(
         preview.ref_name(),
         Some(branch_2.as_ref()),
@@ -1333,7 +1333,7 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1346,7 +1346,7 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
     std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
     let project_meta = project_meta(&meta)?;
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -1356,7 +1356,7 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
         }],
     )?;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
     assert_eq!(
         conflicts,
         vec![but_serde::BStringForFrontend::from("shared.txt")],
@@ -1387,7 +1387,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1403,7 +1403,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
 
     let project_meta = project_meta(&meta)?;
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -1413,7 +1413,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
         }],
     )?;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
     assert_eq!(
         conflicts,
         vec![but_serde::BStringForFrontend::from("shared.txt")],
@@ -1867,7 +1867,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "topic", StackState::InWorkspace);
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -1898,7 +1898,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
 
     let project_meta = project_meta(&meta)?;
     let out = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta.clone(),
         &repo,
@@ -2037,7 +2037,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         push_remote_name: None,
     });
     add_stack_with_segments(&mut meta, 1, "top", StackState::InWorkspace, &["bottom"]);
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -2068,7 +2068,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     let bottom_bottom_commit = repo.rev_parse_single("bottom")?.object()?.id;
     let project_meta = project_meta(&meta)?;
     let out = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta.clone(),
         &repo,
@@ -2225,7 +2225,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
         sha: target_sha,
         push_remote_name: None,
     });
-    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
+    let workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -2244,7 +2244,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
     let project_meta = workspace.graph.project_meta.clone();
 
     let out = integrate_upstream_with_hints(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -2287,7 +2287,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let mut workspace = but_graph::Workspace::from_head(
+    let workspace = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta(&meta)?,
@@ -2323,7 +2323,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     let project_meta = workspace.graph.project_meta.clone();
 
     let out = integrate_upstream_with_hints(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta.clone(),
         &repo,
@@ -2383,7 +2383,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         sha: target_sha,
         push_remote_name: None,
     });
-    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
+    let workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -2418,7 +2418,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     let project_meta = workspace.graph.project_meta.clone();
 
     let out = integrate_upstream_with_hints(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta.clone(),
         &repo,
@@ -2548,7 +2548,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         sha: target_sha,
         push_remote_name: None,
     });
-    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
+    let workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -2589,7 +2589,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         project_meta: updated_project_meta,
         ..
     } = integrate_upstream_with_hints(
-        &mut workspace,
+        &workspace,
         &mut meta,
         current_project_meta,
         &repo,
@@ -2655,7 +2655,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         .args(["commit", "-m", "post-review local commit"])
         .run();
 
-    let mut workspace = but_graph::Workspace::from_commit_traversal_tips(
+    let workspace = but_graph::Workspace::from_commit_traversal_tips(
         &repo,
         [
             Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
@@ -2674,7 +2674,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
     let project_meta = workspace.graph.project_meta.clone();
 
     let out = integrate_upstream_with_hints(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -2720,7 +2720,8 @@ fn integrate_and_materialize<M: RefMetadata>(
         project_meta,
     } = integrate_upstream(workspace, meta, project_meta(&*meta)?, repo, updates)?;
     let materialized = rebase.materialize()?;
-    if let Some(ref_name) = materialized.workspace.ref_name()
+    workspace.refresh_from_commit_graph(materialized.arena().clone(), repo, materialized.meta)?;
+    if let Some(ref_name) = workspace.ref_name()
         && let Some(ws_meta) = ws_meta
     {
         let mut md = materialized.meta.workspace(ref_name)?;
@@ -2753,7 +2754,8 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         review_hints,
     )?;
     let materialized = rebase.materialize()?;
-    if let Some(ref_name) = materialized.workspace.ref_name()
+    workspace.refresh_from_commit_graph(materialized.arena().clone(), repo, materialized.meta)?;
+    if let Some(ref_name) = workspace.ref_name()
         && let Some(ws_meta) = ws_meta
     {
         let mut md = materialized.meta.workspace(ref_name)?;

@@ -33,6 +33,7 @@ mod chains;
 mod facts;
 mod materialize;
 mod plan;
+mod ref_positions;
 mod remotes;
 
 /// Build the managed-workspace segment [`Graph`](crate::Graph) straight from a git `CommitGraph`,
@@ -666,7 +667,7 @@ fn assemble_managed<T: but_core::RefMetadata>(
     let ws_meta = overlay_meta.workspace(ws_ref.as_ref())?;
     let stack_branches = in_workspace_stack_branches(&ws_meta);
     let inputs = enrichment_inputs(repo, overlay_repo, &project_meta, main_head_ref)?;
-    let mut graph = graph_from_commit_graph(
+    let (mut graph, mut arrangement) = graph_from_commit_graph(
         &cg,
         ws_commit,
         entrypoint,
@@ -681,6 +682,8 @@ fn assemble_managed<T: but_core::RefMetadata>(
         project_meta,
         options,
     );
+    arrangement.positions = Some(ref_positions::ref_positions(&graph, repo)?);
+    cg.arrangement = Some(arrangement);
     graph.commit_graph = Some(cg);
     graph.remote_tracking = inputs.remote_tracking;
     Ok(graph)
@@ -690,7 +693,7 @@ fn assemble_managed<T: but_core::RefMetadata>(
 /// persisted single-branch ordering.
 #[allow(clippy::too_many_arguments)]
 fn assemble_unmanaged<T: but_core::RefMetadata>(
-    cg: CommitGraph,
+    mut cg: CommitGraph,
     repo: &gix::Repository,
     overlay_repo: &OverlayRepo<'_>,
     overlay_meta: &OverlayMetadata<'_, T>,
@@ -700,7 +703,7 @@ fn assemble_unmanaged<T: but_core::RefMetadata>(
     options: crate::init::Options,
 ) -> anyhow::Result<crate::Graph> {
     let inputs = enrichment_inputs(repo, overlay_repo, &project_meta, entrypoint_ref.as_ref())?;
-    let mut graph = graph_from_commit_graph(
+    let (mut graph, mut arrangement) = graph_from_commit_graph(
         &cg,
         head_tip,
         head_tip,
@@ -716,6 +719,8 @@ fn assemble_unmanaged<T: but_core::RefMetadata>(
         options,
     );
     graph.ad_hoc_branch_stack_upgrades(overlay_repo, overlay_meta, &inputs.worktree_by_branch)?;
+    arrangement.positions = Some(ref_positions::ref_positions(&graph, repo)?);
+    cg.arrangement = Some(arrangement);
     graph.commit_graph = Some(cg);
     graph.remote_tracking = inputs.remote_tracking;
     Ok(graph)

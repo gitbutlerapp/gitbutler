@@ -10,11 +10,11 @@ use super::compute_merge_base_override;
 
 /// The result of amending a commit in the graph rebase editor.
 #[derive(Debug)]
-pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct CommitAmendOutcome<'meta, M: RefMetadata> {
     /// A successful rebase result for continuing operations. This will be
     /// always provided regardless of whether a commit was actually
     /// created.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'meta, M>,
     /// Selector pointing to the amended commit, if the amend was
     /// successful.
     ///
@@ -39,12 +39,12 @@ pub struct CommitAmendOutcome<'ws, 'meta, M: RefMetadata> {
 /// this particular function call. The provided `context_lines` MUST align
 /// with the `context_lines` value used to generate the `DiffSpec`s passed
 /// in the `changes` parameter.
-pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn commit_amend<'meta, M: RefMetadata>(
+    mut editor: Editor<'meta, M>,
     commit: impl ToCommitSelector,
     changes: Vec<DiffSpec>,
     context_lines: u32,
-) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
+) -> Result<CommitAmendOutcome<'meta, M>> {
     let (target_selector, target) = editor.find_selectable_commit(commit)?;
 
     let target_id = target.id;

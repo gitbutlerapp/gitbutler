@@ -45,6 +45,41 @@ impl Workspace {
         *self = Workspace::from_head(repo, meta, project_meta, self.graph.options.clone())?;
         Ok(())
     }
+
+    /// Refresh this instance by projecting `commit_graph` directly — typically the rebase
+    /// editor's mutated arena, which IS the next workspace, so no repository rewalk is
+    /// needed. (Mutate-then-project == rewalk-then-project was proven suite-wide on a
+    /// field-exact projection fingerprint before the rewalk retired.)
+    ///
+    /// Falls back to a rewalk when the commit graph has nothing to project: HEAD is unborn
+    /// (e.g. its referent was deleted without a repoint) or points outside the graph.
+    #[instrument(
+        name = "Workspace::refresh_from_commit_graph",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
+    pub fn refresh_from_commit_graph(
+        &mut self,
+        commit_graph: crate::CommitGraph,
+        repo: &gix::Repository,
+        meta: &impl RefMetadata,
+    ) -> anyhow::Result<()> {
+        let project_meta = self.graph.project_meta.clone();
+        let options = self.graph.options.clone();
+        let Some(mutated) = crate::workspace_from_commit_graph(
+            commit_graph,
+            repo,
+            meta,
+            project_meta.clone(),
+            options,
+        )?
+        else {
+            return self.refresh_from_head(repo, meta, project_meta);
+        };
+        *self = mutated;
+        Ok(())
+    }
 }
 
 /// Query

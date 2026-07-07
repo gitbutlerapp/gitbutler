@@ -12,11 +12,11 @@ use super::compute_merge_base_override;
 
 /// The result of creating and inserting a new commit in the graph rebase editor.
 #[derive(Debug)]
-pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct CommitCreateOutcome<'meta, M: RefMetadata> {
     /// A successful rebase result for continuing operations. This will be
     /// always provided regardless of whether a commit was actually
     /// created.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'meta, M>,
     /// Selector pointing to the newly created commit, if one was created.
     ///
     /// A commit may not be created if all the diff_specs are rejected. See
@@ -45,14 +45,14 @@ pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
 /// this particular function call. The provided `context_lines` MUST align
 /// with the `context_lines` value used to generate the `DiffSpec`s passed
 /// in the `changes` parameter.
-pub fn commit_create<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn commit_create<'meta, M: RefMetadata>(
+    mut editor: Editor<'meta, M>,
     changes: Vec<DiffSpec>,
     relative_to: impl ToSelector,
     side: InsertSide,
     message: &str,
     context_lines: u32,
-) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
+) -> Result<CommitCreateOutcome<'meta, M>> {
     let relative_to_selector = relative_to.to_selector(&editor)?;
     let parent_commit_id =
         parent_commit_id_for_new_commit(&editor, editor.lookup_step(relative_to_selector)?, side)?;
@@ -108,8 +108,8 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     })
 }
 
-fn parent_commit_id_for_new_commit<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
+fn parent_commit_id_for_new_commit<'meta, M: RefMetadata>(
+    editor: &Editor<'meta, M>,
     target_step: Step,
     side: InsertSide,
 ) -> Result<Option<gix::ObjectId>> {

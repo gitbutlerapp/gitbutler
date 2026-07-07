@@ -24,7 +24,12 @@ fn squash_top_commit_into_parent() -> Result<()> {
     let target_id = repo.rev_parse_single("two")?.detach();
     let subject_tree = repo.find_commit(subject_id)?.tree_id()?.detach();
 
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut _meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -33,6 +38,7 @@ fn squash_top_commit_into_parent() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -82,7 +88,12 @@ fn squash_top_commit_into_parent_keeping_target_message() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut _meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -91,6 +102,7 @@ fn squash_top_commit_into_parent_keeping_target_message() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -117,7 +129,12 @@ fn squash_top_commit_into_parent_keeping_subject_message() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut _meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -126,6 +143,7 @@ fn squash_top_commit_into_parent_keeping_subject_message() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -154,7 +172,12 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
     let target_id = repo.rev_parse_single("three")?.detach();
     let target_tree = repo.find_commit(target_id)?.tree_id()?.detach();
 
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut _meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -163,6 +186,7 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -195,7 +219,12 @@ fn squash_deduplicates_duplicate_subjects() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut _meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![subject_id, subject_id],
@@ -204,6 +233,7 @@ fn squash_deduplicates_duplicate_subjects() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
     let squashed_commit = repo.find_commit(squashed_id)?;
 
@@ -218,7 +248,7 @@ fn squash_deduplicates_duplicate_subjects() -> Result<()> {
 
 #[test]
 fn squash_same_commit_is_rejected() -> Result<()> {
-    let (_tmp, mut ws, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -229,7 +259,12 @@ fn squash_same_commit_is_rejected() -> Result<()> {
 
     let commit_id = repo.rev_parse_single("two")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut _meta,
+        &repo,
+    )?;
 
     let err = squash_commits(
         editor,
@@ -255,13 +290,18 @@ fn squash_same_commit_is_rejected() -> Result<()> {
 
 #[test]
 fn squash_rejects_target_in_subject_commit_ids() -> Result<()> {
-    let (_tmp, mut ws, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut _meta,
+        &repo,
+    )?;
 
     let err = squash_commits(
         editor,
@@ -293,7 +333,12 @@ fn squash_down_keeps_topmost_tree_for_shared_file_lineage() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut _meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -302,6 +347,7 @@ fn squash_down_keeps_topmost_tree_for_shared_file_lineage() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let spec = format!("{squashed_id}:shared.txt");
@@ -330,7 +376,12 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
     let subject_id = repo.rev_parse_single("two")?.detach();
     let target_id = repo.rev_parse_single("three")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut _meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -339,6 +390,7 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let spec = format!("{squashed_id}:shared.txt");
@@ -361,7 +413,7 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
 
 #[test]
 fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage() -> Result<()> {
-    let (_tmp, mut ws, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("squash-shared-file-three-commits", |_| {})?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -373,7 +425,12 @@ fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage() -> Re
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("one")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut _meta,
+        &repo,
+    )?;
     let err = squash_commits(
         editor,
         vec![subject_id],
@@ -426,7 +483,12 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     let target_id = repo.rev_parse_single("B")?.detach();
     let subject_tree = repo.find_commit(subject_id)?.tree_id()?.detach();
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -435,6 +497,7 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -492,7 +555,12 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     let target_id = repo.rev_parse_single("A")?.detach();
     let subject_tree = repo.find_commit(subject_id)?.tree_id()?.detach();
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -501,6 +569,7 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -548,7 +617,12 @@ fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()
     let subject_id = repo.rev_parse_single("C")?.detach();
     let target_id = repo.rev_parse_single("A")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -557,6 +631,7 @@ fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let file_a = repo
@@ -616,7 +691,12 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
     let c_id = repo.rev_parse_single("C")?.detach();
     let e_id = repo.rev_parse_single("E")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![e_id],
@@ -625,6 +705,7 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
@@ -789,7 +870,12 @@ fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> Resu
     let c_third = repo.rev_parse_single("C~2")?.detach();
     let target_id = repo.rev_parse_single("B~1")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let outcome = squash_commits(
         editor,
         vec![c_top, c_second, c_third],
@@ -798,6 +884,7 @@ fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> Resu
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let new_file_blob = repo

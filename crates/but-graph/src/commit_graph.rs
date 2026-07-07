@@ -100,6 +100,12 @@ pub struct CommitGraph {
     /// segment. Workspace-discovered builds must NOT carve boundaries at their normalized tips —
     /// there they are ordinary interior commits unless the plan makes them boundaries.
     pub(crate) explicit_tips: bool,
+    /// The ref placement table authored at build time (see [`ref_arrangement`](crate::ref_arrangement))
+    /// and consumed by the builder's chain-structure pass. `None` until the graph goes through
+    /// the builder. Mirrors the refs the graph carried WHEN IT WAS BUILT — like
+    /// [`Commit::refs`](crate::Commit), it goes stale under editor mutation and is re-authored
+    /// by the write-through projection.
+    pub(crate) arrangement: Option<crate::ref_arrangement::RefArrangement>,
 }
 
 impl CommitGraph {
@@ -160,6 +166,7 @@ impl CommitGraph {
             hard_limit_hit: false,
             traversal_tips: Vec::new(),
             explicit_tips: false,
+            arrangement: None,
         };
         graph.recompute_generations();
         graph
@@ -283,6 +290,11 @@ impl CommitGraph {
     /// The ref the entrypoint was checked out as, if any — it names the entrypoint segment.
     pub fn entrypoint_ref(&self) -> Option<&gix::refs::FullName> {
         self.entrypoint_ref.as_ref()
+    }
+
+    /// The ref placement table authored at build time, when this graph went through the builder.
+    pub fn arrangement(&self) -> Option<&crate::ref_arrangement::RefArrangement> {
+        self.arrangement.as_ref()
     }
 
     /// Whether `id` is a GitButler-managed workspace commit (recognised by its message).

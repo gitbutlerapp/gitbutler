@@ -39,8 +39,13 @@ impl BranchManager<'_> {
         {
             let full_ref_name = head.full_name()?;
             let mut meta = self.ctx.meta()?;
-            let (repo, mut ws, _) = self.ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let (repo, ws, _) = self.ctx.workspace_mut_and_db_with_perm(perm)?;
+            let editor = Editor::create(
+                ws.graph.require_commit_graph()?,
+                &ws.graph.project_meta,
+                &mut meta,
+                &repo,
+            )?;
             let outcome = but_workspace::commit::commit_create(
                 editor,
                 assigned_diffspec,

@@ -18,12 +18,12 @@ use crate::graph_rebase::{
     util::collect_ordered_parents,
 };
 
-impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
+impl<'meta, M: RefMetadata> Editor<'meta, M> {
     /// Perform the rebase IN PLACE: each mutable pick's commit id is rewritten where it
     /// stands, in dependency order, so a pick's parent slots already hold rebased ids by the
     /// time it is picked. Node ids never change — parent arrays, positions, groups, and every
     /// outstanding selector stay valid across the rebase.
-    pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph, M>> {
+    pub fn rebase(self) -> Result<SuccessfulRebase<'meta, M>> {
         crate::graph_rebase::positions::debug_assert_positions_total(&self.graph);
 
         let mut graph = self.graph;
@@ -179,7 +179,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             graph,
             checkouts: self.checkouts,
             history,
-            workspace: self.workspace,
+            project_meta: self.project_meta,
             meta: self.meta,
         })
     }

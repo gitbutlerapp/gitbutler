@@ -7,7 +7,7 @@ use but_core::RefMetadata;
 
 use crate::graph_rebase::{Editor, EditorGraphIndex, Selector, ToCommitSelector, util};
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Order commit selectors by parentage, with parents first and children last.
     ///
     /// Duplicate selectors are deduplicated by commit-id with first occurrence winning.
@@ -75,7 +75,7 @@ struct SelectedCommit {
 }
 
 fn commit_graph_parent_to_child_rank<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     selected_ids: &HashSet<gix::ObjectId>,
 ) -> Result<HashMap<gix::ObjectId, usize>> {
     let mut rank_by_id = HashMap::<gix::ObjectId, usize>::new();

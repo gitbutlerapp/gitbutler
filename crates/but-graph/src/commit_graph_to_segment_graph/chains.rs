@@ -3,12 +3,12 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::plan::{ChainPlan, GroupPlacement};
 use super::remotes::is_remote_segment;
 use super::{
     IdMap, IdSet, connect, disambiguated_ref, is_plain_local_branch, segment_by_commit,
     segment_by_ref,
 };
+use crate::ref_arrangement::{GroupPlacement, RefArrangement};
 use crate::{
     Commit, CommitGraph, RefInfo, Segment, SegmentIndex,
     segment_graph::{Connection, SegmentGraph},
@@ -152,23 +152,23 @@ pub(super) fn add_advanced_outside_branches<T: but_core::RefMetadata>(
     }
 }
 
-/// Materialize the plan's [RefOrder](ChainPlan::ref_order): per metadata stack list, thread the
-/// same-commit groups top→bottom — the plan-decided namer takes the anchor, the plan-decided
+/// Materialize the [table](RefArrangement)'s lanes: per metadata stack list, thread the
+/// same-commit groups top→bottom — the table-decided namer takes the anchor, the table-decided
 /// empties splice above it in metadata order — producing
 /// `ws → [empties] → seg(c1) → [empties] → seg(c2) → … → [empties] → base`.
 /// Which refs become empties and how a group lands (dependent splice, own chain, passive) is
-/// plan DATA; this pass only looks up anchors and splices.
+/// table DATA; this pass only looks up anchors and splices.
 pub(super) fn insert_empty_branches(
     sg: &mut SegmentGraph,
     ws_sidx: Option<SegmentIndex>,
-    plan: &ChainPlan,
+    arrangement: &RefArrangement,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) {
     // DEMOTIONS, decided by `chain_plan`: a shared base at/below the bound stays anonymous while
     // every stack's branches float above as their own chain; the lower-bound anchor of an
     // otherwise-unrepresented stack floats likewise. Remote links of a demoted name are
     // established on the floated segment by the remote creators.
-    for &tip in &plan.demoted {
+    for &tip in &arrangement.demoted {
         let Some(anchor) = segment_by_commit(sg, tip) else {
             continue;
         };
@@ -178,31 +178,32 @@ pub(super) fn insert_empty_branches(
             s.remote_tracking_branch_segment_id = None;
         }
     }
-    for (li, chain) in plan.ref_order.iter().enumerate() {
+    for (li, lane) in arrangement.stacks.iter().enumerate() {
         // `from_sidx` feeds the top of the stack: the workspace segment for the first group, then each
         // group's anchor for the next (so its empties splice into the edge coming from above).
         let mut from_sidx = ws_sidx;
-        for group in chain {
+        for &(commit, gi) in &lane.anchors {
+            let group = &arrangement.at_commit[&commit][gi];
             // Outside the workspace or co-located with a managed merge commit: nothing to place.
             if group.placement == GroupPlacement::Skipped {
                 continue;
             }
-            let Some(anchor) = segment_by_commit(sg, group.commit) else {
+            let Some(anchor) = segment_by_commit(sg, commit) else {
                 continue;
             };
             // GROUP NAMING, decided by `chain_plan`: the bottom-most branch names an anonymous
             // anchor; metadata order overrides a build-time name that belongs to the group (its
             // remote links are cleared, the remote creators link its floated empty instead).
-            if let Some((namer, clear_remote)) = plan.group_names.get(&(li, group.commit))
+            if let Some(namer) = &group.namer
                 && let Some(s) = sg.node_mut(anchor)
             {
                 s.ref_info = Some(RefInfo {
-                    ref_name: namer.clone(),
-                    commit_id: Some(group.commit),
+                    ref_name: namer.name.clone(),
+                    commit_id: Some(commit),
                     worktree: None,
                 });
-                s.remote_tracking_ref_name = remote_tracking.get(namer).cloned();
-                if *clear_remote {
+                s.remote_tracking_ref_name = remote_tracking.get(&namer.name).cloned();
+                if namer.clear_remote {
                     s.remote_tracking_branch_segment_id = None;
                 }
             }

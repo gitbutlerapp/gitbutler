@@ -41,17 +41,24 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     // Put C on top of A
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/C".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -83,7 +90,7 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Result<()> {
-    let (_tmp, mut ws, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -93,10 +100,16 @@ fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Resul
         )?;
 
     let before = graph_workspace(&ws).to_string();
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
 
     let err = but_workspace::branch::move_branch(
         editor,
+        &ws,
         "refs/heads/C".try_into()?,
         "refs/heads/C".try_into()?,
     )
@@ -147,16 +160,23 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -218,17 +238,24 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     // Put A on top of C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/C".try_into()?,
         )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -287,17 +314,24 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     // Put B on top of C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/C".try_into()?,
         )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -359,17 +393,24 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     // Put A on top of B, and below C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/B".try_into()?,
         )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -420,17 +461,24 @@ fn move_empty_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     // Put B on top of A
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -475,17 +523,24 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     // Put A on top of B
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/B".try_into()?,
         )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -538,15 +593,22 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
         └── 📙:4:A
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/B".try_into()?,
         )?;
 
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -595,15 +657,22 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
         └── 📙:4:B
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/B".try_into()?,
         )?;
 
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -659,10 +728,16 @@ fn non_empty_move_display_order_follows_workspace_parents() -> anyhow::Result<()
 
     // Move non-empty C on top of non-empty A. The displayed order then follows the
     // rebuilt workspace-commit parent array.
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/C".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
@@ -672,7 +747,8 @@ fn non_empty_move_display_order_follows_workspace_parents() -> anyhow::Result<()
         .map(|ws_meta| workspace_metadata_stack_order(ws_meta, StackKind::Applied))
         .unwrap_or_default();
 
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
 
     insta::assert_snapshot!(graph_workspace(&ws), "before refreshing `ws` the pure-virtual change isn't visible (should be fixed once meta is in db!)", @"
@@ -751,10 +827,16 @@ fn empty_move_display_order_follows_workspace_parents() -> anyhow::Result<()> {
 
     // Move empty B on top of non-empty A. The displayed order then follows the
     // rebuilt workspace-commit parent array.
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
@@ -764,7 +846,8 @@ fn empty_move_display_order_follows_workspace_parents() -> anyhow::Result<()> {
         .map(|ws_meta| workspace_metadata_stack_order(ws_meta, StackKind::AppliedAndUnapplied))
         .unwrap_or_default();
 
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -826,16 +909,23 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
             └── ·c813d8d (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     // Move B on top of A — the base segment at the old fork point has no ref name.
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
 
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -894,16 +984,23 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     // Put empty B on top of non-empty A.
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/B".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
 
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
@@ -957,16 +1054,23 @@ fn move_non_empty_branch_onto_empty_branch_with_advanced_target() -> anyhow::Res
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     // Put non-empty A on top of empty B.
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
+            &ws,
             "refs/heads/A".try_into()?,
             "refs/heads/B".try_into()?,
         )?;
 
-    rebase.materialize()?;
+    let materialized = rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;

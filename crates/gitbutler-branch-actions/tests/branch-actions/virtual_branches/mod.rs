@@ -362,8 +362,13 @@ pub fn create_commit(
     let full_ref_name: gix::refs::FullName =
         format!("refs/heads/{stack_branch_name}").try_into()?;
     let outcome = {
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
-        let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo)?;
+        let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+        let editor = but_rebase::graph_rebase::Editor::create(
+            ws.graph.require_commit_graph()?,
+            &ws.graph.project_meta,
+            &mut meta,
+            &repo,
+        )?;
         but_workspace::commit::commit_create(
             editor,
             file_changes,

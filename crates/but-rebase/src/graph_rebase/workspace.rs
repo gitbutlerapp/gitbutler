@@ -151,7 +151,7 @@ impl NodeSet {
     }
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Build a graph-based workspace projection framed from this editor.
     pub fn graph_workspace(&self) -> Result<GraphWorkspace> {
         let mut ws = self.graph_workspace_topology()?;
@@ -249,7 +249,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
     /// The target commit's node, if a target is configured and present.
     fn target_selector(&self) -> Option<Selector> {
-        let target = self.workspace.graph.project_meta.target_commit_id?;
+        let target = self.project_meta.target_commit_id?;
         self.try_select_commit(target)
     }
 
@@ -330,7 +330,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// intentionally not ported. Without a target there is nothing to integrate
     /// into, so both sets are empty.
     fn integration(&self, nodes: &HashSet<Selector>) -> Result<Integration> {
-        let Some(target_ref) = self.workspace.graph.project_meta.target_ref.as_ref() else {
+        let Some(target_ref) = self.project_meta.target_ref.as_ref() else {
             return Ok(Integration::default());
         };
         let Some(target_ref_selector) = self.try_select_reference(target_ref.as_ref()) else {

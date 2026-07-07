@@ -1191,12 +1191,11 @@ pub fn get_initial_branch_integration(
 ) -> anyhow::Result<InitialBranchIntegration> {
     let mut meta = ctx.meta()?;
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
-    let mut ws = ws.clone();
     let strategy = strategy
         .map(BranchIntegrationStrategy::from)
         .unwrap_or_default();
     but_workspace::branch::integrate_branch_upstream::get_initial_integration_steps_for_branch(
-        branch, strategy, &mut ws, &mut meta, &repo,
+        branch, strategy, &ws, &mut meta, &repo,
     )
 }
 
@@ -1244,13 +1243,13 @@ pub fn apply_branch_integration_with_perm(
             let rebase = but_workspace::branch::integrate_branch_with_steps(
                 branch,
                 integration,
-                &mut ws,
+                &ws,
                 &mut meta,
                 &repo,
             )?;
 
             Ok(IntegrateBranchResult {
-                workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
+                workspace: WorkspaceState::from_successful_rebase(&mut ws, rebase, &repo, dry_run)?,
             })
         },
     )
@@ -1305,12 +1304,17 @@ pub fn move_branch_with_perm(
         |ctx, perm| {
             let mut meta = ctx.meta()?;
             let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let editor = Editor::create(
+                ws.graph.require_commit_graph()?,
+                &ws.graph.project_meta,
+                &mut meta,
+                &repo,
+            )?;
             let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
-                but_workspace::branch::move_branch(editor, subject_branch, target_branch)?;
+                but_workspace::branch::move_branch(editor, &ws, subject_branch, target_branch)?;
 
             Ok(MoveBranchResult {
-                workspace: branch_workspace_from_rebase(rebase, ws_meta, &repo, dry_run)?,
+                workspace: branch_workspace_from_rebase(&mut ws, rebase, ws_meta, &repo, dry_run)?,
             })
         },
     )
@@ -1357,12 +1361,17 @@ pub fn tear_off_branch_with_perm(
         |ctx, perm| {
             let mut meta = ctx.meta()?;
             let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let editor = Editor::create(
+                ws.graph.require_commit_graph()?,
+                &ws.graph.project_meta,
+                &mut meta,
+                &repo,
+            )?;
             let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
-                but_workspace::branch::tear_off_branch(editor, subject_branch, None)?;
+                but_workspace::branch::tear_off_branch(editor, &ws, subject_branch, None)?;
 
             Ok(MoveBranchResult {
-                workspace: branch_workspace_from_rebase(rebase, ws_meta, &repo, dry_run)?,
+                workspace: branch_workspace_from_rebase(&mut ws, rebase, ws_meta, &repo, dry_run)?,
             })
         },
     )
@@ -1396,25 +1405,27 @@ where
 }
 
 fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
-    rebase: SuccessfulRebase<'_, '_, M>,
+    workspace: &mut but_graph::Workspace,
+    rebase: SuccessfulRebase<'_, M>,
     ws_meta: Option<but_core::ref_metadata::Workspace>,
     repo: &gix::Repository,
     dry_run: DryRun,
 ) -> anyhow::Result<WorkspaceState> {
     if dry_run.into() {
-        return WorkspaceState::from_successful_rebase(rebase, repo, dry_run);
+        return WorkspaceState::from_successful_rebase(workspace, rebase, repo, dry_run);
     }
 
     let materialized = rebase.materialize()?;
-    if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
+    workspace.refresh_from_commit_graph(materialized.arena().clone(), repo, materialized.meta)?;
+    if let Some((ws_meta, ref_name)) = ws_meta.zip(workspace.ref_name()) {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
-        md.set_project_meta(materialized.workspace.graph.project_meta.clone());
+        md.set_project_meta(workspace.graph.project_meta.clone());
         materialized.meta.set_workspace(&md)?;
     }
 
     WorkspaceState::from_workspace(
-        materialized.workspace,
+        workspace,
         materialized.meta,
         repo,
         materialized.history.commit_mappings(),

@@ -296,8 +296,13 @@ pub fn stash_into_branch(
 
     let outcome = {
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let editor = Editor::create(
+            ws.graph.require_commit_graph()?,
+            &ws.graph.project_meta,
+            &mut meta,
+            &repo,
+        )?;
         let but_workspace::commit::CommitCreateOutcome {
             rebase,
             commit_selector,

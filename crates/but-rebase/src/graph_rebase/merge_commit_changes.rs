@@ -46,7 +46,7 @@ pub struct MergeCommitChangesConflict {
     pub conflict_entries: but_core::commit::ConflictEntries,
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Return the tree produced by preserving the target commit's full tree
     /// and then merging only the surviving selected commits' own change
     /// ranges into it.
@@ -234,7 +234,7 @@ enum TraversalMode {
 /// repository commits, so callers must only use this planner when the editor
 /// graph and the in-memory repository represent the same commit topology.
 fn traverse_graph_for_planning<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     target_commit_id: gix::ObjectId,
     selected_commit_ids: &HashSet<gix::ObjectId>,
 ) -> Result<SelectedCommitPlanningTraversal> {
@@ -318,7 +318,7 @@ fn traverse_graph_for_planning<M: RefMetadata>(
 /// expected to keep the editor commit graph aligned with that in-memory
 /// repository topology.
 fn get_first_parent_metadata<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     commit_id: gix::ObjectId,
     selected_commit_ids: &HashSet<gix::ObjectId>,
 ) -> Result<Option<FirstParentMetadata>> {
@@ -346,7 +346,7 @@ fn get_first_parent_metadata<M: RefMetadata>(
 /// If the first parent link cannot be followed due to a commit not having any
 /// parents, the empty tree is returned.
 fn base_tree_id_for_emitted_tip<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     tip_commit_id: gix::ObjectId,
     selected_metadata_by_commit: &HashMap<gix::ObjectId, FirstParentMetadata>,
     target_ancestor_commit_ids: &HashSet<gix::ObjectId>,
@@ -380,7 +380,7 @@ fn base_tree_id_for_emitted_tip<M: RefMetadata>(
 }
 
 fn tree_id_for_commit<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     commit_id: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
     Ok(but_core::Commit::from_id(commit_id.attach(&editor.repo))?

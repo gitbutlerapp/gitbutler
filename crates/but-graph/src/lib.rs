@@ -228,6 +228,8 @@ mod commit_graph;
 pub use commit_graph::{CommitGraph, CommitNode};
 /// Remote-tracking deduction for the graph builders, plus the historical commit-first display
 mod commit_graph_to_segment_graph;
+/// The metadata-driven ref placement table stored on the commit graph. See the module docs.
+pub mod ref_arrangement;
 pub use commit_graph_to_segment_graph::{
     graph_from_repository, workspace_from_commit_graph, workspace_from_repository,
 };

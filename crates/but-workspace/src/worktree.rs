@@ -15,7 +15,8 @@ use gix::prelude::ObjectIdExt;
 /// behind the rebase result so callers can compute conflicts before
 /// materialization, including during dry-runs.
 pub fn worktree_conflicts_for_rebase<M: RefMetadata>(
-    rebase: &SuccessfulRebase<'_, '_, M>,
+    workspace: &but_graph::Workspace,
+    rebase: &SuccessfulRebase<'_, M>,
 ) -> Result<Vec<but_serde::BStringForFrontend>> {
     let repo = rebase.repo();
     let current_head_tree = repo.head_tree_id_or_empty()?.detach();
@@ -24,7 +25,7 @@ pub fn worktree_conflicts_for_rebase<M: RefMetadata>(
         return Ok(Vec::new());
     }
 
-    let preview_workspace = rebase.overlayed_workspace()?;
+    let preview_workspace = crate::workspace::overlayed_workspace(workspace, rebase)?;
     let resulting_head = preview_workspace
         .graph
         .entrypoint()?

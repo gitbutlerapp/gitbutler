@@ -294,7 +294,7 @@ impl ToSelector for gix::refs::FullName {
 }
 
 /// Operations for mutating the commit graph
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Get a selector to a particular commit in the graph
     pub fn select_commit(&self, target: gix::ObjectId) -> Result<Selector> {
         match self.try_select_commit(target) {

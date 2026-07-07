@@ -139,7 +139,12 @@ pub fn commit_uncommit_only_with_perm(
         None
     };
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
 
     let mut rebase =
         but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())
@@ -154,19 +159,17 @@ pub fn commit_uncommit_only_with_perm(
                 )
             })?;
 
+    let preview;
     let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
-        let workspace = rebase.overlayed_workspace()?;
+        preview = but_workspace::workspace::overlayed_workspace(&ws, &rebase)?;
         let replaced_commits = rebase.history.commit_mappings();
         let (repo, meta) = rebase.repo_and_meta_mut();
-        (&mut { workspace }, replaced_commits, repo, meta)
+        (&preview, replaced_commits, repo, meta)
     } else {
         let materialized = rebase.materialize_without_checkout()?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings(),
-            &*repo,
-            materialized.meta,
-        )
+        let replaced_commits = materialized.history.commit_mappings();
+        ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
+        (&*ws, replaced_commits, &*repo, materialized.meta)
     };
 
     if let (Some(before_assignments), Some(assign_to)) = (before_assignments, assign_to) {
@@ -279,23 +282,26 @@ pub fn commit_uncommit_changes_only_with_perm(
         None
     };
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let mut outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
+    let preview;
     let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
-        let workspace = outcome.rebase.overlayed_workspace()?;
+        preview = but_workspace::workspace::overlayed_workspace(&ws, &outcome.rebase)?;
         let replaced_commits = outcome.rebase.history.commit_mappings();
         let (repo, meta) = outcome.rebase.repo_and_meta_mut();
-        (&mut { workspace }, replaced_commits, repo, meta)
+        (&preview, replaced_commits, repo, meta)
     } else {
         let materialized = outcome.rebase.materialize_without_checkout()?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings(),
-            &*repo,
-            materialized.meta,
-        )
+        let replaced_commits = materialized.history.commit_mappings();
+        ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
+        (&*ws, replaced_commits, &*repo, materialized.meta)
     };
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, anyhow, bail};
-use but_core::{RefMetadata, commit::SignCommit};
+use but_core::{RefMetadata, commit::SignCommit, ref_metadata::ProjectMeta};
 
 use crate::graph_rebase::{
     Checkout, Editor, EditorGraph, EditorGraphIndex, Pick, RevisionHistory, Selector, Step,
@@ -31,353 +31,63 @@ impl Default for GraphEditorOptions {
     }
 }
 
-/// Creates an editor out of the workspace graph.
-impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
-    /// Creates an editor out of the workspace graph with the default options.
+/// Creates an editor out of the commit graph.
+impl<'meta, M: RefMetadata> Editor<'meta, M> {
+    /// Creates an editor out of the commit graph with the default options.
+    ///
+    /// The commit graph must carry the ref layout the builder stores on it.
     pub fn create(
-        workspace: &'ws mut but_graph::Workspace,
+        commit_graph: &but_graph::CommitGraph,
+        project_meta: &ProjectMeta,
         meta: &'meta mut M,
         repo: &gix::Repository,
     ) -> Result<Self> {
-        Self::create_with_opts(workspace, meta, repo, &GraphEditorOptions::default())
+        Self::create_with_opts(
+            commit_graph,
+            project_meta,
+            meta,
+            repo,
+            &GraphEditorOptions::default(),
+        )
     }
 
-    /// Creates an editor out of the workspace graph with the specified options.
+    /// Creates an editor out of the commit graph with the specified options.
     pub fn create_with_opts(
-        workspace: &'ws mut but_graph::Workspace,
+        commit_graph: &but_graph::CommitGraph,
+        project_meta: &ProjectMeta,
         meta: &'meta mut M,
         repo: &gix::Repository,
         options: &GraphEditorOptions,
     ) -> Result<Self> {
-        let (graph, references, checkouts) = create_native(workspace, repo, options)?;
+        let (graph, references, checkouts) = create_native(commit_graph, options)?;
         Ok(Self {
             graph,
             initial_references: references,
             checkouts,
             repo: repo.clone().with_object_memory(),
             history: RevisionHistory::new(),
-            workspace,
+            project_meta: project_meta.clone(),
             meta,
         })
     }
 }
 
-/// Build the editor graph by ADOPTION: the carried [`but_graph::CommitGraph`] is cloned
-/// wholesale into the arena — full commit payloads (flags, refs, generation) survive, which
-/// the write-through put-back depends on — then normalized to editor shape (every parent
-/// slot present, the ws commit on its stack slots) and dressed with pick settings and the
-/// reference positions derived from the segment graph.
-///
-/// The derivation mirrors the retired segment walk's semantics exactly, on a throwaway IR:
-/// per-segment runs (segment ref, then per commit its refs then the commit), rank-ordered
-/// inter-segment edges, the parent fixup (a commit whose group-flattened parents disagree
-/// with its raw parent list is rewired directly, bypassing groups — the ws commit and
-/// partially-traversed commits keep their wiring), position derivation, and the strip's
-/// slot compaction.
+/// Build the editor graph from the DATA the builder stores on the
+/// [`but_graph::CommitGraph`] — no segment is read. The arena is the commit graph cloned
+/// wholesale — full commit payloads (flags, refs, generation) survive, which the
+/// write-through put-back depends on — then normalized to editor shape (every parent slot
+/// present, the ws commit on its stack slots), dressed with pick settings, and the reference
+/// table translated 1:1 from the stored ref layout
+/// ([`RefPositions`](but_graph::ref_arrangement::RefPositions)).
 fn create_native(
-    workspace: &but_graph::Workspace,
-    repo: &gix::Repository,
+    cg: &but_graph::CommitGraph,
     options: &GraphEditorOptions,
 ) -> Result<(EditorGraph, Vec<gix::refs::FullName>, Vec<Checkout>)> {
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    enum IrStep {
-        /// Index into `ref_table`.
-        Ref(usize),
-        /// Index into `commit_table`.
-        Commit(usize),
-        /// The placeholder for a segment with neither name nor commits.
-        None,
-    }
-
-    let Some(cg) = workspace.graph.commit_graph() else {
-        bail!("native creation requires the graph to carry its CommitGraph");
+    let Some(stored) = cg.arrangement().and_then(|a| a.positions.as_ref()) else {
+        bail!("native creation requires the ref layout the builder stores on the CommitGraph");
     };
-    let graph = &workspace.graph;
-    let entrypoint = graph.entrypoint()?;
 
-    let mut mutable_entrypoints = vec![entrypoint.segment.id];
-    for ref_name in &options.extra_mutable_refs {
-        let Some((segment, _)) = graph.segment_and_commit_by_ref_name(ref_name.as_ref()) else {
-            bail!("Failed to find corresponding segment for {ref_name}");
-        };
-        mutable_entrypoints.push(segment.id);
-    }
-    let mut mutable_segments = HashSet::new();
-    for ep in mutable_entrypoints {
-        graph.visit_all_segments_including_start_until(
-            ep,
-            but_graph::Direction::Outgoing,
-            |segment| !mutable_segments.insert(segment.id),
-        );
-    }
-
-    let workspace_commit_id = graph.managed_entrypoint_commit(repo)?.map(|c| c.id);
-
-    // IR build: one run of nodes per segment, in `graph.segments()` order — which fixes the
-    // editor's ref order (and with it render sibling order).
-    let mut nodes: Vec<IrStep> = Vec::new();
-    let mut parents: Vec<Vec<usize>> = Vec::new();
-    let mut ref_table: Vec<(gix::refs::FullName, bool)> = Vec::new();
-    let mut commit_table: Vec<(gix::ObjectId, Vec<gix::ObjectId>)> = Vec::new();
-    let mut commit_node = HashMap::<gix::ObjectId, usize>::new();
-    let mut mutable_commits = HashSet::new();
-    let mut head_ref_ordinals = Vec::new();
-    let mut runs = Vec::new();
-
-    for sid in graph.segments() {
-        let segment = &graph[sid];
-        let mutable = mutable_segments.contains(&sid);
-        let mut run: Vec<usize> = vec![];
-        let push = |nodes: &mut Vec<IrStep>, parents: &mut Vec<Vec<usize>>, step| {
-            nodes.push(step);
-            parents.push(vec![]);
-            nodes.len() - 1
-        };
-
-        if let Some(reference) = segment.ref_name() {
-            if Some(reference) == entrypoint.segment.ref_name() {
-                head_ref_ordinals.push(ref_table.len());
-            }
-            // The target ref can name the segment owning the integrated base history when no
-            // local counterpart exists; reachability alone would mark it writable.
-            let mutable =
-                mutable && reference.category() != Some(gix::refs::Category::RemoteBranch);
-            ref_table.push((reference.to_owned(), mutable));
-            let n = push(&mut nodes, &mut parents, IrStep::Ref(ref_table.len() - 1));
-            run.push(n);
-        }
-        for commit in &segment.commits {
-            if mutable {
-                mutable_commits.insert(commit.id);
-            }
-            for r in &commit.refs {
-                let mutable = mutable
-                    && r.ref_name.as_ref().category() != Some(gix::refs::Category::RemoteBranch);
-                ref_table.push((r.ref_name.clone(), mutable));
-                let n = push(&mut nodes, &mut parents, IrStep::Ref(ref_table.len() - 1));
-                if let Some(&previous) = run.last() {
-                    parents[previous].push(n);
-                }
-                run.push(n);
-            }
-            commit_table.push((commit.id, commit.parent_ids.clone()));
-            let n = push(
-                &mut nodes,
-                &mut parents,
-                IrStep::Commit(commit_table.len() - 1),
-            );
-            commit_node.insert(commit.id, n);
-            if let Some(&previous) = run.last() {
-                parents[previous].push(n);
-            }
-            run.push(n);
-        }
-        if run.is_empty() {
-            run.push(push(&mut nodes, &mut parents, IrStep::None));
-        }
-        runs.push((sid, run));
-    }
-
-    // Rank-ordered inter-segment edges onto each run's LAST node: real parents by their index
-    // in the source commit's parent array, commit-less edges after them in edge order, ranks
-    // compacted by push order.
-    let parents_by_commit: HashMap<gix::ObjectId, &[gix::ObjectId]> = commit_table
-        .iter()
-        .map(|(id, parent_ids)| (*id, parent_ids.as_slice()))
-        .collect();
-    let first_node_of_segment: HashMap<but_graph::SegmentIndex, usize> = runs
-        .iter()
-        .map(|(sid, run)| (*sid, *run.first().expect("every run has a node")))
-        .collect();
-    for (sid, run) in &runs {
-        let source = *run.last().expect("every run has a node");
-        let mut empty_branch_count = 0usize;
-        let mut ranked_targets = Vec::new();
-        for edge in graph.edges_directed(*sid, but_graph::Direction::Outgoing) {
-            let Some(&target) = first_node_of_segment.get(&edge.target()) else {
-                continue;
-            };
-            let edge_parents = edge
-                .weight()
-                .src_id()
-                .and_then(|src| parents_by_commit.get(&src).copied());
-            let real_parent_index = edge_parents
-                .zip(edge.weight().dst_id())
-                .and_then(|(parents, dst)| parents.iter().position(|p| *p == dst));
-            let rank = match real_parent_index {
-                Some(idx) => idx,
-                None => {
-                    let o = edge_parents.map_or(0, |p| p.len()) + empty_branch_count;
-                    empty_branch_count += 1;
-                    o
-                }
-            };
-            ranked_targets.push((rank, target));
-        }
-        ranked_targets.sort_by_key(|(rank, _)| *rank);
-        for (_, target) in ranked_targets {
-            parents[source].push(target);
-        }
-    }
-
-    // The fixup: flatten a commit's group parents in slot order; on disagreement with the
-    // RAW parent list, rewire directly to present commits (groups lose their edges). The ws
-    // commit and partially-traversed commits keep their segment wiring.
-    let commit_ids: HashSet<gix::ObjectId> = commit_table.iter().map(|(id, _)| *id).collect();
-    let flatten = |nodes: &[IrStep], parents: &[Vec<usize>], start: usize| {
-        let mut out = Vec::new();
-        let mut stack: Vec<usize> = parents[start].iter().rev().copied().collect();
-        while let Some(n) = stack.pop() {
-            match nodes[n] {
-                IrStep::Commit(c) => out.push(c),
-                IrStep::Ref(_) | IrStep::None => {
-                    stack.extend(parents[n].iter().rev().copied());
-                }
-            }
-        }
-        out
-    };
-    for (id, raw_parents) in &commit_table {
-        if Some(*id) == workspace_commit_id {
-            continue;
-        }
-        let preserved =
-            !raw_parents.is_empty() && raw_parents.iter().any(|p| !commit_ids.contains(p));
-        if preserved {
-            continue;
-        }
-        let n = commit_node[id];
-        let flat_ids: Vec<gix::ObjectId> = flatten(&nodes, &parents, n)
-            .into_iter()
-            .map(|c| commit_table[c].0)
-            .collect();
-        if flat_ids == *raw_parents {
-            continue;
-        }
-        parents[n] = raw_parents
-            .iter()
-            .filter_map(|p| commit_node.get(p).copied())
-            .collect();
-    }
-
-    // Positions from the (post-fixup, pre-strip) topology: descend first-edges for `on` and
-    // below, ascend for the entering edges and the convergence signal.
-    let mut incoming: Vec<Vec<(usize, usize)>> = vec![Vec::new(); nodes.len()];
-    for (child, slots) in parents.iter().enumerate() {
-        for (slot, &parent) in slots.iter().enumerate() {
-            incoming[parent].push((child, slot));
-        }
-    }
-    let is_commit = |n: usize| matches!(nodes[n], IrStep::Commit(_));
-    let ref_nodes: Vec<(usize, usize)> = nodes
-        .iter()
-        .enumerate()
-        .filter_map(|(n, step)| match step {
-            IrStep::Ref(r) => Some((n, *r)),
-            _ => None,
-        })
-        .collect();
-    struct DerivedPosition {
-        on: usize,
-        below: Option<usize>,
-        ambiguous: bool,
-        entering: Vec<(usize, usize)>,
-    }
-    let mut positions = HashMap::<usize, DerivedPosition>::new();
-    for &(ref_node, _) in &ref_nodes {
-        let mut cursor = ref_node;
-        let mut on = None;
-        let mut below = None;
-        for _ in 0..10_000 {
-            let Some(&next) = parents[cursor].first() else {
-                break;
-            };
-            if is_commit(next) {
-                on = Some(next);
-                break;
-            }
-            if matches!(nodes[next], IrStep::Ref(_)) && below.is_none() {
-                below = Some(next);
-            }
-            cursor = next;
-        }
-        let Some(on) = on else {
-            continue; // unborn: no stored position
-        };
-        let mut cursor = ref_node;
-        let mut entering_edges = Vec::new();
-        let mut ambiguous = false;
-        for _ in 0..10_000 {
-            let entering = &incoming[cursor];
-            let picks: Vec<_> = entering
-                .iter()
-                .copied()
-                .filter(|&(child, _)| is_commit(child))
-                .collect();
-            if !picks.is_empty() {
-                ambiguous = entering.len() > 1;
-                entering_edges = picks;
-                break;
-            }
-            let mut others = entering.iter().filter(|&&(child, _)| !is_commit(child));
-            match (others.next(), others.next()) {
-                (Some(&(child, _)), None) => cursor = child,
-                _ => break,
-            }
-        }
-        positions.insert(
-            ref_node,
-            DerivedPosition {
-                on,
-                below,
-                ambiguous,
-                entering: entering_edges,
-            },
-        );
-    }
-
-    // The strip's slot compaction: resolve each commit's parent entries to commits (dropping
-    // unborn groups), record the vacated slots so the captured entering edges can be renamed,
-    // and keep the ws commit's resolved STACK slots (one per stack, so empty stacks
-    // over one base yield duplicate entries the real commit does not have).
-    let resolve = |start: usize| -> Option<usize> {
-        let mut cursor = start;
-        for _ in 0..10_000 {
-            if is_commit(cursor) {
-                return Some(cursor);
-            }
-            cursor = *parents[cursor].first()?;
-        }
-        None
-    };
-    let mut dropped: Vec<(usize, usize)> = Vec::new();
-    let mut ws_parents: Option<Vec<gix::ObjectId>> = None;
-    for (id, _) in &commit_table {
-        let n = commit_node[id];
-        let mut resolved = Vec::with_capacity(parents[n].len());
-        for (slot, &parent) in parents[n].iter().enumerate() {
-            match resolve(parent) {
-                Some(pick) => {
-                    let IrStep::Commit(c) = nodes[pick] else {
-                        unreachable!("resolve returns commits");
-                    };
-                    resolved.push(commit_table[c].0);
-                }
-                None => dropped.push((n, slot)),
-            }
-        }
-        if Some(*id) == workspace_commit_id {
-            ws_parents = Some(resolved);
-        }
-    }
-    for position in positions.values_mut() {
-        for (edge_source, slot) in position.entering.iter_mut() {
-            *slot -= dropped
-                .iter()
-                .filter(|(source, vacated)| source == edge_source && vacated < slot)
-                .count();
-        }
-    }
+    let workspace_commit_id = stored.ws_stack_slots.as_ref().map(|(id, _)| *id);
 
     // A parent outside the graph means the traversal was partial here: the editor's slots
     // must all be present, so those slots are dropped — the raw parent list is preserved so
@@ -390,25 +100,96 @@ fn create_native(
     let node_of = |id: gix::ObjectId| -> Result<EditorGraphIndex> {
         cg.index_of(id)
             .map(EditorGraphIndex::Node)
-            .ok_or_else(|| anyhow!("derived position {id} is not a commit in the graph"))
+            .ok_or_else(|| anyhow!("stored position {id} is not a commit in the graph"))
     };
 
     let mut arena = cg.clone();
     for (i, id) in cg.commit_ids().enumerate() {
-        // The ws commit takes its STACK slots from the derivation (dups and all); everything
-        // else keeps the PRESENT parents in slot order — the same presence filter the old
-        // segment walk's parent-fixup pass applied.
+        // The ws commit takes its STACK slots from the stored layout (dups and all); everything
+        // else keeps the PRESENT parents in slot order.
         if workspace_commit_id == Some(id) {
+            let slots = stored
+                .ws_stack_slots
+                .as_ref()
+                .map(|(_, slots)| slots.as_slice())
+                .unwrap_or_default();
             let mut targets = Vec::new();
-            for parent in ws_parents.as_deref().unwrap_or_default() {
+            for parent in slots {
                 let Some(target) = cg.index_of(*parent) else {
-                    bail!("derived ws parent {parent} is not a commit in the graph");
+                    bail!("stored ws parent {parent} is not a commit in the graph");
                 };
                 targets.push(target);
             }
             arena.set_parents(i, targets);
         } else if traversal_was_partial_at(id).is_some() {
             arena.set_parents(i, cg.present_parent_indices(i));
+        }
+    }
+
+    // MUTABILITY: the stored entrypoint reach, extended by flooding the stored position
+    // topology from every extra mutable ref — down each ref stack, through the on-commit's
+    // parent slots (crossing the refs entering them), over the NORMALIZED arena parents.
+    let mut mutable_refs: Vec<bool> = stored.refs.iter().map(|r| r.reachable).collect();
+    let mut mutable_commits: HashSet<gix::ObjectId> =
+        stored.reachable_commits.iter().copied().collect();
+    if !options.extra_mutable_refs.is_empty() {
+        enum Visit {
+            Ref(usize),
+            Commit(gix::ObjectId),
+        }
+        let ordinal_by_name: HashMap<_, _> = stored
+            .refs
+            .iter()
+            .enumerate()
+            .map(|(r, pr)| (pr.name.as_ref(), r))
+            .collect();
+        let mut entering_index: HashMap<(gix::ObjectId, usize), Vec<usize>> = HashMap::new();
+        for (r, pr) in stored.refs.iter().enumerate() {
+            for &(child, slot) in pr.position.iter().flat_map(|p| &p.entering) {
+                entering_index.entry((child, slot)).or_default().push(r);
+            }
+        }
+        let mut queue = Vec::new();
+        for ref_name in &options.extra_mutable_refs {
+            let Some(&seed) = ordinal_by_name.get(ref_name.as_ref()) else {
+                bail!("Failed to find corresponding reference for {ref_name}");
+            };
+            queue.push(Visit::Ref(seed));
+        }
+        let mut seen_refs = vec![false; stored.refs.len()];
+        let mut seen_commits = HashSet::new();
+        while let Some(visit) = queue.pop() {
+            match visit {
+                Visit::Ref(r) => {
+                    if std::mem::replace(&mut seen_refs[r], true) {
+                        continue;
+                    }
+                    mutable_refs[r] = true;
+                    if let Some(position) = &stored.refs[r].position {
+                        if let Some(below) = position.below {
+                            queue.push(Visit::Ref(below));
+                        }
+                        queue.push(Visit::Commit(position.on));
+                    }
+                }
+                Visit::Commit(id) => {
+                    if !seen_commits.insert(id) {
+                        continue;
+                    }
+                    mutable_commits.insert(id);
+                    let Some(ci) = arena.index_of(id) else {
+                        continue;
+                    };
+                    for (slot, parent) in arena.parent_indices(ci).into_iter().enumerate() {
+                        for &r in entering_index.get(&(id, slot)).into_iter().flatten() {
+                            queue.push(Visit::Ref(r));
+                        }
+                        if let Some(parent_id) = arena.node_payload(parent) {
+                            queue.push(Visit::Commit(parent_id));
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -429,51 +210,50 @@ fn create_native(
         }
     }
 
-    // Two passes: refs stack top-down in the derivation (a ref's `below` has a HIGHER
-    // ordinal), so every node must exist before positions can name it.
-    let ref_ixs: Vec<EditorGraphIndex> = ref_table
+    // Remote-category refs are never mutable — the editor cannot move or delete the remote.
+    let ref_mutable: Vec<bool> = stored
+        .refs
         .iter()
-        .map(|(name, mutable)| editor_graph.add_reference(name.clone(), *mutable))
+        .enumerate()
+        .map(|(r, pr)| {
+            mutable_refs[r]
+                && pr.name.as_ref().category() != Some(gix::refs::Category::RemoteBranch)
+        })
         .collect();
-    let node_of_ref: HashMap<usize, usize> = ref_nodes.iter().map(|&(n, r)| (r, n)).collect();
-    for r in 0..ref_table.len() {
+    // Two passes: refs stack top-down in the stored layout (a ref's `below` has a HIGHER
+    // ordinal), so every node must exist before positions can name it.
+    let ref_ixs: Vec<EditorGraphIndex> = stored
+        .refs
+        .iter()
+        .zip(&ref_mutable)
+        .map(|(pr, mutable)| editor_graph.add_reference(pr.name.clone(), *mutable))
+        .collect();
+    for (r, pr) in stored.refs.iter().enumerate() {
         // Unborn refs (no position) keep no stored position.
-        let Some(position) = positions.get(&node_of_ref[&r]) else {
+        let Some(position) = &pr.position else {
             continue;
         };
-        let IrStep::Commit(c) = nodes[position.on] else {
-            unreachable!("positions sit on commits");
-        };
-        let on = node_of(commit_table[c].0)?;
-        let below = position.below.map(|b| {
-            let IrStep::Ref(br) = nodes[b] else {
-                unreachable!("below entries are refs");
-            };
-            ref_ixs[br]
-        });
-        let mut edges = Vec::with_capacity(position.entering.len());
-        for &(child, slot) in &position.entering {
-            let IrStep::Commit(c) = nodes[child] else {
-                unreachable!("entering edges come from commits");
-            };
-            edges.push((commit_table[c].0, slot));
-        }
-        edges.sort_unstable();
-        let entering = edges
-            .into_iter()
-            .map(|(id, slot)| Ok((node_of(id)?, slot)))
+        let on = node_of(position.on)?;
+        let below = position.below.map(|b| ref_ixs[b]);
+        let entering = position
+            .entering
+            .iter()
+            .map(|&(id, slot)| Ok((node_of(id)?, slot)))
             .collect::<Result<Vec<_>>>()?;
         editor_graph.set_position(ref_ixs[r], on, &entering, position.ambiguous, below);
     }
 
-    let references = ref_table
+    let references = stored
+        .refs
         .iter()
-        .filter(|(_, mutable)| *mutable)
-        .map(|(name, _)| name.clone())
+        .zip(&ref_mutable)
+        .filter(|(_, mutable)| **mutable)
+        .map(|(pr, _)| pr.name.clone())
         .collect();
-    let checkouts = head_ref_ordinals
-        .into_iter()
-        .map(|r| Checkout::Head {
+    let checkouts = stored
+        .head_refs
+        .iter()
+        .map(|&r| Checkout::Head {
             selector: Selector { id: ref_ixs[r] },
             merge_base_override: None,
         })
@@ -483,20 +263,20 @@ fn create_native(
     Ok((editor_graph, references, checkouts))
 }
 
-impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
+impl<'meta, M: RefMetadata> SuccessfulRebase<'meta, M> {
     /// Converts a SuccessfulRebase back into another editor for multi-step operations.
     ///
     /// This is the normalization path for callers that want to chain
     /// additional editor-based operations and need the editor graph plus
     /// in-memory repository to agree on ancestry.
-    pub fn into_editor(self) -> Editor<'ws, 'meta, M> {
+    pub fn into_editor(self) -> Editor<'meta, M> {
         Editor {
             graph: self.graph,
             initial_references: self.initial_references,
             checkouts: self.checkouts,
             repo: self.repo,
             history: self.history,
-            workspace: self.workspace,
+            project_meta: self.project_meta,
             meta: self.meta,
         }
     }

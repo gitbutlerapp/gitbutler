@@ -11,9 +11,9 @@ use gix::refs::{
 
 use crate::graph_rebase::{Checkout, MaterializeOutcome, Pick, Step, SuccessfulRebase};
 
-impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
+impl<'meta, M: RefMetadata> SuccessfulRebase<'meta, M> {
     /// Materializes a history rewrite
-    pub fn materialize(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+    pub fn materialize(mut self) -> Result<MaterializeOutcome<'meta, M>> {
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(&self.repo)?;
         }
@@ -100,7 +100,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     ///
     /// If I instead called [`Self::materialize`], the changes would instead be
     /// gone from disk.
-    pub fn materialize_without_checkout(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+    pub fn materialize_without_checkout(mut self) -> Result<MaterializeOutcome<'meta, M>> {
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(&self.repo)?;
         }
@@ -109,44 +109,13 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         self.finish(ref_edits)
     }
 
-    fn finish(self, ref_edits: Vec<RefEdit>) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+    fn finish(self, ref_edits: Vec<RefEdit>) -> Result<MaterializeOutcome<'meta, M>> {
         self.repo.edit_references(ref_edits)?;
-
-        refresh_workspace_from_arena(&self.graph, self.workspace, &self.repo, &*self.meta)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,
             history: self.history,
-            workspace: self.workspace,
             meta: self.meta,
         })
     }
-}
-
-/// The editor's mutated arena IS the next workspace — materialization projects it directly
-/// instead of rewalking the repository. (Mutate-then-project == rewalk-then-project was
-/// proven suite-wide on a field-exact projection fingerprint before the rewalk retired.)
-///
-/// Falls back to a rewalk when the arena has nothing to project: HEAD is unborn (e.g. its
-/// referent was deleted without a repoint) or points outside the editor's graph.
-fn refresh_workspace_from_arena<M: RefMetadata>(
-    graph: &crate::graph_rebase::EditorGraph,
-    workspace: &mut but_graph::Workspace,
-    repo: &gix::Repository,
-    meta: &M,
-) -> anyhow::Result<()> {
-    let project_meta = workspace.graph.project_meta.clone();
-    let options = workspace.graph.options.clone();
-    let Some(mutated) = but_graph::workspace_from_commit_graph(
-        graph.arena().clone(),
-        repo,
-        meta,
-        project_meta.clone(),
-        options.clone(),
-    )?
-    else {
-        return workspace.refresh_from_head(repo, meta, project_meta);
-    };
-    *workspace = mutated;
-    Ok(())
 }

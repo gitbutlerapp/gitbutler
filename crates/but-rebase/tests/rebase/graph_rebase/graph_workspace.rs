@@ -35,7 +35,12 @@ fn render(fixture: &str, target: Option<&str>) -> Result<String> {
             .transpose()?,
         ..Default::default()
     };
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     editor.graph_workspace_ascii()
 }

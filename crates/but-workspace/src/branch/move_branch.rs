@@ -5,9 +5,9 @@ use but_rebase::graph_rebase::SuccessfulRebase;
 ///
 /// Returned by [function::move_branch()].
 #[derive(Debug)]
-pub struct Outcome<'ws, 'meta, M: RefMetadata> {
+pub struct Outcome<'meta, M: RefMetadata> {
     /// A successful rebase result for continuing operations.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'meta, M>,
     /// The updated workspace metadata that accompanies the move operation.
     /// It should replace the actual workspace metadata to configure moved 'virtual' branches segments, if `Some()`.
     pub ws_meta: Option<but_core::ref_metadata::Workspace>,
@@ -43,13 +43,15 @@ pub(super) mod function {
     ///     Mainly used for testing purposes.
     ///
     /// Returns the in memory update [outcome](Outcome) that can then used for materialisation.
-    pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn tear_off_branch<'meta, M: RefMetadata>(
+        editor: Editor<'meta, M>,
+        current_workspace: &but_graph::Workspace,
         subject_branch_name: &FullNameRef,
         stack_id_override: Option<StackId>,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome<'meta, M>> {
         let successful_rebase = editor.rebase()?;
-        let workspace = successful_rebase.overlayed_workspace()?;
+        let workspace =
+            crate::workspace::overlayed_workspace(current_workspace, &successful_rebase)?;
         let mut editor = successful_rebase.into_editor();
         let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
             bail!(
@@ -155,17 +157,19 @@ pub(super) mod function {
     /// branch on top of.
     ///
     /// Returns an [outcome](Outcome) for potential materialisation.
-    pub fn move_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn move_branch<'meta, M: RefMetadata>(
+        editor: Editor<'meta, M>,
+        current_workspace: &but_graph::Workspace,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome<'meta, M>> {
         if subject_branch_name == target_branch_name {
             bail!("Cannot move branch {subject_branch_name} onto itself");
         }
 
         let successful_rebase = editor.rebase()?;
-        let workspace = successful_rebase.overlayed_workspace()?;
+        let workspace =
+            crate::workspace::overlayed_workspace(current_workspace, &successful_rebase)?;
 
         let (source, destination) =
             retrieve_branches_and_containers(&workspace, subject_branch_name, target_branch_name)?;

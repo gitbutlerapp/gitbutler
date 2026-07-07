@@ -23,13 +23,13 @@ pub trait Testing {
     fn steps_ascii(&self) -> String;
 }
 
-impl<M: RefMetadata> Testing for Editor<'_, '_, M> {
+impl<M: RefMetadata> Testing for Editor<'_, M> {
     fn steps_ascii(&self) -> String {
         render_ascii_graph(&self.graph, |id| lookup_commit_title(&self.repo, id))
     }
 }
 
-impl<M: RefMetadata> Testing for SuccessfulRebase<'_, '_, M> {
+impl<M: RefMetadata> Testing for SuccessfulRebase<'_, M> {
     fn steps_ascii(&self) -> String {
         render_ascii_graph(&self.graph, |id| lookup_commit_title(&self.repo, id))
     }
@@ -40,13 +40,13 @@ pub trait TestingDot {
     fn steps_dot(&self) -> String;
 }
 
-impl<M: RefMetadata> TestingDot for Editor<'_, '_, M> {
+impl<M: RefMetadata> TestingDot for Editor<'_, M> {
     fn steps_dot(&self) -> String {
         self.graph.steps_dot()
     }
 }
 
-impl<M: RefMetadata> TestingDot for SuccessfulRebase<'_, '_, M> {
+impl<M: RefMetadata> TestingDot for SuccessfulRebase<'_, M> {
     fn steps_dot(&self) -> String {
         self.graph.steps_dot()
     }
@@ -372,7 +372,7 @@ where
     render_commit_graph(graph, &nodes, &heads, get_title)
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Render a [`Subgraph`] (e.g. one of the parts of [`Editor::graph_workspace`])
     /// as a box-drawing DAG, in the same style as [`Testing::steps_ascii`].
     pub fn subgraph_ascii(&self, subgraph: &Subgraph) -> String {

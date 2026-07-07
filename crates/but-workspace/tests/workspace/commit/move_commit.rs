@@ -49,7 +49,12 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -142,7 +147,12 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -237,7 +247,12 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -330,7 +345,12 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -425,7 +445,12 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let c_commit = repo.rev_parse_single("C")?.detach();
@@ -511,7 +536,12 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -598,7 +628,12 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_ref_name = "refs/heads/B".try_into()?;
@@ -666,7 +701,12 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
             └── ❄8b426d0
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let three_commit = repo.rev_parse_single("three")?.detach();
     let three_commit_selector = editor.select_commit(three_commit)?;
     let two_ref_name = "refs/heads/two".try_into()?;
@@ -748,7 +788,12 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
             └── ·197bdf1
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let merge_commit = repo.rev_parse_single("M")?.detach();
     let merge_commit_selector = editor.select_commit(merge_commit)?;
     let c1_commit = repo.rev_parse_single("C1")?.detach();
@@ -819,7 +864,12 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
             └── ·197bdf1
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let merge_commit = repo.rev_parse_single("M")?.detach();
     let merge_commit_selector = editor.select_commit(merge_commit)?;
     let main_commit = repo.rev_parse_single("main")?.detach();
@@ -882,7 +932,12 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
             └── ❄8b426d0
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let three_commit = repo.rev_parse_single("three")?.detach();
     let three_commit_selector = editor.select_commit(three_commit)?;
     let two_commit = repo.rev_parse_single("two")?.detach();

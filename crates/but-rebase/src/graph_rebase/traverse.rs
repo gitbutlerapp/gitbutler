@@ -89,7 +89,7 @@ pub(crate) fn all_until_optional_limit(
     Traversal::new(graph, start, excluded)
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Every selector reachable from `start` following parent edges.
     pub fn reachable_from(
         &self,

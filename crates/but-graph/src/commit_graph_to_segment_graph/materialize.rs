@@ -10,7 +10,9 @@ use super::chains::{
     insert_empty_workspace_segment,
 };
 use super::facts::{Facts, facts};
-use super::plan::{ChainPlan, Float, chain_plan};
+use super::plan::{
+    ChainPlan, Float, author_arrangement, chain_plan, debug_assert_arrangement_matches_plan,
+};
 use super::remotes::{
     add_co_located_remote_empties, add_remote_segments, add_untracked_remote_segments,
     link_remote_to_local, remote_name_in_play, segment_ahead_region,
@@ -75,7 +77,7 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
     meta: &T,
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
-) -> crate::Graph {
+) -> (crate::Graph, crate::ref_arrangement::RefArrangement) {
     let f = facts(
         cg,
         workspace_commit,
@@ -108,6 +110,10 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
         symbolic_remotes,
         options.extra_target_commit_id,
     );
+    // The ref placement table: authored here, stored on the commit graph, and consumed by the
+    // chain-structure pass below. The oracle keeps proving it round-trips the plan it came from.
+    let arrangement = author_arrangement(&plan);
+    debug_assert_arrangement_matches_plan(&arrangement, &plan);
     let Facts {
         in_set,
         ws_is_managed_merge: _,
@@ -154,7 +160,7 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
         project_meta.target_ref.as_ref(),
         empty_ws_case,
         managed,
-        &plan,
+        &arrangement,
     );
 
     // Remote segments: for each local segment with a remote-tracking ref whose remote tip is
@@ -322,7 +328,7 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
     if cg.hard_limit_hit {
         graph.set_hard_limit_hit();
     }
-    graph
+    (graph, arrangement)
 }
 
 /// Create a local segment per tip, holding its first-parent commit run. Names come from the
@@ -490,7 +496,7 @@ fn build_chain_structure<T: but_core::RefMetadata>(
     target_ref: Option<&gix::refs::FullName>,
     empty_ws_case: bool,
     managed: bool,
-    plan: &ChainPlan,
+    arrangement: &crate::ref_arrangement::RefArrangement,
 ) -> (Option<SegmentIndex>, HashSet<SegmentIndex>) {
     let mut ws_empty_sidx = None;
     let before_chains: HashSet<SegmentIndex> = sg.node_indices().collect();
@@ -510,7 +516,7 @@ fn build_chain_structure<T: but_core::RefMetadata>(
             pinned_commits,
         );
         let ws_sidx = ws_empty_sidx.or_else(|| seg_of_tip.get(&workspace_commit).copied());
-        insert_empty_branches(sg, ws_sidx, plan, remote_tracking);
+        insert_empty_branches(sg, ws_sidx, arrangement, remote_tracking);
     }
     let chain_created: HashSet<SegmentIndex> = sg
         .node_indices()

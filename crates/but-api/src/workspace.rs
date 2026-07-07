@@ -26,9 +26,7 @@ pub fn get_workspace(
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
     let mut meta = ctx.meta()?;
     let (repo, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
-    let mut workspace = workspace.clone();
-    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo)
-        .map(Into::into)
+    but_workspace::workspace::detailed_graph_workspace(&workspace, &mut meta, &repo).map(Into::into)
 }
 
 /// Result of integrating upstream changes into the current workspace.
@@ -307,19 +305,19 @@ pub fn workspace_integrate_upstream_only_with_perm(
             ws_meta,
             project_meta,
         } = but_workspace::integrate_upstream_with_hints(
-            &mut ws,
+            &ws,
             &mut meta,
             project_meta,
             &repo,
             updates,
             &review_hints,
         )?;
-        let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
+        let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&ws, &rebase)?;
 
         if dry_run.into() {
             let replaced_commits = rebase.history.commit_mappings();
             let workspace_state =
-                WorkspaceState::from_rebase_preview(&mut rebase, replaced_commits)?;
+                WorkspaceState::from_rebase_preview(&ws, &mut rebase, replaced_commits)?;
             return Ok(WorkspaceIntegrateUpstreamOutcome {
                 workspace_state,
                 worktree_conflicts,
@@ -328,8 +326,9 @@ pub fn workspace_integrate_upstream_only_with_perm(
 
         let materialized = rebase.materialize()?;
         project_meta.persist_to_local_config(&repo)?;
+        ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
 
-        if let Some(ref_name) = materialized.workspace.ref_name()
+        if let Some(ref_name) = ws.ref_name()
             && let Some(ws_meta) = ws_meta
             && is_workspace_ref_name(ref_name)
         {
@@ -340,7 +339,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
         }
 
         let workspace_state = WorkspaceState::from_workspace(
-            materialized.workspace,
+            &ws,
             materialized.meta,
             &repo,
             materialized.history.commit_mappings(),

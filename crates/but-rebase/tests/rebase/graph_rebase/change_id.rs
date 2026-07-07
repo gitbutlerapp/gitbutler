@@ -17,7 +17,7 @@ fn temporary_change_id_persisted() -> Result<()> {
     insta::assert_snapshot!(target_commit.change_id(), @"uonoxlzsyllzwskypkxkwtqyzusvwpzp");
     insta::assert_debug_snapshot!(target_commit.extra_headers, @"[]");
 
-    let mut ws = Workspace::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -26,7 +26,12 @@ fn temporary_change_id_persisted() -> Result<()> {
     .validated()?;
 
     // An operation to cause the parent we care about to be rebased
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
     let target_selector = target.to_selector(&editor)?;
     editor.replace(target_parent, Step::None)?;
 
@@ -60,14 +65,19 @@ fn temporary_change_id_persisted() -> Result<()> {
 fn empty_commit_uses_default_change_id() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-    let mut ws = Workspace::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let ec = editor.empty_commit()?;
 

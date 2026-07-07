@@ -52,12 +52,17 @@ pub fn commit_move_only_with_perm(
 ) -> anyhow::Result<CommitMoveResult> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = but_rebase::graph_rebase::Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut meta,
+        &repo,
+    )?;
     let rebase =
         but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
 
     Ok(CommitMoveResult {
-        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
+        workspace: WorkspaceState::from_successful_rebase(&mut ws, rebase, &repo, dry_run)?,
     })
 }
 

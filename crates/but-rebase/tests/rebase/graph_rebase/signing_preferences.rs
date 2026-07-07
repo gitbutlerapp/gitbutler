@@ -27,7 +27,12 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
@@ -37,7 +42,12 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     editor.replace(c_sel, Step::Pick(pick))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:main[🌳]
@@ -50,7 +60,8 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
                                 └── 🏁·b6e2f57 (⌂)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
 
@@ -76,7 +87,12 @@ fn commits_are_signed_by_default() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     // Remove the "b" commit so "c" gets cherry-picked
     let b = repo.rev_parse_single("b")?;
@@ -84,7 +100,12 @@ fn commits_are_signed_by_default() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:main[🌳]
@@ -94,7 +115,8 @@ fn commits_are_signed_by_default() -> Result<()> {
                 └── 🏁·b6e2f57 (⌂)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 06106c2 (HEAD -> main, c) c
@@ -149,7 +171,12 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
@@ -164,7 +191,12 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:main[🌳]
@@ -174,7 +206,8 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
                 └── 🏁·b6e2f57 (⌂)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * a773b84 (HEAD -> main, c) c
@@ -211,7 +244,7 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
     * 7a5aacf (base) base
     ");
 
-    let mut ws = Workspace::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -219,7 +252,8 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
     )?
     .validated()?;
     let mut editor = Editor::create_with_opts(
-        &mut ws,
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
         &mut *meta,
         &repo,
         &GraphEditorOptions {
@@ -284,7 +318,7 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
     * 7a5aacf (base) base
     ");
 
-    let mut ws = Workspace::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -292,7 +326,8 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
     )?
     .validated()?;
     let mut editor = Editor::create_with_opts(
-        &mut ws,
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
         &mut *meta,
         &repo,
         &GraphEditorOptions {
@@ -376,7 +411,7 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
     * 7a5aacf (base) base
     ");
 
-    let mut ws = Workspace::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -384,7 +419,8 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
     )?
     .validated()?;
     let mut editor = Editor::create_with_opts(
-        &mut ws,
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
         &mut *meta,
         &repo,
         &GraphEditorOptions {
@@ -465,7 +501,7 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
     * 7a5aacf (base) base
     ");
 
-    let mut ws = Workspace::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -474,7 +510,8 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
     .validated()?;
 
     let mut editor = Editor::create_with_opts(
-        &mut ws,
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
         &mut *meta,
         &repo,
         &GraphEditorOptions {
@@ -538,7 +575,7 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
     * 7a5aacf (base) base
     ");
 
-    let mut ws = Workspace::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
@@ -547,7 +584,8 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
     .validated()?;
 
     let mut editor = Editor::create_with_opts(
-        &mut ws,
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
         &mut *meta,
         &repo,
         &GraphEditorOptions {

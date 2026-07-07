@@ -30,7 +30,12 @@ fn reword_a_commit() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?.detach();
@@ -49,7 +54,12 @@ fn reword_a_commit() -> Result<()> {
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
@@ -65,7 +75,8 @@ fn reword_a_commit() -> Result<()> {
                             └── →:4: (main)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     assert_eq!(head_tree, repo.head_tree()?.id);
 
@@ -119,7 +130,12 @@ fn amend_a_commit() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?;
@@ -148,7 +164,12 @@ fn amend_a_commit() -> Result<()> {
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
@@ -164,7 +185,8 @@ fn amend_a_commit() -> Result<()> {
                             └── →:4: (main)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * e7221b5 (HEAD -> with-inner-merge) on top of inner merge

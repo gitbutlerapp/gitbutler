@@ -47,8 +47,8 @@ fn detailed(
             .transpose()?,
         ..Default::default()
     };
-    let mut ws = but_graph::Workspace::from_head(&repo, &meta, project_meta, Options::limited())?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
+    let ws = but_graph::Workspace::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let detailed = detailed_graph_workspace(&ws, &mut meta, &repo)?;
     Ok((repo, detailed))
 }
 
@@ -74,7 +74,7 @@ fn detailed_writable(
     let project_meta = meta
         .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
         .project_meta();
-    let mut ws = but_graph::Workspace::from_head(
+    let ws = but_graph::Workspace::from_head(
         &repo,
         &meta,
         project_meta,
@@ -83,7 +83,7 @@ fn detailed_writable(
             ..Options::limited()
         },
     )?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
+    let detailed = detailed_graph_workspace(&ws, &mut meta, &repo)?;
     Ok((tmp, detailed))
 }
 
@@ -1036,7 +1036,7 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
     let target_sha = project_meta
         .target_commit_id
         .context("scenario should configure a target")?;
-    let mut ws = but_graph::Workspace::from_head(
+    let ws = but_graph::Workspace::from_head(
         &repo,
         &*meta,
         project_meta,
@@ -1045,7 +1045,7 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
             ..Options::limited()
         },
     )?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo)?;
+    let detailed = detailed_graph_workspace(&ws, &mut *meta, &repo)?;
     insta::assert_snapshot!(render_commit_state(&detailed), @"
     # Stack 0
     d5d3a92 unique local tip state=local

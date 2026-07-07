@@ -28,7 +28,12 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let b_selector = editor
@@ -49,7 +54,12 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
     editor.replace(b_selector, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:main[🌳]
@@ -58,7 +68,8 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
         └── 🏁·35b8235 (⌂)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * b4fd8ee (HEAD -> main) c
@@ -89,7 +100,12 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let b_selector = editor
@@ -115,7 +131,12 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
     editor.replace(a_selector, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:main[🌳]
@@ -123,7 +144,8 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
         └── 🏁·35b8235 (⌂)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 19f8134 (HEAD -> main) c
@@ -156,7 +178,12 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -177,7 +204,12 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
     editor.replace(a_selector, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
@@ -191,7 +223,8 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
                             └── →:3:
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     let a_now = repo.rev_parse_single("A")?.detach();
     let base = repo.rev_parse_single("base")?.detach();
@@ -236,7 +269,12 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let merge_selector = editor
@@ -257,7 +295,12 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
     editor.replace(merge_selector, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-two-children[🌳]
@@ -277,7 +320,8 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
                     └── →:3: (P2)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let p2 = repo.rev_parse_single("P2")?.detach();
@@ -355,7 +399,12 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -387,7 +436,12 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
     )?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-two-children[🌳]
@@ -407,7 +461,8 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
                                     └── →:6: (main)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let m = repo.rev_parse_single("M")?.detach();
@@ -481,7 +536,12 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -509,7 +569,12 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
     )?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-two-children[🌳]
@@ -527,7 +592,8 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
                     └── →:3: (M)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     let p1 = repo.rev_parse_single("P1")?.detach();
     let p2 = repo.rev_parse_single("P2")?.detach();
@@ -614,7 +680,12 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -649,7 +720,12 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-two-children[🌳]
@@ -670,7 +746,8 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
                     └── →:3: (M)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");
@@ -691,7 +768,12 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -726,7 +808,12 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
     );
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-two-children[🌳]
@@ -747,7 +834,8 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
                     └── →:3: (M)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");
@@ -768,7 +856,12 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -803,7 +896,12 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
     );
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-two-children[🌳]
@@ -824,7 +922,8 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
                     └── →:3: (M)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     let after = visualize_commit_graph_all(&repo)?;
     assert_eq!(before, after, "graph should remain unchanged on failure");

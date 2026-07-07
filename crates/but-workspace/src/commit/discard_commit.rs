@@ -12,10 +12,10 @@ use but_rebase::graph_rebase::{
 /// Each commit is removed from history and its parents are reconnected to its
 /// children. All removals share a single editor session so only one rebase
 /// is performed. Duplicate commit IDs are silently deduplicated.
-pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn discard_commits<'meta, M: RefMetadata>(
+    mut editor: Editor<'meta, M>,
     subject_commits: impl IntoIterator<Item = gix::ObjectId>,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> anyhow::Result<SuccessfulRebase<'meta, M>> {
     let mut seen = gix::hashtable::HashSet::default();
     let mut count = 0usize;
     for commit_id in subject_commits {

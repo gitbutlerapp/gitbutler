@@ -33,7 +33,12 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let merge_id = editor.repo().rev_parse_single("HEAD~")?.detach();
     let (selector, mut merge_obj) = editor.find_selectable_commit(merge_id)?;
@@ -44,7 +49,12 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
     editor.insert(selector, Step::new_pick(new_commit), InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
@@ -61,7 +71,8 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
                             └── →:4: (main)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * f6ce7ad (HEAD -> with-inner-merge) on top of inner merge
@@ -106,7 +117,12 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let a = editor.repo().rev_parse_single("A")?.detach();
     let (a_selector, mut a_obj) = editor
@@ -118,7 +134,12 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
@@ -134,7 +155,8 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
                             └── →:4: (main)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * f6f0125 (HEAD -> with-inner-merge) on top of inner merge
@@ -177,7 +199,12 @@ fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let inner_merge = editor.repo().rev_parse_single("HEAD~")?.detach();
     let a = editor.repo().rev_parse_single("A")?.detach();
@@ -197,7 +224,12 @@ fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
     editor.insert_edge(a_selector, b_selector, 1)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:with-inner-merge[🌳]
@@ -212,7 +244,8 @@ fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
                             └── →:3: (main)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 636f2bd (HEAD -> with-inner-merge) on top of inner merge

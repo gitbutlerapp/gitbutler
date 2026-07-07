@@ -23,11 +23,11 @@ fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
         repo.workdir_path("shared.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -38,7 +38,7 @@ fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
 
     assert_eq!(
         conflicts,
@@ -60,11 +60,11 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
         repo.workdir_path("unrelated.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -75,7 +75,7 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
 
     assert_eq!(
         conflicts,
@@ -92,11 +92,11 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
         repo.workdir_path("shared.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -107,7 +107,7 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
     )?
     .rebase;
 
-    let preview_workspace = rebase.overlayed_workspace()?;
+    let preview_workspace = but_workspace::workspace::overlayed_workspace(&workspace, &rebase)?;
     let preview_head = preview_workspace
         .graph
         .entrypoint()?
@@ -119,7 +119,7 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
         "preview commits should not have to exist in the persistent repository before materialization"
     );
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
 
     assert_eq!(
         conflicts,
@@ -136,11 +136,11 @@ fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result
         repo.workdir_path("unrelated.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -151,7 +151,7 @@ fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
 
     assert!(
         conflicts.is_empty(),
@@ -168,11 +168,11 @@ fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<
         repo.workdir_path("ignored.txt").expect("non-bare"),
         "ignored\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
@@ -183,7 +183,7 @@ fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
 
     assert!(
         conflicts.is_empty(),

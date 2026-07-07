@@ -87,13 +87,27 @@ pub struct DetailedGraphWorkspace {
     pub stacks: Vec<Stack>,
 }
 
+/// Preview the workspace as it will look after `rebase` materializes, without materializing:
+/// redo the projection with the rebase's overlay over its in-memory repository.
+pub fn overlayed_workspace<M: RefMetadata>(
+    workspace: &but_graph::Workspace,
+    rebase: &but_rebase::graph_rebase::SuccessfulRebase<'_, M>,
+) -> Result<but_graph::Workspace> {
+    workspace.redo_with_overlay(rebase.repo(), rebase.meta(), rebase.rebase_overlay()?)
+}
+
 /// A detailed graph workspace
 pub fn detailed_graph_workspace<M: RefMetadata>(
-    workspace: &mut but_graph::Workspace,
+    workspace: &but_graph::Workspace,
     meta: &mut M,
     repo: &gix::Repository,
 ) -> Result<DetailedGraphWorkspace> {
-    let editor = Editor::create(workspace, meta, repo)?;
+    let editor = Editor::create(
+        workspace.graph.require_commit_graph()?,
+        &workspace.graph.project_meta,
+        meta,
+        repo,
+    )?;
     let ws = editor.graph_workspace()?;
 
     Ok(DetailedGraphWorkspace {
@@ -106,7 +120,7 @@ pub fn detailed_graph_workspace<M: RefMetadata>(
 }
 
 fn stack_rows<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     stack: &but_rebase::graph_rebase::Subgraph,
     reference_status: &HashMap<Selector, ReferenceStatus>,
     commit_state: &HashMap<Selector, CommitState>,
@@ -175,7 +189,7 @@ fn stack_rows<M: RefMetadata>(
     })
 }
 
-fn is_visible_step<M: RefMetadata>(editor: &Editor<'_, '_, M>, selector: Selector) -> Result<bool> {
+fn is_visible_step<M: RefMetadata>(editor: &Editor<'_, M>, selector: Selector) -> Result<bool> {
     Ok(match editor.lookup_step(selector)? {
         Step::Pick(_) => true,
         Step::Reference { refname, .. } => {
@@ -186,12 +200,12 @@ fn is_visible_step<M: RefMetadata>(editor: &Editor<'_, '_, M>, selector: Selecto
 }
 
 fn visible_parents<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     stack_nodes: &HashSet<Selector>,
     selector: Selector,
 ) -> Result<Vec<Selector>> {
     fn walk<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
+        editor: &Editor<'_, M>,
         stack_nodes: &HashSet<Selector>,
         selector: Selector,
         seen: &mut HashSet<Selector>,
@@ -218,10 +232,7 @@ fn visible_parents<M: RefMetadata>(
 
 /// Deterministic ordering key for seed tips: commits before references, then by
 /// id / refname. Mirrors `graph_rebase::testing::compare_heads`.
-fn seed_key<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    selector: Selector,
-) -> Result<(u8, String)> {
+fn seed_key<M: RefMetadata>(editor: &Editor<'_, M>, selector: Selector) -> Result<(u8, String)> {
     Ok(match editor.lookup_step(selector)? {
         Step::Pick(Pick { id, .. }) => (0, id.to_string()),
         Step::Reference { refname, .. } => (1, refname.as_bstr().to_string()),
@@ -383,7 +394,7 @@ fn reference_segments(
 }
 
 fn row_data<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     selector: Selector,
     reference_status: &HashMap<Selector, ReferenceStatus>,
     commit_state: &HashMap<Selector, CommitState>,

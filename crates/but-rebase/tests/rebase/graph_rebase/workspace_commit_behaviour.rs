@@ -30,7 +30,12 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let id = repo.rev_parse_single("gitbutler/workspace")?;
     let selector = editor.select_commit(id.detach())?;
@@ -43,7 +48,12 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:gitbutler/workspace[🌳]
@@ -66,10 +76,8 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
     );
 
     let mat_outcome = outcome.materialize()?;
-    assert_eq!(
-        overlayed,
-        graph_tree(&mat_outcome.workspace.graph).to_string()
-    );
+    ws.refresh_from_commit_graph(mat_outcome.arena().clone(), &repo, mat_outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     let step = mat_outcome.lookup_step(selector)?;
     assert_eq!(
@@ -103,7 +111,12 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     // Remove the "b" commit so "c" and the workspace commit get cherry-picked
     let b = repo.rev_parse_single("b")?;
@@ -111,7 +124,12 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:gitbutler/workspace[🌳]
@@ -123,7 +141,8 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
                         └── 🏁·b6e2f57 (⌂)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * badca2f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -191,7 +210,12 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     let id = repo.rev_parse_single("HEAD")?;
     let selector = editor.select_commit(id.detach())?;
@@ -204,7 +228,12 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&ws.graph.redo_traversal_with_overlay(
+        outcome.repo(),
+        outcome.meta(),
+        outcome.rebase_overlay()?,
+    )?)
+    .to_string();
     insta::assert_snapshot!(overlayed, @"
 
     └── 👉►:0[0]:main[🌳]
@@ -222,10 +251,8 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
     );
 
     let mat_outcome = outcome.materialize()?;
-    assert_eq!(
-        overlayed,
-        graph_tree(&mat_outcome.workspace.graph).to_string()
-    );
+    ws.refresh_from_commit_graph(mat_outcome.arena().clone(), &repo, mat_outcome.meta)?;
+    assert_eq!(overlayed, graph_tree(&ws.graph).to_string());
 
     let step = mat_outcome.lookup_step(selector)?;
     assert_eq!(
@@ -252,14 +279,19 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    let mut ws = Workspace::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     // Dropping c will cause the workspace commit to conflict because the WC
     // depends on a file created in c
@@ -335,14 +367,19 @@ fn workspace_commit_with_deleted_branch_ref_rebases_successfully() -> Result<()>
     * fafd9d0 init
     ");
 
-    let mut ws = Workspace::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(
+        ws.graph.require_commit_graph()?,
+        &ws.graph.project_meta,
+        &mut *meta,
+        &repo,
+    )?;
 
     // The rebase should succeed even though the workspace commit has a
     // parent that no longer has a corresponding Reference node.

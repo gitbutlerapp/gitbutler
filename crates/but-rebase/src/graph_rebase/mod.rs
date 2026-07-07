@@ -23,7 +23,7 @@ pub mod traverse;
 use std::collections::BTreeMap;
 
 use anyhow::{Result, bail};
-use but_core::{RefMetadata, commit::SignCommit};
+use but_core::{RefMetadata, commit::SignCommit, ref_metadata::ProjectMeta};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
 use gix::refs::transaction::RefEdit;
@@ -257,7 +257,7 @@ pub(crate) enum Checkout {
 
 /// Used to manipulate a set of picks.
 #[derive(Debug)]
-pub struct Editor<'ws, 'meta, M: RefMetadata> {
+pub struct Editor<'meta, M: RefMetadata> {
     /// The internal graph of steps
     graph: EditorGraph,
     /// Initial references, used to spot references that need deleting.
@@ -268,15 +268,15 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
     repo: gix::Repository,
     /// Provides data about how the editor instance was transformed.
     history: RevisionHistory,
-    /// A reference to the workspace that the editor was created for.
-    workspace: &'ws mut but_graph::Workspace,
+    /// The workspace target configuration the editor was created with.
+    project_meta: ProjectMeta,
     /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
 }
 
 /// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
 #[derive(Debug)]
-pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
+pub struct SuccessfulRebase<'meta, M: RefMetadata> {
     pub(crate) repo: gix::Repository,
     pub(crate) initial_references: Vec<gix::refs::FullName>,
     /// Any reference edits that need to be committed as a result of the history
@@ -287,17 +287,17 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     pub(crate) checkouts: Vec<Checkout>,
     /// Provides data about how the editor instance was transformed.
     pub history: RevisionHistory,
-    /// A reference to the workspace that the editor was created for.
-    workspace: &'ws mut but_graph::Workspace,
+    /// The workspace target configuration the editor was created with.
+    project_meta: ProjectMeta,
     /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
 }
 
-impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
+impl<'meta, M: RefMetadata> SuccessfulRebase<'meta, M> {
     /// Returns the in-memory repository that backs this rebase preview.
     ///
     /// This repository may contain objects that have not been persisted yet,
-    /// which makes it suitable for dry-run inspection of [`Self::overlayed_graph`].
+    /// which makes it suitable for dry-run inspection of a [`Self::rebase_overlay`] redo.
     pub fn repo(&self) -> &gix::Repository {
         &self.repo
     }
@@ -306,28 +306,22 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// ref-metadata the editor was created with.
     ///
     /// Use this to build post-rebase projections that need both, like a
-    /// workspace preview computed from [`Self::overlayed_graph`].
+    /// workspace preview computed from [`Self::rebase_overlay`].
     pub fn repo_and_meta_mut(&mut self) -> (&gix::Repository, &mut M) {
         (&self.repo, self.meta)
     }
 
-    /// Returns a preview of what the but-graph will look like after
-    /// materialization.
-    ///
-    /// Any objects referenced in the resulting graph must be accessed via the
-    /// in-memory repository owned by this [`SuccessfulRebase`] (`self.repo`),
-    /// since they might exist only in memory.
-    pub fn overlayed_graph(&self) -> Result<but_graph::Graph> {
-        self.workspace.graph.redo_traversal_with_overlay(
-            &self.repo,
-            self.meta,
-            self.rebase_overlay()?,
-        )
+    /// Returns the ref-metadata the editor was created with.
+    pub fn meta(&self) -> &M {
+        self.meta
     }
 
     /// The overlay describing this rebase's outcome: updated/dropped refs plus the requested
     /// checkout as the entrypoint.
-    fn rebase_overlay(&self) -> Result<Overlay> {
+    ///
+    /// Feed it to a graph or workspace redo (with [`Self::repo`], since rewritten objects may
+    /// exist only in memory) to preview the post-rebase state without materializing.
+    pub fn rebase_overlay(&self) -> Result<Overlay> {
         let dropped_refs = self.ref_edits.iter().filter_map(|edit| match &edit.change {
             gix::refs::transaction::Change::Delete { .. } => Some(edit.name.clone()),
             _ => None,
@@ -372,24 +366,24 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             .with_dropped_references(dropped_refs)
             .with_entrypoint(entrypoint_id, entrypoint_refname))
     }
-
-    /// Like [`Self::overlayed_graph`], but projected onto the workspace view most callers want.
-    pub fn overlayed_workspace(&self) -> Result<but_graph::Workspace> {
-        self.workspace
-            .redo_with_overlay(&self.repo, self.meta, self.rebase_overlay()?)
-    }
 }
 
 /// The outcome of a materialize
 #[derive(Debug)]
-pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct MaterializeOutcome<'meta, M: RefMetadata> {
     pub(crate) graph: EditorGraph,
     /// Provides data about how the editor instance was transformed.
     pub history: RevisionHistory,
-    /// A reference to the workspace that the editor was created for.
-    pub workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
     pub meta: &'meta mut M,
+}
+
+impl<'meta, M: RefMetadata> MaterializeOutcome<'meta, M> {
+    /// The mutated commit graph the rebase materialized — the next workspace state.
+    /// Feed it to `Workspace::refresh_from_commit_graph` to bring a workspace up to date.
+    pub fn arena(&self) -> &but_graph::CommitGraph {
+        self.graph.arena()
+    }
 }
 
 /// Provides lookup for different steps that a selector might point to.
@@ -414,19 +408,19 @@ pub trait LookupStep {
     }
 }
 
-impl<M: RefMetadata> LookupStep for Editor<'_, '_, M> {
+impl<M: RefMetadata> LookupStep for Editor<'_, M> {
     fn lookup_step(&self, selector: Selector) -> Result<Step> {
         Ok(self.graph.step_view(selector.id))
     }
 }
 
-impl<M: RefMetadata> LookupStep for SuccessfulRebase<'_, '_, M> {
+impl<M: RefMetadata> LookupStep for SuccessfulRebase<'_, M> {
     fn lookup_step(&self, selector: Selector) -> Result<Step> {
         Ok(self.graph.step_view(selector.id))
     }
 }
 
-impl<M: RefMetadata> LookupStep for MaterializeOutcome<'_, '_, M> {
+impl<M: RefMetadata> LookupStep for MaterializeOutcome<'_, M> {
     fn lookup_step(&self, selector: Selector) -> Result<Step> {
         Ok(self.graph.step_view(selector.id))
     }
@@ -443,7 +437,7 @@ pub struct RevisionHistory {
     commit_mappings: BTreeMap<gix::ObjectId, gix::ObjectId>,
 }
 
-impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
+impl<'meta, M: RefMetadata> Editor<'meta, M> {
     pub(crate) fn new_selector(&self, id: EditorGraphIndex) -> Selector {
         Selector { id }
     }

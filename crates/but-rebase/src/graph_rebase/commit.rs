@@ -10,7 +10,7 @@ use crate::{
     graph_rebase::{Editor, Selector, ToCommitSelector, ToReferenceSelector},
 };
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Returns a reference to the in-memory repository.
     pub fn repo(&self) -> &gix::Repository {
         &self.repo
