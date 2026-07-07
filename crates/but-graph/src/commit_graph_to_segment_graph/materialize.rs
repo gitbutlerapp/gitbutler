@@ -6,13 +6,11 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use gix::reference::Category;
 
 use super::chains::{
-    add_advanced_outside_branches, effective_lower_bound, insert_empty_branches,
-    insert_empty_workspace_segment,
+    AdvancedOutside, add_advanced_outside_branches, advanced_outside_decisions,
+    empty_workspace_ref, insert_empty_branches, insert_empty_workspace_segment,
 };
-use super::facts::{Facts, facts};
-use super::plan::{
-    ChainPlan, Float, author_arrangement, chain_plan, debug_assert_arrangement_matches_plan,
-};
+use super::facts::Facts;
+use super::plan::ChainPlan;
 use super::remotes::{
     add_co_located_remote_empties, add_remote_segments, add_untracked_remote_segments,
     link_remote_to_local, remote_name_in_play, segment_ahead_region,
@@ -28,23 +26,19 @@ use crate::{Commit, CommitGraph, RefInfo, Segment, SegmentIndex, segment_graph::
 /// Inputs mirror the projection's enrichment: the workspace commit, the target that bounds/integrates,
 /// and the local→remote tracking map. `project_meta`/`options` are carried onto the `Graph`.
 ///
-/// This is "gather-then-build": everything is decided as data BEFORE any segment exists, then
-/// materialized in one pass. Roughly, in order:
+/// This is "gather-then-build": everything is decided as data BEFORE any segment exists —
+/// the caller authors `f`/`plan`/`arrangement` via `gather_and_plan` — then materialized in
+/// one pass. Roughly, in order:
 ///
-/// 1. **Facts** (`facts`) — the boundaries where segments start, which boundary owns each
-///    commit, and the tips in materialization order. Pure facts over `cg`; reads no segment.
-/// 2. **Lower bound** — the base all chains and the target converge on.
-/// 3. **Chain plan** (`chain_plan`) — the NAME each tip's segment gets (some go anonymous so an
-///    empty named segment can float above them), decided before any segment is built.
-/// 4. **Materialize** (`mint_tip_segments`, `mint_float_placeholders`) — one local segment per
+/// 1. **Materialize** (`mint_tip_segments`, `mint_float_placeholders`) — one local segment per
 ///    tip holding its first-parent commit run, then the planned float placeholders (empty named
 ///    segments) spliced above the anonymized tips.
-/// 5. **Connect** (`connect_parents`) — each segment's bottom commit points at the segments
+/// 2. **Connect** (`connect_parents`) — each segment's bottom commit points at the segments
 ///    owning its parents.
-/// 6. **Chain structure** (`build_chain_structure`) — empty-workspace segment, advanced-outside
+/// 3. **Chain structure** (`build_chain_structure`) — empty-workspace segment, advanced-outside
 ///    branches, empty-branch splices. Runs before the remote passes so those link the chain
 ///    segments at creation.
-/// 7. **Remote / target / entrypoint passes** — a remote root segment per local branch whose
+/// 4. **Remote / target / entrypoint passes** — a remote root segment per local branch whose
 ///    remote tip is present (`add_remote_segments`); the target's own remote segment when no
 ///    local tracks it (`surface_target_remote`); regions for an extra (older) target position,
 ///    an outside checkout, and any explicit tip left uncovered; then the whole-graph sweeps
@@ -58,10 +52,12 @@ use crate::{Commit, CommitGraph, RefInfo, Segment, SegmentIndex, segment_graph::
 )]
 pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
     cg: &CommitGraph,
+    f: Facts,
+    plan: &ChainPlan,
+    arrangement: &crate::ref_arrangement::RefArrangement,
     workspace_commit: gix::ObjectId,
     entrypoint: gix::ObjectId,
     entrypoint_ref: Option<gix::refs::FullName>,
-    target: Option<gix::ObjectId>,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
     // Remote names implied by the workspace configuration (push remote, target's remote). Only these
     // remotes' AHEAD regions are traversed; a config-only tracking link keeps its name but its remote's
@@ -77,43 +73,7 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
     meta: &T,
     project_meta: but_core::ref_metadata::ProjectMeta,
     options: crate::init::Options,
-) -> (crate::Graph, crate::ref_arrangement::RefArrangement) {
-    let f = facts(
-        cg,
-        workspace_commit,
-        entrypoint,
-        target,
-        remote_tracking,
-        stack_branches,
-        managed,
-        meta,
-        &project_meta,
-        &options,
-    );
-    // The workspace's lower bound — the base all chains and the (stored/extra) target converge
-    // on, extended down to an older target position.
-    let ws_lower_bound =
-        effective_lower_bound(cg, workspace_commit, target, &project_meta, &options);
-    let plan = chain_plan(
-        cg,
-        &f,
-        workspace_commit,
-        entrypoint,
-        entrypoint_ref.as_ref(),
-        target,
-        remote_tracking,
-        stack_branches,
-        ws_lower_bound,
-        managed,
-        meta,
-        project_meta.target_ref.as_ref(),
-        symbolic_remotes,
-        options.extra_target_commit_id,
-    );
-    // The ref placement table: authored here, stored on the commit graph, and consumed by the
-    // chain-structure pass below. The oracle keeps proving it round-trips the plan it came from.
-    let arrangement = author_arrangement(&plan);
-    debug_assert_arrangement_matches_plan(&arrangement, &plan);
+) -> (crate::Graph, super::position_ir::NativeStore) {
     let Facts {
         in_set,
         ws_is_managed_merge: _,
@@ -132,10 +92,10 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
         &tips,
         &in_set,
         &boundaries,
-        &plan,
+        plan,
         remote_tracking,
     );
-    let placeholder_of = mint_float_placeholders(&mut sg, &plan, remote_tracking);
+    let placeholder_of = mint_float_placeholders(&mut sg, plan, remote_tracking);
     connect_parents(
         cg,
         &mut sg,
@@ -144,25 +104,45 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
         &owner_of,
         &seg_of_tip,
         &placeholder_of,
-        &plan,
+        plan,
     );
+    // Chain-structure decisions, shared with the native position store: the empty-workspace
+    // splice's name and the advanced-outside branches.
+    let ws_empty_ref = (managed && empty_ws_case)
+        .then(|| empty_workspace_ref(cg, workspace_commit))
+        .flatten();
+    let advanced_outside = if managed {
+        let mut named: HashSet<gix::refs::FullName> = tips
+            .iter()
+            .filter_map(|&tip| plan.tip_name(tip).map(|(name, _)| name))
+            .collect();
+        named.extend(plan.floats.iter().map(|fl| fl.name.clone()));
+        named.extend(ws_empty_ref.clone());
+        advanced_outside_decisions(
+            cg,
+            &in_set,
+            &owner_of,
+            stack_branches,
+            remote_tracking,
+            meta,
+            project_meta.target_ref.as_ref(),
+            &pinned_commits,
+            named,
+        )
+    } else {
+        Vec::new()
+    };
 
     let (ws_empty_sidx, chain_created) = build_chain_structure(
-        cg,
         &mut sg,
         &seg_of_tip,
-        &in_set,
-        &pinned_commits,
-        stack_branches,
         workspace_commit,
         remote_tracking,
-        meta,
-        project_meta.target_ref.as_ref(),
-        empty_ws_case,
+        ws_empty_ref.as_ref(),
+        &advanced_outside,
         managed,
-        &arrangement,
+        arrangement,
     );
-
     // Remote segments: for each local segment with a remote-tracking ref whose remote tip is
     // present, create a remote root segment (holding the remote-ahead commits) that connects into
     // the local segment, doubly-linked via siblings. The remote passes historically ran BEFORE the
@@ -172,7 +152,7 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
     let pre_chain_names: IdMap<gix::refs::FullName> = plan.base_name_of.clone();
     let claimed_remote_names = claim_remote_names(
         cg,
-        &plan,
+        plan,
         &in_set,
         remote_tracking,
         stack_branches,
@@ -218,7 +198,7 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
         &in_set,
         &owner_of,
         &seg_of_tip,
-        &plan,
+        plan,
         remote_tracking,
         &region_pinned,
         &claimed_remote_names,
@@ -284,7 +264,7 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
         workspace_commit,
     );
     if managed {
-        drop_suppressed_tip_links(&mut sg, &plan, &seg_of_tip);
+        drop_suppressed_tip_links(&mut sg, plan, &seg_of_tip);
     }
 
     let entrypoint_sidx = resolve_entrypoint_segment(
@@ -298,6 +278,32 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
     classify_segment_metadata(&mut sg, meta);
     strip_segment_named_refs(&mut sg);
     annotate_worktrees(&mut sg, worktree_by_branch);
+    let native = super::position_ir::build_through_sweeps(super::position_ir::NativeBuildInputs {
+        cg,
+        tips: &tips,
+        in_set: &in_set,
+        boundaries: &boundaries,
+        owner_of: &owner_of,
+        plan,
+        arrangement,
+        workspace_commit,
+        managed,
+        ws_empty_ref: ws_empty_ref.as_ref(),
+        advanced_outside: &advanced_outside,
+        remote_tracking,
+        symbolic_remotes,
+        stack_branches,
+        region_pinned: &region_pinned,
+        claimed_remote_names: &claimed_remote_names,
+        entrypoint,
+        entrypoint_ref: entrypoint_ref.as_ref(),
+        target_ref: project_meta.target_ref.as_ref(),
+        extra_target: options.extra_target_commit_id,
+        worktree_by_branch,
+    });
+    if cfg!(debug_assertions) {
+        super::position_ir::debug_check(&native, &sg, "sweeps");
+    }
 
     let entrypoint =
         entrypoint_sidx.map(|sidx| (sidx, crate::EntryPointCommit::AtCommit(entrypoint)));
@@ -328,7 +334,7 @@ pub(crate) fn graph_from_commit_graph<T: but_core::RefMetadata>(
     if cg.hard_limit_hit {
         graph.set_hard_limit_hit();
     }
-    (graph, arrangement)
+    (graph, native)
 }
 
 /// Create a local segment per tip, holding its first-parent commit run. Names come from the
@@ -343,33 +349,9 @@ fn mint_tip_segments(
     plan: &ChainPlan,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
 ) -> IdMap<SegmentIndex> {
-    let is_boundary = |c: gix::ObjectId| boundaries.contains(&c);
-    let floated: IdMap<&Float> = plan.floats.iter().map(|fl| (fl.tip, fl)).collect();
     let mut seg_of_tip: IdMap<SegmentIndex> = IdMap::default();
     for &tip in tips {
-        let mut commits = commit_run(cg, tip, in_set, &is_boundary);
-        let suppressed = floated.contains_key(&tip) || plan.demoted.contains(&tip);
-        let named = if suppressed {
-            None
-        } else {
-            plan.base_name_of
-                .get(&tip)
-                .map(|n| (n.clone(), tip))
-                .or_else(|| plan.renames.get(&tip).cloned())
-        };
-        if let Some(displaced) = floated
-            .get(&tip)
-            .and_then(|fl| fl.displaced_ref_name.as_ref())
-            && let Some(c0) = commits.first_mut()
-            && !c0.refs.iter().any(|r| r.ref_name == *displaced)
-        {
-            c0.refs.push(RefInfo {
-                ref_name: displaced.clone(),
-                commit_id: Some(tip),
-                worktree: None,
-            });
-            c0.refs.sort_by(|a, b| a.ref_name.cmp(&b.ref_name));
-        }
+        let (commits, named) = tip_run_and_name(cg, tip, in_set, boundaries, plan);
         let ref_info = named.map(|(ref_name, commit_id)| RefInfo {
             ref_name,
             commit_id: Some(commit_id),
@@ -441,6 +423,7 @@ fn connect_parents(
     placeholder_of: &IdMap<SegmentIndex>,
     plan: &ChainPlan,
 ) {
+    let float_tips: IdSet = plan.floats.iter().map(|fl| fl.tip).collect();
     for &tip in tips {
         let src = seg_of_tip[&tip];
         let bottom = sg
@@ -450,17 +433,12 @@ fn connect_parents(
             .last()
             .map(|c| c.id)
             .unwrap_or(tip);
-        for parent in cg.all_parent_ids(bottom) {
-            if let Some(&owner) = owner_of.get(&parent) {
-                let dst = if tip == workspace_commit
-                    && let Some(&ph) = placeholder_of.get(&parent)
-                {
-                    ph
-                } else {
-                    seg_of_tip[&owner]
-                };
-                connect(sg, src, dst);
-            }
+        for dst in parent_edge_dsts(cg, tip, bottom, workspace_commit, owner_of, &float_tips) {
+            let dst = match dst {
+                ParentDst::Tip(owner) => seg_of_tip[&owner],
+                ParentDst::Placeholder(float_tip) => placeholder_of[&float_tip],
+            };
+            connect(sg, src, dst);
         }
     }
     // Placeholder → the anonymized shared segment.
@@ -483,38 +461,24 @@ fn connect_parents(
 /// advanced-outside run swallowing the stored target position that the extra-target region
 /// must surface).
 #[allow(clippy::too_many_arguments)]
-fn build_chain_structure<T: but_core::RefMetadata>(
-    cg: &CommitGraph,
+fn build_chain_structure(
     sg: &mut SegmentGraph,
     seg_of_tip: &IdMap<SegmentIndex>,
-    in_set: &IdSet,
-    pinned_commits: &IdSet,
-    stack_branches: Option<&[Vec<gix::refs::FullName>]>,
     workspace_commit: gix::ObjectId,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
-    meta: &T,
-    target_ref: Option<&gix::refs::FullName>,
-    empty_ws_case: bool,
+    ws_empty_ref: Option<&gix::refs::FullName>,
+    advanced_outside: &[AdvancedOutside],
     managed: bool,
     arrangement: &crate::ref_arrangement::RefArrangement,
 ) -> (Option<SegmentIndex>, HashSet<SegmentIndex>) {
     let mut ws_empty_sidx = None;
     let before_chains: HashSet<SegmentIndex> = sg.segment_ids().collect();
     if managed {
-        if empty_ws_case {
-            ws_empty_sidx = insert_empty_workspace_segment(sg, seg_of_tip, cg, workspace_commit);
+        if let Some(ws_ref) = ws_empty_ref {
+            ws_empty_sidx =
+                insert_empty_workspace_segment(sg, seg_of_tip, workspace_commit, ws_ref.clone());
         }
-        add_advanced_outside_branches(
-            sg,
-            cg,
-            in_set,
-            stack_branches,
-            workspace_commit,
-            remote_tracking,
-            meta,
-            target_ref,
-            pinned_commits,
-        );
+        add_advanced_outside_branches(sg, advanced_outside, workspace_commit, remote_tracking);
         let ws_sidx = ws_empty_sidx.or_else(|| seg_of_tip.get(&workspace_commit).copied());
         insert_empty_branches(sg, ws_sidx, arrangement, remote_tracking);
     }
@@ -1123,6 +1087,66 @@ fn name_entrypoint_segment(
         }
     }
     Some(sidx)
+}
+
+/// The per-tip minting decision, shared by the segment writer and the native position store:
+/// the tip's commit run (a float's displaced build-time name riding on the tip commit as a
+/// passive ref) and its planned name — `None` for floated/demoted tips, which start ANONYMOUS.
+pub(super) fn tip_run_and_name(
+    cg: &CommitGraph,
+    tip: gix::ObjectId,
+    in_set: &IdSet,
+    boundaries: &IdSet,
+    plan: &ChainPlan,
+) -> (Vec<Commit>, Option<(gix::refs::FullName, gix::ObjectId)>) {
+    let is_boundary = |c: gix::ObjectId| boundaries.contains(&c);
+    let float = plan.floats.iter().find(|fl| fl.tip == tip);
+    let mut commits = commit_run(cg, tip, in_set, &is_boundary);
+    let named = plan.tip_name(tip);
+    if let Some(displaced) = float.and_then(|fl| fl.displaced_ref_name.as_ref())
+        && let Some(c0) = commits.first_mut()
+        && !c0.refs.iter().any(|r| r.ref_name == *displaced)
+    {
+        c0.refs.push(RefInfo {
+            ref_name: displaced.clone(),
+            commit_id: Some(tip),
+            worktree: None,
+        });
+        c0.refs.sort_by(|a, b| a.ref_name.cmp(&b.ref_name));
+    }
+    (commits, named)
+}
+
+/// Where a run's parent edges land, as data (shared by both writers): the owning tip's run, or
+/// the float placeholder when the WORKSPACE commit connects to a floated parent.
+pub(super) enum ParentDst {
+    /// The run of this owning tip.
+    Tip(gix::ObjectId),
+    /// The placeholder floating above this shared tip.
+    Placeholder(gix::ObjectId),
+}
+
+/// The parent-edge routing for `tip`'s run, whose last commit is `bottom`: one entry per
+/// in-graph parent, in first-parent order.
+pub(super) fn parent_edge_dsts(
+    cg: &CommitGraph,
+    tip: gix::ObjectId,
+    bottom: gix::ObjectId,
+    workspace_commit: gix::ObjectId,
+    owner_of: &IdMap<gix::ObjectId>,
+    float_tips: &IdSet,
+) -> Vec<ParentDst> {
+    cg.all_parent_ids(bottom)
+        .into_iter()
+        .filter_map(|parent| {
+            let &owner = owner_of.get(&parent)?;
+            Some(if tip == workspace_commit && float_tips.contains(&parent) {
+                ParentDst::Placeholder(parent)
+            } else {
+                ParentDst::Tip(owner)
+            })
+        })
+        .collect()
 }
 
 /// The first-parent commit run owned by `tip`: `tip` and each first-parent descendant-in-history until

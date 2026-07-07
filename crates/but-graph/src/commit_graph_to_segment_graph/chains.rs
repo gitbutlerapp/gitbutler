@@ -4,15 +4,26 @@
 use std::collections::{HashMap, HashSet};
 
 use super::remotes::is_remote_segment;
-use super::{
-    IdMap, IdSet, connect, disambiguated_ref, is_plain_local_branch, segment_by_commit,
-    segment_by_ref,
-};
+use super::{IdMap, IdSet, connect, disambiguated_ref, is_plain_local_branch, segment_by_commit};
 use crate::ref_arrangement::{GroupPlacement, RefArrangement};
 use crate::{
     Commit, CommitGraph, RefInfo, Segment, SegmentIndex,
     segment_graph::{Connection, SegmentGraph},
 };
+
+/// The name an empty-workspace splice carries, shared by both writers. The traversal may have
+/// dropped the special workspace ref from the commit's refs when a stack branch on the same
+/// commit named its raw segment — the caller established the ref points here, so fall back to
+/// the well-known name rather than silently skipping the workspace segment.
+pub(super) fn empty_workspace_ref(
+    cg: &CommitGraph,
+    workspace_commit: gix::ObjectId,
+) -> Option<gix::refs::FullName> {
+    cg.refs_at(workspace_commit)
+        .into_iter()
+        .find(|r| but_core::is_workspace_ref_name(r.as_ref()))
+        .or_else(|| but_core::WORKSPACE_REF_NAME.try_into().ok())
+}
 
 /// Splice an empty `gitbutler/workspace` segment above the stack tip the workspace ref is co-located
 /// with (no dedicated merge commit). It holds no commits, carries the main worktree, and connects into
@@ -20,18 +31,10 @@ use crate::{
 pub(super) fn insert_empty_workspace_segment(
     sg: &mut SegmentGraph,
     seg_of_tip: &IdMap<SegmentIndex>,
-    cg: &CommitGraph,
     workspace_commit: gix::ObjectId,
+    ws_ref: gix::refs::FullName,
 ) -> Option<SegmentIndex> {
     let stack_sidx = *seg_of_tip.get(&workspace_commit)?;
-    // The traversal may have dropped the special workspace ref from the commit's refs when a stack
-    // branch on the same commit named its raw segment — the caller established the ref points here,
-    // so fall back to the well-known name rather than silently skipping the workspace segment.
-    let ws_ref = cg
-        .refs_at(workspace_commit)
-        .into_iter()
-        .find(|r| but_core::is_workspace_ref_name(r.as_ref()))
-        .or_else(|| but_core::WORKSPACE_REF_NAME.try_into().ok())?;
     // The worktree annotation comes from the shared `worktree_by_branch` pass — HEAD may well be on
     // a stack branch, not the workspace ref.
     let ws_seg = sg.add_segment(Segment {
@@ -53,26 +56,37 @@ pub(super) fn insert_empty_workspace_segment(
     Some(ws_seg)
 }
 
-/// A metadata stack branch pointing at a commit OUTSIDE the workspace has advanced past it. Surface
-/// its outside commits as a segment named after the branch: the first-parent run from its tip down to
-/// the first in-workspace commit, connected into the segment owning that commit. That owning segment
-/// gets a sibling link so the projection can display it under the advanced branch's name.
+/// A metadata stack branch pointing at a commit OUTSIDE the workspace that has advanced past it,
+/// decided as data (shared by both writers): its outside run, the in-workspace commit it rejoins,
+/// and its disambiguated name.
+pub(super) struct AdvancedOutside {
+    pub(super) tip: gix::ObjectId,
+    pub(super) name: Option<gix::refs::FullName>,
+    pub(super) commits: Vec<Commit>,
+    pub(super) rejoin: gix::ObjectId,
+}
+
+/// The advanced-outside decisions, in metadata-stack order. `named` carries every ref name a
+/// segment holds when the pass starts (mint names, float placeholders, the empty-workspace
+/// splice) — a branch that already names a segment does not advance.
 #[expect(clippy::too_many_arguments)]
-pub(super) fn add_advanced_outside_branches<T: but_core::RefMetadata>(
-    sg: &mut SegmentGraph,
+pub(super) fn advanced_outside_decisions<T: but_core::RefMetadata>(
     cg: &CommitGraph,
     in_set: &IdSet,
+    owner_of: &IdMap<gix::ObjectId>,
     stack_branches: Option<&[Vec<gix::refs::FullName>]>,
-    workspace_commit: gix::ObjectId,
     remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
     meta: &T,
     target_ref: Option<&gix::refs::FullName>,
     pinned_commits: &IdSet,
-) {
+    mut named: HashSet<gix::refs::FullName>,
+) -> Vec<AdvancedOutside> {
+    let mut decisions: Vec<AdvancedOutside> = Vec::new();
+    let mut outside_owned = IdSet::default();
     for b in stack_branches.into_iter().flatten().flatten() {
         // Only LOCAL branches advance past a workspace; metadata can also list remote refs as stack
         // branches, and those are handled by the remote passes.
-        if !is_plain_local_branch(b) || segment_by_ref(sg, b).is_some() {
+        if !is_plain_local_branch(b) || named.contains(b) {
             continue;
         }
         let Some(tip) = cg.commit_by_ref(b.as_ref()) else {
@@ -107,22 +121,42 @@ pub(super) fn add_advanced_outside_branches<T: but_core::RefMetadata>(
         };
         // Several stack branches can share the outside tip (e.g. an applied-branch preview where
         // `E` and `D` rest on the same not-yet-merged commit) — the run is materialized ONCE.
-        if segment_by_commit(sg, tip).is_some() {
+        if outside_owned.contains(&tip) || !owner_of.contains_key(&rejoin) {
             continue;
         }
-        let Some(owner_sidx) = segment_by_commit(sg, rejoin) else {
-            continue;
-        };
         // Named like any tip: ambiguous refs keep the segment anonymous (the walk's floating
         // `►D, ►E` run), a unique branch names it (the advanced `B` above its own chain).
-        let ref_info =
-            disambiguated_ref(cg, tip, remote_tracking, meta, None, target_ref).map(|ref_name| {
-                RefInfo {
-                    ref_name,
-                    commit_id: Some(tip),
-                    worktree: None,
-                }
-            });
+        let name = disambiguated_ref(cg, tip, remote_tracking, meta, None, target_ref);
+        outside_owned.extend(commits.iter().map(|c| c.id));
+        named.extend(name.clone());
+        decisions.push(AdvancedOutside {
+            tip,
+            name,
+            commits,
+            rejoin,
+        });
+    }
+    decisions
+}
+
+/// Surface each decided advanced branch: a segment holding its outside run, connected into the
+/// segment owning the rejoin commit. That owning segment gets a sibling link so the projection
+/// can display it under the advanced branch's name.
+pub(super) fn add_advanced_outside_branches(
+    sg: &mut SegmentGraph,
+    decisions: &[AdvancedOutside],
+    workspace_commit: gix::ObjectId,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
+) {
+    for decision in decisions {
+        let Some(owner_sidx) = segment_by_commit(sg, decision.rejoin) else {
+            continue;
+        };
+        let ref_info = decision.name.clone().map(|ref_name| RefInfo {
+            ref_name,
+            commit_id: Some(decision.tip),
+            worktree: None,
+        });
         let named = ref_info.is_some();
         let remote_tracking_ref_name = ref_info
             .as_ref()
@@ -133,7 +167,7 @@ pub(super) fn add_advanced_outside_branches<T: but_core::RefMetadata>(
             remote_tracking_ref_name,
             sibling_segment_id: None,
             remote_tracking_branch_segment_id: None,
-            commits,
+            commits: decision.commits.clone(),
             metadata: None,
             connections: Vec::new(),
         });
@@ -143,7 +177,7 @@ pub(super) fn add_advanced_outside_branches<T: but_core::RefMetadata>(
         // that segment under the advanced branch's name); a floating anonymous run stays unlinked,
         // and the workspace position itself never links to outside content.
         if named
-            && rejoin != workspace_commit
+            && decision.rejoin != workspace_commit
             && let Some(owner) = sg.segment_mut(owner_sidx)
             && owner.sibling_segment_id.is_none()
         {

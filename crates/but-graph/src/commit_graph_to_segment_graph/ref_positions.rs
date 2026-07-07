@@ -1,64 +1,257 @@
-//! The editor-grade ref layout, derived from the FINISHED segment graph: every surfaced
-//! reference in segment order with its position over the commit graph, plus the entrypoint's
-//! reach (mutability), HEAD ordinals, and the workspace commit's chain slots.
+//! The editor-grade ref layout: every surfaced reference in segment order with its position
+//! over the commit graph, plus the entrypoint's reach (mutability), HEAD ordinals, and the
+//! workspace commit's chain slots.
 //!
 //! This is the position derivation the rebase editor historically ran itself (reverse-
 //! engineering segment topology at creation time); authored here once per build and stored on
 //! the commit graph's [`RefArrangement`](crate::ref_arrangement::RefArrangement), the editor
-//! becomes a pure table consumer. The derivation still READS segments — it retires with the
-//! segment graph once a commit-graph native authoring exists.
+//! becomes a pure table consumer.
+//!
+//! The derivation is split: [`positions_from_ir`] computes the layout from a graph-agnostic
+//! [`Ir`] — segments as linear runs of data, in minting order — and a front-end authors the
+//! IR. The production front-end is the commit-graph native store ([`author_positions`]); the
+//! segment-walk front-end ([`ref_positions`]) remains as the debug oracle.
 
 use std::collections::{HashMap, HashSet};
 
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 
 use crate::ref_arrangement::{PositionedRef, RefPosition, RefPositions};
+
+/// One commit of an [`IrRun`]: its raw parents and the passive refs riding on it.
+struct IrCommit {
+    id: gix::ObjectId,
+    parent_ids: Vec<gix::ObjectId>,
+    refs: Vec<gix::refs::FullName>,
+}
+
+/// One minted segment as a linear run: its naming ref, its commits (top → bottom), and its
+/// outgoing edges as target run ordinals in FINAL rank order (real parents by their index in
+/// the source commit's parent array, commit-less edges after them in edge order).
+struct IrRun {
+    name: Option<gix::refs::FullName>,
+    commits: Vec<IrCommit>,
+    targets: Vec<usize>,
+}
+
+/// The position IR: every segment as a run of data, in minting order — which fixes the stored
+/// ref order (and with it the editor's reference table and render sibling order).
+struct Ir {
+    runs: Vec<IrRun>,
+    /// The entrypoint's run: the root of the reach computation, and its name marks the HEAD
+    /// ordinals.
+    entrypoint_run: usize,
+    /// The managed entrypoint commit, which takes its resolved CHAIN slots instead of its
+    /// real parents.
+    workspace_commit_id: Option<gix::ObjectId>,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum IrStep {
     /// Index into `ref_table`.
     Ref(usize),
-    /// Index into `commit_graph`.
+    /// Index into `commits`.
     Commit(usize),
-    /// The placeholder for a segment with neither name nor commits.
+    /// The placeholder for a run with neither name nor commits.
     None,
 }
 
-/// Derive the layout from the finished `graph`. `repo` detects the managed entrypoint commit
-/// (by message), which takes its STACK slots instead of its real parents.
-///
-/// The derivation mirrors the retired segment walk's semantics exactly, on a throwaway IR:
-/// per-segment runs (segment ref, then per commit its refs then the commit), rank-ordered
-/// inter-segment edges, the parent fixup (a commit whose group-flattened parents disagree
-/// with its raw parent list is rewired directly, bypassing groups — the ws commit and
-/// partially-traversed commits keep their wiring), position derivation, and the strip's
-/// slot compaction.
-pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Result<RefPositions> {
+/// THE DEMOTED WALK: derive the layout from the finished `graph` — the debug oracle for
+/// [`author_positions`]. `repo` detects the managed entrypoint commit (by message).
+pub(super) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Result<RefPositions> {
+    Ok(positions_from_ir(ir_from_segment_graph(graph, repo)?))
+}
+
+/// Author the stored layout from the native `store`. The entrypoint run ordinal and the
+/// managed workspace commit are graph/repo decisions, not store decisions — read here.
+pub(super) fn author_positions(
+    store: &super::position_ir::NativeStore,
+    graph: &crate::Graph,
+    repo: &gix::Repository,
+) -> Result<RefPositions> {
     let entrypoint = graph.entrypoint()?;
+    let workspace_commit_id = graph.managed_entrypoint_commit(repo)?.map(|c| c.id);
+    let entrypoint_run = graph
+        .segment_ids()
+        .position(|sid| sid == entrypoint.segment.id)
+        .context("BUG: the entrypoint segment is always live")?;
+    Ok(native_ref_positions(
+        store,
+        entrypoint_run,
+        workspace_commit_id,
+    ))
+}
 
-    let mut reachable_segments = HashSet::new();
-    graph.visit_all_segments_including_start_until(
-        entrypoint.segment.id,
-        crate::Direction::Outgoing,
-        |segment| !reachable_segments.insert(segment.id),
-    );
-
+/// The segment-graph front-end: one run per segment in `graph.segment_ids()` order, edges
+/// rank-ordered from the segment connections.
+fn ir_from_segment_graph(graph: &crate::Graph, repo: &gix::Repository) -> Result<Ir> {
+    let entrypoint = graph.entrypoint()?;
     let workspace_commit_id = graph.managed_entrypoint_commit(repo)?.map(|c| c.id);
 
-    // IR build: one run of steps per segment, in `graph.segment_ids()` order — which fixes the
-    // stored ref order (and with it the editor's reference table and render sibling order).
+    let sids: Vec<crate::SegmentIndex> = graph.segment_ids().collect();
+    let run_of_sid: HashMap<crate::SegmentIndex, usize> = sids
+        .iter()
+        .enumerate()
+        .map(|(ri, &sid)| (sid, ri))
+        .collect();
+
+    let mut runs: Vec<IrRun> = sids
+        .iter()
+        .map(|&sid| {
+            let segment = &graph[sid];
+            IrRun {
+                name: segment.ref_name().map(|r| r.to_owned()),
+                commits: segment
+                    .commits
+                    .iter()
+                    .map(|commit| IrCommit {
+                        id: commit.id,
+                        parent_ids: commit.parent_ids.clone(),
+                        refs: commit.refs.iter().map(|r| r.ref_name.clone()).collect(),
+                    })
+                    .collect(),
+                targets: Vec::new(),
+            }
+        })
+        .collect();
+
+    let parents_by_commit: HashMap<gix::ObjectId, &[gix::ObjectId]> = runs
+        .iter()
+        .flat_map(|run| run.commits.iter())
+        .map(|c| (c.id, c.parent_ids.as_slice()))
+        .collect();
+    let mut targets_of_run: Vec<Vec<usize>> = Vec::with_capacity(sids.len());
+    for &sid in &sids {
+        targets_of_run.push(rank_ordered_targets(
+            graph
+                .edges_directed(sid, crate::Direction::Outgoing)
+                .map(|edge| {
+                    (
+                        run_of_sid[&edge.target],
+                        edge.connection.src_id(),
+                        edge.connection.dst_id(),
+                    )
+                }),
+            &parents_by_commit,
+        ));
+    }
+    for (run, targets) in runs.iter_mut().zip(targets_of_run) {
+        run.targets = targets;
+    }
+
+    Ok(Ir {
+        runs,
+        entrypoint_run: run_of_sid[&entrypoint.segment.id],
+        workspace_commit_id,
+    })
+}
+
+/// The commit-graph native front-end: the store IS the segment mechanics, so its runs map to
+/// IR runs one-to-one. The entrypoint run and the managed workspace commit are decisions made
+/// outside the store, passed in by the caller.
+fn native_ref_positions(
+    store: &super::position_ir::NativeStore,
+    entrypoint_run: usize,
+    workspace_commit_id: Option<gix::ObjectId>,
+) -> RefPositions {
+    let mut runs: Vec<IrRun> = store
+        .runs
+        .iter()
+        .map(|run| IrRun {
+            name: run.name.clone(),
+            commits: run
+                .commits
+                .iter()
+                .map(|commit| IrCommit {
+                    id: commit.id,
+                    parent_ids: commit.parent_ids.clone(),
+                    refs: commit.refs.iter().map(|r| r.ref_name.clone()).collect(),
+                })
+                .collect(),
+            targets: Vec::new(),
+        })
+        .collect();
+    let parents_by_commit: HashMap<gix::ObjectId, &[gix::ObjectId]> = store
+        .runs
+        .iter()
+        .flat_map(|run| run.commits.iter())
+        .map(|c| (c.id, c.parent_ids.as_slice()))
+        .collect();
+    let targets_of_run: Vec<Vec<usize>> = store
+        .runs
+        .iter()
+        .map(|run| {
+            rank_ordered_targets(
+                run.edges.iter().map(|e| (e.target, e.src_id, e.dst_id)),
+                &parents_by_commit,
+            )
+        })
+        .collect();
+    for (run, targets) in runs.iter_mut().zip(targets_of_run) {
+        run.targets = targets;
+    }
+    positions_from_ir(Ir {
+        runs,
+        entrypoint_run,
+        workspace_commit_id,
+    })
+}
+
+/// Rank-order a run's outgoing edges — `(target run, src id, dst id)` in edge order — into
+/// final target order: real parents by their index in the source commit's parent array,
+/// commit-less edges after them in edge order, ranks compacted by push order.
+fn rank_ordered_targets(
+    edges: impl Iterator<Item = (usize, Option<gix::ObjectId>, Option<gix::ObjectId>)>,
+    parents_by_commit: &HashMap<gix::ObjectId, &[gix::ObjectId]>,
+) -> Vec<usize> {
+    let mut empty_branch_count = 0usize;
+    let mut ranked_targets = Vec::new();
+    for (target, src_id, dst_id) in edges {
+        let edge_parents = src_id.and_then(|src| parents_by_commit.get(&src).copied());
+        let real_parent_index = edge_parents
+            .zip(dst_id)
+            .and_then(|(parents, dst)| parents.iter().position(|p| *p == dst));
+        let rank = match real_parent_index {
+            Some(idx) => idx,
+            None => {
+                let o = edge_parents.map_or(0, |p| p.len()) + empty_branch_count;
+                empty_branch_count += 1;
+                o
+            }
+        };
+        ranked_targets.push((rank, target));
+    }
+    ranked_targets.sort_by_key(|(rank, _)| *rank);
+    ranked_targets.into_iter().map(|(_, t)| t).collect()
+}
+
+/// Compute the layout from the IR: per-run steps (run ref, then per commit its refs then the
+/// commit), the parent fixup (a commit whose group-flattened parents disagree with its raw
+/// parent list is rewired directly, bypassing groups — the ws commit and partially-traversed
+/// commits keep their wiring), position derivation, and the strip's slot compaction.
+fn positions_from_ir(ir: Ir) -> RefPositions {
+    // Reach: every run the entrypoint's run descends into through the ranked edges.
+    let mut reachable_runs = HashSet::new();
+    let mut queue = vec![ir.entrypoint_run];
+    while let Some(ri) = queue.pop() {
+        if reachable_runs.insert(ri) {
+            queue.extend(ir.runs[ri].targets.iter().copied());
+        }
+    }
+    let head_name = ir.runs[ir.entrypoint_run].name.clone();
+
+    // Step build: one run of steps per IR run, in IR order.
     let mut steps: Vec<IrStep> = Vec::new();
     let mut parents: Vec<Vec<usize>> = Vec::new();
     let mut ref_table: Vec<(gix::refs::FullName, bool)> = Vec::new();
-    let mut commit_graph: Vec<(gix::ObjectId, Vec<gix::ObjectId>)> = Vec::new();
-    let mut commit_node = HashMap::<gix::ObjectId, usize>::new();
+    let mut commits: Vec<(gix::ObjectId, Vec<gix::ObjectId>)> = Vec::new();
+    let mut commit_step = HashMap::<gix::ObjectId, usize>::new();
     let mut reachable_commits = Vec::new();
     let mut head_refs = Vec::new();
     let mut runs = Vec::new();
 
-    for sid in graph.segment_ids() {
-        let segment = &graph[sid];
-        let reachable = reachable_segments.contains(&sid);
+    for (ri, ir_run) in ir.runs.iter().enumerate() {
+        let reachable = reachable_runs.contains(&ri);
         let mut run: Vec<usize> = vec![];
         let push = |steps: &mut Vec<IrStep>, parents: &mut Vec<Vec<usize>>, step| {
             steps.push(step);
@@ -66,33 +259,29 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
             steps.len() - 1
         };
 
-        if let Some(reference) = segment.ref_name() {
-            if Some(reference) == entrypoint.segment.ref_name() {
+        if let Some(reference) = &ir_run.name {
+            if head_name.as_ref() == Some(reference) {
                 head_refs.push(ref_table.len());
             }
-            ref_table.push((reference.to_owned(), reachable));
+            ref_table.push((reference.clone(), reachable));
             let n = push(&mut steps, &mut parents, IrStep::Ref(ref_table.len() - 1));
             run.push(n);
         }
-        for commit in &segment.commits {
+        for commit in &ir_run.commits {
             if reachable {
                 reachable_commits.push(commit.id);
             }
             for r in &commit.refs {
-                ref_table.push((r.ref_name.clone(), reachable));
+                ref_table.push((r.clone(), reachable));
                 let n = push(&mut steps, &mut parents, IrStep::Ref(ref_table.len() - 1));
                 if let Some(&previous) = run.last() {
                     parents[previous].push(n);
                 }
                 run.push(n);
             }
-            commit_graph.push((commit.id, commit.parent_ids.clone()));
-            let n = push(
-                &mut steps,
-                &mut parents,
-                IrStep::Commit(commit_graph.len() - 1),
-            );
-            commit_node.insert(commit.id, n);
+            commits.push((commit.id, commit.parent_ids.clone()));
+            let n = push(&mut steps, &mut parents, IrStep::Commit(commits.len() - 1));
+            commit_step.insert(commit.id, n);
             if let Some(&previous) = run.last() {
                 parents[previous].push(n);
             }
@@ -101,55 +290,25 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
         if run.is_empty() {
             run.push(push(&mut steps, &mut parents, IrStep::None));
         }
-        runs.push((sid, run));
+        runs.push(run);
     }
 
-    // Rank-ordered inter-segment edges onto each run's LAST step: real parents by their index
-    // in the source commit's parent array, commit-less edges after them in edge order, ranks
-    // compacted by push order.
-    let parents_by_commit: HashMap<gix::ObjectId, &[gix::ObjectId]> = commit_graph
+    // The ranked edges land on each run's LAST step, pointing at the target run's FIRST step.
+    let first_step_of_run: Vec<usize> = runs
         .iter()
-        .map(|(id, parent_ids)| (*id, parent_ids.as_slice()))
+        .map(|run| *run.first().expect("every run has a step"))
         .collect();
-    let first_node_of_segment: HashMap<crate::SegmentIndex, usize> = runs
-        .iter()
-        .map(|(sid, run)| (*sid, *run.first().expect("every run has a step")))
-        .collect();
-    for (sid, run) in &runs {
+    for (ri, run) in runs.iter().enumerate() {
         let source = *run.last().expect("every run has a step");
-        let mut empty_branch_count = 0usize;
-        let mut ranked_targets = Vec::new();
-        for edge in graph.edges_directed(*sid, crate::Direction::Outgoing) {
-            let Some(&target) = first_node_of_segment.get(&edge.target) else {
-                continue;
-            };
-            let edge_parents = edge
-                .connection
-                .src_id()
-                .and_then(|src| parents_by_commit.get(&src).copied());
-            let real_parent_index = edge_parents
-                .zip(edge.connection.dst_id())
-                .and_then(|(parents, dst)| parents.iter().position(|p| *p == dst));
-            let rank = match real_parent_index {
-                Some(idx) => idx,
-                None => {
-                    let o = edge_parents.map_or(0, |p| p.len()) + empty_branch_count;
-                    empty_branch_count += 1;
-                    o
-                }
-            };
-            ranked_targets.push((rank, target));
-        }
-        ranked_targets.sort_by_key(|(rank, _)| *rank);
-        for (_, target) in ranked_targets {
-            parents[source].push(target);
+        for &target in &ir.runs[ri].targets {
+            parents[source].push(first_step_of_run[target]);
         }
     }
 
     // The fixup: flatten a commit's group parents in slot order; on disagreement with the
     // RAW parent list, rewire directly to present commits (groups lose their edges). The ws
     // commit and partially-traversed commits keep their segment wiring.
-    let commit_ids: HashSet<gix::ObjectId> = commit_graph.iter().map(|(id, _)| *id).collect();
+    let commit_ids: HashSet<gix::ObjectId> = commits.iter().map(|(id, _)| *id).collect();
     let flatten = |steps: &[IrStep], parents: &[Vec<usize>], start: usize| {
         let mut out = Vec::new();
         let mut stack: Vec<usize> = parents[start].iter().rev().copied().collect();
@@ -163,8 +322,8 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
         }
         out
     };
-    for (id, raw_parents) in &commit_graph {
-        if Some(*id) == workspace_commit_id {
+    for (id, raw_parents) in &commits {
+        if Some(*id) == ir.workspace_commit_id {
             continue;
         }
         let preserved =
@@ -172,17 +331,17 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
         if preserved {
             continue;
         }
-        let n = commit_node[id];
+        let n = commit_step[id];
         let flat_ids: Vec<gix::ObjectId> = flatten(&steps, &parents, n)
             .into_iter()
-            .map(|c| commit_graph[c].0)
+            .map(|c| commits[c].0)
             .collect();
         if flat_ids == *raw_parents {
             continue;
         }
         parents[n] = raw_parents
             .iter()
-            .filter_map(|p| commit_node.get(p).copied())
+            .filter_map(|p| commit_step.get(p).copied())
             .collect();
     }
 
@@ -210,8 +369,8 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
         entering: Vec<(usize, usize)>,
     }
     let mut positions = HashMap::<usize, DerivedPosition>::new();
-    for &(ref_node, _) in &ref_steps {
-        let mut cursor = ref_node;
+    for &(ref_step, _) in &ref_steps {
+        let mut cursor = ref_step;
         let mut on = None;
         let mut below = None;
         for _ in 0..10_000 {
@@ -230,7 +389,7 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
         let Some(on) = on else {
             continue; // unborn: no stored position
         };
-        let mut cursor = ref_node;
+        let mut cursor = ref_step;
         let mut entering_edges = Vec::new();
         let mut ambiguous = false;
         for _ in 0..10_000 {
@@ -252,7 +411,7 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
             }
         }
         positions.insert(
-            ref_node,
+            ref_step,
             DerivedPosition {
                 on,
                 below,
@@ -278,8 +437,8 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
     };
     let mut dropped: Vec<(usize, usize)> = Vec::new();
     let mut ws_chain_slots: Option<(gix::ObjectId, Vec<gix::ObjectId>)> = None;
-    for (id, _) in &commit_graph {
-        let n = commit_node[id];
+    for (id, _) in &commits {
+        let n = commit_step[id];
         let mut resolved = Vec::with_capacity(parents[n].len());
         for (slot, &parent) in parents[n].iter().enumerate() {
             match resolve(parent) {
@@ -287,12 +446,12 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
                     let IrStep::Commit(c) = steps[pick] else {
                         unreachable!("resolve returns commits");
                     };
-                    resolved.push(commit_graph[c].0);
+                    resolved.push(commits[c].0);
                 }
                 None => dropped.push((n, slot)),
             }
         }
-        if Some(*id) == workspace_commit_id {
+        if Some(*id) == ir.workspace_commit_id {
             ws_chain_slots = Some((*id, resolved));
         }
     }
@@ -307,12 +466,12 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
 
     // The stored shape: ref-table order, step handles translated to ref ordinals and commit
     // ids, entering edges sorted.
-    let node_of_ref: HashMap<usize, usize> = ref_steps.iter().map(|&(n, r)| (r, n)).collect();
+    let step_of_ref: HashMap<usize, usize> = ref_steps.iter().map(|&(n, r)| (r, n)).collect();
     let refs = ref_table
         .into_iter()
         .enumerate()
         .map(|(r, (name, reachable))| {
-            let position = positions.get(&node_of_ref[&r]).map(|position| {
+            let position = positions.get(&step_of_ref[&r]).map(|position| {
                 let IrStep::Commit(c) = steps[position.on] else {
                     unreachable!("positions sit on commits");
                 };
@@ -329,12 +488,12 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
                         let IrStep::Commit(c) = steps[child] else {
                             unreachable!("entering edges come from commits");
                         };
-                        (commit_graph[c].0, slot)
+                        (commits[c].0, slot)
                     })
                     .collect();
                 entering.sort_unstable();
                 RefPosition {
-                    on: commit_graph[c].0,
+                    on: commits[c].0,
                     below,
                     entering,
                     ambiguous: position.ambiguous,
@@ -349,10 +508,10 @@ pub(crate) fn ref_positions(graph: &crate::Graph, repo: &gix::Repository) -> Res
         .collect();
 
     reachable_commits.sort();
-    Ok(RefPositions {
+    RefPositions {
         refs,
         ws_chain_slots,
         head_refs,
         reachable_commits,
-    })
+    }
 }

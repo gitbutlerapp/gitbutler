@@ -128,6 +128,104 @@ pub(super) fn add_remote_segments(
     }
 }
 
+/// A region's AHEAD set (commits reachable from its tip that are not in-set) with the shape
+/// data both writers segment it by: merges' first parents and the child fan-out.
+pub(super) struct AheadRegion {
+    pub(super) set: IdSet,
+    merge_first_parents: IdSet,
+    children: IdMap<Vec<gix::ObjectId>>,
+}
+
+impl AheadRegion {
+    pub(super) fn compute(cg: &CommitGraph, tip: gix::ObjectId, in_set: &IdSet) -> Self {
+        let mut set = IdSet::default();
+        let mut stack = vec![tip];
+        while let Some(id) = stack.pop() {
+            if in_set.contains(&id) || !set.insert(id) {
+                continue;
+            }
+            stack.extend(cg.all_parent_ids(id));
+        }
+        let mut children: IdMap<Vec<gix::ObjectId>> = IdMap::default();
+        for &c in &set {
+            for p in cg.all_parent_ids(c) {
+                if set.contains(&p) {
+                    children.entry(p).or_default().push(c);
+                }
+            }
+        }
+        let merge_first_parents: IdSet = set
+            .iter()
+            .filter(|&&c| cg.all_parent_ids(c).len() > 1)
+            .filter_map(|&c| cg.first_parent(c))
+            .filter(|p| set.contains(p))
+            .collect();
+        AheadRegion {
+            set,
+            merge_first_parents,
+            children,
+        }
+    }
+
+    /// The region's SHAPE boundaries, mirroring local segmentation: the tip, pinned commits,
+    /// merges and their first parents, plain-local-branch carriers, and fan-out/second-parent
+    /// joints.
+    pub(super) fn is_shape_boundary(
+        &self,
+        cg: &CommitGraph,
+        tip: gix::ObjectId,
+        pinned_commits: &IdSet,
+        c: gix::ObjectId,
+    ) -> bool {
+        c == tip
+            || pinned_commits.contains(&c)
+            || cg.all_parent_ids(c).len() > 1
+            || self.merge_first_parents.contains(&c)
+            || cg.refs_at(c).iter().any(is_plain_local_branch)
+            || {
+                let kids = self.children.get(&c).map(Vec::as_slice).unwrap_or_default();
+                kids.len() > 1
+                    || kids
+                        .iter()
+                        .any(|&k| cg.first_parent(k) != Some(c) && self.set.contains(&k))
+            }
+    }
+}
+
+/// The region's segment tips in minting order: the region tip first, then descending
+/// generation, then id — deterministic even though the ahead set is a hash set.
+pub(super) fn region_tips(
+    cg: &CommitGraph,
+    region: &AheadRegion,
+    region_tip: gix::ObjectId,
+    is_boundary: &impl Fn(gix::ObjectId) -> bool,
+) -> Vec<gix::ObjectId> {
+    let mut tips: Vec<gix::ObjectId> = region
+        .set
+        .iter()
+        .copied()
+        .filter(|&c| is_boundary(c))
+        .collect();
+    tips.sort_by_cached_key(|&t| {
+        (
+            t != region_tip,
+            std::cmp::Reverse(cg.row(t).map(|n| n.generation).unwrap_or(0)),
+            t,
+        )
+    });
+    tips
+}
+
+/// The unique plain local branch at `c`, if any — the name fallback for region roots and
+/// interior boundaries; ambiguity yields `None`.
+pub(super) fn unique_plain_local(
+    cg: &CommitGraph,
+    c: gix::ObjectId,
+) -> Option<gix::refs::FullName> {
+    let mut it = cg.refs_at(c).into_iter().filter(is_plain_local_branch);
+    it.next().filter(|_| it.next().is_none())
+}
+
 /// Segment a remote's AHEAD region (commits reachable from `remote_tip` that are not in-set) the same
 /// way the local graph is segmented — splitting at merges and their second-parent branches — instead
 /// of collapsing it into one flat first-parent run. The tip segment is named `remote_ref` (sibling
@@ -161,44 +259,10 @@ pub(super) fn segment_ahead_region(
     // and wired by the caller once every creator ran — the target segment may not exist yet.
     pending_edges: &mut Vec<(SegmentIndex, gix::ObjectId)>,
 ) {
-    // Commits the remote is ahead by: ancestors of the tip that stop at the in-set boundary.
-    let mut ahead_set: IdSet = IdSet::default();
-    let mut stack = vec![remote_tip];
-    while let Some(id) = stack.pop() {
-        if in_set.contains(&id) || !ahead_set.insert(id) {
-            continue;
-        }
-        stack.extend(cg.all_parent_ids(id));
-    }
-
-    let mut children: IdMap<Vec<gix::ObjectId>> = IdMap::default();
-    for &c in &ahead_set {
-        for p in cg.all_parent_ids(c) {
-            if ahead_set.contains(&p) {
-                children.entry(p).or_default().push(c);
-            }
-        }
-    }
-    let merge_first_parents: IdSet = ahead_set
-        .iter()
-        .filter(|&&c| cg.all_parent_ids(c).len() > 1)
-        .filter_map(|&c| cg.first_parent(c))
-        .filter(|p| ahead_set.contains(p))
-        .collect();
-    let is_boundary = |c: gix::ObjectId| -> bool {
-        c == remote_tip
-            || pinned_commits.contains(&c)
-            || cg.all_parent_ids(c).len() > 1
-            || merge_first_parents.contains(&c)
-            || cg.refs_at(c).iter().any(is_plain_local_branch)
-            || {
-                let kids = children.get(&c).map(Vec::as_slice).unwrap_or_default();
-                kids.len() > 1
-                    || kids
-                        .iter()
-                        .any(|&k| cg.first_parent(k) != Some(c) && ahead_set.contains(&k))
-            }
-    };
+    let region = AheadRegion::compute(cg, remote_tip, in_set);
+    let ahead_set = &region.set;
+    let is_boundary =
+        |c: gix::ObjectId| region.is_shape_boundary(cg, remote_tip, pinned_commits, c);
 
     // Remote refs riding non-boundary commits of a remote-named root's run resolve at creation
     // (formerly the post-hoc surgery of `split_remote_interior_refs`/`split_stacked_remotes`):
@@ -249,19 +313,7 @@ pub(super) fn segment_ahead_region(
     let is_boundary =
         |c: gix::ObjectId| is_boundary(c) || interior_cuts.contains_key(&c) || stop == Some(c);
 
-    let mut tips: Vec<gix::ObjectId> = ahead_set
-        .iter()
-        .copied()
-        .filter(|&c| is_boundary(c))
-        .collect();
-    // Deterministic segment ids: `ahead_set` is a HashSet, its order varies per process.
-    tips.sort_by_cached_key(|&t| {
-        (
-            t != remote_tip,
-            std::cmp::Reverse(cg.row(t).map(|n| n.generation).unwrap_or(0)),
-            t,
-        )
-    });
+    let tips = region_tips(cg, &region, remote_tip, &is_boundary);
     let mut ahead_owner: IdMap<gix::ObjectId> = IdMap::default();
     let mut ahead_seg: IdMap<SegmentIndex> = IdMap::default();
     let mut reused: IdSet = IdSet::default();
@@ -271,7 +323,7 @@ pub(super) fn segment_ahead_region(
         if stop == Some(tip) {
             continue;
         }
-        let commits = commit_run(cg, tip, &ahead_set, &is_boundary);
+        let commits = commit_run(cg, tip, ahead_set, &is_boundary);
         for c in &commits {
             ahead_owner.insert(c.id, tip);
         }
@@ -291,22 +343,18 @@ pub(super) fn segment_ahead_region(
             continue;
         }
         let root_name = || {
-            remote_ref.cloned().or_else(|| {
-                let mut it = cg
-                    .refs_at(remote_tip)
-                    .into_iter()
-                    .filter(is_plain_local_branch);
-                it.next().filter(|_| it.next().is_none())
-            })
+            remote_ref
+                .cloned()
+                .or_else(|| unique_plain_local(cg, remote_tip))
         };
         // Interior segments are named by the cutting remote ref, else by the unique plain local
         // branch at their boundary, like the local graph's ref-driven segmentation; ambiguity
         // keeps them anonymous.
         let interior_name = || {
-            interior_cuts.get(&tip).cloned().or_else(|| {
-                let mut it = cg.refs_at(tip).into_iter().filter(is_plain_local_branch);
-                it.next().filter(|_| it.next().is_none())
-            })
+            interior_cuts
+                .get(&tip)
+                .cloned()
+                .or_else(|| unique_plain_local(cg, tip))
         };
         let ref_info = if is_root {
             root_name().map(|ref_name| RefInfo {

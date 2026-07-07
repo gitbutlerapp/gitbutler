@@ -5,11 +5,69 @@ use std::collections::{HashMap, HashSet};
 
 use gix::reference::Category;
 
-use super::facts::Facts;
+use super::facts::{Facts, facts};
 use super::remotes::remote_name_in_play;
 use super::{IdMap, IdSet, disambiguated_ref, is_plain_local_branch};
 use crate::CommitGraph;
 use crate::ref_arrangement::{ArrangedGroup, Chain, GroupNamer, GroupPlacement, RefArrangement};
+
+/// Phases 1+2 for one build: the facts, the chain plan decided over them, and the authored
+/// ref placement table. Everything here is derived from the commit graph and the enrichment
+/// inputs — the artifacts materialization consumes, and the data a commit-graph native
+/// position derivation reads.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn gather_and_plan<T: but_core::RefMetadata>(
+    cg: &CommitGraph,
+    workspace_commit: gix::ObjectId,
+    entrypoint: gix::ObjectId,
+    entrypoint_ref: Option<&gix::refs::FullName>,
+    target: Option<gix::ObjectId>,
+    remote_tracking: &HashMap<gix::refs::FullName, gix::refs::FullName>,
+    symbolic_remotes: &[String],
+    stack_branches: Option<&[Vec<gix::refs::FullName>]>,
+    managed: bool,
+    meta: &T,
+    project_meta: &but_core::ref_metadata::ProjectMeta,
+    options: &crate::init::Options,
+) -> (Facts, ChainPlan, RefArrangement) {
+    let f = facts(
+        cg,
+        workspace_commit,
+        entrypoint,
+        target,
+        remote_tracking,
+        stack_branches,
+        managed,
+        meta,
+        project_meta,
+        options,
+    );
+    // The workspace's lower bound — the base all chains and the (stored/extra) target converge
+    // on, extended down to an older target position.
+    let ws_lower_bound =
+        super::chains::effective_lower_bound(cg, workspace_commit, target, project_meta, options);
+    let plan = chain_plan(
+        cg,
+        &f,
+        workspace_commit,
+        entrypoint,
+        entrypoint_ref,
+        target,
+        remote_tracking,
+        stack_branches,
+        ws_lower_bound,
+        managed,
+        meta,
+        project_meta.target_ref.as_ref(),
+        symbolic_remotes,
+        options.extra_target_commit_id,
+    );
+    // The ref placement table: stored on the commit graph and consumed by the chain-structure
+    // pass. The oracle keeps proving it round-trips the plan it came from.
+    let arrangement = author_arrangement(&plan);
+    debug_assert_arrangement_matches_plan(&arrangement, &plan);
+    (f, plan, arrangement)
+}
 
 /// One floated chain placeholder decided by [`chain_plan`]: `tip`'s segment goes anonymous, an
 /// empty segment named `name` splices in between the workspace and it, and `displaced` (a
@@ -47,7 +105,7 @@ pub(super) struct ChainPlan {
     pub(super) group_names: HashMap<(usize, gix::ObjectId), (gix::refs::FullName, bool)>,
     /// Every boundary tip's MATERIALIZATION name (before floats/demotions suppress it on the
     /// segment). The remote/target passes historically ran before the chain shape existed and
-    /// keyed their decisions on these — they read them through [`ChainPlan::effective_name`].
+    /// keyed their decisions on these.
     pub(super) base_name_of: IdMap<gix::refs::FullName>,
     /// Names the remote/target/explicit-tip passes give to ANONYMOUS boundary tips (a remote
     /// pointing behind/at an anonymous owner names it; the target and explicit tips likewise).
@@ -64,6 +122,23 @@ pub(super) struct ChainPlan {
     /// is placed. Modeled with the same `used`-names state the group naming sees, so
     /// materialization can consume order as DATA instead of re-deriving it from the graph.
     pub(super) ref_order: Vec<Vec<RefGroup>>,
+}
+
+impl ChainPlan {
+    /// The name `tip`'s segment mints with, and the commit that name resolves to: floated and
+    /// demoted tips stay anonymous, otherwise the build-time name or the planned rename.
+    pub(super) fn tip_name(
+        &self,
+        tip: gix::ObjectId,
+    ) -> Option<(gix::refs::FullName, gix::ObjectId)> {
+        if self.floats.iter().any(|fl| fl.tip == tip) || self.demoted.contains(&tip) {
+            return None;
+        }
+        self.base_name_of
+            .get(&tip)
+            .map(|n| (n.clone(), tip))
+            .or_else(|| self.renames.get(&tip).cloned())
+    }
 }
 
 /// The managed chain NAME decisions, computed before any segment mutation happens (phase 2 of

@@ -33,6 +33,7 @@ mod chains;
 mod facts;
 mod materialize;
 mod plan;
+mod position_ir;
 mod ref_positions;
 mod remotes;
 
@@ -664,12 +665,28 @@ fn assemble_managed<T: but_core::RefMetadata>(
     let ws_meta = overlay_meta.workspace(ws_ref.as_ref())?;
     let stack_branches = in_workspace_stack_branches(&ws_meta);
     let inputs = enrichment_inputs(repo, overlay_repo, &project_meta, main_head_ref)?;
-    let (mut graph, mut arrangement) = graph_from_commit_graph(
+    let (f, plan, mut arrangement) = plan::gather_and_plan(
         &cg,
         ws_commit,
         entrypoint,
-        entrypoint_ref,
+        entrypoint_ref.as_ref(),
         inputs.target,
+        &inputs.remote_tracking,
+        &inputs.symbolic_remotes,
+        Some(&stack_branches),
+        true,
+        overlay_meta,
+        &project_meta,
+        &options,
+    );
+    let (mut graph, native) = graph_from_commit_graph(
+        &cg,
+        f,
+        &plan,
+        &arrangement,
+        ws_commit,
+        entrypoint,
+        entrypoint_ref,
         &inputs.remote_tracking,
         &inputs.symbolic_remotes,
         Some(&stack_branches),
@@ -679,7 +696,11 @@ fn assemble_managed<T: but_core::RefMetadata>(
         project_meta,
         options,
     );
-    arrangement.positions = Some(ref_positions::ref_positions(&graph, repo)?);
+    let positions = ref_positions::author_positions(&native, &graph, repo)?;
+    if cfg!(debug_assertions) {
+        position_ir::debug_walk_positions_parity(&graph, repo, &positions);
+    }
+    arrangement.positions = Some(positions);
     cg.arrangement = Some(arrangement);
     graph.commit_graph = Some(cg);
     graph.remote_tracking = inputs.remote_tracking;
@@ -700,12 +721,28 @@ fn assemble_unmanaged<T: but_core::RefMetadata>(
     options: crate::init::Options,
 ) -> anyhow::Result<crate::Graph> {
     let inputs = enrichment_inputs(repo, overlay_repo, &project_meta, entrypoint_ref.as_ref())?;
-    let (mut graph, mut arrangement) = graph_from_commit_graph(
+    let (f, plan, mut arrangement) = plan::gather_and_plan(
         &cg,
         head_tip,
         head_tip,
-        entrypoint_ref,
+        entrypoint_ref.as_ref(),
         inputs.target,
+        &inputs.remote_tracking,
+        &inputs.symbolic_remotes,
+        None,
+        false,
+        overlay_meta,
+        &project_meta,
+        &options,
+    );
+    let (mut graph, mut native) = graph_from_commit_graph(
+        &cg,
+        f,
+        &plan,
+        &arrangement,
+        head_tip,
+        head_tip,
+        entrypoint_ref,
         &inputs.remote_tracking,
         &inputs.symbolic_remotes,
         None,
@@ -716,7 +753,15 @@ fn assemble_unmanaged<T: but_core::RefMetadata>(
         options,
     );
     graph.ad_hoc_branch_stack_upgrades(overlay_repo, overlay_meta, &inputs.worktree_by_branch)?;
-    arrangement.positions = Some(ref_positions::ref_positions(&graph, repo)?);
+    position_ir::replay_ad_hoc(&mut native, &cg, &graph.ad_hoc_branch_stack_orders);
+    if cfg!(debug_assertions) {
+        position_ir::debug_check(&native, &graph.inner, "ad_hoc");
+    }
+    let positions = ref_positions::author_positions(&native, &graph, repo)?;
+    if cfg!(debug_assertions) {
+        position_ir::debug_walk_positions_parity(&graph, repo, &positions);
+    }
+    arrangement.positions = Some(positions);
     cg.arrangement = Some(arrangement);
     graph.commit_graph = Some(cg);
     graph.remote_tracking = inputs.remote_tracking;
