@@ -25,12 +25,6 @@ pub struct Options {
 pub struct Outcome {
     /// If `new_head_id` was a commit, these are the ref-edits returned after performing the transaction.
     pub head_update: Option<Vec<gix::refs::transaction::RefEdit>>,
-    /// The number of files that were deleted turn the current worktree into the desired one.
-    /// Note that this only counts files, not directories.
-    pub num_deleted_files: usize,
-    /// The number of files that were added or modified turn the current worktree into the desired one.
-    /// Note that this only counts files, not directories.
-    pub num_added_or_updated_files: usize,
 }
 
 pub(crate) mod function;

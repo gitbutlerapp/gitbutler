@@ -188,9 +188,5 @@ pub fn safe_checkout_from_head(
         }
     }
 
-    Ok(Outcome {
-        head_update,
-        num_deleted_files,
-        num_added_or_updated_files: changed_files.len() - num_deleted_files,
-    })
+    Ok(Outcome { head_update })
 }

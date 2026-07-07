@@ -329,14 +329,8 @@ impl gix::diff::tree::Visit for Delegate {
 
 impl std::fmt::Debug for Outcome {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Outcome {
-            head_update,
-            num_deleted_files,
-            num_added_or_updated_files,
-        } = self;
+        let Outcome { head_update } = self;
         f.debug_struct("Outcome")
-            .field("num_deleted_files", num_deleted_files)
-            .field("num_added_or_updated_files", num_added_or_updated_files)
             .field(
                 "head_update",
                 &match head_update {
