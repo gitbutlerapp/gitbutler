@@ -151,6 +151,11 @@ impl DiffLineWriter for DiffWriter<'_> {
                 }
                 writeln!(self.out)?;
             }
+            DetailsLine::Image(_) => {
+                // This writer never reports image support, so image lines are not produced
+                // for it; keep the placeholder in case that ever changes.
+                writeln!(self.out, "Binary file - no diff available")?;
+            }
             DetailsLine::SectionSeparator => {
                 writeln!(self.out)?;
             }

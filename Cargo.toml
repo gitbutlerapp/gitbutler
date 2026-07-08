@@ -380,6 +380,20 @@ serde_json = { opt-level = 3 }
 # This one is special as we can run into debug assertions otherwise.
 # They have a time, but let's chose the time instead of always being hit by it.
 gix-merge = { opt-level = 3, debug-assertions = false }
+# Image decoding and resizing for the TUI's image diffs is far too slow unoptimized.
+image = { opt-level = 3 }
+png = { opt-level = 3 }
+fdeflate = { opt-level = 3 }
+miniz_oxide = { opt-level = 3 }
+flate2 = { opt-level = 3 }
+zune-jpeg = { opt-level = 3 }
+zune-core = { opt-level = 3 }
+image-webp = { opt-level = 3 }
+gif = { opt-level = 3 }
+tiff = { opt-level = 3 }
+weezl = { opt-level = 3 }
+color_quant = { opt-level = 3 }
+byteorder-lite = { opt-level = 3 }
 
 [profile.release.package.but-installer]
 opt-level = "z" # Optimize for size instead of speed

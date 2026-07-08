@@ -148,6 +148,18 @@ itertools.workspace = true
 self_cell.workspace = true
 rand.workspace = true
 ratatui-textarea = "0.8.0"
+ratatui-image = { version = "11", default-features = false, features = [
+    "crossterm",
+] }
+image = { version = "0.25.10", default-features = false, features = [
+    "png",
+    "jpeg",
+    "gif",
+    "webp",
+    "bmp",
+    "ico",
+    "tiff",
+] }
 arboard = { version = "3.6.1", default-features = false }
 textwrap = "0.16.2"
 syntect = { version = "5.3.0", default-features = false, features = [

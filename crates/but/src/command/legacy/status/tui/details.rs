@@ -1,5 +1,6 @@
 use std::{
     cell::{Cell, RefCell},
+    collections::HashMap,
     fmt::Display,
     sync::{
         Arc,
@@ -15,10 +16,15 @@ use itertools::{Itertools as _, Position};
 use nonempty::NonEmpty;
 use ratatui::{
     Frame,
-    layout::Rect,
-    style::{Color, Stylize as _},
+    layout::{Rect, Size},
+    style::{Color, Style, Stylize as _},
     text::{Line, Span},
     widgets::{Scrollbar, ScrollbarOrientation, ScrollbarState},
+};
+use ratatui_image::{
+    FilterType, Resize,
+    picker::Picker,
+    sliced::{SignedPosition, SlicedImage, SlicedProtocol},
 };
 use syntect::{easy::HighlightLines, highlighting, parsing::SyntaxSet};
 
@@ -35,9 +41,12 @@ use crate::{
         render::available_lines_in_area,
     },
     theme::Theme,
+    tui::image_diff::{DecodedImage, human_bytes},
     utils::{
         DebugAsType,
-        diff_rendering::{self, CodeLineKind, DetailsLine, DiffLineWriter, IdGen, SectionId},
+        diff_rendering::{
+            self, CodeLineKind, DetailsImageLine, DetailsLine, DiffLineWriter, IdGen, SectionId,
+        },
         diff_specs::DiffSpecBuilder,
         string_interning::Strings,
     },
@@ -46,6 +55,15 @@ use crate::{
 mod worker;
 
 const CHANNEL_SIZE: usize = 1024;
+
+/// Cached terminal image encodings are cheap to keep but hold decoded pixels alive;
+/// evict everything when this many distinct images have been rendered.
+const MAX_IMAGE_PROTOCOLS: usize = 16;
+
+/// Encoding an image for the terminal blocks the UI thread, so it only happens once the
+/// selection has rested this long — flying through commits stays smooth, and images pop
+/// in right after the selection settles. Already-encoded images render regardless.
+const IMAGE_ENCODE_DEBOUNCE: Duration = Duration::from_millis(150);
 
 #[derive(Debug)]
 pub enum DetailsMessage {
@@ -81,6 +99,15 @@ pub struct Details {
     highlights: Highlights<SectionId>,
     worker: Worker,
     to_be_discarded: Vec<SectionId>,
+    /// Terminal graphics capabilities; `None` disables image rendering entirely.
+    picker: Option<Picker>,
+    /// Terminal render state per image, keyed by content fingerprint and target size so
+    /// it survives selection changes; encoding an image for the terminal is expensive.
+    /// Sliced protocols render any visible band of the image without re-encoding, so
+    /// scrolling never invalidates an entry.
+    image_protocols: DebugAsType<RefCell<HashMap<(u64, u16, u16), SlicedProtocol>>>,
+    /// When the selection last changed, for debouncing image encodes while scrolling.
+    selection_changed_at: Option<Instant>,
 }
 
 #[derive(Debug, Default)]
@@ -123,7 +150,18 @@ impl Details {
             highlights: Default::default(),
             worker: Worker::new(),
             to_be_discarded: Default::default(),
+            picker: None,
+            image_protocols: RefCell::new(HashMap::new()).into(),
+            selection_changed_at: None,
         }
+    }
+
+    /// Enable image rendering with the terminal graphics capabilities in `picker`.
+    ///
+    /// The picker must be created before the terminal enters raw mode and the alternate
+    /// screen, as querying capabilities reads responses from stdin.
+    pub fn set_graphics_picker(&mut self, picker: Option<Picker>) {
+        self.picker = picker;
     }
 
     pub fn is_polling_thread(&self) -> bool {
@@ -223,6 +261,10 @@ impl Details {
                 }
             }
         };
+
+        if selection_did_change {
+            self.selection_changed_at = Some(Instant::now());
+        }
 
         match selection {
             CliId::Commit {
@@ -423,7 +465,10 @@ impl Details {
                     start: Instant::now(),
                     cache_key,
                 };
-                let mut line_writer = ChannelLineWriter { tx };
+                let mut line_writer = ChannelLineWriter {
+                    tx,
+                    images_enabled: self.picker.is_some(),
+                };
                 let strings = self.strings.clone();
                 let theme = self.theme;
                 let ctx = ctx.to_sync();
@@ -557,8 +602,15 @@ impl Details {
 
         let section_selected_bg = self.theme.selection_highlight.bg.unwrap();
 
+        let image_layout = ImageLayout {
+            font_size: self.picker.as_ref().map_or((10, 20), |picker| {
+                let font_size = picker.font_size();
+                (font_size.width, font_size.height)
+            }),
+            viewport_height: area.height,
+        };
         let mut layout_cache = self.layout_cache.borrow_mut();
-        layout_cache.update(area.width, &self.lines);
+        layout_cache.update(area.width, image_layout, &self.lines);
 
         let viewport_height = area.height as usize;
         let total_display_lines = layout_cache.total_display_lines();
@@ -595,9 +647,12 @@ impl Details {
 
         let mut areas = available_lines_in_area(area);
         while let Some(line) = self.lines.get(line_index) {
+            let line_display_height = self.layout_cache.borrow().line_display_height(line_index);
             let rendered = self.render_details_line(
                 line,
                 line_offset,
+                line_display_height,
+                image_layout,
                 &mut areas,
                 area.width,
                 tui_has_focus,
@@ -733,6 +788,8 @@ impl Details {
         &self,
         line: &DetailsLine,
         skip_display_lines: usize,
+        line_display_height: usize,
+        image_layout: ImageLayout,
         areas: &mut impl Iterator<Item = Rect>,
         width: u16,
         tui_has_focus: bool,
@@ -846,6 +903,37 @@ impl Details {
                     }
                 }
             }
+            DetailsLine::Image(image_line) => {
+                *highlight_lines = None;
+
+                // Images need one contiguous rectangle, so pull all remaining visible
+                // rows of this line from the iterator and join them.
+                let total_rows = line_display_height;
+                let mut joined: Option<Rect> = None;
+                let mut rows_taken = 0;
+                for _ in skip_display_lines..total_rows {
+                    let Some(row) = areas.next() else { break };
+                    joined = Some(joined.map_or(row, |acc| acc.union(row)));
+                    rows_taken += 1;
+                }
+                let Some(joined) = joined else {
+                    return RenderedLine::viewport_filled();
+                };
+
+                self.render_image_line(
+                    image_line,
+                    joined,
+                    skip_display_lines,
+                    image_layout,
+                    tui_has_focus,
+                    section_selected_bg,
+                    frame,
+                );
+
+                if rows_taken < total_rows - skip_display_lines {
+                    return RenderedLine::viewport_filled();
+                }
+            }
             DetailsLine::SectionSeparator => {
                 *highlight_lines = None;
 
@@ -860,6 +948,114 @@ impl Details {
         }
 
         RenderedLine::line_finished()
+    }
+
+    /// Draw the images of `line` stacked vertically into `area` — old first, then new —
+    /// each below a caption of its dimensions and byte size. `skip_rows` scrolls into the
+    /// stack from the top.
+    #[expect(clippy::too_many_arguments)]
+    fn render_image_line(
+        &self,
+        line: &DetailsImageLine,
+        area: Rect,
+        mut skip_rows: usize,
+        image_layout: ImageLayout,
+        tui_has_focus: bool,
+        section_selected_bg: Color,
+        frame: &mut Frame,
+    ) {
+        let Some(picker) = &self.picker else { return };
+
+        let mut sides: Vec<(&str, Style, &DecodedImage)> = Vec::new();
+        if let Some(old) = &line.image.old {
+            sides.push(("old", self.theme.deletion, old));
+        }
+        if let Some(new) = &line.image.new {
+            sides.push(("new", self.theme.addition, new));
+        }
+
+        let sides_count = sides.len();
+        let selection_settled = self
+            .selection_changed_at
+            .is_none_or(|at| at.elapsed() >= IMAGE_ENCODE_DEBOUNCE);
+        let mut y = area.y;
+        let bottom = area.bottom();
+        let mut protocols = self.image_protocols.borrow_mut();
+        for (label, label_style, side) in sides {
+            if y >= bottom {
+                return;
+            }
+
+            if skip_rows == 0 {
+                let mut caption = Line::from_iter([
+                    Span::styled(format!(" {label}"), label_style),
+                    Span::styled(
+                        format!(
+                            "  {}×{} · {}",
+                            side.width,
+                            side.height,
+                            human_bytes(side.byte_size)
+                        ),
+                        self.theme.hint,
+                    ),
+                ]);
+                if self.section_is_highlighted(line.id) {
+                    caption = caption.style(highlight::style());
+                } else if self.section_is_selected(line.id, tui_has_focus) {
+                    caption = caption.bg(section_selected_bg);
+                }
+                frame.render_widget(caption, Rect::new(area.x, y, area.width, 1));
+                y += 1;
+            } else {
+                skip_rows -= 1;
+            }
+
+            let rows = image_display_rows(side, area.width, image_layout, sides_count);
+            let top_skip = skip_rows.min(rows);
+            let visible = rows - top_skip;
+            skip_rows = skip_rows.saturating_sub(rows);
+            if visible == 0 {
+                continue;
+            }
+            let height = (visible as u16).min(bottom - y);
+            if height == 0 {
+                return;
+            }
+
+            let visible_area = Rect::new(area.x, y, area.width, height);
+            y += height;
+
+            // The image is encoded once at its full size; a partially visible image is
+            // clipped like in a browser by rendering only the visible rows, offset by
+            // what is scrolled past — scrolling never re-encodes.
+            let cache_key = (side.fingerprint, area.width, rows as u16);
+            if !protocols.contains_key(&cache_key) {
+                if !selection_settled {
+                    continue;
+                }
+                if protocols.len() >= MAX_IMAGE_PROTOCOLS {
+                    protocols.clear();
+                }
+                // Bilinear filtering; the default nearest-neighbour looks jagged when
+                // downscaling screenshots.
+                let Ok(protocol) = SlicedProtocol::new_with_resize(
+                    picker,
+                    side.image.clone(),
+                    Size::new(area.width, rows as u16),
+                    Resize::Fit(Some(FilterType::Triangle)),
+                ) else {
+                    continue;
+                };
+                protocols.insert(cache_key, protocol);
+            }
+            let protocol = protocols
+                .get(&cache_key)
+                .expect("just inserted or found above");
+            frame.render_widget(
+                SlicedImage::new(protocol, SignedPosition::from((0, -(top_skip as i16)))),
+                visible_area,
+            );
+        }
     }
 
     fn reset_scroll(&self) {
@@ -1140,9 +1336,14 @@ fn apply_pending_section_selection(
 
 struct ChannelLineWriter {
     tx: std::sync::mpsc::SyncSender<RenderThreadMessage>,
+    images_enabled: bool,
 }
 
 impl DiffLineWriter for ChannelLineWriter {
+    fn supports_images(&self) -> bool {
+        self.images_enabled
+    }
+
     fn write(&mut self, line: DetailsLine) -> anyhow::Result<()> {
         let result = self.tx.send(RenderThreadMessage::Line(line));
         if result.is_ok() {
@@ -1196,6 +1397,7 @@ fn extend_section_list(sections: &mut Vec<Section>, line_index: usize, line: &De
         }
         DetailsLine::Code(line) => (line.id, line.cli_id.clone()),
         DetailsLine::TextToWrap { id, .. } => (*id, None),
+        DetailsLine::Image(line) => (line.id, line.cli_id.clone()),
         DetailsLine::SectionSeparator => return false,
     };
 
@@ -1303,16 +1505,20 @@ enum PendingSectionSelection {
 #[derive(Debug, Default)]
 struct LayoutCache {
     width: u16,
+    image_layout: ImageLayout,
     line_count: usize,
     heights: Vec<usize>,
     prefix_sum: Vec<usize>,
 }
 
 impl LayoutCache {
-    fn update(&mut self, width: u16, lines: &[DetailsLine]) {
+    fn update(&mut self, width: u16, image_layout: ImageLayout, lines: &[DetailsLine]) {
         count_allocations("update_cache", || {
-            if self.width != width || self.line_count > lines.len() {
-                self.rebuild(width, lines);
+            if self.width != width
+                || self.image_layout != image_layout
+                || self.line_count > lines.len()
+            {
+                self.rebuild(width, image_layout, lines);
                 return;
             }
 
@@ -1325,7 +1531,7 @@ impl LayoutCache {
             }
 
             for line in &lines[self.line_count..] {
-                let height = display_height(line, width);
+                let height = display_height(line, width, image_layout);
                 self.heights.push(height);
                 let next = self.prefix_sum.last().copied().unwrap_or_default() + height;
                 self.prefix_sum.push(next);
@@ -1334,12 +1540,17 @@ impl LayoutCache {
         });
     }
 
-    fn rebuild(&mut self, width: u16, lines: &[DetailsLine]) {
+    fn rebuild(&mut self, width: u16, image_layout: ImageLayout, lines: &[DetailsLine]) {
         self.width = width;
+        self.image_layout = image_layout;
         self.line_count = 0;
         self.heights.clear();
         self.prefix_sum.clear();
-        self.update(width, lines);
+        self.update(width, image_layout, lines);
+    }
+
+    fn line_display_height(&self, line_index: usize) -> usize {
+        self.heights.get(line_index).copied().unwrap_or(1)
     }
 
     fn total_display_lines(&self) -> usize {
@@ -1408,11 +1619,62 @@ fn section_display_range(section: &Section, layout_cache: &LayoutCache) -> (usiz
     )
 }
 
-fn display_height(line: &DetailsLine, width: u16) -> usize {
+fn display_height(line: &DetailsLine, width: u16, image_layout: ImageLayout) -> usize {
     match line {
         DetailsLine::Text { .. } | DetailsLine::Code(_) | DetailsLine::SectionSeparator => 1,
         DetailsLine::TextToWrap { text, .. } => wrapped_text_lines(text, width).count(),
+        DetailsLine::Image(image_line) => {
+            let sides: Vec<&DecodedImage> = image_line
+                .image
+                .old
+                .iter()
+                .chain(image_line.image.new.iter())
+                .collect();
+            sides
+                .iter()
+                .map(|side| 1 + image_display_rows(side, width, image_layout, sides.len()))
+                .sum::<usize>()
+                .max(1)
+        }
     }
+}
+
+/// Sizing inputs for image lines: the terminal cell size in pixels and the pane height
+/// that caps how tall an image may grow.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct ImageLayout {
+    font_size: (u16, u16),
+    viewport_height: u16,
+}
+
+/// Terminal rows for one image: enough to show it at its native size scaled down to fit
+/// the pane width, capped to an equal share of the viewport per image so a before/after
+/// pair is fully visible together and renders at the same scale.
+fn image_display_rows(
+    side: &DecodedImage,
+    width: u16,
+    image_layout: ImageLayout,
+    sides_count: usize,
+) -> usize {
+    let (font_width, font_height) = image_layout.font_size;
+    if font_height == 0 {
+        return 1;
+    }
+    let width_px = u64::from(width) * u64::from(font_width);
+    let (image_width, image_height) = (u64::from(side.width.max(1)), u64::from(side.height));
+    let shown_width = width_px.min(image_width);
+    let shown_height = image_height * shown_width / image_width;
+
+    let sides_count = sides_count.max(1) as u64;
+    // Reserve rows for the captions plus the stats line, path header and padding around
+    // the images, so the whole before/after block tends to fit the viewport in one screen.
+    let reserved_rows = sides_count + 6;
+    let rows_per_side = (u64::from(image_layout.viewport_height).saturating_sub(reserved_rows)
+        / sides_count)
+        .max(1);
+    shown_height
+        .div_ceil(u64::from(font_height))
+        .clamp(1, rows_per_side) as usize
 }
 
 fn wrapped_text_lines(text: &str, width: u16) -> impl Iterator<Item = std::borrow::Cow<'_, str>> {
@@ -1553,6 +1815,26 @@ fn format_lines_in_section(lines: &[DetailsLine]) -> String {
                     text.push_str(line_text);
                 });
                 text.push('\n');
+            }
+            DetailsLine::Image(image_line) => {
+                let describe = |side: Option<&DecodedImage>| {
+                    side.map_or_else(
+                        || "(none)".to_string(),
+                        |side| {
+                            format!(
+                                "{}×{} ({})",
+                                side.width,
+                                side.height,
+                                human_bytes(side.byte_size)
+                            )
+                        },
+                    )
+                };
+                text.push_str(&format!(
+                    "image: {} → {}\n",
+                    describe(image_line.image.old.as_ref()),
+                    describe(image_line.image.new.as_ref()),
+                ));
             }
             DetailsLine::SectionSeparator => {}
         }
