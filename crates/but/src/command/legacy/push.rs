@@ -779,6 +779,8 @@ fn push_all_branches(
             }
         }
 
+        // refactored stuff :D
+
         if !failed_branches.is_empty() {
             writeln!(human)?;
             writeln!(
