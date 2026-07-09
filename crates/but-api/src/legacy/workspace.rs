@@ -224,6 +224,28 @@ pub fn branch_details(
     }?;
     let repo = ctx.repo.get()?;
     let db = ctx.db.get_cache()?;
+
+    // Derive the PR association from the forge cache rather than reading a stored
+    // number off branch metadata: match the branch's remote/pushed short name
+    // (what the forge records as a review's `source_branch`) against the cached
+    // reviews. `review_id` is no longer used, so it is always cleared.
+    details.review_id = None;
+    details.pr_number = {
+        let pushed_short_name = details
+            .remote_tracking_branch
+            .as_ref()
+            .and_then(|full| gix::refs::FullName::try_from(full.clone()).ok())
+            .and_then(|full| {
+                but_core::extract_remote_name_and_short_name(full.as_ref(), &repo.remote_names())
+                    .map(|(_, short)| short.to_string())
+            });
+        match pushed_short_name {
+            Some(short) => but_forge::review_for_head_ref(&db, &short)?
+                .and_then(|review| usize::try_from(review.number).ok()),
+            None => None,
+        }
+    };
+
     let gerrit_mode = ctx
         .repo
         .get()?
