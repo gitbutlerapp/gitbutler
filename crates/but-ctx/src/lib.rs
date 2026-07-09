@@ -10,7 +10,7 @@ use std::{
 
 use anyhow::anyhow;
 use but_core::{
-    RefMetadata as _, RepositoryExt, WORKSPACE_REF_NAME,
+    RepositoryExt,
     ref_metadata::ProjectMeta,
     sync::{RepoExclusive, RepoExclusiveGuard, RepoShared, RepoSharedGuard},
 };
@@ -818,17 +818,11 @@ impl Context {
     /// Note that the cached repository handle needs no reload: [`Self::project_meta()`]
     /// re-reads the on-disk configuration on every call.
     pub fn set_project_meta(&self, project_meta: ProjectMeta) -> anyhow::Result<()> {
-        let project_meta = {
+        {
             let repo = self.repo.get()?;
-            let project_meta =
-                but_core::ref_metadata::repair_target_metadata_for_migration(&project_meta, &repo);
-            project_meta.persist_to_local_config(&repo)?;
-            project_meta
-        };
-        let mut meta = self.meta()?;
-        let mut workspace = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
-        workspace.set_project_meta(project_meta);
-        meta.set_workspace(&workspace)?;
+            let mut meta = self.meta()?;
+            project_meta.persist(&repo, &mut meta)?;
+        }
         self.invalidate_workspace_cache()?;
         Ok(())
     }

@@ -165,28 +165,40 @@ fn outside_workspace_metadata(
         .referent_name()
         .map(|r| r.as_partial_name().as_bstr().to_owned());
 
-    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
-    if ws.target_ref.is_none() || ws.stacks.is_empty() {
-        // Nothing to conflict
-        return Ok(OutsideWorkspaceMetadata {
-            branch_name,
-            worktree_conflicts: vec![],
+    // A failed conflict computation must not degrade the metadata to an empty
+    // default - the branch name is what the UI needs to describe HEAD, e.g. in
+    // single-branch mode without a target or a workspace commit.
+    let worktree_conflicts = worktree_conflicts_with_workspace(ctx, perm, &gix_repo)
+        .unwrap_or_else(|err| {
+            tracing::warn!("Failed to compute worktree conflicts with the workspace: {err}");
+            vec![]
         });
-    }
-
-    let (outcome, conflict_kind) =
-        but_workspace::legacy::merge_worktree_with_workspace(ctx, &gix_repo)?;
-    let worktree_conflicts = outcome
-        .conflicts
-        .iter()
-        .filter(|c| c.is_unresolved(conflict_kind))
-        .map(|c| c.ours.location().into())
-        .collect::<Vec<BStringForFrontend>>();
 
     Ok(OutsideWorkspaceMetadata {
         branch_name,
         worktree_conflicts,
     })
+}
+
+fn worktree_conflicts_with_workspace(
+    ctx: &Context,
+    perm: &RepoShared,
+    gix_repo: &gix::Repository,
+) -> Result<Vec<BStringForFrontend>> {
+    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+    if ws.target_ref.is_none() || ws.stacks.is_empty() {
+        // Nothing to conflict
+        return Ok(vec![]);
+    }
+
+    let (outcome, conflict_kind) =
+        but_workspace::legacy::merge_worktree_with_workspace(ctx, gix_repo)?;
+    Ok(outcome
+        .conflicts
+        .iter()
+        .filter(|c| c.is_unresolved(conflict_kind))
+        .map(|c| c.ours.location().into())
+        .collect())
 }
 
 pub fn in_open_workspace_mode(ctx: &Context, perm: &RepoShared) -> Result<bool> {

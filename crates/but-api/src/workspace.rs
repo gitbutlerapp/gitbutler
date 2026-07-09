@@ -31,6 +31,39 @@ pub fn get_workspace(
         .map(Into::into)
 }
 
+/// Make `target_ref` the project's default target without applying branches or entering
+/// managed workspace mode.
+///
+/// This acquires exclusive worktree access from `ctx` before updating project metadata.
+/// See [`but_workspace::init::set_target_ref_and_init_project()`] for details; notably the
+/// target commit id is only computed when it wasn't set before, and an omitted
+/// `push_remote` keeps the currently configured one. It deliberately records no oplog
+/// snapshot - only project metadata changes, no repository state.
+#[cfg(feature = "legacy")]
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn set_target_ref_and_init_project(
+    ctx: &mut but_ctx::Context,
+    target_ref: &gix::refs::FullNameRef,
+    push_remote: Option<String>,
+) -> anyhow::Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    {
+        let repo = ctx.repo.get()?;
+        let mut meta = ctx.meta()?;
+        but_workspace::init::set_target_ref_and_init_project(
+            &repo,
+            &mut meta,
+            target_ref,
+            push_remote,
+        )?;
+    }
+    ctx.invalidate_workspace_cache()?;
+    crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission())
+        .ok();
+    Ok(())
+}
+
 /// Result of integrating upstream changes into the current workspace.
 #[derive(Debug, Clone)]
 pub struct WorkspaceIntegrateUpstreamOutcome {
@@ -358,7 +391,109 @@ pub fn workspace_integrate_upstream_only_with_perm(
 #[cfg(test)]
 mod tests {
     use super::{review_integration_hints_from_reviews, target_branch_name};
+    use but_testsupport::{CommandExt, git_at_dir, open_repo};
     use std::collections::HashSet;
+    use std::path::Path;
+
+    fn repo_with_feature_branch() -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {
+        let tmp = tempfile::tempdir()?;
+        git_at_dir(tmp.path()).args(["init"]).run();
+        git_at_dir(tmp.path())
+            .args(["config", "user.name", "GitButler"])
+            .run();
+        git_at_dir(tmp.path())
+            .args(["config", "user.email", "gitbutler@example.com"])
+            .run();
+        write_file(tmp.path(), "file.txt", "one\n")?;
+        git_at_dir(tmp.path()).args(["add", "file.txt"]).run();
+        git_at_dir(tmp.path()).args(["commit", "-m", "one"]).run();
+        git_at_dir(tmp.path()).args(["branch", "feature"]).run();
+        git_at_dir(tmp.path())
+            .args(["config", "remote.origin.url", "../origin"])
+            .run();
+        git_at_dir(tmp.path())
+            .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+            .run();
+        write_file(tmp.path(), "file.txt", "two\n")?;
+        git_at_dir(tmp.path()).args(["commit", "-am", "two"]).run();
+
+        Ok((open_repo(tmp.path())?, tmp))
+    }
+
+    fn write_file(root: &Path, relative_path: &str, content: &str) -> anyhow::Result<()> {
+        std::fs::write(root.join(relative_path), content)?;
+        Ok(())
+    }
+
+    #[test]
+    fn set_target_ref_accepts_remote_tracking_ref_and_persists_metadata() -> anyhow::Result<()> {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+
+        super::set_target_ref_and_init_project(
+            &mut ctx,
+            target_ref.as_ref(),
+            Some("origin".into()),
+        )?;
+
+        let stored_meta = ctx.project_meta()?;
+        assert_eq!(stored_meta.target_ref.as_ref(), Some(&target_ref));
+        assert!(stored_meta.target_commit_id.is_some());
+        assert_eq!(stored_meta.push_remote.as_deref(), Some("origin"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn set_target_ref_rejects_local_branch_refs() -> anyhow::Result<()> {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        let target_ref = gix::refs::FullName::try_from("refs/heads/feature")?;
+
+        let err = super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)
+            .expect_err("local branches are not valid default targets");
+        assert_eq!(
+            err.to_string(),
+            "target ref 'refs/heads/feature' must be a remote tracking branch"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn set_target_ref_uses_merge_base_not_target_tip() -> anyhow::Result<()> {
+        let (_repo, tmp) = repo_with_feature_branch()?;
+        git_at_dir(tmp.path()).args(["checkout", "feature"]).run();
+        write_file(tmp.path(), "feature.txt", "feature\n")?;
+        git_at_dir(tmp.path()).args(["add", "feature.txt"]).run();
+        git_at_dir(tmp.path())
+            .args(["commit", "-m", "feature"])
+            .run();
+        git_at_dir(tmp.path())
+            .args(["update-ref", "refs/remotes/origin/feature", "HEAD"])
+            .run();
+        git_at_dir(tmp.path()).args(["checkout", "main"]).run();
+
+        let repo = open_repo(tmp.path())?;
+        let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/feature")?;
+        let target_tip = repo
+            .find_reference(target_ref.as_ref())?
+            .peel_to_id()?
+            .detach();
+        let current_head = repo.head_id()?.detach();
+        let expected_merge_base = repo.merge_base(current_head, target_tip)?.detach();
+        assert_ne!(expected_merge_base, target_tip);
+
+        let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+        super::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
+
+        let project_meta = ctx.project_meta()?;
+        assert_eq!(project_meta.target_commit_id, Some(expected_merge_base));
+        assert_eq!(project_meta.push_remote, None);
+
+        Ok(())
+    }
 
     fn review(
         sha: &str,

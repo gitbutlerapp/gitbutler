@@ -52,6 +52,7 @@ import {
 	type SetReviewAutoMergeParams,
 	type SetReviewDraftinessParams,
 	type SetReviewTemplateParams,
+	type SetTargetRefAndInitProjectParams,
 	type PeelRestoreSnapshotParams,
 	type WorkspaceIntegrateUpstreamParams,
 	type UpdateReviewFootersParams,
@@ -114,6 +115,7 @@ import {
 	setReviewAutoMerge,
 	setReviewDraftiness,
 	setReviewTemplate,
+	setTargetRefAndInitProject,
 	getUndoTargetSnapshot,
 	getRedoTargetSnapshot,
 	peelRestoreSnapshot,
@@ -655,6 +657,11 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.setReviewTemplate,
 		(_e, { projectId, templatePath }: SetReviewTemplateParams) =>
 			setReviewTemplate(projectId, templatePath),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.setTargetRefAndInitProject,
+		(_e, { projectId, targetRef, pushRemote }: SetTargetRefAndInitProjectParams) =>
+			setTargetRefAndInitProject(projectId, targetRef, pushRemote ?? null),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.showNativeMenu,

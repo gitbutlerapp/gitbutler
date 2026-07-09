@@ -6,6 +6,7 @@
 	import { projectLandDirectly } from "$lib/config/config";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { combineResults } from "$lib/state/helpers";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { unique } from "$lib/utils/array";
@@ -35,6 +36,7 @@
 
 	const posthog = inject(POSTHOG_WRAPPER);
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
+	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
 
 	const gbConfig = $derived(gitConfig.gbConfig(projectId));
 	const gerritMode = $derived(gbConfig.response?.gitbutlerGerritMode ?? false);
@@ -180,56 +182,62 @@
 		<span class="text-12 clr-text-2">Push to main / Skip pull requests mode</span>
 	</label>
 
-	<div
-		class="project-setup__info"
-		role="presentation"
-		onclick={() => (showMoreInfo = !showMoreInfo)}
-	>
-		<div class="project-setup__fold-icon" class:rotate-icon={showMoreInfo}>
-			<Icon name="chevron-right" />
-		</div>
-
-		<div class="stack-v gap-6 full-width">
-			<div class="project-setup__info__title">
-				<svg
-					width="16"
-					height="13"
-					viewBox="0 0 16 13"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<path
-						d="M2 12L3.5 7.5M14 12L12.5 7.5M12.5 7.5L11 3H5L3.5 7.5M12.5 7.5H3.5"
-						stroke="#D96842"
-						stroke-width="1.5"
-					/>
-					<path
-						d="M1.24142 3H14.7586C14.8477 3 14.8923 2.89229 14.8293 2.82929L13.0293 1.02929C13.0105 1.01054 12.9851 1 12.9586 1H3.04142C3.0149 1 2.98946 1.01054 2.97071 1.02929L1.17071 2.82929C1.10771 2.89229 1.15233 3 1.24142 3Z"
-						fill="#FF9774"
-						stroke="#FF9774"
-						stroke-width="1.5"
-					/>
-				</svg>
-
-				<h3 class="text-13 text-body text-semibold">
-					GitButler switches your active branch to <span class="text-bold">gitbutler/workspace</span
-					>
-				</h3>
+	<!-- With the singleBranch feature flag, setting the target only updates project
+	     metadata and the user stays on their current branch, so don't promise a
+	     switch to gitbutler/workspace. -->
+	{#if !$settingsStore?.featureFlags.singleBranch}
+		<div
+			class="project-setup__info"
+			role="presentation"
+			onclick={() => (showMoreInfo = !showMoreInfo)}
+		>
+			<div class="project-setup__fold-icon" class:rotate-icon={showMoreInfo}>
+				<Icon name="chevron-right" />
 			</div>
 
-			{#if showMoreInfo}
-				<p class="text-12 text-body" transition:slide={{ duration: 200 }}>
-					In order to support working on multiple branches simultaneously, GitButler creates and
-					automatically manages a special branch <span class="text-bold">gitbutler/workspace</span>.
-					You can always switch back and forth as needed between normal git branches and the
-					Gitbutler workspace.
-					<Link href="https://docs.gitbutler.com/features/branch-management/integration-branch"
-						>Learn more</Link
+			<div class="stack-v gap-6 full-width">
+				<div class="project-setup__info__title">
+					<svg
+						width="16"
+						height="13"
+						viewBox="0 0 16 13"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
 					>
-				</p>
-			{/if}
+						<path
+							d="M2 12L3.5 7.5M14 12L12.5 7.5M12.5 7.5L11 3H5L3.5 7.5M12.5 7.5H3.5"
+							stroke="#D96842"
+							stroke-width="1.5"
+						/>
+						<path
+							d="M1.24142 3H14.7586C14.8477 3 14.8923 2.89229 14.8293 2.82929L13.0293 1.02929C13.0105 1.01054 12.9851 1 12.9586 1H3.04142C3.0149 1 2.98946 1.01054 2.97071 1.02929L1.17071 2.82929C1.10771 2.89229 1.15233 3 1.24142 3Z"
+							fill="#FF9774"
+							stroke="#FF9774"
+							stroke-width="1.5"
+						/>
+					</svg>
+
+					<h3 class="text-13 text-body text-semibold">
+						GitButler switches your active branch to <span class="text-bold"
+							>gitbutler/workspace</span
+						>
+					</h3>
+				</div>
+
+				{#if showMoreInfo}
+					<p class="text-12 text-body" transition:slide={{ duration: 200 }}>
+						In order to support working on multiple branches simultaneously, GitButler creates and
+						automatically manages a special branch <span class="text-bold">gitbutler/workspace</span
+						>. You can always switch back and forth as needed between normal git branches and the
+						Gitbutler workspace.
+						<Link href="https://docs.gitbutler.com/features/branch-management/integration-branch"
+							>Learn more</Link
+						>
+					</p>
+				{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 
 	<div class="action-buttons">
 		<Button kind="outline" onclick={deleteProjectAndGoBack}>Cancel</Button>

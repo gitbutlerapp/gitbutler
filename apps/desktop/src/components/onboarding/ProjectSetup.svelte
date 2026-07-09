@@ -6,6 +6,7 @@
 	import newZenSvg from "$lib/assets/illustrations/new-zen.svg?raw";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 	import { TestId } from "@gitbutler/ui";
@@ -21,18 +22,29 @@
 	const projectsService = inject(PROJECTS_SERVICE);
 	const baseService = inject(BASE_BRANCH_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
+	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
 	const projectQuery = $derived(projectsService.getProject(projectId));
 	const [setBaseBranchTarget] = baseService.setTarget;
+	const [setBaseBranchTargetRef] = baseService.setTargetRef;
 
 	async function setTarget(branch: string[]) {
 		if (!branch[0] || branch[0] === "") return;
 
 		try {
-			await setBaseBranchTarget({
-				projectId: projectId,
-				branch: branch[0],
-				pushRemote: branch[1],
-			});
+			if ($settingsStore?.featureFlags.singleBranch) {
+				// Only set the target; the user keeps working on their current branch.
+				await setBaseBranchTargetRef({
+					projectId: projectId,
+					targetRef: `refs/remotes/${branch[0]}`,
+					pushRemote: branch[1],
+				});
+			} else {
+				await setBaseBranchTarget({
+					projectId: projectId,
+					branch: branch[0],
+					pushRemote: branch[1],
+				});
+			}
 			posthog.captureOnboarding(OnboardingEvent.SetTargetBranch);
 			goto(`/${projectId}/`, { invalidateAll: true });
 		} catch (e: unknown) {

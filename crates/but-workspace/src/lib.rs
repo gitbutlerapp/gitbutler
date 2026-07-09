@@ -30,6 +30,8 @@ use but_core::DiffSpec;
 #[cfg(feature = "legacy")]
 pub mod legacy;
 
+pub mod init;
+
 /// Types specifically for the user-interface.
 pub mod ui;
 

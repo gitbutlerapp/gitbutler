@@ -195,6 +195,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:set-review-draftiness", params) as Promise<void>,
 	setReviewTemplate: (params) =>
 		ipcRenderer.invoke("workspace:set-review-template", params) as Promise<void>,
+	setTargetRefAndInitProject: (params) =>
+		ipcRenderer.invoke("workspace:set-target-ref-and-init-project", params) as Promise<void>,
 	showNativeMenu: (params) =>
 		ipcRenderer.invoke("lite:show-native-menu", params) as Promise<string | null>,
 	treeChangeDiffs: (params) =>

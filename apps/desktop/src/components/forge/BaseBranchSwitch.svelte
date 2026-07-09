@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, CardGroup, InfoMessage, Select, SelectItem } from "@gitbutler/ui";
@@ -8,10 +9,12 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
+	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const baseBranch = $derived(baseBranchQuery.response);
 	const remoteBranchesQuery = $derived(baseBranchService.remoteBranches(projectId));
 	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
+	const [setBaseBranchTargetRef, targetRefSwitch] = baseBranchService.setTargetRef;
 
 	let selectedBranch = $derived(baseBranch?.branchName);
 	let selectedRemote = $derived(baseBranch?.pushRemoteName);
@@ -28,8 +31,22 @@
 			}));
 	}
 
+	const switching = $derived(
+		targetBranchSwitch.current.isLoading || targetRefSwitch.current.isLoading,
+	);
+	// With the singleBranch feature flag, only the target metadata is rewritten
+	// and no branch is checked out, so avoid claiming a branch switch.
+	const switchingLabel = $derived(
+		$settingsStore?.featureFlags.singleBranch ? "Updating target..." : "Switching branches...",
+	);
+
 	async function switchTarget(branch: string, pushRemote?: string) {
-		await setBaseBranchTarget({ projectId, branch, pushRemote });
+		if ($settingsStore?.featureFlags.singleBranch) {
+			// Only update the target; the user keeps working on their current branch.
+			await setBaseBranchTargetRef({ projectId, targetRef: `refs/remotes/${branch}`, pushRemote });
+		} else {
+			await setBaseBranchTarget({ projectId, branch, pushRemote });
+		}
 	}
 
 	async function onSetBaseBranchClick() {
@@ -113,14 +130,12 @@
 						kind="outline"
 						onclick={onSetBaseBranchClick}
 						id="set-base-branch"
-						loading={targetBranchSwitch.current.isLoading}
+						loading={switching}
 						disabled={(selectedBranch === baseBranch?.branchName &&
 							selectedRemote === baseBranch?.pushRemoteName) ||
 							targetChangeDisabled}
 					>
-						{targetBranchSwitch.current.isLoading
-							? "Switching branches..."
-							: "Update configuration"}
+						{switching ? switchingLabel : "Update configuration"}
 					</Button>
 				{/if}
 			</CardGroup.Item>

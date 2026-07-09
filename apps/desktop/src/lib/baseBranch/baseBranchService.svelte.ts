@@ -86,6 +86,10 @@ export default class BaseBranchService {
 		return this.backendApi.endpoints.setTarget.useMutation();
 	}
 
+	get setTargetRef() {
+		return this.backendApi.endpoints.setTargetRef.useMutation();
+	}
+
 	get switchBackToWorkspace() {
 		return this.backendApi.endpoints.switchBackToWorkspace.useMutation();
 	}

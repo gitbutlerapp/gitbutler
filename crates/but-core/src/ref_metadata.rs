@@ -568,6 +568,25 @@ impl ProjectMeta {
         Ok(Self::is_ported(&config))
     }
 
+    /// Persist project metadata to the repository-local Git config of `repo` and back-fill
+    /// the legacy workspace metadata in `meta`, repairing partially migrated target
+    /// information first.
+    ///
+    /// Returns the metadata as persisted. Callers that cache workspace projections must
+    /// invalidate them afterwards.
+    pub fn persist(
+        self,
+        repo: &gix::Repository,
+        meta: &mut impl crate::RefMetadata,
+    ) -> anyhow::Result<Self> {
+        let project_meta = repair_target_metadata_for_migration(&self, repo);
+        project_meta.persist_to_local_config(repo)?;
+        let mut workspace = meta.workspace(crate::WORKSPACE_REF_NAME.try_into()?)?;
+        workspace.set_project_meta(project_meta.clone());
+        meta.set_workspace(&workspace)?;
+        Ok(project_meta)
+    }
+
     /// Persist project metadata to repository-local Git config and mark it as ported.
     pub fn persist_to_local_config(&self, repo: &gix::Repository) -> anyhow::Result<()> {
         let project_meta = repair_target_metadata_for_migration(self, repo);

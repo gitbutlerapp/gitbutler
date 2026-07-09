@@ -57,6 +57,24 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.StackDetails),
 			],
 		}),
+		// Like setTarget, but only writes project metadata: the user stays on the
+		// current branch instead of being moved into the GitButler workspace.
+		setTargetRef: build.mutation<
+			void,
+			{ projectId: string; targetRef: string; pushRemote?: string }
+		>({
+			extraOptions: { command: "set_target_ref_and_init_project" },
+			query: (args) => args,
+			invalidatesTags: [
+				invalidatesType(ReduxTag.ForgeProvider),
+				invalidatesType(ReduxTag.BaseBranchData),
+				invalidatesList(ReduxTag.Stacks),
+				invalidatesList(ReduxTag.StackDetails),
+				// No branch is checked out, so no `git/head` event refreshes the
+				// operating mode - invalidate it explicitly.
+				invalidatesList(ReduxTag.HeadMetadata),
+			],
+		}),
 		switchBackToWorkspace: build.mutation<BaseBranch, { projectId: string }>({
 			extraOptions: { command: "switch_back_to_workspace" },
 			query: (args) => args,

@@ -325,6 +325,12 @@ export interface SetReviewTemplateParams {
 	templatePath: string | null;
 }
 
+export interface SetTargetRefAndInitProjectParams {
+	projectId: string;
+	targetRef: string;
+	pushRemote?: string;
+}
+
 export interface TearOffBranchParams {
 	projectId: string;
 	subjectBranch: string;
@@ -476,6 +482,7 @@ export interface LiteElectronApi {
 	setReviewAutoMerge: (params: SetReviewAutoMergeParams) => Promise<void>;
 	setReviewDraftiness: (params: SetReviewDraftinessParams) => Promise<void>;
 	setReviewTemplate: (params: SetReviewTemplateParams) => Promise<void>;
+	setTargetRefAndInitProject: (params: SetTargetRefAndInitProjectParams) => Promise<void>;
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
 	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
 	unapplyStack: (params: UnapplyStackParams) => Promise<void>;
@@ -556,6 +563,7 @@ export const liteIpcChannels = {
 	setReviewAutoMerge: "workspace:set-review-auto-merge",
 	setReviewDraftiness: "workspace:set-review-draftiness",
 	setReviewTemplate: "workspace:set-review-template",
+	setTargetRefAndInitProject: "workspace:set-target-ref-and-init-project",
 	showNativeMenu: "lite:show-native-menu",
 	treeChangeDiffs: "workspace:tree-change-diffs",
 	unapplyStack: "workspace:unapply-stack",
