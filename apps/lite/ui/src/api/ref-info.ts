@@ -1,4 +1,4 @@
-import { encodeBytes, bytesEqual } from "#ui/api/bytes.ts";
+import { encodeBytes } from "#ui/api/bytes.ts";
 import type { Commit, RefInfo, RelativeTo, Segment, Stack } from "@gitbutler/but-sdk";
 
 type StackIndex = {
@@ -81,42 +81,6 @@ export const getHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	headInfoIndexCache.set(headInfo, index);
 	return index;
 };
-
-export const renameBranchInHeadInfo = ({
-	headInfo,
-	stackId,
-	branchRef,
-	newName,
-	newBranchRef,
-}: {
-	headInfo: RefInfo;
-	stackId: string;
-	branchRef: Array<number>;
-	newName: string;
-	newBranchRef: Array<number>;
-}): RefInfo => ({
-	...headInfo,
-	stacks: headInfo.stacks.map((stack) => {
-		if (stack.id !== stackId) return stack;
-
-		return {
-			...stack,
-			segments: stack.segments.map((segment) => {
-				if (!segment.refName || !bytesEqual(segment.refName.fullNameBytes, branchRef))
-					return segment;
-
-				return {
-					...segment,
-					refName: {
-						...segment.refName,
-						displayName: newName,
-						fullNameBytes: newBranchRef,
-					},
-				};
-			}),
-		};
-	}),
-});
 
 export const resolveRelativeTo = ({
 	headInfoIndex,

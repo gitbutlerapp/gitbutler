@@ -1,6 +1,7 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import {
+	branchOperand,
 	commitOperand,
 	hunkOperand,
 	HunkOperand,
@@ -24,6 +25,7 @@ import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 import { identity, Match } from "effect";
 import { resolveCommit } from "./commit.ts";
 import type { HeadInfoIndex } from "./api/ref-info.ts";
+import { resolveBranch } from "./segment.ts";
 
 export type SelectionScope = "outline" | "files" | "diff";
 const allSelectionScopes: Array<SelectionScope> = ["outline", "files", "diff"];
@@ -109,7 +111,12 @@ export const useOutlineSelection = ({
 				const res = headInfoIndex && resolveCommit(headInfoIndex, commit);
 				return res ? commitOperand(res) : null;
 			},
+			Branch: (branch) => {
+				const res = headInfoIndex && resolveBranch(headInfoIndex, branch);
+				return res ? branchOperand(res) : null;
+			},
 		}),
+
 		Match.orElse(() => selection),
 	);
 

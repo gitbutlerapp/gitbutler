@@ -1,5 +1,11 @@
 import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
-import { commitOperand, operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import {
+	branchOperand,
+	commitOperand,
+	operandEquals,
+	operandIdentityKey,
+	type Operand,
+} from "#ui/operands.ts";
 import { selectProjectSelectionOutline } from "#ui/projects/state.ts";
 import { resolveNavigationIndexSelection } from "#ui/selection-scopes.ts";
 import { useAppSelector } from "#ui/store.ts";
@@ -10,6 +16,7 @@ import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { resolveCommit } from "#ui/commit.ts";
 import { useQuery } from "@tanstack/react-query";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { resolveBranch } from "#ui/segment.ts";
 
 export const useIsSelected = ({
 	projectId,
@@ -33,6 +40,10 @@ export const useIsSelected = ({
 				Commit: (commit) => {
 					const res = headInfoIndex && resolveCommit(headInfoIndex, commit);
 					return res ? commitOperand(res) : null;
+				},
+				Branch: (branch) => {
+					const res = headInfoIndex && resolveBranch(headInfoIndex, branch);
+					return res ? branchOperand(res) : null;
 				},
 			}),
 			Match.orElse(() => selection),

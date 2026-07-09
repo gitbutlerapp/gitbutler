@@ -171,8 +171,6 @@ export const BranchRow: FC<
 
 	const updateBranchNameMutation = useUpdateBranchName({
 		projectId,
-		stackId,
-		branchRef: refName.fullNameBytes,
 		oldBranch: branchOperandV,
 	});
 

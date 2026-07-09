@@ -1,5 +1,5 @@
 import { encodeBytes } from "#ui/api/bytes.ts";
-import { getHeadInfoIndex, renameBranchInHeadInfo } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import {
 	changesInWorktreeQueryOptions,
 	getReviewMergeStatusQueryOptions,
@@ -15,7 +15,7 @@ import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
-import { commitOperand, type BranchOperand } from "#ui/operands.ts";
+import { type BranchOperand, commitOperand } from "#ui/operands.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { Toast } from "@base-ui/react";
@@ -29,6 +29,7 @@ import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-q
 import { Match } from "effect";
 import type { OpenInEditorParams } from "#electron/ipc.ts";
 import type { GUISettings } from "#electron/settings.ts";
+import { cacheRenamedBranch } from "#ui/segment.ts";
 
 // oxlint-disable-next-line typescript/no-explicit-any
 type PromiseReturnType<T> = T extends (...args: Array<any>) => Promise<infer U> ? U : never;
@@ -785,13 +786,9 @@ export const useUnapplyStack = () => {
 
 export const useUpdateBranchName = ({
 	projectId,
-	stackId,
-	branchRef,
 	oldBranch,
 }: {
 	projectId: string;
-	stackId: string;
-	branchRef: Array<number>;
 	oldBranch: BranchOperand;
 }) => {
 	const dispatch = useAppDispatch();
@@ -799,31 +796,9 @@ export const useUpdateBranchName = ({
 
 	return useMutation({
 		mutationFn: window.lite.updateBranchName,
-		onSuccess: async (newRef, _input, _context, mutation) => {
-			const newBranch: BranchOperand = {
-				stackId,
-				branchRef: newRef.fullNameBytes,
-			};
+		onSuccess: async (newBranch) => {
+			cacheRenamedBranch(oldBranch.branchRef, newBranch.fullNameBytes);
 
-			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, (headInfo) => {
-				if (!headInfo) return headInfo;
-
-				return renameBranchInHeadInfo({
-					headInfo,
-					stackId,
-					branchRef,
-					newName: newRef.displayName,
-					newBranchRef: newRef.fullNameBytes,
-				});
-			});
-
-			dispatch(
-				projectActions.updateRewrittenBranchReferences({
-					projectId,
-					oldBranch,
-					newBranch,
-				}),
-			);
 			dispatch(projectActions.exitMode({ projectId }));
 		},
 		onError: (error) => {

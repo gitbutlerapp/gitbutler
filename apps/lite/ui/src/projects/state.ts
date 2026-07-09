@@ -8,7 +8,7 @@ import { type OperationType } from "#ui/operations/operation.ts";
 import { type TransferMode } from "#ui/outline/mode.ts";
 import * as workspace from "#ui/projects/workspace/state.ts";
 import type { RootState } from "#ui/store.ts";
-import { type AbsorptionTarget, type RefInfo, type RelativeTo } from "@gitbutler/but-sdk";
+import { type AbsorptionTarget, type RelativeTo } from "@gitbutler/but-sdk";
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 type Dialog =
@@ -95,18 +95,6 @@ const projectSlice = createSlice({
 			const { projectId, branch } = action.payload;
 			const projectState = ensureProjectState(state, projectId);
 			workspace.startRenameBranch(projectState.workspace, branch);
-		},
-		updateRewrittenBranchReferences: (
-			state,
-			action: PayloadAction<{
-				projectId: string;
-				oldBranch: BranchOperand;
-				newBranch: BranchOperand;
-			}>,
-		) => {
-			const { projectId, oldBranch, newBranch } = action.payload;
-			const projectState = ensureProjectState(state, projectId);
-			workspace.updateRewrittenBranchReferences(projectState.workspace, oldBranch, newBranch);
 		},
 		enterTransferMode: (
 			state,

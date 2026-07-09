@@ -1,5 +1,4 @@
 import { type OperationType } from "#ui/operations/operation.ts";
-import { bytesEqual } from "#ui/api/bytes.ts";
 import { AbsorptionTarget, type RefInfo, type RelativeTo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import {
@@ -257,33 +256,6 @@ export const rewrittenCommitSelection = ({
 export const startRenameBranch = (state: WorkspaceState, branch: BranchOperand) => {
 	selectOutline(state, branchOperand(branch));
 	state.mode = renameBranchOutlineMode({ operand: branch });
-};
-
-export const updateRewrittenBranchReferences = (
-	state: WorkspaceState,
-	oldBranch: BranchOperand,
-	newBranch: BranchOperand,
-) => {
-	const oldBranchOperand = branchOperand(oldBranch);
-	const newBranchOperand = branchOperand(newBranch);
-
-	if (
-		state.selection.outline?._tag === "Branch" &&
-		operandEquals(state.selection.outline, oldBranchOperand)
-	)
-		state.selection.outline = newBranchOperand;
-
-	if (
-		state.commitTarget?.type === "referenceBytes" &&
-		bytesEqual(state.commitTarget.subject, oldBranch.branchRef)
-	)
-		state.commitTarget = { type: "referenceBytes", subject: newBranch.branchRef };
-
-	if (
-		state.mode._tag === "RenameBranch" &&
-		operandEquals(branchOperand(state.mode.operand), oldBranchOperand)
-	)
-		state.mode = renameBranchOutlineMode({ operand: newBranch });
 };
 
 export const startRewordCommit = (state: WorkspaceState, commit: CommitOperand) => {
