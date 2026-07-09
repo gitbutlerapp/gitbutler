@@ -47,9 +47,7 @@ enum MoveTarget<'a> {
 impl MoveSource {
     pub fn contains(&self, other: &CliId) -> bool {
         match self {
-            MoveSource::Marks(marks) => {
-                Markable::try_from_cli_id(other).is_some_and(|markable| marks.contains(&markable))
-            }
+            MoveSource::Marks(marks) => marks.contains_cli_id(other),
             MoveSource::Commit {
                 commit_id: commit_id_lhs,
                 id: id_lhs,

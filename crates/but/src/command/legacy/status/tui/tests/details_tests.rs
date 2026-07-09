@@ -711,3 +711,43 @@ fn viewing_empty_file() {
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file!["snapshots/viewing_empty_file_001.svg"]);
 }
+
+#[test]
+fn details_view_scrolls_through_large_diffs() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let file_contents = (1..=100_000)
+        .map(|line| format!("line-{line:07}\n"))
+        .collect::<String>();
+    env.file("huge file.txt", file_contents);
+
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 12,
+            ..Default::default()
+        },
+    );
+
+    tui.input_then_render('l')
+        .assert_rendered_contains("line-0000001");
+    // let the delayed SelectFirstSection message land before scrolling
+    tui.render_with_messages(None, Vec::new());
+
+    // one ctrl+d jump scrolls 10 rows down
+    tui.render_with_messages((KeyModifiers::CONTROL, 'd'), Vec::new())
+        .assert_rendered_contains("line-0000011");
+
+    // jump deep into the diff: 1000 more jumps = 10k rows
+    for _ in 0..1000 {
+        tui.render_with_messages((KeyModifiers::CONTROL, 'd'), Vec::new());
+    }
+    tui.render_with_messages(None, Vec::new())
+        .assert_rendered_contains("line-0010011");
+
+    // and all the way back up
+    tui.render_with_messages('g', Vec::new())
+        .assert_rendered_contains("line-0000001");
+}

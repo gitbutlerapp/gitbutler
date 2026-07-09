@@ -11,7 +11,7 @@ use crate::{
         tui::{
             Mode, NormalMode, PickChangesMode, SelectAfterReload,
             app::{CommitSource, prefix_match},
-            marking::{MarkClasses, Markable, Marks},
+            marking::{MarkClasses, Marks},
             render::{
                 commit_operation_display, move_operation_display, reorder_operation_display,
                 stack_operation_display,
@@ -116,9 +116,7 @@ impl Cursor {
         }
 
         if let Some(cli_id) = lines[self.0].data.cli_id() {
-            let selected_is_discarded = Markable::try_from_cli_id(cli_id)
-                .as_ref()
-                .is_some_and(|markable| discarded_marks.contains(markable));
+            let selected_is_discarded = discarded_marks.contains_cli_id(cli_id);
 
             if !selected_is_discarded {
                 return Some(select_after_reload_for_cli_id(cli_id));
@@ -136,10 +134,7 @@ impl Cursor {
             if !line.is_selectable() {
                 continue;
             }
-            if Markable::try_from_cli_id(cli_id)
-                .as_ref()
-                .is_some_and(|markable| discarded_marks.contains(markable))
-            {
+            if discarded_marks.contains_cli_id(cli_id) {
                 continue;
             }
 
@@ -157,10 +152,7 @@ impl Cursor {
             if !line.is_selectable() {
                 continue;
             }
-            if Markable::try_from_cli_id(cli_id)
-                .as_ref()
-                .is_some_and(|markable| discarded_marks.contains(markable))
-            {
+            if discarded_marks.contains_cli_id(cli_id) {
                 continue;
             }
 

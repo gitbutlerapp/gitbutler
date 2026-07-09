@@ -29,7 +29,7 @@ use crate::{
             backstack::{Backstack, BackstackEntry},
             confirm::ConfirmMessage,
             cursor::Cursor,
-            details::{DetailsMessage, RenderNextChunkResult},
+            details::DetailsMessage,
             event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
             fuzzy_picker::{
                 Col, FuzzyPicker, FuzzyPickerItem, FuzzyPickerMessage, SearchableToken,
@@ -350,15 +350,11 @@ where
 
     if app.details.needs_update(app.is_details_visible) {
         match app.details.update(ctx, selection) {
-            Ok(Some(result)) => match result {
-                RenderNextChunkResult::Done => {
-                    if app.launch_options.quit_after_rendering_full_diff {
-                        app.outcome = Some(TuiOutcome::None);
-                    }
+            Ok(diff_available) => {
+                if diff_available && app.launch_options.quit_after_rendering_full_diff {
+                    app.outcome = Some(TuiOutcome::None);
                 }
-                RenderNextChunkResult::Meta | RenderNextChunkResult::Diff => {}
-            },
-            Ok(None) => {}
+            }
             Err(err) => {
                 messages.push(Message::ShowError(Arc::new(err)));
             }

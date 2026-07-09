@@ -41,6 +41,13 @@ impl Marks {
         self.marks.contains(markable)
     }
 
+    /// Like [`Markable::try_from_cli_id`] followed by [`Marks::contains`], but without cloning
+    /// the cli id's payload. Uncommitted hunks carry their entire diff, so cloning them just for
+    /// a marked-check is prohibitively expensive for large diffs.
+    pub fn contains_cli_id(&self, cli_id: &CliId) -> bool {
+        self.marks.iter().any(|mark| mark.matches_cli_id(cli_id))
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &Markable> {
         self.into_iter()
     }
@@ -101,6 +108,32 @@ impl Markable {
             | CliId::Branch { .. }
             | CliId::Uncommitted { .. }
             | CliId::Stack { .. } => None,
+        }
+    }
+
+    /// Returns `true` if this mark refers to `cli_id`.
+    ///
+    /// Equivalent to `Markable::try_from_cli_id(cli_id) == Some(self)` without the clone.
+    pub fn matches_cli_id(&self, cli_id: &CliId) -> bool {
+        match (self, cli_id) {
+            (
+                Markable::Commit { commit_id, id },
+                CliId::Commit {
+                    commit_id: other_commit_id,
+                    id: other_id,
+                },
+            ) => commit_id == other_commit_id && id == other_id,
+            (Markable::Uncommitted(marked), CliId::UncommittedHunkOrFile(uncommitted)) => {
+                if uncommitted
+                    .hunk_assignments
+                    .iter()
+                    .any(|hunk| hunk.stack_id.is_some())
+                {
+                    return false;
+                }
+                marked == uncommitted
+            }
+            _ => false,
         }
     }
 

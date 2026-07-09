@@ -87,9 +87,7 @@ impl CommitSource {
 
     pub fn contains(&self, other: &CliId) -> bool {
         match self {
-            CommitSource::Marks(marks) => {
-                Markable::try_from_cli_id(other).is_some_and(|markable| marks.contains(&markable))
-            }
+            CommitSource::Marks(marks) => marks.contains_cli_id(other),
             CommitSource::UncommittedArea(UncommittedAreaCommitSource { id: lhs_id }) => {
                 if let CliId::Uncommitted { id: rhs_id } = other {
                     lhs_id == rhs_id

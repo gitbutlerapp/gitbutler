@@ -385,8 +385,7 @@ fn render_status_list_item_with_stack_highlight(
     if let Some(connector) = connector {
         if data
             .cli_id()
-            .and_then(|id| Markable::try_from_cli_id(id))
-            .is_some_and(|markable| app.marks().is_some_and(|marks| marks.contains(&markable)))
+            .is_some_and(|id| app.marks().is_some_and(|marks| marks.contains_cli_id(id)))
         {
             for (idx, span) in connector.iter().enumerate() {
                 if idx == 1 {

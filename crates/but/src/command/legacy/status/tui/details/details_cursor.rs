@@ -1,4 +1,4 @@
-use crate::command::legacy::status::tui::details::{PartiallyRenderedDiffSection, SectionId};
+use crate::command::legacy::status::tui::details::{DiffSection, SectionId};
 
 #[derive(Default, Debug)]
 pub struct DetailsCursor {
@@ -6,7 +6,7 @@ pub struct DetailsCursor {
 }
 
 impl DetailsCursor {
-    pub fn move_selection_by<F>(&mut self, sections: &[PartiallyRenderedDiffSection], f: F)
+    pub fn move_selection_by<F>(&mut self, sections: &[DiffSection], f: F)
     where
         F: FnOnce(usize) -> usize,
     {

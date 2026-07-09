@@ -51,9 +51,7 @@ pub enum RubSource {
 impl RubSource {
     pub fn contains(&self, other: &CliId) -> bool {
         match self {
-            RubSource::Marks(marks) => {
-                Markable::try_from_cli_id(other).is_some_and(|markable| marks.contains(&markable))
-            }
+            RubSource::Marks(marks) => marks.contains_cli_id(other),
             RubSource::CliId(source) => &**source == other,
             RubSource::CommittedHunk { .. } => false,
         }

@@ -81,8 +81,8 @@ impl App {
             ));
 
             // We can't select the first section on the same frame that we show the detail view.
-            // The incremental diff rendering introduces a one frame delay before the first section
-            // is shown.
+            // The diff sections are built later in the same frame, after messages are handled,
+            // so they don't exist yet.
             messages
                 .push(Message::Details(DetailsMessage::SelectFirstSection).with_one_frame_delay());
 
