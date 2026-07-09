@@ -134,7 +134,7 @@ const useOperationDropTarget = ({
 		});
 	}, [dispatch, projectId, runOperation, target]);
 
-	return { dropRef };
+	return dropRef;
 };
 
 export type OperationTargetOutline = "inside" | "outside";
@@ -150,7 +150,7 @@ export const OperationTarget: FC<
 		outline: OperationTargetOutline;
 	} & useRender.ComponentProps<"div">
 > = ({ enabled, target, projectId, activeOperation, outline, render, ...props }) => {
-	const { dropRef } = useOperationDropTarget({ enabled, target, projectId });
+	const dropRef = useOperationDropTarget({ enabled, target, projectId });
 
 	const targetEl = useRender({
 		render,
