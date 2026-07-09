@@ -3,11 +3,13 @@ use git_url_parse::{GitUrl, types::provider::GenericProvider};
 mod forge;
 pub use crate::forge::{ForgeName, ForgeRepoInfo, ForgeUser, deserialize_preferred_forge_user_opt};
 
+mod association;
 mod ci;
 mod db;
 mod forge_info;
 mod repo;
 mod review;
+pub use association::{review_for_head_ref, reviews_by_head};
 pub use ci::{CiCheck, CiConclusion, CiOutput, CiStatus, ci_checks_for_ref_with_cache};
 pub use forge_info::{ForgeCapabilities, ForgeInfo, ForgeUnitInfo, compare_branch_url, forge_info};
 pub use repo::{RepoInfo, RepoPermissions, get_repo_info};
