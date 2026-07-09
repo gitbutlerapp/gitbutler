@@ -20,6 +20,10 @@ export type HeadInfoIndex = {
 	stackContextById: (stackId: string) => StackIndex | undefined;
 	branchContextByRefBytes: (ref: Array<number>) => (StackIndex & SegmentIndex) | undefined;
 	commitContextById: (commitId: string) => (StackIndex & SegmentIndex & CommitIndex) | undefined;
+	/** `commitContextById` should be preferred as commit IDs are globally unique. */
+	commitContextByChangeId: (
+		changeId: string,
+	) => (StackIndex & SegmentIndex & CommitIndex) | undefined;
 };
 
 const headInfoIndexCache = new WeakMap<RefInfo, HeadInfoIndex>();
@@ -28,6 +32,7 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	const stackContextById = new Map<string, StackIndex>();
 	const branchContextByRef = new Map<string, StackIndex & SegmentIndex>();
 	const commitContextById = new Map<string, StackIndex & SegmentIndex & CommitIndex>();
+	const commitContextByChangeId = new Map<string, StackIndex & SegmentIndex & CommitIndex>();
 
 	const branchRefKey = (ref: Array<number>): string => ref.join(",");
 
@@ -45,22 +50,26 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 			}
 
 			for (const [commitIndex, commit] of segment.commits.entries()) {
-				commitContextById.set(commit.id, {
+				const ctx = {
 					stack,
 					stackIndex,
 					segment,
 					segmentIndex,
 					commit,
 					commitIndex,
-				});
+				};
+
+				commitContextById.set(commit.id, ctx);
+				commitContextByChangeId.set(commit.changeId, ctx);
 			}
 		}
 	}
 
 	return {
-		stackContextById: (id: string) => stackContextById.get(id),
+		stackContextById: (stackId: string) => stackContextById.get(stackId),
 		branchContextByRefBytes: (ref: Array<number>) => branchContextByRef.get(branchRefKey(ref)),
-		commitContextById: (id: string) => commitContextById.get(id),
+		commitContextById: (commitId: string) => commitContextById.get(commitId),
+		commitContextByChangeId: (changeId: string) => commitContextByChangeId.get(changeId),
 	};
 };
 
