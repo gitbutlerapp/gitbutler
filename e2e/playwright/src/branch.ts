@@ -97,6 +97,38 @@ export async function assertDirtyWorktree(pathToRepo: string): Promise<void> {
 		.not.toBe("");
 }
 
+export async function assertRefDoesNotExist(refName: string, pathToRepo: string): Promise<void> {
+	await expect
+		.poll(() => git(pathToRepo, ["for-each-ref", "--format=%(refname)", refName]), {
+			message: `Expected ref "${refName}" to not exist`,
+			intervals: [100, 200, 500, 1000],
+		})
+		.toBe("");
+}
+
+export async function assertGitConfigValue(
+	key: string,
+	value: string,
+	pathToRepo: string,
+): Promise<void> {
+	await expect
+		.poll(
+			() => {
+				try {
+					return git(pathToRepo, ["config", "--local", key]);
+				} catch {
+					// `git config` exits non-zero while the key is not set yet.
+					return "<unset>";
+				}
+			},
+			{
+				message: `Expected git config "${key}" to be "${value}"`,
+				intervals: [100, 200, 500, 1000],
+			},
+		)
+		.toBe(value);
+}
+
 export function currentBranch(pathToRepo: string): string {
 	return git(pathToRepo, ["branch", "--show-current"]);
 }

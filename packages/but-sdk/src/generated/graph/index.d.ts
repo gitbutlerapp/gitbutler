@@ -471,6 +471,18 @@ export declare function setReviewDraftiness(projectId: string, reviewId: number,
 export declare function setReviewTemplate(projectId: string, templatePath: string | null): Promise<void>
 
 /**
+ * Make `target_ref` the project's default target without applying branches or entering
+ * managed workspace mode.
+ *
+ * This acquires exclusive worktree access from `ctx` before updating project metadata.
+ * See [`but_workspace::init::set_target_ref_and_init_project()`] for details; notably the
+ * target commit id is only computed when it wasn't set before, and an omitted
+ * `push_remote` keeps the currently configured one. It deliberately records no oplog
+ * snapshot - only project metadata changes, no repository state.
+ */
+export declare function setTargetRefAndInitProject(projectId: string, targetRef: string, pushRemote: string | null): Promise<void>
+
+/**
  * Tears off a branch using the behavior described by [`tear_off_branch_with_perm()`].
  *
  * This acquires exclusive worktree access from `ctx`, tears `subject_branch`
