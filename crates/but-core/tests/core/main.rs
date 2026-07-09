@@ -4,6 +4,7 @@ mod cmd;
 mod commit;
 mod diff;
 mod extract_remote_name_and_short_name;
+mod extract_short_branch_name;
 mod git_config;
 mod json_samples;
 mod ref_metadata;
