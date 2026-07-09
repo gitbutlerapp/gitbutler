@@ -195,7 +195,7 @@ const useOutlineNavigationIndex = ({
 	projectId,
 	absorptionTargetKeys,
 }: {
-	projectId: string;
+	projectId: Array<number>;
 	absorptionTargetKeys: ReadonlySet<string>;
 }): NavigationIndex<Operand> => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
