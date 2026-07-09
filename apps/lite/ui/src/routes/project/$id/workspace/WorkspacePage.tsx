@@ -246,7 +246,7 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 	const selectProject = (project: ProjectForFrontend) => {
 		p.onOpenChange(false);
 		void navigate({
-			to: "/project/$id/workspace",
+			to: "/project/$id/workspace2",
 			params: { id: project.id },
 		});
 		window.localStorage.setItem(lastOpenedProjectKey, project.id);
