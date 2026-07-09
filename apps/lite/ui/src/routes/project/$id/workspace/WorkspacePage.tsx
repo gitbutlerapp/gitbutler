@@ -60,6 +60,8 @@ import { reverse } from "effect/Array";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { WorkspacePageErrorBoundary } from "./WorkspacePageErrorBoundary.tsx";
 import { Settings } from "./Settings.tsx";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
+import { assert } from "#ui/assert.ts";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -169,7 +171,9 @@ const outlineNavigationItems = ({
 		...(segment.refName
 			? [branchOperand({ stackId, branchRef: segment.refName.fullNameBytes })]
 			: []),
-		...segment.commits.map((commit) => commitOperand({ stackId, commitId: commit.id })),
+		...segment.commits.map((commit) =>
+			commitOperand({ stackId, commitId: commit.id, changeId: commit.changeId }),
+		),
 	];
 
 	return [
@@ -279,6 +283,8 @@ const WorkspacePage: FC = () => {
 	const dispatch = useAppDispatch();
 
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
 
 	const detailsFullWindow = useAppSelector((state) =>
 		selectProjectDetailsFullWindow(state, projectId),
@@ -371,7 +377,15 @@ const WorkspacePage: FC = () => {
 	});
 	const absorptionTargetKeys = new Set(
 		absorptionPlanQuery?.data?.map(({ stackId, commitId }) =>
-			operandIdentityKey(commitOperand({ stackId, commitId })),
+			operandIdentityKey(
+				commitOperand({
+					stackId,
+					commitId,
+					changeId: assert(
+						headInfo && getHeadInfoIndex(headInfo).commitContextById(commitId)?.commit.changeId,
+					),
+				}),
+			),
 		),
 	);
 

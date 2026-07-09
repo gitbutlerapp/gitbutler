@@ -77,6 +77,7 @@ export const CommitRow: FC<
 	const commitOperandV: CommitOperand = {
 		stackId,
 		commitId: commit.id,
+		changeId: commit.changeId,
 	};
 	const operand = commitOperand(commitOperandV);
 	const isDefaultMode = useAppSelector(

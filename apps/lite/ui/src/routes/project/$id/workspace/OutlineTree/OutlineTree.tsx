@@ -164,7 +164,7 @@ const CommitC: FC<{
 	isCommitTarget: boolean;
 	dryRunCommit: Commit | null;
 }> = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit }) => {
-	const operand = commitOperand({ stackId, commitId: commit.id });
+	const operand = commitOperand({ stackId, commitId: commit.id, changeId: commit.changeId });
 
 	return (
 		<TreeItem
@@ -511,7 +511,11 @@ const StackC: FC<{
 										navigationIndex,
 										segment.commits.length === 0
 											? branchOperand({ stackId, branchRef: assert(segment.refName).fullNameBytes })
-											: commitOperand({ stackId, commitId: assert(segment.commits.at(-1)).id }),
+											: commitOperand({
+													stackId,
+													commitId: assert(segment.commits.at(-1)).id,
+													changeId: assert(segment.commits.at(-1)).changeId,
+												}),
 										operandIdentityKey,
 									)
 								}

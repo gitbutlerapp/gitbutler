@@ -985,7 +985,8 @@ const Diff: FC<{
 			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
 			UncommittedChanges: () => uncommittedChangesFileParent,
 			File: ({ parent }) => parent,
-			Commit: ({ commitId, stackId }) => commitFileParent({ commitId, stackId }),
+			Commit: ({ commitId, changeId, stackId }) =>
+				commitFileParent({ commitId, changeId, stackId }),
 		}),
 		Match.orElseAbsurd,
 	);

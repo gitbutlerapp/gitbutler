@@ -224,10 +224,14 @@ const rewrittenCommitOperand = ({
 	const commitId = replacedCommits[commit.commitId];
 	if (commitId === undefined) return null;
 
-	const stackId = getHeadInfoIndex(headInfo).commitContextById(commitId)?.stack.id;
-	if (stackId == null) return null;
+	const commitCtx = getHeadInfoIndex(headInfo).commitContextById(commitId);
+	if (commitCtx?.stack.id == null) return null;
 
-	return { stackId, commitId };
+	return {
+		stackId: commitCtx.stack.id,
+		commitId: commitCtx.commit.id,
+		changeId: commitCtx.commit.changeId,
+	};
 };
 
 export const rewrittenCommitSelection = ({

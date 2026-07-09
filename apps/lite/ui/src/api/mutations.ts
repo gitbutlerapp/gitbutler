@@ -524,14 +524,18 @@ export const useCommitInsertBlank = () => {
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 
-			const stackId = getHeadInfoIndex(response.workspace.headInfo).commitContextById(
+			const newCommitCtx = getHeadInfoIndex(response.workspace.headInfo).commitContextById(
 				response.newCommit,
-			)?.stack.id;
-			if (stackId != null) {
+			);
+			if (newCommitCtx?.stack.id != null) {
 				dispatch(
 					projectActions.selectOutline({
 						projectId: input.projectId,
-						selection: commitOperand({ stackId, commitId: response.newCommit }),
+						selection: commitOperand({
+							stackId: newCommitCtx.stack.id,
+							commitId: newCommitCtx.commit.id,
+							changeId: newCommitCtx.commit.changeId,
+						}),
 					}),
 				);
 			}

@@ -4,7 +4,7 @@ import type { HunkLineSelection } from "#ui/hunk.ts";
 /** @public */
 export type BranchFileParent = { stackId: string; branchRef: Array<number> };
 /** @public */
-export type CommitFileParent = { stackId: string; commitId: string };
+export type CommitFileParent = { stackId: string; commitId: string; changeId: string };
 
 export type FileParent =
 	| { _tag: "UncommittedChanges" }
@@ -24,10 +24,15 @@ export const branchFileParent = ({ stackId, branchRef }: BranchFileParent): File
 });
 
 /** @public */
-export const commitFileParent = ({ stackId, commitId }: CommitFileParent): FileParent => ({
+export const commitFileParent = ({
+	stackId,
+	commitId,
+	changeId,
+}: CommitFileParent): FileParent => ({
 	_tag: "Commit",
 	stackId,
 	commitId,
+	changeId,
 });
 
 /** @public */
@@ -43,6 +48,7 @@ export type BranchOperand = StackOperand & {
 /** @public */
 export type CommitOperand = StackOperand & {
 	commitId: string;
+	changeId: string;
 };
 
 /** @public */
@@ -84,10 +90,11 @@ export const branchOperand = ({ stackId, branchRef }: BranchOperand): Operand =>
 });
 
 /** @public */
-export const commitOperand = ({ stackId, commitId }: CommitOperand): Operand => ({
+export const commitOperand = ({ stackId, commitId, changeId }: CommitOperand): Operand => ({
 	_tag: "Commit",
 	stackId,
 	commitId,
+	changeId,
 });
 
 /** @public */
@@ -116,7 +123,7 @@ export const operandIdentityKey = (operand: Operand): string =>
 			File: (x) => JSON.stringify(["File", x.parent, x.path]),
 			Stack: (x) => JSON.stringify(["Stack", x.stackId]),
 			Branch: (x) => JSON.stringify(["Branch", x.stackId, x.branchRef]),
-			Commit: (x) => JSON.stringify(["Commit", x.stackId, x.commitId]),
+			Commit: (x) => JSON.stringify(["Commit", x.stackId, x.commitId, x.changeId]),
 			Hunk: (x) =>
 				JSON.stringify([
 					"Hunk",
@@ -148,7 +155,7 @@ const fileParentToOperand = (fileParent: FileParent): Operand =>
 		Match.tagsExhaustive({
 			UncommittedChanges: () => uncommittedChangesOperand,
 			Branch: ({ stackId, branchRef }) => branchOperand({ stackId, branchRef }),
-			Commit: ({ stackId, commitId }) => commitOperand({ stackId, commitId }),
+			Commit: ({ stackId, commitId, changeId }) => commitOperand({ stackId, commitId, changeId }),
 		}),
 	);
 
