@@ -1,6 +1,12 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
-import { hunkOperand, HunkOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import {
+	commitOperand,
+	hunkOperand,
+	HunkOperand,
+	operandIdentityKey,
+	type Operand,
+} from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectOutlineModeState,
@@ -15,7 +21,9 @@ import {
 	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
-import { identity } from "effect";
+import { identity, Match } from "effect";
+import { resolveCommit } from "./commit.ts";
+import type { HeadInfoIndex } from "./api/ref-info.ts";
 
 export type SelectionScope = "outline" | "files" | "diff";
 const allSelectionScopes: Array<SelectionScope> = ["outline", "files", "diff"];
@@ -86,13 +94,26 @@ export const useFilesSelection = (projectId: string, navigationIndex: Navigation
 
 export const useOutlineSelection = ({
 	projectId,
+	headInfoIndex,
 	navigationIndex,
 }: {
 	projectId: string;
+	headInfoIndex: HeadInfoIndex | null | undefined;
 	navigationIndex: NavigationIndex<Operand>;
 }) => {
-	const selectionState = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
-	return resolveNavigationIndexSelection(navigationIndex, selectionState, operandIdentityKey);
+	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
+
+	const resolved = Match.value(selection).pipe(
+		Match.tags({
+			Commit: (commit) => {
+				const res = headInfoIndex && resolveCommit(headInfoIndex, commit);
+				return res ? commitOperand(res) : null;
+			},
+		}),
+		Match.orElse(() => selection),
+	);
+
+	return resolveNavigationIndexSelection(navigationIndex, resolved, operandIdentityKey);
 };
 
 const hunkOperandIdentityKey = (operand: HunkOperand): string =>

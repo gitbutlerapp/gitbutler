@@ -91,7 +91,7 @@ export const useOutlineTreeHotkeys = ({
 		select: getHeadInfoIndex,
 	});
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
-	const selection = useOutlineSelection({ projectId, navigationIndex });
+	const selection = useOutlineSelection({ projectId, headInfoIndex, navigationIndex });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);

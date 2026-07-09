@@ -1,10 +1,15 @@
 import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
-import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { commitOperand, operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { selectProjectSelectionOutline } from "#ui/projects/state.ts";
 import { resolveNavigationIndexSelection } from "#ui/selection-scopes.ts";
 import { useAppSelector } from "#ui/store.ts";
 import { assert } from "#ui/assert.ts";
 import { use } from "react";
+import { Match } from "effect";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
+import { resolveCommit } from "#ui/commit.ts";
+import { useQuery } from "@tanstack/react-query";
+import { headInfoQueryOptions } from "#ui/api/queries.ts";
 
 export const useIsSelected = ({
 	projectId,
@@ -13,15 +18,28 @@ export const useIsSelected = ({
 	projectId: string;
 	operand: Operand;
 }): boolean => {
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
+
 	const navigationIndex = assert(use(NavigationIndexContext));
+
 	return useAppSelector((state) => {
-		const selectionState = selectProjectSelectionOutline(state, projectId);
-		const selection = resolveNavigationIndexSelection(
-			navigationIndex,
-			selectionState,
-			operandIdentityKey,
+		const selection = selectProjectSelectionOutline(state, projectId);
+
+		const resolved = Match.value(selection).pipe(
+			Match.tags({
+				Commit: (commit) => {
+					const res = headInfoIndex && resolveCommit(headInfoIndex, commit);
+					return res ? commitOperand(res) : null;
+				},
+			}),
+			Match.orElse(() => selection),
 		);
 
-		return selection ? operandEquals(selection, operand) : false;
+		const filtered = resolveNavigationIndexSelection(navigationIndex, resolved, operandIdentityKey);
+
+		return filtered ? operandEquals(filtered, operand) : false;
 	});
 };

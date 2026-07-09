@@ -200,21 +200,6 @@ const projectSlice = createSlice({
 			const { projectId, commitTarget } = action.payload;
 			workspace.setCommitTarget(ensureProjectState(state, projectId).workspace, commitTarget);
 		},
-		updateRewrittenCommitReferences: (
-			state,
-			action: PayloadAction<{
-				projectId: string;
-				replacedCommits: Record<string, string>;
-				headInfo: RefInfo;
-			}>,
-		) => {
-			const { projectId, replacedCommits, headInfo } = action.payload;
-			workspace.updateRewrittenCommitReferences(
-				ensureProjectState(state, projectId).workspace,
-				replacedCommits,
-				headInfo,
-			);
-		},
 		toggleFiles: (state, action: PayloadAction<{ projectId: string }>) => {
 			const projectState = ensureProjectState(state, action.payload.projectId);
 			projectState.filesVisible = !projectState.filesVisible;

@@ -292,7 +292,11 @@ const TransferKeyboardOperationControls: FC<{
 	mode: KeyboardTransferMode;
 	outlineNavigationIndex: NavigationIndex<Operand>;
 }> = ({ headInfoIndex, projectId, mode, outlineNavigationIndex }) => {
-	const selection = useOutlineSelection({ projectId, navigationIndex: outlineNavigationIndex });
+	const selection = useOutlineSelection({
+		projectId,
+		headInfoIndex,
+		navigationIndex: outlineNavigationIndex,
+	});
 
 	const dispatch = useAppDispatch();
 	const { mutate: runOperation } = useRunOperation();

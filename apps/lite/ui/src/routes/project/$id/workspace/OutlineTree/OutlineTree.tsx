@@ -545,7 +545,8 @@ const Stacks: FC<{
 }> = ({ projectId, commitTarget }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const selection = useOutlineSelection({ projectId, navigationIndex });
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
+	const selection = useOutlineSelection({ projectId, headInfoIndex, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dryRunOperation = Match.value(outlineMode).pipe(
@@ -600,7 +601,11 @@ export const OutlineTree: FC<
 	ref: refProp,
 	...props
 }) => {
-	const selection = useOutlineSelection({ projectId, navigationIndex });
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
+	const selection = useOutlineSelection({ projectId, headInfoIndex, navigationIndex });
 	const hasCheckedCommits = useAppSelector((state) =>
 		selectProjectHasCheckedCommits(state, projectId),
 	);

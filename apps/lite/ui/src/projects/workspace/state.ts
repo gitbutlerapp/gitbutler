@@ -25,7 +25,6 @@ import {
 	type TransferMode,
 } from "#ui/outline/mode.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
-import { mapKeys } from "effect/Record";
 
 export type SelectionState = {
 	outline: Operand | null;
@@ -253,38 +252,6 @@ export const rewrittenCommitSelection = ({
 	if (!commit) return selection;
 
 	return commitOperand(commit);
-};
-
-export const updateRewrittenCommitReferences = (
-	state: WorkspaceState,
-	replacedCommits: Record<string, string>,
-	headInfo: RefInfo,
-) => {
-	const commit = rewrittenCommitSelection({
-		selection: state.selection.outline,
-		replacedCommits,
-		headInfo,
-	});
-	if (commit) state.selection.outline = commit;
-
-	if (state.commitTarget?.type === "commit") {
-		const commitId = replacedCommits[state.commitTarget.subject];
-		if (commitId !== undefined) state.commitTarget = { type: "commit", subject: commitId };
-	}
-
-	state.checkedCommitIds = mapKeys(
-		state.checkedCommitIds,
-		(checkedCommitId) => replacedCommits[checkedCommitId] ?? checkedCommitId,
-	);
-
-	if (state.mode._tag === "RewordCommit") {
-		const commit = rewrittenCommitOperand({
-			commit: state.mode.operand,
-			replacedCommits,
-			headInfo,
-		});
-		if (commit) state.mode = rewordCommitOutlineMode({ operand: commit });
-	}
 };
 
 export const startRenameBranch = (state: WorkspaceState, branch: BranchOperand) => {

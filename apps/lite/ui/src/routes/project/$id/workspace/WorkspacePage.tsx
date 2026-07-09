@@ -396,6 +396,7 @@ const WorkspacePage: FC = () => {
 
 	const outlineSelection = useOutlineSelection({
 		projectId,
+		headInfoIndex,
 		navigationIndex: outlineNavigationIndex,
 	});
 
