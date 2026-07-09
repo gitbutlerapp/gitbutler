@@ -209,7 +209,7 @@ const useOutlineNavigationIndex = ({
 	});
 	const filteredItems = Match.value(outlineMode).pipe(
 		Match.tagsExhaustive({
-			Default: () => items,
+			Default: () => items2,
 			Absorb: (activeMode) =>
 				items.filter(
 					(operand) =>
