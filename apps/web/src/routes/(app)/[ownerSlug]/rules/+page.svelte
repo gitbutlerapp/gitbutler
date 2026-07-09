@@ -33,7 +33,7 @@
 </script>
 
 <svelte:head>
-	<title>Rules</title>
+	<title>Regeln</title>
 </svelte:head>
 
 <Loading loadable={rulesList.current}>
@@ -43,13 +43,13 @@
 				<thead class="rules-table__head">
 					<tr>
 						<th>
-							<div class="text-12 rule-title">Title</div>
+							<div class="text-12 rule-title">Titel</div>
 						</th>
 						<th>
-							<div class="text-12 rule-title">Project</div>
+							<div class="text-12 rule-title">Projekt</div>
 						</th>
 						<th>
-							<div class="text-12 rule-title">Created At</div>
+							<div class="text-12 rule-title">Erstellt am</div>
 						</th>
 					</tr>
 				</thead>
@@ -72,7 +72,7 @@
 				</tbody>
 			</table>
 		{:else}
-			<p>No rules found.</p>
+			<p>Keine Regeln gefunden.</p>
 		{/if}
 	{/snippet}
 </Loading>

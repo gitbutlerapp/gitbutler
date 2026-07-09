@@ -6,7 +6,7 @@
 
 <section class="cli-features">
 	<SectionHeader>
-		Everything <i>You Wished</i> Git Had
+		Alles, <i>was du dir</i> von Git gewünscht hast
 	</SectionHeader>
 	<Features items={featuresJson} noMargin />
 </section>

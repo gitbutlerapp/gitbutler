@@ -23,13 +23,13 @@
 		<div class="text-12 service-form__footer">
 			<p>
 				{#if backlink}
-					← Back to
+					← Zurück zu
 					<a href={backlink.href}>{backlink.label}</a>
 				{/if}
 			</p>
 
 			<p>
-				Need help?
+				Brauchst du Hilfe?
 				<a href={linksJson.other.support.url} target="_blank" rel="noopener noreferrer">
 					{linksJson.other.support.label}
 				</a>

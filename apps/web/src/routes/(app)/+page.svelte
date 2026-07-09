@@ -10,7 +10,7 @@
 </script>
 
 {#if !loggedIn}
-	<p>Loading...</p>
+	<p>Wird geladen…</p>
 {:else}
 	<!-- For now, just redirect the user back to the  -->
 	<RedirectToProfileIfLoggedIn />

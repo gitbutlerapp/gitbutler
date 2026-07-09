@@ -68,11 +68,11 @@
 
 <section class="blog-highlights">
 	<SectionHeader
-		>From <i>the</i> Blog
+		>Aus <i>dem</i> Blog
 
 		{#snippet buttons()}
 			<ArrowButton
-				label="Read more"
+				label="Mehr lesen"
 				onclick={() => window.open("https://blog.gitbutler.com", "_blank")}
 			/>
 		{/snippet}
@@ -89,7 +89,7 @@
 						{posts?.[0]?.title}
 					</h3>
 					<span class="blog-post__meta">
-						{formatDate(posts?.[0]?.published_at ?? "")} by {posts?.[0]?.primary_author?.name}
+						{formatDate(posts?.[0]?.published_at ?? "")} von {posts?.[0]?.primary_author?.name}
 					</span>
 				</div>
 				<div class="blog-post__body">
@@ -109,7 +109,7 @@
 							{posts?.[1]?.title}
 						</h3>
 						<span class="blog-post__meta">
-							{formatDate(posts?.[1]?.published_at ?? "")} by {posts?.[1]?.primary_author?.name}
+							{formatDate(posts?.[1]?.published_at ?? "")} von {posts?.[1]?.primary_author?.name}
 						</span>
 					</div>
 					<div class="blog-post__body">
@@ -127,7 +127,7 @@
 							{posts?.[2]?.title}
 						</h3>
 						<span class="blog-post__meta">
-							{formatDate(posts?.[2]?.published_at ?? "")} by {posts?.[2]?.primary_author?.name}
+							{formatDate(posts?.[2]?.published_at ?? "")} von {posts?.[2]?.primary_author?.name}
 						</span>
 					</div>
 					<div class="blog-post__body">

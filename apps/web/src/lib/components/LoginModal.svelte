@@ -28,18 +28,18 @@
 			{@html loginSvg}
 		</div>
 		<div class="login-modal__content">
-			<h2 class="text-18 text-bold login-modal__title">🔒 Log in to continue</h2>
+			<h2 class="text-18 text-bold login-modal__title">🔒 Zum Fortfahren anmelden</h2>
 			<p class="text-13 text-body login-modal__text">
 				{#if children}
 					{@render children()}
 				{:else}
-					You need to be logged in to unlock full access to all features.
+					Du musst angemeldet sein, um vollen Zugriff auf alle Funktionen zu erhalten.
 				{/if}
 			</p>
 
 			<div class="login-modal__actions">
-				<Button style="pop" onclick={login}>Log in</Button>
-				<Button kind="outline" onclick={login}>Sign up</Button>
+				<Button style="pop" onclick={login}>Anmelden</Button>
+				<Button kind="outline" onclick={login}>Registrieren</Button>
 			</div>
 		</div>
 	</div>

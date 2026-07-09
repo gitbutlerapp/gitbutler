@@ -18,8 +18,8 @@
 	}
 
 	const actionLabels = {
-		approve: "Approve commit",
-		requestChanges: "Request changes",
+		approve: "Commit genehmigen",
+		requestChanges: "Änderungen anfordern",
 	} as const;
 
 	type Action = keyof typeof actionLabels;
@@ -99,8 +99,8 @@
 	function confirmStatusChange(action: Action): boolean {
 		const message =
 			action === "requestChanges"
-				? "You have already approved this commit. Do you want to request changes instead?"
-				: "You have already requested changes for this commit. Do you want to approve it instead?";
+				? "Du hast diesen Commit bereits genehmigt. Möchtest du stattdessen Änderungen anfordern?"
+				: "Du hast für diesen Commit bereits Änderungen angefordert. Möchtest du ihn stattdessen genehmigen?";
 
 		return confirm(message);
 	}
@@ -118,10 +118,10 @@
 		<div class="text-12 my-status-text">
 			{#if userAction === "approved"}
 				<CommitStatusBadge status="approved" kind="icon" />
-				<span>You approved this</span>
+				<span>Du hast dies genehmigt</span>
 			{:else}
 				<CommitStatusBadge status="changes-requested" kind="icon" />
-				<span>You requested changes</span>
+				<span>Du hast Änderungen angefordert</span>
 			{/if}
 		</div>
 
@@ -130,7 +130,7 @@
 			type="button"
 			onclick={() => handleChangeStatus(userAction === "approved" ? "requestChanges" : "approve")}
 		>
-			Change status
+			Status ändern
 		</button>
 	</div>
 {:else}
@@ -165,7 +165,7 @@
 {/if}
 
 <LoginModal bind:this={loginModal}>
-	To approve this commit or request changes, you need to be logged in.
+	Um diesen Commit zu genehmigen oder Änderungen anzufordern, musst du angemeldet sein.
 </LoginModal>
 
 <style lang="postcss">

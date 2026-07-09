@@ -10,7 +10,7 @@
 	import { Button } from "@gitbutler/ui";
 	import type { UserSimple } from "@gitbutler/shared/users/types";
 
-	const UNKNOWN_AUTHOR = "Unknown author";
+	const UNKNOWN_AUTHOR = "Unbekannter Autor";
 
 	type Props = {
 		message: ReplyToMessage;

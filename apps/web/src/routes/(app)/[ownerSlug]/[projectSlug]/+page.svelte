@@ -75,10 +75,10 @@
 			};
 
 			editingReadme = false;
-			chipToasts.success("README updated successfully");
+			chipToasts.success("README erfolgreich aktualisiert");
 		} catch (error) {
 			chipToasts.error(
-				`Failed to update README: ${error instanceof Error ? error.message : "Unknown error"}`,
+				`README konnte nicht aktualisiert werden: ${error instanceof Error ? error.message : "Unbekannter Fehler"}`,
 			);
 		} finally {
 			isSavingReadme = false;
@@ -125,7 +125,7 @@
 			};
 
 			editProjectModal?.close();
-			chipToasts.success("Project updated successfully");
+			chipToasts.success("Projekt erfolgreich aktualisiert");
 
 			// If the slug changed, redirect to the new URL
 			if (editedSlug !== data.projectSlug) {
@@ -137,7 +137,7 @@
 				);
 			}
 		} catch (error) {
-			chipToasts.error(`Failed to update project`);
+			chipToasts.error(`Projekt konnte nicht aktualisiert werden`);
 			console.error(
 				`Failed to update project: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
@@ -147,7 +147,7 @@
 	}
 
 	async function deleteProject(repositoryId: string) {
-		if (!confirm("Are you sure you want to delete this project?")) {
+		if (!confirm("Möchten Sie dieses Projekt wirklich löschen?")) {
 			return;
 		}
 
@@ -156,7 +156,7 @@
 	}
 
 	async function handleDisconnectFromParent() {
-		if (!confirm("Are you sure you want to disconnect this project from its parent?")) {
+		if (!confirm("Möchten Sie dieses Projekt wirklich von seinem übergeordneten Projekt trennen?")) {
 			return;
 		}
 
@@ -167,9 +167,9 @@
 				parentProject: undefined,
 				parentProjectRepositoryId: undefined,
 			};
-			chipToasts.success("Project unlinked from parent");
+			chipToasts.success("Projekt vom übergeordneten Projekt getrennt");
 		} catch (error) {
-			chipToasts.error(`Failed to unlink project`);
+			chipToasts.error(`Projekt konnte nicht getrennt werden`);
 			console.error(
 				`Failed to unlink project: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
@@ -181,7 +181,7 @@
 
 {#await projectPromise}
 	<div class="loading-container">
-		<p>Loading project...</p>
+		<p>Projekt wird geladen…</p>
 	</div>
 {:then _projectData}
 	{#if _projectData}
@@ -196,7 +196,7 @@
 				</div>
 				{#if projectData.parentProject}
 					<div class="parent-project-info">
-						<span class="label">Parent Project:</span>
+						<span class="label">Übergeordnetes Projekt:</span>
 						<a
 							href={routes.projectPath({
 								ownerSlug: projectData.parentProject.owner,
@@ -213,19 +213,19 @@
 				<div class="main-content">
 					<!-- Reviews section using the ReviewsSection component -->
 					{#await patchStacksPromise}
-						<ReviewsSection reviews={[]} status="loading" sectionTitle="Active Reviews" />
+						<ReviewsSection reviews={[]} status="loading" sectionTitle="Aktive Reviews" />
 					{:then _}
 						<ReviewsSection
 							reviews={patchStacksData || []}
 							status={patchStacksData && patchStacksData.length > 0 ? "found" : "not-found"}
-							sectionTitle="Active Reviews"
+							sectionTitle="Aktive Reviews"
 							allReviewsUrl={routes.projectReviewPath(data)}
 							reviewsCount={projectData.activeReviewsCount || 0}
 						/>
 					{:catch error}
-						<ReviewsSection reviews={[]} status="error" sectionTitle="Active Reviews" />
+						<ReviewsSection reviews={[]} status="error" sectionTitle="Aktive Reviews" />
 						<div class="error-text">
-							Error loading reviews: {error.message || "Unknown error"}
+							Fehler beim Laden der Reviews: {error.message || "Unbekannter Fehler"}
 						</div>
 					{/await}
 
@@ -240,7 +240,7 @@
 											action={() => saveReadme(projectData.repositoryId)}
 											disabled={isSavingReadme}
 										>
-											Save
+											Speichern
 										</AsyncButton>
 										<Button
 											type="button"
@@ -248,7 +248,7 @@
 											onclick={cancelEditingReadme}
 											disabled={isSavingReadme}
 										>
-											Cancel
+											Abbrechen
 										</Button>
 									{:else}
 										<Button
@@ -256,7 +256,7 @@
 											style="gray"
 											onclick={() => startEditingReadme((projectData as any).readme)}
 										>
-											Edit README
+											README bearbeiten
 										</Button>
 									{/if}
 								</div>
@@ -268,11 +268,11 @@
 									bind:value={readmeContent}
 									class="readme-editor"
 									rows="15"
-									placeholder="Enter markdown content for the README..."
+									placeholder="Markdown-Inhalt für die README eingeben…"
 									disabled={isSavingReadme}
 								></textarea>
 								<div class="readme-preview">
-									<h3 class="preview-title">Preview</h3>
+									<h3 class="preview-title">Vorschau</h3>
 									<Markdown content={readmeContent} />
 								</div>
 							{:else if (projectData as any).readme}
@@ -280,9 +280,9 @@
 							{:else}
 								<div class="no-readme">
 									{#if projectData.permissions?.canWrite}
-										<p>No README available for this project. Click "Edit README" to create one.</p>
+										<p>Für dieses Projekt ist keine README verfügbar. Klicken Sie auf „README bearbeiten“, um eine zu erstellen.</p>
 									{:else}
-										<p>No README available for this project.</p>
+										<p>Für dieses Projekt ist keine README verfügbar.</p>
 									{/if}
 								</div>
 							{/if}
@@ -293,7 +293,7 @@
 				<div class="sidebar">
 					<section class="card">
 						<div class="card-header">
-							<h2 class="card-title">Project Details</h2>
+							<h2 class="card-title">Projektdetails</h2>
 							{#if projectData.permissions?.canWrite}
 								<Button
 									type="button"
@@ -301,7 +301,7 @@
 									onclick={openEditProjectModal}
 									class="edit-project-btn"
 								>
-									Edit Project
+									Projekt bearbeiten
 								</Button>
 							{/if}
 						</div>
@@ -313,19 +313,19 @@
 								</p>
 							{/if}
 							{#if projectData.description}
-								<h3 class="sidebar-section-title">Description</h3>
+								<h3 class="sidebar-section-title">Beschreibung</h3>
 								<p class="description">
 									{projectData.description}
 								</p>
 							{/if}
 
-							<h3 class="sidebar-section-title">Last Updated</h3>
+							<h3 class="sidebar-section-title">Zuletzt aktualisiert</h3>
 							<p class="description">{getTimeSince(projectData.updatedAt)}</p>
 
 							{#if projectData.lastPushedAt}
 								<div class="meta-info">
 									<div class="meta-item clone-url-container">
-										<h3 class="sidebar-section-title">Clone URL</h3>
+										<h3 class="sidebar-section-title">Klon-URL</h3>
 										<div class="clone-url">
 											<code>{projectData.codeGitUrl}</code>
 											<Button
@@ -333,10 +333,10 @@
 												style="pop"
 												onclick={() => {
 													navigator.clipboard.writeText(projectData.codeGitUrl);
-													chipToasts.success("copied to clipboard");
+													chipToasts.success("in die Zwischenablage kopiert");
 												}}
 											>
-												Copy
+												Kopieren
 											</Button>
 										</div>
 									</div>
@@ -347,11 +347,11 @@
 
 					{#if projectData.parentProject}
 						<section class="card">
-							<h2 class="card-title">Parent Project</h2>
+							<h2 class="card-title">Übergeordnetes Projekt</h2>
 							<div class="card-content">
 								<div class="parent-project-info-card">
 									<p>
-										This project is linked to a parent project:
+										Dieses Projekt ist mit einem übergeordneten Projekt verknüpft:
 										<a
 											href={routes.projectPath({
 												ownerSlug: projectData.parentProject?.owner || data.ownerSlug,
@@ -365,7 +365,7 @@
 
 									{#if projectData.permissions?.canWrite}
 										<Button style="danger" onclick={handleDisconnectFromParent}>
-											Disconnect from Parent
+											Vom übergeordneten Projekt trennen
 										</Button>
 									{/if}
 								</div>
@@ -373,12 +373,12 @@
 						</section>
 					{:else if projectData.ownerType === "user" && projectData.permissions?.canWrite}
 						<section class="card">
-							<h2 class="card-title">Connect to Organization</h2>
+							<h2 class="card-title">Mit Organisation verbinden</h2>
 							<div class="card-content">
 								<div class="connect-org-card">
-									<p>Connect this project to an organization to enable team collaboration.</p>
+									<p>Verbinden Sie dieses Projekt mit einer Organisation, um die Zusammenarbeit im Team zu ermöglichen.</p>
 									<Button style="pop" onclick={() => connectModal?.show()}>
-										Connect to Organization
+										Mit Organisation verbinden
 									</Button>
 								</div>
 							</div>
@@ -392,21 +392,21 @@
 
 					{#if projectData.permissions?.canWrite}
 						<section class="card">
-							<h2 class="card-title">Permissions</h2>
+							<h2 class="card-title">Berechtigungen</h2>
 							<div class="card-content gap-2">
-								<p>This project is <b>{projectData.permissions.shareLevel}</b></p>
+								<p>Dieses Projekt ist <b>{projectData.permissions.shareLevel}</b></p>
 								<PermissionsSelector repositoryId={projectData.repositoryId} />
 							</div>
 						</section>
 
 						<section class="card danger-zone">
-							<h2 class="card-title danger-title">Danger Zone</h2>
+							<h2 class="card-title danger-title">Gefahrenzone</h2>
 							<div class="card-content">
 								<AsyncButton
 									style="danger"
 									action={async () => await deleteProject(projectData.repositoryId)}
 								>
-									Delete Project
+									Projekt löschen
 								</AsyncButton>
 							</div>
 						</section>
@@ -418,26 +418,26 @@
 		<!-- Edit Project Modal -->
 		<Modal
 			bind:this={editProjectModal}
-			title="Edit Project"
+			title="Projekt bearbeiten"
 			onClose={() => {
 				isUpdatingProject = false;
 			}}
 		>
 			<form class="edit-project-form">
 				<div class="form-group">
-					<label for="project-name">Project Name</label>
+					<label for="project-name">Projektname</label>
 					<input
 						id="project-name"
 						type="text"
 						bind:value={editedName}
-						placeholder="Project name"
+						placeholder="Projektname"
 						required
 						disabled={isUpdatingProject}
 					/>
 				</div>
 
 				<div class="form-group">
-					<label for="project-slug">Project Slug</label>
+					<label for="project-slug">Projekt-Slug</label>
 					<input
 						id="project-slug"
 						type="text"
@@ -446,17 +446,17 @@
 						required
 						disabled={isUpdatingProject}
 						pattern="[a-z0-9-]+"
-						title="Lowercase letters, numbers, and hyphens only"
+						title="Nur Kleinbuchstaben, Zahlen und Bindestriche"
 					/>
-					<small>Only lowercase letters, numbers, and hyphens are allowed</small>
+					<small>Es sind nur Kleinbuchstaben, Zahlen und Bindestriche erlaubt</small>
 				</div>
 
 				<div class="form-group">
-					<label for="project-description">Description</label>
+					<label for="project-description">Beschreibung</label>
 					<textarea
 						id="project-description"
 						bind:value={editedDescription}
-						placeholder="Project description"
+						placeholder="Projektbeschreibung"
 						rows="4"
 						disabled={isUpdatingProject}
 					></textarea>
@@ -469,30 +469,30 @@
 						onclick={() => editProjectModal?.close()}
 						disabled={isUpdatingProject}
 					>
-						Cancel
+						Abbrechen
 					</Button>
 					<AsyncButton
 						style="pop"
 						action={() => saveProjectEdits(projectData.repositoryId)}
 						disabled={isUpdatingProject}
 					>
-						Save Changes
+						Änderungen speichern
 					</AsyncButton>
 				</div>
 			</form>
 		</Modal>
 	{:else}
 		<div class="error-message">
-			<h2>Project Not Found</h2>
-			<p>The project you requested could not be found. Please check the URL and try again.</p>
-			<Button onclick={() => goto(routes.projectsPath())}>Return to Projects</Button>
+			<h2>Projekt nicht gefunden</h2>
+			<p>Das angeforderte Projekt konnte nicht gefunden werden. Bitte überprüfen Sie die URL und versuchen Sie es erneut.</p>
+			<Button onclick={() => goto(routes.projectsPath())}>Zurück zu den Projekten</Button>
 		</div>
 	{/if}
 {:catch error}
 	<div class="error-message">
-		<h2>Error Loading Project</h2>
-		<p>There was a problem loading the project: {error.message || "Unknown error"}</p>
-		<Button onclick={() => goto(routes.projectsPath())}>Return to Projects</Button>
+		<h2>Fehler beim Laden des Projekts</h2>
+		<p>Beim Laden des Projekts ist ein Problem aufgetreten: {error.message || "Unbekannter Fehler"}</p>
+		<Button onclick={() => goto(routes.projectsPath())}>Zurück zu den Projekten</Button>
 	</div>
 {/await}
 

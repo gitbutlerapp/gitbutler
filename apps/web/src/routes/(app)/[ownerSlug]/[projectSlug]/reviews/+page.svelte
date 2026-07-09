@@ -33,10 +33,10 @@
 
 	let filterStatus = $state<BranchStatus>(BranchStatus.All);
 	const selectableStatuses = [
-		{ value: BranchStatus.All, label: "All branches" },
-		{ value: BranchStatus.Closed, label: "Closed" },
-		{ value: BranchStatus.Active, label: "Active" },
-		{ value: BranchStatus.Inactive, label: "Inactive" },
+		{ value: BranchStatus.All, label: "Alle Branches" },
+		{ value: BranchStatus.Closed, label: "Geschlossen" },
+		{ value: BranchStatus.Active, label: "Aktiv" },
+		{ value: BranchStatus.Inactive, label: "Inaktiv" },
 	];
 
 	const brancheses = $derived(
@@ -86,8 +86,8 @@
 
 			{#if brancheses.length === 0}
 				<div class="empty-state">
-					<h3>No branches found</h3>
-					<p>There are no branches matching your current filter.</p>
+					<h3>Keine Branches gefunden</h3>
+					<p>Es gibt keine Branches, die Ihrem aktuellen Filter entsprechen.</p>
 				</div>
 			{:else}
 				<Table
@@ -110,16 +110,16 @@
 						},
 						{
 							key: "date",
-							value: "Update",
+							value: "Aktualisiert",
 						},
 						{
 							key: "avatars",
-							value: "Authors",
+							value: "Autoren",
 						},
 						{
 							key: "number",
 							value: "Ver.",
-							tooltip: "Commit version",
+							tooltip: "Commit-Version",
 						},
 					]}
 				>

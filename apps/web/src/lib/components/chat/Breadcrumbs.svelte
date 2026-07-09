@@ -12,14 +12,14 @@
 
 	function getRootLabel() {
 		if ($user?.login === routes.isProjectReviewBranchPageSubset?.ownerSlug) {
-			return "My Projects";
+			return "Meine Projekte";
 		} else {
-			return "My Reviews";
+			return "Meine Reviews";
 		}
 	}
 </script>
 
-{#snippet backButton({ href, label = "Back" }: { href: string; label: string })}
+{#snippet backButton({ href, label = "Zurück" }: { href: string; label: string })}
 	<a {href} class="breadcrumbs__back-btn">
 		<div class="breadcrumbs__back-btn__icon">
 			<Icon name="chevron-left" />
@@ -35,7 +35,7 @@
 		{#if !routes.isProjectReviewBranchPageSubset}
 			<span class="text-15 text-bold">Dashboard </span>
 		{:else}
-			<Button kind="ghost" onclick={() => goto(routes.projectsPath())} tooltip="Go to Dashboard">
+			<Button kind="ghost" onclick={() => goto(routes.projectsPath())} tooltip="Zum Dashboard">
 				<span class="text-15 text-bold truncate breadcrumbs__path-label">
 					{getRootLabel()} <span>/</span>
 					{routes.isProjectReviewPageSubset?.ownerSlug}</span
@@ -46,12 +46,12 @@
 
 	{#if routes.isProjectReviewBranchCommitPageSubset}
 		{@render backButton({
-			label: "Back",
+			label: "Zurück",
 			href: routes.projectReviewBranchPath(routes.isProjectReviewBranchCommitPageSubset),
 		})}
 	{:else if routes.isProjectReviewBranchPageSubset}
 		{@render backButton({
-			label: "Back",
+			label: "Zurück",
 			href: `${routes.projectPath(routes.isProjectReviewBranchPageSubset)}/reviews`,
 		})}
 	{/if}

@@ -19,7 +19,7 @@
 
 	async function handleSubmit() {
 		if (!email) {
-			error = "Email is required";
+			error = "E-Mail-Adresse ist erforderlich";
 			return;
 		}
 
@@ -36,24 +36,24 @@
 </script>
 
 <svelte:head>
-	<title>GitButler | Forgot Password</title>
+	<title>GitButler | Passwort vergessen</title>
 </svelte:head>
 
 <RedirectIfLoggedIn />
 
 <FullscreenUtilityCard
-	title={isLinkSent ? "Link sent!" : "Forgot password?"}
-	backlink={{ label: "Login", href: routesService.loginPath() }}
+	title={isLinkSent ? "Link gesendet!" : "Passwort vergessen?"}
+	backlink={{ label: "Anmelden", href: routesService.loginPath() }}
 >
 	{#if isLinkSent}
 		<p class="text-13 text-body">
-			We've sent a password reset link to: <i class="clr-text-2">{sentToEmail}</i>
+			Wir haben einen Link zum Zurücksetzen des Passworts gesendet an: <i class="clr-text-2">{sentToEmail}</i>
 			<br />
-			Click the link in your email to reset your password.
+			Klicke auf den Link in deiner E-Mail, um dein Passwort zurückzusetzen.
 		</p>
 	{:else}
 		<div class="service-form__inputs">
-			<EmailTextbox bind:this={emailTextbox} bind:value={email} label="Email" />
+			<EmailTextbox bind:this={emailTextbox} bind:value={email} label="E-Mail" />
 
 			{#if error}
 				<InfoMessage filled outlined={false} style="danger">
@@ -63,7 +63,7 @@
 				</InfoMessage>
 			{/if}
 
-			<Button style="pop" disabled={!canSubmit} onclick={handleSubmit}>Send a reset link</Button>
+			<Button style="pop" disabled={!canSubmit} onclick={handleSubmit}>Link zum Zurücksetzen senden</Button>
 		</div>
 	{/if}
 </FullscreenUtilityCard>

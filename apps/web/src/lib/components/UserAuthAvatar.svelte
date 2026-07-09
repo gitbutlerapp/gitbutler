@@ -13,7 +13,7 @@
 	const routes = inject(WEB_ROUTES_SERVICE);
 </script>
 
-<Tooltip text="Profile & Settings">
+<Tooltip text="Profil & Einstellungen">
 	<button
 		type="button"
 		class="user-btn"

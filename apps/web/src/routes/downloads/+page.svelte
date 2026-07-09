@@ -37,13 +37,13 @@
 			<div class="latest-release__header-labels">
 				<h1>
 					<!-- {latestRelease.version} -->
-					DOWNLOAD <i>the</i> app
+					LADE <i>die</i> App
 				</h1>
 				<div class="latest-release__header-subtitle">
-					<span>{latestRelease.version} Latest release</span>
+					<span>{latestRelease.version} Neueste Version</span>
 					<span> • </span>
 					<span
-						>{new Date(latestRelease.released_at).toLocaleDateString("en-GB", {
+						>{new Date(latestRelease.released_at).toLocaleDateString("de-DE", {
 							day: "numeric",
 							month: "long",
 							year: "numeric",
@@ -77,8 +77,8 @@
 						href={latestReleaseBuilds.darwin_aarch64?.url ?? ""}>Apple Silicon</a
 					>
 					<span class="download-card-subtile"
-						>or <a class="download-card-link" href={latestReleaseBuilds.darwin_x86_64?.url ?? ""}
-							>intel-based</a
+						>oder <a class="download-card-link" href={latestReleaseBuilds.darwin_x86_64?.url ?? ""}
+							>Intel-basiert</a
 						></span
 					>
 				</div>
@@ -121,10 +121,10 @@
 					</div>
 
 					<span class="download-card-small-subtile"
-						>Not working? Have a look at <a
+						>Funktioniert nicht? Wirf einen Blick in <a
 							class="download-card-link"
 							href="https://github.com/gitbutlerapp/gitbutler/blob/master/LINUX.md"
-							target="_blank"><i>our docs</i></a
+							target="_blank"><i>unsere Doku</i></a
 						></span
 					>
 
@@ -140,7 +140,7 @@
 							<a
 								href={linuxArch === "x86-64"
 									? (latestReleaseBuilds.linux_cli_x86_64?.url ?? "")
-									: (latestReleaseBuilds.linux_cli_aarch64?.url ?? "")}>Download CLI binary</a
+									: (latestReleaseBuilds.linux_cli_aarch64?.url ?? "")}>CLI-Binary herunterladen</a
 							>
 						</div>
 					{/if}
@@ -178,8 +178,8 @@
 
 		<div class="nightly-info">
 			<p class="text-14 text-body clr-text-2">
-				Experience GitButler’s newest features before anyone else. ⋆˚₊
-				<a href="/nightly" class="nightly-info__download-link"> Get Nightly </a>
+				Erlebe die neuesten Funktionen von GitButler noch vor allen anderen. ⋆˚₊
+				<a href="/nightly" class="nightly-info__download-link"> Nightly holen </a>
 				☽˚.⋆
 			</p>
 		</div>
@@ -188,7 +188,7 @@
 
 <section class="releases">
 	<h2>
-		Other <i>releases:</i>
+		Weitere <i>Versionen:</i>
 	</h2>
 
 	{#each data.releases.filter((release) => release.version !== latestRelease.version) as release (release.version)}

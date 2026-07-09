@@ -36,7 +36,7 @@
 {#if message.issue && !message.resolved}
 	<div class="chat-message-actions">
 		<Button style="gray" kind="outline" icon="tick" loading={isResolving} onclick={resolveIssue}
-			>Resolve issue</Button
+			>Issue lösen</Button
 		>
 	</div>
 {/if}

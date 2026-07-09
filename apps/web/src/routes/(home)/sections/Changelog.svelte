@@ -26,7 +26,7 @@
 		Changelog
 
 		{#snippet buttons()}
-			<ArrowButton label="All updates" onclick={goToFullChangelog} />
+			<ArrowButton label="Alle Updates" onclick={goToFullChangelog} />
 		{/snippet}
 	</SectionHeader>
 
@@ -40,17 +40,17 @@
 
 			{#if visibleCount < 10 && releases.length > visibleCount}
 				<div class="show-more-container">
-					<button type="button" class="show-more-button" onclick={showMore}> Show more </button>
+					<button type="button" class="show-more-button" onclick={showMore}> Mehr anzeigen </button>
 				</div>
 			{:else if visibleCount >= 10 || releases.length <= visibleCount}
 				<div class="show-more-container">
 					<button type="button" class="show-more-button full-changelog" onclick={goToFullChangelog}>
-						See complete changelog
+						Vollständiges Changelog ansehen
 					</button>
 				</div>
 			{/if}
 		{:else}
-			<div class="loading">Loading releases...</div>
+			<div class="loading">Releases werden geladen …</div>
 		{/if}
 	</div>
 </section>

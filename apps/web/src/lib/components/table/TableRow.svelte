@@ -103,7 +103,7 @@
 									iconColor="warning"
 								/>
 							{:else}
-								<span class="dynclmn-placeholder">No reviews</span>
+								<span class="dynclmn-placeholder">Keine Reviews</span>
 							{/if}
 						</div>
 					{:else if key === "date"}
@@ -152,7 +152,7 @@
 
 				<InfoFlexRow>
 					{#if columns.find((col) => col.key === "changes")}
-						<Factoid label="Changes">
+						<Factoid label="Änderungen">
 							<div class="dynclmn-changes">
 								<span class="dynclmn-changes_additions">
 									+{(columns.find((col) => col.key === "changes")?.value as ChangesType).additions}
@@ -165,13 +165,13 @@
 					{/if}
 
 					{#if columns.find((col) => col.key === "comments")}
-						<Factoid label="Comments" placeholderText="No comments">
+						<Factoid label="Kommentare" placeholderText="Keine Kommentare">
 							{columns.find((col) => col.key === "comments")?.value}
 						</Factoid>
 					{/if}
 
 					{#if columns.find((col) => col.key === "reviewers")}
-						<Factoid label="Reviewers" placeholderText="No reviews">
+						<Factoid label="Reviewer" placeholderText="Keine Reviews">
 							{@const reviewers = columns.find((col) => col.key === "reviewers")?.value as {
 								approvers: AvatarsType[];
 								rejectors: AvatarsType[];
@@ -196,13 +196,13 @@
 					{/if}
 
 					{#if columns.find((col) => col.key === "date")}
-						<Factoid label="Date">
+						<Factoid label="Datum">
 							{dayjs(columns.find((col) => col.key === "date")?.value as Date).fromNow()}
 						</Factoid>
 					{/if}
 
 					{#if columns.find((col) => col.key === "number")}
-						<Factoid label="Number">
+						<Factoid label="Nummer">
 							{columns.find((col) => col.key === "number")?.value}
 						</Factoid>
 					{/if}
@@ -225,7 +225,7 @@
 					{/if}
 
 					{#if columns.find((col) => col.key === "avatars")}
-						<Factoid label="Authors">
+						<Factoid label="Autoren">
 							<AvatarGroup
 								avatars={columns.find((col) => col.key === "avatars")?.value as AvatarsType[]}
 							/>

@@ -17,9 +17,9 @@
 	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
 	import { untrack } from "svelte";
 
-	const NO_REVIEWERS = "Not reviewed yet";
-	const NO_CONTRIBUTORS = "No contributors";
-	const NO_COMMENTS = "No comments yet";
+	const NO_REVIEWERS = "Noch nicht geprüft";
+	const NO_CONTRIBUTORS = "Keine Mitwirkenden";
+	const NO_COMMENTS = "Noch keine Kommentare";
 
 	interface Props {
 		projectId: string;
@@ -50,7 +50,7 @@
 	<Factoid label="Status">
 		<ChangeStatus {patchCommit} />
 	</Factoid>
-	<Factoid label="Reviewed by" placeholderText={NO_REVIEWERS}>
+	<Factoid label="Geprüft von" placeholderText={NO_REVIEWERS}>
 		{#await Promise.all([approvers, rejectors]) then [approvers, rejectors]}
 			{#if approvers.length > 0 || rejectors.length > 0}
 				<AvatarGroup avatars={rejectors} maxAvatars={2} icon="refresh" iconColor="warning" />
@@ -58,14 +58,14 @@
 			{/if}
 		{/await}
 	</Factoid>
-	<Factoid label="Commented by" placeholderText={NO_COMMENTS}>
+	<Factoid label="Kommentiert von" placeholderText={NO_COMMENTS}>
 		{#await commenters then commentors}
 			{#if commentors.length > 0}
 				<AvatarGroup avatars={commentors} />
 			{/if}
 		{/await}
 	</Factoid>
-	<Factoid label="Authors" placeholderText={NO_CONTRIBUTORS}>
+	<Factoid label="Autoren" placeholderText={NO_CONTRIBUTORS}>
 		{#await contributors then contributors}
 			{#if contributors.length > 0}
 				<AvatarGroup avatars={contributors} />
@@ -75,7 +75,7 @@
 	<Factoid label="Version">
 		v{patchCommit.version}
 	</Factoid>
-	<Factoid label="Commit SHA">
+	<Factoid label="Commit-SHA">
 		<button type="button" class="commit-sha" onclick={() => copyToClipboard(patchCommit.commitSha)}>
 			<span>
 				{commitShortSha}

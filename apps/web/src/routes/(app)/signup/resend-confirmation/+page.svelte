@@ -18,7 +18,7 @@
 	const messageCode = $derived(page.url.searchParams.get("message_code"));
 	const banner = $derived(
 		messageCode === "invalid_or_expired_token"
-			? "It seems that your confirmation token is invalid or has expired. Please try resending the confirmation email."
+			? "Es scheint, dass dein Bestätigungstoken ungültig ist oder abgelaufen ist. Bitte versuche, die Bestätigungs-E-Mail erneut zu senden."
 			: undefined,
 	);
 
@@ -30,7 +30,7 @@
 
 	async function resendConfirmationEmail() {
 		if (!emailToSendTo) {
-			error = "Please enter your email to resend the confirmation email.";
+			error = "Bitte gib deine E-Mail-Adresse ein, um die Bestätigungs-E-Mail erneut zu senden.";
 			return;
 		}
 		const response = await loginService.resendConfirmationEmail(emailToSendTo);
@@ -38,26 +38,26 @@
 			error = response.errorMessage;
 			console.error("Failed to resend confirmation email:", response.raw ?? response.errorMessage);
 		} else {
-			message = "Confirmation email resent. Please check your inbox.";
+			message = "Bestätigungs-E-Mail erneut gesendet. Bitte überprüfe deinen Posteingang.";
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>GitButler | Resend Confirmation</title>
+	<title>GitButler | Bestätigung erneut senden</title>
 </svelte:head>
 
 <FullscreenUtilityCard
-	title="Resend Confirmation"
-	backlink={{ label: "Login", href: routesService.loginPath() }}
+	title="Bestätigung erneut senden"
+	backlink={{ label: "Anmelden", href: routesService.loginPath() }}
 >
 	{#if email}
 		<p class="text-13 text-body">
-			We send a confirmation email to <i class="clr-text-2">{email}</i>.
+			Wir senden eine Bestätigungs-E-Mail an <i class="clr-text-2">{email}</i>.
 		</p>
 	{:else}
 		<div class="stack-v gap-16">
-			<EmailTextbox bind:this={emailTextbox} bind:value={inputEmail} label="Email" />
+			<EmailTextbox bind:this={emailTextbox} bind:value={inputEmail} label="E-Mail" />
 
 			{#if error}
 				<InfoMessage filled outlined={false} style="danger">
@@ -84,7 +84,7 @@
 			{/if}
 
 			<Button style="pop" disabled={!canSubmit} onclick={resendConfirmationEmail}
-				>Resend Confirmation Email</Button
+				>Bestätigungs-E-Mail erneut senden</Button
 			>
 		</div>
 	{/if}

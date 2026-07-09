@@ -47,7 +47,7 @@
 			}
 		} catch (error) {
 			chipToasts.error(
-				`Failed to fetch organization details: ${error instanceof Error ? error.message : "Unknown error"}`,
+				`Organisationsdetails konnten nicht abgerufen werden: ${error instanceof Error ? error.message : "Unbekannter Fehler"}`,
 			);
 		} finally {
 			isLoading = false;
@@ -71,7 +71,7 @@
 				description,
 			});
 
-			chipToasts.success("Organization updated successfully");
+			chipToasts.success("Organisation erfolgreich aktualisiert");
 
 			// Notify parent component about the update
 			onUpdate(sluggifiedSlug);
@@ -85,7 +85,7 @@
 			}
 		} catch (error) {
 			chipToasts.error(
-				`Failed to update organization: ${error instanceof Error ? error.message : "Unknown error"}`,
+				`Organisation konnte nicht aktualisiert werden: ${error instanceof Error ? error.message : "Unbekannter Fehler"}`,
 			);
 		} finally {
 			isLoading = false;
@@ -104,21 +104,21 @@
 	}
 </script>
 
-<Modal bind:this={modal} title="Edit Organization" onClose={onModalClose} width="medium">
+<Modal bind:this={modal} title="Organisation bearbeiten" onClose={onModalClose} width="medium">
 	<div class="form-container">
 		<Textbox bind:value={name} label="Name" required={submitAttempted} disabled={isLoading} />
 
 		<Textbox bind:value={slug} label="Slug" required={submitAttempted} disabled={isLoading} />
 
 		{#if slug !== sluggifiedSlug}
-			<p class="slug-note">Slug will be saved as: {sluggifiedSlug}</p>
+			<p class="slug-note">Slug wird gespeichert als: {sluggifiedSlug}</p>
 		{/if}
 
-		<Textarea bind:value={description} label="Description" disabled={isLoading} />
+		<Textarea bind:value={description} label="Beschreibung" disabled={isLoading} />
 	</div>
 
 	{#snippet controls(close)}
-		<Button kind="outline" onclick={close} disabled={isLoading}>Cancel</Button>
+		<Button kind="outline" onclick={close} disabled={isLoading}>Abbrechen</Button>
 
 		<Button
 			style="pop"
@@ -126,7 +126,7 @@
 			loading={isLoading}
 			onclick={() => updateOrganization(close)}
 		>
-			Save Changes
+			Änderungen speichern
 		</Button>
 	{/snippet}
 </Modal>

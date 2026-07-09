@@ -35,7 +35,7 @@
 		return os === "unknown" ? "macOS" : os;
 	});
 
-	const downloadButtonText = $derived(`Download GitButler for ${detectedOS}`);
+	const downloadButtonText = $derived(`GitButler für ${detectedOS} herunterladen`);
 
 	const downloadLink = $derived.by(() => {
 		switch (detectedOS) {
@@ -51,7 +51,7 @@
 
 	async function refreshAccessToken() {
 		await userService.refreshAccessToken();
-		chipToasts.success("Access token refreshed successfully");
+		chipToasts.success("Zugriffstoken erfolgreich aktualisiert");
 	}
 
 	function logout() {
@@ -74,20 +74,20 @@
 		if (response.type === "success" && response.data) {
 			copyToClipboard(response.data);
 		} else {
-			chipToasts.error("Failed to get token");
+			chipToasts.error("Token konnte nicht abgerufen werden");
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>GitButler | User</title>
+	<title>GitButler | Benutzer</title>
 </svelte:head>
 
 {#if !$user?.id}
 	<div class="not-logged-in">
-		<h3 class="text-18 text-bold">It looks like you're not logged in</h3>
+		<h3 class="text-18 text-bold">Es sieht so aus, als wärst du nicht angemeldet</h3>
 		<p class="text-14 text-body clr-text-2">
-			Please <a class="underline" href="/login">log in</a> to access your profile
+			Bitte <a class="underline" href="/login">melde dich an</a>, um auf dein Profil zuzugreifen
 		</p>
 	</div>
 {:else}
@@ -110,44 +110,44 @@
 			{#if $user}
 				<CardGroup.Item standalone>
 					{#snippet title()}
-						Signing out
+						Abmelden
 					{/snippet}
 					{#snippet caption()}
-						Ready to take a break? Click here to log out and unwind.
+						Bereit für eine Pause? Klicke hier, um dich abzumelden und zu entspannen.
 					{/snippet}
 					{#snippet actions()}
-						<Button kind="outline" icon="logout" onclick={logout}>Log out</Button>
+						<Button kind="outline" icon="logout" onclick={logout}>Abmelden</Button>
 					{/snippet}
 				</CardGroup.Item>
 
 				<CardGroup>
 					<CardGroup.Item>
 						{#snippet title()}
-							Access token
+							Zugriffstoken
 						{/snippet}
 						{#snippet caption()}
-							Your access token is used to authenticate the GitButler clients with our API.
+							Dein Zugriffstoken wird verwendet, um die GitButler-Clients bei unserer API zu authentifizieren.
 							<br />
-							Keep it secure and refresh it periodically for enhanced security.
+							Bewahre es sicher auf und aktualisiere es regelmäßig für mehr Sicherheit.
 						{/snippet}
 					</CardGroup.Item>
 					<CardGroup.Item alignment="center">
 						{#snippet caption()}
-							Copy your token to use with the desktop app or CLI.
+							Kopiere dein Token zur Verwendung mit der Desktop-App oder der CLI.
 						{/snippet}
 						{#snippet actions()}
-							<Button kind="outline" icon="copy" onclick={copyAccessToken}>Copy token</Button>
+							<Button kind="outline" icon="copy" onclick={copyAccessToken}>Token kopieren</Button>
 						{/snippet}
 					</CardGroup.Item>
 					<CardGroup.Item>
 						{#snippet caption()}
-							Refresh your token if you notice unusual activity.
+							Aktualisiere dein Token, wenn du ungewöhnliche Aktivitäten bemerkst.
 							<br />
-							This logs you out everywhere, including the desktop app.
+							Dadurch wirst du überall abgemeldet, einschließlich der Desktop-App.
 						{/snippet}
 						{#snippet actions()}
 							<Button kind="outline" icon="refresh" onclick={refreshAccessToken}
-								>Refresh token</Button
+								>Token aktualisieren</Button
 							>
 						{/snippet}
 					</CardGroup.Item>
@@ -158,17 +158,17 @@
 				<CardGroup>
 					<CardGroup.Item>
 						{#snippet title()}
-							Danger zone
+							Gefahrenzone
 						{/snippet}
 					</CardGroup.Item>
 					<CardGroup.Item>
 						{#snippet caption()}
-							Permanently delete your account and all data.
+							Lösche dein Konto und alle Daten dauerhaft.
 							<br />
-							This action cannot be undone.
+							Diese Aktion kann nicht rückgängig gemacht werden.
 						{/snippet}
 						{#snippet actions()}
-							<Button style="danger" onclick={initiateDeleteAccount}>Delete my account…</Button>
+							<Button style="danger" onclick={initiateDeleteAccount}>Mein Konto löschen…</Button>
 						{/snippet}
 					</CardGroup.Item>
 				</CardGroup>
@@ -186,7 +186,7 @@
 						<img class="download-card__icon" src="/images/app-icon.svg" alt="" />
 
 						<p class="text-12 text-body clr-text-2 text-balance">
-							Get the desktop app for Mac, Windows, and Linux.
+							Hol dir die Desktop-App für Mac, Windows und Linux.
 						</p>
 					</div>
 
@@ -197,9 +197,9 @@
 					<hr class="download-card__divider" />
 
 					<p class="download-card__other-text text-12">
-						Get the app for
+						Hol dir die App für
 						<a href={linksJson.resources.downloads.url} target="_self" rel="noopener noreferrer">
-							other platforms
+							andere Plattformen
 						</a>
 						↗
 					</p>
@@ -219,10 +219,10 @@
 				>
 					<div class="tip-link__title">
 						<Icon name="docs" color="var(--text-2)" />
-						<h3 class="text-14 text-semibold">Get Started</h3>
+						<h3 class="text-14 text-semibold">Erste Schritte</h3>
 					</div>
 					<p class="text-12 text-body clr-text-2">
-						Explore comprehensive guides and best practices.
+						Entdecke umfassende Anleitungen und bewährte Vorgehensweisen.
 					</p>
 
 					<span class="tip-link__arrow-icon">↗</span>
@@ -235,19 +235,19 @@
 				>
 					<div class="tip-link__title">
 						<Icon name="discord" color="var(--text-2)" />
-						<h3 class="text-14 text-semibold">Join the Community</h3>
+						<h3 class="text-14 text-semibold">Werde Teil der Community</h3>
 					</div>
-					<p class="text-12 text-body clr-text-2">Join our Discord for help and discussion.</p>
+					<p class="text-12 text-body clr-text-2">Tritt unserem Discord bei für Hilfe und Austausch.</p>
 
 					<span class="tip-link__arrow-icon">↗</span>
 				</a>
 				<a class="tip-link" href={linksJson.other.support.url}>
 					<div class="tip-link__title">
 						<Icon name="chat" color="var(--text-2)" />
-						<h3 class="text-14 text-semibold">Need Help?</h3>
+						<h3 class="text-14 text-semibold">Brauchst du Hilfe?</h3>
 					</div>
 					<p class="text-12 text-body clr-text-2">
-						Create an issue on GitHub. We're here to assist!
+						Erstelle ein Issue auf GitHub. Wir helfen dir gerne!
 					</p>
 
 					<span class="tip-link__arrow-icon">↗</span>
@@ -257,17 +257,17 @@
 	</div>
 {/if}
 
-<Modal bind:this={deleteAccountConfirmationModal} title="Confirm account deletion" width="small">
+<Modal bind:this={deleteAccountConfirmationModal} title="Kontolöschung bestätigen" width="small">
 	<p class="text-13 text-body">
-		Are you sure you want to delete your account?
+		Bist du sicher, dass du dein Konto löschen möchtest?
 		<br />
-		This action is <b>irreversible</b> and will permanently remove all your data from our servers.
+		Diese Aktion ist <b>unumkehrbar</b> und entfernt alle deine Daten dauerhaft von unseren Servern.
 	</p>
 	{#snippet controls(close)}
 		<div class="flex flex-row gap-8 justify-end">
-			<Button style="pop" onclick={close}>Cancel</Button>
+			<Button style="pop" onclick={close}>Abbrechen</Button>
 			<Button style="danger" icon="bin" kind="outline" onclick={deleteAccount}
-				>Delete permanently</Button
+				>Endgültig löschen</Button
 			>
 		</div>
 	{/snippet}

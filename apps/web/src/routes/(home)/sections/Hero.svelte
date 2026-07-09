@@ -38,7 +38,7 @@
 				type="button"
 				class="video-preview"
 				onclick={openVideoOverlay}
-				aria-label="Watch demo video"
+				aria-label="Demo-Video ansehen"
 				onmouseenter={(e) => e.currentTarget.querySelector("video")?.play()}
 				onmouseleave={(e) => {
 					const video = e.currentTarget.querySelector("video");

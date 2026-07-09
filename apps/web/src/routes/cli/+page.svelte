@@ -13,11 +13,11 @@
 
 <Hero currentPage="cli">
 	{#snippet descriptionContent()}
-		A more intuitive Git terminal experience. Stacked branches, unlimited undo, and parallel
-		branches work exactly how you'd expect. Perfect for teams, solo developers or AI-assisted
-		coding.
+		Ein intuitiveres Git-Terminal-Erlebnis. Gestapelte Branches, unbegrenztes Rückgängigmachen und
+		parallele Branches funktionieren genau so, wie du es erwartest. Perfekt für Teams, einzelne
+		Entwickler oder KI-gestütztes Coding.
 		<br /><br />
-		Works with any Git repo. Seamlessly fits your workflow.
+		Funktioniert mit jedem Git-Repo. Fügt sich nahtlos in deinen Workflow ein.
 	{/snippet}
 </Hero>
 <Features />

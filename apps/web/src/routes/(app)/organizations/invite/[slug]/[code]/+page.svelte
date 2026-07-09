@@ -49,7 +49,7 @@
 			}, 1500);
 		} catch (error: any) {
 			// Try to extract error message from JSON response if available
-			let errorMessage = "Failed to join organization";
+			let errorMessage = "Beitritt zur Organisation fehlgeschlagen";
 			try {
 				// Check if error has a response with JSON data
 				if (error.response && error.response.data) {
@@ -98,32 +98,32 @@
 
 <div class="invite-container">
 	<div class="invite-card">
-		<h1>Organization Invitation</h1>
+		<h1>Einladung zur Organisation</h1>
 
 		{#if !isLoggedIn}
-			<p>You've been invited to join <strong>{slug}</strong>.</p>
-			<p>Please log in to continue.</p>
-			<Button onclick={goToLogin} style="pop">Log In</Button>
+			<p>Sie wurden eingeladen, <strong>{slug}</strong> beizutreten.</p>
+			<p>Bitte melden Sie sich an, um fortzufahren.</p>
+			<Button onclick={goToLogin} style="pop">Anmelden</Button>
 		{:else if isJoining}
 			<div class="loading-container">
-				<p>Joining organization...</p>
+				<p>Organisation wird beigetreten…</p>
 			</div>
 		{:else if joinError}
 			<p>{joinError}</p>
 			<div class="button-container">
-				<Button onclick={handleRetry} style="pop">Try Again</Button>
+				<Button onclick={handleRetry} style="pop">Erneut versuchen</Button>
 			</div>
 		{:else if joinSuccess}
-			<p>You have successfully joined the organization.</p>
-			<p>Redirecting to the organization page...</p>
+			<p>Sie sind der Organisation erfolgreich beigetreten.</p>
+			<p>Sie werden zur Organisationsseite weitergeleitet…</p>
 		{:else if showConfirmation}
-			<p>You've been invited to join <strong>{slug}</strong>.</p>
-			<p>Would you like to accept this invitation?</p>
+			<p>Sie wurden eingeladen, <strong>{slug}</strong> beizutreten.</p>
+			<p>Möchten Sie diese Einladung annehmen?</p>
 			<div class="button-container">
-				<Button onclick={handleConfirm} style="pop">Join Organization</Button>
+				<Button onclick={handleConfirm} style="pop">Organisation beitreten</Button>
 			</div>
 		{:else}
-			<p>Processing your invitation...</p>
+			<p>Ihre Einladung wird verarbeitet…</p>
 		{/if}
 	</div>
 </div>

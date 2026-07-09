@@ -47,12 +47,12 @@
 
 <section class="for-agents">
 	<SectionHeader>
-		Optimized <i>for</i> Coding Agents
+		Optimiert <i>für</i> Coding-Agenten
 	</SectionHeader>
 	<p class="text-16 text-body for-agents__description">
-		GitButler was designed from the ground up to work seamlessly with AI coding agents.
+		GitButler wurde von Grund auf entwickelt, um nahtlos mit KI-Coding-Agenten zu funktionieren.
 		<br />
-		Predictable commands, structured output, and automation-friendly workflows.
+		Vorhersehbare Befehle, strukturierte Ausgabe und automatisierungsfreundliche Workflows.
 	</p>
 	<Features items={AiFeaturesJson} noMargin />
 	<div class="for-agents__terminal">

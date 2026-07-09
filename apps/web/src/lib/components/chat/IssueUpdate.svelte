@@ -4,7 +4,7 @@
 	import { Icon } from "@gitbutler/ui";
 	import type { IssueUpdateEvent } from "@gitbutler/shared/patchEvents/types";
 
-	const UNKNOWN_AUTHOR = "Unknown author";
+	const UNKNOWN_AUTHOR = "Unbekannter Autor";
 
 	interface Props {
 		event: IssueUpdateEvent;
@@ -33,7 +33,7 @@
 				<Icon name="tick" />
 			</div>
 
-			<p class="text-12 issue-update__status">resolved</p>
+			<p class="text-12 issue-update__status">gelöst</p>
 		{/if}
 
 		<div class="text-12 issue-update__timestamp" title={event.createdAt}>{timestamp}</div>

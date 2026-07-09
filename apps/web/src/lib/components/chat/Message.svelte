@@ -45,7 +45,7 @@
 	import { SvelteSet } from "svelte/reactivity";
 	import type { ChatEvent } from "@gitbutler/shared/patchEvents/types";
 	import type { UserSimple } from "@gitbutler/shared/users/types";
-	const UNKNOWN_AUTHOR = "Unknown author";
+	const UNKNOWN_AUTHOR = "Unbekannter Autor";
 
 	const {
 		event,
@@ -140,13 +140,13 @@
 	function getReactionTooltip(users: UserSimple[]) {
 		const thisUsername = $user?.login;
 		if (users.length === 0) return "";
-		const formatted = users.map((user) => (user.login === thisUsername ? "You" : user.login));
+		const formatted = users.map((user) => (user.login === thisUsername ? "Du" : user.login));
 		if (formatted.length < 4) return formatted.map((user) => user).join(", ");
 		return (
 			formatted
 				.slice(0, 3)
 				.map((user) => user)
-				.join(", ") + ` and ${formatted.length - 3} more`
+				.join(", ") + ` und ${formatted.length - 3} weitere`
 		);
 	}
 
@@ -185,7 +185,7 @@
 
 			{#if message.issue}
 				{#if message.resolved}
-					<Badge style="safe">Issue resolved</Badge>
+					<Badge style="safe">Issue gelöst</Badge>
 				{:else}
 					<Badge style="warning">Issue</Badge>
 				{/if}
@@ -266,7 +266,7 @@
 				bind:el={emojiPickerTrigger}
 				activated={isOpenedByEmojiPicker}
 				icon="smile"
-				tooltip="Give me more emojis"
+				tooltip="Mehr Emojis anzeigen"
 				thin
 				overrideYScroll={0}
 				onclick={() => {
@@ -277,7 +277,7 @@
 			<!-- Reply -->
 			<PopoverActionsItem
 				icon="arrow-corner-up-right"
-				tooltip="Reply"
+				tooltip="Antworten"
 				thin
 				onclick={() => onReply()}
 				overrideYScroll={0}
@@ -288,7 +288,7 @@
 				bind:el={kebabMenuTrigger}
 				activated={isOpenedByKebabButton}
 				icon="kebab"
-				tooltip="More options"
+				tooltip="Weitere Optionen"
 				thin
 				onclick={() => {
 					contextMenuOpen = !contextMenuOpen;

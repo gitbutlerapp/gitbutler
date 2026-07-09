@@ -50,9 +50,9 @@
 
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<p class="text-12 patch-verssion__message" onclick={viewInterdiff}>
-			published a new <span class="interdiff-version text-bold"
-				>commit version #{patch.version}</span
-			>
+			hat eine neue <span class="interdiff-version text-bold"
+				>Commit-Version #{patch.version}</span
+			> veröffentlicht
 		</p>
 
 		<div class="text-12 patch-version__timestamp" title={event.createdAt}>{timestamp}</div>

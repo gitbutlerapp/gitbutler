@@ -84,7 +84,7 @@
 						<li>
 							<div class="suggestion-item">
 								<p class="suggestion-item__no-match text-13 text-tertiary name truncate">
-									No matches found ¯\_(ツ)_/¯
+									Keine Treffer gefunden ¯\_(ツ)_/¯
 								</p>
 							</div>
 						</li>
@@ -92,7 +92,7 @@
 						<li>
 							<div class="suggestion-item">
 								<p class="suggestion-item__no-match text-13 text-tertiary name truncate">
-									Loading...
+									Wird geladen …
 								</p>
 							</div>
 						</li>

@@ -15,14 +15,14 @@
 		loading?: boolean;
 	}
 
-	let { projects, ownerSlug, sectionTitle = "Projects", loading = false }: Props = $props();
+	let { projects, ownerSlug, sectionTitle = "Projekte", loading = false }: Props = $props();
 </script>
 
 <div class="section-card projects-section">
 	<h2 class="section-title">{sectionTitle}</h2>
 	{#if loading}
 		<div class="loading-state">
-			<p>Loading projects...</p>
+			<p>Projekte werden geladen...</p>
 		</div>
 	{:else if projects.length > 0}
 		<div class="projects-grid">
@@ -33,7 +33,7 @@
 							<a href="/{ownerSlug}/{project.slug}">{project.name || project.slug}</a>
 						</h3>
 						{#if project.updated_at}
-							<span class="updated-at">Updated {getRelativeTime(project.updated_at)}</span>
+							<span class="updated-at">Aktualisiert {getRelativeTime(project.updated_at)}</span>
 						{/if}
 					</div>
 					{#if project.description}
@@ -44,7 +44,7 @@
 		</div>
 	{:else}
 		<div class="empty-state">
-			<p>No projects found.</p>
+			<p>Keine Projekte gefunden.</p>
 		</div>
 	{/if}
 </div>

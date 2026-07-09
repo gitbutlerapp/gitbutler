@@ -136,9 +136,9 @@
 	}
 
 	const actionLabels = {
-		approve: "Approve commit",
-		openIssue: "Open issue",
-		requestChanges: "Request changes",
+		approve: "Commit genehmigen",
+		openIssue: "Issue öffnen",
+		requestChanges: "Änderungen anfordern",
 	} as const;
 
 	type Action = keyof typeof actionLabels;
@@ -183,7 +183,7 @@
 	}
 
 	const actionButtonLabel = $derived.by(() => {
-		const suffix = messageHandler.message ? " & Comment" : "";
+		const suffix = messageHandler.message ? " & Kommentieren" : "";
 		return actionLabels[action] + suffix;
 	});
 
@@ -245,7 +245,7 @@
 
 			<RichTextEditor
 				styleContext="chat-input"
-				placeholder="Write your message"
+				placeholder="Schreibe deine Nachricht"
 				bind:this={richText.richTextEditor}
 				namespace="ChatInput"
 				onError={console.error}
@@ -275,7 +275,7 @@
 							shrinkable
 							width="100%"
 						>
-							<span style="opacity: 0.4">Paste or drop to add files</span>
+							<span style="opacity: 0.4">Einfügen oder ablegen, um Dateien hinzuzufügen</span>
 						</Button>
 					</div>
 				</div>
@@ -321,7 +321,7 @@
 						style="pop"
 						loading={isSendingMessage || isExecuting}
 						disabled={!messageHandler.message}
-						onclick={handleClickSend}>Comment</Button
+						onclick={handleClickSend}>Kommentieren</Button
 					>
 				</div>
 			</div>
@@ -329,8 +329,8 @@
 	</div>
 {:else}
 	<div class="chat-input-notlooged">
-		<p class="text-12">🔒 You must be logged in to join the conversation</p>
-		<Button style="pop" onclick={login}>Log in to comment</Button>
+		<p class="text-12">🔒 Du musst angemeldet sein, um an der Unterhaltung teilzunehmen</p>
+		<Button style="pop" onclick={login}>Zum Kommentieren anmelden</Button>
 	</div>
 {/if}
 

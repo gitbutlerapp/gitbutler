@@ -6,19 +6,19 @@
 <Spacer />
 
 <div class="stack-v gap-8">
-	<h2 class="text-15 text-bold">Experimental</h2>
+	<h2 class="text-15 text-bold">Experimentell</h2>
 	<p class="text-12 text-body clr-text-2">
-		These settings enable experimental features that are still in development.
+		Diese Einstellungen aktivieren experimentelle Funktionen, die sich noch in der Entwicklung befinden.
 		<br />
-		They may be unstable or incomplete. Use them at your own risk.
+		Sie können instabil oder unvollständig sein. Die Nutzung erfolgt auf eigenes Risiko.
 	</p>
 </div>
 
 <CardGroup>
 	<CardGroup.Item labelFor="showOrganizations">
-		{#snippet title()}Organizations{/snippet}
+		{#snippet title()}Organisationen{/snippet}
 		{#snippet caption()}
-			Organizations are a way of linking together projects.
+			Organisationen sind eine Möglichkeit, Projekte miteinander zu verknüpfen.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -30,9 +30,9 @@
 	</CardGroup.Item>
 
 	<CardGroup.Item labelFor="showProjectPage">
-		{#snippet title()}User / Organization / Project Pages{/snippet}
+		{#snippet title()}Benutzer- / Organisations- / Projektseiten{/snippet}
 		{#snippet caption()}
-			This will show the stub landing pages for orgs, users and projects.
+			Dies zeigt die vorläufigen Landingpages für Organisationen, Benutzer und Projekte an.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle

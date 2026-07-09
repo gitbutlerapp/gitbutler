@@ -19,7 +19,7 @@
 
 <div class="navigation">
 	<div class="domains">
-		<a href="/" class="main-nav" aria-label="main nav" title="Home">
+		<a href="/" class="main-nav" aria-label="Hauptnavigation" title="Startseite">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				width="23"
@@ -32,7 +32,7 @@
 		</a>
 
 		{#if $user}
-			<a class="nav-link nav-button" href="/organizations" aria-label="organizations">
+			<a class="nav-link nav-button" href="/organizations" aria-label="Organisationen">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					width="16"
@@ -59,8 +59,8 @@
 			<a
 				class="nav-link nav-button"
 				href={routes.projectsPath()}
-				aria-label="projects"
-				title="Projects"
+				aria-label="Projekte"
+				title="Projekte"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -141,7 +141,7 @@
 				</svg>
 			{/if}
 		</button>
-		<a class="nav-link nav-button" href="/downloads" aria-label="downloads" title="Downloads">
+		<a class="nav-link nav-button" href="/downloads" aria-label="Downloads" title="Downloads">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				width="16"
@@ -162,8 +162,8 @@
 		<a
 			class="nav-link email"
 			href="mailto:hello@gitbutler.com"
-			aria-label="contact us"
-			title="Contact Us"
+			aria-label="Kontakt"
+			title="Kontakt"
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

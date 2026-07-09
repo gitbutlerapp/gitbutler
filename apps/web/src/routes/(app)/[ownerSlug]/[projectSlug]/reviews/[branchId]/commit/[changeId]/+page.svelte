@@ -26,7 +26,7 @@
 	} from "@gitbutler/shared/routing/webRoutes.svelte";
 	import { Button, Markdown } from "@gitbutler/ui";
 
-	const DESCRIPTION_PLACE_HOLDER = "No commit message description provided";
+	const DESCRIPTION_PLACE_HOLDER = "Keine Beschreibung zur Commit-Nachricht vorhanden";
 
 	interface Props {
 		data: ProjectReviewCommitParameters;
@@ -183,7 +183,7 @@
 	{:else}
 		<title>GitButler Review</title>
 		<meta property="og:title" content="Butler Review: {data.ownerSlug}/{data.projectSlug}" />
-		<meta property="og:description" content="GitButler code review" />
+		<meta property="og:description" content="GitButler Code-Review" />
 	{/if}
 </svelte:head>
 
@@ -196,7 +196,7 @@
 		<PrivateProjectError />
 	{:else if isError(combinedLoadable)}
 		<div class="error-container">
-			<h2 class="text-15 text-body text-bold">Error loading project data</h2>
+			<h2 class="text-15 text-body text-bold">Fehler beim Laden der Projektdaten</h2>
 			<p class="text-13 text-body">{combinedLoadable.error.message}</p>
 		</div>
 	{/if}
@@ -264,7 +264,7 @@
 					<div class="review-main__meta">
 						<ReviewInfo projectId={repositoryId} {patchCommit} />
 						<div class="review-main-description">
-							<span class="text-12 review-main-description__caption">Commit message:</span>
+							<span class="text-12 review-main-description__caption">Commit-Nachricht:</span>
 							<p class="review-main-description__markdown">
 								{#if patchCommit.description?.trim()}
 									<Markdown content={patchCommit.description} />

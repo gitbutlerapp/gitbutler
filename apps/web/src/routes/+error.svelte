@@ -7,7 +7,7 @@
 	<div class="title">
 		{page.status}
 	</div>
-	<div class="subtitle">Error</div>
+	<div class="subtitle">Fehler</div>
 </section>
 
 <Footer />

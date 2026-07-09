@@ -159,7 +159,7 @@
 		if (!hasNavigation) return [];
 
 		if (page.route.id === "/(app)/profile") {
-			return [{ label: "Profile", href: "/profile" }];
+			return [{ label: "Profil", href: "/profile" }];
 		}
 		return [];
 	}

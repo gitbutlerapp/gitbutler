@@ -11,11 +11,11 @@
 
 	<div class="footer-links">
 		<a class="footer-link underline" href="https://gitbutler.com/privacy" target="_blank">
-			Privacy Policy
+			Datenschutz
 		</a>
 		<span> | </span>
 		<a class="footer-link underline" href="https://gitbutler.com/terms" target="_blank">
-			Terms of Service
+			Nutzungsbedingungen
 		</a>
 	</div>
 </footer>

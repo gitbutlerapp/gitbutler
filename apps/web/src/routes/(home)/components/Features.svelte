@@ -32,7 +32,7 @@
 			<a class="feature-item" href={item.link} target="_blank" rel="noopener noreferrer">
 				<div class="features__link-indicator">
 					<div class="features__link-indicator-brakets">[</div>
-					<div class="features__link-indicator-text">Learn More</div>
+					<div class="features__link-indicator-text">Mehr erfahren</div>
 					<div class="features__link-indicator-arrow">&#8599;</div>
 					<div class="features__link-indicator-brakets">]</div>
 				</div>

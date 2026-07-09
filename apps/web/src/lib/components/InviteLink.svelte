@@ -56,7 +56,7 @@
 
 		// Show confirmation dialog
 		const confirmed = confirm(
-			"Are you sure you want to reset the invite code? This will invalidate all existing invite links.",
+			"Möchtest du den Einladungscode wirklich zurücksetzen? Dadurch werden alle bestehenden Einladungslinks ungültig.",
 		);
 
 		if (confirmed) {
@@ -73,7 +73,7 @@
 				updateInviteUrl();
 			} catch (error) {
 				console.error("Failed to reset invite code:", error);
-				alert("Failed to reset invite code. Please try again.");
+				alert("Einladungscode konnte nicht zurückgesetzt werden. Bitte versuche es erneut.");
 			} finally {
 				resetting = false;
 			}
@@ -83,30 +83,31 @@
 
 {#if inviteCode}
 	<div class="invite-link-container">
-		<p>Share this link to invite people to join this organization:</p>
+		<p>Teile diesen Link, um Personen zu dieser Organisation einzuladen:</p>
 
 		<div class="invite-url-container">
 			<Textbox readonly value={inviteCode} />
-			<Button onclick={copyToClipboard} style={copied ? "safe" : "pop"}>copy url</Button>
+			<Button onclick={copyToClipboard} style={copied ? "safe" : "pop"}>URL kopieren</Button>
 		</div>
 
 		<p class="info-text">
-			Anyone with this link can join your organization by accepting the invitation.
+			Jeder mit diesem Link kann deiner Organisation beitreten, indem er die Einladung annimmt.
 		</p>
 
 		<div class="reset-container">
 			<Button onclick={resetInviteCode} style="warning" disabled={resetting || serviceError}>
 				{#if serviceError}
-					Service Unavailable
+					Dienst nicht verfügbar
 				{:else if resetting}
-					Resetting...
+					Wird zurückgesetzt...
 				{:else}
-					Reset Invite Code
+					Einladungscode zurücksetzen
 				{/if}
 			</Button>
 			{#if serviceError}
 				<p class="error-text">
-					Reset functionality is currently unavailable. The organization service could not be found.
+					Die Zurücksetzen-Funktion ist derzeit nicht verfügbar. Der Organisationsdienst konnte nicht
+					gefunden werden.
 				</p>
 			{/if}
 		</div>

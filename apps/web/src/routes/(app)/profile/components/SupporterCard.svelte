@@ -4,15 +4,15 @@
 </script>
 
 <div class="supporter-card">
-	<h3 class="text-15 text-bold">🎉 Thank you for being a supporter!</h3>
+	<h3 class="text-15 text-bold">🎉 Danke, dass du uns unterstützt!</h3>
 	<p class="text-12 text-body clr-text-2">
-		Your support helps us build a better GitButler.<br />We appreciate your contribution.
+		Deine Unterstützung hilft uns, GitButler noch besser zu machen.<br />Wir schätzen deinen Beitrag.
 	</p>
 	<Button
 		style="pop"
 		onclick={() => (window.location.href = `${env.PUBLIC_APP_HOST}supporter/portal`)}
 	>
-		Manage your subscription
+		Abonnement verwalten
 	</Button>
 </div>
 

@@ -2,25 +2,25 @@
 	import SectionHeader from "$home/components/SectionHeader.svelte";
 
 	const features = [
-		{ name: "Stacked branch workflows", git: false, gitbutler: true },
-		{ name: "Work on multiple branches simultaneously", git: false, gitbutler: true },
-		{ name: "Unlimited undo/redo", git: false, gitbutler: true },
-		{ name: "Simple, predictable rebasing", git: false, gitbutler: true },
-		{ name: "Fast worktree management", git: false, gitbutler: true },
-		{ name: "AI agent-friendly commands", git: false, gitbutler: true },
-		{ name: "Make commits", git: true, gitbutler: true },
-		{ name: "Works with Git repositories", git: true, gitbutler: true },
+		{ name: "Gestapelte Branch-Workflows", git: false, gitbutler: true },
+		{ name: "Gleichzeitig an mehreren Branches arbeiten", git: false, gitbutler: true },
+		{ name: "Unbegrenztes Rückgängig/Wiederholen", git: false, gitbutler: true },
+		{ name: "Einfaches, vorhersehbares Rebasing", git: false, gitbutler: true },
+		{ name: "Schnelle Worktree-Verwaltung", git: false, gitbutler: true },
+		{ name: "KI-Agent-freundliche Befehle", git: false, gitbutler: true },
+		{ name: "Commits erstellen", git: true, gitbutler: true },
+		{ name: "Funktioniert mit Git-Repositories", git: true, gitbutler: true },
 	];
 </script>
 
 <section class="comparison-wrapper">
 	<SectionHeader>
-		What <i>But gives you</i> over Git
+		Was <i>But dir bietet</i> gegenüber Git
 	</SectionHeader>
 
 	<div class="comparison-table">
 		<div class="text-16 text-bold table-header">
-			<div class="header-cell feature-header">Feature</div>
+			<div class="header-cell feature-header">Funktion</div>
 			<div class="header-cell">Git</div>
 			<div class="header-cell">GitButler</div>
 		</div>
@@ -96,10 +96,10 @@
 
 	<div class="comparison-description">
 		<p class="text-15 text-body text-center text-balance">
-			GitButler works with your existing Git repositories and remotes.
+			GitButler funktioniert mit deinen bestehenden Git-Repositories und Remotes.
 		</p>
 		<p class="text-15 text-body text-center text-balance">
-			Zero configuration required. It simply layers onto your current workflow.
+			Keine Konfiguration erforderlich. Es legt sich einfach über deinen aktuellen Workflow.
 		</p>
 		<svg
 			class="description-underline"

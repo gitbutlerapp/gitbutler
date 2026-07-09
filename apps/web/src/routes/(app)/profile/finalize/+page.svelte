@@ -41,17 +41,17 @@
 
 		if (!$user) {
 			// should not happen
-			error = "You must be logged in to finalize your account.";
+			error = "Du musst angemeldet sein, um dein Konto abzuschließen.";
 			return;
 		}
 
 		if (!effectiveEmail) {
-			error = "Email is required.";
+			error = "E-Mail-Adresse ist erforderlich.";
 			return;
 		}
 
 		if (!effectiveUsername) {
-			error = "Username is required.";
+			error = "Benutzername ist erforderlich.";
 			return;
 		}
 
@@ -79,23 +79,23 @@
 </script>
 
 <svelte:head>
-	<title>GitButler | Finalize Account</title>
+	<title>GitButler | Konto abschließen</title>
 </svelte:head>
 
 <FullscreenIllustrationCard illustration={newProjectSvg}>
 	{#snippet title()}
-		Almost <i>done</i>!
+		Fast <i>geschafft</i>!
 	{/snippet}
 
 	<form class="finalize-form__content" onsubmit={handleSubmit}>
 		<p class="text-12 text-base finalize-form__caption">
-			We need these details to set up your account properly.
+			Wir benötigen diese Angaben, um dein Konto korrekt einzurichten.
 		</p>
 		{#if !userLogin}
 			<UsernameTextbox bind:this={usernameTextbox} bind:value={username} />
 		{/if}
 		{#if !userEmail}
-			<EmailTextbox bind:this={emailTextbox} bind:value={email} label="Email" />
+			<EmailTextbox bind:this={emailTextbox} bind:value={email} label="E-Mail" />
 		{/if}
 
 		{#if error}
@@ -114,7 +114,7 @@
 			</InfoMessage>
 		{/if}
 
-		<Button style="pop" type="submit" disabled={!canSubmit}>Finalize Account</Button>
+		<Button style="pop" type="submit" disabled={!canSubmit}>Konto abschließen</Button>
 	</form>
 </FullscreenIllustrationCard>
 

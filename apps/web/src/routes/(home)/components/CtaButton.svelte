@@ -86,7 +86,7 @@
 		: '0'}) scale({isHovering ? 1.02 : 1})"
 >
 	<div class="download-btn__title">
-		<span class="download-btn__title">DOWNLOAD for {detectedOS}</span>
+		<span class="download-btn__title">DOWNLOAD für {detectedOS}</span>
 
 		<svg
 			class="download-btn-icon"
@@ -107,7 +107,7 @@
 <!-- MOBILE -->
 <a class="download-btn mobile" href={jsonLinks.resources.downloads.url}>
 	<div class="download-btn__title">
-		<span class="download-btn__title">DOWNLOAD <i>the</i> app</span>
+		<span class="download-btn__title">DOWNLOAD <i>die</i> App</span>
 	</div>
 	<span class="download-btn__version">Open Beta {$latestClientVersion}</span>
 

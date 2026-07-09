@@ -21,7 +21,7 @@
 
 <section class="ai-features">
 	<SectionHeader>
-		<i>Orchestrate</i> your AI Tools ✨
+		<i>Orchestriere</i> deine KI-Tools ✨
 	</SectionHeader>
 	<div class="ai-features__video">
 		{#if isPlaying}
@@ -29,7 +29,7 @@
 				width="100%"
 				height="100%"
 				src={`${contentJSON["ai-fetures-demo"]}&autoplay=1`}
-				title="YouTube video player"
+				title="YouTube-Videoplayer"
 				frameborder="0"
 				allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
 				referrerpolicy="strict-origin-when-cross-origin"
@@ -43,7 +43,7 @@
 				onclick={playVideo}
 				onkeydown={handleKeydown}
 			>
-				<img src="images/ai-demo.png" alt="AI Features Demo" loading="lazy" />
+				<img src="images/ai-demo.png" alt="KI-Features-Demo" loading="lazy" />
 				<div class="play-button">
 					<svg
 						width="70"

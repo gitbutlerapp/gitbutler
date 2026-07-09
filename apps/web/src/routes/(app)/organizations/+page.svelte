@@ -45,18 +45,18 @@
 	<header class="page-header">
 		<div class="page-title">
 			<Icon name="settings" />
-			<h1>Organizations</h1>
+			<h1>Organisationen</h1>
 		</div>
-		<p class="page-description">Manage your organizations and team collaboration settings</p>
+		<p class="page-description">Verwalten Sie Ihre Organisationen und Einstellungen zur Zusammenarbeit im Team</p>
 	</header>
 
 	<div class="content-wrapper">
 		<div class="main-content">
 			{#if organizations.length > 0}
 				<div class="organizations-header">
-					<h2>Your Organizations</h2>
+					<h2>Ihre Organisationen</h2>
 					<Button style="pop" onclick={() => createOrganizationModal?.show()}
-						>Create an Organization</Button
+						>Organisation erstellen</Button
 					>
 				</div>
 
@@ -85,11 +85,11 @@
 											<div class="organization-stats">
 												<div class="stat">
 													<Icon name="user" />
-													<span>{getOrganizationMembersCount(organization)} members</span>
+													<span>{getOrganizationMembersCount(organization)} Mitglieder</span>
 												</div>
 												<div class="stat">
 													<Icon name="search" />
-													<span>{getOrganizationProjectsCount(organization)} projects</span>
+													<span>{getOrganizationProjectsCount(organization)} Projekte</span>
 												</div>
 											</div>
 										</div>
@@ -101,7 +101,7 @@
 												kind="outline"
 												onclick={() => navigateToOrganization(organization.slug)}
 											>
-												View
+												Anzeigen
 											</Button>
 										</div>
 									{/snippet}
@@ -114,15 +114,15 @@
 				<div class="empty-state-wrapper">
 					<EmptyStatePlaceholder>
 						{#snippet title()}
-							No Organizations Yet
+							Noch keine Organisationen
 						{/snippet}
 						{#snippet caption()}
-							Create your first organization to collaborate with your team
+							Erstellen Sie Ihre erste Organisation, um mit Ihrem Team zusammenzuarbeiten
 						{/snippet}
 					</EmptyStatePlaceholder>
 					<div class="empty-state-action">
 						<Button style="pop" onclick={() => createOrganizationModal?.show()}
-							>Create an Organization</Button
+							>Organisation erstellen</Button
 						>
 					</div>
 				</div>
@@ -133,9 +133,9 @@
 	<!-- Mobile Join Organization section -->
 	<div class="join-section">
 		<div class="join-card">
-			<h3 class="join-title">Join an Organization</h3>
-			<p class="join-description">Have an invitation code? Join an existing organization.</p>
-			<Button style="pop" onclick={() => joinOrganizationModal?.show()}>Join Organization</Button>
+			<h3 class="join-title">Einer Organisation beitreten</h3>
+			<p class="join-description">Haben Sie einen Einladungscode? Treten Sie einer bestehenden Organisation bei.</p>
+			<Button style="pop" onclick={() => joinOrganizationModal?.show()}>Organisation beitreten</Button>
 		</div>
 	</div>
 </div>

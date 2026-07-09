@@ -28,7 +28,7 @@
 </script>
 
 <svelte:head>
-	<title>GitButler | Nightly Builds</title>
+	<title>GitButler | Nightly-Builds</title>
 </svelte:head>
 
 <section class="latest-nightly-wrapper">
@@ -41,14 +41,14 @@
 				<div class="nightly-hero__header-labels">
 					<h1>{latestNightly.version}</h1>
 					<div class="nightly-hero__header-details">
-						<span>Latest release</span>
+						<span>Neueste Version</span>
 						<span> • </span>
 						<span
-							>{new Date(latestNightly.released_at).toLocaleDateString("en-GB", {
+							>{new Date(latestNightly.released_at).toLocaleDateString("de-DE", {
 								day: "numeric",
 								month: "long",
 								year: "numeric",
-							})} at {new Date(latestNightly.released_at).toLocaleTimeString("en-GB", {
+							})} um {new Date(latestNightly.released_at).toLocaleTimeString("de-DE", {
 								hour: "2-digit",
 								minute: "2-digit",
 								hour12: false,
@@ -65,9 +65,9 @@
 						</a>
 					</div>
 					<p class="nightly-hero__description">
-						Experience GitButler's newest features before anyone else. Nightly builds are
-						automatically generated from the latest development code and may contain experimental
-						features and bugs.
+						Erlebe die neuesten Funktionen von GitButler noch vor allen anderen. Nightly-Builds
+						werden automatisch aus dem aktuellsten Entwicklungscode erzeugt und können
+						experimentelle Funktionen und Fehler enthalten.
 					</p>
 				</div>
 			</div>
@@ -96,8 +96,8 @@
 							href={latestNightlyBuilds.darwin_aarch64?.url ?? ""}>Apple Silicon</a
 						>
 						<span class="download-card-subtile"
-							>or <a class="download-card-link" href={latestNightlyBuilds.darwin_x86_64?.url ?? ""}
-								>intel-based</a
+							>oder <a class="download-card-link" href={latestNightlyBuilds.darwin_x86_64?.url ?? ""}
+								>Intel-basiert</a
 							></span
 						>
 					</div>
@@ -140,10 +140,10 @@
 						</div>
 
 						<span class="download-card-small-subtile"
-							>Not working? Have a look at <a
+							>Funktioniert nicht? Wirf einen Blick in <a
 								class="download-card-link"
 								href="https://github.com/gitbutlerapp/gitbutler/blob/master/LINUX.md"
-								target="_blank"><i>our docs</i></a
+								target="_blank"><i>unsere Doku</i></a
 							></span
 						>
 
@@ -159,7 +159,7 @@
 								<a
 									href={linuxArch === "x86-64"
 										? (latestNightlyBuilds.linux_cli_x86_64?.url ?? "")
-										: (latestNightlyBuilds.linux_cli_aarch64?.url ?? "")}>Download CLI binary</a
+										: (latestNightlyBuilds.linux_cli_aarch64?.url ?? "")}>CLI-Binary herunterladen</a
 								>
 							</div>
 						{/if}
@@ -190,15 +190,15 @@
 			</div>
 
 			<p class="nightly-warning">
-				⚠️ Nightly builds are experimental and may be unstable. Use at your own risk.
+				⚠️ Nightly-Builds sind experimentell und können instabil sein. Nutzung auf eigenes Risiko.
 				<br />
-				For production use, please use the
-				<a href="/downloads">stable release</a>.
+				Für den produktiven Einsatz verwende bitte die
+				<a href="/downloads">stabile Version</a>.
 			</p>
 		</div>
 	{:else}
 		<div class="no-nightly">
-			<p class="text-16 clr-text-2">No nightly builds are currently available.</p>
+			<p class="text-16 clr-text-2">Derzeit sind keine Nightly-Builds verfügbar.</p>
 		</div>
 	{/if}
 </section>
@@ -206,7 +206,7 @@
 {#if otherNightlies.length > 0}
 	<section class="releases">
 		<h2>
-			Other <i>nightly</i> builds:
+			Weitere <i>Nightly</i>-Builds:
 		</h2>
 
 		{#each otherNightlies as release, index (`${release.version}-${release.sha}-${index}`)}
@@ -224,12 +224,12 @@
 						<span class="release-row__version">{release.version}</span>
 						<div class="release-row__info">
 							<span class="release-row__date">
-								{new Date(release.released_at).toLocaleDateString("en-GB", {
+								{new Date(release.released_at).toLocaleDateString("de-DE", {
 									day: "numeric",
 									month: "short",
 									year: "numeric",
 								})},
-								{new Date(release.released_at).toLocaleTimeString("en-GB", {
+								{new Date(release.released_at).toLocaleTimeString("de-DE", {
 									hour: "2-digit",
 									minute: "2-digit",
 									hour12: false,
@@ -241,7 +241,7 @@
 									href="https://github.com/gitbutlerapp/gitbutler/commit/{release.sha}"
 									target="_blank"
 									rel="noopener noreferrer"
-									title="View Commit on GitHub"
+									title="Commit auf GitHub ansehen"
 									class="sha-link"
 									onclick={(e) => e.stopPropagation()}
 								>

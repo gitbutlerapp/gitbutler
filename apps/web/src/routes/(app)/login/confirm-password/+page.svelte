@@ -22,18 +22,18 @@
 		const token = page.url.searchParams.get("t");
 
 		if (!token) {
-			error = "Invalid or missing token";
+			error = "Ungültiges oder fehlendes Token";
 			// TODO: Probably redirect to the login page or show a more user-friendly error
 			return;
 		}
 
 		if (!passwordComponent?.isValid()) {
-			error = "Please check your password and confirmation";
+			error = "Bitte überprüfe dein Passwort und die Bestätigung";
 			return;
 		}
 
 		if (!password || !passwordConfirmation) {
-			error = "Password are required";
+			error = "Passwort ist erforderlich";
 			return;
 		}
 
@@ -55,14 +55,14 @@
 </script>
 
 <svelte:head>
-	<title>GitButler | Confirm Password</title>
+	<title>GitButler | Passwort bestätigen</title>
 </svelte:head>
 
 <RedirectIfLoggedIn />
 
 <FullscreenUtilityCard
-	title="Confirm new password"
-	backlink={{ label: "Login", href: routesService.loginPath() }}
+	title="Neues Passwort bestätigen"
+	backlink={{ label: "Anmelden", href: routesService.loginPath() }}
 >
 	<div class="form-content">
 		<PasswordConfirmation
@@ -88,7 +88,7 @@
 			</InfoMessage>
 		{/if}
 
-		<Button style="pop" onclick={handleSubmit}>Confirm Password</Button>
+		<Button style="pop" onclick={handleSubmit}>Passwort bestätigen</Button>
 	</div>
 </FullscreenUtilityCard>
 

@@ -212,7 +212,7 @@
 		<Textarea
 			value={ruleTitle}
 			unstyled
-			placeholder="Rule title"
+			placeholder="Regeltitel"
 			fontSize={13}
 			fontWeight="semibold"
 			padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
@@ -234,7 +234,7 @@
 		<Textarea
 			value={ruleDescription}
 			unstyled
-			placeholder="Rule description"
+			placeholder="Regelbeschreibung"
 			fontSize={13}
 			padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
 			disabled={isGenerating}
@@ -251,7 +251,7 @@
 {/snippet}
 
 {#snippet negativeExampleInput()}
-	<p>Don't do this</p>
+	<p>So nicht</p>
 	<div class="rules-modal__input text-input" class:disabled={isGenerating}>
 		<Textarea
 			value={effectiveNegativeExample}
@@ -272,7 +272,7 @@
 {/snippet}
 
 {#snippet positiveExampleInput()}
-	<p>Do this</p>
+	<p>So machen</p>
 	<div class="rules-modal__input text-input" class:disabled={isGenerating}>
 		<Textarea
 			value={effectivePositiveExample}
@@ -292,15 +292,15 @@
 	</div>
 {/snippet}
 
-<Modal bind:this={modal} title="Create a rule" onSubmit={createRule}>
+<Modal bind:this={modal} title="Regel erstellen" onSubmit={createRule}>
 	<div class="rules-modal-wrapper">
 		<ScrollableContainer whenToShow="hover">
 			<div class="rules-modal">
-				<p class="text-16">Enter the information about the rule that should be created</p>
+				<p class="text-16">Gib die Informationen zur Regel ein, die erstellt werden soll</p>
 				{@render titleInput()}
 				{@render descriptionInput()}
 				{#if shouldShowExample}
-					<p class="text-14">Examples</p>
+					<p class="text-14">Beispiele</p>
 					{@render negativeExampleInput()}
 					{@render positiveExampleInput()}
 				{/if}
@@ -308,8 +308,8 @@
 		</ScrollableContainer>
 	</div>
 	{#snippet controls(close)}
-		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit" loading={isGenerating}>Create rule</Button>
+		<Button kind="outline" type="reset" onclick={close}>Abbrechen</Button>
+		<Button style="pop" type="submit" loading={isGenerating}>Regel erstellen</Button>
 	{/snippet}
 </Modal>
 

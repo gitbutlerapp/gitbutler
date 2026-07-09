@@ -39,7 +39,7 @@
 
 <section class="cta-wrap" class:dark-mode={darkMode}>
 	<button type="button" class="copy-button" class:copied onclick={handleCopy}>
-		<h3>Get the But CLI</h3>
+		<h3>Hol dir die But CLI</h3>
 
 		{#if isLinux && cliBinaryUrl}
 			<code class="subtitle-text">curl -fsSL https://gitbutler.com/install.sh | sh</code>
@@ -48,7 +48,7 @@
 					class="subtitle-link"
 					href={cliBinaryUrl}
 					onclick={(e) => e.stopPropagation()}
-					onmousedown={(e) => e.stopPropagation()}>Download the binary</a
+					onmousedown={(e) => e.stopPropagation()}>Lade die Binärdatei herunter</a
 				>
 				<svg
 					class="subtitle-icon"
@@ -126,7 +126,7 @@
 		</svg>
 
 		<div class="flex items-center gap-16 justify-between">
-			<span>View docs</span>
+			<span>Docs ansehen</span>
 			<svg
 				class="docs-button__arrow"
 				width="22"

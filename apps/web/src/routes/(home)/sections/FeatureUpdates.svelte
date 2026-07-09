@@ -144,12 +144,12 @@
 		try {
 			const playlistId = extractPlaylistId(PLAYLIST_URL);
 			if (!playlistId) {
-				throw new Error("Invalid playlist URL");
+				throw new Error("Ungültige Playlist-URL");
 			}
 
 			playlist = await fetchPlaylistVideos(playlistId);
 		} catch (err) {
-			error = err instanceof Error ? err.message : "Failed to load videos";
+			error = err instanceof Error ? err.message : "Videos konnten nicht geladen werden";
 			console.error("Error loading playlist:", err);
 		} finally {
 			isLoading = false;
@@ -159,11 +159,11 @@
 
 <section class="feature-updates">
 	<SectionHeader>
-		<i>Feature</i> updates
+		<i>Feature</i>-Updates
 
 		{#snippet buttons()}
 			<div class="feature-updates__all-demos">
-				<ArrowButton showArrow={false} label="All demos" onclick={openPlaylist} />
+				<ArrowButton showArrow={false} label="Alle Demos" onclick={openPlaylist} />
 			</div>
 			<ArrowButton onclick={() => scroll("left")} reverseDirection disabled={!canScrollLeft} />
 			<ArrowButton onclick={() => scroll("right")} disabled={!canScrollRight} />
@@ -172,15 +172,15 @@
 
 	{#if isLoading}
 		<div class="loading-state">
-			<p>Loading videos...</p>
+			<p>Videos werden geladen …</p>
 		</div>
 	{:else if error}
 		<div class="loading-state">
 			<h3>¯\_(ツ)_/¯</h3>
-			<p>Unable to load videos: {error}</p>
+			<p>Videos konnten nicht geladen werden: {error}</p>
 			<p>
-				Please check our <a href={PLAYLIST_URL} target="_blank" rel="noopener">YouTube playlist</a>
-				directly.
+				Bitte sieh dir direkt unsere <a href={PLAYLIST_URL} target="_blank" rel="noopener">YouTube-Playlist</a>
+				an.
 			</p>
 		</div>
 	{:else if playlist && playlist.videos.length > 0}
@@ -188,7 +188,7 @@
 			<div class="video-carousel__container">
 				<div
 					role="region"
-					aria-label="Video carousel"
+					aria-label="Video-Karussell"
 					class="video-carousel__scroll"
 					bind:this={carousel}
 					ontouchstart={handleTouchStart}

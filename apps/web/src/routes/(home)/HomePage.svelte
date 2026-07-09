@@ -17,8 +17,8 @@
 
 <Hero>
 	{#snippet descriptionContent()}
-		GitButler is the Git-backed change management tool for modern, AI&nbsp;coding workflows.
-		Parallel and stacked branches, unlimited undo, agent integrations, and more. It's Git, refined.
+		GitButler ist das Git-basierte Änderungsmanagement-Tool für moderne KI&nbsp;Coding-Workflows.
+		Parallele und gestapelte Branches, unbegrenztes Rückgängigmachen, Agent-Integrationen und mehr. Das ist Git, verfeinert.
 	{/snippet}
 </Hero>
 <MainFeatures />

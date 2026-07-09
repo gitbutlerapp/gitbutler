@@ -16,13 +16,13 @@
 		<div class="icon-container">
 			<Icon name="lock" size={48} />
 		</div>
-		<h2 class="title text-15 text-body text-bold">Private Project</h2>
+		<h2 class="title text-15 text-body text-bold">Privates Projekt</h2>
 		<p class="error-message text-13 text-body">
-			You don't have permission to view this project. The project may be private or you may need to
-			request access from the owner.
+			Du hast keine Berechtigung, dieses Projekt anzusehen. Das Projekt ist möglicherweise privat
+			oder du musst den Zugriff beim Eigentümer anfragen.
 		</p>
 		<div class="actions">
-			<Button kind="outline" icon="home" onclick={goToHome}>Go to home</Button>
+			<Button kind="outline" icon="home" onclick={goToHome}>Zur Startseite</Button>
 		</div>
 	</div>
 </div>

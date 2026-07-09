@@ -73,7 +73,7 @@
 
 	async function resendConfirmationEmail() {
 		if (!email) {
-			error = "Please enter your email to resend the confirmation email.";
+			error = "Bitte gib deine E-Mail-Adresse ein, um die Bestätigungs-E-Mail erneut zu senden.";
 			return;
 		}
 
@@ -99,39 +99,39 @@
 </script>
 
 <svelte:head>
-	<title>GitButler | Login</title>
+	<title>GitButler | Anmelden</title>
 </svelte:head>
 
 <RedirectIfLoggedIn />
 
 <FullscreenIllustrationCard>
 	{#snippet title()}
-		<i>Login</i>
-		to GitButler
+		<i>Anmelden</i>
+		bei GitButler
 	{/snippet}
 
 	<div id="login-form" class="stack-v">
 		<div class="auth-form__inputs">
 			<EmailTextbox
 				bind:this={emailTextbox}
-				label="Email"
+				label="E-Mail"
 				placeholder=" "
 				bind:value={email}
 				autocomplete={false}
 				autocorrect={false}
 				spellcheck
 			/>
-			<Textbox bind:value={password} label="Password" type="password" />
+			<Textbox bind:value={password} label="Passwort" type="password" />
 
 			<div class="text-12 password-reset">
-				<a href={routesService.resetPasswordPath()}>Forgot password?</a>
+				<a href={routesService.resetPasswordPath()}>Passwort vergessen?</a>
 			</div>
 		</div>
 
 		{#if confirmationSent}
 			<InfoMessage filled outlined={false} style="success" class="m-b-16">
 				{#snippet content()}
-					<p>Confirmation email sent! Please check your inbox.</p>
+					<p>Bestätigungs-E-Mail gesendet! Bitte überprüfe deinen Posteingang.</p>
 				{/snippet}
 			</InfoMessage>
 		{:else if error}
@@ -141,19 +141,19 @@
 						{#if errorCode === "email_not_verified"}
 							{#if !resendDisabled}
 								<p>
-									Verify your email before logging in. Check your inbox or <button
+									Bestätige deine E-Mail-Adresse, bevor du dich anmeldest. Überprüfe deinen Posteingang oder <button
 										type="button"
 										class="resend-btn"
 										onclick={resendConfirmationEmail}
 										disabled={!email || resendDisabled}
 									>
-										resend the confirmation email</button
+										sende die Bestätigungs-E-Mail erneut</button
 									>.
 								</p>
 							{:else}
 								<p>
-									Verify your email before logging in. You can resend the confirmation email in {resendCountdown}
-									seconds.
+									Bestätige deine E-Mail-Adresse, bevor du dich anmeldest. Du kannst die Bestätigungs-E-Mail in {resendCountdown}
+									Sekunden erneut senden.
 								</p>
 							{/if}
 						{:else}
@@ -164,7 +164,7 @@
 			</div>
 		{/if}
 
-		<Button style="pop" disabled={!isFormValid} onclick={handleSubmit}>Log in</Button>
+		<Button style="pop" disabled={!isFormValid} onclick={handleSubmit}>Anmelden</Button>
 
 		<OAuthButtons mode="signup" />
 	</div>
@@ -172,7 +172,7 @@
 	{#snippet footer()}
 		<div class="auth-form__footer">
 			<p>
-				Don't have an account? <a href={routesService.signupPath()}>Sign Up</a>
+				Noch kein Konto? <a href={routesService.signupPath()}>Registrieren</a>
 			</p>
 		</div>
 	{/snippet}

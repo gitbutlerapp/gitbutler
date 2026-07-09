@@ -27,22 +27,22 @@
 
 		// Length check (minimum 8 characters)
 		if (pwd.length < 8) {
-			errors.push("at least 8 characters");
+			errors.push("mindestens 8 Zeichen");
 		}
 
 		// Must contain at least one lowercase letter
 		if (!/[a-z]/.test(pwd)) {
-			errors.push("one lowercase letter");
+			errors.push("einen Kleinbuchstaben");
 		}
 
 		// Must contain at least one uppercase letter
 		if (!/[A-Z]/.test(pwd)) {
-			errors.push("one uppercase letter");
+			errors.push("einen Großbuchstaben");
 		}
 
 		// Must contain at least one number
 		if (!/\d/.test(pwd)) {
-			errors.push("one number");
+			errors.push("eine Zahl");
 		}
 
 		return { isValid: errors.length === 0, errors };
@@ -53,21 +53,21 @@
 
 	const passwordError = $derived(
 		showValidation && passwordTouched && password && !isPasswordValid
-			? `Password must contain: ${passwordValidation.errors.join(", ")}`
+			? `Das Passwort muss enthalten: ${passwordValidation.errors.join(", ")}`
 			: undefined,
 	);
 
 	const passwordHelperText = $derived(
 		showValidation && password && isPasswordValid
-			? "Strong password! ✅"
+			? "Starkes Passwort! ✅"
 			: showValidation
-				? "8+ characters with uppercase, lowercase, and number"
+				? "Mindestens 8 Zeichen mit Groß-, Kleinbuchstaben und einer Zahl"
 				: undefined,
 	);
 
 	const passwordConfirmationError = $derived(
 		passwordConfirmationTouched && passwordConfirmation && !passwordsMatch
-			? "Passwords do not match"
+			? "Passwörter stimmen nicht überein"
 			: undefined,
 	);
 
@@ -82,7 +82,7 @@
 <div class="password-confirmation">
 	<Textbox
 		bind:value={password}
-		label="Password"
+		label="Passwort"
 		type="password"
 		{autocomplete}
 		error={passwordError}
@@ -93,7 +93,7 @@
 	/>
 	<Textbox
 		bind:value={passwordConfirmation}
-		label="Confirm password"
+		label="Passwort bestätigen"
 		type="password-non-visible"
 		{autocomplete}
 		error={passwordConfirmationError}

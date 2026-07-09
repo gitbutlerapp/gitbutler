@@ -49,10 +49,10 @@
 			};
 
 			editingReadme = false;
-			chipToasts.success("README updated successfully");
+			chipToasts.success("README erfolgreich aktualisiert");
 		} catch (error) {
 			chipToasts.error(
-				`Failed to update README: ${error instanceof Error ? error.message : "Unknown error"}`,
+				`README konnte nicht aktualisiert werden: ${error instanceof Error ? error.message : "Unbekannter Fehler"}`,
 			);
 		} finally {
 			isSavingReadme = false;
@@ -112,7 +112,7 @@
 						<div class="readme-actions">
 							{#if editingReadme}
 								<AsyncButton style="pop" action={saveReadme} disabled={isSavingReadme}>
-									Save
+									Speichern
 								</AsyncButton>
 								<Button
 									type="button"
@@ -120,11 +120,11 @@
 									onclick={cancelEditingReadme}
 									disabled={isSavingReadme}
 								>
-									Cancel
+									Abbrechen
 								</Button>
 							{:else}
 								<Button type="button" style="gray" onclick={() => startEditingReadme(user.readme)}>
-									Edit README
+									README bearbeiten
 								</Button>
 							{/if}
 						</div>
@@ -136,11 +136,11 @@
 							bind:value={readmeContent}
 							class="readme-editor"
 							rows="15"
-							placeholder="Enter markdown content for your README..."
+							placeholder="Markdown-Inhalt für dein README eingeben..."
 							disabled={isSavingReadme}
 						></textarea>
 						<div class="readme-preview">
-							<h3 class="preview-title">Preview</h3>
+							<h3 class="preview-title">Vorschau</h3>
 							<Markdown content={readmeContent} />
 						</div>
 					{:else if readme}
@@ -148,9 +148,9 @@
 					{:else}
 						<div class="no-readme">
 							{#if isCurrentUser}
-								<p>No README available for your profile. Click "Edit README" to create one.</p>
+								<p>Für dein Profil ist kein README verfügbar. Klicke auf „README bearbeiten“, um eines zu erstellen.</p>
 							{:else}
-								<p>No README available for this profile.</p>
+								<p>Für dieses Profil ist kein README verfügbar.</p>
 							{/if}
 						</div>
 					{/if}
@@ -168,7 +168,7 @@
 			<!-- User Profile Card - New section with avatar and name -->
 			<div class="section-card profile-card">
 				{#if user.avatarUrl}
-					<img src={user.avatarUrl} alt="{user.name}'s avatar" class="sidebar-avatar" />
+					<img src={user.avatarUrl} alt="Avatar von {user.name}" class="sidebar-avatar" />
 				{/if}
 				<h2 class="sidebar-name">{user.name}</h2>
 				<p class="sidebar-username">@{user.login}</p>
@@ -177,7 +177,7 @@
 			<!-- Contact & Info Section -->
 			{#if hasContactInfo(user)}
 				<div class="section-card contact-info-section">
-					<h2 class="section-title">Contact & Info</h2>
+					<h2 class="section-title">Kontakt & Info</h2>
 					<div class="contact-info-list">
 						{#if user.email}
 							<div class="info-item">
@@ -235,7 +235,7 @@
 			<!-- Organizations Section -->
 			{#if user?.organizations && user.organizations.length > 0}
 				<div class="section-card organizations-section">
-					<h2 class="section-title">Organizations</h2>
+					<h2 class="section-title">Organisationen</h2>
 					<div class="organizations-list">
 						{#each user?.organizations as org}
 							<div class="org-card">

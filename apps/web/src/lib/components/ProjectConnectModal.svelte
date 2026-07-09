@@ -66,7 +66,7 @@
 			}
 		} catch (error) {
 			console.error("Failed to fetch organization projects:", error);
-			chipToasts.error("Failed to fetch organization projects");
+			chipToasts.error("Projekte der Organisation konnten nicht abgerufen werden");
 			organizationProjects = [];
 		} finally {
 			isLoadingProjects = false;
@@ -99,7 +99,7 @@
 		const projectSlug = isCreatingNew ? newProjectSlug : selectedProjectSlug;
 
 		if (!projectSlug) {
-			chipToasts.error("Please select or create a project first");
+			chipToasts.error("Bitte wähle zuerst ein Projekt aus oder erstelle eines");
 			return;
 		}
 
@@ -109,18 +109,18 @@
 				organizationSlug,
 				projectSlug,
 			);
-			chipToasts.success("Project connected to organization");
+			chipToasts.success("Projekt mit Organisation verbunden");
 			modal?.close();
 		} catch (error) {
 			chipToasts.error(
-				`Failed to connect project: ${error instanceof Error ? error.message : "Unknown error"}`,
+				`Projekt konnte nicht verbunden werden: ${error instanceof Error ? error.message : "Unbekannter Fehler"}`,
 			);
 		}
 	}
 
 	const title = $derived.by(() => {
-		if (project?.status !== "found") return "Connect Project";
-		return `Connect ${project.value.name} to an Organization`;
+		if (project?.status !== "found") return "Projekt verbinden";
+		return `${project.value.name} mit einer Organisation verbinden`;
 	});
 
 	let modal = $state<ReturnType<typeof Modal>>();
@@ -159,7 +159,7 @@
 									{/if}
 								</div>
 								<Button style="pop" onclick={() => selectOrganization(organization.slug)}>
-									Select
+									Auswählen
 								</Button>
 							</CardGroup.Item>
 						{/snippet}
@@ -168,20 +168,20 @@
 			</CardGroup>
 		{:else}
 			<div class="empty-state">
-				<p>You don't belong to any organizations yet.</p>
-				<p>Create or join an organization to connect this project.</p>
+				<p>Du gehörst noch keiner Organisation an.</p>
+				<p>Erstelle eine Organisation oder tritt einer bei, um dieses Projekt zu verbinden.</p>
 			</div>
 		{/if}
 	{:else}
 		<!-- Project Selection Step -->
 		<div class="selection-header">
-			<h4>Select a project in {selectedOrgSlug}</h4>
-			<Button style="gray" onclick={() => (selectedOrgSlug = null)}>Back to Organizations</Button>
+			<h4>Wähle ein Projekt in {selectedOrgSlug}</h4>
+			<Button style="gray" onclick={() => (selectedOrgSlug = null)}>Zurück zu Organisationen</Button>
 		</div>
 
 		{#if isLoadingProjects}
 			<div class="loading-container">
-				<p>Loading projects...</p>
+				<p>Projekte werden geladen...</p>
 			</div>
 		{:else}
 			<CardGroup>
@@ -213,20 +213,20 @@
 				<div class={isCreatingNew ? "selected create-new" : "create-new"}>
 					<CardGroup.Item onclick={toggleCreateNew}>
 						<div class="project-info">
-							<h5 class="text-15 text-bold">Create New Project</h5>
+							<h5 class="text-15 text-bold">Neues Projekt erstellen</h5>
 							{#if isCreatingNew}
 								<div class="new-project-form">
-									<label for="newProjectSlug">Project Slug:</label>
+									<label for="newProjectSlug">Projekt-Slug:</label>
 									<input
 										type="text"
 										id="newProjectSlug"
 										bind:value={newProjectSlug}
-										placeholder="Enter project slug"
+										placeholder="Projekt-Slug eingeben"
 										class="form-input"
 									/>
 								</div>
 							{:else}
-								<p class="description">Create a new project with this repository</p>
+								<p class="description">Ein neues Projekt mit diesem Repository erstellen</p>
 							{/if}
 						</div>
 						<div class="radio-option">
@@ -243,7 +243,7 @@
 
 			<div class="action-buttons">
 				<Button style="pop" onclick={() => connectToOrganization(selectedOrgSlug || "")}>
-					Connect
+					Verbinden
 				</Button>
 			</div>
 		{/if}

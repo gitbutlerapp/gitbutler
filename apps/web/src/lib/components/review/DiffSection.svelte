@@ -88,9 +88,9 @@
 	<div class="diff-section__content">
 		{#if lockFile && !displayLockHunks}
 			<div class="lock-files-hidden-by-default">
-				<p class="text-12 hidden-lock-file-message">Lock files are hidden by default</p>
+				<p class="text-12 hidden-lock-file-message">Lock-Dateien werden standardmäßig ausgeblendet</p>
 				<Button kind="outline" icon="eye" onclick={() => (displayLockHunks = true)}
-					>Show diff</Button
+					>Diff anzeigen</Button
 				>
 			</div>
 		{:else}

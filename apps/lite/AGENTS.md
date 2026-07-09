@@ -6,6 +6,8 @@ JavaScript dependencies are sourced from pnpm. Commands are surfaced via pnpm.
 
 In dev the app is accessible for agent automation on port 9222.
 
+bla
+
 # Typechecking
 
 Typechecking is the fastest way to validate that everything is okay. Always run this **exact** command to typecheck:

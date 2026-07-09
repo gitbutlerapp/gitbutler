@@ -30,11 +30,11 @@
 {/snippet}
 
 {#if disabled}
-	<div class="logo" aria-label="main nav">
+	<div class="logo" aria-label="Hauptnavigation">
 		{@render logoContent()}
 	</div>
 {:else}
-	<a href={routes.homePath()} class="logo" aria-label="main nav" title="Go to Home">
+	<a href={routes.homePath()} class="logo" aria-label="Hauptnavigation" title="Zur Startseite">
 		{@render logoContent()}
 	</a>
 {/if}

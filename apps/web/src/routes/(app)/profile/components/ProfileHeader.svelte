@@ -78,14 +78,14 @@
 				<div class="contact-info__fields">
 					<Textbox
 						id="full-name"
-						label="Full name"
+						label="Vollständiger Name"
 						type="text"
 						bind:value={nameValue}
 						readonly={updatingName}
 						onblur={updateName}
 						onkeydown={(e) => e.key === "Enter" && updateName()}
 					/>
-					<Textbox id="email" label="Email" type="text" bind:value={emailValue} readonly={true} />
+					<Textbox id="email" label="E-Mail" type="text" bind:value={emailValue} readonly={true} />
 				</div>
 			</div>
 		</CardGroup.Item>
@@ -121,9 +121,9 @@
 
 				<Textbox
 					id="location"
-					label="Location"
+					label="Standort"
 					type="text"
-					placeholder="City, Country"
+					placeholder="Stadt, Land"
 					bind:value={locationValue}
 					readonly={updatingAdditionalInfo}
 				/>
@@ -132,8 +132,8 @@
 
 				<label class="checkbox-section" for="email-share">
 					<div class="checkbox-section__label">
-						<h3 class="text-15 text-bold">Share my email</h3>
-						<p class="text-12 text-body clr-text-2">Allow other users to see your email address.</p>
+						<h3 class="text-15 text-bold">Meine E-Mail-Adresse teilen</h3>
+						<p class="text-12 text-body clr-text-2">Anderen Benutzern erlauben, deine E-Mail-Adresse zu sehen.</p>
 					</div>
 					<Toggle
 						id="email-share"
@@ -153,7 +153,7 @@
 					loading={updatingAdditionalInfo}
 					disabled={updatingAdditionalInfo}
 				>
-					{updatingAdditionalInfo ? "Saving..." : "Update profile"}
+					{updatingAdditionalInfo ? "Wird gespeichert..." : "Profil aktualisieren"}
 				</Button>
 			</div>
 		</CardGroup.Item>

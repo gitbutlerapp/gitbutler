@@ -31,7 +31,7 @@
 	let afterSelectorOpen = $state(false);
 
 	const allOptions: readonly SelectItemType<string>[] = $derived.by(() => {
-		const out = [{ value: "-1", label: "Base" }];
+		const out = [{ value: "-1", label: "Basis" }];
 
 		if (!isDefined(patchCommit.version)) return out;
 
@@ -40,7 +40,7 @@
 
 			out.push({
 				value: i.toString(),
-				label: `v${i}${last ? " (latest)" : ""}`,
+				label: `v${i}${last ? " (aktuell)" : ""}`,
 			});
 		}
 
@@ -82,12 +82,12 @@
 		<div class="review-sections-statistics">
 			<div class="review-sections-statistics__metadata">
 				<p class="text-12 text-bold statistic-files">
-					{patchCommit.statistics.fileCount} files changed
+					{patchCommit.statistics.fileCount} Dateien geändert
 				</p>
 				<p class="text-12 statistic-added">
-					{patchCommit.statistics.lines - patchCommit.statistics.deletions} additions
+					{patchCommit.statistics.lines - patchCommit.statistics.deletions} Ergänzungen
 				</p>
-				<p class="text-12 statistic-deleted">{patchCommit.statistics.deletions} deletions</p>
+				<p class="text-12 statistic-deleted">{patchCommit.statistics.deletions} Löschungen</p>
 			</div>
 			<div class="review-sections-statistics__actions">
 				<div class="review-sections-statistics__actions__interdiff">
@@ -95,7 +95,7 @@
 						<div class="review-sections-statistics__actions__interdiff-changed"></div>
 					{/if}
 					<Button
-						tooltip="Show interdiff"
+						tooltip="Interdiff anzeigen"
 						kind="ghost"
 						icon="interdiff"
 						onclick={() => (isInterdiffBarVisible = !isInterdiffBarVisible)}
@@ -107,7 +107,7 @@
 
 	{#if isInterdiffBarVisible}
 		<div class="interdiff-bar">
-			<p class="text-12 text-bold">Compare versions:</p>
+			<p class="text-12 text-bold">Versionen vergleichen:</p>
 
 			<div class="interdiff-bar__selects">
 				<Select
@@ -174,13 +174,13 @@
 						kind="ghost"
 						icon="undo"
 						size="tag"
-						tooltip="Reset to initial selection"
+						tooltip="Auf ursprüngliche Auswahl zurücksetzen"
 						onclick={async () => {
 							await setBeforeVersion(-1);
 							await setAfterVersion(patchCommit.version, patchCommit.version);
 						}}
 					>
-						Reset
+						Zurücksetzen
 					</Button>
 				{/if}
 			</div>

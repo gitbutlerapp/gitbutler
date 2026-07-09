@@ -68,7 +68,7 @@
 </h1>
 
 <div class="description-wrapper">
-	<div class="toggle-switch" role="group" aria-label="View mode selection">
+	<div class="toggle-switch" role="group" aria-label="Ansichtsmodus-Auswahl">
 		<button
 			bind:this={clientButton}
 			type="button"

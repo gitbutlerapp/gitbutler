@@ -69,7 +69,7 @@
 			columns={[
 				{ key: "position", value: `${currentPosition}/${branch.patches?.length ?? 1}` },
 				{ key: "status", value: getPatchStatus(patch) },
-				{ key: "version", value: `v${patch.version}`, tooltip: "Patch Version" },
+				{ key: "version", value: `v${patch.version}`, tooltip: "Patch-Version" },
 				{ key: "title", value: patch.title, tooltip: patch.title },
 				{
 					key: "changes",
@@ -81,7 +81,7 @@
 				{ key: "date", value: patch.updatedAt, tooltip: patch.updatedAt },
 				{ key: "avatars", value: contributors },
 				{ key: "reviewers", value: { approvers, rejectors } },
-				{ key: "comments", value: patch.commentCount, tooltip: "Comments" },
+				{ key: "comments", value: patch.commentCount, tooltip: "Kommentare" },
 			]}
 			isTopEntry={currentPosition === branch.patches?.length}
 			separatedBottom={currentPosition === 1}

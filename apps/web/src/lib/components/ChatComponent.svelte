@@ -95,9 +95,9 @@
 {:else}
 	<div class="chat-wrapper" class:tablet-mode={isTabletMode}>
 		<div class="chat-header">
-			<h3 class="text-13 text-bold">Discussion</h3>
+			<h3 class="text-13 text-bold">Diskussion</h3>
 			<div class="chat-header-actions">
-				<Button icon="minus" kind="ghost" tooltip="Hide discussion" onclick={onMinimizeToggle} />
+				<Button icon="minus" kind="ghost" tooltip="Diskussion ausblenden" onclick={onMinimizeToggle} />
 			</div>
 		</div>
 
@@ -122,11 +122,12 @@
 								<div class="blank-state-content">
 									{@html blankChat}
 									<div class="blank-message">
-										<div class="text-18 text-semibold blank-message-title">Give some feedback!</div>
+										<div class="text-18 text-semibold blank-message-title">Gib uns Feedback!</div>
 										<p class="text-12 text-body blank-message-text">
-											If you're here, you must be important. This patch can use your help. Leave a
-											comment or ask a question. Does this look right to you? How can it be
-											improved? Is it perfect? Just let us know!
+											Wenn du hier bist, musst du wichtig sein. Dieser Patch kann deine Hilfe
+											gebrauchen. Hinterlasse einen Kommentar oder stelle eine Frage. Sieht das
+											für dich richtig aus? Wie kann er verbessert werden? Ist er perfekt? Sag es
+											uns einfach!
 										</p>
 									</div>
 								</div>

@@ -4,7 +4,7 @@
 	import { Icon } from "@gitbutler/ui";
 	import type { PatchStatusEvent } from "@gitbutler/shared/patchEvents/types";
 
-	const UNKNOWN_USER = "Unknown User";
+	const UNKNOWN_USER = "Unbekannter Benutzer";
 
 	interface Props {
 		event: PatchStatusEvent;
@@ -15,7 +15,11 @@
 	const userName = $derived(
 		event.user?.login ?? event.user?.name ?? event.user?.email ?? UNKNOWN_USER,
 	);
-	const statusAction = $derived(event.data.status ? "approved" : "requested changes on");
+	const statusAction = $derived(
+		event.data.status
+			? "hat diesen Commit genehmigt"
+			: "hat Änderungen an diesem Commit angefordert",
+	);
 	const timestamp = $derived(eventTimeStamp(event));
 </script>
 
@@ -30,7 +34,7 @@
 				<img class="patch-status__avatar" src={event.user.avatarUrl} alt={userName} />
 			{/if}
 			<p class="text-13 text-bold patch-status__name">{userName}</p>
-			<p class="text-12 patch-status__message">{statusAction} this commit</p>
+			<p class="text-12 patch-status__message">{statusAction}</p>
 			<div class="text-12 patch-status__timestamp" title={event.createdAt}>{timestamp}</div>
 		</div>
 

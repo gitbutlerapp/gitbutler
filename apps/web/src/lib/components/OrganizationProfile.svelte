@@ -175,7 +175,7 @@
 			{#if localOrganization.avatarUrl}
 				<img
 					src={localOrganization.avatarUrl}
-					alt="{localOrganization.name}'s logo"
+					alt="Logo von {localOrganization.name}"
 					class="avatar"
 				/>
 			{/if}
@@ -189,7 +189,7 @@
 			{#if currentUserIsAdmin()}
 				<div class="org-actions">
 					<Button style="pop" onclick={() => organizationEditModal?.show()}>
-						Edit Organization
+						Organisation bearbeiten
 					</Button>
 				</div>
 			{/if}
@@ -210,7 +210,7 @@
 		<div class="side-column">
 			{#if localOrganization.inviteCode}
 				<div class="section-card invite-code-section">
-					<h2 class="section-title">Invite Code</h2>
+					<h2 class="section-title">Einladungscode</h2>
 					<div class="invite-link-wrapper">
 						<InviteLink organizationSlug={ownerSlug} inviteCode={localOrganization.inviteCode} />
 					</div>
@@ -219,14 +219,14 @@
 
 			{#if localOrganization.members && localOrganization.members.length > 0}
 				<div class="section-card members-section">
-					<h2 class="section-title">Members</h2>
+					<h2 class="section-title">Mitglieder</h2>
 					<div class="members-list">
 						{#each localOrganization.members as member}
 							<div class="member-card">
 								<a href="/{member.login}" class="member-link">
 									<img
 										src={member.avatar_url || "/images/default-avatar.png"}
-										alt="{member.login}'s avatar"
+										alt="Avatar von {member.login}"
 										class="member-avatar"
 									/>
 									<div class="member-info">
@@ -234,7 +234,7 @@
 										<span class="member-role">
 											{member.name}
 											{#if isOwner(member)}
-												<span class="badge owner-badge">Owner</span>
+												<span class="badge owner-badge">Eigentümer</span>
 											{/if}
 										</span>
 									</div>
@@ -247,7 +247,7 @@
 											style="gray"
 											onclick={() => confirmMakeOwnerDialog(member.login)}
 										>
-											Make Owner
+											Zum Eigentümer machen
 										</Button>
 									{/if}
 
@@ -257,7 +257,7 @@
 											style="danger"
 											onclick={() => confirmRemoveUserDialog(member.login)}
 										>
-											Remove
+											Entfernen
 										</Button>
 									{/if}
 								</div>
@@ -272,23 +272,23 @@
 
 <!-- Remove User Confirmation Modal -->
 <Modal bind:this={confirmRemoveUserModal} width="small" onSubmit={removeUser}>
-	<p>Are you sure you want to remove this user from the organization?</p>
+	<p>Möchtest du diesen Benutzer wirklich aus der Organisation entfernen?</p>
 	{#snippet controls(close)}
-		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="danger" type="submit" loading={isRemoving}>Remove</Button>
+		<Button kind="outline" onclick={close}>Abbrechen</Button>
+		<Button style="danger" type="submit" loading={isRemoving}>Entfernen</Button>
 	{/snippet}
 </Modal>
 
 <!-- Make Owner Confirmation Modal -->
 <Modal bind:this={confirmMakeOwnerModal} width="small" onSubmit={makeUserOwner}>
-	<p>Are you sure you want to make this user an owner?</p>
+	<p>Möchtest du diesen Benutzer wirklich zum Eigentümer machen?</p>
 	<p class="modal-note">
-		Owners have full administrative access to the organization, including managing members,
-		projects, and settings.
+		Eigentümer haben vollen administrativen Zugriff auf die Organisation, einschließlich der
+		Verwaltung von Mitgliedern, Projekten und Einstellungen.
 	</p>
 	{#snippet controls(close)}
-		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit" loading={isPromoting}>Make Owner</Button>
+		<Button kind="outline" onclick={close}>Abbrechen</Button>
+		<Button style="pop" type="submit" loading={isPromoting}>Zum Eigentümer machen</Button>
 	{/snippet}
 </Modal>
 

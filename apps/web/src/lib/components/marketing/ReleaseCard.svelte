@@ -19,7 +19,7 @@
 	<div class="release-header">
 		<h3 class="release-version">{release.version}</h3>
 		<span class="release-date">
-			{new Date(release.released_at).toLocaleDateString("en-GB", {
+			{new Date(release.released_at).toLocaleDateString("de-DE", {
 				day: "numeric",
 				month: "short",
 				year: "numeric",
@@ -41,7 +41,7 @@
 					class="download-links-toggle"
 					onclick={() => (downloadLinksVisible = true)}
 				>
-					<span>Show download options</span>
+					<span>Download-Optionen anzeigen</span>
 					<span>⭳</span>
 				</button>
 			{/if}

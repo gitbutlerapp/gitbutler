@@ -4,12 +4,12 @@
 
 <section class="cta-section">
 	<div class="cta-section__content">
-		<div class="chip-free-opensource text-15 text-semibold">>_ Free and Open Source</div>
-		<h2 class="cta-section__header">Ready to <i>Level Up Your</i> Workflow?</h2>
+		<div class="chip-free-opensource text-15 text-semibold">>_ Kostenlos und Open Source</div>
+		<h2 class="cta-section__header">Bereit, <i>deinen Workflow</i> zu verbessern?</h2>
 		<p class="cta-section__description text-16 text-body">
-			Join thousands of developers who've already made the switch.
+			Schließe dich Tausenden von Entwicklern an, die bereits gewechselt haben.
 			<br />
-			GitButler is compatible with your existing Git repositories.
+			GitButler ist mit deinen bestehenden Git-Repositories kompatibel.
 		</p>
 
 		<CtaButtons darkMode />

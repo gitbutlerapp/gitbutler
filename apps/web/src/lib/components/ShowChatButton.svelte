@@ -54,7 +54,7 @@
 		</div>
 	</div>
 	<div class="show-chat__content">
-		<span class="text-12 text-semibold">Show discussion</span>
+		<span class="text-12 text-semibold">Diskussion anzeigen</span>
 		<div class="show-chat__icon"><Icon name="chat" /></div>
 	</div>
 </button>

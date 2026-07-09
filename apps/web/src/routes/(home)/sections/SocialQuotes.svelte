@@ -166,7 +166,7 @@
 
 <section class="social-quotes">
 	<SectionHeader>
-		<i>Community</i> voices
+		<i>Community</i>-Stimmen
 
 		{#snippet buttons()}
 			<ArrowButton reverseDirection onclick={prevSlide} />
@@ -188,7 +188,7 @@
 							<p class="text-15 text-body quote__text">
 								{quote.quote}
 								<a
-									title="View post on {quote.social}"
+									title="Beitrag auf {quote.social} ansehen"
 									class="quote__source"
 									href={quote.source}
 									target="_blank"
@@ -199,7 +199,7 @@
 								<img
 									class="quote__author-avatar"
 									src={quote.avatar}
-									alt="image of {quote.author}"
+									alt="Bild von {quote.author}"
 								/>
 								<div class="stack-v gap-4">
 									<p class="text-15 text-bold quote__author">{quote.author}</p>
@@ -219,7 +219,7 @@
 					<p class="text-15 text-body quote__text">
 						{quote.quote}
 						<a
-							title="View post on {quote.social}"
+							title="Beitrag auf {quote.social} ansehen"
 							class="quote__source"
 							href={quote.source}
 							target="_blank"
@@ -227,7 +227,7 @@
 						>
 					</p>
 					<div class="quote__author-info">
-						<img class="quote__author-avatar" src={quote.avatar} alt="image of {quote.author}" />
+						<img class="quote__author-avatar" src={quote.avatar} alt="Bild von {quote.author}" />
 						<div class="stack-v gap-4">
 							<p class="text-15 text-bold quote__author">{quote.author}</p>
 							<p class="text-13 quote__job-title">{quote.occupation}</p>

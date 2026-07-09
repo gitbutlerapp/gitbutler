@@ -132,7 +132,7 @@
 	}
 
 	function abortEditingSummary() {
-		if (!confirm("Canceling will lose any changes made")) {
+		if (!confirm("Beim Abbrechen gehen alle vorgenommenen Änderungen verloren")) {
 			return;
 		}
 
@@ -147,7 +147,7 @@
 				title: title,
 				description: summary,
 			});
-			chipToasts.success("Updated review status");
+			chipToasts.success("Review-Status aktualisiert");
 		} finally {
 			editingSummary = false;
 		}
@@ -159,7 +159,7 @@
 		await branchService.updateBranch(branch.current.value.uuid, {
 			status,
 		});
-		chipToasts.success("Saved review summary");
+		chipToasts.success("Review-Zusammenfassung gespeichert");
 	}
 
 	function copyLocation() {
@@ -193,7 +193,7 @@
 
 {#snippet startReview(branch: Branch)}
 	{#if (branch.stackSize || 0) > 0 && isBranchAuthor === false}
-		<Button style="pop" icon="play" onclick={() => visitFirstCommit(branch)}>Start review</Button>
+		<Button style="pop" icon="play" onclick={() => visitFirstCommit(branch)}>Review starten</Button>
 	{/if}
 {/snippet}
 
@@ -201,11 +201,11 @@
 	{#if isFound(branch?.current)}
 		<title>{branch.current.value?.title}</title>
 		<meta property="og:title" content="GitButler Review: {branch.current.value?.title}" />
-		<meta property="og:description" content="GitButler code review" />
+		<meta property="og:description" content="GitButler Code-Review" />
 	{:else}
 		<title>{data.ownerSlug}/{data.projectSlug}</title>
 		<meta property="og:title" content="GitButler Review: {data.ownerSlug}/{data.projectSlug}" />
-		<meta property="og:description" content="GitButler code review" />
+		<meta property="og:description" content="GitButler Code-Review" />
 	{/if}
 </svelte:head>
 
@@ -216,7 +216,7 @@
 		<PrivateProjectError />
 	{:else if isError(combinedLoadable)}
 		<div class="error-container">
-			<h2 class="text-15 text-body text-bold">Error loading project data</h2>
+			<h2 class="text-15 text-body text-bold">Fehler beim Laden der Projektdaten</h2>
 			<p class="text-13 text-body">{combinedLoadable.error.message}</p>
 		</div>
 	{/if}
@@ -232,17 +232,17 @@
 							<p class="text-15 text-bold">{branch.title}</p>
 						{/if}
 						<div class="actions">
-							<Button icon="copy" kind="outline" onclick={copyLocation}>Share link</Button>
+							<Button icon="copy" kind="outline" onclick={copyLocation}>Link teilen</Button>
 							{@render startReview(branch)}
 							{#if branch.status === BranchStatus.Closed}
 								<AsyncButton action={async () => updateStatus(BranchStatus.Active)} kind="outline"
-									>Re-open review</AsyncButton
+									>Review wieder öffnen</AsyncButton
 								>
 							{:else}
 								<AsyncButton
 									style="danger"
 									kind="outline"
-									action={async () => updateStatus(BranchStatus.Closed)}>Close review</AsyncButton
+									action={async () => updateStatus(BranchStatus.Closed)}>Review schließen</AsyncButton
 								>
 							{/if}
 						</div>
@@ -266,12 +266,12 @@
 								></Factoid
 							>
 						{/if}
-						<Factoid label="Authors">
+						<Factoid label="Autoren">
 							{#await contributors then contributors}
 								<AvatarGroup avatars={contributors}></AvatarGroup>
 							{/await}
 						</Factoid>
-						<Factoid label="Updated">
+						<Factoid label="Aktualisiert">
 							{dayjs(branch.updatedAt).fromNow()}
 						</Factoid>
 						<Factoid label="Version">
@@ -295,8 +295,8 @@
 							</div>
 
 							<div class="summary-actions">
-								<Button kind="outline" onclick={abortEditingSummary}>Cancel</Button>
-								<AsyncButton style="pop" action={saveSummary}>Save</AsyncButton>
+								<Button kind="outline" onclick={abortEditingSummary}>Abbrechen</Button>
+								<AsyncButton style="pop" action={saveSummary}>Speichern</AsyncButton>
 							</div>
 						{:else if branch.description}
 							<div class="text-13 summary-text">
@@ -304,20 +304,20 @@
 							</div>
 							{#if branch.permissions.canWrite}
 								<div>
-									<Button kind="outline" onclick={editSummary}>Change details</Button>
+									<Button kind="outline" onclick={editSummary}>Details ändern</Button>
 								</div>
 							{/if}
 						{:else}
 							<div class="summary-placeholder">
-								<p class="text-13 clr-text-2">No summary provided.</p>
+								<p class="text-13 clr-text-2">Keine Zusammenfassung vorhanden.</p>
 								{#if branch.permissions.canWrite}
 									<p class="text-12 text-body clr-text-2">
 										<em>
-											Summaries provide context on the branch's purpose and helps team members
-											understand it's changes.
+											Zusammenfassungen bieten Kontext zum Zweck des Branches und helfen
+											Teammitgliedern, dessen Änderungen zu verstehen.
 										</em>
 									</p>
-									<Button icon="plus" kind="outline" onclick={editSummary}>Add summary</Button>
+									<Button icon="plus" kind="outline" onclick={editSummary}>Zusammenfassung hinzufügen</Button>
 								{/if}
 							</div>
 						{/if}

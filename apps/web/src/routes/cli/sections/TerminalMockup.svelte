@@ -215,18 +215,18 @@
 	<div class="terminal-mockup__header">
 		{#if os === "macOS"}
 			<div class="terminal-mockup__window-controls">
-				<img src="/images/cli/mac-window-controls.svg" alt="Window controls" />
+				<img src="/images/cli/mac-window-controls.svg" alt="Fenstersteuerung" />
 			</div>
 			<div class="terminal-mockup__title">GitButler CLI</div>
 		{:else if os === "Windows"}
 			<div class="terminal-mockup__title">GitButler CLI</div>
 			<div class="terminal-mockup__window-controls">
-				<img src="/images/cli/windows-window-controls.svg" alt="Window controls" />
+				<img src="/images/cli/windows-window-controls.svg" alt="Fenstersteuerung" />
 			</div>
 		{:else if os === "Linux"}
 			<div class="terminal-mockup__title">GitButler CLI</div>
 			<div class="terminal-mockup__window-controls">
-				<img src="/images/cli/linux-window-controls.svg" alt="Window controls" />
+				<img src="/images/cli/linux-window-controls.svg" alt="Fenstersteuerung" />
 			</div>
 		{/if}
 	</div>

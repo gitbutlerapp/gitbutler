@@ -29,18 +29,18 @@
 </script>
 
 <div class="right">
-	<button type="button" class="action" onclick={() => addSection(section.position)}>add</button>
+	<button type="button" class="action" onclick={() => addSection(section.position)}>hinzufügen</button>
 	[
-	<button type="button" class="action" onclick={() => editSection(section.code)}>edit</button>] [
-	<button type="button" class="action" onclick={() => deleteSection(section.code)}>del</button>] [
-	<button type="button" class="action" onclick={() => moveSection(section.position, -1)}>up</button>
-	<button type="button" class="action" onclick={() => moveSection(section.position, 1)}>down</button
+	<button type="button" class="action" onclick={() => editSection(section.code)}>bearbeiten</button>] [
+	<button type="button" class="action" onclick={() => deleteSection(section.code)}>löschen</button>] [
+	<button type="button" class="action" onclick={() => moveSection(section.position, -1)}>hoch</button>
+	<button type="button" class="action" onclick={() => moveSection(section.position, 1)}>runter</button
 	>
 	]
 </div>
 <div class="editor edit-{section.code}">
 	<textarea class="editing">{section.data}</textarea>
-	<button type="button" onclick={() => saveSection(section.code)}>Save</button>
+	<button type="button" onclick={() => saveSection(section.code)}>Speichern</button>
 </div>
 <div class="markdown display-{section.code}">{section.data}</div>
 

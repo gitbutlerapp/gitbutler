@@ -14,11 +14,11 @@
 	}
 
 	let {
-		customValidationMessage = "Please enter a valid username.",
+		customValidationMessage = "Bitte gib einen gültigen Benutzernamen ein.",
 		minLength = 3,
 		maxLength = 30,
 		value = $bindable(),
-		label = "Username",
+		label = "Benutzername",
 		...restProps
 	}: Props = $props();
 
@@ -32,14 +32,14 @@
 		if (val.length < minLength) {
 			return {
 				isValid: false,
-				message: `Username must be at least ${minLength} characters long.`,
+				message: `Der Benutzername muss mindestens ${minLength} Zeichen lang sein.`,
 			};
 		}
 
 		if (val.length > maxLength) {
 			return {
 				isValid: false,
-				message: `Username must be no more than ${maxLength} characters long.`,
+				message: `Der Benutzername darf höchstens ${maxLength} Zeichen lang sein.`,
 			};
 		}
 
@@ -49,7 +49,7 @@
 			return {
 				isValid: false,
 				message:
-					"Username must start with a letter or number and can only contain letters, numbers, underscores, and hyphens.",
+					"Der Benutzername muss mit einem Buchstaben oder einer Zahl beginnen und darf nur Buchstaben, Zahlen, Unterstriche und Bindestriche enthalten.",
 			};
 		}
 
@@ -57,7 +57,7 @@
 		if (/[-_]$/.test(val)) {
 			return {
 				isValid: false,
-				message: "Username cannot end with a hyphen or underscore.",
+				message: "Der Benutzername darf nicht mit einem Bindestrich oder Unterstrich enden.",
 			};
 		}
 
@@ -65,7 +65,7 @@
 		if (/[-_]{2,}/.test(val)) {
 			return {
 				isValid: false,
-				message: "Username cannot contain consecutive hyphens or underscores.",
+				message: "Der Benutzername darf keine aufeinanderfolgenden Bindestriche oder Unterstriche enthalten.",
 			};
 		}
 

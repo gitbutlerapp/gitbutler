@@ -18,7 +18,7 @@
 		if (response.type === "success" && response.data) {
 			copyToClipboard(response.data);
 		} else {
-			chipToasts.error("Failed to get token");
+			chipToasts.error("Token konnte nicht abgerufen werden");
 		}
 	}
 
@@ -35,13 +35,13 @@
 
 	async function followDeeplink() {
 		if (!buildType) {
-			chipToasts.error("Unknown built type");
+			chipToasts.error("Unbekannter Build-Typ");
 			return;
 		}
 
 		const response = await loginService.token();
 		if (response.type !== "success" || !response.data) {
-			chipToasts.error("Failed to get token");
+			chipToasts.error("Token konnte nicht abgerufen werden");
 		} else {
 			const accessToken = response.data;
 			const deeplink = `${buildType}://login?access_token=${accessToken}&t=${Date.now()}`;
@@ -51,34 +51,34 @@
 </script>
 
 <svelte:head>
-	<title>GitButler | Logged in</title>
+	<title>GitButler | Angemeldet</title>
 </svelte:head>
 
 <FullscreenUtilityCard
-	title="Signed in successfully 🎯"
+	title="Erfolgreich angemeldet 🎯"
 	backlink={{
-		label: "Main",
+		label: "Startseite",
 		href: "/",
 	}}
 >
 	<div class="loggedin__success-card-content">
 		{#if buildType !== null}
-			<p class="text-13">Click below to open your client and complete sign-in.</p>
+			<p class="text-13">Klicke unten, um deinen Client zu öffnen und die Anmeldung abzuschließen.</p>
 		{:else}
-			<p class="text-13">Copy the access token and paste it in your client.</p>
+			<p class="text-13">Kopiere das Zugriffstoken und füge es in deinen Client ein.</p>
 		{/if}
 		<div class="flex gap-8 m-t-8">
 			{#if buildType !== null}
 				<AsyncButton style="gray" kind="outline" icon="open-in-ide" action={followDeeplink}
-					>Open client</AsyncButton
+					>Client öffnen</AsyncButton
 				>
 			{:else}
 				<AsyncButton style="gray" kind="outline" icon="copy" action={copyAccessToken}
-					>Copy Access Token</AsyncButton
+					>Zugriffstoken kopieren</AsyncButton
 				>
 			{/if}
 			<Button style="gray" kind="ghost" onclick={() => goto("/profile")} icon="user"
-				>Profile page</Button
+				>Profilseite</Button
 			>
 		</div>
 	</div>

@@ -44,7 +44,7 @@
 	let {
 		reviews,
 		status = "found",
-		sectionTitle = "Recent Reviews",
+		sectionTitle = "Aktuelle Prüfungen",
 		allReviewsUrl = undefined,
 		reviewsCount = 0,
 	}: Props = $props();
@@ -55,7 +55,7 @@
 			? review.title
 			: "title" in review && review.title !== undefined
 				? String(review.title)
-				: "Untitled Review";
+				: "Unbenannte Prüfung";
 	}
 
 	function getReviewUrl(review: Review): string {
@@ -68,7 +68,7 @@
 	function getContributorAvatars(contributors: Contributor[]) {
 		return contributors.map((contributor) => ({
 			srcUrl: contributor.user?.avatarUrl || "/images/default-avatar.png",
-			username: contributor.user?.name || "User",
+			username: contributor.user?.name || "Benutzer",
 		}));
 	}
 </script>
@@ -77,7 +77,7 @@
 	<div class="section-header">
 		<h2 class="section-title">{sectionTitle}</h2>
 		{#if allReviewsUrl && reviewsCount > 0}
-			<Button onclick={() => goto(allReviewsUrl)} style="pop">All Reviews</Button>
+			<Button onclick={() => goto(allReviewsUrl)} style="pop">Alle Prüfungen</Button>
 		{/if}
 	</div>
 
@@ -86,12 +86,12 @@
 			<thead>
 				<tr>
 					<th>Status</th>
-					<th>Project</th>
+					<th>Projekt</th>
 					<th>Name</th>
 					<th>Commits</th>
-					<th>Update</th>
-					<th>Authors</th>
-					<th title="Commit version">Ver.</th>
+					<th>Aktualisierung</th>
+					<th>Autoren</th>
+					<th title="Commit-Version">Ver.</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -125,12 +125,12 @@
 	{:else if status === "loading"}
 		<div class="loading-state">
 			<div class="loading-spinner"></div>
-			<p>Loading reviews...</p>
+			<p>Prüfungen werden geladen...</p>
 		</div>
 	{:else}
 		<div class="empty-state">
-			<p>No recent reviews</p>
-			<p class="empty-state-subtitle">Reviews will appear here once they are created.</p>
+			<p>Keine aktuellen Prüfungen</p>
+			<p class="empty-state-subtitle">Prüfungen erscheinen hier, sobald sie erstellt wurden.</p>
 		</div>
 	{/if}
 </div>

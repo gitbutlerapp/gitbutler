@@ -69,19 +69,19 @@
 <Spacer />
 
 <div class="stack-v gap-8">
-	<h2 class="text-15 text-bold">Notification settings</h2>
+	<h2 class="text-15 text-bold">Benachrichtigungseinstellungen</h2>
 	<p class="text-12 text-body clr-text-2">
-		Manage your email notification preferences for various activities within GitButler.
+		Verwalte deine E-Mail-Benachrichtigungseinstellungen für verschiedene Aktivitäten in GitButler.
 	</p>
 </div>
 
 <CardGroup>
 	<CardGroup.Item labelFor="receive-chat-mention-emails">
 		{#snippet title()}
-			Chat message mention emails
+			E-Mails bei Erwähnungen in Chat-Nachrichten
 		{/snippet}
 		{#snippet caption()}
-			Emails when you are mentioned in a message.
+			E-Mails, wenn du in einer Nachricht erwähnt wirst.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -96,10 +96,10 @@
 
 	<CardGroup.Item labelFor="receive-chat-reply-emails">
 		{#snippet title()}
-			Chat message reply emails
+			E-Mails bei Antworten auf Chat-Nachrichten
 		{/snippet}
 		{#snippet caption()}
-			Emails when you receive a reply to a chat message.
+			E-Mails, wenn du eine Antwort auf eine Chat-Nachricht erhältst.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -113,10 +113,10 @@
 
 	<CardGroup.Item labelFor="receive-issue-creation-emails">
 		{#snippet title()}
-			Issue creation emails
+			E-Mails bei Erstellung von Issues
 		{/snippet}
 		{#snippet caption()}
-			Emails for new issues created in changes you are involved in.
+			E-Mails für neue Issues, die in Änderungen erstellt werden, an denen du beteiligt bist.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -131,10 +131,10 @@
 
 	<CardGroup.Item labelFor="receive-issue-resolution-emails">
 		{#snippet title()}
-			Issue status emails
+			E-Mails zum Status von Issues
 		{/snippet}
 		{#snippet caption()}
-			Emails for status updates of issues in changes you are involved in.
+			E-Mails für Statusaktualisierungen von Issues in Änderungen, an denen du beteiligt bist.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -149,10 +149,10 @@
 
 	<CardGroup.Item labelFor="receive-review-branch-emails">
 		{#snippet title()}
-			Branch version update emails
+			E-Mails bei neuen Branch-Versionen
 		{/snippet}
 		{#snippet caption()}
-			Emails when a new review branch version is created.
+			E-Mails, wenn eine neue Version eines Review-Branches erstellt wird.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -167,10 +167,10 @@
 
 	<CardGroup.Item labelFor="receive-sign-off-emails">
 		{#snippet title()}
-			Change status update emails
+			E-Mails zum Status von Änderungen
 		{/snippet}
 		{#snippet caption()}
-			Emails for updates on the review status of changes you are involved in.
+			E-Mails für Aktualisierungen zum Review-Status von Änderungen, an denen du beteiligt bist.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle

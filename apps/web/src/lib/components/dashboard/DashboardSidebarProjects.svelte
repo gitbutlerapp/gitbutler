@@ -32,7 +32,7 @@
 
 {#if recentProjects.current.length > 0}
 	<div class="group">
-		<p class="text-13 text-bold title">Recent projects</p>
+		<p class="text-13 text-bold title">Letzte Projekte</p>
 		{#each latestRecentProjects as project}
 			<DashboardSidebarProject repositoryId={project.id} showOwner />
 		{/each}

@@ -34,10 +34,10 @@
 {#if open}
 	<ContextMenu {leftClickTrigger} target={leftClickTrigger} {onclose} {onopen}>
 		<ContextMenuSection>
-			<ContextMenuItem label="Copy link" onclick={copyLink} />
+			<ContextMenuItem label="Link kopieren" onclick={copyLink} />
 		</ContextMenuSection>
 		<ContextMenuSection>
-			<ContextMenuItem label="Create a rule" onclick={openRulesModal} />
+			<ContextMenuItem label="Regel erstellen" onclick={openRulesModal} />
 		</ContextMenuSection>
 	</ContextMenu>
 {/if}

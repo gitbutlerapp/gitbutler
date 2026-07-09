@@ -11,8 +11,8 @@
 	const currentTab = $derived(webState.dashboardSidebar.currentTab);
 
 	const tabs = [
-		{ label: "My projects", key: "projects" as SidebarTab },
-		{ label: "My reviews", key: "reviews" as SidebarTab },
+		{ label: "Meine Projekte", key: "projects" as SidebarTab },
+		{ label: "Meine Reviews", key: "reviews" as SidebarTab },
 	];
 </script>
 

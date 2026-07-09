@@ -19,10 +19,10 @@
 			{ key: "status", value: "Status" },
 			{ key: "version", value: "Ver." },
 			{ key: "string", value: "Name" },
-			{ key: "changes", value: "Changes" },
-			{ key: "date", value: "Updated" },
-			{ key: "avatars", value: "Authors" },
-			{ key: "reviewers", value: "Reviewers" },
+			{ key: "changes", value: "Änderungen" },
+			{ key: "date", value: "Aktualisiert" },
+			{ key: "avatars", value: "Autoren" },
+			{ key: "reviewers", value: "Prüfer" },
 			{ key: "comments", value: "" },
 		]}
 	>

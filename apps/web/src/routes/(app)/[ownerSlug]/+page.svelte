@@ -36,11 +36,11 @@
 
 {#if loading}
 	<div class="loading">
-		<p>Loading owner information...</p>
+		<p>Inhaberinformationen werden geladen…</p>
 	</div>
 {:else if error}
 	<div class="error">
-		<p>Error: {error}</p>
+		<p>Fehler: {error}</p>
 	</div>
 {:else if ownerData}
 	{#if ownerData.type === "user"}
@@ -49,8 +49,8 @@
 		<OrganizationProfile organization={ownerData.data} ownerSlug={data.ownerSlug} />
 	{:else if ownerData.type === "not_found"}
 		<div class="not-found">
-			<h2>Not Found</h2>
-			<p>The owner "{data.ownerSlug}" could not be found.</p>
+			<h2>Nicht gefunden</h2>
+			<p>Der Inhaber „{data.ownerSlug}“ konnte nicht gefunden werden.</p>
 		</div>
 	{/if}
 {:else}

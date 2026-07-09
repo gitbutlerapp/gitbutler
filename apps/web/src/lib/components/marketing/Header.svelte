@@ -39,7 +39,7 @@
 			})}
 			{@render link({
 				href: jsonLinks.resources.source.url,
-				label: "Source",
+				label: "Quellcode",
 				icon: "github",
 			})}
 			{@render link({

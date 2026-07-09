@@ -35,17 +35,17 @@
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
 		if (!username || !email || !password || !passwordConfirmation) {
-			error = "Username, email and password are required";
+			error = "Benutzername, E-Mail-Adresse und Passwort sind erforderlich";
 			return;
 		}
 
 		if (!passwordComponent?.isValid()) {
-			error = "Please check your password and confirmation";
+			error = "Bitte überprüfe dein Passwort und die Bestätigung";
 			return;
 		}
 
 		if (!usernameTextbox?.isValid()) {
-			error = "Please check your username";
+			error = "Bitte überprüfe deinen Benutzernamen";
 			return;
 		}
 
@@ -67,7 +67,7 @@
 </script>
 
 <svelte:head>
-	<title>GitButler | Sign Up</title>
+	<title>GitButler | Registrieren</title>
 </svelte:head>
 
 <RedirectIfLoggedIn />
@@ -75,10 +75,10 @@
 <FullscreenIllustrationCard illustration={successMessage ? newProjectSvg : undefined}>
 	{#snippet title()}
 		{#if !successMessage}
-			<i>Sign Up</i>
-			for GitButler
+			<i>Registrieren</i>
+			für GitButler
 		{:else}
-			🚀 Check <i>your email</i> for confirmation instructions
+			🚀 Überprüfe <i>deine E-Mails</i> für Anweisungen zur Bestätigung
 		{/if}
 	{/snippet}
 
@@ -88,7 +88,7 @@
 				<UsernameTextbox bind:this={usernameTextbox} bind:value={username} />
 				<EmailTextbox
 					bind:this={emailTextbox}
-					label="Email"
+					label="E-Mail"
 					placeholder=" "
 					bind:value={email}
 					autocomplete={false}
@@ -110,7 +110,7 @@
 				</InfoMessage>
 			{/if}
 
-			<Button type="submit" style="pop" disabled={!isFormValid}>Create account</Button>
+			<Button type="submit" style="pop" disabled={!isFormValid}>Konto erstellen</Button>
 
 			<OAuthButtons mode="signup" />
 		</form>
@@ -120,22 +120,22 @@
 		<div class="auth-form__footer">
 			{#if !successMessage}
 				<p>
-					*By signing up, you agree to our
-					<a href="https://gitbutler.com/terms">Terms</a>
-					and
-					<a href="https://gitbutler.com/privacy">Privacy Policy</a>
+					*Mit der Registrierung stimmst du unseren
+					<a href="https://gitbutler.com/terms">Nutzungsbedingungen</a>
+					und der
+					<a href="https://gitbutler.com/privacy">Datenschutzerklärung</a> zu
 				</p>
 				<p>
-					Already have an account? <a href={routesService.loginPath()}>Log in now</a>
+					Du hast bereits ein Konto? <a href={routesService.loginPath()}>Jetzt anmelden</a>
 				</p>
 			{:else}
 				<p>
-					Need help? <a
+					Brauchst du Hilfe? <a
 						href="https://github.com/gitbutlerapp/gitbutler/issues/new?template=BLANK_ISSUE"
 						target="_blank"
 						rel="noopener noreferrer"
 					>
-						Open a support request
+						Support-Anfrage stellen
 					</a>
 				</p>
 			{/if}

@@ -15,7 +15,7 @@
 		{#if showDownloadLinks}
 			<div class="banner-content-downloads">
 				<div class="stack-v">
-					<h2 class="banner-title">Download <i>the</i> app</h2>
+					<h2 class="banner-title">Lade <i>die</i> App</h2>
 
 					<div class="download-links">
 						<div class="download-category">
@@ -67,22 +67,23 @@
 
 				<div class="stack-v gap-8">
 					<p class="banner-nightly-text">
-						<span class="op-50">Not your system? See more</span>
-						<a href="/downloads" class="nightly-link"> download options </a>
+						<span class="op-50">Nicht dein System? Sieh dir weitere</span>
+						<a href="/downloads" class="nightly-link"> Download-Optionen </a>
+						an
 					</p>
 
 					<p class="banner-nightly-text">
-						<span class="op-50">Experience GitButler's newest features before anyone else.</span>
-						<a href="/nightly" class="nightly-link"> Get Nightly </a>
+						<span class="op-50">Erlebe die neuesten Funktionen von GitButler noch vor allen anderen.</span>
+						<a href="/nightly" class="nightly-link"> Nightly holen </a>
 					</p>
 				</div>
 			</div>
 		{:else}
 			<div class="banner-content-downloads">
 				<h2 class="banner-title">
-					<i>Version</i> Control
+					<i>Versions</i>verwaltung
 					<br />
-					With <i>Attitude</i> ⧓
+					mit <i>Attitüde</i> ⧓
 				</h2>
 			</div>
 		{/if}
@@ -121,7 +122,7 @@
 		<div class="stack-v gap-20">
 			<div class="meta-links">
 				<span class="meta-links__copyright"
-					>©{new Date().getFullYear()} GitButler. All rights reserved.</span
+					>©{new Date().getFullYear()} GitButler. Alle Rechte vorbehalten.</span
 				>
 				<span class="meta-links__legal">
 					<a href={jsonLinks.legal.privacyPolicy.url} target="_blank">

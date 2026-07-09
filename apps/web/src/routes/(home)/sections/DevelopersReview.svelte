@@ -3,7 +3,7 @@
 </script>
 
 <section class="reviews-wrapper" id="developers-preview">
-	<h2 class="title">What <i>developers<br />say</i> about us</h2>
+	<h2 class="title">Was <i>Entwickler<br />über uns</i> sagen</h2>
 	<section class="reviews">
 		<!-- <div class="reviews-column">
 			<TwitterCard
