@@ -23,12 +23,21 @@ pub struct StackBranch {
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
     /// The name must be unique within the repository.
     pub name: String,
-    /// The pull request associated with the branch, or None if a pull request has not been created.
+    /// Legacy persisted pull-request association.
+    ///
+    /// PR associations are now derived from the forge review cache when projecting branch data.
+    /// This field remains only for backwards-compatible snapshot and storage handling.
+    #[deprecated(note = "derive PR associations from the forge review cache instead")]
     pub pr_number: Option<usize>,
     /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
     /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
     pub archived: bool,
 
+    /// Legacy persisted GitButler review identifier.
+    ///
+    /// Review identifiers are no longer populated. This field remains only for
+    /// backwards-compatible snapshot and storage handling.
+    #[deprecated(note = "review identifiers are no longer persisted or populated")]
     pub review_id: Option<String>,
 }
 
