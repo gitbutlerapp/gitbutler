@@ -406,3 +406,94 @@ Invalid ref for checkout: 'origin/main' is not a local branch
 
 "#]]);
 }
+
+/// When hook cleanup partially fails, teardown must not report unqualified
+/// success: the final human message has to say hooks are left behind.
+#[cfg(unix)]
+#[test]
+fn teardown_with_failing_hook_cleanup_does_not_claim_full_success() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    // Plant GitButler-managed legacy hooks, then make the hooks directory
+    // read-only so their removal fails during teardown.
+    let hooks_dir = env.projects_root().join(".git/hooks");
+    std::fs::create_dir_all(&hooks_dir).unwrap();
+    let managed_hook = "#!/bin/sh\n# GITBUTLER_MANAGED_HOOK_V1\nexit 0\n";
+    std::fs::write(hooks_dir.join("pre-commit"), managed_hook).unwrap();
+    std::fs::write(hooks_dir.join("post-checkout"), managed_hook).unwrap();
+    std::fs::set_permissions(&hooks_dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+
+    // Teardown completes, but instead of the "✓ Successfully exited" line it
+    // prints per-hook warnings and a "⚠ ... some hooks could not be removed"
+    // summary, so the user knows GitButler hooks are still active.
+    env.but("teardown")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Exiting GitButler mode...
+
+→ Creating snapshot...
+  ✓ Snapshot created: [..]
+
+→ Finding active branch to check out...
+  ✓ Will check out: A
+
+  Warning: Failed to uninstall pre-commit: [..]
+  Warning: Failed to uninstall post-checkout: [..]
+→ Checking out A...
+  ✓ Checked out: A
+
+⚠ Exited GitButler mode, but some GitButler hooks could not be removed (see warnings above).
+
+You are now on branch: A
+
+To return to GitButler mode, run:
+  but setup
+
+
+"#]]);
+
+    // Restore permissions so the sandbox can clean up after itself.
+    std::fs::set_permissions(&hooks_dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+}
+
+/// JSON consumers must be able to detect a partial hook cleanup: the warnings
+/// surface as a dedicated field instead of only being printed for humans.
+#[cfg(unix)]
+#[test]
+fn json_output_reports_partial_hook_cleanup() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let hooks_dir = env.projects_root().join(".git/hooks");
+    std::fs::create_dir_all(&hooks_dir).unwrap();
+    let managed_hook = "#!/bin/sh\n# GITBUTLER_MANAGED_HOOK_V1\nexit 0\n";
+    std::fs::write(hooks_dir.join("pre-commit"), managed_hook).unwrap();
+    std::fs::write(hooks_dir.join("post-checkout"), managed_hook).unwrap();
+    std::fs::set_permissions(&hooks_dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+
+    env.but("--json teardown")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+{
+  "snapshotId": "[..]",
+  "checkedOutBranch": "A",
+  "hookWarnings": [
+    "Failed to uninstall pre-commit: [..]",
+    "Failed to uninstall post-checkout: [..]"
+  ]
+}
+
+"#]]);
+
+    std::fs::set_permissions(&hooks_dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+}
