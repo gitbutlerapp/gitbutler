@@ -50,6 +50,7 @@ pub fn commit_move_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitMoveResult> {
+    let prs_by_head = crate::workspace_state::forge_prs_by_head(ctx)?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo)?;
@@ -57,7 +58,7 @@ pub fn commit_move_only_with_perm(
         but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
 
     Ok(CommitMoveResult {
-        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
+        workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run, &prs_by_head)?,
     })
 }
 

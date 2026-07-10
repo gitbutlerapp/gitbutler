@@ -52,6 +52,7 @@ pub fn commit_move_changes_between_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
+    let prs_by_head = crate::workspace_state::forge_prs_by_head(ctx)?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -63,7 +64,8 @@ pub fn commit_move_changes_between_only_with_perm(
         changes,
         context_lines,
     )?;
-    let workspace = WorkspaceState::from_successful_rebase(outcome.rebase, &repo, dry_run)?;
+    let workspace =
+        WorkspaceState::from_successful_rebase(outcome.rebase, &repo, dry_run, &prs_by_head)?;
 
     Ok(MoveChangesResult { workspace })
 }

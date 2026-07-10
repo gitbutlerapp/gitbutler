@@ -203,6 +203,7 @@ pub(crate) fn apply(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<(gix::ObjectId, WorkspaceState)> {
+    let prs_by_head = crate::workspace_state::forge_prs_by_head(ctx)?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
 
@@ -229,7 +230,7 @@ pub(crate) fn apply(
 
     let rebase = editor.rebase()?;
     let new_commit = rebase.lookup_pick(target_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run, &prs_by_head)?;
 
     Ok((new_commit, workspace))
 }

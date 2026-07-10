@@ -52,21 +52,9 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
 
     // Resolve each segment's PR association from the forge review cache instead
     // of stored branch metadata, keyed by the segment's remote/pushed short name.
-    info.apply_forge_pr_associations(&repo, &forge_prs_by_head(ctx)?);
+    info.apply_forge_pr_associations(&repo, &crate::workspace_state::forge_prs_by_head(ctx)?);
 
     Ok(info)
-}
-
-/// Build a `{ pushed short name -> PR number }` lookup from the forge review
-/// cache, for resolving branch PR associations at projection time.
-fn forge_prs_by_head(
-    ctx: &but_ctx::Context,
-) -> Result<std::collections::HashMap<String, usize>> {
-    let db = ctx.db.get_cache()?;
-    Ok(but_forge::reviews_by_head(&db)?
-        .into_iter()
-        .filter_map(|(head, review)| usize::try_from(review.number).ok().map(|n| (head, n)))
-        .collect())
 }
 
 #[but_api]
