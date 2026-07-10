@@ -538,6 +538,18 @@ pub fn list_forge_reviews_with_cache(
     Ok(reviews)
 }
 
+/// Optimistically cache a single review — e.g. one just created via
+/// [`create_forge_review`] — so it appears in cache-only projections before the
+/// next full review-list sync.
+///
+/// Unlike [`list_forge_reviews_with_cache`], this upserts a single row and never
+/// deletes other cached reviews. The reconcile pass protects such a freshly
+/// written row from deletion for a short grace window, so it survives even if the
+/// forge's own list endpoint hasn't caught up to the new review yet.
+pub fn cache_review(db: &mut but_db::DbHandle, review: &ForgeReview) -> Result<()> {
+    crate::db::upsert_review(db, review)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ForgeAccountValidity {

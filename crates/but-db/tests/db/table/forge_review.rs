@@ -242,8 +242,10 @@ fn reconcile_listed_prunes_stale_rows() -> anyhow::Result<()> {
     ])?;
 
     listed_open.title = "Fresh listed open PR".to_string();
+    // All rows were synced at t=1_000_000, well before `cutoff`, so none fall
+    // inside the optimistic-insert grace window here.
     db.forge_reviews_mut()?
-        .reconcile_listed(vec![listed_open.clone()], cutoff)?;
+        .reconcile_listed(vec![listed_open.clone()], cutoff, cutoff)?;
 
     let reviews = db.forge_reviews().list_all()?;
     assert_eq!(
@@ -262,6 +264,41 @@ fn reconcile_listed_prunes_stale_rows() -> anyhow::Result<()> {
     assert!(
         reviews.contains(&recent_merged),
         "recent merged review should be retained for integration hints"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn reconcile_listed_spares_recent_optimistic_inserts() -> anyhow::Result<()> {
+    let mut db = in_memory_db();
+
+    // A brand-new PR cached optimistically (synced "just now"), not yet visible
+    // in the forge's list response.
+    let mut optimistic = forge_review(1, "Just-created PR", "new-pr");
+    optimistic.last_sync_at = chrono::DateTime::from_timestamp(3_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    // An open PR that genuinely dropped off the forge, last synced long ago
+    // (the helper stamps `last_sync_at` at t=1_000_000).
+    let vanished = forge_review(2, "Vanished PR", "gone");
+
+    db.forge_reviews_mut()?
+        .set_all(vec![optimistic.clone(), vanished])?;
+
+    // Reconcile against an empty list with the grace cutoff between the two sync
+    // times: the recent optimistic insert survives, the long-absent one is pruned.
+    let cutoff = chrono::DateTime::from_timestamp(2_000_000, 0)
+        .unwrap()
+        .naive_utc();
+    db.forge_reviews_mut()?
+        .reconcile_listed(vec![], cutoff, cutoff)?;
+
+    let reviews = db.forge_reviews().list_all()?;
+    assert_eq!(
+        reviews,
+        [optimistic],
+        "a recently-inserted open review must survive an empty list within the grace window"
     );
 
     Ok(())

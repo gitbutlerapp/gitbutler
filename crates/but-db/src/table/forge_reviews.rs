@@ -175,51 +175,100 @@ impl ForgeReviewsHandleMut<'_> {
         Ok(())
     }
 
-    /// Reconciles a fresh forge-list response with retained review rows.
+    /// Fold a fresh forge "list reviews" response into the cache.
     ///
-    /// Listed reviews are inserted or updated, cached open reviews that no
-    /// longer appear in the latest list are deleted, and merged reviews at or
-    /// before `merged_cutoff` are pruned. Closed or recently merged reviews
-    /// that are absent from the list are retained so direct review lookups can
-    /// continue to serve integration hints.
+    /// The list is the source of truth for which reviews are currently *open*,
+    /// with two deliberate exceptions that keep the cache useful — and
+    /// non-flickery — between syncs. The three steps run in a single savepoint,
+    /// so a partial reconcile is never observable.
+    ///
+    /// 1. **Upsert everything listed.** Each listed review is inserted or
+    ///    refreshed, which also bumps its `last_sync_at`.
+    /// 2. **Delete open reviews the forge no longer lists — but only stale ones**
+    ///    (see [`delete_open_reviews_absent_from_list`]). A freshly-written
+    ///    optimistic insert is spared via `absent_open_cutoff` so it doesn't
+    ///    flicker off before the forge's eventually-consistent list catches up.
+    /// 3. **Prune old merged reviews** past `merged_cutoff` (see
+    ///    [`prune_merged_before`]). Closed (non-merged) reviews are always kept,
+    ///    so direct lookups such as upstream-integration hints keep working.
+    ///
+    /// [`delete_open_reviews_absent_from_list`]: Self::delete_open_reviews_absent_from_list
+    /// [`prune_merged_before`]: Self::prune_merged_before
     pub fn reconcile_listed(
         self,
         reviews: Vec<ForgeReview>,
         merged_cutoff: chrono::NaiveDateTime,
+        absent_open_cutoff: chrono::NaiveDateTime,
     ) -> rusqlite::Result<()> {
         let listed_numbers = reviews
             .iter()
             .map(|review| review.number)
             .collect::<Vec<_>>();
+
         for review in reviews {
             self.upsert_without_commit(review)?;
         }
-
-        if listed_numbers.is_empty() {
-            self.sp.execute(
-                "DELETE FROM forge_reviews WHERE merged_at IS NULL AND closed_at IS NULL",
-                [],
-            )?;
-        } else {
-            let placeholders = std::iter::repeat_n("?", listed_numbers.len())
-                .collect::<Vec<_>>()
-                .join(", ");
-            self.sp.execute(
-                &format!(
-                    "DELETE FROM forge_reviews \
-                     WHERE merged_at IS NULL AND closed_at IS NULL \
-                     AND number NOT IN ({placeholders})"
-                ),
-                rusqlite::params_from_iter(listed_numbers),
-            )?;
-        }
-
-        self.sp.execute(
-            "DELETE FROM forge_reviews WHERE merged_at IS NOT NULL AND merged_at <= ?1",
-            [merged_cutoff],
-        )?;
+        self.delete_open_reviews_absent_from_list(&listed_numbers, absent_open_cutoff)?;
+        self.prune_merged_before(merged_cutoff)?;
 
         self.sp.commit()?;
+        Ok(())
+    }
+
+    /// Delete cached *open* reviews (neither merged nor closed) that are absent
+    /// from the latest list, restricted to rows last synced at or before
+    /// `absent_open_cutoff`.
+    ///
+    /// The cutoff is what spares a freshly-written optimistic insert (e.g. a PR
+    /// just created locally) from being reconciled away before the forge's
+    /// eventually-consistent list reflects it: callers pass `now - grace`, so any
+    /// row whose `last_sync_at` is newer than the cutoff is retained. An empty
+    /// `listed_numbers` means the forge reports no open reviews at all, so every
+    /// open review older than the cutoff is eligible for deletion.
+    fn delete_open_reviews_absent_from_list(
+        &self,
+        listed_numbers: &[i64],
+        absent_open_cutoff: chrono::NaiveDateTime,
+    ) -> rusqlite::Result<()> {
+        if listed_numbers.is_empty() {
+            self.sp.execute(
+                "DELETE FROM forge_reviews \
+                 WHERE merged_at IS NULL AND closed_at IS NULL \
+                 AND last_sync_at <= ?1",
+                [absent_open_cutoff],
+            )?;
+            return Ok(());
+        }
+
+        let placeholders = std::iter::repeat_n("?", listed_numbers.len())
+            .collect::<Vec<_>>()
+            .join(", ");
+        // Positional params: the listed numbers first, then the cutoff last.
+        let mut params: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(listed_numbers.len() + 1);
+        for number in listed_numbers {
+            params.push(number);
+        }
+        params.push(&absent_open_cutoff);
+
+        self.sp.execute(
+            &format!(
+                "DELETE FROM forge_reviews \
+                 WHERE merged_at IS NULL AND closed_at IS NULL \
+                 AND number NOT IN ({placeholders}) \
+                 AND last_sync_at <= ?"
+            ),
+            params.as_slice(),
+        )?;
+        Ok(())
+    }
+
+    /// Delete merged reviews whose `merged_at` is at or before `cutoff`. Does not
+    /// commit; the caller owns the surrounding savepoint.
+    fn prune_merged_before(&self, cutoff: chrono::NaiveDateTime) -> rusqlite::Result<()> {
+        self.sp.execute(
+            "DELETE FROM forge_reviews WHERE merged_at IS NOT NULL AND merged_at <= ?1",
+            [cutoff],
+        )?;
         Ok(())
     }
 
@@ -284,11 +333,7 @@ impl ForgeReviewsHandleMut<'_> {
 
     /// Deletes reviews with a merge timestamp at or before `cutoff`.
     pub fn delete_merged_before(self, cutoff: chrono::NaiveDateTime) -> rusqlite::Result<()> {
-        self.sp.execute(
-            "DELETE FROM forge_reviews WHERE merged_at IS NOT NULL AND merged_at <= ?1",
-            [cutoff],
-        )?;
-
+        self.prune_merged_before(cutoff)?;
         self.sp.commit()?;
         Ok(())
     }
