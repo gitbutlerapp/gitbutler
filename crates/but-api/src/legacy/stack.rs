@@ -336,23 +336,6 @@ pub fn update_branch_name_with_perm(
     Ok(full_name.into())
 }
 
-#[but_api]
-#[instrument(err(Debug))]
-pub fn update_branch_pr_number(
-    ctx: &mut Context,
-    stack_id: StackId,
-    branch_name: String,
-    pr_number: Option<usize>,
-) -> Result<()> {
-    gitbutler_branch_actions::stack::update_branch_pr_number(
-        ctx,
-        stack_id,
-        branch_name,
-        pr_number,
-    )?;
-    Ok(())
-}
-
 pub mod json {
     use serde::Serialize;
 

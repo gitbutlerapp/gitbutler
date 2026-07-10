@@ -4,7 +4,6 @@
 	import BranchHeaderContextMenu from "$components/branch/BranchHeaderContextMenu.svelte";
 	import CIChecksBadge from "$components/forge/CIChecksBadge.svelte";
 	import CreateReviewBox from "$components/forge/CreateReviewBox.svelte";
-	import PrNumberSync from "$components/forge/PrNumberSync.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
 	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import {
@@ -185,9 +184,6 @@
 		{@const moveHandler = args.stackId
 			? new MoveCommitDzHandler(args.stackId, projectId, branchName)
 			: undefined}
-		{#if !args.prNumber && args.stackId}
-			<PrNumberSync {projectId} stackId={args.stackId} {branchName} />
-		{/if}
 
 		<Dropzone
 			handlers={args.first ? [moveHandler, ...args.dropzones].filter(isDefined) : args.dropzones}

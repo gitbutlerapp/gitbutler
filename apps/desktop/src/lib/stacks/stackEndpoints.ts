@@ -720,26 +720,6 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.BranchListing),
 			],
 		}),
-		// TODO: Why is this not part of the regular update call?
-		updateBranchPrNumber: build.mutation<
-			void,
-			{
-				projectId: string;
-				stackId: string;
-				branchName: string;
-				prNumber?: number;
-			}
-		>({
-			extraOptions: {
-				command: "update_branch_pr_number",
-				actionName: "Update Branch PR Number",
-			},
-			query: (args) => args,
-			invalidatesTags: (_result, _error, args) => [
-				invalidatesItem(ReduxTag.StackDetails, args.stackId), // This probably is still needed
-				invalidatesList(ReduxTag.BranchListing),
-			],
-		}),
 		updateBranchName: build.mutation<
 			BranchReference,
 			{

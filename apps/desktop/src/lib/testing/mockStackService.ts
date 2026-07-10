@@ -106,10 +106,6 @@ export function getStackServiceMock() {
 	StackServiceMock.prototype.publishBranch = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.amendCommit = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.discardChanges = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
-	StackServiceMock.prototype.updateBranchPrNumber = [
-		vi.fn(),
-		reactive(() => mockReduxFulfilled({})),
-	];
 	StackServiceMock.prototype.updateBranchName = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.branchRemove = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.branchRename = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
