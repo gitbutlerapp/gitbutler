@@ -684,6 +684,8 @@ pub async fn publish_review(
     ctx: ThreadSafeContext,
     params: but_forge::CreateForgeReviewParams,
 ) -> Result<but_forge::ForgeReview> {
+    // Kept for the optimistic cache insert after the (non-`Send`) forge call.
+    let cache_ctx = ctx.clone();
     let (storage, forge_repo_info, forge_push_repo_info, preferred_forge_user) = {
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
@@ -709,14 +711,28 @@ pub async fn publish_review(
         )
     };
 
-    but_forge::create_forge_review(
+    let review = but_forge::create_forge_review(
         &preferred_forge_user,
         &forge_repo_info,
         &forge_push_repo_info,
         &params,
         &storage,
     )
-    .await
+    .await?;
+
+    // Optimistically insert the new review into the cache so the next projection
+    // shows it immediately, rather than waiting for a full review-list sync. The
+    // returned review's `source_branch` is the forge's own head-ref name, which
+    // is exactly the key the projection resolver matches against. Best-effort:
+    // a failed insert only delays the association until the next sync.
+    {
+        let ctx = cache_ctx.into_thread_local();
+        if let Ok(mut db) = ctx.db.get_cache_mut() {
+            but_forge::cache_review(&mut db, &review).ok();
+        }
+    }
+
+    Ok(review)
 }
 
 /// Merge a review on the forge.

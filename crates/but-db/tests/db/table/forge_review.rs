@@ -273,15 +273,21 @@ fn reconcile_listed_prunes_stale_rows() -> anyhow::Result<()> {
 fn reconcile_listed_spares_recent_optimistic_inserts() -> anyhow::Result<()> {
     let mut db = in_memory_db();
 
+    // A brand-new PR cached optimistically (synced "just now"), not yet visible
+    // in the forge's list response.
     let mut optimistic = forge_review(1, "Just-created PR", "new-pr");
     optimistic.last_sync_at = chrono::DateTime::from_timestamp(3_000_000, 0)
         .unwrap()
         .naive_utc();
+    // An open PR that genuinely dropped off the forge, last synced long ago
+    // (the helper stamps `last_sync_at` at t=1_000_000).
     let vanished = forge_review(2, "Vanished PR", "gone");
 
     db.forge_reviews_mut()?
         .set_all(vec![optimistic.clone(), vanished])?;
 
+    // Reconcile against an empty list with the grace cutoff between the two sync
+    // times: the recent optimistic insert survives, the long-absent one is pruned.
     let cutoff = chrono::DateTime::from_timestamp(2_000_000, 0)
         .unwrap()
         .naive_utc();
@@ -346,7 +352,6 @@ fn reconcile_listed_spares_recent_optimistic_inserts_with_non_empty_list() -> an
 
     Ok(())
 }
-
 fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
     ForgeReview {
         html_url: format!("https://github.com/owner/repo/pull/{number}"),
