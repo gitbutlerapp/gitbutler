@@ -935,6 +935,8 @@ dependencies = [
  "anyhow",
  "bstr",
  "but-core",
+ "but-db",
+ "but-forge",
  "but-meta",
  "but-testsupport",
  "but-workspace",

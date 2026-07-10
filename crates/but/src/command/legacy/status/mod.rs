@@ -433,6 +433,7 @@ fn build_status_context<'a>(
         &cache_config,
         &stack_details,
         &push_statuses_by_segment_id,
+        &review_map,
     )?;
 
     // Calculate common_merge_base data and upstream state in a scope
@@ -768,7 +769,9 @@ fn branch_is_merged_upstream(
     segment
         .branch_name()
         .and_then(|branch_name| {
-            review::from_branch_details(&status_ctx.review_map, branch_name, segment.pr_number())
+            // Resolve by branch name from the cached review list; a stored PR
+            // number is no longer used to disambiguate.
+            review::from_branch_details(&status_ctx.review_map, branch_name, None)
         })
         .is_some_and(|review| review.is_merged_at_commit(&head_commit_id))
 }
@@ -1012,6 +1015,7 @@ fn ci_map(
     cache_config: &but_forge::CacheConfig,
     stack_details: &[StackEntry],
     push_statuses_by_segment_id: &HashMap<SegmentIndex, PushStatus>,
+    review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
 ) -> Result<BTreeMap<String, Vec<but_forge::CiCheck>>, anyhow::Error> {
     let mut ci_map = BTreeMap::new();
     for (_, (stack_with_id, _)) in stack_details {
@@ -1021,9 +1025,14 @@ fn ci_map(
                 if push_status.is_none() {
                     eprintln!("warning: head_info does not contain segment that graph has");
                 }
-                if segment.pr_number().is_some()
-                    && !matches!(push_status, Some(PushStatus::Integrated))
+                // Fetch CI only for branches that actually have a review on the
+                // forge, derived from the cached review list keyed by branch name
+                // rather than a stored PR number on branch metadata.
+                if !matches!(push_status, Some(PushStatus::Integrated))
                     && let Some(branch_name) = segment.branch_name()
+                    && review_map
+                        .get(&branch_name.to_string())
+                        .is_some_and(|reviews| !reviews.is_empty())
                     && let Ok(checks) = but_api::legacy::forge::list_ci_checks(
                         ctx,
                         branch_name.to_string(),
@@ -1190,11 +1199,7 @@ fn print_group(
             let review_spans: Vec<Span<'static>> = segment
                 .branch_name()
                 .and_then(|branch_name| {
-                    review::from_branch_details(
-                        &status_ctx.review_map,
-                        branch_name,
-                        segment.pr_number(),
-                    )
+                    review::from_branch_details(&status_ctx.review_map, branch_name, None)
                 })
                 .map(|r| {
                     [Span::raw(" ")]
