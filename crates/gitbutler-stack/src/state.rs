@@ -17,8 +17,6 @@ use crate::{
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct VirtualBranches {
-    /// This is the target/base that is set when a repo is added to gb
-    pub default_target: Option<Target>,
     /// The targets for each virtual branch
     branch_targets: HashMap<StackId, Target>,
     /// The current state of the virtual branches
@@ -30,14 +28,13 @@ pub struct VirtualBranches {
 impl From<virtual_branches_legacy_types::VirtualBranches> for VirtualBranches {
     fn from(
         virtual_branches_legacy_types::VirtualBranches {
-            default_target,
+            default_target: _,
             branch_targets,
             branches,
             last_pushed_base,
         }: virtual_branches_legacy_types::VirtualBranches,
     ) -> Self {
         VirtualBranches {
-            default_target: default_target.map(Into::into),
             branch_targets: branch_targets
                 .into_iter()
                 .map(|(k, v)| (k, v.into()))
@@ -51,14 +48,13 @@ impl From<virtual_branches_legacy_types::VirtualBranches> for VirtualBranches {
 impl From<VirtualBranches> for virtual_branches_legacy_types::VirtualBranches {
     fn from(
         VirtualBranches {
-            default_target,
             branch_targets,
             branches,
             last_pushed_base,
         }: VirtualBranches,
     ) -> Self {
         virtual_branches_legacy_types::VirtualBranches {
-            default_target: default_target.map(Into::into),
+            default_target: None,
             branch_targets: branch_targets
                 .into_iter()
                 .map(|(k, v)| (k, v.into()))

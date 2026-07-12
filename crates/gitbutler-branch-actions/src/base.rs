@@ -126,7 +126,11 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
             return Ok(false);
         }
     };
-    ctx.set_default_target(target.into())?;
+    ctx.set_project_meta(but_core::ref_metadata::ProjectMeta {
+        target_ref: Some(target.branch.to_string().try_into()?),
+        target_commit_id: Some(target.sha),
+        push_remote: target.push_remote_name.clone(),
+    })?;
     set_exclude_decoration(ctx)?;
     Ok(true)
 }
@@ -226,7 +230,11 @@ pub(crate) fn set_base_branch(
         push_remote_name: None,
     };
 
-    ctx.set_default_target(target.clone().into())?;
+    ctx.set_project_meta(but_core::ref_metadata::ProjectMeta {
+        target_ref: Some(target.branch.to_string().try_into()?),
+        target_commit_id: Some(target.sha),
+        push_remote: target.push_remote_name.clone(),
+    })?;
     let mut vb_state = ctx.virtual_branches();
 
     // TODO: make sure this is a real branch

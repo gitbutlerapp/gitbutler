@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
-use but_core::{RefMetadata, Reference, RepositoryExt, WORKSPACE_REF_NAME, ref_metadata::StackId};
+use but_core::{Reference, RepositoryExt, ref_metadata::StackId};
 use but_ctx::{Context, access::RepoExclusive};
 use but_graph::FirstParent;
 use but_rebase::{RebaseOutput, RebaseStep};
@@ -788,14 +788,7 @@ pub(crate) fn integrate_upstream(
         {
             let mut project_meta = ctx.project_meta()?;
             project_meta.target_commit_id = Some(context.new_target);
-            project_meta.persist_to_local_config(&repo)?;
-            let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-            let mut meta = ctx.legacy_meta()?;
-            let mut workspace = meta.workspace(workspace_ref.as_ref())?;
-            workspace.set_project_meta(project_meta);
-            meta.set_workspace(&workspace)?;
-            meta.write_unreconciled()?;
-            ctx.invalidate_workspace_cache()?;
+            ctx.set_project_meta(project_meta)?;
         }
 
         // Update branch trees

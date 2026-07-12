@@ -367,7 +367,7 @@ where
         &mut self,
         ws_meta: Option<ref_metadata::Workspace>,
     ) -> anyhow::Result<()> {
-        let Some(mut ws_meta) = ws_meta else {
+        let Some(ws_meta) = ws_meta else {
             return Ok(());
         };
 
@@ -383,8 +383,6 @@ where
             .ref_name()
             .context("workspace metadata update requires workspace ref")?
             .to_owned();
-
-        ws_meta.set_project_meta(workspace.graph.project_meta.clone());
 
         self.inner
             .pending_metadata_updates

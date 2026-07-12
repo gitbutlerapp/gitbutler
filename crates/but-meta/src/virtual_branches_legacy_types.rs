@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct VirtualBranches {
     /// This is the target/base that is set when a repo is added to gb
+    #[serde(default, skip_serializing)]
     pub default_target: Option<Target>,
     /// The targets for each virtual branch
     pub branch_targets: HashMap<StackId, Target>,
