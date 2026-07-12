@@ -1,0 +1,361 @@
+//! Utilities for graph-walking specifically.
+use std::{cmp::Ordering, collections::BTreeMap, ops::Deref};
+
+use but_core::{RefMetadata, ref_metadata};
+use gix::{reference::Category, traverse::commit::Either};
+
+use crate::{
+    CommitFlags, SegmentMetadata, Worktree,
+    walk::overlay::{OverlayMetadata, OverlayRepo},
+};
+
+pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
+
+/// As convenience, if `ref_name` is `Some` and the metadata is not set, it will look it up for you.
+/// If `ref_name` is `None`, and `refs_by_id_lookup` is `Some`, it will try to look up unambiguous
+/// references on that object.
+/// Note that `ref_name` should only be set if you are sure that it is unambiguous, and otherwise won't interfere with
+/// the graph build or the workspace projection later.
+pub(crate) fn branch_segment_from_name_and_meta<T: RefMetadata>(
+    ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
+    meta: &OverlayMetadata<'_, T>,
+    refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
+    worktree_by_branch: &WorktreeByBranch,
+) -> anyhow::Result<SeedSegment> {
+    let commit_id = refs_by_id_lookup.map(|(_, id)| id);
+    let (ref_name, metadata) =
+        unambiguous_local_branch_and_segment_data(ref_name, meta, refs_by_id_lookup)?;
+    Ok(SeedSegment {
+        metadata,
+        ref_info: ref_name.map(|rn| crate::RefInfo::from_ref(rn, commit_id, worktree_by_branch)),
+    })
+}
+
+/// The walk's per-prospective-segment carrier: the (disambiguated name, metadata)
+/// pair the traversal decides per seed and remote tip.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct SeedSegment {
+    pub ref_info: Option<crate::RefInfo>,
+    pub metadata: Option<SegmentMetadata>,
+}
+
+impl SeedSegment {
+    /// The name this carrier resolved, if any.
+    pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
+        self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
+    }
+
+    /// The workspace metadata this carrier resolved, if it governs one.
+    pub fn workspace_metadata(&self) -> Option<&but_core::ref_metadata::Workspace> {
+        match self.metadata.as_ref()? {
+            SegmentMetadata::Workspace(md) => Some(md),
+            SegmentMetadata::Branch(_) => None,
+        }
+    }
+}
+
+fn unambiguous_local_branch_and_segment_data<T: RefMetadata>(
+    ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
+    meta: &OverlayMetadata<'_, T>,
+    refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
+) -> anyhow::Result<(Option<gix::refs::FullName>, Option<SegmentMetadata>)> {
+    Ok(match ref_name {
+        None => {
+            let Some(lookup) = refs_by_id_lookup else {
+                return Ok(Default::default());
+            };
+            disambiguate_refs_by_branch_metadata_with_lookup(lookup, meta)
+                .map(|(rn, md)| (Some(rn), md))
+                .unwrap_or_default()
+        }
+        Some((ref_name, maybe_metadata)) => {
+            let metadata = maybe_metadata
+                .map(Ok)
+                .or_else(|| extract_local_branch_metadata(ref_name.as_ref(), meta).transpose())
+                .transpose()?;
+            (Some(ref_name), metadata)
+        }
+    })
+}
+
+pub(crate) fn disambiguate_refs_by_branch_metadata_with_lookup<T: RefMetadata>(
+    refs_by_id_lookup: (&RefsById, gix::ObjectId),
+    meta: &OverlayMetadata<'_, T>,
+) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
+    let (refs_by_id, id) = refs_by_id_lookup;
+    let branches = refs_by_id
+        .get(&id)?
+        .iter()
+        .filter(|rn| rn.category() == Some(Category::LocalBranch))
+        .map(|rn| {
+            (
+                rn,
+                extract_local_branch_metadata(rn.as_ref(), meta)
+                    .ok()
+                    .flatten(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut branches_with_metadata = branches
+        .iter()
+        .filter_map(|(rn, md)| md.is_some().then_some((*rn, md.as_ref())));
+    // Take an unambiguous branch *with* metadata, or fallback to one without metadata.
+    branches_with_metadata
+        .next()
+        .filter(|_| branches_with_metadata.next().is_none())
+        .or_else(|| {
+            let mut iter = branches.iter();
+            iter.next()
+                .filter(|_| iter.next().is_none())
+                .map(|(rn, md)| (*rn, md.as_ref()))
+        })
+        .map(|(rn, md)| (rn.clone(), md.cloned()))
+}
+
+fn extract_local_branch_metadata<T: RefMetadata>(
+    ref_name: &gix::refs::FullNameRef,
+    meta: &OverlayMetadata<'_, T>,
+) -> anyhow::Result<Option<SegmentMetadata>> {
+    if ref_name.category() != Some(Category::LocalBranch) {
+        return Ok(None);
+    }
+    meta.branch_opt(ref_name)
+        .map(|res| res.map(SegmentMetadata::Branch))
+        .transpose()
+        // Also check for workspace data so we always correctly classify segments.
+        // This could happen if we run over another workspace commit which is reachable
+        // through the current tip.
+        .or_else(|| {
+            meta.workspace_opt(ref_name)
+                .map(|res| res.map(|md| SegmentMetadata::Workspace(md.clone())))
+                .transpose()
+        })
+        .transpose()
+}
+
+// Like the plumbing type, but will keep information that was already accessible for us.
+#[derive(Debug, Clone)]
+pub struct TraverseInfo {
+    inner: gix::traverse::commit::Info,
+    /// A means of sorting the entry on the queue.
+    pub(crate) gen_then_time: GenThenTime,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct GenThenTime {
+    /// The generation number from the commit-graph cache, if there was one.
+    generation: Option<u32>,
+    /// The committer timestamp, either from the commit-graph cache, or as parsed from the commit.
+    committer_time: u64,
+}
+
+impl Eq for GenThenTime {}
+
+impl PartialEq<Self> for GenThenTime {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
+    }
+}
+
+impl PartialOrd<Self> for GenThenTime {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.cmp(other).into()
+    }
+}
+
+/// Sort it so younger generations sort first, with more recent times (i.e. higher) as tiebreaker.
+/// When the generation is unknown (`None`), treat it as `u32::MAX` (youngest possible) to match
+/// git's `GENERATION_NUMBER_INFINITY` convention, ensuring unknown-generation commits are processed
+/// first during traversal.
+impl Ord for GenThenTime {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // Using a fixed sentinel for `None` is necessary to maintain a total order
+        // — the previous approach of falling back to time-only comparison when generations were mixed
+        // violated transitivity.
+        let gen_a = self.generation.unwrap_or(u32::MAX);
+        let gen_b = other.generation.unwrap_or(u32::MAX);
+        gen_a
+            .cmp(&gen_b)
+            .reverse()
+            .then_with(|| self.committer_time.cmp(&other.committer_time).reverse())
+    }
+}
+
+impl Deref for TraverseInfo {
+    type Target = gix::traverse::commit::Info;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+pub fn find(
+    cache: Option<&gix::commitgraph::Graph>,
+    objects: &impl gix::objs::Find,
+    id: gix::ObjectId,
+    buf: &mut Vec<u8>,
+) -> anyhow::Result<TraverseInfo> {
+    let mut parent_ids = gix::traverse::commit::ParentIds::new();
+    let gen_then_time = match gix::traverse::commit::find(cache, objects, &id, buf)? {
+        Either::CachedCommit(c) => {
+            let cache = cache.expect("cache is available if a cached commit is returned");
+            for parent_id in c.iter_parents() {
+                match parent_id {
+                    Ok(pos) => parent_ids.push({
+                        let parent = cache.commit_at(pos);
+                        parent.id().to_owned()
+                    }),
+                    Err(_err) => {
+                        // retry without cache
+                        return find(None, objects, id, buf);
+                    }
+                }
+            }
+            GenThenTime {
+                generation: c.generation().into(),
+                committer_time: c.committer_timestamp(),
+            }
+        }
+        Either::CommitRefIter(iter) => {
+            let mut committer_time = None;
+            for token in iter {
+                use gix::objs::commit::ref_iter::Token;
+                match token {
+                    Ok(Token::Tree { .. }) => continue,
+                    Ok(Token::Parent { id }) => {
+                        parent_ids.push(id);
+                    }
+                    Ok(Token::Author { .. }) => continue,
+                    Ok(Token::Committer { signature }) => {
+                        committer_time = Some(
+                            signature
+                                .time()
+                                .map(|t| t.seconds as u64)
+                                .unwrap_or_default(),
+                        )
+                    }
+                    Ok(_other_tokens) => break,
+                    Err(err) => return Err(err.into()),
+                };
+            }
+            GenThenTime {
+                generation: None,
+                committer_time: committer_time.unwrap_or_default(),
+            }
+        }
+    };
+
+    // Collapse EXACT duplicate parents right after reading the commit (a GitButler workspace merge
+    // encodes empty stacks as repeated parents, e.g. `[base, base]`). Stacks are derived from workspace
+    // metadata, so the repeated edge is pure redundancy; dropping it here keeps the graph from emitting
+    // a second connection to the same segment. Distinct parents (real merges) are preserved in order.
+    // Matches the `CommitGraph` reader so both builders agree.
+    if parent_ids.len() > 1 {
+        let mut deduped = gix::traverse::commit::ParentIds::new();
+        for p in parent_ids.iter() {
+            if !deduped.iter().any(|seen| seen == p) {
+                deduped.push(*p);
+            }
+        }
+        if deduped.len() != parent_ids.len() {
+            parent_ids = deduped;
+        }
+    }
+
+    Ok(TraverseInfo {
+        inner: gix::traverse::commit::Info {
+            id,
+            parent_ids,
+            commit_time: None,
+        },
+        gen_then_time,
+    })
+}
+
+/// Returns `[(workspace_tip, workspace_ref_name, workspace_info)]` for all available workspace,
+/// or exactly one workspace if `maybe_ref_name` has workspace metadata (and only then).
+///
+/// That way we can discover the workspace containing any starting point, but only if needed.
+/// This means we process all workspaces if we aren't currently and clearly looking at a workspace.
+/// Also prune all non-standard workspaces early, or those that don't have a tip.
+pub(crate) fn obtain_workspace_infos<T: RefMetadata>(
+    repo: &OverlayRepo<'_>,
+    maybe_ref_name: Option<&gix::refs::FullNameRef>,
+    meta: &OverlayMetadata<'_, T>,
+) -> anyhow::Result<Vec<(gix::ObjectId, gix::refs::FullName, ref_metadata::Workspace)>> {
+    let workspaces = if let Some((ref_name, ws_data)) = maybe_ref_name
+        .and_then(|ref_name| {
+            meta.workspace_opt(ref_name)
+                .transpose()
+                .map(|res| res.map(|ws_data| (ref_name, ws_data)))
+        })
+        .transpose()?
+    {
+        vec![(ref_name.to_owned(), ws_data)]
+    } else {
+        meta.iter_workspaces().collect()
+    };
+
+    let mut out = Vec::new();
+    for (rn, data) in workspaces {
+        if rn.category() != Some(Category::LocalBranch) {
+            tracing::warn!(
+                "Skipped workspace at ref {rn} as workspaces can only ever be on normal branches",
+            );
+            continue;
+        }
+        let Some(ws_tip) = try_refname_to_id(repo, rn.as_ref())? else {
+            tracing::warn!(
+                "Ignoring stale workspace ref '{rn}', which didn't exist in Git but still had workspace data",
+            );
+            continue;
+        };
+
+        out.push((ws_tip, rn, data))
+    }
+
+    Ok(out)
+}
+
+pub(crate) fn try_refname_to_id(
+    repo: &OverlayRepo<'_>,
+    refname: &gix::refs::FullNameRef,
+) -> anyhow::Result<Option<gix::ObjectId>> {
+    Ok(repo
+        .try_find_reference(refname)?
+        .map(|mut r| r.peel_to_id())
+        .transpose()?
+        .map(|id| id.detach()))
+}
+
+pub(crate) struct RemoteQueueOutcome {
+    /// The new tips to queue officially later.
+    pub items_to_queue_later: Vec<super::types::QueueItem>,
+    /// A way for the remote to find the local tracking branch.
+    pub maybe_make_id_a_goal_so_remote_can_find_local: CommitFlags,
+    /// A way for the local tracking branch to find the remote.
+    /// Only set if `items_to_queue_later` is also set.
+    pub limit_to_let_local_find_remote: CommitFlags,
+}
+
+pub(crate) type WorktreeByBranch = BTreeMap<gix::refs::FullName, Vec<Worktree>>;
+
+impl crate::RefInfo {
+    pub(crate) fn from_ref(
+        ref_name: gix::refs::FullName,
+        commit_id: impl Into<Option<gix::ObjectId>>,
+        worktree_by_branch: &WorktreeByBranch,
+    ) -> Self {
+        let worktree = worktree_by_branch
+            .get(&ref_name)
+            .and_then(|worktrees| worktrees.first().cloned());
+        Self {
+            ref_name,
+            commit_id: commit_id.into(),
+            worktree,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests;
