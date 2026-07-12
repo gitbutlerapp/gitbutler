@@ -23,7 +23,6 @@ anyhow.workspace = true
 bitflags.workspace = true
 boolean-enums.workspace = true
 tracing.workspace = true
-itertools.workspace = true
 
 [dev-dependencies]
 but-meta = { workspace = true, features = ["legacy"] }
