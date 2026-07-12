@@ -8,6 +8,7 @@ use std::{io::Write, path::Path};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt as _;
 
+use anyhow::Context as _;
 use bstr::ByteSlice as _;
 use but_core::{GitConfigSettings, RepositoryExt as _};
 use gitbutler_branch::BranchCreateRequest;
@@ -256,6 +257,177 @@ fn conflict_index_entry(path: impl AsRef<[u8]>, stage: u16, blob: git2::Oid) -> 
     }
 }
 
+#[test]
+fn snapshot_has_authoritative_meta_and_omits_legacy_target() -> anyhow::Result<()> {
+    let Test { repo, ctx, .. } = &mut Test::default();
+    configure_default_target(ctx)?;
+    let mut expected = ctx.project_meta()?;
+    expected.push_remote = Some("origin".to_owned());
+    ctx.set_project_meta(expected.clone())?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+
+    let repo = repo.open();
+    let project_meta = snapshot_blob(&repo, snapshot_id, "project_meta.toml")?;
+    let virtual_branches = snapshot_blob(&repo, snapshot_id, "virtual_branches.toml")?;
+
+    assert!(
+        project_meta.contains(&format!(
+            "targetRef = \"{}\"",
+            expected.target_ref.as_ref().unwrap()
+        )),
+        "the authoritative snapshot metadata stores the target ref"
+    );
+    assert!(
+        project_meta.contains(&format!(
+            "targetCommitId = \"{}\"",
+            expected.target_commit_id.unwrap()
+        )),
+        "the authoritative snapshot metadata stores the target commit"
+    );
+    assert!(
+        project_meta.contains("pushRemote = \"origin\""),
+        "the authoritative snapshot metadata stores the push remote"
+    );
+    assert!(
+        !virtual_branches.contains("[default_target]"),
+        "the snapshot TOML omits the legacy target"
+    );
+    Ok(())
+}
+
+#[test]
+fn snapshot_with_only_a_target_commit_omits_target_ref() -> anyhow::Result<()> {
+    let Test { repo, ctx, .. } = &mut Test::default();
+    configure_default_target(ctx)?;
+    let mut target_commit_only = ctx.project_meta()?;
+    target_commit_only.target_ref = None;
+    let target_commit_id = target_commit_only.target_commit_id.unwrap();
+    ctx.set_project_meta(target_commit_only)?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let repo = repo.open();
+    let project_meta = snapshot_blob(&repo, snapshot_id, "project_meta.toml")?;
+
+    assert!(
+        !project_meta.contains("targetRef"),
+        "an absent target ref remains absent in the authoritative metadata"
+    );
+    assert!(
+        project_meta.contains(&format!("targetCommitId = \"{target_commit_id}\"")),
+        "the target commit remains in the authoritative metadata"
+    );
+    Ok(())
+}
+
+#[test]
+fn restore_falls_back_to_the_legacy_target_in_old_snapshots() -> anyhow::Result<()> {
+    let Test { repo, ctx, .. } = &mut Test::default();
+    configure_default_target(ctx)?;
+    let original = ctx.project_meta()?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let old_snapshot_id = snapshot_as_legacy(
+        &repo.open(),
+        snapshot_id,
+        original.target_commit_id.unwrap(),
+    )?;
+
+    let mut changed = original.clone();
+    changed.target_ref = None;
+    ctx.set_project_meta(changed)?;
+    ctx.restore_snapshot(
+        old_snapshot_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+
+    assert_eq!(ctx.project_meta()?, original);
+    Ok(())
+}
+
+#[test]
+fn restore_reverts_a_target_commit_only_change() -> anyhow::Result<()> {
+    let Test { repo, ctx, .. } = &mut Test::default();
+    configure_default_target(ctx)?;
+    let original = ctx.project_meta()?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let repo = repo.open();
+    let original_commit = repo.find_commit(original.target_commit_id.unwrap())?;
+    let alternate_target = repo
+        .write_object(gix::objs::Commit {
+            message: "alternate target".into(),
+            parents: [original_commit.id].into(),
+            ..original_commit.decode()?.to_owned()?
+        })?
+        .detach();
+    let mut changed = original.clone();
+    changed.target_commit_id = Some(alternate_target);
+    ctx.set_project_meta(changed)?;
+
+    ctx.restore_snapshot(
+        snapshot_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+    assert_eq!(ctx.project_meta()?, original);
+    Ok(())
+}
+
+#[test]
+fn malformed_project_meta_fails_before_restore_mutates_state() -> anyhow::Result<()> {
+    let Test { repo, ctx, .. } = &mut Test::default();
+    configure_default_target(ctx)?;
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    let malformed_snapshot_id = snapshot_with_project_meta(
+        &repo.open(),
+        snapshot_id,
+        b"targetCommitId = 'not-an-object-id'\n",
+    )?;
+    let before_meta = ctx.project_meta()?;
+    let before_oplog_head = ctx.oplog_head()?;
+    let live_path = ctx.project_data_dir().join("virtual_branches.toml");
+    let before_toml = fs::read(&live_path)?;
+
+    let error = ctx
+        .restore_snapshot(
+            malformed_snapshot_id,
+            RestoreKind::RestoreFromSnapshotViaUndo,
+            guard.write_permission(),
+        )
+        .expect_err("malformed authoritative metadata must fail restore");
+    assert!(
+        error.to_string().contains("invalid targetCommitId"),
+        "restore reports the malformed authoritative field: {error:#}"
+    );
+    assert_eq!(ctx.project_meta()?, before_meta);
+    assert_eq!(ctx.oplog_head()?, before_oplog_head);
+    assert_eq!(fs::read(live_path)?, before_toml);
+    Ok(())
+}
+
 fn wd_file_count(worktree_dir: &&Path) -> anyhow::Result<usize> {
     Ok(glob::glob(&worktree_dir.join("file*").to_string_lossy())?.count())
 }
@@ -272,6 +444,64 @@ fn configure_default_target(ctx: &mut Context) -> anyhow::Result<()> {
         guard.write_permission(),
     )?;
     Ok(())
+}
+
+fn snapshot_blob(
+    repo: &gix::Repository,
+    snapshot_id: gix::ObjectId,
+    path: &str,
+) -> anyhow::Result<String> {
+    let tree = repo.find_commit(snapshot_id)?.tree()?;
+    let entry = tree
+        .lookup_entry_by_path(path)?
+        .with_context(|| format!("snapshot contains {path}"))?;
+    Ok(repo.find_blob(entry.id())?.data.to_str()?.to_owned())
+}
+
+fn snapshot_as_legacy(
+    repo: &gix::Repository,
+    snapshot_id: gix::ObjectId,
+    target_id: gix::ObjectId,
+) -> anyhow::Result<gix::ObjectId> {
+    let snapshot = repo.find_commit(snapshot_id)?;
+    let mut tree = snapshot.tree()?.edit()?;
+    tree.remove("project_meta.toml")?;
+    let mut virtual_branches = snapshot_blob(repo, snapshot_id, "virtual_branches.toml")?;
+    virtual_branches.push_str(&format!(
+        "\n[default_target]\nbranchName = \"master\"\nremoteName = \"origin\"\nremoteUrl = \"\"\nsha = \"{target_id}\"\n"
+    ));
+    tree.upsert(
+        "virtual_branches.toml",
+        gix::object::tree::EntryKind::Blob,
+        repo.write_blob(virtual_branches.as_bytes())?,
+    )?;
+    Ok(repo
+        .write_object(gix::objs::Commit {
+            tree: tree.write()?.detach(),
+            ..snapshot.decode()?.to_owned()?
+        })?
+        .detach())
+}
+
+fn snapshot_with_project_meta(
+    repo: &gix::Repository,
+    snapshot_id: gix::ObjectId,
+    contents: &[u8],
+) -> anyhow::Result<gix::ObjectId> {
+    let snapshot = repo.find_commit(snapshot_id)?;
+    let mut tree = snapshot.tree()?.edit()?;
+    let blob = repo.write_blob(contents)?;
+    tree.upsert(
+        "project_meta.toml",
+        gix::object::tree::EntryKind::Blob,
+        blob,
+    )?;
+    Ok(repo
+        .write_object(gix::objs::Commit {
+            tree: tree.write()?.detach(),
+            ..snapshot.decode()?.to_owned()?
+        })?
+        .detach())
 }
 
 fn enable_failing_commit_signing(ctx: &Context) -> anyhow::Result<()> {

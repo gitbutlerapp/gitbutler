@@ -5,7 +5,9 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, anyhow, bail};
-use but_core::{RepositoryExt, TreeChange, WORKSPACE_REF_NAME, diff::tree_changes};
+use but_core::{
+    RepositoryExt, TreeChange, WORKSPACE_REF_NAME, diff::tree_changes, ref_metadata::ProjectMeta,
+};
 use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
@@ -36,6 +38,63 @@ use crate::{entry::Version, reflog::ReflogCommits};
 /// **Inactive for now** while it's hard to tell if it's safe *not* to pick up everything.
 const AUTO_TRACK_LIMIT_BYTES: u64 = 0;
 
+const PROJECT_META_FILE: &str = "project_meta.toml";
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SnapshotProjectMeta {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target_ref: Option<String>,
+    target_commit_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    push_remote: Option<String>,
+}
+
+impl TryFrom<&ProjectMeta> for SnapshotProjectMeta {
+    type Error = anyhow::Error;
+
+    fn try_from(meta: &ProjectMeta) -> Result<Self> {
+        let target_commit_id = meta.target_commit_id_or_err()?;
+        if target_commit_id.is_null() {
+            bail!("cannot snapshot a null target commit id");
+        }
+        Ok(Self {
+            target_ref: meta.target_ref.as_ref().map(ToString::to_string),
+            target_commit_id: target_commit_id.to_string(),
+            push_remote: meta.push_remote.clone(),
+        })
+    }
+}
+
+impl TryFrom<SnapshotProjectMeta> for ProjectMeta {
+    type Error = anyhow::Error;
+
+    fn try_from(meta: SnapshotProjectMeta) -> Result<Self> {
+        let target_ref = meta
+            .target_ref
+            .map(|name| {
+                let name: gix::refs::FullName = name
+                    .try_into()
+                    .context("invalid targetRef in project_meta.toml")?;
+                if name.category() != Some(gix::refs::Category::RemoteBranch) {
+                    bail!("targetRef in project_meta.toml is not a remote-tracking branch");
+                }
+                Ok(name)
+            })
+            .transpose()?;
+        let target_commit_id = gix::ObjectId::from_str(&meta.target_commit_id)
+            .context("invalid targetCommitId in project_meta.toml")?;
+        if target_commit_id.is_null() {
+            bail!("targetCommitId in project_meta.toml is null");
+        }
+        Ok(Self {
+            target_ref,
+            target_commit_id: Some(target_commit_id),
+            push_remote: meta.push_remote,
+        })
+    }
+}
+
 /// The Oplog allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
 /// Snapshots include the state of the working directory as well as all additional GitButler state (e.g. virtual branches, conflict state).
 /// The data is stored as git trees in the following shape:
@@ -46,6 +105,7 @@ const AUTO_TRACK_LIMIT_BYTES: u64 = 0;
 /// ├── index/
 /// ├── index-conflicts/…
 /// ├── target_tree/…
+/// ├── project_meta.toml
 /// ├── virtual_branches
 /// │   └── [branch-id]
 /// │       ├── commit-message.txt
@@ -240,14 +300,14 @@ impl OplogExt for Context {
         // the operation changed we need to diff this snapshot (before) against the
         // next snapshot (after the operation ran). The next snapshot is the child
         // commit — the one whose parent is `sha`.
-        let before_tree_id = tree_from_applied_vbranches(&repo, sha, self)?;
+        let before_tree_id = tree_from_applied_vbranches(&repo, sha)?;
 
         let resolved_child = match child_id {
             Some(id) => Some(id),
             None => find_oplog_child(&repo, self, sha)?,
         };
         let after_tree_id = match resolved_child {
-            Some(child_id) => tree_from_applied_vbranches(&repo, child_id, self)?,
+            Some(child_id) => tree_from_applied_vbranches(&repo, child_id)?,
             None => {
                 // This is the oplog head (most recent snapshot). The operation has
                 // completed but no subsequent snapshot exists yet, so diff against the
@@ -289,7 +349,6 @@ fn get_workdir_tree(
     wd_trees_cache: Option<&mut HashMap<gix::ObjectId, gix::ObjectId>>,
     commit_id: impl Into<gix::ObjectId>,
     repo: &gix::Repository,
-    ctx: &Context,
 ) -> Result<ObjectId, anyhow::Error> {
     let snapshot_commit = repo.find_commit(commit_id.into())?;
     let details = snapshot_commit
@@ -311,7 +370,7 @@ fn get_workdir_tree(
     match wd_trees_cache {
         Some(cache) => {
             if let Entry::Vacant(entry) = cache.entry(snapshot_commit.id)
-                && let Ok(tree_id) = tree_from_applied_vbranches(repo, snapshot_commit.id, ctx)
+                && let Ok(tree_id) = tree_from_applied_vbranches(repo, snapshot_commit.id)
             {
                 entry.insert(tree_id);
             }
@@ -319,7 +378,7 @@ fn get_workdir_tree(
                 anyhow!("Could not get a tree of all applied virtual branches merged")
             })
         }
-        None => tree_from_applied_vbranches(repo, snapshot_commit.id, ctx),
+        None => tree_from_applied_vbranches(repo, snapshot_commit.id),
     }
 }
 
@@ -440,6 +499,42 @@ struct PreparedSnapshot {
     target_base_oid: gix::ObjectId,
 }
 
+fn snapshot_metadata(
+    snapshot_tree: &gix::Tree<'_>,
+    repo: &gix::Repository,
+) -> Result<(ProjectMeta, VirtualBranches)> {
+    let vb_toml_entry = snapshot_tree
+        .lookup_entry_by_path("virtual_branches.toml")?
+        .context("failed to get virtual_branches.toml blob")?;
+    let vb_toml_blob = repo
+        .find_blob(vb_toml_entry.id())
+        .context("failed to convert virtual_branches.toml tree entry to blob")?;
+    let virtual_branches: VirtualBranches = toml::from_str(
+        from_utf8(&vb_toml_blob.data).context("virtual_branches.toml is not UTF-8")?,
+    )
+    .context("failed to parse virtual_branches.toml")?;
+
+    let project_meta = match snapshot_tree.lookup_entry_by_path(PROJECT_META_FILE)? {
+        Some(entry) => {
+            let blob = repo
+                .find_blob(entry.id())
+                .context("failed to convert project_meta.toml tree entry to blob")?;
+            let stored: SnapshotProjectMeta =
+                toml::from_str(from_utf8(&blob.data).context("project_meta.toml is not UTF-8")?)
+                    .context("failed to parse project_meta.toml")?;
+            stored.try_into()?
+        }
+        None => ProjectMeta::try_from(
+            virtual_branches
+                .default_target
+                .as_ref()
+                .context("snapshot has neither project_meta.toml nor a legacy default target")?,
+        )?,
+    };
+    project_meta.target_commit_id_or_err()?;
+    Ok((project_meta, virtual_branches))
+}
+
 mod legacy_virtual_branches {
     use std::path::PathBuf;
 
@@ -547,8 +642,9 @@ fn prepare_snapshot_with_target(
     let repo = ctx.repo.get()?;
     let empty_tree_id = repo.empty_tree().id;
 
-    // grab the target commit
-    let default_target_commit_id = ctx.project_meta()?.target_commit_id_or_err()?;
+    // Grab the target once so every representation in this snapshot agrees.
+    let project_meta = ctx.project_meta()?;
+    let default_target_commit_id = project_meta.target_commit_id_or_err()?;
     let target_tree_id = repo
         .find_commit(default_target_commit_id)?
         .tree_id()?
@@ -572,8 +668,12 @@ fn prepare_snapshot_with_target(
     snapshot_tree.upsert("target_tree", EntryKind::Tree, target_tree_id)?;
     snapshot_tree.upsert("conflicts", EntryKind::Tree, conflicts_tree_id)?;
     snapshot_tree.upsert("virtual_branches", EntryKind::Tree, empty_tree_id)?;
+    let project_meta_blob = repo.write_blob(toml::to_string(&SnapshotProjectMeta::try_from(
+        &project_meta,
+    )?)?)?;
+    snapshot_tree.upsert(PROJECT_META_FILE, EntryKind::Blob, project_meta_blob)?;
 
-    let legacy_meta_path = {
+    let vb_content = {
         let mut legacy_meta = ctx.legacy_meta()?;
         let mut virtual_branches_changed = false;
         for stack in legacy_virtual_branches::in_workspace_stacks_mut(legacy_meta.data_mut()) {
@@ -619,15 +719,10 @@ fn prepare_snapshot_with_target(
             legacy_meta.set_changed_to_necessitate_write();
             legacy_meta.write_unreconciled()?;
         }
-        legacy_meta.path().to_owned()
+        toml::to_string(legacy_meta.data())?
     };
 
-    // The loop above may update the legacy metadata if stored heads drifted from refs, so
-    // snapshot virtual_branches.toml only after that final synchronization attempt.
-    // This is relevant only for snapshot restore.
-    // Create a blob out of `.git/gitbutler/virtual_branches.toml`
-    let vb_content = fs::read(legacy_meta_path)?;
-    let vb_blob_id = repo.write_blob(&vb_content)?;
+    let vb_blob_id = repo.write_blob(vb_content.as_bytes())?;
     snapshot_tree.upsert("virtual_branches.toml", EntryKind::Blob, vb_blob_id)?;
     // Add the worktree tree
     #[expect(deprecated)]
@@ -743,22 +838,21 @@ fn restore_snapshot(
 ) -> Result<gix::ObjectId> {
     // Use a separate repo without caching so we are sure the 'has commit' checks pick up all changes.
     let repo = ctx.repo.get()?;
+    let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
+    let snapshot_tree = snapshot_commit.tree()?;
+    // Validate both metadata formats before creating the before-restore snapshot or mutating the
+    // worktree, refs, config, TOML, or database.
+    let (restored_project_meta, mut restored_virtual_branches) =
+        snapshot_metadata(&snapshot_tree, &repo)?;
+    let restored_target = restored_project_meta.target_commit_id_or_err()?;
+    restored_virtual_branches.default_target = None;
+    let restored_vb_toml = toml::to_string(&restored_virtual_branches)?;
 
     let before_restore_snapshot_tree_id =
         prepare_snapshot(ctx, exclusive_access.read_permission())?;
     let before_restore_snapshot_workdir_tree_id =
         get_v3_workdir_tree(repo.find_tree(before_restore_snapshot_tree_id)?)?
             .context("Could not get workdir tree of snapshot created before the restore")?;
-    let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
-
-    let snapshot_tree = snapshot_commit.tree()?;
-    let vb_toml_entry = snapshot_tree
-        .lookup_entry_by_path("virtual_branches.toml")?
-        .context("failed to get virtual_branches.toml blob")?;
-    // virtual_branches.toml blob
-    let vb_toml_blob = repo
-        .find_blob(vb_toml_entry.id())
-        .context("failed to convert virtual_branches tree entry to blob")?;
 
     if let Err(err) = restore_conflicts_tree(&snapshot_tree, &repo) {
         tracing::warn!("failed to restore conflicts tree - ignoring: {err}")
@@ -825,7 +919,7 @@ fn restore_snapshot(
     }
 
     let gix_repo = ctx.clone_repo_for_merging()?;
-    let workdir_tree_id = get_workdir_tree(None, snapshot_commit_id, &gix_repo, ctx)?;
+    let workdir_tree_id = get_workdir_tree(None, snapshot_commit_id, &gix_repo)?;
 
     // Check out the snapshot's worktree while HEAD still points at the pre-restore commit:
     // safe_checkout diffs from `before_restore_snapshot_workdir_tree_id`, so
@@ -858,8 +952,10 @@ fn restore_snapshot(
     }
 
     // Update virtual_branches.toml with the state from the snapshot
-    let vb_state =
-        legacy_virtual_branches::restore_legacy_metadata_from_toml(ctx, &vb_toml_blob.data)?;
+    let vb_state = legacy_virtual_branches::restore_legacy_metadata_from_toml(
+        ctx,
+        restored_vb_toml.as_bytes(),
+    )?;
 
     // Now that legacy metadata has been restored, update references to reflect the restored heads.
     for stack in legacy_virtual_branches::in_workspace_stacks(vb_state.data()) {
@@ -867,10 +963,7 @@ fn restore_snapshot(
             legacy_virtual_branches::set_reference_to_stored_head(branch, &gix_repo).ok();
         }
     }
-    // The restored TOML is the source of truth for the target as well - bring the project
-    // metadata in Git config back in line with it so the restore isn't partial.
-    ctx.resync_project_meta_from_legacy()?;
-    ctx.invalidate_workspace_cache()?;
+    ctx.set_project_meta(restored_project_meta)?;
 
     // reset the repo index to our index tree
     let index_tree_entry = snapshot_tree
@@ -908,14 +1001,13 @@ fn restore_snapshot(
         ]),
     };
     let repo = ctx.repo.get()?;
-    let target = ctx.project_meta()?.target_commit_id_or_err()?;
     commit_snapshot(
         ctx,
         &repo,
         before_restore_snapshot_tree_id,
         details,
         exclusive_access,
-        target,
+        restored_target,
     )
 }
 
@@ -999,7 +1091,6 @@ fn deserialize_commit(commit_tree_id: gix::Id) -> Result<gix::ObjectId> {
 fn tree_from_applied_vbranches(
     repo: &gix::Repository,
     snapshot_commit_id: gix::ObjectId,
-    ctx: &Context,
 ) -> Result<gix::ObjectId> {
     let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
     let snapshot_tree = snapshot_commit.tree()?;
@@ -1022,15 +1113,8 @@ fn tree_from_applied_vbranches(
         .context("no entry at 'target_entry'")?;
     let target_tree_id = target_tree_entry.id().detach();
 
-    let vb_toml_entry = snapshot_tree
-        .lookup_entry_by_path("virtual_branches.toml")?
-        .context("failed to get virtual_branches.toml blob")?;
-    let vb_toml_blob = repo
-        .find_blob(vb_toml_entry.id())
-        .context("failed to convert virtual_branches tree entry to blob")?;
-
-    let vbs_from_toml: VirtualBranches = toml::from_str(from_utf8(&vb_toml_blob.data)?)?;
-    let default_target_oid = ctx.project_meta()?.target_commit_id_or_err()?;
+    let (project_meta, vbs_from_toml) = snapshot_metadata(&snapshot_tree, repo)?;
+    let default_target_oid = project_meta.target_commit_id_or_err()?;
     let applied_branch_trees: Vec<_> = legacy_virtual_branches::in_workspace_stacks(&vbs_from_toml)
         .map(|stack| {
             let head_oid =

@@ -1,10 +1,12 @@
 use anyhow::Result;
 use but_core::{
     GitConfigSettings, RefMetadata, RepositoryExt,
-    ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
+    ref_metadata::{
+        ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
+    },
 };
 use but_ctx::Context;
-use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
+use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::{gix_testtools, open_repo};
 use tempfile::TempDir;
 
@@ -181,11 +183,11 @@ fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) ->
     meta.set_changed_to_necessitate_write();
     meta.write_unreconciled()?;
 
-    meta.set_default_target(Target {
-        branch: "refs/remotes/origin/main".parse()?,
-        remote_url: ".".to_owned(),
-        sha: repo.rev_parse_single("refs/remotes/origin/main")?.detach(),
-        push_remote_name: Some("origin".to_owned()),
-    })?;
+    ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+        push_remote: Some("origin".to_owned()),
+    }
+    .persist(repo)?;
     Ok(())
 }

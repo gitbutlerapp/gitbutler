@@ -797,29 +797,35 @@ impl Context {
 
 /// Utilities
 impl Context {
-    /// Return project metadata from Git config, falling back to the legacy workspace metadata
-    /// if it wasn't ported yet.
+    /// Return project metadata from Git config, porting and removing legacy workspace metadata.
     ///
     /// This always reads the current on-disk state, so target changes made by other processes
     /// or through other repository handles are observed even by long-lived instances.
-    /// It never writes - porting happens on the first [`Self::set_project_meta()`] or
-    /// [`Self::set_default_target()`](Self::set_default_target).
     pub fn project_meta(&self) -> anyhow::Result<ProjectMeta> {
         let repo = self.repo.get()?;
-        // The legacy fallback opens a database and parses TOML - only pay for that
-        // when the repository wasn't ported to Git configuration yet.
-        ProjectMeta::resolve_with(&repo, || self.meta_inner_read_only())
+        let was_ported = ProjectMeta::is_ported_repo(&repo)?;
+        let mut legacy_meta = self.meta_inner_read_only()?;
+        let had_legacy_target = legacy_meta.data().default_target.is_some();
+        let mut project_meta = ProjectMeta::resolve(&repo, &legacy_meta)?;
+        if !was_ported {
+            project_meta = project_meta.persist(&repo)?;
+        }
+        if had_legacy_target {
+            legacy_meta.data_mut().default_target = None;
+            legacy_meta.set_changed_to_necessitate_write();
+            legacy_meta.write_unreconciled()?;
+        }
+        Ok(project_meta)
     }
 
-    /// Store project metadata in Git config and back-fill the legacy workspace metadata.
+    /// Store project metadata in Git config.
     ///
     /// Note that the cached repository handle needs no reload: [`Self::project_meta()`]
     /// re-reads the on-disk configuration on every call.
     pub fn set_project_meta(&self, project_meta: ProjectMeta) -> anyhow::Result<()> {
         {
             let repo = self.repo.get()?;
-            let mut meta = self.meta()?;
-            project_meta.persist(&repo, &mut meta)?;
+            project_meta.persist(&repo)?;
         }
         self.invalidate_workspace_cache()?;
         Ok(())

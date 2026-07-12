@@ -139,7 +139,7 @@ fn discover_with_app_channel_uses_requested_project_data_dir() -> anyhow::Result
 }
 
 #[test]
-fn set_project_meta_updates_git_config_toml_and_database() -> anyhow::Result<()> {
+fn set_project_meta_updates_only_git_config() -> anyhow::Result<()> {
     let (_tmp, repo, target_commit_id) = run_fixture("project-meta-base")?;
     let ctx = Context::from_repo_for_testing(repo)?;
     let project_meta = project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?;
@@ -187,37 +187,44 @@ StorageState {
         ),
     },
     toml: ProjectMetaView {
-        target_ref: Some(
-            "refs/remotes/origin/main",
-        ),
-        target_commit_id: Some(
-            "[OID]",
-        ),
-        push_remote: Some(
-            "fork",
-        ),
+        target_ref: None,
+        target_commit_id: None,
+        push_remote: None,
     },
     db: Some(
         DbStateView {
             initialized: true,
-            default_target_remote_name: Some(
-                "origin",
-            ),
-            default_target_branch_name: Some(
-                "main",
-            ),
-            default_target_sha: Some(
-                "[OID]",
-            ),
-            default_target_push_remote_name: Some(
-                "fork",
-            ),
+            default_target_remote_name: None,
+            default_target_branch_name: None,
+            default_target_sha: None,
+            default_target_push_remote_name: None,
         },
     ),
 }
 
 "#
         ]
+    );
+
+    let refresh_sentinel = ctx.project_data_dir().join("REFRESH");
+    assert!(
+        refresh_sentinel.exists(),
+        "a changed config should notify other processes"
+    );
+    std::fs::remove_file(&refresh_sentinel)?;
+
+    assert!(
+        !refresh_sentinel.exists(),
+        "an unchanged config should not notify other processes"
+    );
+
+    ctx.set_project_meta(ProjectMeta {
+        push_remote: Some("another-fork".into()),
+        ..project_meta
+    })?;
+    assert!(
+        refresh_sentinel.exists(),
+        "a subsequent config change should notify other processes"
     );
     Ok(())
 }
@@ -244,7 +251,31 @@ fn set_project_meta_fills_missing_target_commit_id_from_target_ref() -> anyhow::
     );
     let state = storage_state(&ctx)?;
     assert_eq!(state.config.target_commit_id, Some("[OID]"));
-    assert_eq!(state.toml.target_commit_id, Some("[OID]"));
+    assert_eq!(state.toml.target_commit_id, None);
+    Ok(())
+}
+
+#[test]
+fn set_project_meta_preserves_existing_target_commit_id() -> anyhow::Result<()> {
+    let (_tmp, repo, target_ref_tip) = run_fixture("project-meta-base")?;
+    let stable_target = gix::ObjectId::from_hex(b"1111111111111111111111111111111111111111")?;
+    assert_ne!(
+        stable_target, target_ref_tip,
+        "the fixture must detect repair"
+    );
+    let ctx = Context::from_repo_for_testing(repo)?;
+
+    ctx.set_project_meta(ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: Some(stable_target),
+        push_remote: None,
+    })?;
+
+    assert_eq!(
+        ctx.project_meta()?.target_commit_id,
+        Some(stable_target),
+        "an existing stable target must not move to the current ref tip"
+    );
     Ok(())
 }
 
@@ -305,7 +336,7 @@ StorageState {
         snapbox::str![
             r#"
 StorageState {
-    config_ported: false,
+    config_ported: true,
     config: ProjectMetaView {
         target_ref: None,
         target_commit_id: None,
@@ -348,7 +379,7 @@ fn project_meta_observes_changes_made_through_other_repository_handles() -> anyh
 }
 
 #[test]
-fn project_meta_falls_back_to_toml_and_ports_on_first_write() -> anyhow::Result<()> {
+fn project_meta_ports_toml_on_first_read() -> anyhow::Result<()> {
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-toml")?;
     let ctx = Context::from_repo_for_testing(repo)?;
 
@@ -381,6 +412,23 @@ StorageState {
         ]
     );
 
+    {
+        let repo = ctx.repo.get()?;
+        let legacy_meta = VirtualBranchesTomlMetadata::from_path_read_only(
+            ctx.project_data_dir().join("virtual_branches.toml"),
+        )?;
+        let resolved = ProjectMeta::resolve(&repo, &legacy_meta)?;
+        assert_eq!(
+            resolved.target_ref,
+            Some("refs/remotes/origin/main".try_into()?),
+            "pure resolution still reads the legacy target"
+        );
+        assert!(
+            !ProjectMeta::is_ported_repo(&repo)?,
+            "pure resolution must not port project metadata"
+        );
+    }
+
     let actual = ctx.project_meta()?;
     snapbox::assert_data_eq!(
         project_meta_summary(actual.clone()),
@@ -389,38 +437,7 @@ StorageState {
         ]
     );
 
-    // Reading is pure - nothing was ported yet.
-    snapbox::assert_data_eq!(
-        storage_state(&ctx)?.to_debug(),
-        snapbox::str![
-            r#"
-StorageState {
-    config_ported: false,
-    config: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    toml: ProjectMetaView {
-        target_ref: Some(
-            "refs/remotes/origin/main",
-        ),
-        target_commit_id: Some(
-            "[OID]",
-        ),
-        push_remote: Some(
-            "fork",
-        ),
-    },
-    db: None,
-}
-
-"#
-        ]
-    );
-
-    // The first write ports the metadata to Git config.
-    ctx.set_project_meta(actual)?;
+    // The first read ports legacy metadata and removes it from the live TOML.
     snapbox::assert_data_eq!(
         storage_state(&ctx)?.to_debug(),
         snapbox::str![
@@ -439,15 +456,9 @@ StorageState {
         ),
     },
     toml: ProjectMetaView {
-        target_ref: Some(
-            "refs/remotes/origin/main",
-        ),
-        target_commit_id: Some(
-            "[OID]",
-        ),
-        push_remote: Some(
-            "fork",
-        ),
+        target_ref: None,
+        target_commit_id: None,
+        push_remote: None,
     },
     db: None,
 }
@@ -455,11 +466,12 @@ StorageState {
 "#
         ]
     );
+
     Ok(())
 }
 
 #[test]
-fn project_meta_reads_git_config_when_ported_even_if_toml_differs() -> anyhow::Result<()> {
+fn project_meta_reads_git_config_and_removes_stale_toml() -> anyhow::Result<()> {
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-ported")?;
     let ctx = Context::from_repo_for_testing(repo)?;
 
@@ -524,102 +536,9 @@ StorageState {
         ),
     },
     toml: ProjectMetaView {
-        target_ref: Some(
-            "refs/remotes/origin/main",
-        ),
-        target_commit_id: Some(
-            "[OID]",
-        ),
-        push_remote: Some(
-            "fork",
-        ),
-    },
-    db: None,
-}
-
-"#
-        ]
-    );
-    Ok(())
-}
-
-#[test]
-fn resync_project_meta_from_legacy_leaves_unported_repos_alone() -> anyhow::Result<()> {
-    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-toml")?;
-    let ctx = Context::from_repo_for_testing(repo)?;
-
-    ctx.resync_project_meta_from_legacy()?;
-
-    // The TOML is still the only source of truth - a snapshot restore must not
-    // perform the initial port, as the ported marker is never unset and would hide
-    // future TOML-only writes by older binaries.
-    snapbox::assert_data_eq!(
-        storage_state(&ctx)?.to_debug(),
-        snapbox::str![
-            r#"
-StorageState {
-    config_ported: false,
-    config: ProjectMetaView {
         target_ref: None,
         target_commit_id: None,
         push_remote: None,
-    },
-    toml: ProjectMetaView {
-        target_ref: Some(
-            "refs/remotes/origin/main",
-        ),
-        target_commit_id: Some(
-            "[OID]",
-        ),
-        push_remote: Some(
-            "fork",
-        ),
-    },
-    db: None,
-}
-
-"#
-        ]
-    );
-    Ok(())
-}
-
-#[test]
-fn resync_project_meta_from_legacy_rewrites_config_from_toml_when_ported() -> anyhow::Result<()> {
-    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-ported")?;
-    let ctx = Context::from_repo_for_testing(repo)?;
-
-    ctx.resync_project_meta_from_legacy()?;
-
-    // The repository was already ported, so the restored TOML wins over the
-    // outdated Git config values, and the repository stays ported.
-    snapbox::assert_data_eq!(
-        storage_state(&ctx)?.to_debug(),
-        snapbox::str![
-            r#"
-StorageState {
-    config_ported: true,
-    config: ProjectMetaView {
-        target_ref: Some(
-            "refs/remotes/origin/main",
-        ),
-        target_commit_id: Some(
-            "[OID]",
-        ),
-        push_remote: Some(
-            "fork",
-        ),
-    },
-    toml: ProjectMetaView {
-        target_ref: Some(
-            "refs/remotes/origin/main",
-        ),
-        target_commit_id: Some(
-            "[OID]",
-        ),
-        push_remote: Some(
-            "fork",
-        ),
     },
     db: None,
 }

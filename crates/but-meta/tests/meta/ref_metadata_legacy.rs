@@ -1081,118 +1081,42 @@ Workspace {
         "default state is still mirrored into TOML"
     );
 
-    let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
-    store.data_mut().default_target = Some(default_target());
-
-    let toml_path = store.path().to_owned();
-    let mut ws = store.workspace(workspace_name.as_ref())?;
-
-    let mut project_meta = ws.project_meta();
-    project_meta.push_remote = Some("push-remote".into());
-    project_meta.target_ref = Some(gix::refs::FullName::try_from(
-        "refs/remotes/new-origin/new-target",
-    )?);
-    ws.set_project_meta(project_meta);
-    store.set_workspace(&ws)?;
-
-    drop(store);
-    let (actual, _uuids) =
-        sanitize_uuids_and_timestamps_with_mapping(std::fs::read_to_string(&toml_path)?);
-    snapbox::assert_data_eq!(
-        actual,
-        snapbox::str![[r#"
-[default_target]
-branchName = "new-target"
-remoteName = "new-origin"
-remoteUrl = "https://example.com/example-org/example-repo"
-sha = "0000000000000000000000000000000000000000"
-pushRemoteName = "push-remote"
-
-[branch_targets]
-
-[branches]
-
-"#]]
-    );
-
     Ok(())
 }
 
 #[test]
-fn target_journey() -> anyhow::Result<()> {
+fn legacy_project_meta_projection_is_read_only() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
     let ws_name = "refs/heads/gitbutler/workspace".try_into()?;
     let mut ws = store.workspace(ws_name)?;
     assert_eq!(
         ws.project_meta().target_ref,
-        Some("refs/remotes/origin/sub-name/main".try_into()?)
+        Some("refs/remotes/origin/sub-name/main".try_into()?),
+        "legacy metadata remains available for one-time migration"
     );
-
-    let expected_target: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
-    let mut project_meta = ws.project_meta();
-    project_meta.target_ref = Some(expected_target.clone());
-    ws.set_project_meta(project_meta);
+    ws.set_project_meta(but_core::ref_metadata::ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: Some(gix::ObjectId::from_hex(
+            b"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+        )?),
+        push_remote: Some("origin".into()),
+    });
     store.set_workspace(&ws)?;
 
-    let mut ws = store.workspace(ws_name)?;
-    assert_eq!(
-        ws.project_meta().target_ref,
-        Some(expected_target.clone()),
-        "can change the name as well"
-    );
+    let path = store.path().to_owned();
+    store.set_changed_to_necessitate_write();
+    store.write_unreconciled()?;
+    let written = std::fs::read_to_string(&path)?;
+    assert!(!written.contains("[default_target]"));
 
-    let mut project_meta = ws.project_meta();
-    project_meta.target_ref = None;
-    ws.set_project_meta(project_meta);
-    store.set_workspace(&ws)?;
-
-    let mut ws = store.workspace(ws_name)?;
-    let mut project_meta = ws.project_meta();
-    project_meta.target_ref = Some(expected_target.clone());
-    ws.set_project_meta(project_meta.clone());
-
-    store.set_workspace(&ws)?;
-    let mut ws = store.workspace(ws_name)?;
-    assert_eq!(
-        ws.project_meta().target_ref,
-        None,
-        "a target without a commit id is not persisted - legacy consumers \
-        can't handle the null sha it would need"
-    );
-    assert!(
-        store.data().default_target.is_none(),
-        "the TOML data keeps the default target absent instead of writing a null sha"
-    );
-
-    let expected_target_id = gix::ObjectId::from_hex(b"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391")?;
-    project_meta.target_commit_id = Some(expected_target_id);
-    ws.set_project_meta(project_meta.clone());
-
-    store.set_workspace(&ws)?;
-    let mut ws = store.workspace(ws_name)?;
-    assert_eq!(
-        ws.project_meta().target_ref,
-        Some("refs/remotes/origin/main".try_into()?),
-        "can set a target again through project metadata once a commit id is available"
-    );
-    assert_eq!(
-        ws.project_meta().target_commit_id,
-        Some(expected_target_id),
-        "the commit id is persisted along with the target"
-    );
-
-    // An update without a commit id must not clobber the existing sha with a null one.
-    project_meta.target_commit_id = None;
-    ws.set_project_meta(project_meta);
-    store.set_workspace(&ws)?;
+    let store = VirtualBranchesTomlMetadata::from_path(path)?;
     assert_eq!(
         store
-            .data()
-            .default_target
-            .as_ref()
-            .map(|target| target.sha),
-        Some(expected_target_id),
-        "updates without a commit id leave the existing sha alone"
+            .workspace("refs/heads/gitbutler/workspace".try_into()?)?
+            .project_meta()
+            .target_ref,
+        Some("refs/remotes/origin/sub-name/main".try_into()?),
+        "setting workspace ProjectMeta does not update the read-only legacy target"
     );
 
     Ok(())
@@ -1628,6 +1552,41 @@ fn vb_store_rw(name: &str) -> anyhow::Result<(VirtualBranchesTomlMetadata, TempD
 
     let store = VirtualBranchesTomlMetadata::from_path(&writable_toml_path)?;
     Ok((store, tmp))
+}
+
+#[test]
+fn legacy_target_is_read_but_not_written() -> anyhow::Result<()> {
+    let historical: but_meta::virtual_branches_legacy_types::VirtualBranches =
+        toml::from_str(&std::fs::read_to_string(vb_fixture("virtual-branches-01"))?)?;
+    assert!(
+        historical.default_target.is_some(),
+        "historical default target remains readable"
+    );
+
+    let stack_id = StackId::from_number_for_testing(1);
+    let branch_target = Target {
+        branch: RemoteRefname::new("origin", "stack-base"),
+        remote_url: "https://example.com/repo".into(),
+        sha: gix::ObjectId::from_hex(b"1111111111111111111111111111111111111111")?,
+        push_remote_name: Some("origin".into()),
+    };
+    let data = but_meta::virtual_branches_legacy_types::VirtualBranches {
+        default_target: historical.default_target,
+        branch_targets: [(stack_id, branch_target.clone())].into(),
+        ..Default::default()
+    };
+    let canonical = toml::to_string(&data)?;
+    assert!(
+        !canonical.contains("[default_target]"),
+        "canonical TOML omits the legacy project target"
+    );
+    let roundtrip: but_meta::virtual_branches_legacy_types::VirtualBranches =
+        toml::from_str(&canonical)?;
+    assert_eq!(
+        roundtrip.branch_targets.get(&stack_id),
+        Some(&branch_target)
+    );
+    Ok(())
 }
 
 #[test]

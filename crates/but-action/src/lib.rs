@@ -1,13 +1,9 @@
 //! This crate implements various automations that GitButler can perform.
 
-use std::{
-    fmt::{Debug, Display},
-    str::FromStr,
-};
+use std::fmt::{Debug, Display};
 
-use but_core::sync::RepoExclusive;
+use but_core::{ref_metadata::ProjectMeta, sync::RepoExclusive};
 use but_ctx::Context;
-use but_meta::virtual_branches_legacy_types::Target;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::{
     OplogExt,
@@ -164,17 +160,11 @@ fn default_target_setting_if_none(ctx: &Context) -> anyhow::Result<()> {
 
     let head_commit = head_ref.peel_to_commit()?;
 
-    let remote_refname =
-        gitbutler_reference::RemoteRefname::from_str(&target_ref_name.as_bstr().to_string())?;
-
-    let target = Target {
-        branch: remote_refname.clone(),
-        remote_url: "".to_string(),
-        sha: head_commit.id,
-        push_remote_name: None,
-    };
-
-    ctx.set_default_target(target)?;
+    ctx.set_project_meta(ProjectMeta {
+        target_ref: Some(target_ref_name),
+        target_commit_id: Some(head_commit.id),
+        push_remote: None,
+    })?;
     Ok(())
 }
 

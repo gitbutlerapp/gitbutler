@@ -591,7 +591,6 @@ pub fn workspace_integrate_upstream_only_with_perm(
         {
             let mut md = materialized.meta.workspace(ref_name)?;
             *md = ws_meta;
-            md.set_project_meta(project_meta);
             materialized.meta.set_workspace(&md)?;
         }
 

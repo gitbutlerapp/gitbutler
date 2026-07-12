@@ -265,11 +265,8 @@ fn bootstrap_missing_target_preserves_existing_workspace_ref() -> anyhow::Result
     let mut reopened: Context =
         but_testsupport::isolated_app_data_dir(|| project_id.clone().try_into())?;
     assert!(
-        but_meta::legacy_storage::read_synced_virtual_branches(
-            &reopened.project_data_dir().join("virtual_branches.toml")
-        )?
-        .default_target
-        .is_none()
+        reopened.project_meta()?.target_ref.is_none(),
+        "the freshly selected storage location has no project target"
     );
 
     let mut guard = reopened.exclusive_worktree_access();
