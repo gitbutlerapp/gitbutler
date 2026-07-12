@@ -234,6 +234,7 @@ pub trait OplogExt {
 }
 
 impl OplogExt for Context {
+    #[instrument(skip(self, perm), err(Debug))]
     fn prepare_snapshot(&self, perm: &RepoShared) -> Result<gix::ObjectId> {
         prepare_snapshot(self, perm)
     }

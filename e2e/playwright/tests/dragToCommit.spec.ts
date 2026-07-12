@@ -1,5 +1,4 @@
 import { updateCommitMessage, verifyCommitMessageEditor } from "../src/commit.ts";
-import { expect } from "../src/expect.ts";
 import {
 	assertFileContent,
 	assertFileIsStaged,
@@ -8,7 +7,8 @@ import {
 } from "../src/file.ts";
 import { applyUpstream, openWorkspace } from "../src/setup.ts";
 import { test } from "../src/test.ts";
-import { clickByTestId, commitRow, dragAndDropByLocator, waitForTestId } from "../src/util.ts";
+import { clickByTestId, commitRow, dragAndDropByLocator, getByTestId } from "../src/util.ts";
+import { expect } from "@playwright/test";
 import { writeFileSync } from "fs";
 
 test("should be able to start a commit by dragging a file", async ({ page, gitbutler }) => {
@@ -32,7 +32,8 @@ test("should be able to start a commit by dragging a file", async ({ page, gitbu
 		.filter({ hasText: fileName });
 	await expect(fileLocator).toBeVisible();
 
-	const branchCard = (await waitForTestId(page, "branch-card")).filter({ hasText: "branch1" });
+	const branchCard = getByTestId(page, "branch-card").filter({ hasText: "branch1" });
+	await branchCard.waitFor();
 	await dragAndDropByLocator(page, fileLocator, branchCard);
 
 	await assertFileIsStaged(page, fileName);

@@ -2566,15 +2566,15 @@ Unstacked branch 'C'
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ g0 [B]
-┊●   wwm add B
-┊│
-┊├┄ h0 [A]
-┊●   tpm add A
+┊╭┄ g0 [C]
+┊●   wlx add C
 ├╯
 ┊
-┊╭┄ i0 [C]
-┊●   wlx add C
+┊╭┄ h0 [B]
+┊●   wwm add B
+┊│
+┊├┄ i0 [A]
+┊●   tpm add A
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -3575,12 +3575,13 @@ fn move_a_commit_out_of_a_linked_worktree() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8e93f22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
 | | * 580bef0 (wt-feature) add W
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
@@ -3599,29 +3600,30 @@ Moved nsn to the tip of branch 'B'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   7ca2b42 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   e6c1e22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * 9477ae7 (wt-feature, A) add A
-* | f379d52 (B) add W
-* | d3e2ba3 add B
+| * f379d52 (wt-feature, B) add W
+| * d3e2ba3 add B
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
     );
-    // The worktree kept only its base history, and its checkout dropped the moved file.
+    // The worktree's branch followed its commit onto `B`, and so did the worktree's checkout:
+    // the moved file is still there, now as part of `B`.
     assert!(
-        !wt_dir.join("wt-file.txt").exists(),
-        "the moved commit's file left the worktree checkout"
+        wt_dir.join("wt-file.txt").exists(),
+        "the moved commit's file stays in the worktree checkout, which follows its branch"
     );
     snapbox::assert_data_eq!(
         but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
         snapbox::str![[r#"
-*   7ca2b42 (gitbutler/workspace) GitButler Workspace Commit
+*   e6c1e22 (gitbutler/workspace) GitButler Workspace Commit
 |/  
-| * 9477ae7 (HEAD -> wt-feature, A) add A
-* | f379d52 (B) add W
-* | d3e2ba3 add B
+| * f379d52 (HEAD -> wt-feature, B) add W
+| * d3e2ba3 add B
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
@@ -3654,13 +3656,11 @@ Moved lrm to the tip of branch 'wt-inside'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   e1a91a3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
-| | * 4ce1279 (wt-inside) add B
-| | * 580bef0 add W
-| |/  
-| * 9477ae7 (A) add A
+* 63ce938 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 4ce1279 (wt-inside) add B
+| * 580bef0 add W
 |/  
+* 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
 
 "#]]
@@ -3714,13 +3714,11 @@ Moved lrm to the tip of branch 'wt-inside'
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   e1a91a3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
-| | * 4ce1279 (wt-inside) add B
-| | * 580bef0 add W
-| |/  
-| * 9477ae7 (A) add A
+* 63ce938 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 4ce1279 (wt-inside) add B
+| * 580bef0 add W
 |/  
+* 9477ae7 (A) add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
 
 "#]]

@@ -12,11 +12,12 @@ doctest = true
 [dependencies]
 but-api.workspace = true
 but-ctx.workspace = true
+but-db.workspace = true
 but-oplog.workspace = true
 but-core.workspace = true
+but-graph.workspace = true
 but-workspace.workspace = true
 but-rebase.workspace = true
-but-graph.workspace = true
 
 gix.workspace = true
 anyhow.workspace = true

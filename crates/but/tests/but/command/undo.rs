@@ -893,8 +893,7 @@ fn can_undo_single_branch_mode_but_branch_new_switching_to_existing_workspace() 
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 8ad759d (gitbutler/workspace) GitButler Workspace Commit
-|/
+* cd7cc56 (gitbutler/workspace) GitButler Workspace Commit
 * b1540e5 (HEAD -> two, origin/main, origin/HEAD, three, one, main, gitbutler/target) M
 * e31e6ca add init
 

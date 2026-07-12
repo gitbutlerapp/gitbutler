@@ -562,7 +562,7 @@ pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<b
     }
 
     // TODO(legacy): it's fine to have no target.
-    if ws.graph.project_meta.target_ref.is_none() {
+    if ws.project_meta().target_ref.is_none() {
         anyhow::bail!("No default target branch set.");
     }
 

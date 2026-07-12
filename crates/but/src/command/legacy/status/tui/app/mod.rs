@@ -299,6 +299,11 @@ impl Tui for App {
         Ok(())
     }
 
+    #[cfg(test)]
+    fn request_render(&mut self) {
+        self.should_render = true;
+    }
+
     fn render<T>(&mut self, terminal_guard: &mut T) -> anyhow::Result<()>
     where
         T: TerminalGuard,
@@ -1823,7 +1828,7 @@ impl App {
                 &mut db,
                 but_workspace::ref_info::Options {
                     project_meta: ctx.project_meta()?,
-                    traversal: but_graph::init::Options {
+                    traversal: but_graph::walk::Options {
                         worktrees: ctx.settings.feature_flags.worktree_manipulation,
                         ..Default::default()
                     },

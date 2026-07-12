@@ -8,7 +8,7 @@ use but_core::ref_metadata::ProjectMeta;
 use but_ctx::{Context, ProjectHandle};
 use but_path::AppChannel;
 use but_testsupport::{
-    CommandExt as _, git, gix_testtools::tempfile::TempDir, graph_tree, open_repo,
+    CommandExt as _, git, gix_testtools::tempfile::TempDir, graph_dag, open_repo,
     writable_scenario_slow,
 };
 
@@ -697,7 +697,7 @@ fn workspace_ref_worktrees_enumerate_but_never_resolve_or_seed() -> anyhow::Resu
     );
     let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
     assert_eq!(
-        ws.graph.worktree_tips.len(),
+        ws.worktree_tips().len(),
         0,
         "and so it is never seeded into graph traversal"
     );
@@ -774,7 +774,7 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-seeding");
     let workspace_graph = |ctx: &Context| -> anyhow::Result<String> {
         let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
-        Ok(graph_tree(&ws.graph).to_string())
+        Ok(graph_dag(&ws).to_string())
     };
     let db_state = |ctx: &Context| -> anyhow::Result<String> {
         let db = ctx.db.get_cache_mut()?;
@@ -796,12 +796,7 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
     let ctx = Context::from_repo_for_testing(repo.clone())?;
     snapbox::assert_data_eq!(
         workspace_graph(&ctx)?,
-        snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── 🏁·85efbe4 (⌂)
-
-"#]]
+        snapbox::str!["*  👉🏁·85efbe4 (⌂) ►main[🌳]"]
     );
     snapbox::assert_data_eq!(db_state(&ctx)?, snapbox::str!["adopted: false, rows: []"]);
 
@@ -811,12 +806,7 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
     ctx.settings.feature_flags.worktree_manipulation = true;
     snapbox::assert_data_eq!(
         workspace_graph(&ctx)?,
-        snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── 🏁·85efbe4 (⌂)
-
-"#]]
+        snapbox::str!["*  👉🏁·85efbe4 (⌂) ►main[🌳]"]
     );
     snapbox::assert_data_eq!(
         db_state(&ctx)?,
@@ -838,8 +828,7 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
     {
         let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
         assert_eq!(
-            ws.graph
-                .worktree_tips
+            ws.worktree_tips()
                 .iter()
                 .map(|tip| tip.name.to_string())
                 .collect::<Vec<_>>(),
@@ -852,13 +841,8 @@ fn workspace_from_head_seeds_active_worktree_tips() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         workspace_graph(&ctx)?,
         snapbox::str![[r#"
-
-└── ►:2[0]:feat-b[📁wt-b]
-    └── ►:1[1]:anon:
-        └── ·7d7d38f (⌂)
-            └── 👉►:0[2]:main[🌳@repo]
-                └── 🏁·85efbe4 (⌂)
-
+*  ·7d7d38f (⌂) ►feat-b[📁wt-b]
+*  👉🏁·85efbe4 (⌂) ►main[🌳@repo]
 "#]]
     );
     Ok(())

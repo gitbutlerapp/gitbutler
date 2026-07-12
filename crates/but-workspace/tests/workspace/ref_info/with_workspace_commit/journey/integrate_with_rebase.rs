@@ -12,7 +12,7 @@ use crate::ref_info::{
 
 #[test]
 fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("01-one-rewritten-one-local-after-push")?;
+    let (repo, meta, description) = scenario("01-one-rewritten-one-local-after-push")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -39,7 +39,7 @@ The branch should then be considered integrated
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -72,7 +72,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -80,7 +79,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", integrated(818dbb2)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -93,20 +91,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 5,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(eabf2989a998260c7fbe181b33d5772705d62907),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 5,
         is_target_current: true,
-        lower_bound: Some(
-            NodeIndex(5),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -122,7 +110,7 @@ Ok(
 
 #[test]
 fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("01-with-local-amended-after-integration")?;
+    let (repo, meta, description) = scenario("01-with-local-amended-after-integration")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -149,7 +137,7 @@ The branch should then *not* be considered integrated anymore as A2 has changed
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     // TODO: A2 shouldn't be integrated.
     snapbox::assert_data_eq!(
         info.to_debug(),
@@ -183,7 +171,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -191,7 +178,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", integrated(d72fd2d)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: NothingToPush,
                         base: "fafd9d0",
@@ -204,20 +190,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 5,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(d89aadb67d5c32e6a63cad3d36020b5e8e192a91),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 5,
         is_target_current: true,
-        lower_bound: Some(
-            NodeIndex(5),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -233,8 +209,7 @@ Ok(
 
 #[test]
 fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) =
-        scenario("01-rewritten-local-commit-is-paired-with-remote")?;
+    let (repo, meta, description) = scenario("01-rewritten-local-commit-is-paired-with-remote")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -259,7 +234,7 @@ as the content is too different.
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -292,7 +267,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -300,7 +274,6 @@ Ok(
                             LocalCommit(550b6ac, "A1\n", local/remote(e1f216e)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -313,20 +286,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 0,
         is_target_current: true,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -342,7 +305,7 @@ Ok(
 
 #[test]
 fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) =
+    let (repo, meta, description) =
         scenario("01-one-rewritten-one-local-after-push-author-date-change")?;
     snapbox::assert_data_eq!(
         description,
@@ -370,7 +333,7 @@ This prevents quick-checks to work.
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -403,7 +366,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -411,7 +373,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", integrated(444639d)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -424,20 +385,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 5,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(7a2d071f19ec7551996099943167460ff2c2dd9d),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 5,
         is_target_current: true,
-        lower_bound: Some(
-            NodeIndex(5),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -457,7 +408,6 @@ pub fn scenario(
     gix::Repository,
     std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
     String,
-    but_db::DbHandle,
 )> {
     named_read_only_in_memory_scenario_with_description("journey03", name)
 }

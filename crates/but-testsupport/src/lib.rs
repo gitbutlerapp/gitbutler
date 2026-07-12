@@ -116,9 +116,6 @@ pub fn in_memory_db() -> but_db::DbHandle {
     but_db::DbHandle::new_at_path(":memory:").expect("in-memory database always opens")
 }
 
-/// The project database of `repo`, at the same location GitButler itself stores it.
-///
-/// Only for writable fixtures, whose storage lives and dies with the fixture's
 /// temporary directory; shared read-only fixtures use [`in_memory_db()`].
 pub fn project_db(repo: &gix::Repository) -> anyhow::Result<but_db::DbHandle> {
     use but_core::RepositoryExt as _;
@@ -715,7 +712,7 @@ pub fn debug_str(input: &dyn std::fmt::Debug) -> String {
 }
 
 mod graph;
-pub use graph::{graph_tree, graph_workspace, graph_workspace_determinisitcally};
+pub use graph::{graph_dag, graph_workspace, graph_workspace_determinisitcally};
 
 mod prepare_cmd_env;
 pub use prepare_cmd_env::{isolate_env_std_cmd, isolate_env_std_cmd_with_additional_removals};

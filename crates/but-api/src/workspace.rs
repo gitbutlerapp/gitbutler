@@ -15,7 +15,7 @@ use but_core::{
 use but_error::AnyhowContextExt as _;
 use but_forge::ForgeReview;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::mutate::RelativeTo;
+use but_rebase::graph_rebase::anchor::Anchor;
 use but_serde::BStringForFrontend;
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, IntegrateUpstreamOutcome, ReviewIntegrationHint,
@@ -256,10 +256,8 @@ pub fn get_workspace(
     perm: &RepoShared,
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
     let mut meta = ctx.meta()?;
-    let (repo, workspace, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
-    let mut workspace = workspace.clone();
-    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo, &mut db)
-        .map(Into::into)
+    let (repo, workspace, _db) = ctx.workspace_and_db_mut_with_perm(perm)?;
+    but_workspace::workspace::detailed_graph_workspace(&workspace, &mut meta, &repo).map(Into::into)
 }
 
 /// Make `target_ref` the project's default target without applying branches or entering
@@ -427,13 +425,13 @@ pub fn rebase_stack_bottoms(head_info: &but_workspace::RefInfo) -> Vec<BottomUpd
         .iter()
         .filter_map(|stack| {
             let segment = stack.segments.last()?;
-            let selector = match segment.commits.last() {
-                Some(commit) => RelativeTo::Commit(commit.id),
-                None => RelativeTo::Reference(segment.ref_info.as_ref()?.ref_name.clone()),
+            let anchor = match segment.commits.last() {
+                Some(commit) => Anchor::Commit(commit.id),
+                None => Anchor::Reference(segment.ref_info.as_ref()?.ref_name.clone()),
             };
             Some(BottomUpdate {
                 kind: BottomUpdateKind::Rebase,
-                selector,
+                selector: anchor,
             })
         })
         .collect()
@@ -496,7 +494,7 @@ fn forge_review_integration_hints(
     db: &but_db::DbHandle,
 ) -> anyhow::Result<Vec<ReviewIntegrationHint>> {
     let Some(target_branch_name) =
-        target_branch_name(&workspace.graph.symbolic_remote_names, project_meta)
+        target_branch_name(workspace.symbolic_remote_names(), project_meta)
     else {
         return Ok(vec![]);
     };
@@ -657,28 +655,35 @@ pub fn workspace_integrate_upstream_only_with_perm(
             ws_meta,
             project_meta,
         } = but_workspace::integrate_upstream_with_hints(
-            &mut ws,
+            &ws,
             &mut meta,
             project_meta,
             &repo,
-            &mut db,
             updates,
             &review_hints,
             single_branch_mode,
         )?;
-        let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
+        let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&ws, &rebase)?;
 
         if dry_run.into() {
-            let replaced_commits = rebase.history.commit_mappings();
-            let workspace_state =
-                WorkspaceState::from_rebase_preview(&mut rebase, replaced_commits)?;
+            let replaced_commits = rebase.commit_mappings();
+            let workspace_state = WorkspaceState::from_rebase_preview_with_db(
+                &ws,
+                &mut rebase,
+                replaced_commits,
+                &mut db,
+            )?;
             return Ok(WorkspaceIntegrateUpstreamOutcome {
                 workspace_state,
                 worktree_conflicts,
             });
         }
 
-        let materialized = rebase.materialize(Default::default())?;
+        let commit_mappings = rebase.commit_mappings();
+        let materialized = rebase.materialize_with_outcome()?;
+        let checkout_conflict_occurred = materialized.checkout_conflict_occurred;
+        let meta = materialized.meta;
+        ws.refresh_from_commit_graph(materialized.commit_graph, &repo, &*meta, &mut db)?;
         project_meta.persist(&repo)?;
         if let Err(err) = but_workspace::fast_forward_local_tracking_branch(
             &repo,
@@ -688,16 +693,23 @@ pub fn workspace_integrate_upstream_only_with_perm(
             warn!(?err, "failed to fast-forward local target branch");
         }
 
-        if let Some(ref_name) = materialized.workspace.ref_name()
+        if let Some(ref_name) = ws.ref_name()
             && let Some(ws_meta) = ws_meta
             && is_workspace_ref_name(ref_name)
         {
-            let mut md = materialized.meta.workspace(ref_name)?;
+            let mut md = meta.workspace(ref_name)?;
             *md = ws_meta;
-            materialized.meta.set_workspace(&md)?;
+            meta.set_workspace(&md)?;
         }
 
-        let workspace_state = WorkspaceState::from_materialized(materialized, &repo)?;
+        let workspace_state = WorkspaceState::from_workspace_with_db_and_checkout(
+            &ws,
+            meta,
+            &repo,
+            commit_mappings,
+            &mut db,
+            checkout_conflict_occurred,
+        )?;
         (workspace_state, worktree_conflicts)
     };
     ctx.invalidate_workspace_cache()?;

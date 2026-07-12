@@ -11,7 +11,7 @@ use but_core::{
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_rebase::graph_rebase::{anchor::Anchor as GraphAnchor, mutate::InsertSide};
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, branch::create_reference::Anchor, commit::ChangeSource};
 use gitbutler_operating_modes::OperatingMode;
@@ -729,7 +729,7 @@ impl CommitToNewBranchOperation {
         let branch_name = self.create_reference(tx, stack_on_head)?;
 
         let commit_create_result = tx.create_commit(
-            RelativeTo::Reference(branch_name.clone()),
+            GraphAnchor::Reference(branch_name.clone()),
             InsertSide::Below,
             changes,
             String::new(),
@@ -804,10 +804,10 @@ impl CommitAtOperation {
     pub fn create_target(
         &self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<(RelativeTo, InsertSide, Option<BranchNameTarget>)> {
+    ) -> anyhow::Result<(GraphAnchor, InsertSide, Option<BranchNameTarget>)> {
         Ok(match &self.target {
             CommitRelativeToTarget::Commit { commit, side } => {
-                (RelativeTo::Commit(commit.commit_id), (*side).into(), None)
+                (GraphAnchor::Commit(commit.commit_id), (*side).into(), None)
             }
             CommitRelativeToTarget::BranchBucket { name, side } => {
                 let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
@@ -820,13 +820,13 @@ impl CommitAtOperation {
                 )?;
 
                 (
-                    RelativeTo::Reference(new_branch_name.clone()),
+                    GraphAnchor::Reference(new_branch_name.clone()),
                     InsertSide::Below,
                     Some(BranchNameTarget::New(new_branch_name)),
                 )
             }
             CommitRelativeToTarget::BranchTip { name } => (
-                RelativeTo::Reference(name.clone()),
+                GraphAnchor::Reference(name.clone()),
                 InsertSide::Below,
                 Some(BranchNameTarget::Existing(name.clone())),
             ),

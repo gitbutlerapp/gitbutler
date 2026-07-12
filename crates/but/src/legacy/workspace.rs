@@ -60,15 +60,15 @@ fn head_info(
     // borrows the database again below. Only seed worktree tips when querying from
     // HEAD; during edit mode the workspace ref is queried without them.
     let ws = {
-        let mut options = but_graph::init::Options::limited();
+        let mut options = but_graph::walk::Options::limited();
         options.worktrees =
             edit_mode_workspace_ref.is_none() && ctx.settings.feature_flags.worktree_manipulation;
         let mut db = ctx.db.get_cache_mut()?;
-        let graph = match &edit_mode_workspace_ref {
+        match &edit_mode_workspace_ref {
             Some(ref_name) => {
                 let mut reference = repo.find_reference(ref_name.as_ref())?;
                 let id = reference.peel_to_id()?;
-                but_graph::Graph::from_commit_traversal(
+                but_graph::Workspace::from_tip(
                     id,
                     reference.name().to_owned(),
                     &meta,
@@ -77,11 +77,14 @@ fn head_info(
                     options,
                 )?
             }
-            None => {
-                but_graph::Graph::from_head(&repo, &meta, ctx.project_meta()?, &mut db, options)?
-            }
-        };
-        graph.into_workspace()?
+            None => but_graph::Workspace::from_head(
+                &repo,
+                &meta,
+                ctx.project_meta()?,
+                &mut db,
+                options,
+            )?,
+        }
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled
@@ -93,7 +96,7 @@ fn head_info(
     };
     let options = ref_info::Options {
         project_meta: ctx.project_meta()?,
-        traversal: but_graph::init::Options::limited(),
+        traversal: but_graph::walk::Options::limited(),
         expensive_commit_info,
         gerrit_mode,
     };
@@ -244,7 +247,6 @@ fn head_info_branch(segment: &Segment, null_id: gix::ObjectId) -> anyhow::Result
         ref_info,
         commits: local_commits,
         commits_on_remote,
-        commits_outside,
         metadata,
         push_status,
         base,
@@ -253,16 +255,6 @@ fn head_info_branch(segment: &Segment, null_id: gix::ObjectId) -> anyhow::Result
     let ref_info = ref_info
         .clone()
         .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
-    if let Some(commits_outside) = commits_outside
-        .as_ref()
-        .filter(|commits| !commits.is_empty())
-    {
-        tracing::warn!(
-            ignored_outside_commits = commits_outside.len(),
-            stack_segment_ref = %ref_info.ref_name,
-            "CLI head_info branch drops commits_outside for this stack segment"
-        );
-    }
 
     let base_commit = base.unwrap_or(null_id);
     let tip = ref_info

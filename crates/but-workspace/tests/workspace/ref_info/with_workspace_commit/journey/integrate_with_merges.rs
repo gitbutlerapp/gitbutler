@@ -13,7 +13,7 @@ use crate::ref_info::{
 
 #[test]
 fn two_commits_require_force_push() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("01-one-rewritten-one-local-after-push")?;
+    let (repo, meta, description) = scenario("01-one-rewritten-one-local-after-push")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -36,7 +36,7 @@ We change the name of the first commit and also need the similarity to be detect
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -69,7 +69,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -77,7 +76,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", local/remote(3fcd07a)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -90,20 +88,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 0,
         is_target_current: true,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -119,8 +107,7 @@ Ok(
 
 #[test]
 fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) =
-        scenario("01.5-one-rewritten-one-local-after-push-merge")?;
+    let (repo, meta, description) = scenario("01.5-one-rewritten-one-local-after-push-merge")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -143,7 +130,7 @@ On the remote, a rewritten/rebased commit we have locally is merged back into ta
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -176,7 +163,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -184,7 +170,6 @@ Ok(
                             LocalCommit(e1f216e, "A1\n", integrated(c635f08)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -197,20 +182,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 2,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 2,
         is_target_current: false,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -226,7 +201,7 @@ Ok(
 
 #[test]
 fn remote_diverged() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("02-diverged-remote")?;
+    let (repo, meta, description) = scenario("02-diverged-remote")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -249,7 +224,7 @@ The tip of the local branch isn't in the ancestry of the remote anymore.
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -282,7 +257,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -292,7 +266,6 @@ Ok(
                         commits_on_remote: [
                             Commit(0c06863, "A3\n"),
                         ],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -305,20 +278,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 0,
         is_target_current: true,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -334,7 +297,7 @@ Ok(
 
 #[test]
 fn remote_diverged_merge() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("02.5-diverged-remote-merge")?;
+    let (repo, meta, description) = scenario("02.5-diverged-remote-merge")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -365,7 +328,6 @@ We'd not want to see the remote unique commit anymore as it's also considered in
     let info = head_info(
         &repo,
         &meta,
-        &mut db,
         standard_options_with_extra_target(&repo, "fafd9d0"),
     );
     snapbox::assert_data_eq!(
@@ -400,7 +362,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -408,7 +369,6 @@ Ok(
                             LocalCommit(120a217, "A1\n", integrated(120a217)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -421,20 +381,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 2,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(085089cbf8a35fa549a5d50bd74930a7fddf970d),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 2,
         is_target_current: true,
-        lower_bound: Some(
-            NodeIndex(3),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -450,7 +400,7 @@ Ok(
 
 #[test]
 fn remote_behind() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("03-remote-one-behind")?;
+    let (repo, meta, description) = scenario("03-remote-one-behind")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -469,7 +419,7 @@ A can be pushed as it has local, unpushed commits
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -502,7 +452,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -510,7 +459,6 @@ Ok(
                             LocalCommit(120a217, "A1\n", local/remote(identity)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommits,
                         base: "fafd9d0",
@@ -523,20 +471,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 0,
         is_target_current: true,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -552,7 +490,7 @@ Ok(
 
 #[test]
 fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("03.5-remote-one-behind-merge-no-ff")?;
+    let (repo, meta, description) = scenario("03.5-remote-one-behind-merge-no-ff")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -580,7 +518,6 @@ Remote origin/A is merged back (with forceful merge commit) while there are stil
     let info = head_info(
         &repo,
         &meta,
-        &mut db,
         standard_options_with_extra_target(&repo, "fafd9d0"),
     );
     snapbox::assert_data_eq!(
@@ -615,7 +552,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(5),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -623,7 +559,6 @@ Ok(
                             LocalCommit(120a217, "A1\n", integrated(120a217)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -636,20 +571,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 1,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(a670cd571f1a6946a1a87d107e909445aa0fe90d),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 1,
         is_target_current: true,
-        lower_bound: Some(
-            NodeIndex(3),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -665,7 +590,7 @@ Ok(
 
 #[test]
 fn remote_ahead() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("04-remote-one-ahead-ff")?;
+    let (repo, meta, description) = scenario("04-remote-one-ahead-ff")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -685,7 +610,7 @@ There are no unpushed local commits, the remote is one ahead (FF)
 "#]]
     );
 
-    let info = head_info(&repo, &meta, &mut db, standard_options());
+    let info = head_info(&repo, &meta, standard_options());
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -718,7 +643,6 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -727,7 +651,6 @@ Ok(
                         commits_on_remote: [
                             Commit(a62b0de, "A2\n"),
                         ],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: UnpushedCommitsRequiringForce,
                         base: "fafd9d0",
@@ -740,20 +663,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 0,
         is_target_current: true,
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -769,7 +682,7 @@ Ok(
 
 #[test]
 fn remote_ahead_merge_ff() -> anyhow::Result<()> {
-    let (repo, meta, description, mut db) = scenario("04.5-remote-one-ahead-ff-merge")?;
+    let (repo, meta, description) = scenario("04.5-remote-one-ahead-ff-merge")?;
     snapbox::assert_data_eq!(
         description,
         snapbox::str![[r#"
@@ -792,7 +705,6 @@ Remote origin/A is merged back (fast-forward), bringing all into the target bran
     let info = head_info(
         &repo,
         &meta,
-        &mut db,
         standard_options_with_extra_target(&repo, "fafd9d0"),
     );
     snapbox::assert_data_eq!(
@@ -827,14 +739,12 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(4),
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(120a217, "A1\n", integrated(120a217)),
                         ],
                         commits_on_remote: [],
-                        commits_outside: None,
                         metadata: "None",
                         push_status: Integrated,
                         base: "fafd9d0",
@@ -847,20 +757,10 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
-                commits_ahead: 1,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(a62b0de7d50898e05c6cfa5b56d268aa5be17087),
-                segment_index: NodeIndex(2),
-            },
-        ),
+        target_commits_ahead: 1,
         is_target_current: true,
-        lower_bound: Some(
-            NodeIndex(3),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -880,7 +780,6 @@ pub fn scenario(
     gix::Repository,
     std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
     String,
-    but_db::DbHandle,
 )> {
     named_read_only_in_memory_scenario_with_description("journey02", name)
 }
