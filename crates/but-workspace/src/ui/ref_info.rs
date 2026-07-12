@@ -6,11 +6,7 @@ use but_core::{
 };
 use gix::refs::Category;
 
-use crate::{
-    ref_info::{LocalCommit, LocalCommitRelation},
-    ui,
-    ui::UpstreamCommit,
-};
+use crate::{ui, ui::UpstreamCommit};
 
 /// A reference in `refs/heads`.
 #[derive(serde::Serialize, Debug, Clone)]
@@ -108,14 +104,12 @@ but_schemars::register_sdk_type!(Target);
 
 impl Target {
     fn for_ui(
-        but_graph::workspace::TargetRef {
-            ref_name,
-            segment_index: _,
-            commits_ahead,
-        }: but_graph::workspace::TargetRef,
+        target: but_graph::workspace::TargetRef,
+        commits_ahead: usize,
         remote_names: &gix::remote::Names,
         is_current: bool,
     ) -> anyhow::Result<Self> {
+        let but_graph::workspace::TargetRef { ref_name, .. } = target;
         Ok(Target {
             remote_tracking_ref: RemoteTrackingReference::for_ui(ref_name, remote_names)?,
             commits_ahead,
@@ -275,9 +269,8 @@ impl inner::RefInfo {
             symbolic_remote_names,
             stacks,
             target_ref,
-            target_commit: _,
+            target_commits_ahead,
             is_target_current,
-            lower_bound: _,
             is_managed_ref,
             is_managed_commit,
             ancestor_workspace_commit: _,
@@ -293,7 +286,14 @@ impl inner::RefInfo {
             workspace_ref: workspace_ref_info.map(|ri| ri.ref_name.into()),
             stacks,
             target: target_ref
-                .map(|t| Target::for_ui(t, &symbolic_remote_names, is_target_current))
+                .map(|t| {
+                    Target::for_ui(
+                        t,
+                        target_commits_ahead,
+                        &symbolic_remote_names,
+                        is_target_current,
+                    )
+                })
                 .transpose()?,
             is_managed_ref,
             is_managed_commit,
@@ -381,14 +381,14 @@ pub struct Segment {
     /// with the local tracking branch. If these diverge, we can represent this in data, but currently there is
     /// no derived value to make this visible explicitly.
     pub commits_on_remote: Vec<UpstreamCommit>,
-    /// All commits *that are not workspace commits* reachable by (and including commits in) this segment.
-    /// The list was created by walking all parents, not only the first parent.
-    /// This means the segment needs fixing.
-    pub commits_outside: Option<Vec<ui::Commit>>,
+    /// Branches declared in this segment's stack whose refs have moved OUTSIDE the workspace,
+    /// each with the commits the workspace is missing. The segment is never renamed after
+    /// them — the ref points elsewhere, and this reports where instead of pretending.
+    pub advanced_outside: Vec<AdvancedOutside>,
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
+    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Workspace::from_tip)
     /// is this segment, and the surrounding workspace is provided for context.
     ///
     /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
@@ -412,16 +412,30 @@ pub struct Segment {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Segment);
 
+/// A declared branch whose ref has advanced outside the workspace — the user committed to it
+/// directly, so the workspace merge no longer contains its tip.
+#[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct AdvancedOutside {
+    /// The branch that moved, e.g. `B`.
+    pub ref_name: BranchReference,
+    /// The commits from the ref down to (excluding) the first workspace commit, newest first.
+    /// These are local commits; the light commit shape is shared with upstream-only commits
+    /// because neither kind has workspace-relation fields to offer.
+    pub commits_outside: Vec<UpstreamCommit>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(AdvancedOutside);
+
 impl Segment {
     fn for_ui(
         crate::ref_info::Segment {
             ref_info,
-            id: _,
             remote_tracking_ref_name,
-            remote_tracking_branch_segment_id: _,
             commits,
             commits_on_remote,
-            commits_outside,
+            advanced_outside,
             metadata,
             is_entrypoint,
             push_status,
@@ -436,18 +450,13 @@ impl Segment {
                 .transpose()?,
             commits: commits.iter().map(Into::into).collect(),
             commits_on_remote: commits_on_remote.iter().map(Into::into).collect(),
-            commits_outside: commits_outside.map(|commits| {
-                commits
-                    .into_iter()
-                    .map(|c| {
-                        (&LocalCommit {
-                            inner: c,
-                            relation: LocalCommitRelation::LocalOnly,
-                        })
-                            .into()
-                    })
-                    .collect()
-            }),
+            advanced_outside: advanced_outside
+                .into_iter()
+                .map(|advanced| AdvancedOutside {
+                    ref_name: advanced.ref_name.into(),
+                    commits_outside: advanced.commits_outside.iter().map(Into::into).collect(),
+                })
+                .collect(),
             metadata,
             is_entrypoint,
             push_status,

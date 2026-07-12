@@ -173,6 +173,7 @@ fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) ->
                         Ok(WorkspaceStackBranch {
                             ref_name: gix::refs::FullName::try_from(format!("refs/heads/{name}"))?,
                             archived: false,
+                            parents: None,
                         })
                     })
                     .collect::<Result<Vec<_>>>()?,

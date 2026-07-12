@@ -140,6 +140,11 @@ fn update_then_render<T, E>(
     T: Tui,
     E: EventPolling,
 {
+    // Force a full redraw: ratatui's diff assumes real-terminal side effects (overwriting
+    // half of a wide char blanks the other half) that TestBackend does not emulate, so
+    // incremental updates can leave stale cells in snapshots (ratatui-core 0.1.2).
+    terminal.clear().expect("failed to clear test terminal");
+
     with_stable_commit_env(|| {
         let mut out = TestTuiInputOutputChannel(out);
         let mut events = Vec::with_capacity(1);
@@ -147,6 +152,8 @@ fn update_then_render<T, E>(
         app.update(terminal, event, &mut events, &mut out, update_ctx)
             .unwrap();
 
+        // The terminal was cleared above: paint the frame even when the event changed nothing.
+        app.request_render();
         app.render(terminal).unwrap();
     });
 }

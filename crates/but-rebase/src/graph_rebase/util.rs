@@ -1,48 +1,93 @@
-//! Utilities around the step graph for internal use.
+//! Utilities around the commit graph for internal use.
 
+use crate::graph_rebase::commits::ParentEntry;
 use std::collections::HashSet;
 
-use petgraph::visit::EdgeRef as _;
+use crate::graph_rebase::commits::CommitIndex;
+use crate::graph_rebase::{EditorIndex, EditorStore};
 
-use crate::graph_rebase::{Pick, Step, StepGraph, StepGraphIndex};
-
-/// Find the parents of a given node that are commit - in correct parent
-/// ordering.
+/// Pruned depth-first search for `target`'s commit parents in parent order, descending through
+/// non-commit steps.
 ///
-/// We do this via a pruned depth first search.
+/// A parent entry that carries a reference group (the parent entry enters through a group
+/// positioned at its commit) yields to any plain parent resolving to the same commit, and only the
+/// first of several carrying parent entries survives — when a reference path and a direct path reach
+/// the same commit, that commit is listed once. Plain duplicate parents are all kept
+/// (dup-parents workspace commits).
 pub(crate) fn collect_ordered_parents(
-    graph: &StepGraph,
-    target: StepGraphIndex,
-) -> Vec<StepGraphIndex> {
-    let mut potential_parent_edges = graph
-        .edges_directed(target, petgraph::Direction::Outgoing)
-        .collect::<Vec<_>>();
-    potential_parent_edges.sort_by_key(|e| e.weight().order);
-    potential_parent_edges.reverse();
+    store: &EditorStore,
+    target: impl Into<EditorIndex>,
+) -> Vec<CommitIndex> {
+    collect_ordered_parents_with_indices(store, target)
+        .into_iter()
+        .map(|(parent, _)| parent)
+        .collect()
+}
 
-    let mut seen = potential_parent_edges
+/// As [`collect_ordered_parents`], but each parent keeps the target's parent slot it came from —
+/// `None` when it was flattened out of a tombstone and so has no parent index of its own. Callers that
+/// must ask something about a specific parent index need this: the emitted order skips and flattens, so an
+/// emitted position is not a parent index, and indexing one by the other silently misattributes.
+pub(crate) fn collect_ordered_parents_with_indices(
+    store: &EditorStore,
+    target: impl Into<EditorIndex>,
+) -> Vec<(CommitIndex, Option<usize>)> {
+    let target = target.into();
+    // The parent numbers whose entry is stored as entering some positioned group. An entry in a
+    // group's share always enters the commit the group is positioned on, so matching the parent number's
+    // parent again is redundant — one pass over the refs covers every parent number.
+    let carried_numbers: HashSet<usize> = store
+        .positioned_refs()
+        .flat_map(|entry| crate::graph_rebase::positions::entering(store, entry))
+        .filter(|&ParentEntry { child, .. }| EditorIndex::from(child) == target)
+        .map(|entry| entry.number)
+        .collect();
+    let carries_group = |parent_number: usize, parent: CommitIndex| {
+        store.is_commit(parent) && carried_numbers.contains(&parent_number)
+    };
+    let ordered_parents = store.parents(target);
+    let plain_targets: HashSet<CommitIndex> = ordered_parents
         .iter()
-        .map(|e| e.target())
-        .collect::<HashSet<_>>();
+        .enumerate()
+        .filter(|&(parent_number, &parent)| {
+            store.is_commit(parent) && !carries_group(parent_number, parent)
+        })
+        .map(|(_, &parent)| parent)
+        .collect();
+    let mut emitted_carrying = HashSet::new();
+
+    let mut potential: Vec<(CommitIndex, bool, Option<usize>)> = ordered_parents
+        .iter()
+        .enumerate()
+        .rev()
+        .map(|(parent_number, &parent)| {
+            (
+                parent,
+                carries_group(parent_number, parent),
+                Some(parent_number),
+            )
+        })
+        .collect();
+    let mut seen = potential
+        .iter()
+        .map(|(t, _, _)| *t)
+        .collect::<HashSet<CommitIndex>>();
 
     let mut parents = vec![];
 
-    while let Some(candidate) = potential_parent_edges.pop() {
-        if let Step::Pick(Pick { .. }) = graph[candidate.target()] {
-            parents.push(candidate.target());
+    while let Some((entry, carrying, index)) = potential.pop() {
+        if store.is_commit(entry) {
+            if carrying && (plain_targets.contains(&entry) || !emitted_carrying.insert(entry)) {
+                continue;
+            }
+            parents.push((entry, index));
             // Don't pursue the children
             continue;
         };
 
-        let mut outgoings = graph
-            .edges_directed(candidate.target(), petgraph::Direction::Outgoing)
-            .collect::<Vec<_>>();
-        outgoings.sort_by_key(|e| e.weight().order);
-        outgoings.reverse();
-
-        for edge in outgoings {
-            if seen.insert(edge.target()) {
-                potential_parent_edges.push(edge);
+        for &parent in store.parents(entry).iter().rev() {
+            if seen.insert(parent) {
+                potential.push((parent, false, None));
             }
         }
     }
@@ -57,74 +102,39 @@ mod test {
 
         use anyhow::Result;
 
-        use crate::graph_rebase::{Edge, Step, StepGraph, util::collect_ordered_parents};
+        use crate::graph_rebase::{CommitSpec, EditorStore, util::collect_ordered_parents};
 
         #[test]
         fn basic_scenario() -> Result<()> {
-            let mut graph = StepGraph::new();
+            let mut store = EditorStore::default();
             let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let a = graph.add_node(Step::new_pick(a_id));
+            let a = store.commits.add_commit(CommitSpec::new(a_id));
             // First parent
             let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let b = graph.add_node(Step::new_pick(b_id));
-            // Second parent - is a reference
-            let c = graph.add_node(Step::new_reference("refs/heads/foobar".try_into()?));
-            // Second parent's first child
+            let b = store.commits.add_commit(CommitSpec::new(b_id));
+            // Second parent - is a tombstone, so it flattens to its own parents
+            let c = store.commits.add_tombstone();
+            // Second parent's first parent
             let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
-            let d = graph.add_node(Step::new_pick(d_id));
-            // Second parent's second child
+            let d = store.commits.add_commit(CommitSpec::new(d_id));
+            // Second parent's second parent
             let e_id = gix::ObjectId::from_str("4000000000000000000000000000000000000000")?;
-            let e = graph.add_node(Step::new_pick(e_id));
+            let e = store.commits.add_commit(CommitSpec::new(e_id));
             // Third parent
             let f_id = gix::ObjectId::from_str("5000000000000000000000000000000000000000")?;
-            let f = graph.add_node(Step::new_pick(f_id));
+            let f = store.commits.add_commit(CommitSpec::new(f_id));
 
             // A's parents
-            graph.add_edge(a, b, Edge { order: 0 });
-            graph.add_edge(a, c, Edge { order: 1 });
-            graph.add_edge(a, f, Edge { order: 2 });
+            store.commits.push_parent(a, b);
+            store.commits.push_parent(a, c);
+            store.commits.push_parent(a, f);
 
             // C's parents
-            graph.add_edge(c, d, Edge { order: 0 });
-            graph.add_edge(c, e, Edge { order: 1 });
+            store.commits.push_parent(c, d);
+            store.commits.push_parent(c, e);
 
-            let parents = collect_ordered_parents(&graph, a);
+            let parents = collect_ordered_parents(&store, a);
             assert_eq!(&parents, &[b, d, e, f]);
-
-            Ok(())
-        }
-
-        #[test]
-        fn insertion_order_is_irrelevant() -> Result<()> {
-            let mut graph = StepGraph::new();
-            let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let a = graph.add_node(Step::new_pick(a_id));
-            // First parent
-            let b_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
-            let b = graph.add_node(Step::new_pick(b_id));
-            // Second parent - is a reference
-            let c = graph.add_node(Step::new_reference("refs/heads/foobar".try_into()?));
-            // Second parent's second child
-            let d_id = gix::ObjectId::from_str("3000000000000000000000000000000000000000")?;
-            let d = graph.add_node(Step::new_pick(d_id));
-            // Second parent's first child
-            let e_id = gix::ObjectId::from_str("4000000000000000000000000000000000000000")?;
-            let e = graph.add_node(Step::new_pick(e_id));
-            // Third parent
-            let f_id = gix::ObjectId::from_str("5000000000000000000000000000000000000000")?;
-            let f = graph.add_node(Step::new_pick(f_id));
-
-            // A's parents
-            graph.add_edge(a, f, Edge { order: 2 });
-            graph.add_edge(a, c, Edge { order: 1 });
-            graph.add_edge(a, b, Edge { order: 0 });
-
-            // C's parents
-            graph.add_edge(c, d, Edge { order: 1 });
-            graph.add_edge(c, e, Edge { order: 0 });
-
-            let parents = collect_ordered_parents(&graph, a);
-            assert_eq!(&parents, &[b, e, d, f]);
 
             Ok(())
         }

@@ -36,6 +36,7 @@ dist-ssr
 
 .turbo
 build
+!crates/*/src/build/
 .svelte-kit
 package
 !.env.example

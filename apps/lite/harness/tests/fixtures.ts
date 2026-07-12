@@ -47,7 +47,7 @@ export const fixtureSegment = ({
 	remoteTrackingRefName: null,
 	commits,
 	commitsOnRemote: [],
-	commitsOutside: null,
+	advancedOutside: [],
 	metadata: null,
 	isEntrypoint: false,
 	pushStatus: "completelyUnpushed",

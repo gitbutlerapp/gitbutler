@@ -212,7 +212,7 @@ pub fn commit_uncommit_only_with_perm(
     let surfaced =
         SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::for_workspace(&ws, &mut meta, &repo)?;
 
     let mut rebase =
         but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())
@@ -227,26 +227,17 @@ pub fn commit_uncommit_only_with_perm(
                 )
             })?;
 
+    let preview;
     let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
-        let graph = rebase.overlayed_graph()?;
-        let replaced_commits = rebase.history.commit_mappings();
-        let (repo, meta, db) = rebase.repo_meta_and_db_mut();
-        (
-            &mut graph.into_workspace()?,
-            replaced_commits,
-            repo,
-            meta,
-            db,
-        )
+        preview = but_workspace::workspace::overlayed_workspace(&ws, &rebase)?;
+        let replaced_commits = rebase.commit_mappings();
+        let (repo, meta) = rebase.repo_and_meta_mut();
+        (&preview, replaced_commits, repo, meta, &mut *db)
     } else {
-        let materialized = rebase.materialize_without_checkout()?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings(),
-            &*repo,
-            materialized.meta,
-            materialized.db,
-        )
+        let replaced_commits = rebase.commit_mappings();
+        let (graph, meta) = rebase.materialize_without_checkout()?;
+        ws.refresh_from_commit_graph(graph, &repo, &*meta, &mut db)?;
+        (&*ws, replaced_commits, &*repo, meta, &mut *db)
     };
 
     if let Some(surfaced) = surfaced {
@@ -319,30 +310,23 @@ pub fn commit_uncommit_changes_only_with_perm(
     let surfaced =
         SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    let mut outcome =
-        but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
+    let editor = Editor::for_workspace(&ws, &mut meta, &repo)?;
+    let mut outcome = {
+        let commit = editor.select_commit(commit_id)?;
+        but_workspace::commit::uncommit_changes(editor, commit, changes, context_lines)?
+    };
 
+    let preview;
     let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
-        let graph = outcome.rebase.overlayed_graph()?;
-        let replaced_commits = outcome.rebase.history.commit_mappings();
-        let (repo, meta, db) = outcome.rebase.repo_meta_and_db_mut();
-        (
-            &mut graph.into_workspace()?,
-            replaced_commits,
-            repo,
-            meta,
-            db,
-        )
+        preview = but_workspace::workspace::overlayed_workspace(&ws, &outcome.rebase)?;
+        let replaced_commits = outcome.rebase.commit_mappings();
+        let (repo, meta) = outcome.rebase.repo_and_meta_mut();
+        (&preview, replaced_commits, repo, meta, &mut *db)
     } else {
-        let materialized = outcome.rebase.materialize_without_checkout()?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings(),
-            &*repo,
-            materialized.meta,
-            materialized.db,
-        )
+        let replaced_commits = outcome.rebase.commit_mappings();
+        let (graph, meta) = outcome.rebase.materialize_without_checkout()?;
+        ws.refresh_from_commit_graph(graph, &repo, &*meta, &mut db)?;
+        (&*ws, replaced_commits, &*repo, meta, &mut *db)
     };
 
     if let Some(surfaced) = surfaced {
@@ -468,7 +452,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     let surfaced =
         SurfacedHunks::record_before(assign_to, dry_run, &mut db, &repo, &ws, context_lines)?;
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::for_workspace(&ws, &mut meta, &repo)?;
     let workspace_sources = sources
         .into_iter()
         .map(|source| but_workspace::commit::UncommitChangesSource {
@@ -492,32 +476,23 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         .collect::<Vec<_>>();
 
     let mut rebase = outcome.rebase;
+    let preview;
     let (workspace, replaced_commits, repo, meta, db) = if dry_run.into() {
         if let Some(rebase) = rebase.as_mut() {
-            let graph = rebase.overlayed_graph()?;
-            let replaced_commits = rebase.history.commit_mappings();
-            let (repo, meta, db) = rebase.repo_meta_and_db_mut();
-            (
-                &mut graph.into_workspace()?,
-                replaced_commits,
-                repo,
-                meta,
-                db,
-            )
+            preview = but_workspace::workspace::overlayed_workspace(&ws, rebase)?;
+            let replaced_commits = rebase.commit_mappings();
+            let (repo, meta) = rebase.repo_and_meta_mut();
+            (&preview, replaced_commits, repo, meta, &mut *db)
         } else {
-            (&mut *ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
+            (&*ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
         }
     } else if let Some(rebase) = rebase {
-        let materialized = rebase.materialize_without_checkout()?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings(),
-            &*repo,
-            materialized.meta,
-            materialized.db,
-        )
+        let replaced_commits = rebase.commit_mappings();
+        let (graph, meta) = rebase.materialize_without_checkout()?;
+        ws.refresh_from_commit_graph(graph, &repo, &*meta, &mut db)?;
+        (&*ws, replaced_commits, &*repo, meta, &mut *db)
     } else {
-        (&mut *ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
+        (&*ws, BTreeMap::new(), &*repo, &mut meta, &mut *db)
     };
 
     if let Some(surfaced) = surfaced {

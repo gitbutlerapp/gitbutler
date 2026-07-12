@@ -52,7 +52,8 @@ pub fn safe_checkout_from_head(
     let head_tree = git2_repo.find_tree(head_tree_id.to_git2())?;
     let old_tree = if let Some(id) = merge_base_override {
         let mut opts = git2::DiffOptions::new();
-        opts.context_lines(1);
+        // Binary deltas need their data in the patch, or applying it fails.
+        opts.context_lines(1).show_binary(true);
         // Also write the index.
         let tree = git2_repo.find_object(id.to_git2(), None)?.peel_to_tree()?;
         let diff = git2_repo.diff_tree_to_tree(Some(&head_tree), Some(&tree), Some(&mut opts))?;
@@ -60,8 +61,11 @@ pub fn safe_checkout_from_head(
             .apply(&diff, git2::ApplyLocation::Index, None)
             .is_err()
         {
-            // Just overwrite the index.
-            git2_repo.index()?.read_tree(&tree)?;
+            // Just overwrite the index. This must reach disk: when the override already equals
+            // the new tree, nothing below touches the index again.
+            let mut index = git2_repo.index()?;
+            index.read_tree(&tree)?;
+            index.write()?;
         }
         tree
     } else {

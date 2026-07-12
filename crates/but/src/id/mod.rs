@@ -1162,8 +1162,8 @@ impl IdMap {
         // Worktree commits are addressed by change ID just like workspace commits, so both
         // feed the same map - otherwise `but status` would print change IDs for them that no
         // other command could resolve.
-        let commit_ids = ws
-            .stacks
+        let display_stacks = ws.display_stacks()?;
+        let commit_ids = display_stacks
             .iter()
             .flat_map(|stack| &stack.segments)
             .flat_map(|segment| segment.commits.iter())
@@ -1197,7 +1197,7 @@ impl IdMap {
             .collect();
 
         Self::new(
-            ws.stacks.clone(),
+            display_stacks.to_vec(),
             sources,
             commit_id_to_change_id,
             worktree_commits_by_name(&worktrees),

@@ -394,23 +394,6 @@ fn reword_commit(
     )?)
 }
 
-/// Replaces the tree of a commit for use in the rebase engine.
-pub fn replace_commit_tree(
-    repo: &gix::Repository,
-    oid: gix::ObjectId,
-    new_tree: gix::ObjectId,
-) -> Result<gix::ObjectId> {
-    let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned()?;
-    new_commit.tree = new_tree;
-    Ok(commit::create(
-        repo,
-        new_commit,
-        DateMode::CommitterUpdateAuthorKeep,
-        SignCommit::IfSignCommitsEnabled,
-        None,
-    )?)
-}
-
 /// A reference that is an output of a rebase operation.
 /// This is simply a marker for where the actual reference should point to after the rebase operation.
 #[derive(Debug, Clone)]

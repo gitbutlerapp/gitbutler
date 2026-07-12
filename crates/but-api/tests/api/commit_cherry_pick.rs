@@ -1,5 +1,5 @@
 use but_core::{DryRun, ref_metadata::ProjectMeta};
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_rebase::graph_rebase::{anchor::Anchor, mutate::InsertSide};
 use but_testsupport::{CommandExt, git_at_dir, open_repo};
 use gitbutler_oplog::OplogExt as _;
 
@@ -71,7 +71,7 @@ fn cherry_pick_materializes_multiple_deduped_commits_and_returns_new_commit_ids(
     let result = but_api::commit::cherry_pick::commit_cherry_pick(
         &mut ctx,
         vec![source_tip, source_first, source_tip],
-        RelativeTo::Reference(main_ref.clone()),
+        Anchor::Reference(main_ref.clone()),
         InsertSide::Below,
         DryRun::No,
     )?;
@@ -128,7 +128,7 @@ fn cherry_pick_dry_run_does_not_persist_commits_or_move_the_reference() -> anyho
     let result = but_api::commit::cherry_pick::commit_cherry_pick(
         &mut ctx,
         vec![source_first, source_tip],
-        RelativeTo::Reference(main_ref.clone()),
+        Anchor::Reference(main_ref.clone()),
         InsertSide::Below,
         DryRun::Yes,
     )?;
@@ -180,7 +180,7 @@ fn cherry_pick_from_a_branch_outside_the_workspace() -> anyhow::Result<()> {
     let result = but_api::commit::cherry_pick::commit_cherry_pick(
         &mut ctx,
         vec![outside_commit],
-        RelativeTo::Reference(main_ref.clone()),
+        Anchor::Reference(main_ref.clone()),
         InsertSide::Below,
         DryRun::No,
     )?;
@@ -223,7 +223,7 @@ fn cherry_pick_multiple_commits_from_outside_the_workspace() -> anyhow::Result<(
     let result = but_api::commit::cherry_pick::commit_cherry_pick(
         &mut ctx,
         vec![outside_first, outside_second],
-        RelativeTo::Reference(main_ref.clone()),
+        Anchor::Reference(main_ref.clone()),
         InsertSide::Below,
         DryRun::No,
     )?;

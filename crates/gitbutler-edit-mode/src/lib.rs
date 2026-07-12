@@ -13,7 +13,7 @@ use but_ctx::{
     access::{RepoExclusive, RepoShared},
 };
 use but_oxidize::{ObjectIdExt as _, gix_to_git2_index};
-use but_rebase::graph_rebase::{Editor, Pick, Step};
+use but_rebase::graph_rebase::{CommitSpec, Editor};
 use git2::build::CheckoutBuilder;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_operating_modes::{
@@ -217,20 +217,22 @@ fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::Workspace> {
     let meta = ctx.meta()?;
     let mut workspace_ref = open_workspace_ref(&repo)?;
     let mut db = ctx.db.get_cache_mut()?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    but_graph::Workspace::from_tip(
         workspace_ref.peel_to_id()?,
         Some(workspace_ref.inner.name.clone()),
         &meta,
         ctx.project_meta()?,
         &mut db,
-        but_graph::init::Options::limited(),
-    )?;
-    graph.into_workspace()
+        but_graph::walk::Options::limited(),
+    )
 }
 
 fn ensure_stack_in_workspace(ctx: &Context, stack_id: StackId) -> Result<()> {
     #[allow(deprecated)]
-    workspace_from_workspace_ref(ctx)?.try_find_stack_by_id(stack_id)?;
+    workspace_from_workspace_ref(ctx)?
+        .stack_by_id(stack_id)
+        .map(|_| ())
+        .with_context(|| format!("Couldn't find stack with id {stack_id:?} in workspace"))?;
     Ok(())
 }
 
@@ -315,7 +317,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         .stored_target_commit_id()
         .context("failed to get target base oid")?;
     let old_head_oids = old_workspace_projection
-        .stacks
+        .display_stacks()?
         .iter()
         .map(|stack| stack.tip_skip_empty().unwrap_or(old_target_base_oid))
         .collect::<Vec<_>>();
@@ -348,25 +350,29 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         .peel_to_commit()?;
     let mut meta = ctx.meta()?;
     let mut db = ctx.db.get_cache_mut()?;
-    let mut workspace = but_graph::Graph::from_commit_traversal(
+    let workspace = but_graph::Workspace::from_tip(
         workspace_commit.id(),
         Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
         &meta,
         ctx.project_meta()?,
         &mut db,
-        but_graph::init::Options::limited(),
-    )?
-    .into_workspace()?;
-    let mut editor = Editor::create(&mut workspace, &mut meta, repo, &mut db)?;
-    let (target_selector, _commit) =
-        editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
+        but_graph::walk::Options::limited(),
+    )?;
+    let mut editor = Editor::create(
+        workspace.commit_graph(),
+        workspace.project_meta(),
+        &mut meta,
+        repo,
+    )?;
+    let target_handle = editor.select_commit(edit_mode_metadata.commit_oid)?;
+    let _commit = editor.commit_of(target_handle)?;
 
-    let mut pick = Pick::new_pick(new_commit_oid);
+    let mut pick = CommitSpec::new(new_commit_oid);
     // Do not replace new_commit_oid's parents with the parents of
     // edit_mode_metadata.commit_oid
     pick.preserved_parents = Some(decoded_head_commit.parents().collect());
 
-    editor.replace(target_selector, Step::Pick(pick))?;
+    editor.replace_commit(target_handle, pick)?;
     let outcome = editor.rebase()?;
     // HEAD is EDIT_BRANCH_REF and we do not need to re-checkout it (we
     // are checking out WORKSPACE_BRANCH_REF after this). As for needing to

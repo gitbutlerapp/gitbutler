@@ -439,7 +439,7 @@ fn move_commit_below_a_worktree_reference() {
     tui.input('m');
     // Past the worktree's own commit, onto its reference row.
     tui.input([KeyCode::Up, KeyCode::Up])
-        .assert_current_line_eq(str!["┊┊├┄ wt {wt-branch}"])
+        .assert_current_line_eq(str!["┊╭┄ g0 [A]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/move_commit_below_a_worktree_reference_001.svg"
         ]);
@@ -452,11 +452,11 @@ fn move_commit_below_a_worktree_reference() {
     snapbox::assert_data_eq!(
         tui.env().git_log(),
         str![[r#"
-* 6919fdf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| * 401b057 (wt-branch) 
-| * 20da4fb add W
+* 998a235 (wt-branch) add W
+| * 8319962 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * f811194 (A) 
 |/  
-* 9477ae7 (A) add A
+* 9477ae7 add A
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]

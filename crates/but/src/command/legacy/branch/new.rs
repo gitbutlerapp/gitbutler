@@ -356,7 +356,7 @@ impl NewUnstackedBranchOperation {
                 let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
                 let outcome = but_workspace::branch::apply(
                     head_name.as_ref(),
-                    ws.clone(),
+                    &ws,
                     &repo,
                     meta,
                     but_workspace::branch::apply::Options {

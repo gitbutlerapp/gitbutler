@@ -107,10 +107,10 @@ impl MergedUpstream {
         let Some(target_tip) = target_ref_name.and_then(|name| peel(repo, name)) else {
             return;
         };
-        let stored_target_base = head_info
-            .target_commit
-            .as_ref()
-            .map(|target| target.commit_id);
+        // The stored target position is project metadata now, not a projection field.
+        let stored_target_base = but_core::ref_metadata::ProjectMeta::resolve(repo)
+            .ok()
+            .and_then(|pm| pm.target_commit_id);
 
         for stack in &head_info.stacks {
             let Some(segment) = stack

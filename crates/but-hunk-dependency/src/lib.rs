@@ -156,8 +156,8 @@ pub fn new_stacks_to_input_stacks(
                 .segments
                 .iter()
                 .flat_map(|s| &s.commits)
-                .map(|commit| {
-                    let commit = repo.find_commit(commit.id)?;
+                .map(|commit_id| {
+                    let commit = repo.find_commit(*commit_id)?;
                     let tree_changes = but_core::diff::tree_changes(
                         repo,
                         commit.parent_ids().next().map(|id| id.detach()),

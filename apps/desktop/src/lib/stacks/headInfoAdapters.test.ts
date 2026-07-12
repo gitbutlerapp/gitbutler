@@ -49,7 +49,7 @@ function segment(overrides: Partial<Segment> = {}): Segment {
 		},
 		commits: [localCommit],
 		commitsOnRemote: [upstreamCommit],
-		commitsOutside: null,
+		advancedOutside: [],
 		metadata: {
 			refInfo: {
 				createdAt: null,

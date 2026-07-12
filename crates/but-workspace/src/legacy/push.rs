@@ -35,7 +35,6 @@ pub fn workspace_branch_and_ancestors_push(
     run_husky_hooks: bool,
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<PushResult> {
-    let graph = &ws.graph;
     let to_push = branch_and_ancestor_segments(ref_info, branch);
 
     let remote_names = repo.remote_names();
@@ -57,7 +56,7 @@ pub fn workspace_branch_and_ancestors_push(
         branch_sha_updates: vec![],
     };
 
-    for (sidx, segment) in to_push.iter().rev() {
+    for segment in to_push.values().rev() {
         // this will always be set
         let Some(ref_name) = segment.ref_info.as_ref().map(|r| r.ref_name.as_ref()) else {
             continue;
@@ -70,7 +69,7 @@ pub fn workspace_branch_and_ancestors_push(
             continue;
         }
 
-        let Some(local_sha) = graph.tip_skip_empty(*sidx) else {
+        let Some(local_sha) = ws.branch_resting_commit_id_in_display(ref_name) else {
             continue;
         };
 
@@ -95,7 +94,7 @@ pub fn workspace_branch_and_ancestors_push(
                 repo,
                 &remote_name,
                 &remote_url.to_bstring().to_str_lossy(),
-                local_sha.id,
+                local_sha,
                 &RemoteRefname::from_str(&remote_refname.as_bstr().to_str_lossy())?,
                 run_husky_hooks,
             )? {
@@ -109,13 +108,13 @@ pub fn workspace_branch_and_ancestors_push(
 
         let gerrit_push_args = gerrit_push_args(
             gerrit_mode,
-            local_sha.id,
+            local_sha,
             target_branch_name.as_bstr(),
             &push_opts,
         );
         let push_output = push_with_askpass(
             repo,
-            local_sha.id,
+            local_sha,
             remote_refname.as_ref(),
             with_force,
             force_push_protection && !skip_force_push_protection,
@@ -137,7 +136,7 @@ pub fn workspace_branch_and_ancestors_push(
         result.branch_sha_updates.push((
             branch_name,
             before_sha.to_string(),
-            local_sha.id.to_string(),
+            local_sha.to_string(),
         ));
     }
 
@@ -152,7 +151,7 @@ pub fn workspace_branch_and_ancestors_push(
 pub fn branch_and_ancestor_segments<'a>(
     ref_info: &'a RefInfo,
     branch: &gix::refs::FullNameRef,
-) -> IndexMap<but_graph::SegmentIndex, &'a Segment> {
+) -> IndexMap<gix::refs::FullName, &'a Segment> {
     let mut selected = IndexMap::new();
     for stack in &ref_info.stacks {
         let mut refname_found = false;
@@ -170,7 +169,7 @@ pub fn branch_and_ancestor_segments<'a>(
             }
 
             if refname_found {
-                selected.insert(segment.id, segment);
+                selected.insert(ref_name.to_owned(), segment);
             }
         }
     }

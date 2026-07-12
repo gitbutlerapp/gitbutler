@@ -58,11 +58,12 @@ fn commit_change_id_derives_fallback_for_headerless_commit() -> anyhow::Result<(
 
 #[test]
 fn commit_header_change_id_is_preferred_to_synthetic_fallback() -> anyhow::Result<()> {
-    let (repo, meta, mut db) =
+    let (repo, meta) =
         crate::ref_info::with_workspace_commit::utils::named_read_only_in_memory_scenario(
             "journey03",
             "01-with-local-amended-after-integration",
         )?;
+    let mut db = but_testsupport::in_memory_db();
     let commit_id = repo.find_reference("A")?.peel_to_id()?.detach();
     let header_change_id = but_core::Commit::from_id(commit_id.attach(&repo))?
         .headers()
@@ -84,7 +85,7 @@ fn commit_header_change_id_is_preferred_to_synthetic_fallback() -> anyhow::Resul
 
 #[test]
 fn commit_change_id_prefers_stored_header_value() -> anyhow::Result<()> {
-    let (repo, _meta, _db) =
+    let (repo, _meta) =
         crate::ref_info::with_workspace_commit::utils::named_read_only_in_memory_scenario(
             "journey03",
             "01-with-local-amended-after-integration",
@@ -139,12 +140,10 @@ RefInfo {
             base: None,
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -153,9 +152,8 @@ RefInfo {
         },
     ],
     target_ref: None,
-    target_commit: None,
+    target_commits_ahead: 0,
     is_target_current: false,
-    lower_bound: None,
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -188,14 +186,12 @@ RefInfo {
             base: None,
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
                     ref_name: "None",
                     remote_tracking_ref_name: "None",
                     commits: [
                         LocalCommit(15bcd1b, "init\n", local, ►main),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -204,9 +200,8 @@ RefInfo {
         },
     ],
     target_ref: None,
-    target_commit: None,
+    target_commits_ahead: 0,
     is_target_current: false,
-    lower_bound: None,
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -254,7 +249,6 @@ RefInfo {
             base: None,
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -262,7 +256,6 @@ RefInfo {
                         LocalCommit(a047f81, "init\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -271,9 +264,8 @@ RefInfo {
         },
     ],
     target_ref: None,
-    target_commit: None,
+    target_commits_ahead: 0,
     is_target_current: false,
-    lower_bound: None,
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -326,7 +318,6 @@ RefInfo {
             base: None,
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -342,7 +333,6 @@ RefInfo {
                         LocalCommit(3d57fc1, "1\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -351,9 +341,8 @@ RefInfo {
         },
     ],
     target_ref: None,
-    target_commit: None,
+    target_commits_ahead: 0,
     is_target_current: false,
-    lower_bound: None,
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -402,20 +391,17 @@ RefInfo {
             base: None,
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
                         LocalCommit(b5743a3, "10\n", local, ►above-10),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "344e320",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(1),
                     ref_name: "►nine",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -424,13 +410,11 @@ RefInfo {
                         LocalCommit(05f069b, "7\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "c4f2a35",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(2),
                     ref_name: "►six",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -439,13 +423,11 @@ RefInfo {
                         LocalCommit(c584dbe, "4\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "281da94",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
                     ref_name: "►three",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -453,20 +435,17 @@ RefInfo {
                         LocalCommit(12995d7, "2\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "3d57fc1",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
                     ref_name: "►one",
                     remote_tracking_ref_name: "None",
                     commits: [
                         LocalCommit(3d57fc1, "1\n", local),
                     ],
                     commits_on_remote: [],
-                    commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
                     base: "None",
@@ -475,9 +454,8 @@ RefInfo {
         },
     ],
     target_ref: None,
-    target_commit: None,
+    target_commits_ahead: 0,
     is_target_current: false,
-    lower_bound: None,
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,

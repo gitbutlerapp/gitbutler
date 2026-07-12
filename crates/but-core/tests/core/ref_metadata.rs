@@ -1,7 +1,6 @@
 mod workspace {
-    use bstr::ByteSlice;
     use but_core::ref_metadata::{
-        ProjectedWorkspaceStack, StackId,
+        StackId,
         StackKind::{Applied, AppliedAndUnapplied},
         Workspace,
         WorkspaceCommitRelation::{Merged, Outside},
@@ -323,6 +322,7 @@ Workspace {
                 branches: vec![WorkspaceStackBranch {
                     ref_name: outside_ref.to_owned(),
                     archived: false,
+                    parents: None,
                 }],
                 workspacecommit_relation: Outside,
             },
@@ -331,6 +331,7 @@ Workspace {
                 branches: vec![WorkspaceStackBranch {
                     ref_name: applied_ref.to_owned(),
                     archived: false,
+                    parents: None,
                 }],
                 workspacecommit_relation: Merged,
             },
@@ -353,356 +354,6 @@ Workspace {
         );
     }
 
-    #[test]
-    fn reconcile_projected_stacks_starts_from_empty_metadata() -> anyhow::Result<()> {
-        let mut ws = Workspace::default();
-
-        ws.reconcile_projected_stacks(
-            [
-                projected_stack(None, ["refs/heads/A"]),
-                projected_stack(None, ["refs/heads/C", "refs/heads/B"]),
-            ],
-            stack_id_from_name,
-        )?;
-
-        snapbox::assert_data_eq!(
-            but_testsupport::sanitize_uuids_and_timestamps(format!("{ws:#?}")),
-            snapbox::str![[r#"
-Workspace {
-    ref_info: RefInfo { created_at: None, updated_at: None },
-    stacks: [
-        WorkspaceStack {
-            id: 1,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/A",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 2,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/C",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/B",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ],
-}
-"#]]
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn reconcile_projected_stacks_is_additive_and_preserves_existing_branch_metadata()
-    -> anyhow::Result<()> {
-        let archived_extra_ref = r("refs/heads/old-extra");
-        let mut ws = workspace(vec![WorkspaceStack {
-            id: StackId::from_number_for_testing(1),
-            branches: vec![
-                WorkspaceStackBranch {
-                    ref_name: r("refs/heads/B").to_owned(),
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: archived_extra_ref.to_owned(),
-                    archived: true,
-                },
-            ],
-            workspacecommit_relation: Outside,
-        }]);
-
-        ws.reconcile_projected_stacks(
-            [projected_stack(None, ["refs/heads/C", "refs/heads/B"])],
-            stack_id_from_name,
-        )?;
-
-        assert_eq!(
-            branch_names(&ws.stacks[0]),
-            ["refs/heads/C", "refs/heads/B", "refs/heads/old-extra"],
-            "projected branches are ordered first, while unused existing branches are retained"
-        );
-        assert!(
-            ws.stacks[0].branches[2].archived,
-            "existing branch metadata is preserved"
-        );
-        assert_eq!(ws.stacks[0].workspacecommit_relation, Merged);
-        snapbox::assert_data_eq!(
-            ws.to_debug(),
-            snapbox::str![[r#"
-Workspace {
-    ref_info: RefInfo { created_at: None, updated_at: None },
-    stacks: [
-        WorkspaceStack {
-            id: 00000000-0000-0000-0000-000000000001,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/C",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/B",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/old-extra",
-                    archived: true,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ],
-}
-
-"#]]
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn reconcile_projected_stacks_rejects_duplicate_projected_names() {
-        let mut ws = Workspace::default();
-        let err = ws
-            .reconcile_projected_stacks(
-                [
-                    projected_stack(None, ["refs/heads/A"]),
-                    projected_stack(None, ["refs/heads/A"]),
-                ],
-                stack_id_from_name,
-            )
-            .expect_err("duplicate projected names violate workspace metadata constraints");
-
-        assert_eq!(
-            err.to_string(),
-            "Cannot reconcile projected workspace: branch name 'refs/heads/A' occurs more than once"
-        );
-    }
-
-    #[test]
-    fn reconcile_projected_stacks_tolerates_duplicate_existing_metadata_names() -> anyhow::Result<()>
-    {
-        let matching_stack_id = StackId::from_number_for_testing(2);
-        let mut ws = workspace(vec![
-            WorkspaceStack {
-                id: StackId::from_number_for_testing(1),
-                branches: vec![WorkspaceStackBranch {
-                    ref_name: r("refs/heads/A").to_owned(),
-                    archived: false,
-                }],
-                workspacecommit_relation: Merged,
-            },
-            WorkspaceStack {
-                id: matching_stack_id,
-                branches: vec![WorkspaceStackBranch {
-                    ref_name: r("refs/heads/A").to_owned(),
-                    archived: true,
-                }],
-                workspacecommit_relation: Outside,
-            },
-        ]);
-
-        ws.reconcile_projected_stacks(
-            [projected_stack(Some(matching_stack_id), ["refs/heads/A"])],
-            stack_id_from_name,
-        )?;
-        // projected stacks prefer pulling from equally identified metadata stacks, so the Outside stacks turns Merged
-        snapbox::assert_data_eq!(
-            ws.to_debug(),
-            snapbox::str![[r#"
-Workspace {
-    ref_info: RefInfo { created_at: None, updated_at: None },
-    stacks: [
-        WorkspaceStack {
-            id: 00000000-0000-0000-0000-000000000001,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/A",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 00000000-0000-0000-0000-000000000002,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/A",
-                    archived: true,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ],
-}
-
-"#]]
-        );
-
-        assert_eq!(
-            ws.stacks.len(),
-            2,
-            "duplicate metadata hints in other stacks are tolerated"
-        );
-        assert_eq!(branch_names(&ws.stacks[0]), ["refs/heads/A"]);
-        assert_eq!(branch_names(&ws.stacks[1]), ["refs/heads/A"]);
-        assert!(
-            ws.stacks[1].branches[0].archived,
-            "the preferred stack keeps its own branch metadata"
-        );
-        assert_eq!(ws.stacks[1].workspacecommit_relation, Merged);
-        Ok(())
-    }
-
-    #[test]
-    fn reconcile_projected_stacks_moves_existing_branch_names_between_metadata_stacks()
-    -> anyhow::Result<()> {
-        let mut ws = workspace(vec![
-            WorkspaceStack {
-                id: StackId::from_number_for_testing(1),
-                branches: vec![
-                    WorkspaceStackBranch {
-                        ref_name: r("refs/heads/B").to_owned(),
-                        archived: false,
-                    },
-                    WorkspaceStackBranch {
-                        ref_name: r("refs/heads/E").to_owned(),
-                        archived: false,
-                    },
-                ],
-                workspacecommit_relation: Merged,
-            },
-            WorkspaceStack {
-                id: StackId::from_number_for_testing(2),
-                branches: vec![
-                    WorkspaceStackBranch {
-                        ref_name: r("refs/heads/C").to_owned(),
-                        archived: false,
-                    },
-                    WorkspaceStackBranch {
-                        ref_name: r("refs/heads/D").to_owned(),
-                        archived: true,
-                    },
-                ],
-                workspacecommit_relation: Outside,
-            },
-            WorkspaceStack {
-                id: StackId::from_number_for_testing(3),
-                branches: vec![WorkspaceStackBranch {
-                    ref_name: r("refs/heads/unrelated").to_owned(),
-                    archived: false,
-                }],
-                workspacecommit_relation: Merged,
-            },
-        ]);
-
-        ws.reconcile_projected_stacks(
-            [projected_stack(
-                None,
-                ["refs/heads/D", "refs/heads/C", "refs/heads/B"],
-            )],
-            stack_id_from_name,
-        )?;
-
-        // projected stack grouping moves existing branch metadata between stacks, while unrelated branch metadata remains
-        snapbox::assert_data_eq!(
-            ws.to_debug(),
-            snapbox::str![[r#"
-Workspace {
-    ref_info: RefInfo { created_at: None, updated_at: None },
-    stacks: [
-        WorkspaceStack {
-            id: 00000000-0000-0000-0000-000000000001,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/E",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 00000000-0000-0000-0000-000000000002,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/D",
-                    archived: true,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/C",
-                    archived: false,
-                },
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/B",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-        WorkspaceStack {
-            id: 00000000-0000-0000-0000-000000000003,
-            branches: [
-                WorkspaceStackBranch {
-                    ref_name: "refs/heads/unrelated",
-                    archived: false,
-                },
-            ],
-            workspacecommit_relation: Merged,
-        },
-    ],
-}
-
-"#]]
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn reconcile_projected_stacks_removes_stacks_emptied_by_moves() -> anyhow::Result<()> {
-        let mut ws = workspace(vec![
-            WorkspaceStack {
-                id: StackId::from_number_for_testing(1),
-                branches: vec![WorkspaceStackBranch {
-                    ref_name: r("refs/heads/B").to_owned(),
-                    archived: false,
-                }],
-                workspacecommit_relation: Merged,
-            },
-            WorkspaceStack {
-                id: StackId::from_number_for_testing(2),
-                branches: vec![WorkspaceStackBranch {
-                    ref_name: r("refs/heads/C").to_owned(),
-                    archived: false,
-                }],
-                workspacecommit_relation: Merged,
-            },
-        ]);
-
-        ws.reconcile_projected_stacks(
-            [projected_stack(None, ["refs/heads/C", "refs/heads/B"])],
-            stack_id_from_name,
-        )?;
-
-        assert_eq!(
-            ws.stacks.len(),
-            1,
-            "the stack that only contained moved branch B should be removed"
-        );
-        assert_eq!(
-            branch_names(&ws.stacks[0]),
-            ["refs/heads/C", "refs/heads/B"]
-        );
-        Ok(())
-    }
-
     fn workspace(stacks: Vec<WorkspaceStack>) -> Workspace {
         Workspace {
             stacks,
@@ -716,19 +367,182 @@ Workspace {
     fn new_stack_id(_: &gix::refs::FullNameRef) -> StackId {
         StackId::generate()
     }
-    fn stack_id_from_name(name: &gix::refs::FullNameRef) -> StackId {
-        StackId::from_number_for_testing(name.shorten().chars().map(|c| c as u128).sum())
-    }
-    fn projected_stack<const N: usize>(
-        id: Option<StackId>,
-        branches: [&str; N],
-    ) -> ProjectedWorkspaceStack {
-        ProjectedWorkspaceStack {
-            id,
-            branches: branches
-                .into_iter()
-                .map(|name| r(name).to_owned())
-                .collect(),
+
+    mod dag_declaration {
+        use super::{r, stack};
+        use but_core::ref_metadata::WorkspaceCommitRelation::Merged;
+
+        fn with_parents(
+            mut s: but_core::ref_metadata::WorkspaceStack,
+            assignments: &[(&str, &[&str])],
+        ) -> but_core::ref_metadata::WorkspaceStack {
+            for (name, parents) in assignments {
+                let idx = s
+                    .branches
+                    .iter()
+                    .position(|b| b.ref_name.as_ref() == r(name))
+                    .expect("assigned branch exists");
+                s.branches[idx].parents = Some(parents.iter().map(|p| r(p).to_owned()).collect());
+            }
+            s
+        }
+
+        #[test]
+        fn chains_always_pass_even_with_duplicates() {
+            let s = stack(1, Merged, ["refs/heads/A", "refs/heads/B", "refs/heads/A"]);
+            assert!(s.validate_structure().is_ok(), "legacy tolerance holds");
+            assert_eq!(s.parent_edges(), [(0, 1), (1, 2)]);
+        }
+
+        #[test]
+        fn diamond_is_valid_and_yields_its_edges() {
+            // tip M rests on both arms, which rest on base.
+            let s = with_parents(
+                stack(
+                    1,
+                    Merged,
+                    [
+                        "refs/heads/M",
+                        "refs/heads/left",
+                        "refs/heads/right",
+                        "refs/heads/base",
+                    ],
+                ),
+                &[
+                    ("refs/heads/M", &["refs/heads/left", "refs/heads/right"]),
+                    ("refs/heads/left", &["refs/heads/base"]),
+                    ("refs/heads/right", &["refs/heads/base"]),
+                    ("refs/heads/base", &[]),
+                ],
+            );
+            s.validate_structure().unwrap();
+            assert_eq!(s.parent_edges(), [(0, 1), (0, 2), (1, 3), (2, 3)]);
+        }
+
+        #[test]
+        fn structural_violations_are_hard_errors() {
+            let unknown = with_parents(
+                stack(1, Merged, ["refs/heads/A", "refs/heads/B"]),
+                &[("refs/heads/A", &["refs/heads/nope"])],
+            );
+            assert!(unknown.validate_structure().is_err(), "unknown parent");
+
+            let upward = with_parents(
+                stack(1, Merged, ["refs/heads/A", "refs/heads/B"]),
+                &[("refs/heads/B", &["refs/heads/A"])],
+            );
+            assert!(upward.validate_structure().is_err(), "parent above child");
+
+            let selfish = with_parents(
+                stack(1, Merged, ["refs/heads/A", "refs/heads/B"]),
+                &[("refs/heads/A", &["refs/heads/A"])],
+            );
+            assert!(selfish.validate_structure().is_err(), "self parent");
+
+            let twice = with_parents(
+                stack(1, Merged, ["refs/heads/A", "refs/heads/B"]),
+                &[("refs/heads/A", &["refs/heads/B", "refs/heads/B"])],
+            );
+            assert!(twice.validate_structure().is_err(), "duplicate parent");
+
+            let two_tips = with_parents(
+                stack(
+                    1,
+                    Merged,
+                    ["refs/heads/A", "refs/heads/B", "refs/heads/base"],
+                ),
+                &[
+                    ("refs/heads/A", &["refs/heads/base"]),
+                    ("refs/heads/B", &["refs/heads/base"]),
+                    ("refs/heads/base", &[]),
+                ],
+            );
+            assert!(two_tips.validate_structure().is_err(), "two tips");
+
+            let dup_name = with_parents(
+                stack(1, Merged, ["refs/heads/A", "refs/heads/B", "refs/heads/A"]),
+                &[("refs/heads/A", &["refs/heads/B"])],
+            );
+            assert!(dup_name.validate_structure().is_err(), "duplicate names");
+        }
+
+        #[test]
+        fn fork_insert_and_merge_parent_ops() {
+            let mut s = stack(1, Merged, ["refs/heads/top", "refs/heads/base"]);
+            s.add_fork(r("refs/heads/side").to_owned(), r("refs/heads/base"))
+                .unwrap();
+            assert_eq!(
+                s.branches
+                    .iter()
+                    .map(|b| b.ref_name.to_string())
+                    .collect::<Vec<_>>(),
+                ["refs/heads/top", "refs/heads/side", "refs/heads/base"],
+            );
+            // top still (implicitly) rests on side?? NO: implied adjacency now points at
+            // side — materialize the truth: the fork insertion may not corrupt top's
+            // parent, so validate catches nothing but the EDGE moved. Assert the edges.
+            assert_eq!(s.parent_edges(), [(0, 1), (1, 2)]);
+
+            s.insert_on_edge(
+                r("refs/heads/mid").to_owned(),
+                r("refs/heads/side"),
+                r("refs/heads/base"),
+            )
+            .unwrap();
+            assert_eq!(s.parent_edges(), [(0, 1), (1, 2), (2, 3)]);
+
+            s.add_merge_parent(r("refs/heads/top"), r("refs/heads/base"))
+                .unwrap();
+            s.validate_structure().unwrap();
+            assert!(
+                s.add_merge_parent(r("refs/heads/base"), r("refs/heads/top"))
+                    .is_err(),
+                "merge parent above the branch is rejected"
+            );
+            assert!(
+                s.insert_on_edge(
+                    r("refs/heads/x").to_owned(),
+                    r("refs/heads/top"),
+                    r("refs/heads/mid"),
+                )
+                .is_err(),
+                "no such edge"
+            );
+        }
+
+        #[test]
+        fn removal_splices_children_onto_the_removed_ones_parents() {
+            let mut ws = super::workspace(vec![with_parents(
+                stack(
+                    1,
+                    Merged,
+                    [
+                        "refs/heads/M",
+                        "refs/heads/left",
+                        "refs/heads/right",
+                        "refs/heads/base",
+                    ],
+                ),
+                &[
+                    ("refs/heads/M", &["refs/heads/left", "refs/heads/right"]),
+                    ("refs/heads/left", &["refs/heads/base"]),
+                    ("refs/heads/right", &["refs/heads/base"]),
+                    ("refs/heads/base", &[]),
+                ],
+            )]);
+            assert!(ws.remove_segment(r("refs/heads/left")));
+            let s = &ws.stacks[0];
+            s.validate_structure().unwrap();
+            assert_eq!(
+                s.branches[0].parents.as_ref().unwrap()[0].to_string(),
+                "refs/heads/base",
+                "M inherited left's parent in left's slot"
+            );
+            assert_eq!(
+                s.parent_edges(),
+                [(0, 2), (0, 1), (1, 2)],
+                "base sits in left's old slot, then right, and right still rests on base"
+            );
         }
     }
     fn stack<const N: usize>(
@@ -743,17 +557,11 @@ Workspace {
                 .map(|name| WorkspaceStackBranch {
                     ref_name: r(name).to_owned(),
                     archived: false,
+                    parents: None,
                 })
                 .collect(),
             workspacecommit_relation,
         }
-    }
-    fn branch_names(stack: &WorkspaceStack) -> Vec<&str> {
-        stack
-            .branches
-            .iter()
-            .map(|branch| branch.ref_name.as_bstr().to_str().expect("utf8"))
-            .collect()
     }
 }
 

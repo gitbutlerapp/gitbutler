@@ -9,7 +9,7 @@ mod utils {
         revspec: &str,
     ) -> but_workspace::ref_info::Options<'static> {
         but_workspace::ref_info::Options {
-            traversal: but_graph::init::Options {
+            traversal: but_graph::walk::Options {
                 extra_target_commit_id: repo.rev_parse_single(revspec).unwrap().detach().into(),
                 ..Default::default()
             },

@@ -2,426 +2,299 @@
 //! One graph based engine to rule them all,
 //! one vector based to find them,
 //! one mess of git2 code to bring them all,
-//! and in the darknes bind them.
+//! and in the darkness bind them.
+//!
+//! ---
+//!
+//! A graph-based rebase engine. The workspace is loaded into an `Editor`: a graph of
+//! commits, with each reference (branch) stored as a position on its commit.
+//! Callers mutate the graph (insert/move/remove commits, create/move references), then
+//! `Editor::rebase` replays it — cherry-picking every mutable commit onto its new parents
+//! and producing the reference updates to write. A [`CommitSpec`](crate::graph_rebase::CommitSpec) is the currency at the
+//! boundary: the description of a commit you hand in, or read back out.
+//!
+//! References are positions on commits, not entries in the graph — see the `positions`
+//! module for the model. That model makes the replay contract one sentence: ids are
+//! rewritten in place (entry identity, parent arrays and positions never move), so no
+//! mutation maintains a ref target by hand — after the rewrite, every ref's update is
+//! derived from its position in one loop. "Rewrote the graph but forgot to move the
+//! branch" is not a bug this engine can have; there is no such step to forget.
+//!
+//! # Vanilla git and the extension
+//!
+//! The editor is a plain-git rebase engine with GitButler's workspace model layered
+//! beside it, and the code keeps the two distinguishable everywhere:
+//!
+//! - `commits` — the vanilla half: the commit graph mounted for editing. It imports
+//!   nothing from the ref side, so commit surgery cannot touch references.
+//! - `positions` (reads and checks) and `ref_ops` (writes) — the extension: group order,
+//!   carries, empty-lane slots; the facts git itself cannot represent. The split is the
+//!   signature: every `positions` function takes `&EditorStore`, every `ref_ops`
+//!   function takes `&mut`.
+//! - the verbs (`mutate`) — deliberately both worlds: a mutation states its commit-side
+//!   and ref-side consequences in one place, because the right ref-side consequence
+//!   depends on what the mutation means. There is no fixup pass anywhere. Their lines
+//!   classify themselves: `store.commits.…` is vanilla surgery, `positions::`/`ref_ops::`
+//!   is the extension, and a bare `store.…` method does not self-classify — its own doc
+//!   says what it serves or spans.
+//!
+//! Vanilla behaviors are the extension's degenerate cases: a plain ref is a singleton
+//! group with carry `All` and nothing stacked above it, and a ref following a rebase is
+//! implemented by doing nothing — positions stand still while ids rewrite underneath.
+//! The seam between the worlds is `RefState::on`: the one fact git can say (name to
+//! commit), written by the vanilla primitive `set_on` and annotated by the extension's
+//! table, with the agreement checked by a debug assertion. A guided reading of this whole section,
+//! built from code excerpts: `editor-worlds.md` at the repository root. The vanilla
+//! reads of it — `resolve_to_commit`, `positioned_on` — live on the store with
+//! the other methods that span both halves, so a plain-git question never consults the
+//! extension's table at all.
 
+mod commits;
 mod creation;
-pub mod rebase;
-pub mod traverse;
-use std::collections::{BTreeMap, HashMap};
+mod positions;
+mod ref_ops;
+mod store;
+pub(crate) mod util;
 
-use anyhow::{Context, Result, bail};
-use but_core::commit::CommitIdentifiers;
-use but_core::{RefMetadata, commit::SignCommit};
-use but_graph::init::Overlay;
-pub use creation::GraphEditorOptions;
-use gix::refs::transaction::RefEdit;
-
-use crate::graph_rebase::util::collect_ordered_parents;
-
-use crate::graph_rebase::cherry_pick::{PickMode, TreeMergeMode};
+pub mod anchor;
 pub mod cherry_pick;
 pub mod commit;
 pub mod materialize;
 pub mod merge_commit_changes;
 pub mod mutate;
 pub mod ordering;
-pub(crate) mod util;
-pub mod workspace;
-pub use workspace::{GraphWorkspace, Subgraph};
-
+pub mod rebase;
 /// Utilities for testing
 pub mod testing;
+pub mod traverse;
+pub mod workspace;
 
-/// Represents a commit to be cherry-picked in a rebase operation.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Pick {
-    /// The ID of the commit getting picked
-    pub id: gix::ObjectId,
-    /// If we are dealing with a sub-graph with an incomplete history, we
-    /// need to represent the bottom most commits in a way that we preserve
-    /// their parents.
-    ///
-    /// If this is Some, the commit WILL NOT be picked onto the parents the
-    /// graph implies but instead on to the parents listed here.
-    pub preserved_parents: Option<Vec<gix::ObjectId>>,
-    /// Controls under what circumstances the commit is cherry-picked.
-    pub pick_mode: PickMode,
-    /// Controls whether the resulting commit is signed.
-    ///
-    /// Note that signing a parent commit only causes descendants to be signed if those descendants
-    /// are also picked with a `sign_commit` value that enables signing (e.g. [`SignCommit::Yes`]
-    /// or [`SignCommit::IfSignCommitsEnabled`] with config enabled).
-    pub sign_commit: SignCommit,
-    /// Exclude the commit from being included in the
-    /// [`RevisionHistory::commit_mappings()`]. This is helpful if we are
-    /// creating a new commit since the the mappings will be non-sensical to the
-    /// frontend consumers.
-    pub exclude_from_tracking: bool,
-    /// If set to false, the rebase will fail if this commit results in a
-    /// conflicted state. The cherry-pick still runs and creates the
-    /// conflicted commit — this check happens afterwards in [`Editor::rebase`].
-    pub conflictable: bool,
-    /// Controls how parent trees are merged during cherry-pick.
-    /// See [`TreeMergeMode`] for details.
-    pub tree_merge_mode: TreeMergeMode,
-    /// Whether the editor may rewrite this commit.
-    ///
-    /// The editor contains every commit in the workspace graph, but only those
-    /// reachable from a mutable entrypoint (e.g. `HEAD`) should be rewritten.
-    /// When `false`, the rebase copies the pick verbatim instead of
-    /// cherry-picking it, preserving its id.
-    pub mutable: bool,
-}
+pub use commits::CommitIndex;
+pub use creation::EditorStoreOptions;
+pub use store::{EditorIndex, RefIndex};
+pub use workspace::{GraphWorkspace, Subgraph};
 
-impl Pick {
-    /// Creates a pick with the expected defaults
-    pub fn new_pick(id: gix::ObjectId) -> Self {
-        Self {
-            id,
-            preserved_parents: None,
-            pick_mode: PickMode::IfChanged,
-            sign_commit: SignCommit::IfSignCommitsEnabled,
-            exclude_from_tracking: false,
-            conflictable: true,
-            tree_merge_mode: TreeMergeMode::WithRenames,
-            mutable: true,
-        }
-    }
+pub(crate) use store::EditorStore;
 
-    /// Creates a pick with the expected defaults, but is excluded from being
-    /// included from the [`RevisionHistory::commit_mappings()`] output. This is
-    /// often preferable if you are doing something like an
-    /// `insert_blank_commit` operation.
-    pub fn new_untracked_pick(id: gix::ObjectId) -> Self {
-        let mut pick = Self::new_pick(id);
-        pick.exclude_from_tracking = true;
-        pick
-    }
+use std::collections::BTreeMap;
 
-    /// Creates a pick with the defaults set for a workspace commit
-    pub fn new_workspace_pick(id: gix::ObjectId) -> Self {
-        Self {
-            id,
-            preserved_parents: None,
-            pick_mode: PickMode::IfChanged,
-            sign_commit: SignCommit::No,
-            exclude_from_tracking: false,
-            conflictable: false,
-            tree_merge_mode: TreeMergeMode::WithoutRenames,
-            mutable: true,
-        }
-    }
-}
+use anyhow::{Context as _, Result, bail};
+use but_core::commit::CommitIdentifiers;
+use but_core::{RefMetadata, commit::SignCommit, ref_metadata::ProjectMeta};
+use but_graph::walk::Overlay;
+use gix::refs::transaction::RefEdit;
 
-/// Describes what action the engine should take
-#[derive(Debug, Clone, PartialEq)]
-pub enum Step {
-    /// Cherry picks the given commit into the new location in the graph
-    Pick(Pick),
-    /// Represents applying a reference to the commit found at it's first parent
-    Reference {
-        /// The refname
-        refname: gix::refs::FullName,
-        /// Whether the editor may move or delete this reference.
-        ///
-        /// Only references reachable from a mutable entrypoint (e.g. `HEAD`)
-        /// are updated during materialization. When `false`, the reference is
-        /// kept in the graph for traversal but never written.
-        mutable: bool,
-    },
-    /// Used as a placeholder after removing a pick or reference
-    None,
-}
+use crate::graph_rebase::cherry_pick::{PickMode, TreeMergeMode};
 
-impl Step {
-    /// Creates a pick with the expected defaults
-    pub fn new_pick(id: gix::ObjectId) -> Self {
-        Self::Pick(Pick::new_pick(id))
-    }
-
-    /// Creates a pick with the expected defaults, but is excluded from being
-    /// included from the [`RevisionHistory::commit_mappings()`] output. This is
-    /// often preferable if you are doing something like an
-    /// `insert_blank_commit` operation.
-    pub fn new_untracked_pick(id: gix::ObjectId) -> Self {
-        Self::Pick(Pick::new_untracked_pick(id))
-    }
-
-    /// Creates a mutable reference step.
-    ///
-    /// References constructed by edit operations are mutable; immutable
-    /// references only originate from non-`HEAD`-reachable segments during
-    /// [`Editor::create`].
-    pub fn new_reference(refname: gix::refs::FullName) -> Self {
-        Self::Reference {
-            refname,
-            mutable: true,
-        }
-    }
-}
-
-/// Used to represent a connection between a given commit.
-#[derive(Debug, Clone)]
-pub(crate) struct Edge {
-    /// Represents in which order the `parent` fields should be written out
-    ///
-    /// A child commit should have edges that all have unique orders. In order
-    /// to achive that we can employ the following semantics.
-    order: usize,
-}
-
-type StepGraphIndex = petgraph::stable_graph::NodeIndex;
-type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
-
-/// Convert a structure to a selector for a particular editor.
-///
-/// `ToSelector` does _not_ normalize a selector.
-pub trait ToSelector {
-    /// Converts a given object into a selector. Calling `to_selector` on an
-    /// object asserts that the reciever was a object that is selectable in the
-    /// graph.
-    fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
-}
-
-/// Convert a type to a selector, and ensures that it is type commit.
-pub trait ToCommitSelector {
-    /// Converts a given object into a selector. Calling `to_commit_selector` on
-    /// an object asserts that the reciever has a selectable pick step in the
-    /// graph.
-    fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
-}
-
-/// Convert a type to a selector, and ensures that it is type reference.
-pub trait ToReferenceSelector {
-    /// Converts a given object into a selector. Calling `to_reference_selector` on
-    /// an object asserts that the reciever has a selectable reference step in
-    /// the graph.
-    fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector>;
-}
-
-/// Points to a step in the rebase editor.
-///
-/// Hash, PartialEq, and Eq are implemented for this struct. Because selectors
-/// are a pointer to a node in a particular version of the Editor's internal
-/// representation, it means that you can have two selectors that when
-/// normalised point to the same node. If you want to ensure you have just one
-/// selector to a given node, make sure you are working with selectors all
-/// normalised to the latest revision of the Editor.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Selector {
-    id: StepGraphIndex,
-    revision: usize,
-}
-
-impl ToCommitSelector for Selector {
-    fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
-        let selector = editor.history.normalize_selector(*self)?;
-        let step = &editor.graph[selector.id];
-        if !matches!(step, Step::Pick(_)) {
-            bail!("Expected selector for {step:?} to refer to a commit");
-        }
-
-        Ok(selector)
-    }
-}
-
-impl ToReferenceSelector for Selector {
-    fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
-        let selector = editor.history.normalize_selector(*self)?;
-        let step = &editor.graph[selector.id];
-        if !matches!(step, Step::Reference { .. }) {
-            bail!("Expected selector for {step:?} to refer to a reference");
-        }
-
-        Ok(selector)
-    }
-}
-
-impl ToSelector for Selector {
-    fn to_selector(&self, _: &Editor<impl RefMetadata>) -> Result<Selector> {
-        Ok(*self)
-    }
-}
-
-/// Represents places where `safe_checkout` should be called from
-#[derive(Debug, Clone)]
-pub(crate) enum Checkout {
-    /// The HEAD of the `repo` the editor was created for.
-    Head {
-        selector: Selector,
-        /// A pre-computed merge base tree (`HEAD^{tree}` + consumed changes,
-        /// additive-only) to pass through to `safe_checkout`. When set, the
-        /// 3-way snapshot merge uses this as the base so consumed hunks cancel
-        /// and don't reappear as uncommitted changes.
-        merge_base_override: Option<gix::ObjectId>,
-    },
-    /// A visible linked worktree whose `HEAD` should follow this edit.
-    Worktree {
-        /// The stable worktree name under `$GIT_COMMON_DIR/worktrees/`.
-        worktree_name: gix::bstr::BString,
-        /// The worktree's `HEAD` selector: a reference when attached, or a commit when detached.
-        selector: Selector,
-        /// The symbolic referent at editor creation, or `None` for a detached `HEAD`.
-        ref_name: Option<gix::refs::FullName>,
-        /// The peeled `HEAD` at editor creation, used to reject stale worktree state.
-        initial_head: gix::ObjectId,
-        /// Like [`Checkout::Head`]'s `merge_base_override`, but computed against this
-        /// worktree's own `HEAD^{tree}`, so changes consumed *from this worktree*
-        /// cancel out during its checkout.
-        merge_base_override: Option<gix::ObjectId>,
-    },
-}
-
-/// Used to manipulate a set of picks.
+/// Used to manipulate a set of commits. Every mutation takes `&mut self` and the rebase
+/// consumes `self`, so a shared `&Editor` is inherently a frozen view — which is exactly
+/// how [`RebasedEditor`] exposes it.
 #[derive(Debug)]
-pub struct Editor<'ws, 'meta, M: RefMetadata> {
-    /// The internal graph of steps
-    graph: StepGraph,
-    /// Initial references. This is used to track any references that might need
-    /// deleted.
-    initial_references: Vec<gix::refs::FullName>,
+pub struct Editor<'meta, M: RefMetadata> {
+    /// The editor's store — the state every mutation rewrites; see [`EditorStore`].
+    pub(crate) store: EditorStore,
     /// Worktrees that we might need to perform `safe_checkout` on.
-    checkouts: Vec<Checkout>,
+    pub(crate) checkouts: Vec<Checkout>,
     /// The in-memory repository that the rebase engine works with.
-    repo: gix::Repository,
+    pub(crate) repo: gix::Repository,
     /// Provides data about how the editor instance was transformed.
-    history: RevisionHistory,
-    /// A reference to the workspace that the editor was created for.
-    workspace: &'ws mut but_graph::Workspace,
+    pub(crate) history: RevisionHistory,
+    /// The workspace target configuration the editor was created with.
+    pub(crate) project_meta: ProjectMeta,
     /// A reference to the metadata that the editor was created for.
-    meta: &'meta mut M,
-    /// A handle to the project database, shared with the resulting
-    /// [`SuccessfulRebase`]. It re-uses the `'meta` lifetime to avoid growing
-    /// the editor's generics.
-    db: &'meta mut but_db::DbHandle,
+    pub(crate) meta: &'meta mut M,
 }
 
-/// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
+/// Addressing and reads shared by every operation: anchor resolution and the typed
+/// lookups. The mutation verbs live in [`mutate`], traversal in [`traverse`].
+impl<M: RefMetadata> Editor<'_, M> {
+    /// The references linked worktrees have checked out, as far as this editor knows them
+    /// (worktree discovery must have run for the workspace it was created from).
+    ///
+    /// Such a reference follows the commit it sits on like any other, but operations that
+    /// remove or relocate that commit decide where the worktree ends up: it must never
+    /// silently land in another lane.
+    pub fn linked_worktree_refs(&self) -> Vec<RefIndex> {
+        self.checkouts
+            .iter()
+            .filter_map(|checkout| match checkout {
+                Checkout::Worktree {
+                    entry: EditorIndex::Ref(reference),
+                    ..
+                } if self.store.is_reference(*reference) => Some(*reference),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Resolve `anchor` to the entry it addresses: a held index passes through, a commit id
+    /// or reference name is looked up in the graph — and fails here when absent.
+    pub fn resolve_anchor(&self, anchor: impl Into<anchor::Anchor>) -> Result<EditorIndex> {
+        Ok(match anchor.into() {
+            anchor::Anchor::Commit(id) => self.select_commit(id)?.into(),
+            anchor::Anchor::Reference(name) => self.select_reference(name.as_ref())?.into(),
+            anchor::Anchor::Held(entry) => entry,
+        })
+    }
+
+    /// The commit id the commit at `commit` holds; errors when it was removed.
+    pub fn id_of(&self, commit: CommitIndex) -> Result<gix::ObjectId> {
+        Ok(self.spec_of(commit)?.id)
+    }
+
+    /// The full commit at `commit` — id and per-commit options; errors when removed.
+    pub fn spec_of(&self, commit: CommitIndex) -> Result<CommitSpec> {
+        self.store
+            .commits
+            .commit_spec(commit)
+            .context("The addressed commit was removed")
+    }
+
+    /// The name of the reference at `reference`; errors when it was deleted.
+    pub fn name_of(&self, reference: RefIndex) -> Result<gix::refs::FullName> {
+        match self.store.reference(reference.into()) {
+            Some((refname, _)) => Ok(refname.clone()),
+            None => bail!("The addressed reference was deleted"),
+        }
+    }
+
+    /// Whether the entry at `index` was removed — matching the [`EditorIndex`] arms
+    /// answers which kind statically; this answers the one dynamic fact, liveness.
+    pub fn is_removed(&self, index: impl Into<EditorIndex>) -> bool {
+        match index.into() {
+            index @ EditorIndex::Commit(_) => self.store.commit_id(index).is_none(),
+            EditorIndex::Ref(i) => !self.store.is_reference(i),
+        }
+    }
+
+    /// Every commit the edits so far have rewritten, old id to new id.
+    pub fn commit_mappings(&self) -> BTreeMap<gix::ObjectId, gix::ObjectId> {
+        self.history.commit_mappings()
+    }
+}
+
+/// The editor after its rebase: the replayed graph, and the reference edits to write.
+/// Conflicting commits may be among the results — a rebase that ran is not necessarily one
+/// you want to keep.
+///
+/// Holds the editor frozen by ownership: the field is private and only ever lent out
+/// as `&Editor` (via `Deref`), through which no `&mut self` mutation is callable —
+/// the borrow system carries the cannot-mutate-a-finished-rebase guarantee.
 #[derive(Debug)]
-pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
-    pub(crate) repo: gix::Repository,
-    pub(crate) initial_references: Vec<gix::refs::FullName>,
+pub struct RebasedEditor<'meta, M: RefMetadata> {
+    pub(crate) editor: Editor<'meta, M>,
     /// Any reference edits that need to be committed as a result of the history
     /// rewrite
     pub(crate) ref_edits: Vec<RefEdit>,
-    /// The new step graph
-    pub(crate) graph: StepGraph,
-    pub(crate) checkouts: Vec<Checkout>,
-    /// Provides data about how the editor instance was transformed.
-    pub history: RevisionHistory,
-    /// A reference to the workspace that the editor was created for.
-    workspace: &'ws mut but_graph::Workspace,
-    /// A reference to the metadata that the editor was created for.
-    meta: &'meta mut M,
-    /// The database handle inherited from the [`Editor`], so [`Self::into_editor`]
-    /// can hand it back.
-    db: &'meta mut but_db::DbHandle,
 }
 
-impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
-    /// Returns the in-memory repository that backs this rebase preview.
-    ///
-    /// This repository may contain objects that have not been persisted yet,
-    /// which makes it suitable for dry-run inspection of [`Self::overlayed_graph`].
-    pub fn repo(&self) -> &gix::Repository {
-        &self.repo
+impl<'meta, M: RefMetadata> std::ops::Deref for RebasedEditor<'meta, M> {
+    type Target = Editor<'meta, M>;
+    fn deref(&self) -> &Self::Target {
+        &self.editor
+    }
+}
+
+impl<'meta, M: RefMetadata> RebasedEditor<'meta, M> {
+    /// Resolve `commit` to the identifiers of its commit, including the change id.
+    pub fn identifiers_of(&self, commit: CommitIndex) -> Result<CommitIdentifiers> {
+        let id = self.id_of(commit)?;
+        let commit = self.repo.find_commit(id)?;
+        let commit = commit.decode()?;
+
+        let change_id =
+            but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers())
+                .unwrap_or_default()
+                .ensure_change_id(id)
+                .change_id
+                .expect("change ID is ensured");
+
+        Ok(CommitIdentifiers { id, change_id })
     }
 
     /// Returns the preview repository together with mutable access to the
     /// ref-metadata the editor was created with.
     ///
     /// Use this to build post-rebase projections that need both, like a
-    /// workspace preview computed from [`Self::overlayed_graph`].
+    /// workspace preview computed from [`Self::overlay`].
     pub fn repo_and_meta_mut(&mut self) -> (&gix::Repository, &mut M) {
-        (&self.repo, self.meta)
+        (&self.editor.repo, self.editor.meta)
     }
 
-    /// Returns the database handle the editor was created with.
-    pub fn db(&self) -> &but_db::DbHandle {
-        self.db
+    /// Returns the ref-metadata the editor was created with.
+    pub fn meta(&self) -> &M {
+        self.meta
     }
 
-    /// Like [`Self::repo_and_meta_mut`], but also returns the database handle.
-    pub fn repo_meta_and_db_mut(&mut self) -> (&gix::Repository, &mut M, &mut but_db::DbHandle) {
-        (&self.repo, self.meta, self.db)
+    /// The mutated commit graph this rebase will materialize — already the next workspace
+    /// state, since materializing only persists objects and applies ref edits. Project it
+    /// (with [`Editor::repo`] and [`Self::overlay`]) to preview without a rewalk.
+    pub fn commit_graph(&self) -> &but_graph::CommitGraph {
+        self.store.commits.graph()
     }
 
-    fn checkout_target(
+    /// Return the commit targeted by `ref_name` in the post-rebase graph.
+    pub fn reference_target(&self, ref_name: &gix::refs::FullNameRef) -> Result<gix::ObjectId> {
+        let (ref_idx, ..) = self
+            .store
+            .references()
+            .find(|(_, refname, _)| refname.as_ref() == ref_name)
+            .with_context(|| format!("Could not find reference '{ref_name}' in rebase result"))?;
+        self.store
+            .resolve_to_commit(ref_idx)
+            .and_then(|commit| self.store.commit_id(commit))
+            .context("Reference has no target commit in rebase result")
+    }
+
+    /// Where `entry` ended up after the rewrite: the commit, and the reference naming
+    /// it when the entry is a reference rather than a commit.
+    ///
+    /// `None` when the entry resolves to nothing, which for a checkout means what it
+    /// followed was removed by the edit.
+    pub(crate) fn checkout_target(
         &self,
-        selector: Selector,
+        entry: EditorIndex,
     ) -> Result<Option<(gix::ObjectId, Option<gix::refs::FullName>)>> {
-        let selector = self.history.normalize_selector(selector)?;
-        Ok(match &self.graph[selector.id] {
-            Step::None => None,
-            Step::Pick(Pick { id, .. }) => Some((*id, None)),
-            Step::Reference { refname, .. } => {
-                let parent = collect_ordered_parents(&self.graph, selector.id)
-                    .into_iter()
-                    .next()
-                    .context("No first parent to reference")?;
-                let Step::Pick(Pick { id, .. }) = self.graph[parent] else {
-                    bail!("collect_ordered_parents should always return a commit pick");
-                };
-                Some((id, Some(refname.clone())))
-            }
+        Ok(match entry {
+            EditorIndex::Commit(_) => self.store.commit_id(entry).map(|id| (id, None)),
+            EditorIndex::Ref(_) => match self.store.reference(entry) {
+                None => None,
+                Some((refname, _)) => {
+                    let refname = refname.clone();
+                    let commit = self
+                        .store
+                        .resolve_to_commit(entry)
+                        .context("No commit to reference")?;
+                    let id = self
+                        .store
+                        .commit_id(commit)
+                        .context("resolve_to_commit always resolves to a commit")?;
+                    Some((id, Some(refname)))
+                }
+            },
         })
     }
 
-    fn worktree_tips_after_rebase(&self) -> Result<Vec<but_graph::init::WorktreeTip>> {
-        Ok(self
-            .linked_checkout_specs()?
-            .into_iter()
-            .map(|spec| but_graph::init::WorktreeTip {
-                name: spec.name,
-                ref_name: spec.ref_name,
-                id: spec.target,
-            })
-            .collect())
-    }
-
-    /// Return the commit targeted by `ref_name` in the post-rebase step graph.
-    pub fn reference_target(&self, ref_name: &gix::refs::FullNameRef) -> Result<gix::ObjectId> {
-        let reference = self
-            .graph
-            .node_indices()
-            .find(|node| {
-                matches!(
-                    &self.graph[*node],
-                    Step::Reference { refname, .. } if refname == ref_name
-                )
-            })
-            .with_context(|| format!("Could not find reference '{ref_name}' in rebase result"))?;
-        let parent = collect_ordered_parents(&self.graph, reference)
-            .into_iter()
-            .next()
-            .context("Reference has no target commit in rebase result")?;
-        match self.graph[parent] {
-            Step::Pick(Pick { id, .. }) => Ok(id),
-            _ => bail!("Reference target in rebase result is not a commit"),
-        }
-    }
-
-    /// Returns a preview of what the but-graph will look like after
-    /// materialization.
+    /// The overlay describing this rebase's outcome: updated/dropped refs plus the requested
+    /// checkout as the entrypoint.
     ///
-    /// Any objects referenced in the resulting graph must be accessed via the
-    /// in-memory repository owned by this [`SuccessfulRebase`] (`self.repo`),
-    /// since they might exist only in memory.
-    pub fn overlayed_graph(&self) -> Result<but_graph::Graph> {
-        self.overlayed_graph_with_workspace_overrides(None, None)
+    /// Feed it to a graph or workspace re-derivation (with [`Editor::repo`], since rewritten objects may
+    /// exist only in memory) to preview the post-rebase state without materializing.
+    pub fn overlay(&self) -> Result<Overlay> {
+        self.overlay_with(None, None)
     }
 
-    /// Return the post-rebase graph with optional ad-hoc workspace projection overrides.
+    /// Like [`Self::overlay`], with ad-hoc workspace projection overrides.
     ///
-    /// This is useful for dry-run operations whose graph rewrite is accompanied by metadata or
-    /// checkout changes that are deliberately not persisted. The override entrypoint must name the
-    /// commit and local reference that would be checked out, while `branch_stack_order` supplies the
-    /// tip-to-base order that would be written to ref metadata.
-    pub fn overlayed_graph_with_workspace_overrides(
+    /// For dry-run operations whose graph rewrite is accompanied by metadata or checkout
+    /// changes that are deliberately not persisted: the override `entrypoint` names the
+    /// commit and local reference that would be checked out, while `branch_stack_order`
+    /// supplies the tip-to-base order that would be written to ref metadata.
+    pub fn overlay_with(
         &self,
         entrypoint: Option<(gix::ObjectId, gix::refs::FullName)>,
         branch_stack_order: Option<&[gix::refs::FullName]>,
-    ) -> Result<but_graph::Graph> {
+    ) -> Result<Overlay> {
         let dropped_refs = self.ref_edits.iter().filter_map(|edit| match &edit.change {
             gix::refs::transaction::Change::Delete { .. } => Some(edit.name.clone()),
             _ => None,
@@ -440,7 +313,8 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             .checkouts
             .iter()
             .filter_map(|checkout| match checkout {
-                Checkout::Head { selector, .. } => self.checkout_target(*selector).ok().flatten(),
+                Checkout::Head { entry, .. } => self.checkout_target(*entry).ok().flatten(),
+                // A linked worktree has its own `HEAD`; it never names the entrypoint.
                 Checkout::Worktree { .. } => None,
             })
             .next()
@@ -459,144 +333,129 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         if let Some(branch_stack_order) = branch_stack_order {
             overlay = overlay.with_branch_stack_order_override(branch_stack_order.iter().cloned());
         }
-        let mut graph = self.workspace.graph.clone();
-        graph.worktree_tips = self.worktree_tips_after_rebase()?;
-        graph.redo_traversal_with_overlay(&self.repo, self.meta, overlay)
+        Ok(overlay)
     }
+}
 
-    /// Resolve `selector` to the identifiers of its commit pick including the change id.
-    pub fn lookup_commit(&self, selector: Selector) -> Result<CommitIdentifiers> {
-        let id = self.lookup_pick(selector)?;
-        let commit = self.repo.find_commit(id)?;
-        let commit = commit.decode()?;
-
-        let change_id =
-            but_core::commit::Headers::try_from_commit_headers(|| commit.extra_headers())
-                .unwrap_or_default()
-                .ensure_change_id(id)
-                .change_id
-                .expect("change ID is ensured");
-
-        Ok(CommitIdentifiers { id, change_id })
-    }
-
-    /// If the successful rebase is materialized, will any references be updated
+/// Represents a commit to be cherry-picked in a rebase operation.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CommitSpec {
+    /// The ID of the commit getting cherry-picked
+    pub id: gix::ObjectId,
+    /// If we are dealing with a sub-graph with an incomplete history, we
+    /// need to represent the bottom most commits in a way that we preserve
+    /// their parents.
     ///
-    /// Materialization will be a no-op
-    pub fn references_updated(&self) -> Result<bool> {
-        if !self.ref_edits.is_empty() {
-            return Ok(true);
-        }
-
-        for co in &self.checkouts {
-            match co {
-                Checkout::Head { selector, .. } => {
-                    let target = self.checkout_target(*selector)?.map(|t| t.0);
-
-                    if target != self.repo().head_id().ok().map(|id| id.detach()) {
-                        return Ok(true);
-                    }
-                }
-                Checkout::Worktree {
-                    selector,
-                    initial_head,
-                    ..
-                } => {
-                    let target = self.checkout_target(*selector)?.map(|t| t.0);
-
-                    if target != Some(*initial_head) {
-                        return Ok(true);
-                    }
-                }
-            }
-        }
-
-        Ok(false)
-    }
+    /// If this is Some, the commit will not be cherry-picked onto the parents the
+    /// graph implies but instead on to the parents listed here.
+    pub preserved_parents: Option<Vec<gix::ObjectId>>,
+    /// Controls under what circumstances the commit is cherry-picked.
+    pub pick_mode: PickMode,
+    /// Controls whether the resulting commit is signed.
+    ///
+    /// Note that signing a parent commit only causes descendants to be signed if those descendants
+    /// are also cherry-picked with a `sign_commit` value that enables signing (e.g. [`SignCommit::Yes`]
+    /// or [`SignCommit::IfSignCommitsEnabled`] with config enabled).
+    pub sign_commit: SignCommit,
+    /// Exclude the commit from being included in the
+    /// [`Editor::commit_mappings()`]. This is helpful if we are
+    /// creating a new commit since the mappings will be non-sensical to the
+    /// frontend consumers.
+    pub exclude_from_tracking: bool,
+    /// If set to false, the rebase will fail if this commit results in a
+    /// conflicted state. The cherry-pick still runs and creates the
+    /// conflicted commit — this check happens afterwards in [`Editor::rebase`].
+    pub conflictable: bool,
+    /// Controls how parent trees are merged during cherry-pick.
+    /// See [`TreeMergeMode`] for details.
+    pub tree_merge_mode: TreeMergeMode,
+    /// Whether the editor may rewrite this commit.
+    ///
+    /// The editor contains every commit in the workspace graph, but only those
+    /// reachable from a mutable entrypoint (e.g. `HEAD`) should be rewritten.
+    /// When `false`, the rebase copies the commit verbatim instead of
+    /// cherry-picking it, preserving its id.
+    pub mutable: bool,
 }
 
-/// The outcome of a materialize
-#[derive(Debug)]
-pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
-    pub(crate) graph: StepGraph,
-    /// Provides data about how the editor instance was transformed.
-    pub history: RevisionHistory,
-    /// A reference to the workspace that the editor was created for.
-    pub workspace: &'ws mut but_graph::Workspace,
-    /// A reference to the metadata that the editor was created for.
-    pub meta: &'meta mut M,
-    /// The database handle the editor was created with.
-    pub db: &'meta mut but_db::DbHandle,
-    /// True if a conflict occurred during checkout. This is always false if
-    /// `allow_uncommitted_changes_to_conflict_with_new_head` in the options
-    /// struct passed to the materialize call is false.
-    pub checkout_conflict_occurred: bool,
-}
-
-/// Provides lookup for different steps that a selector might point to.
-pub trait LookupStep {
-    /// Look up the step that a given selector corresponds to.
-    fn lookup_step(&self, selector: Selector) -> Result<Step>;
-
-    /// Look up the step a given selector and assert it's a pick.
-    fn lookup_pick(&self, selector: Selector) -> Result<gix::ObjectId> {
-        match self.lookup_step(selector)? {
-            Step::Pick(Pick { id, .. }) => Ok(id),
-            _ => bail!("Expected selector to point to a pick"),
+impl CommitSpec {
+    /// Creates a commit with the expected defaults
+    pub fn new(id: gix::ObjectId) -> Self {
+        Self {
+            id,
+            preserved_parents: None,
+            pick_mode: PickMode::IfChanged,
+            sign_commit: SignCommit::IfSignCommitsEnabled,
+            exclude_from_tracking: false,
+            conflictable: true,
+            tree_merge_mode: TreeMergeMode::WithRenames,
+            mutable: true,
         }
     }
 
-    /// Look up the step a given selector and assert it's a pick.
-    fn lookup_reference(&self, selector: Selector) -> Result<gix::refs::FullName> {
-        match self.lookup_step(selector)? {
-            Step::Reference { refname, .. } => Ok(refname),
-            _ => bail!("Expected selector to point to a reference"),
+    /// Creates a commit with the expected defaults, but is excluded from being
+    /// included from the [`Editor::commit_mappings()`] output. This is
+    /// often preferable if you are doing something like an
+    /// `insert_blank_commit` operation.
+    pub fn untracked(id: gix::ObjectId) -> Self {
+        let mut spec = Self::new(id);
+        spec.exclude_from_tracking = true;
+        spec
+    }
+
+    /// Creates a commit with the defaults set for a workspace commit
+    pub fn workspace(id: gix::ObjectId) -> Self {
+        Self {
+            id,
+            preserved_parents: None,
+            pick_mode: PickMode::IfChanged,
+            sign_commit: SignCommit::No,
+            exclude_from_tracking: false,
+            conflictable: false,
+            tree_merge_mode: TreeMergeMode::WithoutRenames,
+            mutable: true,
         }
     }
 }
 
-impl<M: RefMetadata> LookupStep for Editor<'_, '_, M> {
-    fn lookup_step(&self, selector: Selector) -> Result<Step> {
-        lookup_step(&self.graph, &self.history, selector)
-    }
+/// Represents places where `safe_checkout` should be called from
+#[derive(Debug, Clone)]
+pub(crate) enum Checkout {
+    /// The HEAD of the `repo` the editor was created for.
+    Head {
+        entry: EditorIndex,
+        /// A pre-computed merge base tree (`HEAD^{tree}` + consumed changes,
+        /// additive-only) to pass through to `safe_checkout`. When set, the
+        /// 3-way snapshot merge uses this as the base so consumed hunks cancel
+        /// and don't reappear as uncommitted changes.
+        merge_base_override: Option<gix::ObjectId>,
+    },
+    /// A visible linked worktree whose `HEAD` should follow this edit.
+    Worktree {
+        /// The stable worktree name under `$GIT_COMMON_DIR/worktrees/`.
+        worktree_name: gix::bstr::BString,
+        /// The worktree's `HEAD` entry: a reference when attached, or a commit when detached.
+        entry: EditorIndex,
+        /// The symbolic referent at editor creation, or `None` for a detached `HEAD`.
+        ref_name: Option<gix::refs::FullName>,
+        /// The peeled `HEAD` at editor creation, used to reject stale worktree state.
+        initial_head: gix::ObjectId,
+        /// Like [`Checkout::Head`]'s `merge_base_override`, but computed against this
+        /// worktree's own `HEAD^{tree}`, so changes consumed *from this worktree*
+        /// cancel out during its checkout.
+        merge_base_override: Option<gix::ObjectId>,
+    },
 }
 
-impl<M: RefMetadata> LookupStep for SuccessfulRebase<'_, '_, M> {
-    fn lookup_step(&self, selector: Selector) -> Result<Step> {
-        lookup_step(&self.graph, &self.history, selector)
-    }
-}
-
-impl<M: RefMetadata> LookupStep for MaterializeOutcome<'_, '_, M> {
-    fn lookup_step(&self, selector: Selector) -> Result<Step> {
-        lookup_step(&self.graph, &self.history, selector)
-    }
-}
-
-fn lookup_step(graph: &StepGraph, history: &RevisionHistory, selector: Selector) -> Result<Step> {
-    let normalized = history.normalize_selector(selector)?;
-    Ok(graph[normalized.id].clone())
-}
-
-/// Provides data about how the editor instance was transformed.
+/// How commit ids moved as the editor transformed the graph.
 #[derive(Debug, Clone, Default)]
-pub struct RevisionHistory {
-    mappings: Vec<HashMap<StepGraphIndex, StepGraphIndex>>,
+pub(crate) struct RevisionHistory {
     /// A mapping from any commits that were in the original mapping to a
     /// rewritten version.
     ///
-    /// Unintuatively, the values are the original values, and the keys are the
+    /// Unintuitively, the values are the original values, and the keys are the
     /// _new_ values that they have been mapped to.
     commit_mappings: BTreeMap<gix::ObjectId, gix::ObjectId>,
-}
-
-impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
-    pub(crate) fn new_selector(&self, id: StepGraphIndex) -> Selector {
-        Selector {
-            id,
-            revision: self.history.current_revision(),
-        }
-    }
 }
 
 impl RevisionHistory {
@@ -604,15 +463,8 @@ impl RevisionHistory {
         Default::default()
     }
 
-    pub(crate) fn current_revision(&self) -> usize {
-        self.mappings.len()
-    }
-
-    /// The commit mappings starts empty, and gets updated when we perform a cherry pick.
-    /// If there is no entry whose old `to` that cooresponds with the new
-    /// `from`, then we just add a `to <- from` entry.
-    /// If there is an entry whose old `to` that cooresponds with the new
-    /// `from`, then we replace `old_to <- old_from` with `new_to <- old_from`
+    /// Record that `from` was rewritten to `to`. If `from` was itself the result of an
+    /// earlier rewrite, the chain collapses: the original id now maps straight to `to`.
     pub(crate) fn update_mapping(&mut self, from: gix::ObjectId, to: gix::ObjectId) {
         if let Some(value) = self.commit_mappings.remove(&from) {
             self.commit_mappings.insert(to, value);
@@ -622,25 +474,11 @@ impl RevisionHistory {
     }
 
     /// Provides a mapping between commits that were rewritten as part of the transformation.
-    pub fn commit_mappings(&self) -> BTreeMap<gix::ObjectId, gix::ObjectId> {
+    pub(crate) fn commit_mappings(&self) -> BTreeMap<gix::ObjectId, gix::ObjectId> {
         self.commit_mappings
             .iter()
             .filter_map(|(k, v)| if k == v { None } else { Some((*v, *k)) })
             .collect()
-    }
-
-    pub(crate) fn normalize_selector(&self, mut selector: Selector) -> Result<Selector> {
-        while selector.revision < self.current_revision() {
-            selector.id = *self.mappings[selector.revision]
-                .get(&selector.id)
-                .context("Failed to normalize selector, selector was missing from the mapping")?;
-            selector.revision += 1;
-        }
-        Ok(selector)
-    }
-
-    pub(crate) fn add_revision(&mut self, mapping: HashMap<StepGraphIndex, StepGraphIndex>) {
-        self.mappings.push(mapping);
     }
 }
 
@@ -652,7 +490,7 @@ mod test {
     use but_core::commit::SignCommit;
 
     use crate::graph_rebase::{
-        Pick,
+        CommitSpec,
         cherry_pick::{PickMode, TreeMergeMode},
     };
 
@@ -661,8 +499,8 @@ mod test {
         let object_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
 
         assert_eq!(
-            Pick::new_workspace_pick(object_id),
-            Pick {
+            CommitSpec::workspace(object_id),
+            CommitSpec {
                 id: object_id,
                 preserved_parents: None,
                 pick_mode: PickMode::IfChanged,
@@ -682,8 +520,8 @@ mod test {
         let object_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
 
         assert_eq!(
-            Pick::new_pick(object_id),
-            Pick {
+            CommitSpec::new(object_id),
+            CommitSpec {
                 id: object_id,
                 preserved_parents: None,
                 pick_mode: PickMode::IfChanged,

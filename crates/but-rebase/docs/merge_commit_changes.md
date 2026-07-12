@@ -35,13 +35,13 @@ it derives:
 
 The planner then emits only non-pruned selected-chain tips.
 
-Even though traversal and pruning are driven by the editor step graph, the
+Even though traversal and pruning are driven by the editor commit graph, the
 planner still takes first-parent and tree semantics from the commit objects in
 the editor's in-memory repository. In other words:
 
 - the in-memory repository is the source of truth for commit parents, trees,
   and SHAs,
-- the step graph is used only to walk the selected region deterministically and
+- the commit graph is used only to walk the selected region deterministically and
   to discover the target ancestry cone quickly, and
 - callers are expected to keep those two views aligned before using these
   helpers.
@@ -59,7 +59,7 @@ the editor's in-memory repository. In other words:
 - A pruned selected first parent may still define the `base_tree_id` boundary
   for a surviving descendant, so a surviving tip can emit `B..C` even when `B`
   is pruned.
-- The editor step graph is expected to represent the same topology as the
+- The editor commit graph is expected to represent the same topology as the
   editor's in-memory repository. These helpers do not treat step-graph rewiring
   as a new source of commit parent truth.
 - The editor is assumed to already be normalized and up to date before calling

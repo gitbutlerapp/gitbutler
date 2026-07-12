@@ -710,7 +710,7 @@ mod behind_count {
             .unwrap();
         let outcome = but_workspace::branch::apply(
             "refs/heads/C".try_into().unwrap(),
-            workspace.clone(),
+            &workspace,
             &repo,
             &mut meta,
             but_workspace::branch::apply::Options::default(),

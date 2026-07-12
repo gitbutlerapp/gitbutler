@@ -2,7 +2,7 @@ use crate::{WorkspaceState, commit::json::ChangesSource};
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{Editor, LookupStep as _};
+use but_rebase::graph_rebase::Editor;
 use but_workspace::commit::ChangeSource;
 use gix::bstr::ByteSlice;
 use tracing::instrument;
@@ -48,15 +48,16 @@ pub(crate) fn commit_amend_only_impl(
     let worktree = crate::worktrees::open_changes_source(ctx, changes_source)?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::for_workspace(&ws, &mut meta, &repo)?;
+    let commit = editor.select_commit(commit_id)?;
 
     let but_workspace::commit::CommitAmendOutcome {
         rebase,
-        commit_selector,
+        commit,
         rejected_specs,
     } = but_workspace::commit::commit_amend(
         editor,
-        commit_id,
+        commit,
         changes,
         context_lines,
         worktree
@@ -67,10 +68,9 @@ pub(crate) fn commit_amend_only_impl(
             }),
     )?;
 
-    let new_commit = commit_selector
-        .map(|commit_selector| rebase.lookup_pick(commit_selector))
-        .transpose()?;
-    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    let new_commit = commit.map(|commit| rebase.id_of(commit)).transpose()?;
+    let workspace =
+        WorkspaceState::from_successful_rebase_with_db(&mut ws, rebase, &repo, dry_run, &mut db)?;
 
     Ok(CommitCreateResult {
         new_commit,

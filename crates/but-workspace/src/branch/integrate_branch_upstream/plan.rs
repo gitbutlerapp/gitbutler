@@ -3,25 +3,15 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context as _, Result, bail};
-use bstr::BStr;
-use but_core::{
-    ChangeId, RefMetadata, RepositoryExt,
-    commit::{add_conflict_markers, write_conflicted_tree},
-};
+use but_core::{ChangeId, RefMetadata, RepositoryExt};
 use but_error::bail_precondition;
-use but_rebase::{
-    commit::DateMode,
-    graph_rebase::{
-        Editor, LookupStep, Selector, Step,
-        merge_commit_changes::MergeCommitChangesOutcome,
-        mutate::{SegmentDelimiter, SelectorSet},
-    },
+use but_rebase::graph_rebase::{
+    CommitSpec, Editor, EditorIndex,
+    anchor::{Cut, Range},
+    mutate::Reconnect,
 };
 
-use crate::graph_manipulation::{
-    already_connected_parent_for_step, connect_parent_step, disconnect_selector_from_all_parents,
-};
-use crate::{divergence::TargetCommitRelation, graph_manipulation::determine_parent_selector};
+use crate::divergence::TargetCommitRelation;
 
 use super::{InteractiveIntegrationStep, display::relation_for};
 
@@ -200,7 +190,7 @@ pub(super) enum PreparedIntegrationStep {
 /// Prepare user-facing integration steps for execution in the graph editor.
 ///
 /// The main role of this function is to pre-compute the squash commits, before
-/// we start altering the editor graph. Turning them into normal pick steps for the
+/// we start altering the editor graph. Turning them into ordinary specs for the
 /// chain build.
 ///
 /// `editor` provides the current repository and graph state needed to
@@ -211,7 +201,7 @@ pub(super) enum PreparedIntegrationStep {
 ///
 /// Returns the normalized execution plan used by later graph-building helpers.
 pub(super) fn prepare_integration_steps_for_editor<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     steps: &[InteractiveIntegrationStep],
 ) -> Result<Vec<PreparedIntegrationStep>> {
     let mut prepared = Vec::with_capacity(steps.len());
@@ -247,9 +237,9 @@ pub(super) fn prepare_integration_steps_for_editor<M: RefMetadata>(
 }
 
 /// Precompute the squash payload from the current editor/repository state,
-/// before later integration graph mutations can rewire step-graph ancestry.
+/// before later integration graph mutations can rewire commit-graph ancestry.
 fn prepare_squash_step_for_editor<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     commit_ids: &[gix::ObjectId],
     message: Option<&str>,
 ) -> Result<gix::ObjectId> {
@@ -257,24 +247,20 @@ fn prepare_squash_step_for_editor<M: RefMetadata>(
         bail!("Squash step must have at least two commits");
     }
 
-    let maybe_selectors = commit_ids
+    let maybe_entries = commit_ids
         .iter()
         .map(|commit_id| editor.try_select_commit(*commit_id))
         .collect::<Vec<_>>();
-    let ordered_commit_ids = if maybe_selectors.iter().all(Option::is_some) {
-        let ordered_selectors = editor.order_commit_selectors_by_parentage(
-            maybe_selectors
+    let ordered_commit_ids = if maybe_entries.iter().all(Option::is_some) {
+        let ordered_entries = editor.order_by_parentage(
+            maybe_entries
                 .into_iter()
-                .map(|selector| selector.expect("checked all selectors are present"))
+                .map(|entry| entry.expect("checked all entries are present"))
                 .collect::<Vec<_>>(),
         )?;
-        ordered_selectors
+        ordered_entries
             .iter()
-            .map(|selector| {
-                editor
-                    .find_selectable_commit(*selector)
-                    .map(|(_, commit)| commit.id)
-            })
+            .map(|entry| editor.commit_of(*entry).map(|commit| commit.id))
             .collect::<Result<Vec<_>>>()?
     } else {
         commit_ids.to_vec()
@@ -302,41 +288,16 @@ fn prepare_squash_step_for_editor<M: RefMetadata>(
     let tip_commit_id = *ordered_commit_ids
         .last()
         .expect("validated non-empty squash commit list");
-    let mut squashed_commit = editor.find_commit(tip_commit_id)?;
-    squashed_commit.inner.parents = vec![squashed_parent].into();
+    let squashed_commit = editor.find_commit(tip_commit_id)?;
     let commit_message = message
         .map(|message| message.as_bytes().to_vec())
         .unwrap_or_else(|| Vec::from(squashed_commit.message.clone()));
-    apply_merge_commit_changes_outcome(
-        editor.repo(),
-        &mut squashed_commit,
+    editor.new_squashed_commit(
+        squashed_commit,
+        vec![squashed_parent],
         merge_outcome,
         commit_message,
-    )?;
-
-    editor.new_commit(squashed_commit, DateMode::CommitterUpdateAuthorKeep)
-}
-
-fn apply_merge_commit_changes_outcome(
-    repo: &gix::Repository,
-    commit: &mut but_core::CommitOwned,
-    outcome: MergeCommitChangesOutcome,
-    message: Vec<u8>,
-) -> Result<()> {
-    if let Some(conflict) = outcome.conflict {
-        commit.tree = write_conflicted_tree(
-            repo,
-            outcome.tree_id,
-            &conflict.tree_expression,
-            &conflict.conflict_entries,
-        )?;
-        commit.message = add_conflict_markers(BStr::new(&message));
-    } else {
-        commit.tree = outcome.tree_id;
-        commit.message = message.into();
-    }
-
-    Ok(())
+    )
 }
 
 /// Builds and inserts the integrated commit chain under `ref_name` down to the last step.
@@ -348,13 +309,13 @@ fn apply_merge_commit_changes_outcome(
 /// `steps` is the prepared execution plan to insert under `ref_name`, ending
 /// at the deepest rebuilt parent step.
 ///
-/// Returns the delimiter spanning from the reference node to the deepest
+/// Returns the range spanning from the reference node to the deepest
 /// inserted parent.
 pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+    editor: &mut Editor<'_, M>,
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
-) -> Result<SegmentDelimiter<Selector, Selector>> {
+) -> Result<Range> {
     // Step 1: We interpret the integration steps and transform them into graph steps disconnected from their parents.
     // We disconnect them in order to be able to allow for reordering.
     let segment_steps = integration_steps_to_segment_steps_for_editor(editor, ref_name, steps)?;
@@ -362,8 +323,8 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
     // Step 2. We build the new local branch out of the steps.
     // We start by disconnecting all the parents of the local branch reference step, as we will connect it to the new
     // set of commits.
-    let child_most = editor.select_reference(ref_name)?;
-    disconnect_selector_from_all_parents(editor, child_most)?;
+    let child_most: EditorIndex = editor.select_reference(ref_name)?.into();
+    unparent_entry(editor, child_most)?;
     let mut parent_most = child_most;
 
     for step in segment_steps.into_iter().skip(1) {
@@ -377,7 +338,7 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
         parent_most = connect_parent_step(editor, parent_most, step)?;
     }
 
-    Ok(SegmentDelimiter {
+    Ok(Range {
         child: child_most,
         parent: parent_most,
     })
@@ -385,7 +346,7 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
 
 /// Convert user-provided integration steps into graph steps in insertion order.
 ///
-/// `editor` is the mutable graph editor used to reuse existing picks, create
+/// `editor` is the mutable graph editor used to reuse existing commits, create
 /// synthetic merge steps, and detach reusable commits from their current parent
 /// edges.
 ///
@@ -396,24 +357,22 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
 /// Returns the graph steps to insert, starting with a reference step and then
 /// the parent chain steps in insertion order.
 fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+    editor: &mut Editor<'_, M>,
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
-) -> Result<Vec<Step>> {
-    let mut out = vec![Step::new_reference(ref_name.to_owned())];
+) -> Result<Vec<ParentNode>> {
+    let mut out = vec![ParentNode::Reference(ref_name.to_owned())];
 
     for step in steps.iter().rev() {
         match step {
             PreparedIntegrationStep::Pick { commit_id, .. } => {
-                out.push(existing_or_new_pick_step(editor, *commit_id)?);
+                out.push(ParentNode::CommitSpec(existing_or_new_spec(
+                    editor, *commit_id,
+                )?));
             }
             PreparedIntegrationStep::Merge { commit_id } => {
-                let mut merge_commit = editor.empty_commit()?;
-                merge_commit.message = format!("Merge {commit_id} into previous commit").into();
-                let merge_commit = editor.new_commit(
-                    merge_commit,
-                    but_rebase::commit::DateMode::CommitterKeepAuthorKeep,
-                )?;
+                let merge_commit =
+                    editor.new_merge_commit(format!("Merge {commit_id} into previous commit"))?;
                 let preserved_parents = editor
                     .find_commit(*commit_id)?
                     .inner
@@ -421,15 +380,15 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
                     .iter()
                     .copied()
                     .collect::<Vec<_>>();
-                let mut commit_to_merge = Step::new_untracked_pick(*commit_id);
-                let Step::Pick(pick) = &mut commit_to_merge else {
-                    bail!("BUG: expected merge side parent to be a pick step");
-                };
-                pick.preserved_parents = Some(preserved_parents);
-                let commit_to_merge = editor.add_step(commit_to_merge)?;
-                let merge_commit = editor.add_step(Step::new_untracked_pick(merge_commit))?;
-                editor.add_edge(merge_commit, commit_to_merge, 1)?;
-                out.push(editor.lookup_step(merge_commit)?);
+                let mut commit_to_merge = CommitSpec::untracked(*commit_id);
+                commit_to_merge.preserved_parents = Some(preserved_parents);
+                let commit_to_merge = editor.add_commit(commit_to_merge)?;
+                let merge_commit = editor.add_commit(CommitSpec::untracked(merge_commit))?;
+                // The merged side is the merge's only parent for now; the rebuilt chain's
+                // parent prepends at parent number 0 later (`connect_parent_step`), shifting it to
+                // the merge-side lane.
+                editor.insert_parent(merge_commit, commit_to_merge, 0)?;
+                out.push(ParentNode::CommitSpec(editor.spec_of(merge_commit)?));
             }
         }
     }
@@ -448,34 +407,125 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
 /// Returns either the existing pick step for `commit_id` after detaching the
 /// selected parent edges, or a brand-new pick step when the commit is not yet
 /// selectable in the editor.
-fn existing_or_new_pick_step<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+fn existing_or_new_spec<M: RefMetadata>(
+    editor: &mut Editor<'_, M>,
     commit_id: gix::ObjectId,
-) -> Result<Step> {
+) -> Result<CommitSpec> {
     if let Some(existing) = editor.try_select_commit(commit_id) {
-        let parents_to_disconnect = determine_parent_selector(editor, existing)?;
-        editor.disconnect_segment_from(
-            SegmentDelimiter {
-                child: existing,
-                parent: existing,
-            },
-            SelectorSet::None,
-            parents_to_disconnect,
-            true,
+        let parents = editor.base_of(existing)?;
+        editor.disconnect(
+            Range::single(existing),
+            Cut::Nothing,
+            parents,
+            Reconnect::Skip,
         )?;
 
         // The integration rebuilds this commit onto new parents, so it must be
         // cherry-picked. Reused upstream commits live in immutable segments
         // (they aren't reachable from HEAD), so force them mutable here.
-        let mut step = editor.lookup_step(existing)?;
-        if let Step::Pick(pick) = &mut step
-            && !pick.mutable
-        {
-            pick.mutable = true;
-            editor.replace(existing, step.clone())?;
+        let mut spec = editor.spec_of(existing)?;
+        if !spec.mutable {
+            spec.mutable = true;
+            editor.replace_commit(existing, spec.clone())?;
         }
-        return Ok(step);
+        return Ok(spec);
     }
 
-    Ok(Step::new_pick(commit_id))
+    Ok(CommitSpec::new(commit_id))
+}
+
+/// Disconnect all parent edges from a single entry without reconnecting them.
+///
+/// `editor` is the mutable graph editor whose connectivity will be updated.
+///
+/// `entry` is the node whose parent edges should be removed.
+///
+/// Returns `Ok(())` after all direct parent edges of `entry` have been
+/// removed from the editor graph.
+fn unparent_entry<M: RefMetadata>(editor: &mut Editor<'_, M>, entry: EditorIndex) -> Result<()> {
+    editor.disconnect(
+        Range::single(entry),
+        Cut::Nothing,
+        Cut::All,
+        Reconnect::Skip,
+    )?;
+
+    Ok(())
+}
+
+/// Return a direct parent of `child` when `step` refers to a commit that is already connected.
+///
+/// This is useful when rebuilding an editor segment and we want to reuse an existing
+/// commit without adding a duplicate parent entry to the same commit.
+///
+/// `editor` provides access to the current parent edges and commit entries.
+///
+/// `child` is the node whose direct parents should be inspected.
+///
+/// `step` is the candidate step whose commit should be matched against the
+/// already-connected parents of `child`.
+///
+/// Returns the matching direct parent entry when `step` already corresponds
+/// to an attached commit parent, or `None` otherwise.
+fn already_connected_parent_for_step<M: RefMetadata>(
+    editor: &Editor<'_, M>,
+    child: EditorIndex,
+    node: &ParentNode,
+) -> Result<Option<EditorIndex>> {
+    let ParentNode::CommitSpec(spec) = node else {
+        return Ok(None);
+    };
+
+    let Some(existing) = editor.try_select_commit(spec.id) else {
+        return Ok(None);
+    };
+
+    let direct_parents = editor.direct_parents(child)?;
+    Ok(direct_parents
+        .into_iter()
+        .find_map(|(parent, _)| (parent == existing.into()).then_some(parent)))
+}
+
+/// Connect `child` to `parent_step`, reusing an existing commit when possible.
+///
+/// The new edge is inserted at parent number 0: the rebuilt chain defines `child`'s
+/// first-parent lane, and any parents `child` kept (a merge's side parent, parents that
+/// survived a partial disconnect) shift after it.
+///
+/// `editor` is the mutable graph editor that may reuse an existing commit or add a
+/// new step before creating the edge.
+///
+/// `child` is the handle that should gain a new direct parent.
+///
+/// `parent_step` describes the parent node to connect, either by reusing an
+/// existing commit/reference entry or by adding a new commit first.
+///
+/// Returns the entry of the connected parent node.
+fn connect_parent_step<M: RefMetadata>(
+    editor: &mut Editor<'_, M>,
+    child: EditorIndex,
+    parent_node: ParentNode,
+) -> Result<EditorIndex> {
+    let parent: EditorIndex = match parent_node {
+        ParentNode::CommitSpec(spec) => {
+            if let Some(existing) = editor.try_select_commit(spec.id) {
+                existing.into()
+            } else {
+                editor.add_commit(spec)?.into()
+            }
+        }
+        ParentNode::Reference(refname) => editor.select_reference(refname.as_ref())?.into(),
+    };
+
+    editor.insert_parent(child, parent, 0)?;
+    Ok(parent)
+}
+
+/// A parent to lay down while rebuilding a chain: a commit spec — reused when the editor
+/// already holds it — or a reference already registered in the editor.
+enum ParentNode {
+    /// A commit spec, added to the graph when not already present.
+    CommitSpec(CommitSpec),
+    /// An existing reference, found by name.
+    Reference(gix::refs::FullName),
 }
