@@ -30,12 +30,12 @@ impl Context {
     /// handle is borrowed.
     pub fn graph_options(
         &self,
-        mut options: but_graph::init::Options,
-    ) -> Result<but_graph::init::Options> {
+        mut options: but_graph::walk::Options,
+    ) -> Result<but_graph::walk::Options> {
         options
             .worktree_tips
             .extend(self.active_worktrees()?.into_iter().map(|worktree| {
-                but_graph::init::WorktreeTip {
+                but_graph::walk::WorktreeTip {
                     name: worktree.name,
                     ref_name: worktree.ref_name,
                     id: worktree.head,

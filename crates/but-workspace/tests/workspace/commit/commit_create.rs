@@ -1,9 +1,6 @@
 use anyhow::Result;
 use but_core::DiffSpec;
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _,
-    mutate::{InsertSide, RelativeToRef},
-};
+use but_rebase::graph_rebase::{Editor, anchor::Anchor, mutate::InsertSide};
 use but_workspace::commit::{ChangeSource, commit_create};
 
 use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
@@ -18,7 +15,7 @@ fn worktree_changes_as_specs(repo: &gix::Repository) -> Result<Vec<DiffSpec>> {
 
 #[test]
 fn commit_above_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
     std::fs::write(
@@ -27,12 +24,11 @@ fn commit_above_commit() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeToRef::Commit(two_id),
+        Anchor::Commit(two_id),
         InsertSide::Above,
         "insert above commit",
         0,
@@ -40,11 +36,9 @@ fn commit_above_commit() -> Result<()> {
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
-    let selector = outcome
-        .commit_selector
-        .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize(Default::default())?;
-    let new_commit_id = materialized.lookup_pick(selector)?;
+    let handle = outcome.commit.expect("a handle for the new commit");
+    let new_commit_id = outcome.rebase.id_of(handle)?;
+    outcome.rebase.materialize()?;
 
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert above commit");
@@ -65,7 +59,7 @@ fn commit_above_commit() -> Result<()> {
 
 #[test]
 fn commit_below_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let one_id = repo.rev_parse_single("one")?.detach();
     let two_id = repo.rev_parse_single("two")?.detach();
@@ -75,12 +69,11 @@ fn commit_below_commit() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeToRef::Commit(two_id),
+        Anchor::Commit(two_id),
         InsertSide::Below,
         "insert below commit",
         0,
@@ -88,11 +81,9 @@ fn commit_below_commit() -> Result<()> {
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
-    let selector = outcome
-        .commit_selector
-        .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize(Default::default())?;
-    let new_commit_id = materialized.lookup_pick(selector)?;
+    let handle = outcome.commit.expect("a handle for the new commit");
+    let new_commit_id = outcome.rebase.id_of(handle)?;
+    outcome.rebase.materialize()?;
 
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert below commit");
@@ -107,7 +98,7 @@ fn commit_below_commit() -> Result<()> {
 
 #[test]
 fn commit_above_reference() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
     let reference = repo.find_reference("two")?;
@@ -117,12 +108,11 @@ fn commit_above_reference() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeToRef::Reference(reference.name()),
+        Anchor::Reference(reference.name().to_owned()),
         InsertSide::Above,
         "insert above reference",
         0,
@@ -130,11 +120,9 @@ fn commit_above_reference() -> Result<()> {
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
-    let selector = outcome
-        .commit_selector
-        .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize(Default::default())?;
-    let new_commit_id = materialized.lookup_pick(selector)?;
+    let handle = outcome.commit.expect("a handle for the new commit");
+    let new_commit_id = outcome.rebase.id_of(handle)?;
+    outcome.rebase.materialize()?;
 
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert above reference");
@@ -155,7 +143,7 @@ fn commit_above_reference() -> Result<()> {
 
 #[test]
 fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("merge-with-two-branches-line-offset", |_| {})?;
     let merge_id = repo.rev_parse_single("HEAD")?.detach();
     let merge_commit = repo.find_commit(merge_id)?;
@@ -170,12 +158,11 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
-        RelativeToRef::Commit(merge_id),
+        Anchor::Commit(merge_id),
         InsertSide::Below,
         "insert below merge",
         0,
@@ -183,11 +170,9 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
-    let selector = outcome
-        .commit_selector
-        .expect("a selector for the new commit");
-    let materialized = outcome.rebase.materialize(Default::default())?;
-    let new_commit_id = materialized.lookup_pick(selector)?;
+    let handle = outcome.commit.expect("a handle for the new commit");
+    let new_commit_id = outcome.rebase.id_of(handle)?;
+    outcome.rebase.materialize()?;
 
     let new_commit = repo.find_commit(new_commit_id)?;
     assert_eq!(new_commit.message_raw()?, "insert below merge");
@@ -206,11 +191,10 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
 
 #[test]
 fn commit_all_rejected_is_noop() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
 
     let outcome = commit_create(
         editor,
@@ -219,7 +203,7 @@ fn commit_all_rejected_is_noop() -> Result<()> {
             path: "does-not-exist".into(),
             hunk_headers: vec![],
         }],
-        RelativeToRef::Commit(two_id),
+        Anchor::Commit(two_id),
         InsertSide::Above,
         "no-op commit",
         0,
@@ -227,8 +211,8 @@ fn commit_all_rejected_is_noop() -> Result<()> {
     )?;
 
     assert!(
-        outcome.commit_selector.is_none(),
-        "no selector if there is no new commit"
+        outcome.commit.is_none(),
+        "no handle if there is no new commit"
     );
     assert_eq!(
         outcome.rejected_specs.len(),

@@ -2,22 +2,18 @@
 
 use anyhow::{Result, bail};
 use but_core::{RefMetadata, RepositoryExt};
-use but_rebase::{
-    commit::DateMode,
-    graph_rebase::{
-        Editor, LookupStep as _, Selector, Step, SuccessfulRebase, ToCommitSelector,
-        merge_commit_changes::MergeCommitChangesOutcome,
-        mutate::{SegmentDelimiter, SelectorSet},
-    },
+use but_rebase::graph_rebase::{
+    CommitIndex, CommitSpec, Editor, EditorIndex, RebasedEditor,
+    merge_commit_changes::MergeCommitChangesOutcome,
 };
 
 /// The result of a squash_commits operation.
 #[derive(Debug)]
-pub struct SquashCommitsOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct SquashCommitsOutcome<'meta, M: RefMetadata> {
     /// The successful rebase result.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
-    /// Selector pointing to the squashed replacement commit.
-    pub commit_selector: Selector,
+    pub rebase: RebasedEditor<'meta, M>,
+    /// The squashed replacement commit.
+    pub commit: CommitIndex,
 }
 
 /// Append `message` to `combined`, inserting enough newlines so there are at
@@ -45,54 +41,57 @@ fn push_message_with_spacing(combined: &mut Vec<u8>, message: &[u8]) {
     combined.extend_from_slice(message);
 }
 
-/// Build the squashed commit and replace the target selector with the newly
+/// Build the squashed commit and replace the target entry with the newly
 /// created commit.
 ///
-/// Returns the updated editor and the selector that now points to the squashed
+/// Returns the updated editor and the handle that now points to the squashed
 /// commit.
-fn construct_new_squashed_commit<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+fn construct_new_squashed_commit<'meta, M: RefMetadata>(
+    mut editor: Editor<'meta, M>,
     squashed_tree: MergeCommitChangesOutcome,
-    target_commit_id: Selector,
+    target_commit_id: CommitIndex,
     combined_message: Vec<u8>,
-) -> Result<(Editor<'ws, 'meta, M>, Selector)> {
-    let (target_selector, target_commit) = editor.find_selectable_commit(target_commit_id)?;
-    let target_parent_ids = parent_commit_ids(&editor, target_selector)?;
+) -> Result<(Editor<'meta, M>, CommitIndex)> {
+    let target_entry = target_commit_id;
+    let target_commit = editor.commit_of(target_entry)?;
+    let target_parent_ids = parent_commit_ids(&editor, target_entry)?;
 
-    let new_commit = {
-        let mut squashed_commit = target_commit.clone();
-        squashed_commit.inner.parents = target_parent_ids.into();
-        squashed_commit.tree = squashed_tree.tree_id;
-        squashed_commit.message = combined_message.into();
-        editor.new_commit(squashed_commit, DateMode::CommitterUpdateAuthorKeep)?
-    };
+    let new_commit = editor.new_squashed_commit(
+        target_commit.clone(),
+        target_parent_ids,
+        squashed_tree,
+        combined_message,
+    )?;
+    editor.replace_commit(target_entry, CommitSpec::new(new_commit))?;
 
-    editor.replace(target_selector, Step::new_pick(new_commit))?;
-
-    Ok((editor, target_selector))
+    Ok((editor, target_entry))
 }
 
 fn parent_commit_ids<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    selector: Selector,
+    editor: &Editor<'_, M>,
+    entry: CommitIndex,
 ) -> Result<Vec<gix::ObjectId>> {
-    let mut parents = editor.direct_parents(selector)?;
+    let mut parents = editor.direct_parents(entry)?;
     parents.sort_by_key(|(_, order)| *order);
 
     parents
         .into_iter()
-        .map(|(parent_selector, _)| match editor.lookup_step(parent_selector)? {
-            Step::Pick(_) => {
-                let (_, commit) = editor.find_selectable_commit(parent_selector)?;
-                Ok(commit.id)
+        .map(|(parent_entry, _)| {
+            if editor.is_removed(parent_entry) {
+                bail!(
+                    "BUG: expected parent entry {parent_entry:?} to be a live commit or reference"
+                )
             }
-            Step::Reference { .. } => {
-                let (_, commit) = editor.find_reference_target(parent_selector)?;
-                Ok(commit.id)
+            match parent_entry {
+                EditorIndex::Commit(commit) => {
+                    let commit = editor.commit_of(commit)?;
+                    Ok(commit.id)
+                }
+                EditorIndex::Ref(reference) => {
+                    let (_, commit) = editor.target_of(reference)?;
+                    Ok(commit.id)
+                }
             }
-            Step::None => bail!(
-                "BUG: expected parent selector {parent_selector:?} to point to a pick or reference"
-            ),
         })
         .collect()
 }
@@ -134,37 +133,37 @@ but_schemars::register_sdk_type!(MessageCombinationStrategy);
 /// Subject messages are appended in the order they are provided, with at least
 /// one blank line between non-empty message blocks.
 ///
-pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToCommitSelector>(
-    editor: Editor<'ws, 'meta, M>,
-    subjects: Vec<S>,
-    target_commit: T,
+pub fn squash_commits<'meta, M: RefMetadata>(
+    editor: Editor<'meta, M>,
+    subjects: Vec<gix::ObjectId>,
+    target_commit: gix::ObjectId,
     how_to_combine_messages: MessageCombinationStrategy,
-) -> Result<SquashCommitsOutcome<'ws, 'meta, M>> {
+) -> Result<SquashCommitsOutcome<'meta, M>> {
     let mut seen_subjects = std::collections::HashSet::with_capacity(subjects.len());
 
     if subjects.is_empty() {
         bail!("Need at least 2 commits to squash")
     }
 
-    let (target_commit_selector, target_commit_obj) =
-        editor.find_selectable_commit(target_commit)?;
+    let target_commit_entry = editor.select_commit(target_commit)?;
+    let target_commit_obj = editor.commit_of(target_commit_entry)?;
 
-    let mut subject_selectors = Vec::with_capacity(subjects.len());
+    let mut subject_entries = Vec::with_capacity(subjects.len());
     for subject_commit in subjects {
-        let (subject_commit_selector, _) = editor.find_selectable_commit(subject_commit)?;
-        if subject_commit_selector == target_commit_selector {
+        let subject_commit_entry = editor.select_commit(subject_commit)?;
+        if subject_commit_entry == target_commit_entry {
             bail!("Cannot squash a commit into itself")
         }
-        if !seen_subjects.insert(subject_commit_selector) {
+        if !seen_subjects.insert(subject_commit_entry) {
             continue;
         }
-        subject_selectors.push(subject_commit_selector);
+        subject_entries.push(subject_commit_entry);
     }
 
-    let subject_commit_ids = subject_selectors
+    let subject_commit_ids = subject_entries
         .iter()
-        .map(|commit_selector| {
-            let (_, commit) = editor.find_selectable_commit(*commit_selector)?;
+        .map(|commit| {
+            let commit = editor.commit_of(*commit)?;
             Ok(commit.id)
         })
         .collect::<Result<Vec<_>>>()?;
@@ -180,8 +179,8 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
     let mut combined_message = Vec::new();
     match how_to_combine_messages {
         MessageCombinationStrategy::KeepSubject => {
-            for source_id in subject_selectors.iter().copied() {
-                let (_, source_commit) = editor.find_selectable_commit(source_id)?;
+            for source_id in subject_entries.iter().copied() {
+                let source_commit = editor.commit_of(source_id)?;
                 push_message_with_spacing(&mut combined_message, source_commit.message.as_ref());
             }
         }
@@ -190,22 +189,16 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
         }
         MessageCombinationStrategy::KeepBoth => {
             push_message_with_spacing(&mut combined_message, target_commit_obj.message.as_ref());
-            for source_id in subject_selectors.iter().copied() {
-                let (_, source_commit) = editor.find_selectable_commit(source_id)?;
+            for source_id in subject_entries.iter().copied() {
+                let source_commit = editor.commit_of(source_id)?;
                 push_message_with_spacing(&mut combined_message, source_commit.message.as_ref());
             }
         }
     }
 
     let mut editor = editor;
-    for commit_selector in subject_selectors {
-        let delimiter = SegmentDelimiter {
-            child: commit_selector,
-            parent: commit_selector,
-        };
-        editor.disconnect_segment_from(delimiter, SelectorSet::All, SelectorSet::All, false)?;
-        let (selector, _) = editor.find_selectable_commit(commit_selector)?;
-        editor.replace(selector, Step::None)?;
+    for commit in subject_entries {
+        editor.remove_commit(commit)?;
     }
 
     // Removing a subject that sits below the target rewrites every commit above it, including
@@ -214,16 +207,16 @@ pub fn squash_commits<'ws, 'meta, M: RefMetadata, S: ToCommitSelector, T: ToComm
     // old parent, and the subject's changes would disappear along with the subject commit.
     let editor = editor.rebase()?.into_editor();
 
-    let (editor, new_target_selector) = construct_new_squashed_commit(
+    let (editor, new_target_entry) = construct_new_squashed_commit(
         editor,
         squashed_tree,
-        target_commit_selector,
+        target_commit_entry,
         combined_message,
     )?;
 
     Ok(SquashCommitsOutcome {
         rebase: editor.rebase()?,
-        commit_selector: new_target_selector,
+        commit: new_target_entry,
     })
 }
 

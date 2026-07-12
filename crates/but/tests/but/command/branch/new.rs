@@ -38,8 +38,10 @@ fn outputs_branch_name() {
 
 #[test]
 fn rejects_anchor_outside_workspace() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    // Two stacks, so unapplying one leaves the workspace standing: a workspace cannot be
+    // emptied by unapplying its last branch.
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.but("unapply A").assert().success();
 
     env.but("branch new --anchor A new-branch")
@@ -120,7 +122,9 @@ Error: A branch named 'A' is already applied
 #[test]
 fn rejects_name_that_exists_outside_workspace() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    // Two stacks: `but unapply` refuses to take the last one, and unapplying here is setup
+    // rather than the thing under test.
+    env.setup_metadata(&["A", "main"]);
     env.but("unapply A").assert().success();
 
     env.but("branch new A")
@@ -274,6 +278,30 @@ Hint: run `but help` for all commands
 ├╯
 ┊
 ┊╭┄ on [one] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn creates_new_branches_on_top_beside_existing_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("branch new one").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ zz [uncommitted] (no changes)
+┊
+┊╭┄ on [one] (no commits)
+├╯
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

@@ -2014,7 +2014,7 @@ async fn target_config(
         Some(new_branch) => {
             // refuse to run if there are any applied branches. if so, ask user to unapply first.
             let (guard, _, ws, _) = ctx.workspace_and_db()?;
-            if !ws.stacks.is_empty() {
+            if !ws.display_stacks()?.is_empty() {
                 // list the applied branches
                 if let Some(out) = out.for_human() {
                     writeln!(
@@ -2023,7 +2023,7 @@ async fn target_config(
                         t.important
                             .paint("\nThe following branches are currently applied:\n")
                     )?;
-                    ws.stacks.iter().for_each(|stack| {
+                    ws.display_stacks()?.iter().for_each(|stack| {
                         {
                             writeln!(
                                 out,

@@ -436,7 +436,7 @@ fn branch_of_commit(
         );
     for stack in ordered {
         for segment in &stack.segments {
-            if segment.commits.iter().any(|commit| commit.id == commit_id)
+            if segment.commits.contains(&commit_id)
                 && let Some(ref_name) = segment.ref_name()
             {
                 return Some(ref_name.shorten().to_string());
@@ -458,8 +458,12 @@ fn branches_touching_path(
     let mut branches = Vec::new();
     for stack in &ws.stacks {
         for segment in &stack.segments {
-            let touches = segment.commits.iter().any(|commit| {
-                but_core::diff::tree_changes(repo, commit.parent_ids.first().copied(), commit.id)
+            let touches = segment.commits.iter().any(|commit_id| {
+                let first_parent = repo
+                    .find_commit(*commit_id)
+                    .ok()
+                    .and_then(|commit| commit.parent_ids().next().map(|id| id.detach()));
+                but_core::diff::tree_changes(repo, first_parent, *commit_id)
                     .map(|changes| changes.iter().any(|change| change.path == path))
                     .unwrap_or(false)
             });

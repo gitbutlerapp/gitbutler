@@ -23,7 +23,9 @@ use gix::refs::transaction::PreviousValue;
 /// It's not an error if `ref_name` can't be found.
 /// Note that the `workspace` will be stale after deleting the reference successfully.
 ///
-/// Return the updated graph that reflects this change, or `None` if nothing changed.
+/// Return the updated substrate that reflects this change, or `None` if nothing changed.
+/// Display callers materialize via
+/// [`display_stacks`](but_graph::Workspace::display_stacks).
 pub fn remove_reference(
     ref_name: &gix::refs::FullNameRef,
     repo: &gix::Repository,
@@ -35,21 +37,22 @@ pub fn remove_reference(
     }: Options,
 ) -> anyhow::Result<Option<but_graph::Workspace>> {
     // We assume the stack-idx can't change by deleting
-    let Some((stack, _segment)) = workspace.find_segment_and_stack_by_refname(ref_name) else {
+    #[cfg(debug_assertions)]
+    but_graph::declared::debug_assert_declared_branch_is_visible(
+        workspace,
+        ref_name,
+        workspace.find_branch(ref_name).map(|(stack, _)| stack.id),
+    );
+    let Some((stack, _segment)) = workspace.find_branch(ref_name) else {
         return Ok(None);
     };
 
     if avoid_anonymous_stacks
-        && (stack
-            .segments
-            .iter()
-            .map(|s| s.commits.len())
-            .sum::<usize>()
-            > 0
+        && (stack.segments.iter().any(|s| s.tip().is_some())
             && stack
                 .segments
                 .iter()
-                .filter(|s| s.ref_info.is_some())
+                .filter(|s| s.ref_name.is_some())
                 .count()
                 < 2)
     {
@@ -84,27 +87,31 @@ pub fn remove_reference(
     }
 
     let stack_id = stack.id;
-    let mut graph = workspace
-        .graph
-        .redo_traversal_with_overlay(repo, meta, Default::default())?;
-    let ws = graph.into_workspace()?;
+    let ws = workspace.rederive_with(repo, meta, Default::default())?;
     if avoid_anonymous_stacks {
-        let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
+        let Some(stack) = ws.stack_by_id(stack_id) else {
             // The whole stack is gone, so nothing that could be anonymous.
             return Ok(Some(ws));
         };
         if avoid_anonymous_stacks
             && let Some(commit) = stack
-                .segments
-                .first()
-                .and_then(|s| s.commits.first().filter(|_| s.ref_info.is_none()))
+                .top()
+                .and_then(|s| s.tip().filter(|_| s.ref_name.is_none()))
         {
+            // The first named segment below the anonymous tip and its resting commit,
+            // computed on this same view stack (not a display re-lookup).
             let (name_of_segment_below, target_id) = stack
                 .segments
                 .iter()
-                .find_map(|s| {
+                .enumerate()
+                .find_map(|(idx, s)| {
                     let rn = s.ref_name()?;
-                    ws.tip_commit_by_segment_id(s.id).map(|c| (rn, c.id))
+                    let resting = stack
+                        .segments_at_or_below(idx)
+                        .iter()
+                        .find_map(|seg| seg.tip())
+                        .or(stack.base)?;
+                    Some((rn, resting))
                 })
                 .with_context(|| {
                     "BUG: should not try to delete branch if anon \
@@ -113,14 +120,11 @@ pub fn remove_reference(
 
             repo.reference(
                 name_of_segment_below,
-                commit.id,
+                commit,
                 PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
                 "move segment reference up to avoid anonymous stack",
             )?;
-            graph = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, Default::default())?;
-            Ok(Some(graph.into_workspace()?))
+            Ok(Some(ws.rederive_with(repo, meta, Default::default())?))
         } else {
             Ok(Some(ws))
         }

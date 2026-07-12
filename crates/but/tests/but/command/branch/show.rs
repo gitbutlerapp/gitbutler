@@ -49,7 +49,9 @@ fn show_check_reports_clean_merge_for_applied_branch() {
 #[test]
 fn show_works_for_unapplied_branches() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    // Two stacks: `but unapply` refuses to take the last one, and unapplying here is setup
+    // rather than the thing under test.
+    env.setup_metadata(&["A", "main"]);
 
     env.but("branch show A")
         .assert()

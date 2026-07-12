@@ -397,6 +397,7 @@ Workspace {
         branches: vec![WorkspaceStackBranch {
             ref_name: branch1.clone(),
             archived: false,
+            parents: None,
         }],
     });
     ws_md.stacks.push(WorkspaceStack {
@@ -405,6 +406,7 @@ Workspace {
         branches: vec![WorkspaceStackBranch {
             ref_name: branch2.clone(),
             archived: false,
+            parents: None,
         }],
     });
     store.set_workspace(&ws_md)?;
@@ -529,6 +531,7 @@ Workspace {
             branches: vec![WorkspaceStackBranch {
                 ref_name: ref_name.try_into()?,
                 archived: false,
+                parents: None,
             }],
         });
     }
@@ -695,6 +698,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         branches: vec![WorkspaceStackBranch {
             ref_name: branch_name.clone(),
             archived: false,
+            parents: None,
         }],
     });
     store
@@ -738,6 +742,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         WorkspaceStackBranch {
             ref_name: stacked_branch_name.clone(),
             archived: false,
+            parents: None,
         },
     );
     assert_eq!(ws.stacks[0].ref_name(), Some(&stacked_branch_name));
@@ -859,6 +864,7 @@ CommitId = "0000000000000000000000000000000000000000"
         WorkspaceStackBranch {
             ref_name: archived_branch.clone(),
             archived: true,
+            parents: None,
         },
     );
     store.set_workspace(&ws)?;
@@ -920,6 +926,7 @@ CommitId = "0000000000000000000000000000000000000000"
         branches: vec![WorkspaceStackBranch {
             ref_name: branch.as_ref().into(), /* always a matching name */
             archived: true,
+            parents: None,
         }],
     });
     store.set_workspace(&ws)?;
@@ -981,6 +988,7 @@ CommitId = "0000000000000000000000000000000000000000"
         branches: vec![WorkspaceStackBranch {
             ref_name: second_stack.clone(),
             archived: true,
+            parents: None,
         }],
     });
     store.set_workspace(&ws)?;
@@ -1062,14 +1070,17 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
             WorkspaceStackBranch {
                 ref_name: "refs/heads/top".try_into()?,
                 archived: false,
+                parents: None,
             },
             WorkspaceStackBranch {
                 ref_name: "refs/heads/one-below-top".try_into()?,
                 archived: true,
+                parents: None,
             },
             WorkspaceStackBranch {
                 ref_name: "refs/heads/base".try_into()?,
                 archived: true,
+                parents: None,
             },
         ],
     });
@@ -1079,6 +1090,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
         branches: vec![WorkspaceStackBranch {
             ref_name: "refs/heads/second-branch".try_into()?,
             archived: false,
+            parents: None,
         }],
     });
 
@@ -1321,12 +1333,12 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
         push_remote: Some("origin".into()),
     };
     project_meta.clone().persist(&repo)?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    let ws = but_graph::Workspace::from_tip(
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
         project_meta.clone(),
-        but_graph::init::Options::limited(),
+        but_graph::walk::Options::limited(),
     )?;
     // It looks very empty without reconciliation, as if it had not found any metadata (even though it's there).
     // The problem is that StackId {1} refers to stack that is also marked as outside the workspace, so it's not really
@@ -1337,9 +1349,9 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
     // test was tuned for a certain outcome and now this becomes more obvious. But whatever, it's legacy and
     // it doesn't fail anymore.
     snapbox::assert_data_eq!(
-        but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?).to_string(),
+        but_testsupport::graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
+📕🏘️:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
 
 "#]]
     );
@@ -1350,17 +1362,17 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
     let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
 
     let ws = store.workspace(ws_ref_name)?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    let graph_ws = but_graph::Workspace::from_tip(
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
         project_meta,
-        but_graph::init::Options::limited(),
+        but_graph::walk::Options::limited(),
     )?;
     snapbox::assert_data_eq!(
-        but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?).to_string(),
+        but_testsupport::graph_workspace_determinisitcally(&graph_ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
+📕🏘️:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
 
 "#]]
     );
@@ -1817,17 +1829,26 @@ fn removes_within_stack_duplicate_heads_even_when_mapped_to_a_segment_13345() ->
     store.write_reconciled(&repo)?;
 
     let store = VirtualBranchesTomlMetadata::from_path(path)?;
-    let shared_in_stack = store.data().branches.get(&stack_id).map(|stack| {
-        stack
-            .heads
-            .iter()
-            .filter(|head| head.name == "shared")
-            .count()
-    });
+    for (id, stack) in store.data().branches.iter() {
+        let mut seen = std::collections::BTreeSet::new();
+        for head in &stack.heads {
+            assert!(
+                seen.insert(head.name.as_str()),
+                "stack {id} must not keep the same branch twice, but repeats '{}'",
+                head.name
+            );
+        }
+    }
+    let shared_across_stacks: usize = store
+        .data()
+        .branches
+        .values()
+        .flat_map(|stack| stack.heads.iter())
+        .filter(|head| head.name == "shared")
+        .count();
     assert_eq!(
-        shared_in_stack,
-        Some(1),
-        "the stack must not keep the same branch twice, even when it maps to a projected segment",
+        shared_across_stacks, 1,
+        "'shared' survives exactly once — in whichever stack the projection homes it",
     );
 
     Ok(())

@@ -1675,12 +1675,11 @@ pub fn resolve_commits_on_branch_by_ref(
     repo: &gix::Repository,
     ws: &Workspace,
 ) -> anyhow::Result<Vec<CommitId>> {
-    let (_, segment) = ws.try_find_segment_and_stack_by_refname(branch)?;
+    let (_, segment) = ws.try_find_branch(branch)?;
     let commits_in_segment = segment
         .commits
         .iter()
-        .map(|commit| commit.id)
-        .map(|id| CommitId::try_from_commit_id(id, repo))
+        .map(|id| CommitId::try_from_commit_id(*id, repo))
         .collect::<anyhow::Result<Vec<_>>>()?;
     Ok(commits_in_segment)
 }

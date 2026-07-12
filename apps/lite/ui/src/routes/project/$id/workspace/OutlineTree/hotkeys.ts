@@ -334,7 +334,7 @@ export const useOutlineTreeHotkeys = ({
 			: null;
 	const selectedStackRelativeTo = selectionStack ? stackBottomRelativeTo(selectionStack) : null;
 	const selectedStackRebaseUpdate: BottomUpdate | null = selectedStackRelativeTo
-		? { kind: "rebase", selector: selectedStackRelativeTo }
+		? { kind: "rebase", anchor: selectedStackRelativeTo }
 		: null;
 
 	const pushSelectedBranch = () => {

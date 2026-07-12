@@ -412,13 +412,13 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ ot [other]
-┊●   1#0 add third
+┊╭┄ fi [file]
+┊●   1#0 add second
+┊●   1#1 add first
 ├╯
 ┊
-┊╭┄ fi [file]
-┊●   1#1 add second
-┊●   1#2 add first
+┊╭┄ ot [other]
+┊●   1#2 add third
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -439,14 +439,14 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ ot [other]
-┊●   1#0 add fourth
-┊●   1#1 add third
+┊╭┄ fi [file]
+┊●   1#0 add second
+┊●   1#1 add first
 ├╯
 ┊
-┊╭┄ fi [file]
-┊●   1#2 add second
-┊●   1#3 add first
+┊╭┄ ot [other]
+┊●   1#2 add fourth
+┊●   1#3 add third
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -471,12 +471,12 @@ fn create_commit_on_new_branch_with_canned_name() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
-┊●   1 add file.txt
-├╯
-┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
+├╯
+┊
+┊╭┄ br [a-branch-1]
+┊●   1 add file.txt
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -1941,12 +1941,12 @@ fn new_branches_are_created_on_top() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ br [a-branch-1]
-┊●   1 (no commit message) (no changes)
-├╯
-┊
 ┊╭┄ g0 [A]
 ┊●   tpm add A
+├╯
+┊
+┊╭┄ br [a-branch-1]
+┊●   1 (no commit message) (no changes)
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

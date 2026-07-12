@@ -843,8 +843,8 @@ impl IdMap {
 
         let hunks = but_core::worktree_hunks(&repo, context_lines)?;
 
-        let commit_ids = ws
-            .stacks
+        let display_stacks = ws.display_stacks()?;
+        let commit_ids = display_stacks
             .iter()
             .flat_map(|stack| &stack.segments)
             .flat_map(|segment| segment.commits.iter())
@@ -871,7 +871,7 @@ impl IdMap {
             })
             .collect();
 
-        Self::new(ws.stacks.clone(), hunks, commit_id_to_change_id)
+        Self::new(ws.display_stacks()?.to_vec(), hunks, commit_id_to_change_id)
     }
 }
 

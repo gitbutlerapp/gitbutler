@@ -324,9 +324,12 @@ Hint: origin/main moved ahead; run `but pull` to update the workspace
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
+┊╭┄ br [a-branch-1] (no commits)
+├╯
+┊
 ┴ 7e5d4e1 (common base) 2000-01-02 add upstream
 
-Hint: run `but branch new` to create a new branch to work on
+Hint: run `but help` for all commands
 
 "#]]);
 
@@ -337,8 +340,8 @@ Hint: run `but branch new` to create a new branch to work on
     );
     assert_eq!(
         status_stack_count(&env),
-        0,
-        "no stacks should remain applied once both are integrated"
+        1,
+        "once both are integrated a fresh stack replaces them: the workspace is never left empty"
     );
 }
 
@@ -368,9 +371,12 @@ Hint: run `but branch new` to create a new branch to work on
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
+┊╭┄ br [a-branch-1] (no commits)
+├╯
+┊
 ┴ 526bb83 (common base) 2000-01-02 upstream-change
 
-Hint: run `but branch new` to create a new branch to work on
+Hint: run `but help` for all commands
 
 "#]]);
 

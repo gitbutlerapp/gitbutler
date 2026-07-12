@@ -189,7 +189,7 @@ export const Outline: FC<{
 	const rebaseUpdates =
 		headInfo?.stacks.flatMap((stack): Array<BottomUpdate> => {
 			const relativeTo = stackBottomRelativeTo(stack);
-			return relativeTo ? [{ kind: "rebase", selector: relativeTo }] : [];
+			return relativeTo ? [{ kind: "rebase", anchor: relativeTo }] : [];
 		}) ?? [];
 	const { isPending: isWorkspaceIntegrateUpstreamPending, mutate: workspaceIntegrateUpstream } =
 		useWorkspaceIntegrateUpstream();

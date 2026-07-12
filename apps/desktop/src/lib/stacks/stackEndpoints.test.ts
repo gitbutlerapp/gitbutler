@@ -393,7 +393,7 @@ describe("buildStackEndpoints", () => {
 			updates: [
 				{
 					kind: "rebase" as const,
-					selector: {
+					anchor: {
 						type: "commit" as const,
 						subject: "1111111111111111111111111111111111111111",
 					},

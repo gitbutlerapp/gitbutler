@@ -50,11 +50,11 @@ function segment({
 		remoteTrackingRefName: null,
 		commits,
 		commitsOnRemote: [],
-		commitsOutside: null,
 		metadata: null,
 		isEntrypoint: false,
 		pushStatus: "unpushedCommits",
 		base: null,
+		advancedOutside: [],
 	};
 }
 
@@ -88,7 +88,7 @@ describe("upstream integration types", () => {
 
 		expect(update).toEqual({
 			kind: "rebase",
-			selector: {
+			anchor: {
 				type: "commit",
 				subject: "bottom",
 			},
@@ -100,14 +100,14 @@ describe("upstream integration types", () => {
 
 		expect(update).toEqual({
 			kind: "rebase",
-			selector: {
+			anchor: {
 				type: "referenceBytes",
 				subject: bytes("refs/heads/empty"),
 			},
 		});
 	});
 
-	test("skips stacks without a valid bottom selector", () => {
+	test("skips stacks without a valid bottom anchor", () => {
 		expect(buildUpstreamIntegrationUpdates([stack([segment()])])).toEqual([]);
 	});
 

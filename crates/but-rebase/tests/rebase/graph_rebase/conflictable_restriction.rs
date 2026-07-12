@@ -1,12 +1,12 @@
 //! Exercises the step option for whether a step should be allowed to enter a conflicted state.
 
-use anyhow::{Result, bail};
-use but_graph::Graph;
+use anyhow::Result;
+use but_graph::Workspace;
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{Editor, LookupStep, Step, mutate::InsertSide},
+    graph_rebase::{CommitSpec, Editor, mutate::InsertSide},
 };
-use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
+use but_testsupport::{cat_commit, graph_dag, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
 use crate::utils::{fixture_writable, standard_options};
@@ -26,38 +26,34 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     // Replacing b with none will cause c to conflict
     let b = repo.rev_parse_single("b")?;
     let b_sel = editor.select_commit(b.detach())?;
-    editor.replace(b_sel, Step::None)?;
+    editor.drop_commit(b_sel)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·04d1892 (⌂|1) ►c
-    └── ·5e0ba46 (⌂|1) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·6155f21 (⌂|1)
-
+*  👉·04d1892 (⌂) ►c, ►main[🌳]
+*  ·5e0ba46 (⌂) ►a, ►b
+*  🏁·6155f21 (⌂) ►base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta)?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     // We expect to see conflicted headers
     snapbox::assert_data_eq!(
@@ -104,30 +100,26 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     // Replacing b with none will cause c to conflict
     let b = repo.rev_parse_single("b")?;
     let b_sel = editor.select_commit(b.detach())?;
-    editor.replace(b_sel, Step::None)?;
+    editor.drop_commit(b_sel)?;
 
     // Set c to disallow conflicts
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
-    let Step::Pick(mut c_pick) = editor.lookup_step(c_sel)? else {
-        bail!("c_sel should be a pick");
-    };
+    let mut c_pick = editor.spec_of(c_sel)?;
     c_pick.conflictable = false;
-    editor.replace(c_sel, Step::Pick(c_pick))?;
+    editor.replace_commit(c_sel, c_pick)?;
 
     // We should see an error given saying C ended up being conflicted
     snapbox::assert_data_eq!(
@@ -159,16 +151,14 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let mut ws = Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     // Insert an empty commit above b to cause c to get cherry picked with out a conflict
     let b = repo.rev_parse_single("b")?;
@@ -176,37 +166,31 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
     let mut empty = editor.empty_commit()?;
     empty.message = b"I'm a new commit! Hello there".into();
     let empty_id = editor.new_commit(empty, DateMode::CommitterKeepAuthorKeep)?;
-    editor.insert(b_sel, Step::new_pick(empty_id), InsertSide::Above)?;
+    editor.insert_commit(b_sel, CommitSpec::new(empty_id), InsertSide::Above)?;
 
     // Set c to disallow conflicts
     let c = repo.rev_parse_single("c")?;
     let c_sel = editor.select_commit(c.detach())?;
-    let Step::Pick(mut c_pick) = editor.lookup_step(c_sel)? else {
-        bail!("c_sel should be a pick");
-    };
+    let mut c_pick = editor.spec_of(c_sel)?;
     c_pick.conflictable = false;
-    editor.replace(c_sel, Step::Pick(c_pick))?;
+    editor.replace_commit(c_sel, c_pick)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.rederive_with(outcome.repo(), outcome.meta(), outcome.overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·8b4d335 (⌂|1) ►c
-        └── ►:1[1]:b
-            ├── ·7762cf9 (⌂|1)
-            └── ·3b3bd41 (⌂|1)
-                └── ►:2[2]:a
-                    └── ·5e0ba46 (⌂|1)
-                        └── ►:3[3]:base
-                            └── 🏁·6155f21 (⌂|1)
-
+*  👉·8b4d335 (⌂) ►c, ►main[🌳]
+*  ·7762cf9 (⌂) ►b
+*  ·3b3bd41 (⌂)
+*  ·5e0ba46 (⌂) ►a
+*  🏁·6155f21 (⌂) ►base
 "#]]
     );
-    let outcome = outcome.materialize(Default::default())?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    let (outcome, _) = outcome.materialize()?;
+    ws.refresh_from_commit_graph(outcome, &repo, &*meta)?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     // The rebase is successful because `c` remained unconflicted
     snapbox::assert_data_eq!(

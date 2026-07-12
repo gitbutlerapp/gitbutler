@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use but_core::ref_metadata::ProjectMeta;
-use but_graph::init::Options;
-use but_rebase::graph_rebase::mutate::RelativeTo;
+use but_graph::walk::Options;
+use but_rebase::graph_rebase::anchor::Anchor;
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, integrate_upstream, worktree_conflicts_for_rebase,
 };
@@ -25,22 +25,22 @@ fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
         repo.workdir_path("shared.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
     let rebase = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
-            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+            anchor: Anchor::Commit(repo.rev_parse_single("A")?.detach()),
         }],
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
 
     assert_eq!(
         conflicts,
@@ -62,22 +62,22 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
         repo.workdir_path("unrelated.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
     let rebase = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
-            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+            anchor: Anchor::Commit(repo.rev_parse_single("A")?.detach()),
         }],
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
 
     assert_eq!(
         conflicts,
@@ -94,34 +94,31 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
         repo.workdir_path("shared.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
     let rebase = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
-            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+            anchor: Anchor::Commit(repo.rev_parse_single("A")?.detach()),
         }],
     )?
     .rebase;
 
-    let preview_workspace = rebase.overlayed_graph()?.into_workspace()?;
+    let preview_workspace = but_workspace::workspace::overlayed_workspace(&workspace, &rebase)?;
     let preview_head = preview_workspace
-        .graph
-        .entrypoint()?
-        .commit()
-        .context("preview workspace should have a head commit")?
-        .id;
+        .entrypoint_commit_id()?
+        .context("preview workspace should have a head commit")?;
     assert!(
         repo.find_object(preview_head).is_err(),
         "preview commits should not have to exist in the persistent repository before materialization"
     );
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
 
     assert_eq!(
         conflicts,
@@ -138,22 +135,22 @@ fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result
         repo.workdir_path("unrelated.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
     let rebase = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
-            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+            anchor: Anchor::Commit(repo.rev_parse_single("A")?.detach()),
         }],
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
 
     assert!(
         conflicts.is_empty(),
@@ -170,22 +167,22 @@ fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<
         repo.workdir_path("ignored.txt").expect("non-bare"),
         "ignored\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&repo)?;
     let rebase = integrate_upstream(
-        &mut workspace,
+        &workspace,
         &mut meta,
         project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
-            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+            anchor: Anchor::Commit(repo.rev_parse_single("A")?.detach()),
         }],
     )?
     .rebase;
 
-    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    let conflicts = worktree_conflicts_for_rebase(&workspace, &rebase)?;
 
     assert!(
         conflicts.is_empty(),
@@ -212,7 +209,7 @@ fn workspace_for_stack(
     meta: &but_meta::VirtualBranchesTomlMetadata,
 ) -> Result<but_graph::Workspace> {
     let target_sha = repo.rev_parse_single("main")?.detach();
-    let ws = but_graph::Graph::from_head(
+    let ws = but_graph::Workspace::from_head(
         repo,
         meta,
         project_meta(repo)?,
@@ -220,8 +217,7 @@ fn workspace_for_stack(
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
         },
-    )?
-    .into_workspace()?;
+    )?;
     Ok(ws)
 }
 

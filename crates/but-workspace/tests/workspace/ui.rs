@@ -1,5 +1,6 @@
 mod changes_in_branch {
-    use but_graph::init::Options;
+
+    use but_graph::walk::Options;
     use but_testsupport::visualize_commit_graph_all;
     use but_workspace::ui;
     use snapbox::prelude::*;
@@ -24,9 +25,15 @@ mod changes_in_branch {
 "#]]
         );
 
-        let graph =
-            but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
-        let ws = graph.into_workspace()?;
+        let ws = but_graph::Workspace::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta {
+                target_ref: Some("refs/remotes/origin/main".try_into()?),
+                ..Default::default()
+            },
+            Options::limited(),
+        )?;
 
         snapbox::assert_data_eq!(
             ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/A"))?.to_debug(),
@@ -301,7 +308,7 @@ TreeChanges {
               "changeId": null
             }
           ],
-          "commitsOutside": null,
+          "advancedOutside": [],
           "metadata": null,
           "isEntrypoint": false,
           "pushStatus": "unpushedCommitsRequiringForce",
@@ -488,7 +495,7 @@ TreeChanges {
               "changeId": null
             }
           ],
-          "commitsOutside": null,
+          "advancedOutside": [],
           "metadata": null,
           "isEntrypoint": true,
           "pushStatus": "unpushedCommitsRequiringForce",

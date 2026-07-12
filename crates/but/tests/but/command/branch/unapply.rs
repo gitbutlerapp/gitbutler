@@ -59,7 +59,7 @@ Unapplied stack with 'feature-branch' from workspace
         env.git_log(),
         snapbox::str![[r#"
 * 9f9d5a6 (feature-branch) Add feature
-| * 0bbfbfd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 21afa07 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
@@ -101,7 +101,7 @@ fn unapply_with_json_output() {
         env.git_log(),
         snapbox::str![[r#"
 * 9f9d5a6 (feature-branch) Add feature
-| * 0bbfbfd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 21afa07 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
@@ -243,7 +243,7 @@ Unapplied stack with 'remote-feature' from workspace
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 0bbfbfd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 185f85c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
 | * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
 |/  
@@ -256,7 +256,9 @@ Unapplied stack with 'remote-feature' from workspace
 #[test]
 fn concurrent_unapply_of_independent_branches_succeeds() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    // Two stacks: `but unapply` refuses to take the last one, and unapplying here is setup
+    // rather than the thing under test.
+    env.setup_metadata(&["A", "main"]);
 
     create_local_branch_with_commit(&env, "feature-branch-a");
 
@@ -434,6 +436,23 @@ fn unapply_json_output_validation() {
         .expect("branches should be an array");
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0], serde_json::json!("feature-branch"));
+}
+
+/// A managed workspace is never left without a stack (product ruling 2026-07-26). Unapplying the
+/// second-to-last one dissolves the workspace onto the branch that remains, so this is the state
+/// you should not normally be able to reach — and when you do, emptying is refused.
+#[test]
+fn refuses_to_unapply_the_only_branch() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("unapply A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Cannot unapply the only branch in the workspace — apply another branch first, or run `but teardown` to leave the workspace altogether
+
+"#]]);
 }
 
 mod utils {

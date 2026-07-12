@@ -7,21 +7,21 @@ use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::Headers};
 use but_error::bail_precondition;
 use but_rebase::graph_rebase::{
-    Editor, LookupStep, SuccessfulRebase, ToSelector,
-    mutate::{SegmentDelimiter, SelectorSet},
+    Editor, EditorIndex, RebasedEditor,
+    anchor::{Cut, Range},
+    mutate::Reconnect,
 };
 
-use crate::graph_manipulation::{EdgeSelection, connect_segment_to_edges, selected_edges_from_set};
+use crate::resolve_tracking_branch_ref_name;
 use crate::{
     branch::integrate_branch_upstream::plan::{
         editable_local_commits, initial_integration_steps, integration_steps_into_segment_nodes,
     },
     divergence::{
-        BranchMergeBaseCommits, classify_selectors_against_target_ref, commit_ids_from_selectors,
+        BranchMergeBaseCommits, classify_against_target_ref, commit_ids_from_indices,
         find_local_commit_until_merge_base, get_commits_until_merge_base,
     },
 };
-use crate::{graph_manipulation::determine_parent_selector, resolve_tracking_branch_ref_name};
 
 mod display;
 mod parsing;
@@ -111,92 +111,84 @@ pub struct InitialBranchIntegration {
 ///
 /// `steps` - The vector of steps in the application order (parent to child) that describe the actions to perform
 ///   for the integration of the changes.
-pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
+pub fn integrate_branch_with_steps<'meta, M: RefMetadata>(
     ref_name: &gix::refs::FullNameRef,
     integration: InteractiveIntegration,
-    workspace: &'ws mut but_graph::Workspace,
+    workspace: &but_graph::Workspace,
     meta: &'meta mut M,
     repo: &gix::Repository,
-) -> Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> Result<RebasedEditor<'meta, M>> {
     if integration.steps.is_empty() {
         bail!("Integration steps cannot be empty")
     }
     // The editor maps every segment in the graph, including the remote
     // reference of the branch we're integrating.
-    let mut editor = Editor::create(workspace, meta, repo)?;
+    let mut editor = Editor::for_workspace(workspace, meta, repo)?;
     // Step 1: We prepare the steps before building.
     // At this point, we construct the commits for the squash steps in memory.
     let prepared_steps = prepare_integration_steps_for_editor(&editor, &integration.steps)?;
 
-    let delimiter_child = editor.select_reference(ref_name)?;
-    let delimiter_parent = match integration.first_local_not_integrated {
+    let delimiter_child: EditorIndex = editor.select_reference(ref_name)?.into();
+    let delimiter_parent: EditorIndex = match integration.first_local_not_integrated {
         Some(commit_id) => {
-            let selector = find_local_commit_until_merge_base(
+            let entry = find_local_commit_until_merge_base(
                 ref_name,
                 commit_id,
                 integration.merge_base,
                 &editor,
             )?;
-            let Some(selector) = selector else {
+            let Some(entry) = entry else {
                 bail_precondition!(
                     "Integration plan is stale: the first local commit {commit_id} is no longer reachable from the selected branch. Refresh the integration plan and try again"
                 );
             };
-            selector
+            entry.into()
         }
         None => delimiter_child,
     };
     // Segment, from local-ref to the parent-most non-integrated local commit.
     // This represents the bounds of the commit chain we're about to manipulate and rebuild.
-    let segment_delimiter = SegmentDelimiter {
+    let range = Range {
         child: delimiter_child,
         parent: delimiter_parent,
     };
 
     // Step 2: We determine which children and parents to disconnect from the segment above.
     // We keep track of them so that we can reconnect them after we've done the chain-rebuild.
-    let children_to_disconnect = SelectorSet::All;
-    let parents_to_disconnect = determine_parent_selector(&editor, delimiter_parent)?;
+    let children = Cut::All;
+    let parents = editor.base_of(delimiter_parent)?;
 
-    let children_to_reconnect = selected_edges_from_set(
-        &editor,
-        segment_delimiter.child,
-        &children_to_disconnect,
-        EdgeSelection::Children,
-    )?;
+    let children_to_reconnect =
+        selected_edges_from_set(&editor, range.child, &children, EdgeSelection::Children)?;
     let integration_commit_ids = integration_step_commit_ids(&integration.steps);
     let children_to_reconnect = children_to_reconnect
         .into_iter()
-        .filter(|(selector, _)| match editor.lookup_pick(*selector) {
-            Ok(commit_id) => !integration_commit_ids.contains(&commit_id),
-            Err(_) => true,
+        .filter(|(entry, _)| match *entry {
+            EditorIndex::Commit(commit) if !editor.is_removed(commit) => {
+                match editor.id_of(commit) {
+                    Ok(commit_id) => !integration_commit_ids.contains(&commit_id),
+                    Err(_) => true,
+                }
+            }
+            _ => true,
         })
         .collect::<Vec<_>>();
-    let parents_to_reconnect = selected_edges_from_set(
-        &editor,
-        segment_delimiter.parent,
-        &parents_to_disconnect,
-        EdgeSelection::Parents,
-    )?
-    .into_iter()
-    .map(|(selector, order)| {
-        if selector == delimiter_child {
-            editor
-                .select_commit(integration.merge_base)
-                .map(|merge_base| (merge_base, order))
-        } else {
-            Ok((selector, order))
-        }
-    })
-    .collect::<Result<Vec<_>>>()?;
+    let parents_to_reconnect =
+        selected_edges_from_set(&editor, range.parent, &parents, EdgeSelection::Parents)?
+            .into_iter()
+            .map(|(entry, order)| {
+                if entry == delimiter_child {
+                    editor
+                        .select_commit(integration.merge_base)
+                        .map(|merge_base| (merge_base.into(), order))
+                } else {
+                    Ok((entry, order))
+                }
+            })
+            .collect::<Result<Vec<_>>>()?;
 
     // Step 3: Disconnect the segment, isolating it so that we can freely manipulate it.
-    editor.disconnect_segment_from(
-        segment_delimiter,
-        children_to_disconnect,
-        parents_to_disconnect,
-        true,
-    )?;
+    editor.disconnect(range, children, parents, Reconnect::Skip)?;
 
     // Step 4: Based on the prepared steps, we rebuild the chain.
     let new_segment_delimiter =
@@ -235,7 +227,7 @@ fn integration_step_commit_ids(steps: &[InteractiveIntegrationStep]) -> HashSet<
 ///
 /// `ref_name` - The full reference name of the local branch to get the integration steps for.
 ///
-/// `repo` - The repository handle.
+/// `repo` - The repository entry.
 ///
 /// `workspace` - The current workspace graph projection used to construct the editor.
 ///
@@ -245,7 +237,7 @@ fn integration_step_commit_ids(steps: &[InteractiveIntegrationStep]) -> HashSet<
 pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
     ref_name: &gix::refs::FullNameRef,
     strategy: BranchIntegrationStrategy,
-    workspace: &mut but_graph::Workspace,
+    workspace: &but_graph::Workspace,
     meta: &mut M,
     repo: &gix::Repository,
 ) -> Result<InitialBranchIntegration> {
@@ -258,38 +250,34 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
         .map(|target| target.ref_name.clone())
         .filter(|target_ref_name| target_ref_name.as_ref() != upstream_ref_name.as_ref());
 
-    let editor = Editor::create(workspace, meta, repo)?;
+    let editor = Editor::for_workspace(workspace, meta, repo)?;
 
     // Step 2: We traverse the editor graph and determine the divergence between the local and remote branch.
     let BranchMergeBaseCommits {
-        local_commits: local_commit_selectors,
-        upstream_commits: upstream_commit_selectors,
-        merge_base: merge_base_selector,
+        local_commits: local_commit_entries,
+        upstream_commits: upstream_commit_entries,
+        merge_base: merge_base_entry,
     } = get_commits_until_merge_base(ref_name, upstream_ref_name.clone(), &editor)?;
-    let local_commits = commit_ids_from_selectors(&editor, local_commit_selectors.iter().copied())?;
+    let local_commits = commit_ids_from_indices(&editor, local_commit_entries.iter().copied())?;
     let upstream_commits =
-        commit_ids_from_selectors(&editor, upstream_commit_selectors.iter().copied())?;
-    let merge_base = editor.lookup_pick(merge_base_selector)?;
+        commit_ids_from_indices(&editor, upstream_commit_entries.iter().copied())?;
+    let merge_base = editor.id_of(merge_base_entry)?;
 
     // Step 3: We determine the integration state of all the relevant commits, to know which are editable
     // and for display purposes.
     // All upstream commits are editable, regardless of integration.
     // Only the non-integrated local commits are editable.
-    let candidate_selectors = local_commit_selectors
+    let candidate_entries = local_commit_entries
         .iter()
-        .chain(upstream_commit_selectors.iter())
+        .chain(upstream_commit_entries.iter())
         .copied()
-        .chain(std::iter::once(merge_base_selector))
+        .chain(std::iter::once(merge_base_entry))
         .collect::<Vec<_>>();
     let target_relations = target_ref_name
         .as_ref()
         .map(|target_ref_name| {
-            let target_ref_selector = target_ref_name.as_ref().to_selector(&editor)?;
-            classify_selectors_against_target_ref(
-                &editor,
-                target_ref_selector,
-                &candidate_selectors,
-            )
+            let target_ref_entry = editor.resolve_anchor(target_ref_name.as_ref())?;
+            classify_against_target_ref(&editor, target_ref_entry, &candidate_entries)
         })
         .transpose()?
         .unwrap_or_default();
@@ -396,4 +384,108 @@ fn explicit_change_ids(
             Err(err) => Some(Err(err)),
         })
         .collect()
+}
+
+/// Which direct edge set to resolve from a entry.
+#[derive(Clone, Copy)]
+enum EdgeSelection {
+    /// Resolve direct child edges.
+    Children,
+    /// Resolve direct parent edges.
+    Parents,
+}
+
+/// Resolve the concrete direct edges a [`Cut`] names, preserving edge order.
+///
+/// `editor` provides the direct parent or child edges that can be selected.
+///
+/// `target` is the node whose adjacent edges should be filtered.
+///
+/// `cut` describes which neighboring edges are severed — all, none, or only the
+/// named ones.
+///
+/// `edge_selection` chooses whether neighbors are read from direct children or
+/// direct parents of `target`.
+///
+/// Returns the selected neighboring entries paired with their existing edge
+/// order values.
+fn selected_edges_from_set<M: RefMetadata>(
+    editor: &Editor<'_, M>,
+    target: EditorIndex,
+    cut: &Cut,
+    edge_selection: EdgeSelection,
+) -> Result<Vec<(EditorIndex, usize)>> {
+    let available = match edge_selection {
+        EdgeSelection::Children => editor.direct_children(target)?,
+        EdgeSelection::Parents => editor.direct_parents(target)?,
+    };
+
+    match cut {
+        Cut::All => Ok(available),
+        Cut::Nothing => Ok(Vec::new()),
+        Cut::Only(neighbors) => {
+            let mut selected = Vec::new();
+            for entry in neighbors {
+                let entry = editor.resolve_anchor(entry.clone())?;
+                let Some((_, order)) = available.iter().find(|(candidate, _)| *candidate == entry)
+                else {
+                    bail!("Selected edge endpoint wasn't found among direct neighbors")
+                };
+                selected.push((entry, *order));
+            }
+            Ok(selected)
+        }
+    }
+}
+
+/// Reconnect a rebuilt segment to previously selected children and parents.
+///
+/// `editor` is the mutable graph editor whose edges will be recreated.
+///
+/// `range` identifies the rebuilt segment's child-most and parent-most
+/// entries.
+///
+/// `children` are the previously captured child edges that should point back to
+/// `range.child`. If the child is already connected to `range.child`, no
+/// new edge is added. Otherwise, the edge is inserted at the captured parent
+/// parent number (clamped to the end), restoring the child's original parent order.
+///
+/// `parents` are the previously captured parent edges that should be restored
+/// from `range.parent`, appended after any existing parents already
+/// connected there in their captured relative order. If a parent is already
+/// connected to `range.parent`, no new edge is added.
+///
+/// Returns `Ok(())` after the captured child and parent edges have been
+/// reattached to the rebuilt segment.
+fn connect_segment_to_edges<M: RefMetadata>(
+    editor: &mut Editor<'_, M>,
+    range: Range,
+    children: &[(EditorIndex, usize)],
+    parents: &[(EditorIndex, usize)],
+) -> Result<()> {
+    for (child, parent_number) in children {
+        let direct_parents = editor.direct_parents(*child)?;
+        if direct_parents
+            .iter()
+            .any(|(parent, _)| *parent == range.child)
+        {
+            continue;
+        }
+        editor.insert_parent(*child, range.child, *parent_number)?;
+    }
+
+    let mut parents = parents.to_vec();
+    parents.sort_by_key(|(_, parent_number)| *parent_number);
+    for (parent, _) in parents {
+        let direct_parents = editor.direct_parents(range.parent)?;
+        if direct_parents
+            .iter()
+            .any(|(existing_parent, _)| *existing_parent == parent)
+        {
+            continue;
+        }
+        editor.add_parent(range.parent, parent)?;
+    }
+
+    Ok(())
 }

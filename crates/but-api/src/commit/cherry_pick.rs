@@ -3,10 +3,7 @@ use std::collections::HashSet;
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{
-    LookupStep as _,
-    mutate::{InsertSide, RelativeTo},
-};
+use but_rebase::graph_rebase::{anchor::Anchor, mutate::InsertSide};
 use tracing::instrument;
 
 use crate::WorkspaceState;
@@ -24,7 +21,7 @@ use super::types::CommitCherryPickResult;
 pub fn commit_cherry_pick_only(
     ctx: &mut but_ctx::Context,
     source_commit_ids: Vec<gix::ObjectId>,
-    #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
+    #[but_api(crate::commit::json::RelativeTo)] relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitCherryPickResult> {
@@ -44,24 +41,26 @@ pub fn commit_cherry_pick_only(
 pub fn commit_cherry_pick_only_with_perm(
     ctx: &mut but_ctx::Context,
     source_commit_ids: Vec<gix::ObjectId>,
-    relative_to: RelativeTo,
+    relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCherryPickResult> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo)?;
-    let (rebase, inserted_selectors) =
+    let editor = but_rebase::graph_rebase::Editor::for_workspace(&ws, &mut meta, &repo)?;
+    let (rebase, inserted_handles) =
         but_workspace::commit::cherry_pick_commits(editor, source_commit_ids, relative_to, side)?;
-    let new_commits = inserted_selectors
+    let new_commits = inserted_handles
         .into_iter()
-        .map(|selector| rebase.lookup_pick(selector))
+        .map(|handle| rebase.id_of(handle))
         .collect::<anyhow::Result<Vec<_>>>()?;
 
     Ok(CommitCherryPickResult {
         new_commits,
-        workspace: WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?,
+        workspace: WorkspaceState::from_successful_rebase_with_db(
+            &mut ws, rebase, &repo, dry_run, &db,
+        )?,
     })
 }
 
@@ -72,7 +71,7 @@ pub fn commit_cherry_pick_only_with_perm(
 pub fn commit_cherry_pick(
     ctx: &mut but_ctx::Context,
     source_commit_ids: Vec<gix::ObjectId>,
-    #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
+    #[but_api(crate::commit::json::RelativeTo)] relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
 ) -> anyhow::Result<CommitCherryPickResult> {
@@ -92,7 +91,7 @@ pub fn commit_cherry_pick(
 pub fn commit_cherry_pick_with_perm(
     ctx: &mut but_ctx::Context,
     source_commit_ids: Vec<gix::ObjectId>,
-    relative_to: RelativeTo,
+    relative_to: Anchor,
     side: InsertSide,
     dry_run: DryRun,
     perm: &mut RepoExclusive,

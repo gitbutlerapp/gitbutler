@@ -1,0 +1,1157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1780 7840" width="1780" height="7840" font-family="ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+<rect x="0" y="0" width="1780" height="7840" fill="#fbfbfa"/>
+<text x="890.0" y="46" font-size="24" fill="#1b1d21" font-weight="800" text-anchor="middle">Workspace data pipeline — where the decisions are made</text>
+<text x="890.0" y="72" font-size="14" fill="#6b7280" text-anchor="middle">origin/master derives the view and then writes it back · the proposed refactor derives only, and operations record their own intent</text>
+<text x="890.0" y="94" font-size="12.5" fill="#6b7280" text-anchor="middle">one 1,489-line producer becomes frame + partition + presence · the write-back is gone · the claimer was born and retired inside the refactor</text>
+<text x="474.0" y="873" font-size="15" fill="#6b7280" font-weight="700" text-anchor="middle" letter-spacing="1.5">ORIGIN/MASTER</text>
+<text x="474.0" y="894" font-size="12.5" fill="#6b7280" text-anchor="middle" font-weight="600">what is on master today</text>
+<text x="474.0" y="911" font-size="12" fill="#6b7280" text-anchor="middle">read → derive → write back</text>
+<text x="1306.0" y="873" font-size="15" fill="#0f766e" font-weight="700" text-anchor="middle" letter-spacing="1.5">PROPOSED REFACTOR</text>
+<text x="1306.0" y="894" font-size="12.5" fill="#0f766e" text-anchor="middle" font-weight="600">implemented on our branch</text>
+<text x="1306.0" y="911" font-size="12" fill="#0f766e" text-anchor="middle">read → derive · operations write, separately</text>
+<rect x="94" y="943" width="1592" height="2" rx="1" fill="#e6e3dd"/>
+<rect x="94" y="925" width="34" height="34" rx="17" fill="#f3effc" stroke="#6d28d9" stroke-width="1.5"/>
+<text x="111" y="948" font-size="15" fill="#6d28d9" font-weight="700" text-anchor="middle">1</text>
+<rect x="138" y="929" width="71.6" height="26" rx="6" fill="#fbfbfa"/>
+<text x="150" y="948" font-size="17" fill="#1b1d21" font-weight="800">Read</text>
+<rect x="209.6" y="931" width="293.2" height="22" fill="#fbfbfa"/>
+<text x="221.6" y="947" font-size="12.5" fill="#6b7280">the repository, and what GitButler was told</text>
+<rect x="94" y="969" width="760" height="344" rx="10" fill="#eef1f6" stroke="#cdd5e2" stroke-width="1.5"/>
+<text x="114" y="996" font-size="13.5" fill="#1b1d21" font-weight="700">Everything below is worked out from two inputs</text>
+<text x="114" y="1017" font-size="12" fill="#6b7280">and nothing else — the graph is built afresh on every read</text>
+<rect x="114" y="1039" width="310" height="101" rx="8" fill="#ffffff" stroke="#cdd5e2" stroke-width="1.3"/>
+<text x="128" y="1061" font-size="12" fill="#1b1d21" font-weight="700">the repository</text>
+<text x="128" y="1077" font-size="9.5" fill="#6b7280">what git already knows</text>
+<text x="128" y="1095" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">commits and their parents</text>
+<text x="128" y="1114" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">refs — local branches and tags</text>
+<text x="128" y="1133" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">remote-tracking refs</text>
+<text x="412" y="1133" font-size="9" fill="#6b7280" text-anchor="end">which local branch each follows</text>
+<rect x="444" y="1039" width="390" height="120" rx="8" fill="#ffffff" stroke="#cdd5e2" stroke-width="1.3"/>
+<text x="458" y="1061" font-size="12" fill="#1b1d21" font-weight="700">the declaration</text>
+<text x="458" y="1077" font-size="9.5" fill="#6b7280">VirtualBranches.toml — what GitButler was told</text>
+<text x="458" y="1095" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">target_ref / target_commit</text>
+<text x="822" y="1095" font-size="9" fill="#6b7280" text-anchor="end">the branch work is headed for</text>
+<text x="458" y="1114" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">stacks[]</text>
+<text x="822" y="1114" font-size="9" fill="#6b7280" text-anchor="end">ordered; the merge's parent order</text>
+<text x="458" y="1133" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">  · id</text>
+<text x="822" y="1133" font-size="9" fill="#6b7280" text-anchor="end">a handle, stable while its branches are</text>
+<text x="458" y="1152" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">  · branches[]</text>
+<text x="822" y="1152" font-size="9" fill="#6b7280" text-anchor="end">tip to base, in order</text>
+<text x="114" y="1191" font-size="12" fill="#6b7280">Both columns read exactly these. The difference is on the way out:</text>
+<rect x="114" y="1209" width="720" height="60" rx="8" fill="#fdf3f2" stroke="#c0392b" stroke-width="1.6"/>
+<text x="130" y="1233" font-size="12" fill="#1b1d21">who writes the declaration:  <tspan font-weight="700">the derivation, and operations</tspan></text>
+<text x="130" y="1253" font-size="11.5" fill="#c0392b" font-weight="600">the write-back at the foot of this column edits the same file it read</text>
+<text x="114" y="1291" font-size="12" fill="#c0392b" font-weight="600">so this box is both the start of the pipeline and its last step</text>
+<rect x="926" y="969" width="760" height="344" rx="10" fill="#eef1f6" stroke="#cdd5e2" stroke-width="1.5"/>
+<text x="946" y="996" font-size="13.5" fill="#1b1d21" font-weight="700">Everything below is worked out from two inputs</text>
+<text x="946" y="1017" font-size="12" fill="#6b7280">and nothing else — the graph is built afresh on every read</text>
+<rect x="946" y="1039" width="310" height="101" rx="8" fill="#ffffff" stroke="#cdd5e2" stroke-width="1.3"/>
+<text x="960" y="1061" font-size="12" fill="#1b1d21" font-weight="700">the repository</text>
+<text x="960" y="1077" font-size="9.5" fill="#6b7280">what git already knows</text>
+<text x="960" y="1095" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">commits and their parents</text>
+<text x="960" y="1114" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">refs — local branches and tags</text>
+<text x="960" y="1133" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">remote-tracking refs</text>
+<text x="1244" y="1133" font-size="9" fill="#6b7280" text-anchor="end">which local branch each follows</text>
+<rect x="1276" y="1039" width="390" height="120" rx="8" fill="#ffffff" stroke="#cdd5e2" stroke-width="1.3"/>
+<text x="1290" y="1061" font-size="12" fill="#1b1d21" font-weight="700">the declaration</text>
+<text x="1290" y="1077" font-size="9.5" fill="#6b7280">VirtualBranches.toml — what GitButler was told</text>
+<text x="1290" y="1095" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">target_ref / target_commit</text>
+<text x="1654" y="1095" font-size="9" fill="#6b7280" text-anchor="end">the branch work is headed for</text>
+<text x="1290" y="1114" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">stacks[]</text>
+<text x="1654" y="1114" font-size="9" fill="#6b7280" text-anchor="end">ordered; the merge's parent order</text>
+<text x="1290" y="1133" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">  · id</text>
+<text x="1654" y="1133" font-size="9" fill="#6b7280" text-anchor="end">a handle, stable while its branches are</text>
+<text x="1290" y="1152" font-size="10" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">  · branches[]</text>
+<text x="1654" y="1152" font-size="9" fill="#6b7280" text-anchor="end">tip to base, in order</text>
+<text x="946" y="1191" font-size="12" fill="#6b7280">Both columns read exactly these. The difference is on the way out:</text>
+<rect x="946" y="1209" width="720" height="60" rx="8" fill="#ecfdf5" stroke="#0f766e" stroke-width="1.6"/>
+<text x="962" y="1233" font-size="12" fill="#1b1d21">who writes the declaration:  <tspan font-weight="700">operations only</tspan></text>
+<text x="962" y="1253" font-size="11.5" fill="#0f766e" font-weight="600">apply, unapply, integrate — each recording what it meant to do</text>
+<text x="946" y="1291" font-size="12" fill="#0f766e" font-weight="600">so this box is the start of the pipeline, and only that</text>
+<rect x="94" y="1373" width="1592" height="2" rx="1" fill="#e6e3dd"/>
+<rect x="94" y="1355" width="34" height="34" rx="17" fill="#f3effc" stroke="#6d28d9" stroke-width="1.5"/>
+<text x="111" y="1378" font-size="15" fill="#6d28d9" font-weight="700" text-anchor="middle">2</text>
+<rect x="138" y="1359" width="83.0" height="26" rx="6" fill="#fbfbfa"/>
+<text x="150" y="1378" font-size="17" fill="#1b1d21" font-weight="800">Build</text>
+<rect x="221.0" y="1361" width="158.8" height="22" fill="#fbfbfa"/>
+<text x="233.0" y="1377" font-size="12.5" fill="#6b7280">turn that into a graph</text>
+<rect x="94" y="1399" width="760" height="326" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="1426" font-size="13.5" fill="#1b1d21" font-weight="700">The walk builds a graph of segments</text>
+<text x="114" y="1446" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">but-graph/src/init/walk — a segment is the node</text>
+<text x="114" y="1469" font-size="12" fill="#6b7280">A segment is a run of commits with nothing interesting in between.</text>
+<text x="114" y="1495" font-size="11" fill="#6b7280">now a branch lands on the middle commit:</text>
+<rect x="118" y="1519" width="222" height="52" rx="8" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.4"/>
+<circle cx="144" cy="1545" r="8" fill="#efedea" stroke="#c9c7c1" stroke-width="1.6"/>
+<line x1="152" y1="1545" x2="180" y2="1545" stroke="#c9c7c1" stroke-width="1.4"/>
+<circle cx="188" cy="1545" r="8" fill="#efedea" stroke="#c9c7c1" stroke-width="1.6"/>
+<line x1="196" y1="1545" x2="224" y2="1545" stroke="#c9c7c1" stroke-width="1.4"/>
+<circle cx="232" cy="1545" r="8" fill="#efedea" stroke="#c9c7c1" stroke-width="1.6"/>
+<line x1="240" y1="1545" x2="268" y2="1545" stroke="#c9c7c1" stroke-width="1.4"/>
+<circle cx="276" cy="1545" r="8" fill="#efedea" stroke="#c9c7c1" stroke-width="1.6"/>
+<text x="128" y="1513" font-size="10" fill="#6b7280">one segment</text>
+<rect x="424" y="1519" width="130" height="52" rx="8" fill="#ffffff" stroke="#e6b9b3" stroke-width="1.4"/>
+<circle cx="450" cy="1545" r="8" fill="#efedea" stroke="#c9c7c1" stroke-width="1.6"/>
+<line x1="458" y1="1545" x2="486" y2="1545" stroke="#c9c7c1" stroke-width="1.4"/>
+<circle cx="494" cy="1545" r="8" fill="#efedea" stroke="#c9c7c1" stroke-width="1.6"/>
+<rect x="570" y="1519" width="130" height="52" rx="8" fill="#ffffff" stroke="#e6b9b3" stroke-width="1.4"/>
+<circle cx="596" cy="1545" r="8" fill="#efedea" stroke="#c9c7c1" stroke-width="1.6"/>
+<line x1="604" y1="1545" x2="632" y2="1545" stroke="#c9c7c1" stroke-width="1.4"/>
+<circle cx="640" cy="1545" r="8" fill="#efedea" stroke="#c9c7c1" stroke-width="1.6"/>
+<path d="M 356 1545 L 408 1545" stroke="#c0392b" stroke-width="1.8"/>
+<path d="M 407 1540 L 407 1550 L 414 1545 Z" fill="#c0392b"/>
+<text x="382" y="1531" font-size="10" fill="#c0392b" font-weight="700" text-anchor="middle">split</text>
+<text x="424" y="1589" font-size="10.5" fill="#c0392b" font-weight="600">two segments now — any recorded commit position has moved</text>
+<text x="114" y="1651" font-size="12" fill="#c0392b"><tspan font-weight="700">A reference is structural here.</tspan> Naming a commit can cut a node in</text>
+<text x="114" y="1669" font-size="12" fill="#6b7280">two — that is what split_segment and maybe_split_segments are for.</text>
+<text x="114" y="1695" font-size="12" fill="#6b7280">So the shape of the graph depends on which refs happened to exist,</text>
+<text x="114" y="1713" font-size="12" fill="#6b7280">and anything holding a segment index has to be fixed up afterwards.</text>
+<rect x="926" y="1399" width="760" height="326" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="1426" font-size="13.5" fill="#1b1d21" font-weight="700">The walk builds a graph of commits</text>
+<text x="946" y="1446" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">but-graph/{build,walk} — a commit is the node</text>
+<text x="946" y="1469" font-size="12" fill="#6b7280">A commit is a commit. Segments exist only inside the builder.</text>
+<text x="946" y="1495" font-size="11" fill="#6b7280">now a branch lands on the middle commit:</text>
+<circle cx="976" cy="1545" r="8" fill="#dff0e9" stroke="#9ec9ba" stroke-width="1.6"/>
+<line x1="984" y1="1545" x2="1012" y2="1545" stroke="#9ec9ba" stroke-width="1.4"/>
+<circle cx="1020" cy="1545" r="8" fill="#dff0e9" stroke="#9ec9ba" stroke-width="1.6"/>
+<line x1="1028" y1="1545" x2="1056" y2="1545" stroke="#9ec9ba" stroke-width="1.4"/>
+<circle cx="1064" cy="1545" r="8" fill="#dff0e9" stroke="#9ec9ba" stroke-width="1.6"/>
+<line x1="1072" y1="1545" x2="1100" y2="1545" stroke="#9ec9ba" stroke-width="1.4"/>
+<circle cx="1108" cy="1545" r="8" fill="#dff0e9" stroke="#9ec9ba" stroke-width="1.6"/>
+<text x="960" y="1513" font-size="10" fill="#6b7280">four commits</text>
+<path d="M 1188 1545 L 1240 1545" stroke="#0f766e" stroke-width="1.8"/>
+<path d="M 1239 1540 L 1239 1550 L 1246 1545 Z" fill="#0f766e"/>
+<text x="1214" y="1531" font-size="10" fill="#0f766e" font-weight="700" text-anchor="middle">add ref</text>
+<circle cx="1282" cy="1545" r="8" fill="#dff0e9" stroke="#9ec9ba" stroke-width="1.6"/>
+<line x1="1290" y1="1545" x2="1318" y2="1545" stroke="#9ec9ba" stroke-width="1.4"/>
+<circle cx="1326" cy="1545" r="8" fill="#dff0e9" stroke="#9ec9ba" stroke-width="1.6"/>
+<line x1="1334" y1="1545" x2="1362" y2="1545" stroke="#9ec9ba" stroke-width="1.4"/>
+<circle cx="1370" cy="1545" r="8" fill="#dff0e9" stroke="#9ec9ba" stroke-width="1.6"/>
+<line x1="1378" y1="1545" x2="1406" y2="1545" stroke="#9ec9ba" stroke-width="1.4"/>
+<circle cx="1414" cy="1545" r="8" fill="#dff0e9" stroke="#9ec9ba" stroke-width="1.6"/>
+<rect x="1256" y="1571" width="240" height="30" rx="6" fill="#ffffff" stroke="#bfded4" stroke-width="1.3"/>
+<text x="1268" y="1590" font-size="10" fill="#0f766e" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">by_ref["refs/heads/A"] = 2</text>
+<path d="M 1326 1571 L 1326 1555" stroke="#9ec9ba" stroke-width="1.3" stroke-dasharray="3 3"/>
+<text x="1256" y="1619" font-size="10.5" fill="#0f766e" font-weight="600">same four commits — one row added to a table</text>
+<text x="946" y="1651" font-size="12" fill="#0f766e"><tspan font-weight="700">A reference is data here.</tspan> It points at a commit and changes nothing</text>
+<text x="946" y="1669" font-size="12" fill="#6b7280">about the structure, so there is no split and nothing to fix up.</text>
+<text x="946" y="1695" font-size="12" fill="#6b7280">The graph has one shape for a given history, whatever refs exist —</text>
+<text x="946" y="1713" font-size="12" fill="#6b7280">which is why the same build serves every view of the repository.</text>
+<line x1="474.0" y1="1725" x2="474.0" y2="1747" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 469.0 1747 L 479.0 1747 L 474.0 1755 Z" fill="#9aa0aa"/>
+<line x1="1306.0" y1="1725" x2="1306.0" y2="1747" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 1301.0 1747 L 1311.0 1747 L 1306.0 1755 Z" fill="#9aa0aa"/>
+<rect x="94" y="1755" width="760" height="474" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="1782" font-size="13.5" fill="#1b1d21" font-weight="700">The graph was somebody else's type</text>
+<text x="114" y="1802" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">petgraph::StableGraph, held as self.inner</text>
+<text x="114" y="1825" font-size="12" fill="#6b7280">PetGraph is an off-the-shelf graph container from crates.io. The commits</text>
+<text x="114" y="1843" font-size="12" fill="#6b7280">and branches live <tspan font-weight="700">inside</tspan> it, so every question goes through its API —</text>
+<text x="114" y="1861" font-size="12" fill="#6b7280"><tspan font-weight="700">110 places</tspan> in but-graph, across 13 files. Its habits come along:</text>
+<rect x="114" y="1877" width="196" height="60" rx="7" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.4"/>
+<text x="212.0" y="1897" font-size="10" fill="#6b7280" text-anchor="middle">git's order</text>
+<text x="212.0" y="1921" font-size="14" fill="#1b1d21" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">p1 , p2</text>
+<path d="M 318 1907 L 332 1907" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 331 1902 L 331 1912 L 338 1907 Z" fill="#9aa0aa"/>
+<rect x="346" y="1877" width="196" height="60" rx="7" fill="#fdf3f2" stroke="#e6b9b3" stroke-width="1.4"/>
+<text x="444.0" y="1897" font-size="10" fill="#6b7280" text-anchor="middle">what PetGraph hands back</text>
+<text x="444.0" y="1921" font-size="14" fill="#c0392b" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">p2 , p1</text>
+<path d="M 550 1907 L 564 1907" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 563 1902 L 563 1912 L 570 1907 Z" fill="#9aa0aa"/>
+<rect x="578" y="1877" width="196" height="60" rx="7" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.4"/>
+<text x="676.0" y="1897" font-size="10" fill="#6b7280" text-anchor="middle">what pass 1 restores</text>
+<text x="676.0" y="1921" font-size="14" fill="#1b1d21" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">p1 , p2</text>
+<text x="328.0" y="1953" font-size="10" fill="#c0392b" text-anchor="middle" font-weight="700">reversed</text>
+<text x="560.0" y="1953" font-size="10" fill="#6b7280" text-anchor="middle">re-inserted, one by one</text>
+<text x="114" y="1981" font-size="11.5" fill="#c0392b">“Petgraph traverses edges in <tspan font-weight="700">reverse creation order</tspan>, so edges are</text>
+<text x="114" y="1999" font-size="11.5" fill="#c0392b">re-added from last parent to first parent.”  — post.rs</text>
+<text x="114" y="2029" font-size="12" fill="#c0392b"><tspan font-weight="700">A full walk of the graph, to arrive back at the order git already gave.</tspan></text>
+<text x="114" y="2047" font-size="12" fill="#6b7280">That is the first of the ten passes, and it buys nothing but the fix.</text>
+<rect x="114" y="2071" width="720" height="96" rx="7" fill="#ffffff" stroke="#e6ddda" stroke-width="1.3"/>
+<text x="130" y="2093" font-size="11" fill="#6b7280">your types go in as parameters:</text>
+<text x="130" y="2115" font-size="12" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">StableGraph&lt;Segment, Edge&gt;</text>
+<text x="130" y="2137" font-size="11" fill="#6b7280">… and the container’s own index comes back out:</text>
+<text x="130" y="2157" font-size="12" fill="#c0392b" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">pub type SegmentIndex = petgraph::graph::NodeIndex</text>
+<text x="114" y="2187" font-size="12" fill="#c0392b"><tspan font-weight="700">So the library's index becomes the project's vocabulary</tspan> — 289 uses</text>
+<text x="114" y="2205" font-size="12" fill="#6b7280">across 32 files, escaping but-graph into seven other crates.</text>
+<rect x="926" y="1755" width="760" height="474" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="1782" font-size="13.5" fill="#1b1d21" font-weight="700">Two stored tables — read them like a schema</text>
+<text x="946" y="1801" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">no graph library: parallel arrays, indexes and a join table</text>
+<rect x="946" y="1823" width="332" height="146" rx="7" fill="#ffffff" stroke="#bfded4" stroke-width="1.3"/>
+<rect x="946" y="1823" width="332" height="24" rx="7" fill="#e4f4ee"/>
+<text x="958" y="1840" font-size="11.5" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">CommitGraph</text>
+<text x="1266" y="1840" font-size="9.5" fill="#6b7280" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">commit_graph.rs</text>
+<text x="958" y="1861" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">nodes</text>
+<text x="1266" y="1861" font-size="9.5" fill="#6b7280" text-anchor="end">the rows</text>
+<text x="958" y="1881" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">parent_edges</text>
+<text x="1266" y="1881" font-size="9.5" fill="#6b7280" text-anchor="end">one per parent, in parent order</text>
+<text x="958" y="1901" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">children</text>
+<text x="1266" y="1901" font-size="9.5" fill="#6b7280" text-anchor="end">derived reverse adjacency</text>
+<text x="958" y="1921" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">generations</text>
+<text x="1266" y="1921" font-size="9.5" fill="#6b7280" text-anchor="end">depth from a root</text>
+<text x="958" y="1941" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">by_id / by_ref</text>
+<text x="1266" y="1941" font-size="9.5" fill="#6b7280" text-anchor="end">indexes, rebuildable</text>
+<text x="958" y="1961" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">tombstoned</text>
+<text x="1266" y="1961" font-size="9.5" fill="#6b7280" text-anchor="end">soft delete; id reads skip</text>
+<rect x="1298" y="1823" width="308" height="86" rx="7" fill="#ffffff" stroke="#bfded4" stroke-width="1.3"/>
+<rect x="1298" y="1823" width="308" height="24" rx="7" fill="#e4f4ee"/>
+<text x="1310" y="1840" font-size="11.5" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">RefLayout</text>
+<text x="1594" y="1840" font-size="9.5" fill="#6b7280" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">ref_layout.rs</text>
+<text x="1310" y="1861" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">groups</text>
+<text x="1594" y="1861" font-size="9.5" fill="#6b7280" text-anchor="end">per commit, ordered ref groups</text>
+<text x="1310" y="1881" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">facts</text>
+<text x="1594" y="1881" font-size="9.5" fill="#6b7280" text-anchor="end">per ref, in table order</text>
+<text x="1310" y="1901" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">amended_ws_parents</text>
+<text x="1594" y="1901" font-size="9.5" fill="#6b7280" text-anchor="end">the merge's parent slots</text>
+<path d="M 1278 1879 L 1298 1879" stroke="#9ec9ba" stroke-width="1.6"/>
+<text x="946" y="1985" font-size="10.5" fill="#6b7280">with row types underneath: Commit, RefInfo, Worktree (records.rs) · RefGroup,</text>
+<text x="946" y="2001" font-size="10.5" fill="#6b7280">RefFacts, DeclaredStack, EmptyChainAnchor, AmendedWsParents (ref_layout.rs)</text>
+<text x="946" y="2023" font-size="11" fill="#6b7280">RefLayout.groups is keyed by commit id — that is the join between the two</text>
+<text x="946" y="2043" font-size="12" fill="#0f766e" font-weight="600">edge order is a <tspan font-weight="700">column</tspan>, not an artifact of insertion</text>
+<rect x="946" y="2055" width="720" height="58" rx="7" fill="#ffffff" stroke="#bfded4" stroke-width="1.4"/>
+<text x="962" y="2079" font-size="10" fill="#6b7280">ask the same question here:</text>
+<text x="962" y="2101" font-size="13" fill="#0f766e" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">parent_edges[c]  =  [ p1 , p2 ]</text>
+<text x="1650" y="2095" font-size="10.5" fill="#0f766e" text-anchor="end" font-weight="700">the order is the value</text>
+<text x="946" y="2127" font-size="11.5" fill="#6b7280"><tspan font-weight="700">These two are everything the build stores.</tspan> Workspace, Stack,</text>
+<text x="946" y="2145" font-size="11.5" fill="#6b7280">StackSegment and the rest are derived from them, and stored nowhere.</text>
+<rect x="946" y="2161" width="720" height="52" rx="7" fill="#ffffff" stroke="#bfded4" stroke-width="1.3"/>
+<text x="962" y="2182" font-size="12" fill="#0f766e" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">fn node(&amp;self, id: ObjectId) -&gt; Option&lt;&amp;Commit&gt;</text>
+<text x="962" y="2202" font-size="11" fill="#6b7280">you ask by commit id; the row number is a private usize that never leaves</text>
+<line x1="474.0" y1="2229" x2="474.0" y2="2251" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 469.0 2251 L 479.0 2251 L 474.0 2259 Z" fill="#9aa0aa"/>
+<line x1="1306.0" y1="2229" x2="1306.0" y2="2251" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 1301.0 2251 L 1311.0 2251 L 1306.0 2259 Z" fill="#9aa0aa"/>
+<rect x="94" y="2259" width="760" height="468" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="2286" font-size="13.5" fill="#1b1d21" font-weight="700">Ten fixup traversals of the whole graph</text>
+<text x="114" y="2305" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">but-graph/src/init/post.rs — 2,204 lines, run in this order</text>
+<rect x="114" y="2317" width="720" height="26" rx="5" fill="#ffffff" stroke="#e6ddda" stroke-width="1"/>
+<circle cx="130" cy="2330" r="9" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="130" y="2334" font-size="10" fill="#c0392b" font-weight="700" text-anchor="middle">1</text>
+<text x="146" y="2334" font-size="10.5" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">rebuild_edges_in_parent_order</text>
+<rect x="114" y="2345" width="720" height="26" rx="5" fill="#ffffff" stroke="#e6ddda" stroke-width="1"/>
+<circle cx="130" cy="2358" r="9" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="130" y="2362" font-size="10" fill="#c0392b" font-weight="700" text-anchor="middle">2</text>
+<text x="146" y="2362" font-size="10.5" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">update_entrypoint_commit_id</text>
+<text x="828" y="2362" font-size="10" fill="#c0392b" text-anchor="end">post-processing moves the entrypoint, so keep the tip</text>
+<rect x="114" y="2373" width="720" height="26" rx="5" fill="#ffffff" stroke="#e6ddda" stroke-width="1"/>
+<circle cx="130" cy="2386" r="9" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="130" y="2390" font-size="10" fill="#c0392b" font-weight="700" text-anchor="middle">3</text>
+<text x="146" y="2390" font-size="10.5" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">fixup_remote_tracking_refs_and_maybe_split_segments</text>
+<text x="828" y="2390" font-size="10" fill="#c0392b" text-anchor="end">“before anything, cleanup the graph”</text>
+<rect x="114" y="2401" width="720" height="26" rx="5" fill="#ffffff" stroke="#e6ddda" stroke-width="1"/>
+<circle cx="130" cy="2414" r="9" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="130" y="2418" font-size="10" fill="#c0392b" font-weight="700" text-anchor="middle">4</text>
+<text x="146" y="2418" font-size="10.5" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">fixup_workspace_segments</text>
+<text x="828" y="2418" font-size="10" fill="#c0392b" text-anchor="end">“should be first — what follows names the segments it creates”</text>
+<rect x="114" y="2429" width="720" height="26" rx="5" fill="#ffffff" stroke="#e6ddda" stroke-width="1"/>
+<circle cx="130" cy="2442" r="9" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="130" y="2446" font-size="10" fill="#c0392b" font-weight="700" text-anchor="middle">5</text>
+<text x="146" y="2446" font-size="10.5" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">fixup_segment_names</text>
+<text x="828" y="2446" font-size="10" fill="#c0392b" text-anchor="end">“all non-workspace fixups must come first”</text>
+<rect x="114" y="2457" width="720" height="26" rx="5" fill="#ffffff" stroke="#e6ddda" stroke-width="1"/>
+<circle cx="130" cy="2470" r="9" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="130" y="2474" font-size="10" fill="#c0392b" font-weight="700" text-anchor="middle">6</text>
+<text x="146" y="2474" font-size="10.5" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">workspace_upgrades</text>
+<rect x="114" y="2485" width="720" height="26" rx="5" fill="#ffffff" stroke="#e6ddda" stroke-width="1"/>
+<circle cx="130" cy="2498" r="9" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="130" y="2502" font-size="10" fill="#c0392b" font-weight="700" text-anchor="middle">7</text>
+<text x="146" y="2502" font-size="10.5" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">ad_hoc_branch_stack_upgrades</text>
+<rect x="114" y="2513" width="720" height="26" rx="5" fill="#ffffff" stroke="#e6ddda" stroke-width="1"/>
+<circle cx="130" cy="2526" r="9" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="130" y="2530" font-size="10" fill="#c0392b" font-weight="700" text-anchor="middle">8</text>
+<text x="146" y="2530" font-size="10.5" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">set_entrypoint_to_ref_name</text>
+<text x="828" y="2530" font-size="10" fill="#c0392b" text-anchor="end">“after all the virtual branches were added”</text>
+<rect x="114" y="2541" width="720" height="26" rx="5" fill="#ffffff" stroke="#e6ddda" stroke-width="1"/>
+<circle cx="130" cy="2554" r="9" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="130" y="2558" font-size="10" fill="#c0392b" font-weight="700" text-anchor="middle">9</text>
+<text x="146" y="2558" font-size="10.5" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">improve_remote_segments</text>
+<text x="828" y="2558" font-size="10" fill="#c0392b" text-anchor="end">“better not to do this before workspaces are sorted”</text>
+<rect x="114" y="2569" width="720" height="26" rx="5" fill="#ffffff" stroke="#e6ddda" stroke-width="1"/>
+<circle cx="130" cy="2582" r="9" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="130" y="2586" font-size="10" fill="#c0392b" font-weight="700" text-anchor="middle">10</text>
+<text x="146" y="2586" font-size="10.5" fill="#1b1d21" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">compute_generation_numbers</text>
+<text x="828" y="2586" font-size="10" fill="#c0392b" text-anchor="end">“finally, once all segments were added”</text>
+<text x="114" y="2619" font-size="12" fill="#c0392b" font-weight="600">every pass rewrites the previous pass's structure —</text>
+<text x="114" y="2636" font-size="12" fill="#c0392b" font-weight="600">the comments are the schedule, and the schedule is the design</text>
+<rect x="114" y="2683" width="720" height="26" rx="6" fill="#ffffff" stroke="#e6ddda"/>
+<circle cx="138" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="143" y1="2696" x2="179" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="184" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="189" y1="2696" x2="225" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="230" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="235" y1="2696" x2="271" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="276" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="281" y1="2696" x2="317" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="322" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="327" y1="2696" x2="363" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="368" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="373" y1="2696" x2="409" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="414" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="419" y1="2696" x2="455" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="460" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="465" y1="2696" x2="501" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="506" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="511" y1="2696" x2="547" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="552" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="557" y1="2696" x2="593" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="598" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="603" y1="2696" x2="639" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="644" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="649" y1="2696" x2="685" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="690" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<line x1="695" y1="2696" x2="731" y2="2696" stroke="#dcc7c3" stroke-width="1.2"/>
+<circle cx="736" cy="2696" r="5" fill="#efe6e4" stroke="#dcc7c3"/>
+<path d="M 120 2679 L 824 2679" stroke="#c0392b" stroke-width="1.1" opacity="0.55"/>
+<path d="M 120 2677 L 824 2677" stroke="#c0392b" stroke-width="1.1" opacity="0.55"/>
+<path d="M 120 2675 L 824 2675" stroke="#c0392b" stroke-width="1.1" opacity="0.55"/>
+<path d="M 120 2673 L 824 2673" stroke="#c0392b" stroke-width="1.1" opacity="0.55"/>
+<path d="M 120 2671 L 824 2671" stroke="#c0392b" stroke-width="1.1" opacity="0.55"/>
+<path d="M 120 2669 L 824 2669" stroke="#c0392b" stroke-width="1.1" opacity="0.55"/>
+<path d="M 120 2667 L 824 2667" stroke="#c0392b" stroke-width="1.1" opacity="0.55"/>
+<path d="M 120 2665 L 824 2665" stroke="#c0392b" stroke-width="1.1" opacity="0.55"/>
+<path d="M 120 2663 L 824 2663" stroke="#c0392b" stroke-width="1.1" opacity="0.55"/>
+<path d="M 120 2661 L 824 2661" stroke="#c0392b" stroke-width="1.1" opacity="0.55"/>
+<path d="M 818 2675 L 818 2683 L 828 2679 Z" fill="#c0392b"/>
+<text x="114" y="2725" font-size="11.5" fill="#c0392b" font-weight="600">ten sweeps over the <tspan font-weight="700">same</tspan> graph, each undoing assumptions of the last</text>
+<rect x="926" y="2259" width="760" height="468" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="2286" font-size="13.5" fill="#1b1d21" font-weight="700">Four phases: gather, then build</text>
+<text x="946" y="2305" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">but-graph/src/build/ — one file per phase</text>
+<rect x="946.0" y="2337" width="168.0" height="96" rx="7" fill="#ffffff" stroke="#bfded4" stroke-width="1.3"/>
+<text x="1030.0" y="2361" font-size="12.5" fill="#0f766e" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">facts</text>
+<text x="1030.0" y="2381" font-size="9.8" fill="#6b7280" text-anchor="middle">pure boundary and</text>
+<text x="1030.0" y="2395" font-size="9.8" fill="#6b7280" text-anchor="middle">shape reads — no</text>
+<text x="1030.0" y="2409" font-size="9.8" fill="#6b7280" text-anchor="middle">decisions yet</text>
+<path d="M 1117.0 2385 L 1125.0 2385" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 1124.0 2381 L 1124.0 2389 L 1130.0 2385 Z" fill="#9aa0aa"/>
+<rect x="1130.0" y="2337" width="168.0" height="96" rx="7" fill="#ffffff" stroke="#bfded4" stroke-width="1.3"/>
+<text x="1214.0" y="2361" font-size="12.5" fill="#0f766e" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">plan</text>
+<text x="1214.0" y="2381" font-size="9.8" fill="#6b7280" text-anchor="middle">the chain plan, as</text>
+<text x="1214.0" y="2395" font-size="9.8" fill="#6b7280" text-anchor="middle">pure data</text>
+<path d="M 1301.0 2385 L 1309.0 2385" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 1308.0 2381 L 1308.0 2389 L 1314.0 2385 Z" fill="#9aa0aa"/>
+<rect x="1314.0" y="2337" width="168.0" height="96" rx="7" fill="#ffffff" stroke="#bfded4" stroke-width="1.3"/>
+<text x="1398.0" y="2361" font-size="12.5" fill="#0f766e" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">materialize</text>
+<text x="1398.0" y="2381" font-size="9.8" fill="#6b7280" text-anchor="middle">repository-flavoured</text>
+<text x="1398.0" y="2395" font-size="9.8" fill="#6b7280" text-anchor="middle">decisions, feeding</text>
+<text x="1398.0" y="2409" font-size="9.8" fill="#6b7280" text-anchor="middle">segment_data</text>
+<path d="M 1485.0 2385 L 1493.0 2385" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 1492.0 2381 L 1492.0 2389 L 1498.0 2385 Z" fill="#9aa0aa"/>
+<rect x="1498.0" y="2337" width="168.0" height="96" rx="7" fill="#ffffff" stroke="#bfded4" stroke-width="1.3"/>
+<text x="1582.0" y="2361" font-size="12.5" fill="#0f766e" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">layout</text>
+<text x="1582.0" y="2381" font-size="9.8" fill="#6b7280" text-anchor="middle">the ref layout,</text>
+<text x="1582.0" y="2395" font-size="9.8" fill="#6b7280" text-anchor="middle">written from the</text>
+<text x="1582.0" y="2409" font-size="9.8" fill="#6b7280" text-anchor="middle">builder's segments</text>
+<rect x="946" y="2459" width="720" height="96" rx="7" fill="#f5f1fd" stroke="#d9cdf5" stroke-width="1.5"/>
+<text x="962" y="2483" font-size="12.5" fill="#1b1d21" font-weight="700">The structural invariant</text>
+<text x="962" y="2503" font-size="11.5" fill="#6d28d9" font-weight="600">no pass rewrites another pass's structure — every mutation is additive</text>
+<text x="962" y="2520" font-size="11.5" fill="#6d28d9" font-weight="600">construction, or a materializer applying a decision the plan already made</text>
+<text x="962" y="2540" font-size="11.5" fill="#6d28d9" font-weight="600">so no later phase can silently undo what an earlier one decided</text>
+<text x="946" y="2581" font-size="11.5" fill="#6b7280">the build's segments are scaffolding: they author the layout and never leave the builder</text>
+<rect x="946" y="2625" width="720" height="26" rx="6" fill="#ffffff" stroke="#cfe7de"/>
+<circle cx="970" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="975" y1="2638" x2="1011" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1016" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1021" y1="2638" x2="1057" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1062" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1067" y1="2638" x2="1103" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1108" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1113" y1="2638" x2="1149" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1154" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1159" y1="2638" x2="1195" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1200" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1205" y1="2638" x2="1241" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1246" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1251" y1="2638" x2="1287" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1292" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1297" y1="2638" x2="1333" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1338" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1343" y1="2638" x2="1379" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1384" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1389" y1="2638" x2="1425" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1430" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1435" y1="2638" x2="1471" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1476" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1481" y1="2638" x2="1517" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1522" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<line x1="1527" y1="2638" x2="1563" y2="2638" stroke="#9ec9ba" stroke-width="1.2"/>
+<circle cx="1568" cy="2638" r="5" fill="#dff0e9" stroke="#9ec9ba"/>
+<rect x="952" y="2619" width="708" height="4" rx="2" fill="#0f766e" opacity="0.28"/>
+<rect x="960" y="2613" width="692" height="4" rx="2" fill="#0f766e" opacity="0.44000000000000006"/>
+<rect x="968" y="2607" width="676" height="4" rx="2" fill="#0f766e" opacity="0.6000000000000001"/>
+<rect x="976" y="2601" width="660" height="4" rx="2" fill="#0f766e" opacity="0.76"/>
+<text x="946" y="2667" font-size="11.5" fill="#0f766e" font-weight="600">four layers on the same graph — each adds, none rewrites</text>
+<rect x="94" y="2787" width="1592" height="2" rx="1" fill="#e6e3dd"/>
+<rect x="94" y="2769" width="34" height="34" rx="17" fill="#f3effc" stroke="#6d28d9" stroke-width="1.5"/>
+<text x="111" y="2792" font-size="15" fill="#6d28d9" font-weight="700" text-anchor="middle">3</text>
+<rect x="138" y="2773" width="94.4" height="26" rx="6" fill="#fbfbfa"/>
+<text x="150" y="2792" font-size="17" fill="#1b1d21" font-weight="800">Derive</text>
+<rect x="232.4" y="2775" width="229.20000000000002" height="22" fill="#fbfbfa"/>
+<text x="244.4" y="2791" font-size="12.5" fill="#6b7280">work out the lanes from the graph</text>
+<rect x="94" y="2813" width="760" height="348" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="2840" font-size="13.5" fill="#1b1d21" font-weight="700">Which ref names this commit?</text>
+<text x="114" y="2860" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">decided inline, by post-processing passes 5 and 9</text>
+<circle cx="138" cy="2905" r="10" fill="#ffffff" stroke="#9aa0aa" stroke-width="2"/>
+<text x="114" y="2887" font-size="11" fill="#6b7280">one commit, three branches on it:</text>
+<rect x="168" y="2890" width="160" height="30" rx="15" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.4"/>
+<text x="182" y="2910" font-size="12" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">A</text>
+<text x="318" y="2909" font-size="9.5" fill="#6b7280" text-anchor="end">has metadata</text>
+<line x1="148" y1="2905" x2="168" y2="2905" stroke="#c9c7c1" stroke-width="1.4"/>
+<rect x="344" y="2890" width="160" height="30" rx="15" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.4"/>
+<text x="358" y="2910" font-size="12" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">main</text>
+<text x="494" y="2909" font-size="9.5" fill="#6b7280" text-anchor="end">the target's local</text>
+<rect x="520" y="2890" width="160" height="30" rx="15" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.4"/>
+<text x="534" y="2910" font-size="12" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">B</text>
+<text x="670" y="2909" font-size="9.5" fill="#6b7280" text-anchor="end">nothing recorded</text>
+<rect x="114" y="2945" width="720" height="46" rx="7" fill="#ffffff" stroke="#e6ddda" stroke-width="1.3"/>
+<circle cx="136" cy="2968" r="11" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="136" y="2972" font-size="10.5" fill="#c0392b" font-weight="700" text-anchor="middle">5</text>
+<text x="156" y="2965" font-size="11.5" fill="#1b1d21" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">fixup_segment_names</text>
+<text x="156" y="2982" font-size="10" fill="#c0392b">“all non-workspace fixups must come first”</text>
+<rect x="114" y="3001" width="720" height="46" rx="7" fill="#ffffff" stroke="#e6ddda" stroke-width="1.3"/>
+<circle cx="136" cy="3024" r="11" fill="#f4e3e0" stroke="#e6b9b3"/>
+<text x="136" y="3028" font-size="10.5" fill="#c0392b" font-weight="700" text-anchor="middle">9</text>
+<text x="156" y="3021" font-size="11.5" fill="#1b1d21" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">improve_remote_segments</text>
+<text x="156" y="3038" font-size="10" fill="#c0392b">“better not to do this before workspaces are sorted”</text>
+<text x="114" y="3069" font-size="12" fill="#c0392b"><tspan font-weight="700">Two passes decide it, and they must run in that order.</tspan></text>
+<text x="114" y="3087" font-size="12" fill="#6b7280">Swap them and a different branch names the commit.</text>
+<text x="114" y="3115" font-size="12" fill="#6b7280">Nothing records which one won, or why — the next read starts over,</text>
+<text x="114" y="3133" font-size="12" fill="#6b7280">and no test can assert the verdict without re-deriving everything.</text>
+<rect x="926" y="2813" width="760" height="348" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="2840" font-size="13.5" fill="#1b1d21" font-weight="700">Which ref names this commit?</text>
+<text x="946" y="2860" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">build/mod.rs :: disambiguated_ref_at</text>
+<circle cx="970" cy="2905" r="10" fill="#ffffff" stroke="#9aa0aa" stroke-width="2"/>
+<text x="946" y="2887" font-size="11" fill="#6b7280">one commit, three branches on it:</text>
+<rect x="1000" y="2890" width="160" height="30" rx="15" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.4"/>
+<text x="1014" y="2910" font-size="12" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">A</text>
+<text x="1150" y="2909" font-size="9.5" fill="#6b7280" text-anchor="end">has metadata</text>
+<line x1="980" y1="2905" x2="1000" y2="2905" stroke="#c9c7c1" stroke-width="1.4"/>
+<rect x="1176" y="2890" width="160" height="30" rx="15" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.4"/>
+<text x="1190" y="2910" font-size="12" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">main</text>
+<text x="1326" y="2909" font-size="9.5" fill="#6b7280" text-anchor="end">the target's local</text>
+<rect x="1352" y="2890" width="160" height="30" rx="15" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.4"/>
+<text x="1366" y="2910" font-size="12" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">B</text>
+<text x="1502" y="2909" font-size="9.5" fill="#6b7280" text-anchor="end">nothing recorded</text>
+<rect x="946" y="2939" width="720" height="26" rx="6" fill="#e4f4ee" stroke="#0f766e" stroke-width="1.6"/>
+<circle cx="964" cy="2952" r="9" fill="#c9e9dd" stroke="#0f766e"/>
+<text x="964" y="2956" font-size="10" fill="#0f766e" font-weight="700" text-anchor="middle">1</text>
+<text x="982" y="2956" font-size="10.5" fill="#1b1d21" font-weight="700">not integrated, and exactly one branch carrying metadata</text>
+<text x="1654" y="2956" font-size="10" fill="#0f766e" font-weight="700" text-anchor="end">→ A</text>
+<rect x="946" y="2969" width="720" height="26" rx="6" fill="#ffffff" stroke="#dfeeea" stroke-width="1"/>
+<circle cx="964" cy="2982" r="9" fill="#eef4f2" stroke="#cfe0da"/>
+<text x="964" y="2986" font-size="10" fill="#0f766e" font-weight="700" text-anchor="middle">2</text>
+<text x="982" y="2986" font-size="10.5" fill="#6b7280" font-weight="400">exactly one remote-tracked branch</text>
+<text x="1654" y="2986" font-size="10" fill="#6b7280" font-weight="400" text-anchor="end">two match — defer</text>
+<rect x="946" y="2999" width="720" height="26" rx="6" fill="#ffffff" stroke="#dfeeea" stroke-width="1"/>
+<circle cx="964" cy="3012" r="9" fill="#eef4f2" stroke="#cfe0da"/>
+<text x="964" y="3016" font-size="10" fill="#0f766e" font-weight="700" text-anchor="middle">3</text>
+<text x="982" y="3016" font-size="10.5" fill="#6b7280" font-weight="400">on a stack top: metadata wins; among several, the target's own local</text>
+<text x="1654" y="3016" font-size="10" fill="#6b7280" font-weight="400" text-anchor="end">not a stack top</text>
+<rect x="946" y="3029" width="720" height="26" rx="6" fill="#ffffff" stroke="#dfeeea" stroke-width="1"/>
+<circle cx="964" cy="3042" r="9" fill="#eef4f2" stroke="#cfe0da"/>
+<text x="964" y="3046" font-size="10" fill="#0f766e" font-weight="700" text-anchor="middle">4</text>
+<text x="982" y="3046" font-size="10.5" fill="#6b7280" font-weight="400">exactly one branch, whatever it is</text>
+<text x="1654" y="3046" font-size="10" fill="#6b7280" font-weight="400" text-anchor="end">three here — defer</text>
+<text x="946" y="3075" font-size="12" fill="#6b7280"><tspan font-weight="700">A tier only answers when exactly one branch fits.</tspan> A tie is not broken —</text>
+<text x="946" y="3093" font-size="12" fill="#6b7280">it falls through. Nothing fits at all, and the commit stays anonymous.</text>
+<text x="946" y="3121" font-size="12" fill="#6b7280">The winner is written into RefLayout at build time, so the next read does</text>
+<text x="946" y="3139" font-size="12" fill="#6b7280">not decide again — and a test can assert the verdict on its own.</text>
+<line x1="474.0" y1="3161" x2="474.0" y2="3183" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 469.0 3183 L 479.0 3183 L 474.0 3191 Z" fill="#9aa0aa"/>
+<line x1="1306.0" y1="3161" x2="1306.0" y2="3183" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 1301.0 3183 L 1311.0 3183 L 1306.0 3191 Z" fill="#9aa0aa"/>
+<rect x="94" y="3191" width="760" height="384" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="3218" font-size="13.5" fill="#1b1d21" font-weight="700">What the producer works from</text>
+<text x="114" y="3238" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">WorkspaceFrame — private to init.rs, built and consumed in the same pass</text>
+<rect x="114" y="3253" width="720" height="164" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<rect x="114" y="3253" width="720" height="24" rx="7" fill="#f4e3e0"/>
+<text x="126" y="3269" font-size="9.5" fill="#6b7280" font-weight="700" text-anchor="start">field</text>
+<text x="414" y="3269" font-size="9.5" fill="#6b7280" font-weight="700" text-anchor="start">type</text>
+<text x="822" y="3269" font-size="9.5" fill="#6b7280" font-weight="700" text-anchor="end">meaning</text>
+<text x="126" y="3291" font-size="10" fill="#c0392b" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">kind</text>
+<text x="414" y="3291" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">WorkspaceKind</text>
+<text x="822" y="3291" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">managed, ad-hoc, …</text>
+<text x="126" y="3311" font-size="10" fill="#c0392b" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">metadata</text>
+<text x="414" y="3311" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Option&lt;Workspace&gt;</text>
+<text x="822" y="3311" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">the declaration, if any</text>
+<text x="126" y="3331" font-size="10" fill="#c0392b" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">ws_tip_segment_id</text>
+<text x="414" y="3331" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">SegmentIndex</text>
+<text x="822" y="3331" font-size="9.5" fill="#c0392b" font-weight="700" text-anchor="end">a position in this graph</text>
+<text x="126" y="3351" font-size="10" fill="#c0392b" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">entrypoint_sidx</text>
+<text x="414" y="3351" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Option&lt;SegmentIndex&gt;</text>
+<text x="822" y="3351" font-size="9.5" fill="#c0392b" font-weight="700" text-anchor="end">a position in this graph</text>
+<text x="126" y="3371" font-size="10" fill="#c0392b" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">lower_bound</text>
+<text x="414" y="3371" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Option&lt;ObjectId&gt;</text>
+<text x="822" y="3371" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">the floor commit</text>
+<text x="126" y="3391" font-size="10" fill="#c0392b" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">lower_bound_segment_id</text>
+<text x="414" y="3391" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Option&lt;SegmentIndex&gt;</text>
+<text x="822" y="3391" font-size="9.5" fill="#c0392b" font-weight="700" text-anchor="end">a position in this graph</text>
+<text x="126" y="3411" font-size="10" fill="#c0392b" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">target_ref / target_commit</text>
+<text x="414" y="3411" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Option&lt;…&gt;</text>
+<text x="822" y="3411" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">what to integrate into</text>
+<text x="114" y="3439" font-size="12" fill="#c0392b">Three of its eight fields are <tspan font-weight="700">positions in this particular graph</tspan>.</text>
+<text x="114" y="3457" font-size="12" fill="#6b7280">Hand the frame a different graph and they mean something else.</text>
+<text x="114" y="3481" font-size="12" fill="#6b7280">It never leaves init.rs either — workspace_frame builds it, workspace_stacks</text>
+<text x="114" y="3499" font-size="12" fill="#6b7280">consumes it — so no answer can be inspected apart from the lanes it produced.</text>
+<rect x="926" y="3191" width="760" height="384" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="3218" font-size="13.5" fill="#1b1d21" font-weight="700">What the frame holds</text>
+<text x="946" y="3238" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">WorkspaceFrame — projection/frame.rs, built once, then read-only</text>
+<rect x="946" y="3253" width="720" height="204" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<rect x="946" y="3253" width="720" height="24" rx="7" fill="#e4f4ee"/>
+<text x="958" y="3269" font-size="9.5" fill="#6b7280" font-weight="700" text-anchor="start">field</text>
+<text x="1246" y="3269" font-size="9.5" fill="#6b7280" font-weight="700" text-anchor="start">type</text>
+<text x="1654" y="3269" font-size="9.5" fill="#6b7280" font-weight="700" text-anchor="end">meaning</text>
+<text x="958" y="3291" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">kind</text>
+<text x="1246" y="3291" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">WorkspaceKind</text>
+<text x="1654" y="3291" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">managed, ad-hoc, …</text>
+<text x="958" y="3311" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">metadata</text>
+<text x="1246" y="3311" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Option&lt;Workspace&gt;</text>
+<text x="1654" y="3311" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">the declaration, if any</text>
+<text x="958" y="3331" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">tip_commit / tip_ref_info</text>
+<text x="1246" y="3331" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">ObjectId · RefInfo</text>
+<text x="1654" y="3331" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">a commit and a name</text>
+<text x="958" y="3351" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">entry_ref / entry_commit</text>
+<text x="1246" y="3351" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">FullName · ObjectId</text>
+<text x="1654" y="3351" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">a name and a commit</text>
+<text x="958" y="3371" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">entry_inside</text>
+<text x="1246" y="3371" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">bool</text>
+<text x="1654" y="3371" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">checked out inside the workspace?</text>
+<text x="958" y="3391" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">lower_bound / _ref_name</text>
+<text x="1246" y="3391" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">ObjectId · FullName</text>
+<text x="1654" y="3391" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">the floor, and what names it</text>
+<text x="958" y="3411" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">target_ref / target_commit</text>
+<text x="1246" y="3411" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">FrameTarget · ObjectId</text>
+<text x="1654" y="3411" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">what to integrate into</text>
+<text x="958" y="3431" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">integrated_tip_commits</text>
+<text x="1246" y="3431" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Vec&lt;ObjectId&gt;</text>
+<text x="1654" y="3431" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">extra target context</text>
+<text x="958" y="3451" font-size="10" fill="#0f766e" font-weight="600" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">missing_target_ref</text>
+<text x="1246" y="3451" font-size="9.5" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Option&lt;FullName&gt;</text>
+<text x="1654" y="3451" font-size="9.5" fill="#6b7280" font-weight="400" text-anchor="end">recorded but unresolvable — reported</text>
+<text x="946" y="3479" font-size="12" fill="#0f766e">Every field is a <tspan font-weight="700">commit id or a ref name</tspan> — nothing positional.</text>
+<text x="946" y="3497" font-size="12" fill="#6b7280">The same frame means the same thing against any graph of the repo.</text>
+<text x="946" y="3521" font-size="12" fill="#6b7280">And it is a published stage: built once, read by everything after,</text>
+<text x="946" y="3539" font-size="12" fill="#6b7280">edited by nothing — so each answer can be checked on its own.</text>
+<line x1="474.0" y1="3575" x2="474.0" y2="3597" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 469.0 3597 L 479.0 3597 L 474.0 3605 Z" fill="#9aa0aa"/>
+<line x1="1306.0" y1="3575" x2="1306.0" y2="3597" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 1301.0 3597 L 1311.0 3597 L 1306.0 3605 Z" fill="#9aa0aa"/>
+<rect x="94" y="3605" width="760" height="452" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="3637" font-size="13.5" fill="#1b1d21" font-weight="700">How a commit becomes a lane</text>
+<rect x="399.0" y="3651" width="150" height="36" rx="7" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.3"/>
+<text x="474.0" y="3669" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">a commit in the walk</text>
+<rect x="324.0" y="3717" width="300" height="52" rx="7" fill="#fffbeb" stroke="#f4d58a" stroke-width="1.3"/>
+<text x="474.0" y="3735" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">is a first-parent walk from a</text>
+<text x="474.0" y="3751" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">workspace-merge parent reaching it?</text>
+<path d="M 474.0 3687 L 474.0 3702 L 474.0 3702 L 474.0 3710" fill="none" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 470.0 3710 L 478.0 3710 L 474.0 3717 Z" fill="#9aa0aa"/>
+<rect x="139.0" y="3803" width="210" height="52" rx="7" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.3"/>
+<text x="244" y="3821" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">that lane owns it</text>
+<text x="244" y="3837" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">whichever the walk reached first</text>
+<rect x="599.0" y="3803" width="230" height="52" rx="7" fill="#fdf3f2" stroke="#e6b9b3" stroke-width="1.3"/>
+<text x="714" y="3821" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">in no lane at all</text>
+<text x="714" y="3837" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">invisible to everything after</text>
+<path d="M 474.0 3769 L 474.0 3786 L 244 3786 L 244 3796" fill="none" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 240 3796 L 248 3796 L 244 3803 Z" fill="#9aa0aa"/>
+<text x="250" y="3782" font-size="10.5" fill="#c0392b" font-weight="600" text-anchor="start">yes</text>
+<path d="M 474.0 3769 L 474.0 3786 L 714 3786 L 714 3796" fill="none" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 710 3796 L 718 3796 L 714 3803 Z" fill="#9aa0aa"/>
+<text x="720" y="3782" font-size="10.5" fill="#c0392b" font-weight="600" text-anchor="start">no</text>
+<rect x="119.0" y="3885" width="250" height="36" rx="7" fill="#fffbeb" stroke="#f4d58a" stroke-width="1.3"/>
+<text x="244" y="3903" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">several refs on the lane's tip?</text>
+<path d="M 244 3855 L 244 3870 L 244 3870 L 244 3878" fill="none" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 240 3878 L 248 3878 L 244 3885 Z" fill="#9aa0aa"/>
+<rect x="125.0" y="3951" width="230" height="68" rx="7" fill="#fdf3f2" stroke="#e6b9b3" stroke-width="1.3"/>
+<text x="240" y="3969" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">the heaviest name wins</text>
+<text x="240" y="3985" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">a lane can wear an id</text>
+<text x="240" y="4001" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">nothing ever bound to it</text>
+<path d="M 244 3921 L 244 3936 L 240 3936 L 240 3944" fill="none" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 236 3944 L 244 3944 L 240 3951 Z" fill="#9aa0aa"/>
+<rect x="926" y="3605" width="760" height="452" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="3637" font-size="13.5" fill="#1b1d21" font-weight="700">How a commit becomes a lane</text>
+<rect x="1231.0" y="3651" width="150" height="36" rx="7" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.3"/>
+<text x="1306.0" y="3669" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">a commit in the walk</text>
+<rect x="1161.0" y="3713" width="290" height="52" rx="7" fill="#fffbeb" stroke="#f4d58a" stroke-width="1.3"/>
+<text x="1306.0" y="3731" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">is it InWorkspace?</text>
+<text x="1306.0" y="3747" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">a flag seeded from the merge itself</text>
+<path d="M 1306.0 3687 L 1306.0 3700 L 1306.0 3700 L 1306.0 3706" fill="none" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 1302.0 3706 L 1310.0 3706 L 1306.0 3713 Z" fill="#9aa0aa"/>
+<rect x="1156.0" y="3795" width="300" height="36" rx="7" fill="#fffbeb" stroke="#f4d58a" stroke-width="1.3"/>
+<text x="1306.0" y="3813" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">how many stack tips reach it?</text>
+<path d="M 1306.0 3765 L 1306.0 3780 L 1306.0 3780 L 1306.0 3788" fill="none" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 1302.0 3788 L 1310.0 3788 L 1306.0 3795 Z" fill="#9aa0aa"/>
+<text x="1312.0" y="3776" font-size="10.5" fill="#0f766e" font-weight="600" text-anchor="start">yes</text>
+<text x="1474.0" y="3743" font-size="10.5" fill="#6b7280" >no → below the bound, not ours</text>
+<rect x="944.0" y="3871" width="200" height="52" rx="7" fill="#ecfdf5" stroke="#a7d8cb" stroke-width="1.3"/>
+<text x="1044" y="3889" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">exactly 1</text>
+<text x="1044" y="3905" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">that tip's exclusive lane</text>
+<rect x="1199.0" y="3871" width="214" height="68" rx="7" fill="#ecfdf5" stroke="#a7d8cb" stroke-width="1.3"/>
+<text x="1306.0" y="3889" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">2 or more</text>
+<text x="1306.0" y="3905" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">union them into one</text>
+<text x="1306.0" y="3921" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">multi-tip stack</text>
+<rect x="1470.0" y="3871" width="208" height="52" rx="7" fill="#ecfdf5" stroke="#a7d8cb" stroke-width="1.3"/>
+<text x="1574" y="3889" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">0 — it rests on the bound</text>
+<text x="1574" y="3905" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">still named: rule 1</text>
+<path d="M 1306.0 3831 L 1306.0 3851 L 1044 3851 L 1044 3864" fill="none" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 1040 3864 L 1048 3864 L 1044 3871 Z" fill="#9aa0aa"/>
+<text x="1050" y="3847" font-size="10.5" fill="#0f766e" font-weight="600" text-anchor="start">1</text>
+<path d="M 1306.0 3831 L 1306.0 3851 L 1306.0 3851 L 1306.0 3864" fill="none" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 1302.0 3864 L 1310.0 3864 L 1306.0 3871 Z" fill="#9aa0aa"/>
+<text x="1312.0" y="3847" font-size="10.5" fill="#0f766e" font-weight="600" text-anchor="start">≥2</text>
+<path d="M 1306.0 3831 L 1306.0 3851 L 1574 3851 L 1574 3864" fill="none" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 1570 3864 L 1578 3864 L 1574 3871 Z" fill="#9aa0aa"/>
+<text x="1580" y="3847" font-size="10.5" fill="#0f766e" font-weight="600" text-anchor="start">0</text>
+<rect x="1096.0" y="3969" width="420" height="52" rx="7" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.3"/>
+<text x="1306.0" y="3987" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">identity comes from the declared partition</text>
+<text x="1306.0" y="4003" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">metadata declares one; the graph derives one; same answer, opposite ends</text>
+<path d="M 1306.0 3939 L 1306.0 3954 L 1306.0 3954 L 1306.0 3962" fill="none" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 1302.0 3962 L 1310.0 3962 L 1306.0 3969 Z" fill="#9aa0aa"/>
+<line x1="474.0" y1="4057" x2="474.0" y2="4079" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 469.0 4079 L 479.0 4079 L 474.0 4087 Z" fill="#9aa0aa"/>
+<line x1="1306.0" y1="4057" x2="1306.0" y2="4079" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 1301.0 4079 L 1311.0 4079 L 1306.0 4087 Z" fill="#9aa0aa"/>
+<rect x="94" y="4087" width="760" height="356" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="4114" font-size="13.5" fill="#1b1d21" font-weight="700">Attribution walks first parents</text>
+<text x="114" y="4134" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">collect_stack_segments · find_map_downwards_along_first_parent</text>
+<line x1="120" y1="4339" x2="470" y2="4339" stroke="#9aa0aa" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="120" y="4359" font-size="10" fill="#6b7280">the integration base — nothing below is ours</text>
+<circle cx="186" cy="4171" r="9" fill="#ffffff" stroke="#9aa0aa" stroke-width="1.8"/>
+<text x="186" y="4156" font-size="9.5" fill="#9aa0aa" font-weight="700" text-anchor="middle">tip A</text>
+<path d="M 186 4180 L 186 4218" stroke="#c9c7c1" stroke-width="1.6"/>
+<circle cx="186" cy="4227" r="9" fill="#ffffff" stroke="#9aa0aa" stroke-width="1.8"/>
+<circle cx="276" cy="4171" r="9" fill="#ffffff" stroke="#9aa0aa" stroke-width="1.8"/>
+<text x="276" y="4156" font-size="9.5" fill="#9aa0aa" font-weight="700" text-anchor="middle">tip B</text>
+<path d="M 276 4180 L 276 4218" stroke="#c9c7c1" stroke-width="1.6"/>
+<circle cx="276" cy="4227" r="9" fill="#ffffff" stroke="#9aa0aa" stroke-width="1.8"/>
+<path d="M 186 4236 L 231.0 4274" stroke="#c9c7c1" stroke-width="1.6"/>
+<path d="M 276 4236 L 231.0 4274" stroke="#c9c7c1" stroke-width="1.6"/>
+<circle cx="231.0" cy="4283" r="9" fill="#ffffff" stroke="#9aa0aa" stroke-width="1.8"/>
+<path d="M 231.0 4292 L 231.0 4339" stroke="#c9c7c1" stroke-width="1.6"/>
+<path d="M 186 4171 L 186 4227 L 231.0 4283 L 231.0 4339" fill="none" stroke="#c0392b" stroke-width="3.4" opacity="0.3" stroke-linecap="round"/>
+<text x="120" y="4379" font-size="10.5" fill="#6b7280">the walk takes one path down — first parent, every time</text>
+<circle cx="420" cy="4227" r="9" fill="#f0eeec" stroke="#cdcac5" stroke-width="1.8"/>
+<text x="420" y="4212" font-size="9.5" fill="#b9b5ae" font-weight="700" text-anchor="middle">tip C</text>
+<path d="M 420 4236 L 420 4339" stroke="#e0ddd8" stroke-width="1.4" stroke-dasharray="4 3"/>
+<text x="420" y="4263" font-size="10" fill="#b9b5ae" text-anchor="middle">never reached</text>
+<text x="494" y="4183" font-size="12" fill="#6b7280"><tspan font-weight="700">one lane per walk.</tspan> Tip B's commits are</text>
+<text x="494" y="4201" font-size="12" fill="#6b7280">reached only because the path happened</text>
+<text x="494" y="4219" font-size="12" fill="#6b7280">to run through them.</text>
+<text x="494" y="4251" font-size="12" fill="#c0392b">Tip C sits off the path, so it lands in no</text>
+<text x="494" y="4269" font-size="12" fill="#c0392b">lane at all — not shown, not addressable,</text>
+<text x="494" y="4287" font-size="12" fill="#c0392b">and nothing reports that it went missing.</text>
+<text x="114" y="4403" font-size="12" fill="#c0392b" font-weight="600">whether a branch appears depends on the route, not on the graph</text>
+<rect x="926" y="4087" width="760" height="356" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="4114" font-size="13.5" fill="#1b1d21" font-weight="700">The partition engine colours the graph</text>
+<text x="946" y="4134" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">projection/partition.rs :: derive_partition()</text>
+<line x1="952" y1="4339" x2="1302" y2="4339" stroke="#9aa0aa" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="952" y="4359" font-size="10" fill="#6b7280">the integration base — nothing below is ours</text>
+<circle cx="1018" cy="4171" r="9" fill="#d6f0e8" stroke="#0f766e" stroke-width="1.8"/>
+<text x="1018" y="4156" font-size="9.5" fill="#0f766e" font-weight="700" text-anchor="middle">tip A</text>
+<path d="M 1018 4180 L 1018 4218" stroke="#0f766e" stroke-width="2"/>
+<circle cx="1018" cy="4227" r="9" fill="#d6f0e8" stroke="#0f766e" stroke-width="1.8"/>
+<path d="M 1018 4236 L 1063.0 4274" stroke="#0f766e" stroke-width="2"/>
+<circle cx="1108" cy="4171" r="9" fill="#fbe8cd" stroke="#b45309" stroke-width="1.8"/>
+<text x="1108" y="4156" font-size="9.5" fill="#b45309" font-weight="700" text-anchor="middle">tip B</text>
+<path d="M 1108 4180 L 1108 4218" stroke="#b45309" stroke-width="2"/>
+<circle cx="1108" cy="4227" r="9" fill="#fbe8cd" stroke="#b45309" stroke-width="1.8"/>
+<path d="M 1108 4236 L 1063.0 4274" stroke="#b45309" stroke-width="2"/>
+<path d="M 1063.0 4274 A 9 9 0 0 1 1063.0 4292 Z" fill="#fbe8cd"/>
+<path d="M 1063.0 4274 A 9 9 0 0 0 1063.0 4292 Z" fill="#d6f0e8"/>
+<circle cx="1063.0" cy="4283" r="9" fill="none" stroke="#1b1d21" stroke-width="1.8"/>
+<path d="M 1063.0 4292 L 1063.0 4339" stroke="#6b7280" stroke-width="2"/>
+<text x="1063.0" y="4313" font-size="10" fill="#1b1d21" font-weight="700" text-anchor="middle">two colours meet</text>
+<circle cx="1252" cy="4227" r="9" fill="#e7ddfb" stroke="#6d28d9" stroke-width="1.8"/>
+<text x="1252" y="4212" font-size="9.5" fill="#6d28d9" font-weight="700" text-anchor="middle">tip C</text>
+<path d="M 1252 4236 L 1252 4339" stroke="#6d28d9" stroke-width="2"/>
+<text x="1326" y="4183" font-size="12" fill="#6b7280"><tspan font-weight="700">one colour per tip</tspan>, painted down to the</text>
+<text x="1326" y="4201" font-size="12" fill="#6b7280">base. No route, no order — a commit is</text>
+<text x="1326" y="4219" font-size="12" fill="#6b7280">simply owned by whoever reaches it.</text>
+<text x="1326" y="4251" font-size="12" fill="#6b7280">Where two colours meet above the base,</text>
+<text x="1326" y="4269" font-size="12" fill="#6b7280">those tips are <tspan font-weight="700">one stack</tspan> — the shared</text>
+<text x="1326" y="4287" font-size="12" fill="#6b7280">tail is stored once, not duplicated.</text>
+<text x="1326" y="4319" font-size="12" fill="#6b7280">Tip C's colour meets nobody, so it is a</text>
+<text x="1326" y="4337" font-size="12" fill="#6b7280">stack of its own. Nothing can be missed:</text>
+<text x="1326" y="4355" font-size="12" fill="#6b7280">every commit above the base has an owner.</text>
+<text x="946" y="4403" font-size="12" fill="#6d28d9" font-weight="600">stackhood is a fact of the graph, not an outcome of the traversal</text>
+<line x1="474.0" y1="4443" x2="474.0" y2="4465" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 469.0 4465 L 479.0 4465 L 474.0 4473 Z" fill="#9aa0aa"/>
+<line x1="1306.0" y1="4443" x2="1306.0" y2="4465" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 1301.0 4465 L 1311.0 4465 L 1306.0 4473 Z" fill="#9aa0aa"/>
+<rect x="94" y="4473" width="760" height="120" rx="10" fill="#fffbeb" stroke="#f4d58a" stroke-width="1.5"/>
+<text x="114" y="4499" font-size="15.5" fill="#1b1d21" font-weight="700">Decision — where is the base?</text>
+<text x="114" y="4523" font-size="12" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">compute_lowest_base · find_best_effort_workspace_base</text>
+<text x="114" y="4543" font-size="12.5" fill="#6b7280">a best-effort search, run inside the same pass as everything else</text>
+<text x="114" y="4563" font-size="12.5" fill="#c0392b" font-weight="600">the floor and the lanes are decided together, not in sequence</text>
+<rect x="926" y="4473" width="760" height="140" rx="10" fill="#fffbeb" stroke="#f4d58a" stroke-width="1.5"/>
+<text x="946" y="4499" font-size="15.5" fill="#1b1d21" font-weight="700">Decision — what floors the view?</text>
+<text x="946" y="4523" font-size="12" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">projection/frame.rs :: bound_target_commit</text>
+<text x="946" y="4543" font-size="12.5" fill="#0f766e" font-weight="600">only the <tspan font-weight="700">configured</tspan> target prunes; a branch's own remote never does</text>
+<text x="946" y="4563" font-size="12.5" fill="#0f766e" font-weight="600">a recording is a floor only while its ref still resolves</text>
+<text x="946" y="4583" font-size="12.5" fill="#0f766e" font-weight="600">a missing upstream is <tspan font-weight="700">reported</tspan> rather than silently flooring nothing</text>
+<rect x="94" y="4673" width="1592" height="2" rx="1" fill="#e6e3dd"/>
+<rect x="94" y="4655" width="34" height="34" rx="17" fill="#f3effc" stroke="#6d28d9" stroke-width="1.5"/>
+<text x="111" y="4678" font-size="15" fill="#6d28d9" font-weight="700" text-anchor="middle">4</text>
+<rect x="138" y="4659" width="117.2" height="26" rx="6" fill="#fbfbfa"/>
+<text x="150" y="4678" font-size="17" fill="#1b1d21" font-weight="800">Describe</text>
+<rect x="255.2" y="4661" width="408.40000000000003" height="22" fill="#fbfbfa"/>
+<text x="267.2" y="4677" font-size="12.5" fill="#6b7280">what a lane is, which one it is, and what the UI finally gets</text>
+<rect x="94" y="4699" width="760" height="334" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="4726" font-size="13.5" fill="#1b1d21" font-weight="700">A stack is a chain</text>
+<text x="114" y="4745" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Vec&lt;StackSegment&gt; — adjacency is positional, (i, i+1)</text>
+<rect x="176.0" y="4773" width="96" height="26" rx="6" fill="#ffffff" stroke="#e6ddda" stroke-width="1.2"/>
+<text x="224" y="4790" font-size="10.5" fill="#1b1d21" font-weight="600" text-anchor="middle">segment A</text>
+<rect x="176.0" y="4827" width="96" height="26" rx="6" fill="#ffffff" stroke="#e6ddda" stroke-width="1.2"/>
+<text x="224" y="4844" font-size="10.5" fill="#1b1d21" font-weight="600" text-anchor="middle">segment B</text>
+<path d="M 224 4799 L 224 4813 L 224 4813 L 224 4821" fill="none" stroke="#9aa0aa" stroke-width="1.5"/>
+<path d="M 220 4821 L 228 4821 L 224 4827 Z" fill="#9aa0aa"/>
+<rect x="176.0" y="4881" width="96" height="26" rx="6" fill="#ffffff" stroke="#e6ddda" stroke-width="1.2"/>
+<text x="224" y="4898" font-size="10.5" fill="#1b1d21" font-weight="600" text-anchor="middle">segment C</text>
+<path d="M 224 4853 L 224 4867 L 224 4867 L 224 4875" fill="none" stroke="#9aa0aa" stroke-width="1.5"/>
+<path d="M 220 4875 L 228 4875 L 224 4881 Z" fill="#9aa0aa"/>
+<text x="224" y="4949" font-size="11" fill="#6b7280" text-anchor="middle">one tip, one line, no edges to store</text>
+<rect x="486.0" y="4773" width="96" height="26" rx="6" fill="#f2f0ee" stroke="#dcd9d4" stroke-width="1.2"/>
+<text x="534" y="4790" font-size="10.5" fill="#b9b5ae" font-weight="600" text-anchor="middle">merge</text>
+<rect x="402.0" y="4841" width="96" height="26" rx="6" fill="#f2f0ee" stroke="#dcd9d4" stroke-width="1.2"/>
+<text x="450" y="4858" font-size="10.5" fill="#b9b5ae" font-weight="600" text-anchor="middle">leg 1</text>
+<rect x="570.0" y="4841" width="96" height="26" rx="6" fill="#f2f0ee" stroke="#dcd9d4" stroke-width="1.2"/>
+<text x="618" y="4858" font-size="10.5" fill="#b9b5ae" font-weight="600" text-anchor="middle">leg 2</text>
+<path d="M 534 4799 L 534 4820 L 450 4820 L 450 4835" fill="none" stroke="#dcd9d4" stroke-width="1.5"/>
+<path d="M 446 4835 L 454 4835 L 450 4841 Z" fill="#dcd9d4"/>
+<path d="M 534 4799 L 534 4820 L 618 4820 L 618 4835" fill="none" stroke="#dcd9d4" stroke-width="1.5"/>
+<path d="M 614 4835 L 622 4835 L 618 4841 Z" fill="#dcd9d4"/>
+<path d="M 416 4765 L 652 4875 M 652 4765 L 416 4875" stroke="#c0392b" stroke-width="2.4" opacity="0.34"/>
+<text x="534" y="4907" font-size="11.5" fill="#c0392b" font-weight="600" text-anchor="middle">a fork has nowhere to live —</text>
+<text x="534" y="4924" font-size="11.5" fill="#c0392b" font-weight="600" text-anchor="middle">a flat list carries no edges, so it becomes</text>
+<text x="534" y="4941" font-size="11.5" fill="#c0392b" font-weight="600" text-anchor="middle">two stacks, or one of the legs is lost</text>
+<text x="114" y="4991" font-size="12" fill="#c0392b" font-weight="600">the shape the UI shows is the only shape the declaration can hold</text>
+<rect x="926" y="4699" width="760" height="334" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="4726" font-size="13.5" fill="#1b1d21" font-weight="700">A stack is a DAG, natively</text>
+<text x="946" y="4745" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">segments + dag_edges: Option&lt;Vec&lt;(usize, usize)&gt;&gt;</text>
+<text x="1098" y="4769" font-size="10.5" fill="#0f766e" font-weight="700" text-anchor="middle" letter-spacing="0.4">In-stack fork</text>
+<rect x="1050.0" y="4779" width="96" height="26" rx="6" fill="#ffffff" stroke="#bfded4" stroke-width="1.2"/>
+<text x="1098" y="4796" font-size="10.5" fill="#1b1d21" font-weight="600" text-anchor="middle">merge</text>
+<rect x="976.0" y="4841" width="96" height="26" rx="6" fill="#ffffff" stroke="#bfded4" stroke-width="1.2"/>
+<text x="1024" y="4858" font-size="10.5" fill="#1b1d21" font-weight="600" text-anchor="middle">leg 1</text>
+<rect x="1124.0" y="4841" width="96" height="26" rx="6" fill="#ffffff" stroke="#bfded4" stroke-width="1.2"/>
+<text x="1172" y="4858" font-size="10.5" fill="#1b1d21" font-weight="600" text-anchor="middle">leg 2</text>
+<rect x="1050.0" y="4903" width="96" height="26" rx="6" fill="#ffffff" stroke="#bfded4" stroke-width="1.2"/>
+<text x="1098" y="4920" font-size="10.5" fill="#1b1d21" font-weight="600" text-anchor="middle">base</text>
+<path d="M 1098 4805 L 1098 4823 L 1024 4823 L 1024 4835" fill="none" stroke="#9aa0aa" stroke-width="1.5"/>
+<path d="M 1020 4835 L 1028 4835 L 1024 4841 Z" fill="#9aa0aa"/>
+<path d="M 1098 4805 L 1098 4823 L 1172 4823 L 1172 4835" fill="none" stroke="#9aa0aa" stroke-width="1.5"/>
+<path d="M 1168 4835 L 1176 4835 L 1172 4841 Z" fill="#9aa0aa"/>
+<path d="M 1024 4867 L 1024 4885 L 1098 4885 L 1098 4897" fill="none" stroke="#9aa0aa" stroke-width="1.5"/>
+<path d="M 1094 4897 L 1102 4897 L 1098 4903 Z" fill="#9aa0aa"/>
+<path d="M 1172 4867 L 1172 4885 L 1098 4885 L 1098 4897" fill="none" stroke="#9aa0aa" stroke-width="1.5"/>
+<path d="M 1094 4897 L 1102 4897 L 1098 4903 Z" fill="#9aa0aa"/>
+<text x="1098" y="4951" font-size="10.5" fill="#6b7280" text-anchor="middle">the legs are siblings, listed</text>
+<text x="1098" y="4966" font-size="10.5" fill="#6b7280" text-anchor="middle">under the merge — never re-threaded</text>
+<text x="1434" y="4769" font-size="10.5" fill="#0f766e" font-weight="700" text-anchor="middle" letter-spacing="0.4">Converged multi-tip</text>
+<rect x="1308.0" y="4779" width="96" height="26" rx="6" fill="#ffffff" stroke="#bfded4" stroke-width="1.2"/>
+<text x="1356" y="4796" font-size="10.5" fill="#1b1d21" font-weight="600" text-anchor="middle">tip 1</text>
+<rect x="1464.0" y="4779" width="96" height="26" rx="6" fill="#ffffff" stroke="#bfded4" stroke-width="1.2"/>
+<text x="1512" y="4796" font-size="10.5" fill="#1b1d21" font-weight="600" text-anchor="middle">tip 2</text>
+<rect x="1375.0" y="4841" width="118" height="26" rx="6" fill="#ffffff" stroke="#bfded4" stroke-width="1.2"/>
+<text x="1434" y="4858" font-size="10.5" fill="#1b1d21" font-weight="600" text-anchor="middle">shared tail</text>
+<rect x="1386.0" y="4903" width="96" height="26" rx="6" fill="#ffffff" stroke="#bfded4" stroke-width="1.2"/>
+<text x="1434" y="4920" font-size="10.5" fill="#1b1d21" font-weight="600" text-anchor="middle">base</text>
+<path d="M 1356 4805 L 1356 4823 L 1404 4823 L 1404 4835" fill="none" stroke="#9aa0aa" stroke-width="1.5"/>
+<path d="M 1400 4835 L 1408 4835 L 1404 4841 Z" fill="#9aa0aa"/>
+<path d="M 1512 4805 L 1512 4823 L 1464 4823 L 1464 4835" fill="none" stroke="#9aa0aa" stroke-width="1.5"/>
+<path d="M 1460 4835 L 1468 4835 L 1464 4841 Z" fill="#9aa0aa"/>
+<path d="M 1434 4867 L 1434 4885 L 1434 4885 L 1434 4897" fill="none" stroke="#9aa0aa" stroke-width="1.5"/>
+<path d="M 1430 4897 L 1438 4897 L 1434 4903 Z" fill="#9aa0aa"/>
+<text x="1508" y="4859" font-size="10" fill="#0f766e" font-weight="700">stored once</text>
+<text x="1434" y="4951" font-size="10.5" fill="#6b7280" text-anchor="middle">tips converging above the base are</text>
+<text x="1434" y="4966" font-size="10.5" fill="#6b7280" text-anchor="middle">one stack — a graph fact, not stored shape</text>
+<text x="946" y="4987" font-size="11.5" fill="#6b7280">None for an unforked stack, so the common case costs nothing —</text>
+<text x="946" y="5005" font-size="11.5" fill="#0f766e" font-weight="600">and today's linear lanes are <tspan font-weight="700">derived</tspan> per tip, never stored</text>
+<line x1="474.0" y1="5033" x2="474.0" y2="5055" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 469.0 5055 L 479.0 5055 L 474.0 5063 Z" fill="#9aa0aa"/>
+<line x1="1306.0" y1="5033" x2="1306.0" y2="5055" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 1301.0 5055 L 1311.0 5055 L 1306.0 5063 Z" fill="#9aa0aa"/>
+<rect x="94" y="5063" width="760" height="396" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="5090" font-size="13.5" fill="#1b1d21" font-weight="700">How does the app know it is the same lane?</text>
+<text x="114" y="5111" font-size="12" fill="#6b7280">The lane is worked out again on every read. The id is how the app</text>
+<text x="114" y="5129" font-size="12" fill="#6b7280">recognises it — what you had selected, the message you are typing.</text>
+<rect x="114" y="5145" width="720" height="52" rx="8" fill="#ffffff" stroke="#cdd5e2" stroke-width="1.4"/>
+<text x="130" y="5166" font-size="11.5" fill="#1b1d21" font-weight="700">The id is not worked out at all — it is stored.</text>
+<text x="130" y="5184" font-size="10.5" fill="#6b7280">A value written into VirtualBranches.toml once, when the stack was created. Both columns read the same file.</text>
+<text x="114" y="5217" font-size="12" fill="#1b1d21" font-weight="600">What differs is how a freshly worked-out lane is matched to a stored id:</text>
+<rect x="118" y="5231" width="228" height="72" rx="8" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.5"/>
+<text x="132" y="5250" font-size="10" fill="#6b7280">first read</text>
+<text x="132" y="5270" font-size="11.5" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">branches A, B</text>
+<rect x="132" y="5279" width="86" height="19" rx="9.5" fill="#6b7280"/>
+<text x="175" y="5293" font-size="10.5" fill="#ffffff" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">id 7</text>
+<path d="M 362 5267 L 416 5267" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 415 5262 L 415 5272 L 424 5267 Z" fill="#9aa0aa"/>
+<text x="390" y="5247" font-size="9.5" fill="#6b7280" text-anchor="middle">a ref is</text>
+<text x="390" y="5259" font-size="9.5" fill="#6b7280" text-anchor="middle">added</text>
+<rect x="434" y="5231" width="228" height="72" rx="8" fill="#ffffff" stroke="#e6b9b3" stroke-width="1.5"/>
+<text x="448" y="5250" font-size="10" fill="#6b7280">next read</text>
+<text x="448" y="5270" font-size="11.5" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">branches A, B</text>
+<rect x="448" y="5279" width="86" height="19" rx="9.5" fill="#c0392b"/>
+<text x="491" y="5293" font-size="10.5" fill="#ffffff" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">id 3</text>
+<text x="648" y="5293" font-size="10" fill="#e6b9b3" font-weight="700" text-anchor="end">changed</text>
+<text x="114" y="5331" font-size="12" fill="#6b7280"><tspan font-weight="700">by scoring.</tspan> Every ref in view is given a weight — the segment's own</text>
+<text x="114" y="5349" font-size="12" fill="#6b7280">name counts most — and the highest score wins the stored id.</text>
+<text x="114" y="5377" font-size="12" fill="#c0392b">A competition, so the field matters. Add a ref and the scores move;</text>
+<text x="114" y="5395" font-size="12" fill="#c0392b">and which ref names the segment was itself settled by the ordered</text>
+<text x="114" y="5413" font-size="12" fill="#c0392b">passes, so the winner can change without you touching the stack.</text>
+<text x="114" y="5443" font-size="12" fill="#c0392b" font-weight="600">the same lane comes back wearing a different id</text>
+<rect x="926" y="5063" width="760" height="396" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="5090" font-size="13.5" fill="#1b1d21" font-weight="700">How does the app know it is the same lane?</text>
+<text x="946" y="5111" font-size="12" fill="#6b7280">The lane is worked out again on every read. The id is how the app</text>
+<text x="946" y="5129" font-size="12" fill="#6b7280">recognises it — what you had selected, the message you are typing.</text>
+<rect x="946" y="5145" width="720" height="52" rx="8" fill="#ffffff" stroke="#cdd5e2" stroke-width="1.4"/>
+<text x="962" y="5166" font-size="11.5" fill="#1b1d21" font-weight="700">The id is not worked out at all — it is stored.</text>
+<text x="962" y="5184" font-size="10.5" fill="#6b7280">A value written into VirtualBranches.toml once, when the stack was created. Both columns read the same file.</text>
+<text x="946" y="5217" font-size="12" fill="#1b1d21" font-weight="600">What differs is how a freshly worked-out lane is matched to a stored id:</text>
+<rect x="950" y="5231" width="228" height="72" rx="8" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.5"/>
+<text x="964" y="5250" font-size="10" fill="#6b7280">first read</text>
+<text x="964" y="5270" font-size="11.5" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">branches A, B</text>
+<rect x="964" y="5279" width="86" height="19" rx="9.5" fill="#6b7280"/>
+<text x="1007" y="5293" font-size="10.5" fill="#ffffff" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">id 7</text>
+<path d="M 1194 5267 L 1248 5267" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 1247 5262 L 1247 5272 L 1256 5267 Z" fill="#9aa0aa"/>
+<text x="1222" y="5247" font-size="9.5" fill="#6b7280" text-anchor="middle">a ref is</text>
+<text x="1222" y="5259" font-size="9.5" fill="#6b7280" text-anchor="middle">added</text>
+<rect x="1266" y="5231" width="228" height="72" rx="8" fill="#ffffff" stroke="#a7d8cb" stroke-width="1.5"/>
+<text x="1280" y="5250" font-size="10" fill="#6b7280">next read</text>
+<text x="1280" y="5270" font-size="11.5" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">branches A, B</text>
+<rect x="1280" y="5279" width="86" height="19" rx="9.5" fill="#0f766e"/>
+<text x="1323" y="5293" font-size="10.5" fill="#ffffff" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">id 7</text>
+<text x="1480" y="5293" font-size="10" fill="#a7d8cb" font-weight="700" text-anchor="end">unchanged</text>
+<text x="946" y="5331" font-size="12" fill="#6b7280"><tspan font-weight="700">by membership.</tspan> The lane takes the id of the declared stack that owns</text>
+<text x="946" y="5349" font-size="12" fill="#6b7280">a branch this lane reaches. A yes-or-no question, asked once.</text>
+<text x="946" y="5377" font-size="12" fill="#0f766e">The branches a stack declares are input, not something the read can</text>
+<text x="946" y="5395" font-size="12" fill="#0f766e">move — so a ref appearing elsewhere is simply not part of the question.</text>
+<text x="946" y="5413" font-size="12" fill="#0f766e">Nothing declared? A fresh id, never one borrowed from a ref.</text>
+<text x="946" y="5443" font-size="12" fill="#0f766e" font-weight="600">the same lane comes back wearing the same id</text>
+<line x1="474.0" y1="5459" x2="474.0" y2="5481" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 469.0 5481 L 479.0 5481 L 474.0 5489 Z" fill="#9aa0aa"/>
+<line x1="1306.0" y1="5459" x2="1306.0" y2="5481" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 1301.0 5481 L 1311.0 5481 L 1306.0 5489 Z" fill="#9aa0aa"/>
+<rect x="94" y="5489" width="760" height="398" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="5516" font-size="13.5" fill="#1b1d21" font-weight="700">The UI payload is minted first, then repaired</text>
+<text x="114" y="5536" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">the segment graph IS the display structure</text>
+<rect x="234" y="5563" width="480" height="56" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="474.0" y="5584" font-size="11.5" fill="#1b1d21" font-weight="700" text-anchor="middle">the walk mints segments</text>
+<text x="474.0" y="5601" font-size="9.8" fill="#6b7280" text-anchor="middle">the node IS what the UI will show</text>
+<path d="M 474.0 5619 L 474.0 5634" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 470.0 5634 L 478.0 5634 L 474.0 5641 Z" fill="#9aa0aa"/>
+<rect x="234" y="5641" width="480" height="56" rx="7" fill="#fdf3f2" stroke="#e6b9b3" stroke-width="1.3"/>
+<text x="474.0" y="5662" font-size="11.5" fill="#1b1d21" font-weight="700" text-anchor="middle">ten passes repair them</text>
+<text x="474.0" y="5679" font-size="9.8" fill="#6b7280" text-anchor="middle">names, splits, remote segments, ordering</text>
+<path d="M 474.0 5697 L 474.0 5712" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 470.0 5712 L 478.0 5712 L 474.0 5719 Z" fill="#9aa0aa"/>
+<rect x="234" y="5719" width="480" height="44" rx="7" fill="#fdf3f2" stroke="#e6b9b3" stroke-width="1.3"/>
+<text x="474.0" y="5740" font-size="11.5" fill="#1b1d21" font-weight="700" text-anchor="middle">everyone reads this</text>
+<text x="114" y="5785" font-size="12" fill="#6b7280">There is no assembly step, because there is nothing to assemble —</text>
+<text x="114" y="5803" font-size="12" fill="#6b7280">the graph already is the payload. So display decisions are baked</text>
+<text x="114" y="5821" font-size="12" fill="#c0392b">into the structure <tspan font-weight="700">operations</tspan> read, and pruning a lane for the</text>
+<text x="114" y="5839" font-size="12" fill="#c0392b">UI changes what an operation sees too.</text>
+<rect x="926" y="5489" width="760" height="398" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="5516" font-size="13.5" fill="#1b1d21" font-weight="700">The UI payload is assembled last</text>
+<text x="946" y="5536" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">projection/init.rs :: display_stacks()</text>
+<rect x="946" y="5563" width="720" height="50" rx="7" fill="#ecfdf5" stroke="#a7d8cb" stroke-width="1.3"/>
+<text x="1306.0" y="5584" font-size="11.5" fill="#1b1d21" font-weight="700" text-anchor="middle">the derivation ends here</text>
+<text x="1306.0" y="5601" font-size="9.8" fill="#6b7280" text-anchor="middle">a thin partition: SegmentStack — the decided extent, nothing about looks</text>
+<path d="M 1306.0 5613 L 1306.0 5628" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 1302.0 5628 L 1310.0 5628 L 1306.0 5635 Z" fill="#9aa0aa"/>
+<rect x="946.0" y="5635" width="230.66666666666666" height="58" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="1061.3333333333333" y="5656" font-size="11.5" fill="#1b1d21" font-weight="700" text-anchor="middle">HIDE</text>
+<text x="1061.3333333333333" y="5673" font-size="9.8" fill="#6b7280" text-anchor="middle">archived · out-of-cone</text>
+<text x="1061.3333333333333" y="5687" font-size="9.8" fill="#6b7280" text-anchor="middle">empties · integrated</text>
+<path d="M 1178.6666666666667 5664 L 1186.6666666666667 5664" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 1185.6666666666667 5660 L 1185.6666666666667 5668 L 1191.6666666666667 5664 Z" fill="#9aa0aa"/>
+<rect x="1190.6666666666667" y="5635" width="230.66666666666666" height="58" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="1306.0" y="5656" font-size="11.5" fill="#1b1d21" font-weight="700" text-anchor="middle">ENRICH</text>
+<text x="1306.0" y="5673" font-size="9.8" fill="#6b7280" text-anchor="middle">remote reachability,</text>
+<text x="1306.0" y="5687" font-size="9.8" fill="#6b7280" text-anchor="middle">commits on remote</text>
+<path d="M 1423.3333333333335 5664 L 1431.3333333333335 5664" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M 1430.3333333333335 5660 L 1430.3333333333335 5668 L 1436.3333333333335 5664 Z" fill="#9aa0aa"/>
+<rect x="1435.3333333333333" y="5635" width="230.66666666666666" height="58" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="1550.6666666666665" y="5656" font-size="11.5" fill="#1b1d21" font-weight="700" text-anchor="middle">VIEW RULE</text>
+<text x="1550.6666666666665" y="5673" font-size="9.8" fill="#6b7280" text-anchor="middle">single-stack base</text>
+<text x="1550.6666666666665" y="5687" font-size="9.8" fill="#6b7280" text-anchor="middle">truncation</text>
+<path d="M 1306.0 5693 L 1306.0 5708" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 1302.0 5708 L 1310.0 5708 L 1306.0 5715 Z" fill="#9aa0aa"/>
+<rect x="1066" y="5715" width="480" height="44" rx="7" fill="#ecfdf5" stroke="#a7d8cb" stroke-width="1.3"/>
+<text x="1306.0" y="5736" font-size="11.5" fill="#1b1d21" font-weight="700" text-anchor="middle">Vec&lt;Stack&gt; — for this caller, this time</text>
+<text x="946" y="5781" font-size="12" fill="#0f766e"><tspan font-weight="700">Derived per call, so display cost lives at the call site.</tspan> The order</text>
+<text x="946" y="5799" font-size="12" fill="#6b7280">is load-bearing and stated: enrich runs after hide, so it never</text>
+<text x="946" y="5817" font-size="12" fill="#6b7280">describes a segment that then vanishes.</text>
+<text x="946" y="5841" font-size="12" fill="#0f766e"><tspan font-weight="700">And pruning is a display act.</tspan> The derivation above stays total —</text>
+<text x="946" y="5859" font-size="12" fill="#0f766e">which is what lets operations read it pre-prune.</text>
+<line x1="474.0" y1="5887" x2="474.0" y2="5909" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 469.0 5909 L 479.0 5909 L 474.0 5917 Z" fill="#9aa0aa"/>
+<line x1="1306.0" y1="5887" x2="1306.0" y2="5909" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 1301.0 5909 L 1311.0 5909 L 1306.0 5917 Z" fill="#9aa0aa"/>
+<rect x="94" y="5917" width="760" height="366" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="5944" font-size="13.5" fill="#1b1d21" font-weight="700">The same value is asked to be three things</text>
+<text x="114" y="5964" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">but_graph::Workspace — worked out fresh on every read</text>
+<rect x="120" y="6041" width="176" height="64" rx="8" fill="#ffffff" stroke="#c0392b" stroke-width="1.8"/>
+<text x="208.0" y="6067" font-size="12.5" fill="#1b1d21" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Workspace</text>
+<text x="208.0" y="6087" font-size="10" fill="#6b7280" text-anchor="middle">the picture of the workspace</text>
+<rect x="394" y="5999" width="432" height="56" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.4"/>
+<text x="410" y="6022" font-size="11.5" fill="#1b1d21" font-weight="700">the picture on screen</text>
+<text x="410" y="6040" font-size="10.5" fill="#6b7280">what the app draws</text>
+<path d="M 296 6073 L 345.0 6073 L 345.0 6027 L 384 6027" fill="none" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 384 6022 L 384 6032 L 393 6027 Z" fill="#9aa0aa"/>
+<rect x="394" y="6073" width="432" height="56" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.4"/>
+<text x="410" y="6096" font-size="11.5" fill="#1b1d21" font-weight="700">handed to every branch operation</text>
+<text x="410" y="6114" font-size="10.5" fill="#6b7280">apply(branch, workspace) — taken by value</text>
+<path d="M 296 6073 L 345.0 6073 L 345.0 6101 L 384 6101" fill="none" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 384 6096 L 384 6106 L 393 6101 Z" fill="#9aa0aa"/>
+<rect x="394" y="6147" width="432" height="56" rx="8" fill="#fbe9e7" stroke="#c0392b" stroke-width="1.4"/>
+<text x="410" y="6170" font-size="11.5" fill="#1b1d21" font-weight="700">the saved declaration</text>
+<text x="410" y="6188" font-size="10.5" fill="#c0392b">the picture is written back to it</text>
+<path d="M 296 6073 L 345.0 6073 L 345.0 6175 L 384 6175" fill="none" stroke="#c0392b" stroke-width="1.7"/>
+<path d="M 384 6170 L 384 6180 L 393 6175 Z" fill="#c0392b"/>
+<text x="114" y="6223" font-size="12" fill="#c0392b">Arrow 2 reads the <tspan font-weight="700">pruned</tspan> picture, so what the display left out can</text>
+<text x="114" y="6241" font-size="12" fill="#c0392b">change where an operation anchors. Arrow 3 then saves the result —</text>
+<text x="114" y="6259" font-size="12" fill="#6b7280">what was drawn becomes a fact, and the next drawing starts from it.</text>
+<rect x="926" y="5917" width="760" height="366" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="5944" font-size="13.5" fill="#1b1d21" font-weight="700">The same value is asked to be one thing</text>
+<text x="946" y="5964" font-size="11.5" fill="#8a6d2f" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">but_graph::Workspace — worked out fresh on every read</text>
+<rect x="952" y="6041" width="176" height="64" rx="8" fill="#ffffff" stroke="#0f766e" stroke-width="1.8"/>
+<text x="1040.0" y="6067" font-size="12.5" fill="#1b1d21" font-weight="700" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">Workspace</text>
+<text x="1040.0" y="6087" font-size="10" fill="#6b7280" text-anchor="middle">the picture of the workspace</text>
+<rect x="1226" y="5999" width="432" height="56" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.4"/>
+<text x="1242" y="6022" font-size="11.5" fill="#1b1d21" font-weight="700">the picture on screen</text>
+<text x="1242" y="6040" font-size="10.5" fill="#6b7280">what the app draws</text>
+<path d="M 1128 6073 L 1177.0 6073 L 1177.0 6027 L 1216 6027" fill="none" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 1216 6022 L 1216 6032 L 1225 6027 Z" fill="#9aa0aa"/>
+<rect x="1226" y="6073" width="432" height="56" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.4"/>
+<text x="1242" y="6096" font-size="11.5" fill="#1b1d21" font-weight="700">lent to every branch operation</text>
+<text x="1242" y="6114" font-size="10.5" fill="#6b7280">apply(branch, &amp;workspace) — borrowed</text>
+<path d="M 1128 6073 L 1177.0 6073 L 1177.0 6101 L 1216 6101" fill="none" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 1216 6096 L 1216 6106 L 1225 6101 Z" fill="#9aa0aa"/>
+<rect x="1226" y="6147" width="432" height="56" rx="8" fill="#f3f6f5" stroke="#dfe3e0" stroke-width="1.4" stroke-dasharray="5 4"/>
+<text x="1242" y="6170" font-size="11.5" fill="#6b7280" font-weight="700">the saved declaration</text>
+<text x="1242" y="6188" font-size="10.5" fill="#6b7280">never — only operations write</text>
+<path d="M 1128 6073 L 1177.0 6073 L 1177.0 6175 L 1216 6175" fill="none" stroke="#cdcac5" stroke-width="1.7" stroke-dasharray="5 4"/>
+<path d="M 1208 6168 L 1222 6182 M 1222 6168 L 1208 6182" stroke="#0f766e" stroke-width="2.4"/>
+<text x="946" y="6223" font-size="12" fill="#0f766e">Arrow 2 reads the <tspan font-weight="700">total</tspan> picture — everything derived, before any</text>
+<text x="946" y="6241" font-size="12" fill="#0f766e">pruning — so what the display hides cannot change what an operation</text>
+<text x="946" y="6259" font-size="12" fill="#6b7280">does. Arrow 3 is gone, so nothing it gets wrong outlives the read.</text>
+<rect x="94" y="6343" width="1592" height="2" rx="1" fill="#e6e3dd"/>
+<rect x="94" y="6325" width="34" height="34" rx="17" fill="#f3effc" stroke="#6d28d9" stroke-width="1.5"/>
+<text x="111" y="6348" font-size="15" fill="#6d28d9" font-weight="700" text-anchor="middle">5</text>
+<rect x="138" y="6329" width="83.0" height="26" rx="6" fill="#fbfbfa"/>
+<text x="150" y="6348" font-size="17" fill="#1b1d21" font-weight="800">Write</text>
+<rect x="221.0" y="6331" width="210.0" height="22" fill="#fbfbfa"/>
+<text x="233.0" y="6347" font-size="12.5" fill="#6b7280">who may change the declaration</text>
+<rect x="94" y="6369" width="760" height="250" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="6397" font-size="15.5" fill="#1b1d21" font-weight="700">If the view is wrong</text>
+<text x="114" y="6419" font-size="13" fill="#c0392b" font-weight="700">the mistake becomes a fact</text>
+<rect x="114.0" y="6437" width="217.33333333333334" height="52" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="222.66666666666669" y="6457" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">the render picks a</text>
+<text x="222.66666666666669" y="6472" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">lane</text>
+<path d="M 339.33333333333337 6463 L 351.33333333333337 6463" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 350.33333333333337 6458 L 350.33333333333337 6468 L 357.33333333333337 6463 Z" fill="#9aa0aa"/>
+<rect x="365.33333333333337" y="6437" width="217.33333333333334" height="52" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="474.00000000000006" y="6457" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">the write-back</text>
+<text x="474.00000000000006" y="6472" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">stores it</text>
+<path d="M 590.6666666666667 6463 L 602.6666666666667 6463" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 601.6666666666667 6458 L 601.6666666666667 6468 L 608.6666666666667 6463 Z" fill="#9aa0aa"/>
+<rect x="616.6666666666667" y="6437" width="217.33333333333334" height="52" rx="7" fill="#f7dedb" stroke="#c0392b" stroke-width="1.8"/>
+<text x="725.3333333333334" y="6457" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">the next read</text>
+<text x="725.3333333333334" y="6472" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">inherits it</text>
+<circle cx="120" cy="6515" r="3" fill="#c0392b"/>
+<text x="132" y="6519" font-size="12.5" fill="#6b7280">a name chosen to <tspan font-weight="700">display</tspan> becomes a durable fact</text>
+<circle cx="120" cy="6539" r="3" fill="#c0392b"/>
+<text x="132" y="6543" font-size="12.5" fill="#6b7280">afterwards it looks exactly like something you chose</text>
+<circle cx="120" cy="6563" r="3" fill="#c0392b"/>
+<text x="132" y="6567" font-size="12.5" fill="#c0392b" font-weight="600">so the error does not merely show — it persists</text>
+<rect x="926" y="6369" width="760" height="250" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="6397" font-size="15.5" fill="#1b1d21" font-weight="700">If the view is wrong</text>
+<text x="946" y="6419" font-size="13" fill="#0f766e" font-weight="700">the mistake stays a mistake</text>
+<rect x="946.0" y="6437" width="217.33333333333334" height="52" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="1054.6666666666667" y="6457" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">the render picks a</text>
+<text x="1054.6666666666667" y="6472" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">lane</text>
+<path d="M 1171.3333333333333 6463 L 1183.3333333333333 6463" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 1182.3333333333333 6458 L 1182.3333333333333 6468 L 1189.3333333333333 6463 Z" fill="#9aa0aa"/>
+<rect x="1197.3333333333333" y="6437" width="217.33333333333334" height="52" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="1306.0" y="6461" font-size="11" fill="#6b7280" font-weight="400" text-anchor="middle">nothing stores it</text>
+<path d="M 1422.6666666666665 6463 L 1434.6666666666665 6463" stroke="#9aa0aa" stroke-width="1.7"/>
+<path d="M 1433.6666666666665 6458 L 1433.6666666666665 6468 L 1440.6666666666665 6463 Z" fill="#9aa0aa"/>
+<rect x="1448.6666666666667" y="6437" width="217.33333333333334" height="52" rx="7" fill="#d8f2e8" stroke="#0f766e" stroke-width="1.8"/>
+<text x="1557.3333333333335" y="6457" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">the next read</text>
+<text x="1557.3333333333335" y="6472" font-size="11" fill="#1b1d21" font-weight="700" text-anchor="middle">re-derives</text>
+<circle cx="952" cy="6515" r="3" fill="#0f766e"/>
+<text x="964" y="6519" font-size="12.5" fill="#6b7280">a wrong lane is only ever shown, never authored</text>
+<circle cx="952" cy="6539" r="3" fill="#0f766e"/>
+<text x="964" y="6543" font-size="12.5" fill="#6b7280">the declaration still holds what the last operation meant</text>
+<circle cx="952" cy="6563" r="3" fill="#0f766e"/>
+<text x="964" y="6567" font-size="12.5" fill="#0f766e" font-weight="600">fix the code and the next derivation is correct again</text>
+<line x1="474.0" y1="6619" x2="474.0" y2="6641" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 469.0 6641 L 479.0 6641 L 474.0 6649 Z" fill="#9aa0aa"/>
+<line x1="1306.0" y1="6619" x2="1306.0" y2="6641" stroke="#9aa0aa" stroke-width="2"/>
+<path d="M 1301.0 6641 L 1311.0 6641 L 1306.0 6649 Z" fill="#9aa0aa"/>
+<rect x="94" y="6649" width="760" height="390" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="114" y="6676" font-size="13.5" fill="#1b1d21" font-weight="700">Who writes the declaration?</text>
+<text x="114" y="6695" font-size="11" fill="#6b7280">VirtualBranches.toml — the workspace metadata GitButler keeps</text>
+<text x="114" y="6715" font-size="13" fill="#c0392b" font-weight="700">the drawing does</text>
+<rect x="114" y="6729" width="720" height="34" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="130" y="6751" font-size="11.5" fill="#6b7280">you run <tspan font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="#1b1d21">but apply A</tspan> while standing on <tspan font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="#1b1d21">main</tspan></text>
+<circle cx="132" cy="6792" r="11" fill="#ffffff" stroke="#c0392b" stroke-width="1.4"/>
+<text x="132" y="6796" font-size="10.5" fill="#c0392b" font-weight="700" text-anchor="middle">1</text>
+<text x="156" y="6797" font-size="11.5" fill="#6b7280">the merge is rebuilt</text>
+<circle cx="132" cy="6826" r="11" fill="#ffffff" stroke="#c0392b" stroke-width="1.4"/>
+<text x="132" y="6830" font-size="10.5" fill="#c0392b" font-weight="700" text-anchor="middle">2</text>
+<text x="156" y="6831" font-size="11.5" fill="#6b7280">the view is derived — it draws lanes main and A</text>
+<circle cx="132" cy="6860" r="11" fill="#ffffff" stroke="#c0392b" stroke-width="1.4"/>
+<text x="132" y="6864" font-size="10.5" fill="#c0392b" font-weight="700" text-anchor="middle">3</text>
+<text x="156" y="6865" font-size="11.5" fill="#6b7280">the write-back copies those lanes into the declaration</text>
+<rect x="114" y="6889" width="720" height="62" rx="7" fill="#ffffff" stroke="#c0392b" stroke-width="1.5"/>
+<text x="130" y="6909" font-size="10" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">VirtualBranches.toml</text>
+<text x="130" y="6933" font-size="12.5" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">stacks = [ main , A ]</text>
+<text x="818" y="6933" font-size="10.5" fill="#c0392b" font-weight="700" text-anchor="end">because that is what got drawn</text>
+<text x="114" y="6977" font-size="12" fill="#c0392b"><tspan font-weight="700">Same result here — they part when the drawing and the request disagree.</tspan></text>
+<text x="114" y="6995" font-size="12" fill="#6b7280">Anything the view pruned, renamed or could not place is recorded that way,</text>
+<text x="114" y="7013" font-size="12" fill="#6b7280">and no one can tell afterwards that a drawing decided it.</text>
+<rect x="926" y="6649" width="760" height="390" rx="10" fill="#f7f7f5" stroke="#e2e0dc" stroke-width="1.5"/>
+<text x="946" y="6676" font-size="13.5" fill="#1b1d21" font-weight="700">Who writes the declaration?</text>
+<text x="946" y="6695" font-size="11" fill="#6b7280">VirtualBranches.toml — the workspace metadata GitButler keeps</text>
+<text x="946" y="6715" font-size="13" fill="#0f766e" font-weight="700">the operation does</text>
+<rect x="946" y="6729" width="720" height="34" rx="7" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="962" y="6751" font-size="11.5" fill="#6b7280">you run <tspan font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="#1b1d21">but apply A</tspan> while standing on <tspan font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" fill="#1b1d21">main</tspan></text>
+<circle cx="964" cy="6792" r="11" fill="#ffffff" stroke="#0f766e" stroke-width="1.4"/>
+<text x="964" y="6796" font-size="10.5" fill="#0f766e" font-weight="700" text-anchor="middle">1</text>
+<text x="988" y="6797" font-size="11.5" fill="#6b7280">apply writes the declaration: stacks += A, and — rule 2 —</text>
+<text x="988" y="6831" font-size="11.5" fill="#6b7280">the main you were standing on</text>
+<circle cx="964" cy="6860" r="11" fill="#ffffff" stroke="#0f766e" stroke-width="1.4"/>
+<text x="964" y="6864" font-size="10.5" fill="#0f766e" font-weight="700" text-anchor="middle">2</text>
+<text x="988" y="6865" font-size="11.5" fill="#6b7280">the merge is rebuilt, then the view is derived from the declaration</text>
+<rect x="946" y="6889" width="720" height="62" rx="7" fill="#ffffff" stroke="#0f766e" stroke-width="1.5"/>
+<text x="962" y="6909" font-size="10" fill="#6b7280" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">VirtualBranches.toml</text>
+<text x="962" y="6933" font-size="12.5" fill="#1b1d21" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">stacks = [ main , A ]</text>
+<text x="1650" y="6933" font-size="10.5" fill="#0f766e" font-weight="700" text-anchor="end">because apply said so</text>
+<text x="946" y="6977" font-size="12" fill="#0f766e"><tspan font-weight="700">That is all “recording intent” means:</tspan> the operation states what it did,</text>
+<text x="946" y="6995" font-size="12" fill="#6b7280">in the declaration, at the time it did it — before any view exists to disagree.</text>
+<text x="946" y="7013" font-size="12" fill="#6b7280">Rule 3 is the same move: integration mints a stand-in and says so.</text>
+<rect x="94" y="118" width="1592" height="118" rx="10" fill="#f4f4f2" stroke="#dedcd7" stroke-width="1.5"/>
+<text x="890.0" y="144" font-size="12.5" fill="#1b1d21" font-weight="700" text-anchor="middle">Both columns are the same five-step pipeline. Every panel below is one step, shown twice — master on the left, the refactor on the right.</text>
+<rect x="118.0" y="160" width="288.0" height="56" rx="8" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.3"/>
+<circle cx="140.0" cy="181" r="11" fill="#efe9fb" stroke="#6d28d9"/>
+<text x="140.0" y="185" font-size="11" fill="#6d28d9" font-weight="700" text-anchor="middle">1</text>
+<text x="160.0" y="185" font-size="13" fill="#1b1d21" font-weight="700">Read</text>
+<text x="132.0" y="206" font-size="10" fill="#6b7280">the repository, and what GitButler was told</text>
+<path d="M411.0,188 L421.0,188" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M420.0,183 L420.0,193 L427.0,188 Z" fill="#9aa0aa"/>
+<rect x="432.0" y="160" width="288.0" height="56" rx="8" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.3"/>
+<circle cx="454.0" cy="181" r="11" fill="#efe9fb" stroke="#6d28d9"/>
+<text x="454.0" y="185" font-size="11" fill="#6d28d9" font-weight="700" text-anchor="middle">2</text>
+<text x="474.0" y="185" font-size="13" fill="#1b1d21" font-weight="700">Build</text>
+<text x="446.0" y="206" font-size="10" fill="#6b7280">turn that into a graph</text>
+<path d="M725.0,188 L735.0,188" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M734.0,183 L734.0,193 L741.0,188 Z" fill="#9aa0aa"/>
+<rect x="746.0" y="160" width="288.0" height="56" rx="8" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.3"/>
+<circle cx="768.0" cy="181" r="11" fill="#efe9fb" stroke="#6d28d9"/>
+<text x="768.0" y="185" font-size="11" fill="#6d28d9" font-weight="700" text-anchor="middle">3</text>
+<text x="788.0" y="185" font-size="13" fill="#1b1d21" font-weight="700">Derive</text>
+<text x="760.0" y="206" font-size="10" fill="#6b7280">work out the lanes from the graph</text>
+<path d="M1039.0,188 L1049.0,188" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M1048.0,183 L1048.0,193 L1055.0,188 Z" fill="#9aa0aa"/>
+<rect x="1060.0" y="160" width="288.0" height="56" rx="8" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.3"/>
+<circle cx="1082.0" cy="181" r="11" fill="#efe9fb" stroke="#6d28d9"/>
+<text x="1082.0" y="185" font-size="11" fill="#6d28d9" font-weight="700" text-anchor="middle">4</text>
+<text x="1102.0" y="185" font-size="13" fill="#1b1d21" font-weight="700">Describe</text>
+<text x="1074.0" y="206" font-size="10" fill="#6b7280">what a lane is, and which one it is</text>
+<path d="M1353.0,188 L1363.0,188" stroke="#9aa0aa" stroke-width="1.6"/>
+<path d="M1362.0,183 L1362.0,193 L1369.0,188 Z" fill="#9aa0aa"/>
+<rect x="1374.0" y="160" width="288.0" height="56" rx="8" fill="#ffffff" stroke="#d9d9d5" stroke-width="1.3"/>
+<circle cx="1396.0" cy="181" r="11" fill="#efe9fb" stroke="#6d28d9"/>
+<text x="1396.0" y="185" font-size="11" fill="#6d28d9" font-weight="700" text-anchor="middle">5</text>
+<text x="1416.0" y="185" font-size="13" fill="#1b1d21" font-weight="700">Write</text>
+<text x="1388.0" y="206" font-size="10" fill="#6b7280">who may change the declaration</text>
+<text x="890.0" y="7113" font-size="12.5" fill="#6b7280" text-anchor="middle">Ten order-dependent traversals and a write-back, against four phases that never rewrite each other and a view that only ever reads.</text>
+
+<text x="890" y="257" font-size="15" fill="#0f766e" font-weight="700" text-anchor="middle" letter-spacing="1.5">THE LANGUAGE OF REFERENCES</text>
+<rect x="94" y="271" width="1592" height="560" rx="10" fill="#f7f7f5" stroke="#9ec9ba" stroke-width="1.6"/>
+<text x="126" y="309" font-size="16" fill="#1b1d21" font-weight="800">One thing, two vocabularies — a reference across the pipeline</text>
+<rect x="1428" y="289" width="228" height="26" rx="13" fill="#d6f0e8"/>
+<text x="1542" y="307" font-size="12" fill="#0f766e" font-weight="700" text-anchor="middle">positions, not nodes</text>
+<text x="126" y="333" font-size="12.5" fill="#6b7280">the build RECORDS references and the editor MOVES them — one record on that side, three angles on this, one position store between:</text>
+<text x="126" y="363" font-size="13" fill="#0f766e" font-weight="800" letter-spacing="0.8">BUILD &amp; PROJECTION — the recorded reference</text>
+<rect x="118" y="375" width="1560" height="158" rx="10" fill="#edf3f0" stroke="#7fb8a4" stroke-width="1.5"/>
+<text x="134" y="397" font-size="14" fill="#0f766e" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">RefLayout</text>
+<text x="216" y="397" font-size="12" fill="#6b7280">— the one stored record, authored once by the build; the projection reads it, never the metadata. Its rows:</text>
+<rect x="126" y="409" width="498" height="112" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="144" y="439" font-size="15" fill="#0f766e" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">DeclaredStack</text>
+<text x="144" y="463" font-size="12.5" fill="#1b1d21" font-weight="600">the declared partition — the one INTENT row</text>
+<text x="144" y="485" font-size="11" fill="#6b7280">which branches form which stack, tip→base, with empty-chain anchors;</text>
+<text x="144" y="502" font-size="11" fill="#6b7280">the stack family’s middle link: WorkspaceStack → here → SegmentStack</text>
+<rect x="649" y="409" width="498" height="112" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="667" y="439" font-size="15" fill="#0f766e" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">RefGroups</text>
+<text x="667" y="463" font-size="12.5" fill="#1b1d21" font-weight="600">the placed reference — the observation</text>
+<text x="667" y="485" font-size="11" fill="#6b7280">per commit, the ordered groups of co-located refs —</text>
+<text x="667" y="502" font-size="11" fill="#6b7280">the position store the editor’s vocabulary shares</text>
+<rect x="1172" y="409" width="498" height="112" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="1190" y="439" font-size="15" fill="#0f766e" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">RefFacts</text>
+<text x="1190" y="463" font-size="12.5" fill="#1b1d21" font-weight="600">the reference verdicts — the derivation</text>
+<text x="1190" y="485" font-size="11" fill="#6b7280">per ref: naming and emptiness verdicts, in reference-table order —</text>
+<text x="1190" y="502" font-size="11" fill="#6b7280">beside the entrypoint’s refs and the mutable extent</text>
+<text x="126" y="561" font-size="11.5" fill="#9aa0aa">the editor is created FROM the layout — its positions are authored straight from the record — and materialization writes refs back; the next build re-records</text>
+<text x="126" y="595" font-size="13" fill="#0f766e" font-weight="800" letter-spacing="0.8">THE EDITOR — the mutable reference, three angles</text>
+<rect x="126" y="609" width="498" height="100" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="144" y="639" font-size="15" fill="#0f766e" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">RefIndex</text>
+<text x="144" y="663" font-size="12.5" fill="#1b1d21" font-weight="600">how you hold it — its row in the ref table</text>
+<text x="144" y="685" font-size="11" fill="#6b7280">rows never move: stable through every rewrite; outlives removal</text>
+<rect x="649" y="609" width="498" height="100" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="667" y="639" font-size="15" fill="#0f766e" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">RefState</text>
+<text x="667" y="663" font-size="12.5" fill="#1b1d21" font-weight="600">what it is</text>
+<text x="667" y="685" font-size="11" fill="#6b7280">name · created-as · mutable · live · ambiguous</text>
+<rect x="1172" y="609" width="498" height="100" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="1190" y="639" font-size="15" fill="#0f766e" font-weight="700" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">RefPlace</text>
+<text x="1190" y="663" font-size="12.5" fill="#1b1d21" font-weight="600">where it goes</text>
+<text x="1190" y="685" font-size="11" fill="#6b7280">above · below · bottom · group top · root</text>
+<line x1="126" y1="733" x2="1654" y2="733" stroke="#e2e0dc" stroke-width="1"/>
+<text x="126" y="761" font-size="13" fill="#1b1d21">the two verbs follow the model: <tspan font-weight="800" fill="#0f766e">splice</tspan> what has parent entries&#160;&#160;·&#160;&#160;<tspan font-weight="800" fill="#0f766e">place</tspan> what is a position</text>
+<text x="126" y="785" font-size="12" fill="#6b7280">interpose a commit and the entering entries re-anchor through it (splice) — move a reference and only an ordered list makes room (place)</text>
+<text x="126" y="809" font-size="11.5" fill="#9aa0aa">removal tombstones in place — record retained, indices keep resolving, revive brings it back</text>
+<text x="890" y="7164" font-size="15" fill="#0f766e" font-weight="700" text-anchor="middle" letter-spacing="1.5">REFS AS POSITIONS, NOT NODES</text>
+<rect x="94" y="7178" width="1592" height="590" rx="10" fill="#f7f7f5" stroke="#9ec9ba" stroke-width="1.6"/>
+<text x="126" y="7216" font-size="16" fill="#1b1d21" font-weight="800">Two models, one measurement — the same operations against both editors</text>
+<rect x="1428" y="7196" width="228" height="26" rx="13" fill="#d6f0e8"/>
+<text x="1542" y="7214" font-size="12" fill="#0f766e" font-weight="700" text-anchor="middle">measured, not argued</text>
+<text x="126" y="7240" font-size="12.5" fill="#6b7280">a ref-as-node needs no special machinery — until every reader pays for the machinery it doesn’t have. Rows 1–3 are the MODEL’s own costs;</text>
+<text x="126" y="7260" font-size="12.5" fill="#6b7280">row 4 is what our old IMPLEMENTATION added on top — kept apart so the argument stays honest:</text>
+<text x="126" y="7296" font-size="13" fill="#b45309" font-weight="800" letter-spacing="0.8">REFS AS NODES — the cost disperses (master)</text>
+<text x="910" y="7296" font-size="13" fill="#0f766e" font-weight="800" letter-spacing="0.8">REFS AS POSITIONS — the cost is priced once (here)</text>
+<rect x="126" y="7310" width="760" height="78" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="144" y="7337" font-size="13.5" fill="#b45309" font-weight="700">the parents read resolves through refs</text>
+<text x="144" y="7358" font-size="11.5" fill="#1b1d21">interposing refs in ancestry is what lets edge surgery move them — so a</text>
+<text x="144" y="7376" font-size="11.5" fill="#6b7280">commit’s REAL parents hide behind ref chains: a pruned DFS, per query</text>
+<rect x="910" y="7310" width="760" height="78" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="928" y="7337" font-size="13.5" fill="#0f766e" font-weight="700">parents are a stored array</text>
+<text x="928" y="7358" font-size="11.5" fill="#1b1d21">a commit’s parent list IS its parent list —</text>
+<text x="928" y="7376" font-size="11.5" fill="#6b7280">refs cannot appear in it by construction</text>
+<rect x="126" y="7400" width="760" height="78" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="144" y="7427" font-size="13.5" fill="#b45309" font-weight="700">uniform edges force no decisions</text>
+<text x="144" y="7448" font-size="11.5" fill="#1b1d21">connectivity doesn’t know what it connects: edge surgery around a ref</text>
+<text x="144" y="7466" font-size="11.5" fill="#6b7280">compiles without deciding what it means for the ref — disconnect never says ‘reference’</text>
+<rect x="910" y="7400" width="760" height="78" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="928" y="7427" font-size="13.5" fill="#0f766e" font-weight="700">no ref edges, so decisions are unavoidable</text>
+<text x="928" y="7448" font-size="11.5" fill="#1b1d21">refs live outside the edge structure: commit surgery cannot touch them,</text>
+<text x="928" y="7466" font-size="11.5" fill="#6b7280">and the only way to affect one is a named ref operation (place · splice · carry)</text>
+<rect x="126" y="7490" width="760" height="78" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="144" y="7517" font-size="13.5" fill="#b45309" font-weight="700">ancestry gains members git doesn’t have</text>
+<text x="144" y="7538" font-size="11.5" fill="#1b1d21">an interposed ref — and every EMPTY branch — is an ancestry participant</text>
+<text x="144" y="7556" font-size="11.5" fill="#6b7280">with no git object; the write boundary must erase them, or corrupt the repo</text>
+<rect x="910" y="7490" width="760" height="78" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="928" y="7517" font-size="13.5" fill="#0f766e" font-weight="700">stores what git stores</text>
+<text x="928" y="7538" font-size="11.5" fill="#1b1d21">commits name parents; a ref is a name plus a place —</text>
+<text x="928" y="7556" font-size="11.5" fill="#6b7280">materialization writes positions and erases nothing</text>
+<rect x="126" y="7580" width="760" height="78" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="144" y="7607" font-size="13.5" fill="#9a6b2f" font-weight="700">…and the baseline’s own taxes (implementation, not model)</text>
+<text x="144" y="7628" font-size="11.5" fill="#1b1d21">petgraph indices die on removal (normalize_selector ×18 + a remapping layer);</text>
+<text x="144" y="7646" font-size="11.5" fill="#6b7280">moves plant Step::None placeholders to keep refs anchored through surgery</text>
+<rect x="910" y="7580" width="760" height="78" rx="8" fill="#ffffff" stroke="#e2e0dc" stroke-width="1.3"/>
+<text x="928" y="7607" font-size="13.5" fill="#0f766e" font-weight="700">no counterpart to either</text>
+<text x="928" y="7628" font-size="11.5" fill="#1b1d21">tombstone-stable indices need no normalization layer, and positions don’t</text>
+<text x="928" y="7646" font-size="11.5" fill="#6b7280">live on adjacency — a move never needs a placeholder to keep refs standing</text>
+<line x1="126" y1="7678" x2="1654" y2="7678" stroke="#e2e0dc" stroke-width="1"/>
+<text x="126" y="7706" font-size="13" fill="#1b1d21">the exported-complexity bill, measured against the baseline this branch replaced: <tspan font-weight="800" fill="#0f766e">93 → 0</tspan> raw-representation matches in callers&#160;&#160;·&#160;&#160;<tspan font-weight="800" fill="#0f766e">433 → 0</tspan> caller-side surgery lines&#160;&#160;·&#160;&#160;<tspan font-weight="800" fill="#0f766e">5 → 1</tspan> editor calls to move a commit</text>
+<text x="126" y="7730" font-size="11.5" fill="#9aa0aa">master’s move_commits implements the merge-parents rule itself and plants a placeholder node — here that rule is base_of, with one owner</text>
+
+</svg>
