@@ -11,10 +11,7 @@ use but_core::{
 use but_ctx::Context;
 use but_error::bail_precondition;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::{
-    Editor,
-    mutate::{InsertSide, RelativeToRef},
-};
+use but_rebase::graph_rebase::{Editor, mutate::InsertSide, selector::RelativeToRef};
 use but_workspace::branch::unapply::WorkspaceDisposition;
 use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
@@ -652,8 +649,8 @@ fn commit_assigned_diffspec(
     }
 
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = but_workspace::commit::commit_create(
         editor,
         assigned_diffspec,

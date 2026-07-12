@@ -933,11 +933,7 @@ pub fn branch_remove_with_perm(
         };
         let deleted_meta = meta.remove(ref_name.as_ref())?;
         if deleted_ref || deleted_meta {
-            let new_ws = ws
-                .graph
-                .redo_traversal_with_overlay(&repo, &meta, Default::default())?
-                .into_workspace()?;
-            *ws = new_ws;
+            *ws = ws.redo(&repo, &meta, Default::default())?;
             true
         } else {
             false
@@ -1454,12 +1450,11 @@ pub fn get_initial_branch_integration(
 ) -> anyhow::Result<InitialBranchIntegration> {
     let mut meta = ctx.meta()?;
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
-    let mut ws = ws.clone();
     let strategy = strategy
         .map(BranchIntegrationStrategy::from)
         .unwrap_or_default();
     but_workspace::branch::integrate_branch_upstream::get_initial_integration_steps_for_branch(
-        branch, strategy, &mut ws, &mut meta, &repo,
+        branch, strategy, &ws, &mut meta, &repo,
     )
 }
 
@@ -1507,14 +1502,14 @@ pub fn apply_branch_integration_with_perm(
             let rebase = but_workspace::branch::integrate_branch_with_steps(
                 branch,
                 integration,
-                &mut ws,
+                &ws,
                 &mut meta,
                 &repo,
             )?;
 
             Ok(IntegrateBranchResult {
                 workspace: WorkspaceState::from_successful_rebase_with_db(
-                    rebase, &repo, dry_run, &db,
+                    &mut ws, rebase, &repo, dry_run, &db,
                 )?,
             })
         },
@@ -1570,16 +1565,17 @@ pub fn move_branch_with_perm(
         |ctx, perm| {
             let mut meta = ctx.meta()?;
             let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
             let but_workspace::branch::move_branch::Outcome {
                 rebase,
                 ws_meta,
                 new_tip,
                 branch_stack_order,
-            } = but_workspace::branch::move_branch(editor, subject_branch, target_branch)?;
+            } = but_workspace::branch::move_branch(editor, &ws, subject_branch, target_branch)?;
 
             let result = MoveBranchResult {
                 workspace: branch_workspace_from_rebase(
+                    &mut ws,
                     rebase,
                     ws_meta,
                     new_tip.as_ref(),
@@ -1650,14 +1646,14 @@ pub fn tear_off_branch_with_perm(
         |ctx, perm| {
             let mut meta = ctx.meta()?;
             let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
             let but_workspace::branch::move_branch::Outcome {
                 rebase, ws_meta, ..
-            } = but_workspace::branch::tear_off_branch(editor, subject_branch, None)?;
+            } = but_workspace::branch::tear_off_branch(editor, &ws, subject_branch, None)?;
 
             Ok(MoveBranchResult {
                 workspace: branch_workspace_from_rebase(
-                    rebase, ws_meta, None, None, &repo, dry_run, &db,
+                    &mut ws, rebase, ws_meta, None, None, &repo, dry_run, &db,
                 )?,
             })
         },
@@ -1691,8 +1687,10 @@ where
     result
 }
 
+#[allow(clippy::too_many_arguments)]
 fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
-    mut rebase: SuccessfulRebase<'_, '_, M>,
+    workspace: &mut but_graph::Workspace,
+    mut rebase: SuccessfulRebase<'_, M>,
     ws_meta: Option<but_core::ref_metadata::Workspace>,
     new_tip: Option<&gix::refs::FullName>,
     branch_stack_order: Option<&[gix::refs::FullName]>,
@@ -1707,36 +1705,27 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
             })
             .transpose()?;
         let replaced_commits = rebase.history.commit_mappings();
-        let workspace = rebase
-            .overlayed_graph_with_workspace_overrides(entrypoint, branch_stack_order)?
-            .into_workspace()?;
+        let overlay =
+            rebase.rebase_overlay_with_workspace_overrides(entrypoint, branch_stack_order)?;
         let (repo, meta) = rebase.repo_and_meta_mut();
-        return WorkspaceState::from_workspace_with_db(
-            &workspace,
-            meta,
-            repo,
-            replaced_commits,
-            db,
-        );
+        let preview = workspace.redo(repo, meta, overlay)?;
+        return WorkspaceState::from_workspace_with_db(&preview, meta, repo, replaced_commits, db);
     }
 
     let materialized = rebase.materialize()?;
     if let Some(order) = branch_stack_order {
         materialized.meta.set_branch_stack_order(order)?;
-        let project_meta = materialized.workspace.graph.project_meta.clone();
-        materialized
-            .workspace
-            .refresh_from_head(repo, &*materialized.meta, project_meta)?;
     }
-    if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
+    workspace.refresh_from_commit_graph(materialized.arena().clone(), repo, materialized.meta)?;
+    if let Some((ws_meta, ref_name)) = ws_meta.zip(workspace.ref_name()) {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
-        md.set_project_meta(materialized.workspace.graph.project_meta.clone());
+        md.set_project_meta(workspace.project_meta().clone());
         materialized.meta.set_workspace(&md)?;
     }
 
     WorkspaceState::from_workspace_with_db(
-        materialized.workspace,
+        workspace,
         materialized.meta,
         repo,
         materialized.history.commit_mappings(),

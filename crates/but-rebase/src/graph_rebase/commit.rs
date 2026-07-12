@@ -7,13 +7,10 @@ use gix::prelude::ObjectIdExt;
 
 use crate::{
     commit::{DateMode, create},
-    graph_rebase::{
-        Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector,
-        util::collect_ordered_parents,
-    },
+    graph_rebase::{Editor, Selector, ToCommitSelector, ToReferenceSelector},
 };
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Returns a reference to the in-memory repository.
     pub fn repo(&self) -> &gix::Repository {
         &self.repo
@@ -47,13 +44,11 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         &self,
         selector: impl ToCommitSelector,
     ) -> Result<(Selector, but_core::CommitOwned)> {
-        let selector = self
-            .history
-            .normalize_selector(selector.to_commit_selector(self)?)?;
-        let Step::Pick(Pick { id, .. }) = &self.graph[selector.id] else {
+        let selector = selector.to_commit_selector(self)?;
+        let Some(id) = self.graph.commit_id(selector.id) else {
             bail!("BUG: Expected pick step from commit selector. This should never happen");
         };
-        Ok((selector, self.find_commit(*id)?))
+        Ok((selector, self.find_commit(id)?))
     }
 
     /// Finds the first pick parent of a reference
@@ -61,20 +56,17 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         &self,
         selector: impl ToReferenceSelector,
     ) -> Result<(Selector, but_core::CommitOwned)> {
-        let selector = self
-            .history
-            .normalize_selector(selector.to_reference_selector(self)?)?;
+        let selector = selector.to_reference_selector(self)?;
 
-        let parents = collect_ordered_parents(&self.graph, selector.id);
-        let first_parent = parents
-            .first()
-            .context("Failed to find a parent for selected reference in the step graph.")?;
+        let first_parent =
+            crate::graph_rebase::positions::resolve_to_pick(&self.graph, selector.id)
+                .context("Failed to find a parent for selected reference in the commit graph.")?;
 
-        let Step::Pick(pick) = &self.graph[*first_parent] else {
-            bail!("BUG: collect_ordered_parents provided a non-pick return value");
+        let Some(id) = self.graph.commit_id(first_parent) else {
+            bail!("BUG: first_ordered_parent provided a non-pick return value");
         };
 
-        Ok((self.new_selector(*first_parent), self.find_commit(pick.id)?))
+        Ok((self.new_selector(first_parent), self.find_commit(id)?))
     }
 
     /// Writes a commit with correct signing to the in memory repository.

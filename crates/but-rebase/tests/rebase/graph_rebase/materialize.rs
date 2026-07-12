@@ -1,11 +1,11 @@
 //! Tests for `materialize` vs `materialize_without_checkout` behavior differences
 use anyhow::Result;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::{Editor, Step};
 use but_testsupport::{
-    StackState, graph_tree, visualize_commit_graph_all, visualize_disk_tree_skip_dot_git,
+    StackState, graph_dag, visualize_commit_graph_all, visualize_disk_tree_skip_dot_git,
 };
-use snapbox::IntoData;
+use snapbox::prelude::*;
 
 use crate::{
     graph_rebase::add_stack_with_segments,
@@ -51,10 +51,9 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
@@ -62,20 +61,19 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     editor.replace(c_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.redo(outcome.repo(), outcome.meta(), outcome.rebase_overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
-
+*  👉·a96434e (⌂) ►main[🌳]
+*  ·d591dfe (⌂)
+*  🏁·35b8235 (⌂)
 "#]]
     );
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     // After materialize, file 'c' should be GONE from worktree
     snapbox::assert_data_eq!(
@@ -132,10 +130,9 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
@@ -143,20 +140,19 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     editor.replace(c_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.redo(outcome.repo(), outcome.meta(), outcome.rebase_overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
-
+*  👉·a96434e (⌂) ►main[🌳]
+*  ·d591dfe (⌂)
+*  🏁·35b8235 (⌂)
 "#]]
     );
     let outcome = outcome.materialize_without_checkout()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_dag(&ws));
 
     // After materialize_without_checkout, file 'c' should STILL exist in worktree
     snapbox::assert_data_eq!(
@@ -192,19 +188,20 @@ fn both_methods_update_references_identically() -> Result<()> {
     let (ref_after_materialize, overlayed_materialize) = {
         let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        let mut ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
             .validated()?;
-        let mut ws = graph.into_workspace()?;
-        let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;
         editor.replace(c_sel, Step::None)?;
 
         let outcome = editor.rebase()?;
-        let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+        let overlayed =
+            graph_dag(&ws.redo(outcome.repo(), outcome.meta(), outcome.rebase_overlay()?)?);
         let outcome = outcome.materialize()?;
-        assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+        ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+        assert_eq!(overlayed, graph_dag(&ws));
 
         (
             repo.rev_parse_single("main")?.detach().to_string(),
@@ -216,19 +213,20 @@ fn both_methods_update_references_identically() -> Result<()> {
     let (ref_after_materialize_without_checkout, overlayed_without_checkout) = {
         let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        let mut ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
             .validated()?;
-        let mut ws = graph.into_workspace()?;
-        let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;
         editor.replace(c_sel, Step::None)?;
 
         let outcome = editor.rebase()?;
-        let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+        let overlayed =
+            graph_dag(&ws.redo(outcome.repo(), outcome.meta(), outcome.rebase_overlay()?)?);
         let outcome = outcome.materialize_without_checkout()?;
-        assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+        ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+        assert_eq!(overlayed, graph_dag(&ws));
 
         (
             repo.rev_parse_single("main")?.detach().to_string(),
@@ -237,14 +235,11 @@ fn both_methods_update_references_identically() -> Result<()> {
     };
 
     snapbox::assert_data_eq!(
-        &overlayed_materialize,
+        overlayed_materialize.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
-
+*  👉·a96434e (⌂) ►main[🌳]
+*  ·d591dfe (⌂)
+*  🏁·35b8235 (⌂)
 "#]]
     );
     assert_eq!(overlayed_materialize, overlayed_without_checkout);
@@ -269,26 +264,23 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
     let head_before = repo.rev_parse_single("HEAD")?.detach();
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let mut ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
     editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed =
+        graph_dag(&ws.redo(outcome.repo(), outcome.meta(), outcome.rebase_overlay()?)?);
     snapbox::assert_data_eq!(
-        &overlayed,
+        overlayed.as_str(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:replacement[🌳]
-    ├── ·120e3a9 (⌂|1)
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
-
+*  👉·120e3a9 (⌂) ►replacement[🌳]
+*  ·a96434e (⌂)
+*  ·d591dfe (⌂)
+*  🏁·35b8235 (⌂)
 "#]]
     );
     assert_eq!(
@@ -298,7 +290,8 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     );
 
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    ws.refresh_from_commit_graph(outcome.arena().clone(), &repo, outcome.meta)?;
+    assert_eq!(overlayed, graph_dag(&ws));
     assert_eq!(
         repo.head_name()?,
         Some(replacement_ref.clone()),
@@ -323,10 +316,9 @@ fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
     let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
     editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
@@ -376,10 +368,9 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let stack_tip = repo.rev_parse_single("stack-2")?.detach();
     let stack_tip_sel = editor.select_commit(stack_tip)?;
@@ -411,21 +402,31 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
     Ok(())
 }
 
+/// Removing an immutable ref fails at the op layer (loudly, not session-only), and the
+/// ref survives on disk. Applies to any immutable ref, not just remote-tracking ones —
+/// here an off-walk local `main`.
 #[test]
-fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()> {
+fn removing_an_immutable_ref_fails_and_disk_is_untouched() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     let main_before = repo.rev_parse_single("main")?.detach();
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
-    let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let ws = Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+        .validated()?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     let main_sel = editor.select_reference(main_ref.as_ref())?;
-    editor.replace(main_sel, Step::None)?;
+    snapbox::assert_data_eq!(
+        editor
+            .replace(main_sel, Step::None)
+            .unwrap_err()
+            .to_string(),
+        snapbox::str![
+            "reference refs/heads/main is immutable and cannot be moved, renamed, or deleted"
+        ]
+    );
 
     let outcome = editor.rebase()?;
     outcome.materialize()?;

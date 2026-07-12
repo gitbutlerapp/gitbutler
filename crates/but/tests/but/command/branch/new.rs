@@ -213,3 +213,27 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn creates_new_branches_on_top_beside_existing_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("branch new one").assert().success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄on [one] (no commits)
+├╯
+┊
+┊╭┄g0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}

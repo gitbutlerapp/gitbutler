@@ -104,13 +104,14 @@ but_schemars::register_sdk_type!(Target);
 
 impl Target {
     fn for_ui(
-        but_graph::workspace::TargetRef {
-            ref_name,
-            segment_index: _,
-            commits_ahead,
-        }: but_graph::workspace::TargetRef,
+        target: but_graph::workspace::TargetRef,
         remote_names: &gix::remote::Names,
     ) -> anyhow::Result<Self> {
+        let but_graph::workspace::TargetRef {
+            ref_name,
+            commits_ahead,
+            ..
+        } = target;
         Ok(Target {
             remote_tracking_ref: RemoteTrackingReference::for_ui(ref_name, remote_names)?,
             commits_ahead,
@@ -183,8 +184,6 @@ impl inner::RefInfo {
             symbolic_remote_names,
             stacks,
             target_ref,
-            target_commit: _,
-            lower_bound: _,
             is_managed_ref,
             is_managed_commit,
             ancestor_workspace_commit: _,
@@ -293,7 +292,7 @@ pub struct Segment {
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
+    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Workspace::from_tip)
     /// is this segment, and the surrounding workspace is provided for context.
     ///
     /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
@@ -321,9 +320,7 @@ impl Segment {
     fn for_ui(
         crate::ref_info::Segment {
             ref_info,
-            id: _,
             remote_tracking_ref_name,
-            remote_tracking_branch_segment_id: _,
             commits,
             commits_on_remote,
             commits_outside,

@@ -6,7 +6,7 @@ use but_workspace::commit::{
     UncommitChangesSource, uncommit_changes, uncommit_changes_from_commits,
 };
 use gix::prelude::ObjectIdExt;
-use snapbox::IntoData;
+use snapbox::prelude::*;
 use std::collections::HashMap;
 
 use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
@@ -108,7 +108,7 @@ fn assert_worktree_file(repo: &gix::Repository, path: &str, expected: &str) {
 
 #[test]
 fn uncommit_file_from_head() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -137,8 +137,7 @@ e0495e9
     );
 
     // Uncommit three.txt from commit three
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, three_id, vec![diff_spec_for_file("three.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize()?;
@@ -173,7 +172,7 @@ aac5238
 
 #[test]
 fn uncommit_file_from_parent() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -201,8 +200,7 @@ aac5238
     );
 
     // Uncommit two.txt from commit two
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, two_id, vec![diff_spec_for_file("two.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize()?;
@@ -252,7 +250,7 @@ c97666c
 
 #[test]
 fn uncommit_file_from_root_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -279,8 +277,7 @@ fn uncommit_file_from_root_commit() -> Result<()> {
     );
 
     // Uncommit one.txt from commit one (the root commit)
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, one_id, vec![diff_spec_for_file("one.txt")], 0)?;
 
     let materialized = outcome.rebase.materialize()?;
@@ -315,14 +312,13 @@ f2ff419
 
 #[test]
 fn error_when_changes_not_found() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let three_id = repo.rev_parse_single("three")?.detach();
 
     // Try to uncommit a file that doesn't exist in source commit
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let result = uncommit_changes(
         editor,
         three_id,
@@ -343,7 +339,7 @@ fn error_when_changes_not_found() -> Result<()> {
 
 #[test]
 fn uncommit_empty_changes_is_noop() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -358,8 +354,7 @@ fn uncommit_empty_changes_is_noop() -> Result<()> {
     let three_id = repo.rev_parse_single("three")?.detach();
 
     // Uncommit with empty changes should effectively be a no-op rebase
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = uncommit_changes(editor, three_id, Vec::<DiffSpec>::new(), 0)?;
 
     outcome.rebase.materialize()?;
@@ -380,7 +375,7 @@ fn uncommit_empty_changes_is_noop() -> Result<()> {
 
 #[test]
 fn uncommit_changes_from_commits_groups_and_orders_sources() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let one_id = repo.rev_parse_single("one")?.detach();
@@ -388,8 +383,7 @@ fn uncommit_changes_from_commits_groups_and_orders_sources() -> Result<()> {
     let three_id = repo.rev_parse_single("three")?.detach();
     let graph_before = visualize_commit_graph_all(&repo)?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [
@@ -453,14 +447,13 @@ f2ff419
 
 #[test]
 fn uncommit_changes_from_commits_removes_multiple_changes_from_one_source() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let one_id = repo.rev_parse_single("one")?.detach();
     let graph_before = visualize_commit_graph_all(&repo)?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     // A single source carries several changes for the same commit.
     let outcome = uncommit_changes_from_commits(
         editor,
@@ -512,14 +505,13 @@ fn uncommit_changes_from_commits_removes_multiple_changes_from_one_source() -> R
 
 #[test]
 fn uncommit_changes_from_commits_groups_duplicate_commit_ids() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let one_id = repo.rev_parse_single("one")?.detach();
     let graph_before = visualize_commit_graph_all(&repo)?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     // Two separate sources point at the same commit and must be grouped so that
     // both changes are removed in a single tree replacement.
     let outcome = uncommit_changes_from_commits(
@@ -572,15 +564,14 @@ fn uncommit_changes_from_commits_groups_duplicate_commit_ids() -> Result<()> {
 
 #[test]
 fn uncommit_changes_from_commits_reports_failures_and_materializes_successes() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let one_id = repo.rev_parse_single("one")?.detach();
     let three_id = repo.rev_parse_single("three")?.detach();
     let graph_before = visualize_commit_graph_all(&repo)?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [
@@ -645,14 +636,13 @@ aac5238
 
 #[test]
 fn uncommit_changes_from_commits_all_failures_does_not_rebase() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let one_id = repo.rev_parse_single("one")?.detach();
     let three_before = repo.rev_parse_single("three")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [
@@ -678,14 +668,13 @@ fn uncommit_changes_from_commits_all_failures_does_not_rebase() -> Result<()> {
 
 #[test]
 fn uncommit_changes_from_commits_can_uncommit_selected_lines() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("uncommit-lines-from-file", |_| {})?;
 
     let branch_id = repo.rev_parse_single("branch")?.detach();
     let graph_before = visualize_commit_graph_all(&repo)?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [source_with_hunks(
@@ -746,14 +735,13 @@ fn uncommit_changes_from_commits_can_uncommit_selected_lines() -> Result<()> {
 
 #[test]
 fn uncommit_changes_from_commits_merges_multiple_specs_for_same_file() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("uncommit-two-hunks-from-file", |_| {})?;
 
     let branch_id = repo.rev_parse_single("branch")?.detach();
     let graph_before = visualize_commit_graph_all(&repo)?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     // Two separate sources target the same file in the same commit, one per hunk.
     // They must be merged into a single spec so both hunks are removed; without
     // merging, the tree rebuild would keep only the last spec's change.
@@ -813,13 +801,12 @@ fn uncommit_changes_from_commits_merges_multiple_specs_for_same_file() -> Result
 
 #[test]
 fn uncommit_changes_from_commits_whole_file_spec_supersedes_hunk_specs() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("uncommit-two-hunks-from-file", |_| {})?;
 
     let branch_id = repo.rev_parse_single("branch")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     // A single source mixes a whole-file spec (empty hunks) with a hunk spec for
     // the same file. The whole-file spec must win, removing every change rather
     // than just the named hunk.
@@ -866,15 +853,14 @@ fn uncommit_changes_from_commits_whole_file_spec_supersedes_hunk_specs() -> Resu
 
 #[test]
 fn uncommit_changes_from_commits_handles_parallel_stacks() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("uncommit-from-parallel-stacks", |_| {})?;
 
     let stack_a_id = repo.rev_parse_single("stack-a")?.detach();
     let stack_b_id = repo.rev_parse_single("stack-b")?.detach();
     let graph_before = visualize_commit_graph_all(&repo)?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [source(stack_b_id, "b.txt"), source(stack_a_id, "a.txt")],
@@ -908,10 +894,9 @@ fn uncommit_changes_from_commits_handles_parallel_stacks() -> Result<()> {
 +++ after
 +*-.   [C5] (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 +|\ \
-+| | * [C6] (stack-b) stack B adds file
++| * | [C6] (stack-b) stack B adds file
 +| |/
-+|/|
-+| * [C7] (stack-a) stack A adds file
++* / [C7] (stack-a) stack A adds file
 +|/
 +* [C4] (main) base
 
@@ -941,7 +926,7 @@ fn uncommit_changes_from_commits_handles_parallel_stacks() -> Result<()> {
 
 #[test]
 fn uncommit_changes_from_commits_handles_unordered_overwrites_of_same_file() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("uncommit-overwritten-file-three-commits", |_| {})?;
 
     let one_id = repo.rev_parse_single("branch~2")?.detach();
@@ -949,8 +934,7 @@ fn uncommit_changes_from_commits_handles_unordered_overwrites_of_same_file() -> 
     let three_id = repo.rev_parse_single("branch")?.detach();
     let graph_before = visualize_commit_graph_all(&repo)?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = uncommit_changes_from_commits(
         editor,
         [

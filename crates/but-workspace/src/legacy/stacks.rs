@@ -230,7 +230,7 @@ pub fn stacks_v3(
     let options = ref_info::Options {
         project_meta: project_meta.clone(),
         expensive_commit_info: false,
-        traversal: but_graph::init::Options::limited(),
+        traversal: but_graph::walk::Options::limited(),
         ..Default::default()
     };
     let info = match ref_name_override {
@@ -312,7 +312,7 @@ pub fn stack_details_v3(
         ref_info::Options {
             project_meta: project_meta.clone(),
             expensive_commit_info: true,
-            traversal: but_graph::init::Options::limited(),
+            traversal: but_graph::walk::Options::limited(),
             ..Default::default()
         }
     }
@@ -414,12 +414,10 @@ pub fn stack_details_v3(
 impl ui::BranchDetails {
     fn from_segment(
         Segment {
-            id: _,
             ref_info,
             commits: commits_unique_from_tip,
             commits_on_remote: commits_unique_in_remote_tracking_branch,
             remote_tracking_ref_name,
-            remote_tracking_branch_segment_id: _,
             // There is nothing equivalent
             commits_outside,
             metadata,

@@ -1,6 +1,6 @@
 use anyhow::Context as _;
 use bstr::ByteSlice;
-use snapbox::IntoData;
+use snapbox::prelude::*;
 use snapbox::str;
 
 use crate::{command::util, utils::Sandbox};
@@ -656,15 +656,15 @@ fn squash_branch_c_in_three_stacks_keeps_content_and_updates_graph() -> anyhow::
     snapbox::assert_data_eq!(
         normalized_log,
         snapbox::str![[r#"
-*-.   205e798 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*-.   1db4ed1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\ \
-| | * a748762 (B) B: another 10 lines at the bottom
-| | * 62e05ba B: 10 lines at the bottom
-| * | add59d2 (A) A: 10 lines on top
+| | * 930563a (C) C: add another 10 lines to new file
+| | * 68a2fc3 C: add 10 lines to new file
+| | * 984fd1c C: new file with 10 lines
+| * | a748762 (B) B: another 10 lines at the bottom
+| * | 62e05ba B: 10 lines at the bottom
 | |/
-* | 930563a (C) C: add another 10 lines to new file
-* | 68a2fc3 C: add 10 lines to new file
-* | 984fd1c C: new file with 10 lines
+* / add59d2 (A) A: 10 lines on top
 |/
 * 8f0d338 (tag: base, origin/main, origin/HEAD, main) base
 

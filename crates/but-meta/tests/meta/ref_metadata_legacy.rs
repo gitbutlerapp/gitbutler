@@ -1487,12 +1487,12 @@ Some(
 
     // The above being stable already fixes `dlib`.
     let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    let ws = but_graph::Workspace::from_tip(
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
         store.workspace(ws_ref_name)?.project_meta(),
-        but_graph::init::Options::limited(),
+        but_graph::walk::Options::limited(),
     )?;
     // It looks very empty without reconciliation, as if it had not found any metadata (even though it's there).
     // The problem is that StackId {1} refers to stack that is also marked as outside the workspace, so it's not really
@@ -1503,9 +1503,9 @@ Some(
     // test was tuned for a certain outcome and now this becomes more obvious. But whatever, it's legacy and
     // it doesn't fail anymore.
     snapbox::assert_data_eq!(
-        but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?).to_string(),
+        but_testsupport::graph_workspace_determinisitcally(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
+📕🏘️:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
 
 "#]]
     );
@@ -1537,17 +1537,17 @@ Some(
     );
 
     let ws = store.workspace(ws_ref_name)?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    let graph_ws = but_graph::Workspace::from_tip(
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
         store.workspace(ws_ref_name)?.project_meta(),
-        but_graph::init::Options::limited(),
+        but_graph::walk::Options::limited(),
     )?;
     snapbox::assert_data_eq!(
-        but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?).to_string(),
+        but_testsupport::graph_workspace_determinisitcally(&graph_ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
+📕🏘️:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
 
 "#]]
     );

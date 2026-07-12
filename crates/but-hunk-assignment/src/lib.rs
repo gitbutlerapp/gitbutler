@@ -897,8 +897,8 @@ mod tests {
     use bstr::BString;
     use but_core::{HunkHeader, ref_metadata::StackId};
     use but_graph::{
-        SegmentIndex, Workspace,
-        workspace::{Stack, StackSegment, WorkspaceKind},
+        Workspace,
+        workspace::{Stack, StackSegment},
     };
 
     use super::*;
@@ -965,61 +965,37 @@ mod tests {
     }
 
     fn empty_workspace() -> Workspace {
-        Workspace {
-            graph: but_graph::Graph::default(),
-            id: Default::default(),
-            kind: WorkspaceKind::AdHoc,
-            stacks: vec![],
-            lower_bound: None,
-            lower_bound_segment_id: None,
-            target_ref: None,
-            target_commit: None,
-            metadata: None,
-        }
+        Workspace::empty_ad_hoc_for_testing()
     }
 
     fn branch_ref(name: &str) -> gix::refs::FullName {
         gix::refs::FullName::try_from(name.to_owned()).expect("test branch ref should be valid")
     }
 
-    fn stack_segment(id: usize, branch_ref_name: Option<&str>) -> StackSegment {
-        StackSegment {
-            ref_info: branch_ref_name.map(|name| but_graph::RefInfo {
-                ref_name: branch_ref(name),
-                commit_id: None,
-                worktree: None,
-            }),
-            remote_tracking_ref_name: None,
-            sibling_segment_id: None,
-            remote_tracking_branch_segment_id: None,
-            id: SegmentIndex::new(id),
-            commits: vec![],
-            commits_outside: None,
-            base: None,
-            base_segment_id: None,
-            commits_by_segment: vec![],
-            commits_on_remote: vec![],
-            metadata: None,
-            is_entrypoint: false,
-        }
+    fn stack_segment(branch_ref_name: Option<&str>) -> StackSegment {
+        let mut segment = StackSegment::default_for_testing();
+        segment.ref_info = branch_ref_name.map(|name| but_graph::RefInfo {
+            ref_name: branch_ref(name),
+            commit_id: None,
+            worktree: None,
+        });
+        segment
     }
 
-    fn stack(id: Option<usize>, branch_ref_names: &[&str], segment_offset: usize) -> Stack {
+    fn stack(id: Option<usize>, branch_ref_names: &[&str]) -> Stack {
         Stack {
             id: id.map(stack_id_seq),
             segments: branch_ref_names
                 .iter()
-                .enumerate()
-                .map(|(idx, name)| stack_segment(segment_offset + idx, Some(name)))
+                .map(|name| stack_segment(Some(name)))
                 .collect(),
         }
     }
 
     fn workspace_with_stacks(stacks: Vec<Stack>) -> Workspace {
-        Workspace {
-            stacks,
-            ..empty_workspace()
-        }
+        let mut ws = empty_workspace();
+        ws.stacks = stacks;
+        ws
     }
 
     fn deep_eq(a: &HunkAssignment, b: &HunkAssignment) -> bool {
@@ -1224,8 +1200,8 @@ mod tests {
     #[test]
     fn test_derive_stack_ids_replaces_stale_stack_id_from_branch_ref() {
         let workspace = workspace_with_stacks(vec![
-            stack(Some(1), &["refs/heads/feature-a"], 0),
-            stack(Some(2), &["refs/heads/feature-b"], 10),
+            stack(Some(1), &["refs/heads/feature-a"]),
+            stack(Some(2), &["refs/heads/feature-b"]),
         ]);
         let mut assignments = vec![
             HunkAssignment::new("foo.rs", 10, 5, Some(1), Some(1))
@@ -1239,7 +1215,7 @@ mod tests {
 
     #[test]
     fn test_derive_stack_ids_clears_stack_id_for_missing_branch_ref() {
-        let workspace = workspace_with_stacks(vec![stack(Some(1), &["refs/heads/feature-a"], 0)]);
+        let workspace = workspace_with_stacks(vec![stack(Some(1), &["refs/heads/feature-a"])]);
         let mut assignments = vec![
             HunkAssignment::new("foo.rs", 10, 5, Some(1), Some(1))
                 .with_branch_ref_bytes(Some("refs/heads/missing")),
@@ -1252,7 +1228,7 @@ mod tests {
 
     #[test]
     fn test_derive_stack_ids_returns_none_when_matching_stack_has_no_id() {
-        let workspace = workspace_with_stacks(vec![stack(None, &["refs/heads/feature-a"], 0)]);
+        let workspace = workspace_with_stacks(vec![stack(None, &["refs/heads/feature-a"])]);
         let mut assignments = vec![
             HunkAssignment::new("foo.rs", 10, 5, Some(1), Some(1))
                 .with_branch_ref_bytes(Some("refs/heads/feature-a")),
@@ -1268,7 +1244,6 @@ mod tests {
         let workspace = workspace_with_stacks(vec![stack(
             Some(2),
             &["refs/heads/feature-tip", "refs/heads/feature-base"],
-            0,
         )]);
         let mut assignments = vec![HunkAssignment::new("foo.rs", 10, 5, Some(2), Some(1))];
 
@@ -1282,7 +1257,7 @@ mod tests {
 
     #[test]
     fn test_backfill_branch_ref_from_legacy_stack_id_ignores_unknown_stack() {
-        let workspace = workspace_with_stacks(vec![stack(Some(1), &["refs/heads/feature-a"], 0)]);
+        let workspace = workspace_with_stacks(vec![stack(Some(1), &["refs/heads/feature-a"])]);
         let mut assignments = vec![HunkAssignment::new("foo.rs", 10, 5, Some(2), Some(1))];
 
         backfill_branch_ref_from_legacy_stack_id(&mut assignments, &workspace);

@@ -149,22 +149,21 @@ pub fn add_stack_with_segments(
     stack_id
 }
 
-pub fn standard_options() -> but_graph::init::Options {
-    but_graph::init::Options {
+pub fn standard_options() -> but_graph::walk::Options {
+    but_graph::walk::Options {
         collect_tags: true,
         commits_limit_hint: None,
         commits_limit_recharge_location: vec![],
         hard_limit: None,
         extra_target_commit_id: None,
-        dangerously_skip_postprocessing_for_debugging: false,
     }
 }
 
 pub fn standard_options_with_extra_target(
     repo: &gix::Repository,
     name: &str,
-) -> but_graph::init::Options {
-    but_graph::init::Options {
+) -> but_graph::walk::Options {
+    but_graph::walk::Options {
         extra_target_commit_id: Some(repo.rev_parse_single(name).expect("present").detach()),
         ..standard_options()
     }

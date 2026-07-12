@@ -97,15 +97,15 @@ pub fn worktree_integrate<M: RefMetadata>(
 
 /// Performs the workspace integration in-memory using the graph editor,
 /// returning the status, and the un-materialized rebase if it's integratable.
-fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
+fn worktree_integration_inner<'meta, M: RefMetadata>(
     repo: &gix::Repository,
-    ws: &'ws mut but_graph::Workspace,
+    ws: &mut but_graph::Workspace,
     meta: &'meta mut M,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<(
     WorktreeIntegrationStatus,
-    Option<SuccessfulRebase<'ws, 'meta, M>>,
+    Option<SuccessfulRebase<'meta, M>>,
 )> {
     if !ws.refname_is_segment(target) {
         bail!("Branch {} not found in workspace", target.shorten());
@@ -151,7 +151,7 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
     }
 
     // State needed later which can't be read while the editor borrows `ws`.
-    let ws_commit_id = ws.graph.managed_entrypoint_commit(repo)?.map(|c| c.id);
+    let ws_commit_id = ws.managed_entrypoint_commit_id(repo)?;
     let head_id = repo.head_id().ok().map(|id| id.detach());
     let head_tree_id = repo.head_tree_id_or_empty()?.detach();
     #[expect(
@@ -168,7 +168,7 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
         .context("Failed to find author signature")?
         .to_owned()?;
 
-    let mut editor = Editor::create(ws, meta, repo)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), meta, repo)?;
 
     // Create the squash commit in the editor's in-memory repository; it is
     // only persisted if the result gets materialized.

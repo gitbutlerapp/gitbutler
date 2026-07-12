@@ -6,10 +6,7 @@ use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::Context;
 use but_rebase::{
     RebaseOutput,
-    graph_rebase::{
-        Editor, LookupStep as _,
-        mutate::{InsertSide, RelativeToRef},
-    },
+    graph_rebase::{Editor, LookupStep as _, mutate::InsertSide, selector::RelativeToRef},
 };
 use but_workspace::{
     commit_engine,
@@ -43,7 +40,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
         &meta,
         but_workspace::ref_info::Options {
             project_meta: ctx.project_meta()?,
-            traversal: but_graph::init::Options::limited(),
+            traversal: but_graph::walk::Options::limited(),
             expensive_commit_info: true,
             gerrit_mode,
         },
@@ -109,16 +106,16 @@ pub(crate) fn stacks_v3_from_ctx(
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let repo = ctx.open_isolated_repo()?;
     let meta = ctx.meta()?;
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Workspace::from_head(
         &repo,
         &meta,
         ctx.project_meta()?,
-        but_graph::init::Options {
+        but_graph::walk::Options {
             collect_tags: true,
-            ..but_graph::init::Options::limited()
+            ..but_graph::walk::Options::limited()
         },
     )?;
-    graph.open_as_svg();
+    graph.open_graph_as_svg();
     Ok(())
 }
 
@@ -328,8 +325,8 @@ pub fn stash_into_branch(
 
     let outcome = {
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
         let but_workspace::commit::CommitCreateOutcome {
             rebase,
             commit_selector,
@@ -437,7 +434,7 @@ pub fn workspace_branch_and_ancestors_push(
         &meta,
         but_workspace::ref_info::Options {
             project_meta: ctx.project_meta()?,
-            traversal: but_graph::init::Options::limited(),
+            traversal: but_graph::walk::Options::limited(),
             expensive_commit_info: true,
             gerrit_mode,
         },

@@ -7,7 +7,7 @@ use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::Headers};
 use but_rebase::graph_rebase::{
     Editor, LookupStep, SuccessfulRebase, ToSelector,
-    mutate::{SegmentDelimiter, SelectorSet},
+    selector::{SelectorSet, StepRange},
 };
 
 use crate::graph_manipulation::{EdgeSelection, connect_segment_to_edges, selected_edges_from_set};
@@ -110,19 +110,24 @@ pub struct InitialBranchIntegration {
 ///
 /// `steps` - The vector of steps in the application order (parent to child) that describe the actions to perform
 ///   for the integration of the changes.
-pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
+pub fn integrate_branch_with_steps<'meta, M: RefMetadata>(
     ref_name: &gix::refs::FullNameRef,
     integration: InteractiveIntegration,
-    workspace: &'ws mut but_graph::Workspace,
+    workspace: &but_graph::Workspace,
     meta: &'meta mut M,
     repo: &gix::Repository,
-) -> Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> Result<SuccessfulRebase<'meta, M>> {
     if integration.steps.is_empty() {
         bail!("Integration steps cannot be empty")
     }
     // The editor maps every segment in the graph, including the remote
     // reference of the branch we're integrating.
-    let mut editor = Editor::create(workspace, meta, repo)?;
+    let mut editor = Editor::create(
+        workspace.commit_graph(),
+        workspace.project_meta(),
+        meta,
+        repo,
+    )?;
     // Step 1: We prepare the steps before building.
     // At this point, we construct the commits for the squash steps in memory.
     let prepared_steps = prepare_integration_steps_for_editor(&editor, &integration.steps)?;
@@ -136,7 +141,7 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
         };
     // Segment, from local-ref to the parent-most non-integrated local commit.
     // This represents the bounds of the commit chain we're about to manipulate and rebuild.
-    let segment_delimiter = SegmentDelimiter {
+    let range = StepRange {
         child: delimiter_child,
         parent: delimiter_parent,
     };
@@ -148,7 +153,7 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
 
     let children_to_reconnect = selected_edges_from_set(
         &editor,
-        segment_delimiter.child,
+        range.child,
         &children_to_disconnect,
         EdgeSelection::Children,
     )?;
@@ -162,7 +167,7 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
         .collect::<Vec<_>>();
     let parents_to_reconnect = selected_edges_from_set(
         &editor,
-        segment_delimiter.parent,
+        range.parent,
         &parents_to_disconnect,
         EdgeSelection::Parents,
     )?
@@ -179,12 +184,7 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
     .collect::<Result<Vec<_>>>()?;
 
     // Step 3: Disconnect the segment, isolating it so that we can freely manipulate it.
-    editor.disconnect_segment_from(
-        segment_delimiter,
-        children_to_disconnect,
-        parents_to_disconnect,
-        true,
-    )?;
+    editor.disconnect_range_from(range, children_to_disconnect, parents_to_disconnect, true)?;
 
     // Step 4: Based on the prepared steps, we rebuild the chain.
     let new_segment_delimiter =
@@ -233,7 +233,7 @@ fn integration_step_commit_ids(steps: &[InteractiveIntegrationStep]) -> HashSet<
 pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
     ref_name: &gix::refs::FullNameRef,
     strategy: BranchIntegrationStrategy,
-    workspace: &mut but_graph::Workspace,
+    workspace: &but_graph::Workspace,
     meta: &mut M,
     repo: &gix::Repository,
 ) -> Result<InitialBranchIntegration> {
@@ -246,7 +246,12 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
         .map(|target| target.ref_name.clone())
         .filter(|target_ref_name| target_ref_name.as_ref() != upstream_ref_name.as_ref());
 
-    let editor = Editor::create(workspace, meta, repo)?;
+    let editor = Editor::create(
+        workspace.commit_graph(),
+        workspace.project_meta(),
+        meta,
+        repo,
+    )?;
 
     // Step 2: We traverse the editor graph and determine the divergence between the local and remote branch.
     let BranchMergeBaseCommits {

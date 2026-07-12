@@ -15,7 +15,8 @@ use gix::prelude::ObjectIdExt;
 /// behind the rebase result so callers can compute conflicts before
 /// materialization, including during dry-runs.
 pub fn worktree_conflicts_for_rebase<M: RefMetadata>(
-    rebase: &SuccessfulRebase<'_, '_, M>,
+    workspace: &but_graph::Workspace,
+    rebase: &SuccessfulRebase<'_, M>,
 ) -> Result<Vec<but_serde::BStringForFrontend>> {
     let repo = rebase.repo();
     let current_head_tree = repo.head_tree_id_or_empty()?.detach();
@@ -24,14 +25,21 @@ pub fn worktree_conflicts_for_rebase<M: RefMetadata>(
         return Ok(Vec::new());
     }
 
-    let preview_workspace = rebase.overlayed_graph()?.into_workspace()?;
+    let preview_workspace = crate::workspace::overlayed_workspace(workspace, rebase)?;
     let resulting_head = preview_workspace
-        .graph
-        .entrypoint()?
-        .commit()
+        .entrypoint_commit_id()?
         .context("Cannot compute worktree conflicts without a resulting workspace head")?;
+    // The overlay can still resolve the entrypoint to its PRE-rebase commit (ref
+    // edits apply at materialization); follow the rebase's own mapping so the
+    // conflict simulation sees the rewritten head, not the old tree.
+    let resulting_head = rebase
+        .history
+        .commit_mappings()
+        .get(&resulting_head)
+        .copied()
+        .unwrap_or(resulting_head);
     let resulting_head_tree =
-        Commit::from_id(resulting_head.id.attach(repo))?.tree_id_or_auto_resolution()?;
+        Commit::from_id(resulting_head.attach(repo))?.tree_id_or_auto_resolution()?;
 
     let (merge_options, _) = repo.merge_options_no_rewrites_fail_fast()?;
     let conflict_kind = TreatAsUnresolved::git();

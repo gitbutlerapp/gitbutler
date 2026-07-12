@@ -1,6 +1,6 @@
 mod changes_in_branch {
     use but_core::RefMetadata;
-    use but_graph::init::Options;
+    use but_graph::walk::Options;
     use but_testsupport::visualize_commit_graph_all;
     use but_workspace::ui;
     use snapbox::prelude::*;
@@ -22,14 +22,13 @@ mod changes_in_branch {
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
                 .project_meta(),
             Options::limited(),
         )?;
-        let ws = graph.into_workspace()?;
 
         snapbox::assert_data_eq!(
             ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/A"))?.to_debug(),

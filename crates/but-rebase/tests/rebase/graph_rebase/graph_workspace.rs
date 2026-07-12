@@ -12,10 +12,10 @@
 
 use anyhow::Result;
 use but_core::ref_metadata::ProjectMeta;
-use but_graph::Graph;
+use but_graph::Workspace;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::visualize_commit_graph_all;
-use snapbox::IntoData;
+use snapbox::prelude::*;
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -25,19 +25,18 @@ use crate::utils::{fixture_writable, standard_options};
 fn render(fixture: &str, target: Option<&str>) -> Result<String> {
     let (repo, _tmp, mut meta) = fixture_writable(fixture)?;
 
-    let graph =
-        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = Workspace::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?
+        .validated()?;
 
     // The projection bounds stacks at the target commit, so wire it onto the
     // workspace graph that the editor reads from.
-    ws.graph.project_meta = ProjectMeta {
+    *ws.project_meta_mut() = ProjectMeta {
         target_commit_id: target
             .map(|t| repo.rev_parse_single(t).map(|id| id.detach()))
             .transpose()?,
         ..Default::default()
     };
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut *meta, &repo)?;
 
     editor.graph_workspace_ascii()
 }
@@ -193,12 +192,12 @@ fn three_stacks_same_base_collapse() -> Result<()> {
 
 /// Two divergent branches sharing `base`, bounded by a target at `base`.
 ///
-/// They still merge into a single stack: the target excludes the base *commit*,
-/// but the `main`/`origin/main` *ref node* sitting just above it survives and is
-/// reachable from both branches, so they share a node and collapse. A target
-/// alone does not separate stacks that branch off a common ref.
+/// They stay SEPARATE: stack membership is computed over picks (references are positions, not
+/// topology), so the `main` ref sitting above the excluded base commit cannot glue the two
+/// branches together — and sitting on the excluded commit, it belongs to neither stack.
+/// This used to be the known limitation documented on `GraphWorkspace::stacks`.
 #[test]
-fn divergent_stacks_sharing_base_merge_with_target() -> Result<()> {
+fn divergent_stacks_sharing_excluded_base_stay_separate_with_target() -> Result<()> {
     let (repo, _tmp, _meta) = fixture_writable("workspace-two-stacks")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -229,11 +228,11 @@ fn divergent_stacks_sharing_base_merge_with_target() -> Result<()> {
 ◎  refs/heads/stack-a
 ●  49c06ff A2
 ●  ff76d2f A1
-│ ◎  refs/heads/stack-b
-│ ●  afc3f8f B2
-│ ●  b3ee99c B1
-├─╯
-◎  refs/heads/main
+
+# Stack 1
+◎  refs/heads/stack-b
+●  afc3f8f B2
+●  b3ee99c B1
 "#]]
     );
     Ok(())
@@ -357,22 +356,22 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
 ●  f97c026 GitButler Workspace Commit
 
 # Stack 0
-◎  refs/heads/stack-b
-●  cb7021b B2
-●  ce3278a B1
-
-# Stack 1
 ◎  refs/heads/stack-a
 ●  49c06ff A2
 ●  ff76d2f A1
 ◎  refs/heads/main
 ●  965998b base
+
+# Stack 1
+◎  refs/heads/stack-b
+●  cb7021b B2
+●  ce3278a B1
 "#]]
     );
     Ok(())
 }
 
-/// The direct contrast to `divergent_stacks_sharing_base_merge_with_target`:
+/// The direct contrast to `divergent_stacks_sharing_excluded_base_stay_separate_with_target`:
 /// the *same* target (`main`), but the two stacks share no node, so they stay
 /// separate. This is the shape that sidesteps the known limitation documented on
 /// `GraphWorkspace::stacks` - the target trims `base` off `stack-a` without the
@@ -389,15 +388,14 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
 ●  f97c026 GitButler Workspace Commit
 
 # Stack 0
-◎  refs/heads/stack-b
-●  cb7021b B2
-●  ce3278a B1
-
-# Stack 1
 ◎  refs/heads/stack-a
 ●  49c06ff A2
 ●  ff76d2f A1
-◎  refs/heads/main
+
+# Stack 1
+◎  refs/heads/stack-b
+●  cb7021b B2
+●  ce3278a B1
 "#]]
     );
     Ok(())

@@ -78,7 +78,7 @@ pub fn list_branches(
         &meta,
         but_workspace::ref_info::Options {
             project_meta: ctx.project_meta()?,
-            traversal: but_graph::init::Options::limited(),
+            traversal: but_graph::walk::Options::limited(),
             expensive_commit_info: false,
             gerrit_mode,
         },

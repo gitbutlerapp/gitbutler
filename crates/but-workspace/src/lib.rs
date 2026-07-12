@@ -61,7 +61,6 @@ pub use ref_info::{graph_to_ref_info, head_info, head_info_and_workspace, ref_in
 
 mod branch_details;
 pub use branch_details::{branch_details, local_commits_for_branch};
-use but_graph::{SegmentIndex, workspace::TargetCommit};
 
 mod upstream_integration;
 pub use upstream_integration::{
@@ -101,23 +100,6 @@ pub struct RefInfo {
     /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
     /// This happens when there is a local branch checked out without a remote tracking branch.
     pub target_ref: Option<but_graph::workspace::TargetRef>,
-    /// A commit reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
-    /// past its computed lower bound.
-    ///
-    /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
-    pub target_commit: Option<TargetCommit>,
-    /// The bound can be imagined as the segment from which all other commits in the workspace originate.
-    /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,
-    /// as antagonist to the first commit in tip of the segment with `id`, serving as first commit that is
-    /// inside the workspace.
-    ///
-    /// As such, it's always the longest path to the first shared commit with the target among
-    /// all of our stacks, or it is the first commit that is shared among all of our stacks in absence of a target.
-    /// One can also think of it as the starting point from which all workspace commits can be reached when
-    /// following all incoming connections and stopping at the tip of the workspace.
-    ///
-    /// It is `None` there is only a single stack and no target, so nothing was integrated.
-    pub lower_bound: Option<SegmentIndex>,
     /// The `workspace_ref_name` is `Some(_)` and belongs to GitButler, because it had metadata attached.
     pub is_managed_ref: bool,
     /// The `workspace_ref_name` points to a commit that was specifically created by us.
@@ -161,10 +143,8 @@ pub struct AncestorWorkspaceCommit {
     /// The commits along the first parent that are between the managed workspace reference and the managed workspace commit.
     /// The vec *should* not be empty, but it can be empty in practice for reasons yet to be discovered.
     pub commits_outside: Vec<ref_info::Commit>,
-    /// The index of the segment that actually holds the managed workspace commit.
-    pub segment_with_managed_commit: SegmentIndex,
-    /// The index of the workspace commit within the `commits` array in its parent segment.
-    pub commit_index_of_managed_commit: but_graph::CommitIndex,
+    /// The id of the managed workspace commit found in the ancestry.
+    pub commit_id: gix::ObjectId,
 }
 
 /// A representation of the commit that is the tip of the workspace i.e., usually what `HEAD` points to,

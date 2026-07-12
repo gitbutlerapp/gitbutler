@@ -12,11 +12,11 @@ use but_rebase::{
 /// the new name.
 ///
 /// Returns a selector to the rewritten commit
-pub fn reword<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn reword<'meta, M: RefMetadata>(
+    mut editor: Editor<'meta, M>,
     commit: impl ToCommitSelector,
     new_message: &BStr,
-) -> Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
+) -> Result<(SuccessfulRebase<'meta, M>, Selector)> {
     let (target_selector, mut commit) = editor.find_selectable_commit(commit)?;
 
     commit.message = new_message.to_owned();

@@ -69,8 +69,6 @@ Ok(
             },
         ],
         target_ref: None,
-        target_commit: None,
-        lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
@@ -145,14 +143,6 @@ Ok(
             },
         ],
         target_ref: None,
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(0),
-        ),
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
@@ -238,14 +228,6 @@ Ok(
                 commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(0),
-        ),
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
@@ -314,14 +296,6 @@ Ok(
                 commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(0),
-        ),
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
@@ -388,14 +362,6 @@ Ok(
                 ),
                 commits_ahead: 0,
             },
-        ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -486,14 +452,6 @@ Ok(
                 commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -582,14 +540,6 @@ Ok(
                 commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -658,14 +608,6 @@ Ok(
                 ),
                 commits_ahead: 0,
             },
-        ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -757,14 +699,6 @@ Ok(
                 ),
                 commits_ahead: 0,
             },
-        ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -862,14 +796,6 @@ Ok(
                 commits_ahead: 0,
             },
         ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
-        ),
         is_managed_ref: true,
         is_managed_commit: true,
         ancestor_workspace_commit: None,
@@ -964,14 +890,6 @@ Ok(
                 ),
                 commits_ahead: 0,
             },
-        ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1072,14 +990,6 @@ Ok(
                 ),
                 commits_ahead: 2,
             },
-        ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(2),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1193,14 +1103,6 @@ Ok(
                 ),
                 commits_ahead: 5,
             },
-        ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(adc9f0cd07bd0a09363ac6536291bf821ca845c4),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(5),
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1352,14 +1254,6 @@ Ok(
                 ),
                 commits_ahead: 7,
             },
-        ),
-        target_commit: Some(
-            TargetCommit {
-                commit_id: Sha1(35faa22c8d0a01ba45da3971406eab6932b1bbde),
-            },
-        ),
-        lower_bound: Some(
-            NodeIndex(8),
         ),
         is_managed_ref: true,
         is_managed_commit: true,

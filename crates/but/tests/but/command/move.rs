@@ -358,10 +358,10 @@ Moved 4 commits → before [..]
         b_messages_after,
         vec![
             "B: another 10 lines at the bottom",
+            "A: 10 lines on top",
             "C: add another 10 lines to new file",
             "C: add 10 lines to new file",
             "C: new file with 10 lines",
-            "A: 10 lines on top",
             "B: 10 lines at the bottom"
         ]
     );
@@ -378,10 +378,10 @@ Moved 4 commits → before [..]
 ┊
 ┊╭┄h0 [B]
 ┊●   [..] B: another 10 lines at the bottom
+┊●   psr A: 10 lines on top
 ┊●   zmt C: add another 10 lines to new file
 ┊●   xkt C: add 10 lines to new file
 ┊●   sxz C: new file with 10 lines
-┊●   psr A: 10 lines on top
 ┊●   tlv B: 10 lines at the bottom
 ├╯
 ┊
@@ -501,10 +501,10 @@ Moved 4 commits → after ynm
     assert_eq!(
         b_messages_after,
         vec![
+            "A: 10 lines on top",
             "C: add another 10 lines to new file",
             "C: add 10 lines to new file",
             "C: new file with 10 lines",
-            "A: 10 lines on top",
             "B: another 10 lines at the bottom",
             "B: 10 lines at the bottom"
         ]
@@ -521,10 +521,10 @@ Moved 4 commits → after ynm
 ├╯
 ┊
 ┊╭┄h0 [B]
+┊●   psr A: 10 lines on top
 ┊●   zmt C: add another 10 lines to new file
 ┊●   xkt C: add 10 lines to new file
 ┊●   sxz C: new file with 10 lines
-┊●   psr A: 10 lines on top
 ┊●   ynm B: another 10 lines at the bottom
 ┊●   tlv B: 10 lines at the bottom
 ├╯

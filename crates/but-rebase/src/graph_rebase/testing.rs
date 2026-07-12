@@ -1,5 +1,7 @@
 #![deny(missing_docs)]
-//! Testing utilities
+//! Testing utilities for the editor graph: the `Testing` trait's `steps_ascii` draws the
+//! graph as an ASCII DAG for snapshot tests. The rest of the module (group grouping,
+//! head finding, topological order) supports that rendering.
 
 use std::{
     cmp::Ordering,
@@ -8,16 +10,11 @@ use std::{
 
 use anyhow::Result;
 use but_core::RefMetadata;
-use petgraph::{
-    dot::{Config, Dot},
-    visit::{EdgeRef, IntoEdgeReferences},
-};
 use renderdag::{Ancestor, GraphRowRenderer, Renderer as _};
 
-#[cfg(test)]
-use crate::graph_rebase::Edge;
+use crate::graph_rebase::graph_editor::{PickIndex, RefIndex};
 use crate::graph_rebase::{
-    Editor, Pick, Selector, Step, StepGraph, StepGraphIndex, SuccessfulRebase, workspace::Subgraph,
+    Editor, EditorIndex, GraphEditor, Pick, Step, SuccessfulRebase, positions, workspace::Subgraph,
 };
 
 /// An extension trait that adds debugging output for graphs
@@ -26,54 +23,15 @@ pub trait Testing {
     fn steps_ascii(&self) -> String;
 }
 
-impl<M: RefMetadata> Testing for Editor<'_, '_, M> {
+impl<M: RefMetadata> Testing for Editor<'_, M> {
     fn steps_ascii(&self) -> String {
         render_ascii_graph(&self.graph, |id| lookup_commit_title(&self.repo, id))
     }
 }
 
-impl<M: RefMetadata> Testing for SuccessfulRebase<'_, '_, M> {
+impl<M: RefMetadata> Testing for SuccessfulRebase<'_, M> {
     fn steps_ascii(&self) -> String {
         render_ascii_graph(&self.graph, |id| lookup_commit_title(&self.repo, id))
-    }
-}
-/// An extension trait that adds debugging output for graphs
-pub trait TestingDot {
-    /// Creates a dot graph with labels
-    fn steps_dot(&self) -> String;
-}
-
-impl<M: RefMetadata> TestingDot for Editor<'_, '_, M> {
-    fn steps_dot(&self) -> String {
-        self.graph.steps_dot()
-    }
-}
-
-impl<M: RefMetadata> TestingDot for SuccessfulRebase<'_, '_, M> {
-    fn steps_dot(&self) -> String {
-        self.graph.steps_dot()
-    }
-}
-
-impl TestingDot for StepGraph {
-    fn steps_dot(&self) -> String {
-        format!(
-            "{:?}",
-            Dot::with_attr_getters(
-                &self,
-                &[Config::EdgeNoLabel, Config::NodeNoLabel],
-                &|_, v| format!("label=\"order: {}\"", v.weight().order),
-                &|_, (_, step)| {
-                    match step {
-                        Step::Pick(Pick { id, .. }) => format!("label=\"pick: {id}\""),
-                        Step::Reference { refname, .. } => {
-                            format!("label=\"reference: {}\"", refname.as_bstr())
-                        }
-                        Step::None => "label=\"none\"".into(),
-                    }
-                },
-            )
-        )
     }
 }
 
@@ -122,32 +80,101 @@ fn format_step(step: &Step, title: Option<String>) -> String {
     }
 }
 
-/// Find head nodes (no incoming edges)
-fn find_heads(graph: &StepGraph) -> Vec<StepGraphIndex> {
-    let mut has_incoming: HashSet<StepGraphIndex> = HashSet::new();
-    for edge in graph.edge_references() {
-        has_incoming.insert(edge.target());
+/// The reference groups, keyed by their (pick, entering-edges) position and ordered by depth —
+/// the render's view of positioned refs as rows.
+type GroupKey = (PickIndex, Vec<(PickIndex, usize)>);
+
+fn ref_groups(graph: &GraphEditor) -> HashMap<GroupKey, Vec<RefIndex>> {
+    let mut out: HashMap<_, Vec<(usize, RefIndex)>> = HashMap::new();
+    for entry in graph.positioned_refs() {
+        let Some(on) = graph.positioned_on(entry) else {
+            continue;
+        };
+        out.entry((on, positions::edges_through(graph, entry)))
+            .or_default()
+            .push((positions::ref_depth(graph, entry), entry));
     }
-    graph
-        .node_indices()
-        .filter(|idx| !has_incoming.contains(idx))
+    out.into_iter()
+        .map(|(key, mut members)| {
+            members.sort_by_key(|(depth, _)| *depth);
+            (key, members.into_iter().map(|(_, entry)| entry).collect())
+        })
         .collect()
 }
 
-/// Get parents sorted by edge order
-fn get_sorted_parents(graph: &StepGraph, node: StepGraphIndex) -> Vec<StepGraphIndex> {
-    let mut parents: Vec<_> = graph
-        .edges(node)
-        .map(|e| (e.weight().order, e.target()))
-        .collect();
-    parents.sort_by_key(|(order, _)| *order);
-    parents.into_iter().map(|(_, p)| p).collect()
+/// Find head rows: picks (and tombstones) without incoming edges, plus the tops of root
+/// reference groups (positioned with nothing above them).
+fn find_heads(graph: &GraphEditor) -> Vec<EditorIndex> {
+    let mut has_incoming: HashSet<PickIndex> = HashSet::new();
+    for idx in graph.node_ids() {
+        has_incoming.extend(graph.parents(idx));
+    }
+    let groups = ref_groups(graph);
+    // Row-arena entries first, then references (the render sorts heads deterministically, so
+    // seed order does not reach snapshots): a pick or tombstone with no incoming edges, or
+    // the top of a root reference group.
+    graph
+        .node_ids()
+        .map(EditorIndex::from)
+        .chain(graph.ref_indices().map(EditorIndex::from))
+        .filter(|idx| match graph.positioned_on(*idx) {
+            Some(on) => {
+                let entering = positions::edges_through(graph, *idx);
+                entering.is_empty()
+                    && groups
+                        .get(&(on, entering))
+                        .and_then(|members| members.last())
+                        .map(|&m| EditorIndex::from(m))
+                        == Some(*idx)
+            }
+            // Positionless entries (picks, tombstones, and hand-built reference entries that never
+            // went through creation's finalize pass) keep the edge-era rule.
+            None => !idx.as_pick().is_some_and(|n| has_incoming.contains(&n)),
+        })
+        .collect()
 }
 
-/// A deterministic ordering for the head nodes so snapshots are stable: picks
+/// Rendered parents of `entry`, in order: a reference row points at the next group member
+/// below it (or its pick); a pick's parent edges route through the group positioned on
+/// that (parent, parent number), when one exists — reproducing the interposed rows references had
+/// when they were entries.
+fn rendered_parents(graph: &GraphEditor, entry: EditorIndex) -> Vec<EditorIndex> {
+    let groups = ref_groups(graph);
+    if let Some(on) = graph.positioned_on(entry) {
+        let group = groups
+            .get(&(on, positions::edges_through(graph, entry)))
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let below = group
+            .iter()
+            .position(|&n| EditorIndex::from(n) == entry)
+            .and_then(|ix| ix.checked_sub(1))
+            .map(|ix| EditorIndex::from(group[ix]))
+            .unwrap_or(on.into());
+        return vec![below];
+    }
+    graph
+        .parents(entry)
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(order, target)| {
+            let entry_node = entry.as_pick();
+            groups
+                .iter()
+                .find(|((pick, entering), _)| {
+                    *pick == target && entry_node.is_some_and(|n| entering.contains(&(n, order)))
+                })
+                .and_then(|(_, group)| group.last().copied().map(EditorIndex::from))
+                .unwrap_or(target.into())
+        })
+        .collect()
+}
+
+/// A deterministic ordering for the head entries so snapshots are stable: picks
 /// before references, then by id / refname.
-fn compare_heads(graph: &StepGraph, a: StepGraphIndex, b: StepGraphIndex) -> Ordering {
-    match (&graph[a], &graph[b]) {
+fn compare_heads(graph: &GraphEditor, a: EditorIndex, b: EditorIndex) -> Ordering {
+    match (&graph.step_view(a), &graph.step_view(b)) {
         (
             Step::Reference { refname, .. },
             Step::Reference {
@@ -163,20 +190,20 @@ fn compare_heads(graph: &StepGraph, a: StepGraphIndex, b: StepGraphIndex) -> Ord
     }
 }
 
-/// Children-first topological order over `nodes`, seeded from `heads`.
+/// Children-first topological order over `entries`, seeded from `heads`.
 ///
-/// Only edges between nodes in `nodes` are followed, so this works for a full
-/// graph (where `nodes` is every index) as well as a subgraph that doesn't
+/// Only edges between entries in `entries` are followed, so this works for a full
+/// graph (where `entries` is every index) as well as a subgraph that doesn't
 /// include its parents.
 fn topological_order(
-    graph: &StepGraph,
-    nodes: &HashSet<StepGraphIndex>,
-    heads: &[StepGraphIndex],
-) -> Vec<StepGraphIndex> {
-    // Incoming edges from *within* the node set.
-    let mut in_degree: HashMap<StepGraphIndex, usize> = nodes.iter().map(|&n| (n, 0)).collect();
-    for &n in nodes {
-        for parent in get_sorted_parents(graph, n) {
+    graph: &GraphEditor,
+    entries: &HashSet<EditorIndex>,
+    heads: &[EditorIndex],
+) -> Vec<EditorIndex> {
+    // Incoming edges from *within* the entry set.
+    let mut in_degree: HashMap<EditorIndex, usize> = entries.iter().map(|&n| (n, 0)).collect();
+    for &n in entries {
+        for parent in rendered_parents(graph, n) {
             if let Some(deg) = in_degree.get_mut(&parent) {
                 *deg += 1;
             }
@@ -184,26 +211,26 @@ fn topological_order(
     }
 
     let mut result = Vec::new();
-    let mut visited: HashSet<StepGraphIndex> = HashSet::new();
+    let mut visited: HashSet<EditorIndex> = HashSet::new();
 
     fn dfs(
-        node: StepGraphIndex,
-        graph: &StepGraph,
-        nodes: &HashSet<StepGraphIndex>,
-        visited: &mut HashSet<StepGraphIndex>,
-        in_degree: &mut HashMap<StepGraphIndex, usize>,
-        result: &mut Vec<StepGraphIndex>,
+        entry: EditorIndex,
+        graph: &GraphEditor,
+        entries: &HashSet<EditorIndex>,
+        visited: &mut HashSet<EditorIndex>,
+        in_degree: &mut HashMap<EditorIndex, usize>,
+        result: &mut Vec<EditorIndex>,
     ) {
-        if visited.contains(&node) || in_degree.get(&node).is_some_and(|&d| d > 0) {
+        if visited.contains(&entry) || in_degree.get(&entry).is_some_and(|&d| d > 0) {
             return;
         }
 
-        visited.insert(node);
-        result.push(node);
+        visited.insert(entry);
+        result.push(entry);
 
-        let parents: Vec<_> = get_sorted_parents(graph, node)
+        let parents: Vec<_> = rendered_parents(graph, entry)
             .into_iter()
-            .filter(|p| nodes.contains(p))
+            .filter(|p| entries.contains(p))
             .collect();
         for parent in &parents {
             if let Some(deg) = in_degree.get_mut(parent) {
@@ -211,7 +238,7 @@ fn topological_order(
             }
         }
         for parent in parents {
-            dfs(parent, graph, nodes, visited, in_degree, result);
+            dfs(parent, graph, entries, visited, in_degree, result);
         }
     }
 
@@ -219,7 +246,7 @@ fn topological_order(
         dfs(
             head,
             graph,
-            nodes,
+            entries,
             &mut visited,
             &mut in_degree,
             &mut result,
@@ -232,66 +259,95 @@ fn topological_order(
 /// Render a (sub)graph of steps as a box-drawing DAG (à la `git log --graph`)
 /// using `sapling-renderdag`.
 ///
-/// `nodes` is the set of steps to draw and `heads` are the tips to seed the
-/// ordering from; parents outside `nodes` are simply dropped, so this renders
+/// `entries` is the set of steps to draw and `heads` are the tips to seed the
+/// ordering from; parents outside `entries` are simply dropped, so this renders
 /// both full graphs and subgraphs.
-fn render_step_graph<F>(
-    graph: &StepGraph,
-    nodes: &HashSet<StepGraphIndex>,
-    heads: &[StepGraphIndex],
+fn render_graph_editor<F>(
+    graph: &GraphEditor,
+    entries: &HashSet<EditorIndex>,
+    heads: &[EditorIndex],
     mut get_title: F,
 ) -> String
 where
     F: FnMut(gix::ObjectId) -> Option<String>,
 {
     let mut heads = heads.to_vec();
+    // Row-view tops without a rendered child inside the subgraph — e.g. reference groups
+    // positioned above a stack's head pick, entered only from outside — are heads too.
+    let mut in_degree: HashMap<EditorIndex, usize> = entries.iter().map(|&n| (n, 0)).collect();
+    for &n in entries {
+        for parent in rendered_parents(graph, n) {
+            if let Some(deg) = in_degree.get_mut(&parent) {
+                *deg += 1;
+            }
+        }
+    }
+    let mut extra: Vec<EditorIndex> = entries
+        .iter()
+        .copied()
+        .filter(|n| in_degree.get(n).is_none_or(|&d| d == 0) && !heads.contains(n))
+        // A positioned reference whose pick lies outside the set is a boundary group the
+        // edge-era walk never reached from this subgraph's heads — don't seed it.
+        .filter(|n| {
+            graph.positioned_on(*n).is_none_or(|_| {
+                crate::graph_rebase::positions::resolve_to_pick(graph, *n)
+                    .is_some_and(|pick| entries.contains(&pick.into()))
+            })
+        })
+        .collect();
+    extra.sort_by(|a, b| compare_heads(graph, *a, *b));
+    heads.retain(|h| in_degree.get(h).is_none_or(|&d| d == 0));
+    heads.extend(extra);
     heads.sort_by(|a, b| compare_heads(graph, *a, *b));
 
-    let mut renderer = GraphRowRenderer::<StepGraphIndex>::new()
+    let mut renderer = GraphRowRenderer::<EditorIndex>::new()
         .output()
         .with_min_row_height(1)
         .build_box_drawing();
 
     let mut out = String::new();
-    for node in topological_order(graph, nodes, &heads) {
-        let step = &graph[node];
-        let title = match step {
+    for entry in topological_order(graph, entries, &heads) {
+        let step = graph.step_view(entry);
+        let title = match &step {
             Step::Pick(Pick { id, .. }) => get_title(*id),
             _ => None,
         };
-        let parents = get_sorted_parents(graph, node)
+        let parents = rendered_parents(graph, entry)
             .into_iter()
-            .filter(|p| nodes.contains(p))
+            .filter(|p| entries.contains(p))
             .map(Ancestor::Parent)
             .collect();
         out.push_str(&renderer.next_row(
-            node,
+            entry,
             parents,
             step.to_symbol().to_string(),
-            format_step(step, title),
+            format_step(&step, title),
         ));
     }
     out.trim_end().to_string()
 }
 
-/// Render the full step graph as a box-drawing DAG.
-pub(crate) fn render_ascii_graph<F>(graph: &StepGraph, get_title: F) -> String
+/// Render the full editor graph as a box-drawing DAG.
+pub(crate) fn render_ascii_graph<F>(graph: &GraphEditor, get_title: F) -> String
 where
     F: FnMut(gix::ObjectId) -> Option<String>,
 {
-    let nodes: HashSet<StepGraphIndex> = graph.node_indices().collect();
+    let entries: HashSet<EditorIndex> = graph
+        .node_ids()
+        .map(EditorIndex::from)
+        .chain(graph.ref_indices().map(EditorIndex::from))
+        .collect();
     let heads = find_heads(graph);
-    render_step_graph(graph, &nodes, &heads, get_title)
+    render_graph_editor(graph, &entries, &heads, get_title)
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Render a [`Subgraph`] (e.g. one of the parts of [`Editor::graph_workspace`])
     /// as a box-drawing DAG, in the same style as [`Testing::steps_ascii`].
     pub fn subgraph_ascii(&self, subgraph: &Subgraph) -> String {
-        let resolve = |s: &Selector| self.history.normalize_selector(*s).ok().map(|s| s.id);
-        let nodes: HashSet<StepGraphIndex> = subgraph.nodes.iter().filter_map(resolve).collect();
-        let heads: Vec<StepGraphIndex> = subgraph.heads.iter().filter_map(resolve).collect();
-        render_step_graph(&self.graph, &nodes, &heads, |id| {
+        let entries: HashSet<EditorIndex> = subgraph.entries.iter().map(|s| s.id).collect();
+        let heads: Vec<EditorIndex> = subgraph.heads.iter().map(|s| s.id).collect();
+        render_graph_editor(&self.graph, &entries, &heads, |id| {
             lookup_commit_title(&self.repo, id)
         })
     }
@@ -316,7 +372,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
         let workspace_commit = ws.workspace_commit.map(|selector| Subgraph {
             heads: vec![selector],
-            nodes: [selector].into(),
+            entries: [selector].into(),
         });
         sections.push(format!(
             "# Workspace commit\n{}",
@@ -341,30 +397,45 @@ mod tests {
 
     use super::*;
 
-    fn make_pick(hex: &str) -> Step {
-        Step::Pick(Pick::new_pick(gix::ObjectId::from_str(hex).unwrap()))
+    fn make_pick(hex: &str) -> Option<Pick> {
+        Some(Pick::new_pick(gix::ObjectId::from_str(hex).unwrap()))
     }
 
-    fn make_ref(name: &str) -> Step {
-        Step::new_reference(gix::refs::FullName::try_from(format!("refs/heads/{name}")).unwrap())
+    fn add_ref(graph: &mut GraphEditor, name: &str) -> RefIndex {
+        graph.add_reference(
+            gix::refs::FullName::try_from(format!("refs/heads/{name}")).unwrap(),
+            true,
+        )
     }
 
-    /// Helper to build a graph and add edges with order
-    fn add_edge(graph: &mut StepGraph, from: StepGraphIndex, to: StepGraphIndex, order: usize) {
-        graph.add_edge(from, to, Edge { order });
+    /// Add a reference POSITIONED on `on`, the way the editor's own ref creation authors
+    /// refs — a root group of one.
+    fn place_ref(graph: &mut GraphEditor, name: &str, on: PickIndex) -> RefIndex {
+        let ix = add_ref(graph, name);
+        graph.set_position(ix, on, &[], false, None);
+        ix
+    }
+
+    /// Helper to append a parent edge; the stated `order` documents the intended parent
+    /// number and is asserted against the push (arrays make insertion order the structure).
+    fn add_edge(graph: &mut GraphEditor, from: PickIndex, to: PickIndex, order: usize) {
+        let parent_number = graph.push_parent(from, to);
+        assert_eq!(
+            parent_number, order,
+            "test builder must push parents in parent_number order"
+        );
     }
 
     #[test]
     fn linear_graph() {
-        // Simple linear: A -> B -> C -> D
-        let mut graph = StepGraph::new();
-        let a = graph.add_node(make_ref("main"));
+        // Simple linear: main on B -> C -> D
+        let mut graph = GraphEditor::default();
         let b = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
         let c = graph.add_node(make_pick("2222222222222222222222222222222222222222"));
         let d = graph.add_node(make_pick("3333333333333333333333333333333333333333"));
-        let none = graph.add_node(Step::None);
+        let none = graph.add_node(None);
+        place_ref(&mut graph, "main", b);
 
-        add_edge(&mut graph, a, b, 0);
         add_edge(&mut graph, b, c, 0);
         add_edge(&mut graph, c, d, 0);
         add_edge(&mut graph, d, none, 0);
@@ -390,11 +461,12 @@ mod tests {
         // A   B
         //  \ /
         //   C
-        let mut graph = StepGraph::new();
-        let m = graph.add_node(make_ref("main"));
+        let mut graph = GraphEditor::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        place_ref(&mut graph, "main", m);
 
         // M has two parents: A (first) and B (second)
         add_edge(&mut graph, m, a, 0);
@@ -407,7 +479,8 @@ mod tests {
         snapbox::assert_data_eq!(
             output,
             snapbox::str![[r#"
-◎    refs/heads/main
+◎  refs/heads/main
+●    9999999
 ├─╮
 ● │  aaaaaaa
 │ ●  bbbbbbb
@@ -425,12 +498,13 @@ mod tests {
         //  A  B  C
         //   \ | /
         //     D
-        let mut graph = StepGraph::new();
-        let m = graph.add_node(make_ref("main"));
+        let mut graph = GraphEditor::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
         let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
+        place_ref(&mut graph, "main", m);
 
         // M has three parents
         add_edge(&mut graph, m, a, 0);
@@ -445,7 +519,8 @@ mod tests {
         snapbox::assert_data_eq!(
             output,
             snapbox::str![[r#"
-◎      refs/heads/main
+◎  refs/heads/main
+●      9999999
 ├─┬─╮
 ● │ │  aaaaaaa
 │ ● │  bbbbbbb
@@ -467,14 +542,15 @@ mod tests {
         //  X  Y  Z  \
         //   \ | /   |
         //     C-----+
-        let mut graph = StepGraph::new();
-        let m = graph.add_node(make_ref("main"));
+        let mut graph = GraphEditor::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff")); // fork point
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let x = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
         let y = graph.add_node(make_pick("2222222222222222222222222222222222222222"));
         let z = graph.add_node(make_pick("3333333333333333333333333333333333333333"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        place_ref(&mut graph, "main", m);
 
         // M has two parents: F (first) and B (second)
         add_edge(&mut graph, m, f, 0);
@@ -497,7 +573,8 @@ mod tests {
         snapbox::assert_data_eq!(
             output,
             snapbox::str![[r#"
-◎    refs/heads/main
+◎  refs/heads/main
+●    9999999
 ├─╮
 ● │      fffffff
 ├───┬─╮
@@ -516,13 +593,14 @@ mod tests {
     #[test]
     fn four_way_merge() {
         // Four-way merge
-        let mut graph = StepGraph::new();
-        let m = graph.add_node(make_ref("main"));
+        let mut graph = GraphEditor::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
         let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
         let base = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
+        place_ref(&mut graph, "main", m);
 
         add_edge(&mut graph, m, a, 0);
         add_edge(&mut graph, m, b, 1);
@@ -538,7 +616,8 @@ mod tests {
         snapbox::assert_data_eq!(
             output,
             snapbox::str![[r#"
-◎        refs/heads/main
+◎  refs/heads/main
+●        9999999
 ├─┬─┬─╮
 ● │ │ │  aaaaaaa
 │ ● │ │  bbbbbbb
@@ -564,13 +643,14 @@ mod tests {
         // A3  |
         //  \ /
         //   C
-        let mut graph = StepGraph::new();
-        let m = graph.add_node(make_ref("main"));
+        let mut graph = GraphEditor::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a1 = graph.add_node(make_pick("a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"));
         let a2 = graph.add_node(make_pick("a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2"));
         let a3 = graph.add_node(make_pick("a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
+        place_ref(&mut graph, "main", m);
 
         add_edge(&mut graph, m, a1, 0);
         add_edge(&mut graph, m, b, 1);
@@ -583,7 +663,8 @@ mod tests {
         snapbox::assert_data_eq!(
             output,
             snapbox::str![[r#"
-◎    refs/heads/main
+◎  refs/heads/main
+●    9999999
 ├─╮
 ● │  a1a1a1a
 ● │  a2a2a2a
@@ -605,13 +686,14 @@ mod tests {
         //   D   E   |
         //    \ /    |
         //     F-----+
-        let mut graph = StepGraph::new();
-        let a = graph.add_node(make_ref("main"));
+        let mut graph = GraphEditor::default();
+        let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
         let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
         let e = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
+        place_ref(&mut graph, "main", a);
 
         // A forks to B, C
         add_edge(&mut graph, a, b, 0);
@@ -630,7 +712,8 @@ mod tests {
         snapbox::assert_data_eq!(
             output,
             snapbox::str![[r#"
-◎    refs/heads/main
+◎  refs/heads/main
+●    aaaaaaa
 ├─╮
 ● │    bbbbbbb
 ├───╮
@@ -655,8 +738,8 @@ mod tests {
         //     X Y Z  \|
         //      \|/    |
         //       D-----+
-        let mut graph = StepGraph::new();
-        let m = graph.add_node(make_ref("main"));
+        let mut graph = GraphEditor::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
@@ -664,6 +747,7 @@ mod tests {
         let y = graph.add_node(make_pick("2222222222222222222222222222222222222222"));
         let z = graph.add_node(make_pick("3333333333333333333333333333333333333333"));
         let d = graph.add_node(make_pick("dddddddddddddddddddddddddddddddddddddddd"));
+        place_ref(&mut graph, "main", m);
 
         // M forks to F, B, C
         add_edge(&mut graph, m, f, 0);
@@ -686,7 +770,8 @@ mod tests {
         snapbox::assert_data_eq!(
             output,
             snapbox::str![[r#"
-◎      refs/heads/main
+◎  refs/heads/main
+●      9999999
 ├─┬─╮
 ● │ │      fffffff
 ├─────┬─╮
@@ -718,8 +803,8 @@ mod tests {
         //   E   F     <- D forks to E and F, F is shared with C
         //    \ /
         //     base
-        let mut graph = StepGraph::new();
-        let m = graph.add_node(make_ref("main"));
+        let mut graph = GraphEditor::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
@@ -727,6 +812,7 @@ mod tests {
         let e = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
         let base = graph.add_node(make_pick("0000000000000000000000000000000000000000"));
+        place_ref(&mut graph, "main", m);
 
         // M forks to A, B, C
         add_edge(&mut graph, m, a, 0);
@@ -752,7 +838,8 @@ mod tests {
         snapbox::assert_data_eq!(
             output,
             snapbox::str![[r#"
-◎      refs/heads/main
+◎  refs/heads/main
+●      9999999
 ├─┬─╮
 ● │ │  aaaaaaa
 ● │ │    ddddddd
@@ -786,8 +873,8 @@ mod tests {
         //   |     G     <- B, C, and D's second branch merge at G
         //    \   /
         //      F        <- E and G merge at F
-        let mut graph = StepGraph::new();
-        let m = graph.add_node(make_ref("main"));
+        let mut graph = GraphEditor::default();
+        let m = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
@@ -795,6 +882,7 @@ mod tests {
         let e = graph.add_node(make_pick("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
         let g = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
+        place_ref(&mut graph, "main", m);
 
         // M forks to A, B, C
         add_edge(&mut graph, m, a, 0);
@@ -820,7 +908,8 @@ mod tests {
         snapbox::assert_data_eq!(
             output,
             snapbox::str![[r#"
-◎      refs/heads/main
+◎  refs/heads/main
+●      1111111
 ├─┬─╮
 ● │ │  aaaaaaa
 ● │ │    ddddddd
@@ -851,8 +940,8 @@ mod tests {
         //  E F shared <- D forks to E, F, shared where shared comes from C
         //   \|/
         //    base
-        let mut graph = StepGraph::new();
-        let m = graph.add_node(make_ref("main"));
+        let mut graph = GraphEditor::default();
+        let m = graph.add_node(make_pick("9999999999999999999999999999999999999999"));
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let c = graph.add_node(make_pick("cccccccccccccccccccccccccccccccccccccccc"));
@@ -861,6 +950,7 @@ mod tests {
         let f = graph.add_node(make_pick("ffffffffffffffffffffffffffffffffffffffff"));
         let shared = graph.add_node(make_pick("1111111111111111111111111111111111111111"));
         let base = graph.add_node(make_pick("0000000000000000000000000000000000000000"));
+        place_ref(&mut graph, "main", m);
 
         // M forks to A, B, C
         add_edge(&mut graph, m, a, 0);
@@ -887,7 +977,8 @@ mod tests {
         snapbox::assert_data_eq!(
             output,
             snapbox::str![[r#"
-◎      refs/heads/main
+◎  refs/heads/main
+●      9999999
 ├─┬─╮
 ● │ │  aaaaaaa
 ● │ │      ddddddd
@@ -907,21 +998,20 @@ mod tests {
 
     #[test]
     fn subgraph_drops_parents_outside_the_node_set() {
-        // main -> a -> b -> base, rendering only the subgraph {a, b}.
-        // `main` (a child of `a`) and `base` (a parent of `b`) are outside the
-        // set, so neither is drawn and `b` renders as a root.
-        let mut graph = StepGraph::new();
-        let main = graph.add_node(make_ref("main"));
+        // main on a -> b -> base, rendering only the subgraph {a, b}.
+        // `main` (positioned on `a`) and `base` (a parent of `b`) are outside
+        // the set, so neither is drawn and `b` renders as a root.
+        let mut graph = GraphEditor::default();
         let a = graph.add_node(make_pick("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         let b = graph.add_node(make_pick("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
         let base = graph.add_node(make_pick("0000000000000000000000000000000000000000"));
+        place_ref(&mut graph, "main", a);
 
-        add_edge(&mut graph, main, a, 0);
         add_edge(&mut graph, a, b, 0);
         add_edge(&mut graph, b, base, 0);
 
-        let nodes: HashSet<StepGraphIndex> = [a, b].into_iter().collect();
-        let output = render_step_graph(&graph, &nodes, &[a], |_| None);
+        let entries: HashSet<EditorIndex> = [a.into(), b.into()].into_iter().collect();
+        let output = render_graph_editor(&graph, &entries, &[a.into()], |_| None);
         snapbox::assert_data_eq!(
             output,
             snapbox::str![[r#"

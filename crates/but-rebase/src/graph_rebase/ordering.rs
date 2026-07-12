@@ -4,17 +4,16 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
 use but_core::RefMetadata;
-use petgraph::Direction;
 
-use crate::graph_rebase::{Editor, Pick, Selector, Step, StepGraphIndex, ToCommitSelector, util};
+use crate::graph_rebase::{Editor, PickIndex, Selector, ToCommitSelector, util};
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Order commit selectors by parentage, with parents first and children last.
     ///
     /// Duplicate selectors are deduplicated by commit-id with first occurrence winning.
     ///
-    /// Ordering is derived from a deterministic rank map built from the editor step graph.
-    /// The rank is computed by traversing from all child-most graph nodes in ordered-parent
+    /// Ordering is derived from a deterministic rank map built from the editor graph.
+    /// The rank is computed by traversing from all child-most graph entries in ordered-parent
     /// post-order (parents are pushed in `collect_ordered_parents` order, without reversing),
     /// then sorting selected commits by `(rank, input_order)`.
     ///
@@ -43,32 +42,26 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             return Ok(selected.into_iter().map(|s| s.selector).collect());
         }
 
-        // Build a deterministic rank from editor step-graph order.
+        // Build a deterministic rank from editor commit-graph order.
         let selected_ids = selected
             .iter()
             .map(|commit| commit.id)
             .collect::<HashSet<_>>();
-        let step_graph_rank = step_graph_parent_to_child_rank(self, &selected_ids)?;
+        let graph_rank = parent_to_child_rank(self, &selected_ids)?;
 
         // Preserve the Result contract: unreachable selected commits are a runtime error,
         // not an internal panic.
         for commit in &selected {
-            if !step_graph_rank.contains_key(&commit.id) {
+            if !graph_rank.contains_key(&commit.id) {
                 bail!(
-                    "Cannot order selected commits by parentage: selected commit {} could not be ranked from editor graph nodes",
+                    "Cannot order selected commits by parentage: selected commit {} could not be ranked from editor graph entries",
                     commit.id
                 );
             }
         }
 
         // The rank map is the sole source of truth for deterministic parent-before-child ordering.
-        selected.sort_by_key(|commit| {
-            let rank = step_graph_rank
-                .get(&commit.id)
-                .copied()
-                .unwrap_or(usize::MAX);
-            (rank, commit.input_order)
-        });
+        selected.sort_by_key(|commit| (graph_rank[&commit.id], commit.input_order));
 
         Ok(selected.into_iter().map(|s| s.selector).collect())
     }
@@ -81,23 +74,20 @@ struct SelectedCommit {
     input_order: usize,
 }
 
-fn step_graph_parent_to_child_rank<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn parent_to_child_rank<M: RefMetadata>(
+    editor: &Editor<'_, M>,
     selected_ids: &HashSet<gix::ObjectId>,
 ) -> Result<HashMap<gix::ObjectId, usize>> {
     let mut rank_by_id = HashMap::<gix::ObjectId, usize>::new();
     let mut next_rank = 0usize;
-    let mut seen = HashSet::<StepGraphIndex>::new();
+    let mut seen = HashSet::<PickIndex>::new();
 
-    let mut roots = editor
-        .graph
-        .externals(Direction::Incoming)
-        .collect::<Vec<StepGraphIndex>>();
-    roots.sort_unstable_by_key(|idx| idx.index());
+    let mut roots = editor.graph.tips().collect::<Vec<PickIndex>>();
+    roots.sort_unstable();
 
-    // Traverse from all child-most entrypoints (graph nodes without children), assigning
+    // Traverse from all child-most entrypoints (graph entries without children), assigning
     // rank in post-order so parent commits always rank before descendants. Parents are
-    // pushed in collect_ordered_parents order (not reversed). The seen-set handles nodes
+    // pushed in collect_ordered_parents order (not reversed). The seen-set handles entries
     // reachable from multiple entrypoints, and traversal stops once all selected commits
     // have ranks.
     for root in roots {
@@ -106,13 +96,13 @@ fn step_graph_parent_to_child_rank<M: RefMetadata>(
         }
 
         let mut stack = vec![(root, false)];
-        while let Some((node, expanded)) = stack.pop() {
+        while let Some((entry, expanded)) = stack.pop() {
             if rank_by_id.len() == selected_ids.len() {
                 break;
             }
 
             if expanded {
-                if let Step::Pick(Pick { id, .. }) = editor.graph[node]
+                if let Some(id) = editor.graph.commit_id(entry)
                     && selected_ids.contains(&id)
                 {
                     rank_by_id.entry(id).or_insert_with(|| {
@@ -124,12 +114,12 @@ fn step_graph_parent_to_child_rank<M: RefMetadata>(
                 continue;
             }
 
-            if !seen.insert(node) {
+            if !seen.insert(entry) {
                 continue;
             }
 
-            let parents = util::collect_ordered_parents(&editor.graph, node);
-            stack.push((node, true));
+            let parents = util::collect_ordered_parents(&editor.graph, entry);
+            stack.push((entry, true));
             for parent_idx in parents.into_iter() {
                 stack.push((parent_idx, false));
             }

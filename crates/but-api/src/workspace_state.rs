@@ -2,7 +2,7 @@ use super::WorkspaceState;
 use std::collections::{BTreeMap, HashMap};
 
 use but_core::{DryRun, RefMetadata};
-use but_rebase::graph_rebase::SuccessfulRebase;
+use but_rebase::graph_rebase::{MaterializeOutcome, SuccessfulRebase};
 
 /// Build a `{ pushed short name -> PR number }` lookup from the forge review
 /// cache, for resolving branch PR associations at projection time.
@@ -110,8 +110,8 @@ impl WorkspaceState {
                 workspace,
                 repo,
                 but_workspace::ref_info::Options {
-                    project_meta: workspace.graph.project_meta.clone(),
-                    traversal: but_graph::init::Options::limited(),
+                    project_meta: workspace.project_meta().clone(),
+                    traversal: but_graph::walk::Options::limited(),
                     expensive_commit_info: true,
                     ..Default::default()
                 },
@@ -132,9 +132,8 @@ impl WorkspaceState {
             // The graph_workspace projection needs its own equivalent enrichment;
             // that is out of scope here.
             let _ = prs_by_head;
-            let mut workspace = workspace.clone();
             let graph_workspace =
-                but_workspace::workspace::detailed_graph_workspace(&mut workspace, meta, repo)?;
+                but_workspace::workspace::detailed_graph_workspace(workspace, meta, repo)?;
 
             Ok(WorkspaceState {
                 replaced_commits,
@@ -183,13 +182,15 @@ impl WorkspaceState {
     /// The `replaced_commits` map should describe the commit rewrites visible in the
     /// preview graph, which typically comes from `rebase.history.commit_mappings()`.
     fn from_rebase_preview<M: RefMetadata>(
-        rebase: &mut SuccessfulRebase<'_, '_, M>,
+        workspace: &but_graph::Workspace,
+        rebase: &mut SuccessfulRebase<'_, M>,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         prs_by_head: &HashMap<String, usize>,
     ) -> anyhow::Result<WorkspaceState> {
-        let workspace = rebase.overlayed_graph()?.into_workspace()?;
+        let overlay = rebase.rebase_overlay()?;
         let (repo, meta) = rebase.repo_and_meta_mut();
-        Self::from_workspace(&workspace, meta, repo, replaced_commits, prs_by_head)
+        let preview = workspace.redo(repo, meta, overlay)?;
+        Self::from_workspace(&preview, meta, repo, replaced_commits, prs_by_head)
     }
 
     /// Build a preview [`WorkspaceState`] from a successful rebase without materializing it.
@@ -198,12 +199,47 @@ impl WorkspaceState {
     /// the workspace cache DB. It derives PR associations from the forge review
     /// cache before projecting the preview state.
     pub(crate) fn from_rebase_preview_with_db<M: RefMetadata>(
-        rebase: &mut SuccessfulRebase<'_, '_, M>,
+        workspace: &but_graph::Workspace,
+        rebase: &mut SuccessfulRebase<'_, M>,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
         db: &but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = forge_prs_by_head(db)?;
-        Self::from_rebase_preview(rebase, replaced_commits, &prs_by_head)
+        Self::from_rebase_preview(workspace, rebase, replaced_commits, &prs_by_head)
+    }
+
+    /// Build a [`WorkspaceState`] from an already-materialized rebase, refreshing `workspace`
+    /// from the rebase's mutated commit graph along the way.
+    ///
+    /// Use this when the caller needs to perform additional bookkeeping after materialization
+    /// before constructing the final workspace state. Carries no PR associations — the
+    /// transaction layer this serves intentionally does not depend on forge storage.
+    pub fn from_materialized_rebase<M: RefMetadata>(
+        workspace: &mut but_graph::Workspace,
+        materialized: MaterializeOutcome<'_, M>,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<WorkspaceState> {
+        Self::from_materialized_rebase_inner(workspace, materialized, repo, &HashMap::new())
+    }
+
+    fn from_materialized_rebase_inner<M: RefMetadata>(
+        workspace: &mut but_graph::Workspace,
+        materialized: MaterializeOutcome<'_, M>,
+        repo: &gix::Repository,
+        prs_by_head: &HashMap<String, usize>,
+    ) -> anyhow::Result<WorkspaceState> {
+        workspace.refresh_from_commit_graph(
+            materialized.arena().clone(),
+            repo,
+            materialized.meta,
+        )?;
+        Self::from_workspace(
+            workspace,
+            materialized.meta,
+            repo,
+            materialized.history.commit_mappings(),
+            prs_by_head,
+        )
     }
 
     /// Build a [`WorkspaceState`] from a successful rebase, materializing it when needed.
@@ -215,7 +251,8 @@ impl WorkspaceState {
     /// workspace state together with the final commit-replacement mappings returned by the
     /// materialized history.
     fn from_successful_rebase<M: RefMetadata>(
-        rebase: SuccessfulRebase<'_, '_, M>,
+        workspace: &mut but_graph::Workspace,
+        rebase: SuccessfulRebase<'_, M>,
         repo: &gix::Repository,
         dry_run: DryRun,
         prs_by_head: &HashMap<String, usize>,
@@ -223,17 +260,16 @@ impl WorkspaceState {
         if dry_run.into() {
             let mut rebase = rebase;
             let replaced_commits = rebase.history.commit_mappings();
-            return Self::from_rebase_preview(&mut rebase, replaced_commits, prs_by_head);
+            return Self::from_rebase_preview(
+                workspace,
+                &mut rebase,
+                replaced_commits,
+                prs_by_head,
+            );
         }
 
         let materialized = rebase.materialize()?;
-        Self::from_workspace(
-            materialized.workspace,
-            materialized.meta,
-            repo,
-            materialized.history.commit_mappings(),
-            prs_by_head,
-        )
+        Self::from_materialized_rebase_inner(workspace, materialized, repo, prs_by_head)
     }
 
     /// Build a [`WorkspaceState`] from a successful rebase without PR associations.
@@ -243,11 +279,12 @@ impl WorkspaceState {
     /// for layers that intentionally do not depend on forge storage and whose
     /// consumers do not observe PR association fields.
     pub fn from_successful_rebase_without_pr_associations<M: RefMetadata>(
-        rebase: SuccessfulRebase<'_, '_, M>,
+        workspace: &mut but_graph::Workspace,
+        rebase: SuccessfulRebase<'_, M>,
         repo: &gix::Repository,
         dry_run: DryRun,
     ) -> anyhow::Result<WorkspaceState> {
-        Self::from_successful_rebase(rebase, repo, dry_run, &HashMap::new())
+        Self::from_successful_rebase(workspace, rebase, repo, dry_run, &HashMap::new())
     }
 
     /// Build a [`WorkspaceState`] from a successful rebase, materializing it when needed.
@@ -256,12 +293,13 @@ impl WorkspaceState {
     /// the workspace cache DB. It derives PR associations from the forge review
     /// cache before projecting the final or dry-run workspace state.
     pub(crate) fn from_successful_rebase_with_db<M: RefMetadata>(
-        rebase: SuccessfulRebase<'_, '_, M>,
+        workspace: &mut but_graph::Workspace,
+        rebase: SuccessfulRebase<'_, M>,
         repo: &gix::Repository,
         dry_run: DryRun,
         db: &but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
         let prs_by_head = forge_prs_by_head(db)?;
-        Self::from_successful_rebase(rebase, repo, dry_run, &prs_by_head)
+        Self::from_successful_rebase(workspace, rebase, repo, dry_run, &prs_by_head)
     }
 }

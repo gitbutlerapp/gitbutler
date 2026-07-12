@@ -5,9 +5,8 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{Context, Result, bail};
 use but_core::{RefMetadata, commit::tree_expression::TreeExpression};
 use gix::prelude::ObjectIdExt;
-use petgraph::Direction;
 
-use crate::graph_rebase::{Editor, Pick, Step, StepGraphIndex, util::collect_ordered_parents};
+use crate::graph_rebase::{Editor, PickIndex, util::collect_ordered_parents};
 
 /// A selected commit change range that should be merged into an accumulated
 /// tree.
@@ -47,7 +46,7 @@ pub struct MergeCommitChangesConflict {
     pub conflict_entries: but_core::commit::ConflictEntries,
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Return the tree produced by preserving the target commit's full tree
     /// and then merging only the surviving selected commits' own change
     /// ranges into it.
@@ -107,8 +106,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Turn the selected commits into mergeable `base..commit` change ranges
     /// relative to a target commit.
     ///
-    /// This planner assumes the editor step graph and the editor's in-memory
-    /// repository describe the same commit topology. The step graph is used to
+    /// This planner assumes the editor commit graph and the editor's in-memory
+    /// repository describe the same commit topology. The commit graph is used to
     /// traverse selected commits deterministically and to find the target's
     /// ancestry cone quickly, while first-parent/base semantics still come
     /// from the commit objects stored in the in-memory repository.
@@ -230,35 +229,32 @@ enum TraversalMode {
 /// [SelectedCommitPlanningTraversal::ordered_selected_commit_ids] is
 /// deterministic and based solely on the graph.
 ///
-/// This walk intentionally uses the editor step graph only as a traversal
+/// This walk intentionally uses the editor commit graph only as a traversal
 /// structure. Parent/tree semantics are still read from the in-memory
 /// repository commits, so callers must only use this planner when the editor
 /// graph and the in-memory repository represent the same commit topology.
 fn traverse_graph_for_planning<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     target_commit_id: gix::ObjectId,
     selected_commit_ids: &HashSet<gix::ObjectId>,
 ) -> Result<SelectedCommitPlanningTraversal> {
     let mut traversal = SelectedCommitPlanningTraversal::default();
     let mut seen_selected_commit_ids = HashSet::new();
-    let mut seen_normal = HashSet::<StepGraphIndex>::new();
-    let mut seen_target_ancestor_walk = HashSet::<StepGraphIndex>::new();
+    let mut seen_normal = HashSet::<PickIndex>::new();
+    let mut seen_target_ancestor_walk = HashSet::<PickIndex>::new();
 
-    let mut roots = editor
-        .graph
-        .externals(Direction::Incoming)
-        .collect::<Vec<StepGraphIndex>>();
-    roots.sort_unstable_by_key(|idx| idx.index());
+    let mut roots = editor.graph.tips().collect::<Vec<PickIndex>>();
+    roots.sort_unstable();
 
     for root in roots {
         let mut stack = vec![(root, false, TraversalMode::Normal)];
-        while let Some((node, expanded, mode)) = stack.pop() {
+        while let Some((entry, expanded, mode)) = stack.pop() {
             match mode {
                 TraversalMode::Normal => {
                     if expanded {
-                        if let Step::Pick(Pick { id, .. }) = editor.graph[node] {
+                        if let Some(id) = editor.graph.commit_id(entry) {
                             if let Some(first_parent_metadata) =
-                                get_first_parent_metadata(editor, id, selected_commit_ids)?
+                                first_parent_metadata(editor, id, selected_commit_ids)?
                             {
                                 traversal
                                     .first_parent_metadata_by_selected_commit_id
@@ -270,7 +266,7 @@ fn traverse_graph_for_planning<M: RefMetadata>(
 
                             if id == target_commit_id {
                                 traversal.target_ancestor_commit_ids.insert(id);
-                                for parent_idx in collect_ordered_parents(&editor.graph, node) {
+                                for parent_idx in collect_ordered_parents(&editor.graph, entry) {
                                     stack.push((
                                         parent_idx,
                                         false,
@@ -282,26 +278,26 @@ fn traverse_graph_for_planning<M: RefMetadata>(
                         continue;
                     }
 
-                    if !seen_normal.insert(node) {
+                    if !seen_normal.insert(entry) {
                         continue;
                     }
 
-                    let parents = collect_ordered_parents(&editor.graph, node);
-                    stack.push((node, true, TraversalMode::Normal));
+                    let parents = collect_ordered_parents(&editor.graph, entry);
+                    stack.push((entry, true, TraversalMode::Normal));
                     for parent_idx in parents.into_iter() {
                         stack.push((parent_idx, false, TraversalMode::Normal));
                     }
                 }
                 TraversalMode::MarkTargetAncestors => {
-                    if !seen_target_ancestor_walk.insert(node) {
+                    if !seen_target_ancestor_walk.insert(entry) {
                         continue;
                     }
 
-                    if let Step::Pick(Pick { id, .. }) = editor.graph[node] {
+                    if let Some(id) = editor.graph.commit_id(entry) {
                         traversal.target_ancestor_commit_ids.insert(id);
                     }
 
-                    for parent_idx in collect_ordered_parents(&editor.graph, node) {
+                    for parent_idx in collect_ordered_parents(&editor.graph, entry) {
                         stack.push((parent_idx, false, TraversalMode::MarkTargetAncestors));
                     }
                 }
@@ -315,14 +311,14 @@ fn traverse_graph_for_planning<M: RefMetadata>(
 /// Returns first-parent metadata if `commit_id` is selected.
 ///
 /// This intentionally reads the commit object from the editor's in-memory
-/// repository instead of inferring first-parent semantics from the step graph.
-/// The step graph only provides deterministic traversal order and fast target
+/// repository instead of inferring first-parent semantics from the commit graph.
+/// The commit graph only provides deterministic traversal order and fast target
 /// ancestry discovery. The actual `base..commit` merge ranges must match the
 /// commit DAG that owns the trees and SHAs being merged, so callers are
-/// expected to keep the editor step graph aligned with that in-memory
+/// expected to keep the editor commit graph aligned with that in-memory
 /// repository topology.
-fn get_first_parent_metadata<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn first_parent_metadata<M: RefMetadata>(
+    editor: &Editor<'_, M>,
     commit_id: gix::ObjectId,
     selected_commit_ids: &HashSet<gix::ObjectId>,
 ) -> Result<Option<FirstParentMetadata>> {
@@ -350,7 +346,7 @@ fn get_first_parent_metadata<M: RefMetadata>(
 /// If the first parent link cannot be followed due to a commit not having any
 /// parents, the empty tree is returned.
 fn base_tree_id_for_emitted_tip<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     tip_commit_id: gix::ObjectId,
     selected_metadata_by_commit: &HashMap<gix::ObjectId, FirstParentMetadata>,
     target_ancestor_commit_ids: &HashSet<gix::ObjectId>,
@@ -384,7 +380,7 @@ fn base_tree_id_for_emitted_tip<M: RefMetadata>(
 }
 
 fn tree_id_for_commit<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     commit_id: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
     Ok(but_core::Commit::from_id(commit_id.attach(&editor.repo))?

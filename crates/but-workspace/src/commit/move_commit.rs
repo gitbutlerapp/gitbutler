@@ -4,7 +4,8 @@ use anyhow::bail;
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _, SuccessfulRebase, ToCommitSelector, ToSelector,
-    mutate::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet},
+    mutate::InsertSide,
+    selector::{RelativeTo, SelectorSet, StepRange},
 };
 
 use crate::graph_manipulation::determine_parent_selector;
@@ -21,12 +22,12 @@ use crate::graph_manipulation::determine_parent_selector;
 ///
 /// The subject commit will be detached from the source segment, and inserted relative
 /// to a given anchor (branch or commit).
-pub fn move_commit<'ws, 'meta, M: RefMetadata>(
-    editor: Editor<'ws, 'meta, M>,
+pub fn move_commit<'meta, M: RefMetadata>(
+    editor: Editor<'meta, M>,
     subject_commit: impl ToCommitSelector,
     anchor: impl ToSelector,
     side: InsertSide,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> anyhow::Result<SuccessfulRebase<'meta, M>> {
     let editor = move_commit_no_rebase(editor, subject_commit, anchor, side)?;
     editor.rebase()
 }
@@ -35,12 +36,12 @@ pub fn move_commit<'ws, 'meta, M: RefMetadata>(
 ///
 /// The commits are ordered by parentage before moving so callers do not need to
 /// provide them in graph order.
-pub fn move_commits<'ws, 'meta, M: RefMetadata>(
-    editor: Editor<'ws, 'meta, M>,
+pub fn move_commits<'meta, M: RefMetadata>(
+    editor: Editor<'meta, M>,
     subject_commit_ids: impl IntoIterator<Item = gix::ObjectId>,
     relative_to: RelativeTo,
     side: InsertSide,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> anyhow::Result<SuccessfulRebase<'meta, M>> {
     let subject_commit_ids = subject_commit_ids.into_iter().collect::<Vec<_>>();
     if subject_commit_ids.is_empty() {
         bail!("No commits were provided to move")
@@ -87,15 +88,15 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
 /// to a given anchor (branch or commit).
 ///
 /// This function mutates the editor graph but does not execute a rebase.
-pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn move_commit_no_rebase<'meta, M: RefMetadata>(
+    mut editor: Editor<'meta, M>,
     subject_commit: impl ToCommitSelector,
     anchor: impl ToSelector,
     side: InsertSide,
-) -> anyhow::Result<Editor<'ws, 'meta, M>> {
+) -> anyhow::Result<Editor<'meta, M>> {
     let (subject_commit_selector, _) = editor.find_selectable_commit(subject_commit)?;
 
-    let commit_delimiter = SegmentDelimiter {
+    let commit_range = StepRange {
         child: subject_commit_selector,
         parent: subject_commit_selector,
     };
@@ -104,14 +105,14 @@ pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
     let parent_to_disconnect = determine_parent_selector(&editor, subject_commit_selector)?;
 
     // Step 2: Disconnect
-    editor.disconnect_segment_from(
-        commit_delimiter.clone(),
+    editor.disconnect_range_from(
+        commit_range.clone(),
         SelectorSet::All,
         parent_to_disconnect,
         false,
     )?;
 
     // Step 3: Insert
-    editor.insert_segment(anchor, commit_delimiter, side)?;
+    editor.insert_range(anchor, commit_range, side)?;
     Ok(editor)
 }

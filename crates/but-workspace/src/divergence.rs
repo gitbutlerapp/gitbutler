@@ -52,7 +52,7 @@ impl TargetCommitRelation {
 pub(crate) fn get_commits_until_merge_base<'a, M: RefMetadata>(
     ref_name: &'a gix::refs::FullNameRef,
     upstream_ref_name: Cow<'a, gix::refs::FullNameRef>,
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
 ) -> Result<BranchMergeBaseCommits> {
     let local_tip = tip_for_ref(editor, ref_name, editor.repo())
         .with_context(|| format!("Could not determine tip commit for '{ref_name}'"))?;
@@ -96,7 +96,7 @@ pub(crate) fn get_commits_until_merge_base<'a, M: RefMetadata>(
 ///
 /// Returns the commit ids for all provided selectors in iteration order.
 pub(crate) fn commit_ids_from_selectors<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     selectors: impl IntoIterator<Item = Selector>,
 ) -> Result<Vec<gix::ObjectId>> {
     selectors
@@ -119,7 +119,7 @@ pub(crate) fn commit_ids_from_selectors<M: RefMetadata>(
 /// Returns a map keyed by candidate commit id describing whether each candidate
 /// is historically integrated into the target branch.
 pub(crate) fn classify_selectors_against_target_ref<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     target_ref_selector: Selector,
     candidate_selectors: &[Selector],
 ) -> Result<HashMap<gix::ObjectId, TargetCommitRelation>> {
@@ -142,7 +142,7 @@ pub(crate) fn classify_selectors_against_target_ref<M: RefMetadata>(
 }
 
 fn first_pick_parent<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     selector: Selector,
 ) -> Result<Selector> {
     let mut adjacent = editor.direct_parents(selector)?;
@@ -157,7 +157,7 @@ fn first_pick_parent<M: RefMetadata>(
 }
 
 fn tip_for_ref<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     ref_name: &gix::refs::FullNameRef,
     repo: &gix::Repository,
 ) -> Result<Selector> {
@@ -175,18 +175,16 @@ fn tip_for_ref<M: RefMetadata>(
 }
 
 fn child_on_head_first_parent_path<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     reference_selector: Selector,
     head_id: gix::ObjectId,
 ) -> Result<Option<Selector>> {
     let head_selector = editor.select_commit(head_id)?;
     let mut current = Some(head_selector);
     while let Some(selector) = current {
-        let mut parents = editor.direct_parents(selector)?;
-        parents.sort_by_key(|(_, order)| *order);
-        if parents
-            .iter()
-            .any(|(parent, _)| *parent == reference_selector)
+        if editor
+            .position_parents(selector)?
+            .contains(&reference_selector)
         {
             return Ok((selector != head_selector).then_some(selector));
         }
@@ -196,7 +194,7 @@ fn child_on_head_first_parent_path<M: RefMetadata>(
 }
 
 fn find_first_parent_merge_base<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     local_tip: Selector,
     upstream_ancestors: &HashMap<gix::ObjectId, Selector>,
 ) -> Result<Option<gix::ObjectId>> {
@@ -230,7 +228,7 @@ fn find_first_parent_merge_base<M: RefMetadata>(
 }
 
 fn traverse_pick_ancestor_ids<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     tip: Selector,
 ) -> Result<HashMap<gix::ObjectId, Selector>> {
     let mut out = HashMap::new();
@@ -272,7 +270,7 @@ fn traverse_pick_ancestor_ids<M: RefMetadata>(
 }
 
 fn first_parent<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     selector: Selector,
 ) -> Result<Option<Selector>> {
     let mut parents = editor.direct_parents(selector)?;
@@ -303,7 +301,7 @@ fn first_parent<M: RefMetadata>(
 }
 
 fn first_parent_path_until<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     tip: Selector,
     mut stop: impl FnMut(&Selector) -> bool,
 ) -> Result<Vec<Selector>> {

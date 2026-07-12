@@ -743,7 +743,7 @@ impl Workspace {
 
     /// Return `true` if the branch with `name` is the workspace target or the targets local tracking branch,
     /// using `repo` for the lookup of the local tracking branch.
-    pub fn is_branch_the_target_or_its_local_tracking_branch(
+    pub fn is_target_or_its_local_tracking(
         &self,
         name: &gix::refs::FullNameRef,
         repo: &gix::Repository,

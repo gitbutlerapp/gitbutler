@@ -262,14 +262,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
-    ),
     is_managed_ref: true,
     is_managed_commit: true,
     ancestor_workspace_commit: None,
@@ -339,14 +331,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -421,14 +405,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -530,14 +506,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -725,14 +693,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
-    ),
     is_managed_ref: true,
     is_managed_commit: true,
     ancestor_workspace_commit: None,
@@ -836,14 +796,6 @@ RefInfo {
             commits_ahead: 1,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
-    ),
     is_managed_ref: true,
     is_managed_commit: true,
     ancestor_workspace_commit: None,
@@ -944,14 +896,6 @@ RefInfo {
             commits_ahead: 1,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(a455fe761e758d0b6c0aa8966d91f2de32fa7bfc),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(4),
-    ),
     is_managed_ref: true,
     is_managed_commit: true,
     ancestor_workspace_commit: None,
@@ -1037,14 +981,6 @@ RefInfo {
             ),
             commits_ahead: 1,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -1143,14 +1079,6 @@ RefInfo {
             commits_ahead: 1,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
-    ),
     is_managed_ref: true,
     is_managed_commit: true,
     ancestor_workspace_commit: None,
@@ -1228,14 +1156,6 @@ RefInfo {
             ),
             commits_ahead: 1,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -1332,14 +1252,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -1474,14 +1386,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -1642,14 +1546,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
-    ),
     is_managed_ref: true,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -1792,14 +1688,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
-    ),
     is_managed_ref: true,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -1859,6 +1747,26 @@ RefInfo {
     stacks: [
         Stack {
             id: Some(
+                00000000-0000-0000-0000-000000000001,
+            ),
+            base: Some(
+                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+            ),
+            segments: [
+                ref_info::ui::Segment {
+                    ref_name: "►lane",
+                    remote_tracking_ref_name: "None",
+                    commits: [],
+                    commits_on_remote: [],
+                    commits_outside: None,
+                    metadata: Branch,
+                    push_status: CompletelyUnpushed,
+                    base: "fafd9d0",
+                },
+            ],
+        },
+        Stack {
+            id: Some(
                 00000000-0000-0000-0000-000000000000,
             ),
             base: Some(
@@ -1879,26 +1787,6 @@ RefInfo {
                 },
             ],
         },
-        Stack {
-            id: Some(
-                00000000-0000-0000-0000-000000000001,
-            ),
-            base: Some(
-                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            ),
-            segments: [
-                ref_info::ui::Segment {
-                    ref_name: "►lane",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "fafd9d0",
-                },
-            ],
-        },
     ],
     target_ref: Some(
         TargetRef {
@@ -1907,14 +1795,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2001,14 +1881,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2114,14 +1986,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
-    ),
     is_managed_ref: true,
     is_managed_commit: true,
     ancestor_workspace_commit: None,
@@ -2208,14 +2072,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2328,14 +2184,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
-    ),
     is_managed_ref: true,
     is_managed_commit: true,
     ancestor_workspace_commit: None,
@@ -2430,14 +2278,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2540,14 +2380,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2653,14 +2485,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
-    ),
     is_managed_ref: true,
     is_managed_commit: true,
     ancestor_workspace_commit: None,
@@ -2680,10 +2504,14 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* cbc6713 (HEAD -> gitbutler/workspace, advanced-lane) change
+*   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * cbc6713 (advanced-lane) change
+|/  
 * fafd9d0 (origin/main, main, lane) init
 
 "#]]
+        .raw()
     );
 
     for (idx, name) in ["advanced-lane", "lane"].into_iter().enumerate() {
@@ -2701,7 +2529,7 @@ RefInfo {
                 "refs/heads/gitbutler/workspace",
             ),
             commit_id: Some(
-                Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
+                Sha1(335d6f2a960f387b039bd77476ae3d2d6649ed70),
             ),
             worktree: Some(
                 Worktree {
@@ -2715,6 +2543,26 @@ RefInfo {
         "origin",
     },
     stacks: [
+        Stack {
+            id: Some(
+                00000000-0000-0000-0000-000000000001,
+            ),
+            base: Some(
+                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+            ),
+            segments: [
+                ref_info::ui::Segment {
+                    ref_name: "►lane",
+                    remote_tracking_ref_name: "None",
+                    commits: [],
+                    commits_on_remote: [],
+                    commits_outside: None,
+                    metadata: Branch,
+                    push_status: CompletelyUnpushed,
+                    base: "fafd9d0",
+                },
+            ],
+        },
         Stack {
             id: Some(
                 00000000-0000-0000-0000-000000000000,
@@ -2737,26 +2585,6 @@ RefInfo {
                 },
             ],
         },
-        Stack {
-            id: Some(
-                00000000-0000-0000-0000-000000000001,
-            ),
-            base: Some(
-                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            ),
-            segments: [
-                ref_info::ui::Segment {
-                    ref_name: "►lane",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "fafd9d0",
-                },
-            ],
-        },
     ],
     target_ref: Some(
         TargetRef {
@@ -2766,16 +2594,8 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
-    ),
     is_managed_ref: true,
-    is_managed_commit: false,
+    is_managed_commit: true,
     ancestor_workspace_commit: None,
     is_entrypoint: true,
 }
@@ -2800,7 +2620,7 @@ RefInfo {
                 "refs/heads/gitbutler/workspace",
             ),
             commit_id: Some(
-                Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
+                Sha1(335d6f2a960f387b039bd77476ae3d2d6649ed70),
             ),
             worktree: Some(
                 Worktree {
@@ -2814,6 +2634,26 @@ RefInfo {
         "origin",
     },
     stacks: [
+        Stack {
+            id: Some(
+                00000000-0000-0000-0000-000000000001,
+            ),
+            base: Some(
+                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+            ),
+            segments: [
+                ref_info::ui::Segment {
+                    ref_name: "►lane",
+                    remote_tracking_ref_name: "None",
+                    commits: [],
+                    commits_on_remote: [],
+                    commits_outside: None,
+                    metadata: Branch,
+                    push_status: CompletelyUnpushed,
+                    base: "fafd9d0",
+                },
+            ],
+        },
         Stack {
             id: Some(
                 00000000-0000-0000-0000-000000000000,
@@ -2836,26 +2676,6 @@ RefInfo {
                 },
             ],
         },
-        Stack {
-            id: Some(
-                00000000-0000-0000-0000-000000000001,
-            ),
-            base: Some(
-                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            ),
-            segments: [
-                ref_info::ui::Segment {
-                    ref_name: "►lane",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "fafd9d0",
-                },
-            ],
-        },
     ],
     target_ref: Some(
         TargetRef {
@@ -2865,16 +2685,8 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
-    ),
     is_managed_ref: true,
-    is_managed_commit: false,
+    is_managed_commit: true,
     ancestor_workspace_commit: None,
     is_entrypoint: false,
 }
@@ -2934,26 +2746,6 @@ RefInfo {
     stacks: [
         Stack {
             id: Some(
-                00000000-0000-0000-0000-000000000000,
-            ),
-            base: Some(
-                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            ),
-            segments: [
-                ref_info::ui::Segment {
-                    ref_name: "►lane",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "fafd9d0",
-                },
-            ],
-        },
-        Stack {
-            id: Some(
                 00000000-0000-0000-0000-000000000001,
             ),
             base: Some(
@@ -2974,22 +2766,34 @@ RefInfo {
                 },
             ],
         },
+        Stack {
+            id: Some(
+                00000000-0000-0000-0000-000000000000,
+            ),
+            base: Some(
+                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+            ),
+            segments: [
+                ref_info::ui::Segment {
+                    ref_name: "►lane",
+                    remote_tracking_ref_name: "None",
+                    commits: [],
+                    commits_on_remote: [],
+                    commits_outside: None,
+                    metadata: Branch,
+                    push_status: CompletelyUnpushed,
+                    base: "fafd9d0",
+                },
+            ],
+        },
     ],
     target_ref: Some(
         TargetRef {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            commits_ahead: 1,
+            commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -3031,26 +2835,6 @@ RefInfo {
     stacks: [
         Stack {
             id: Some(
-                00000000-0000-0000-0000-000000000000,
-            ),
-            base: Some(
-                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            ),
-            segments: [
-                ref_info::ui::Segment {
-                    ref_name: "►lane",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "fafd9d0",
-                },
-            ],
-        },
-        Stack {
-            id: Some(
                 00000000-0000-0000-0000-000000000001,
             ),
             base: Some(
@@ -3071,22 +2855,34 @@ RefInfo {
                 },
             ],
         },
+        Stack {
+            id: Some(
+                00000000-0000-0000-0000-000000000000,
+            ),
+            base: Some(
+                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+            ),
+            segments: [
+                ref_info::ui::Segment {
+                    ref_name: "►lane",
+                    remote_tracking_ref_name: "None",
+                    commits: [],
+                    commits_on_remote: [],
+                    commits_outside: None,
+                    metadata: Branch,
+                    push_status: CompletelyUnpushed,
+                    base: "fafd9d0",
+                },
+            ],
+        },
     ],
     target_ref: Some(
         TargetRef {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            commits_ahead: 1,
+            commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -3123,26 +2919,6 @@ RefInfo {
     stacks: [
         Stack {
             id: Some(
-                00000000-0000-0000-0000-000000000000,
-            ),
-            base: Some(
-                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            ),
-            segments: [
-                👉ref_info::ui::Segment {
-                    ref_name: "►lane",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "fafd9d0",
-                },
-            ],
-        },
-        Stack {
-            id: Some(
                 00000000-0000-0000-0000-000000000001,
             ),
             base: Some(
@@ -3163,22 +2939,34 @@ RefInfo {
                 },
             ],
         },
+        Stack {
+            id: Some(
+                00000000-0000-0000-0000-000000000000,
+            ),
+            base: Some(
+                Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+            ),
+            segments: [
+                👉ref_info::ui::Segment {
+                    ref_name: "►lane",
+                    remote_tracking_ref_name: "None",
+                    commits: [],
+                    commits_on_remote: [],
+                    commits_outside: None,
+                    metadata: Branch,
+                    push_status: CompletelyUnpushed,
+                    base: "fafd9d0",
+                },
+            ],
+        },
     ],
     target_ref: Some(
         TargetRef {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            commits_ahead: 1,
+            commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(0),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -3267,16 +3055,8 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            commits_ahead: 1,
+            commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -3357,14 +3137,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(0),
-    ),
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -3382,10 +3154,10 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   820f2b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   fe1a116 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 4e5484a (B-on-A) add new file in B-on-A
-* | 5f37dbf (C-on-A) add new file in C-on-A
+| * 5f37dbf (C-on-A) add new file in C-on-A
+* | 4e5484a (B-on-A) add new file in B-on-A
 |/  
 | * 89cc2d3 (origin/A) change in A
 |/  
@@ -3411,7 +3183,7 @@ RefInfo {
                 "refs/heads/gitbutler/workspace",
             ),
             commit_id: Some(
-                Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
+                Sha1(fe1a116f4ca988026773b0739234a1baaab5649d),
             ),
             worktree: Some(
                 Worktree {
@@ -3425,6 +3197,40 @@ RefInfo {
         "origin",
     },
     stacks: [
+        Stack {
+            id: None,
+            base: Some(
+                Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+            ),
+            segments: [
+                ref_info::ui::Segment {
+                    ref_name: "►B-on-A",
+                    remote_tracking_ref_name: "None",
+                    commits: [
+                        LocalCommit(4e5484a, "add new file in B-on-A\n", local),
+                    ],
+                    commits_on_remote: [],
+                    commits_outside: None,
+                    metadata: "None",
+                    push_status: CompletelyUnpushed,
+                    base: "d79bba9",
+                },
+                ref_info::ui::Segment {
+                    ref_name: "►A",
+                    remote_tracking_ref_name: "refs/remotes/origin/A",
+                    commits: [
+                        LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                    ],
+                    commits_on_remote: [
+                        Commit(89cc2d3, "change in A\n"),
+                    ],
+                    commits_outside: None,
+                    metadata: "None",
+                    push_status: UnpushedCommitsRequiringForce,
+                    base: "c166d42",
+                },
+            ],
+        },
         Stack {
             id: Some(
                 00000000-0000-0000-0000-000000000001,
@@ -3461,40 +3267,6 @@ RefInfo {
                 },
             ],
         },
-        Stack {
-            id: None,
-            base: Some(
-                Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            ),
-            segments: [
-                ref_info::ui::Segment {
-                    ref_name: "►B-on-A",
-                    remote_tracking_ref_name: "None",
-                    commits: [
-                        LocalCommit(4e5484a, "add new file in B-on-A\n", local),
-                    ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: "None",
-                    push_status: CompletelyUnpushed,
-                    base: "d79bba9",
-                },
-                ref_info::ui::Segment {
-                    ref_name: "►A",
-                    remote_tracking_ref_name: "refs/remotes/origin/A",
-                    commits: [
-                        LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
-                    ],
-                    commits_on_remote: [
-                        Commit(89cc2d3, "change in A\n"),
-                    ],
-                    commits_outside: None,
-                    metadata: "None",
-                    push_status: UnpushedCommitsRequiringForce,
-                    base: "c166d42",
-                },
-            ],
-        },
     ],
     target_ref: Some(
         TargetRef {
@@ -3503,14 +3275,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -3535,7 +3299,7 @@ RefInfo {
                 "refs/heads/gitbutler/workspace",
             ),
             commit_id: Some(
-                Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
+                Sha1(fe1a116f4ca988026773b0739234a1baaab5649d),
             ),
             worktree: Some(
                 Worktree {
@@ -3549,6 +3313,40 @@ RefInfo {
         "origin",
     },
     stacks: [
+        Stack {
+            id: None,
+            base: Some(
+                Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+            ),
+            segments: [
+                ref_info::ui::Segment {
+                    ref_name: "►B-on-A",
+                    remote_tracking_ref_name: "None",
+                    commits: [
+                        LocalCommit(4e5484a, "add new file in B-on-A\n", local),
+                    ],
+                    commits_on_remote: [],
+                    commits_outside: None,
+                    metadata: "None",
+                    push_status: CompletelyUnpushed,
+                    base: "d79bba9",
+                },
+                ref_info::ui::Segment {
+                    ref_name: "►A",
+                    remote_tracking_ref_name: "refs/remotes/origin/A",
+                    commits: [
+                        LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                    ],
+                    commits_on_remote: [
+                        Commit(89cc2d3, "change in A\n"),
+                    ],
+                    commits_outside: None,
+                    metadata: "None",
+                    push_status: UnpushedCommitsRequiringForce,
+                    base: "c166d42",
+                },
+            ],
+        },
         Stack {
             id: Some(
                 00000000-0000-0000-0000-000000000001,
@@ -3585,40 +3383,6 @@ RefInfo {
                 },
             ],
         },
-        Stack {
-            id: None,
-            base: Some(
-                Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            ),
-            segments: [
-                ref_info::ui::Segment {
-                    ref_name: "►B-on-A",
-                    remote_tracking_ref_name: "None",
-                    commits: [
-                        LocalCommit(4e5484a, "add new file in B-on-A\n", local),
-                    ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: "None",
-                    push_status: CompletelyUnpushed,
-                    base: "d79bba9",
-                },
-                ref_info::ui::Segment {
-                    ref_name: "►A",
-                    remote_tracking_ref_name: "refs/remotes/origin/A",
-                    commits: [
-                        LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
-                    ],
-                    commits_on_remote: [
-                        Commit(89cc2d3, "change in A\n"),
-                    ],
-                    commits_outside: None,
-                    metadata: "None",
-                    push_status: UnpushedCommitsRequiringForce,
-                    base: "c166d42",
-                },
-            ],
-        },
     ],
     target_ref: Some(
         TargetRef {
@@ -3627,14 +3391,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -3659,7 +3415,7 @@ RefInfo {
                 "refs/heads/gitbutler/workspace",
             ),
             commit_id: Some(
-                Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
+                Sha1(fe1a116f4ca988026773b0739234a1baaab5649d),
             ),
             worktree: Some(
                 Worktree {
@@ -3673,6 +3429,40 @@ RefInfo {
         "origin",
     },
     stacks: [
+        Stack {
+            id: None,
+            base: Some(
+                Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+            ),
+            segments: [
+                👉ref_info::ui::Segment {
+                    ref_name: "►B-on-A",
+                    remote_tracking_ref_name: "None",
+                    commits: [
+                        LocalCommit(4e5484a, "add new file in B-on-A\n", local),
+                    ],
+                    commits_on_remote: [],
+                    commits_outside: None,
+                    metadata: "None",
+                    push_status: CompletelyUnpushed,
+                    base: "d79bba9",
+                },
+                ref_info::ui::Segment {
+                    ref_name: "►A",
+                    remote_tracking_ref_name: "refs/remotes/origin/A",
+                    commits: [
+                        LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                    ],
+                    commits_on_remote: [
+                        Commit(89cc2d3, "change in A\n"),
+                    ],
+                    commits_outside: None,
+                    metadata: "None",
+                    push_status: UnpushedCommitsRequiringForce,
+                    base: "c166d42",
+                },
+            ],
+        },
         Stack {
             id: Some(
                 00000000-0000-0000-0000-000000000001,
@@ -3709,40 +3499,6 @@ RefInfo {
                 },
             ],
         },
-        Stack {
-            id: None,
-            base: Some(
-                Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            ),
-            segments: [
-                👉ref_info::ui::Segment {
-                    ref_name: "►B-on-A",
-                    remote_tracking_ref_name: "None",
-                    commits: [
-                        LocalCommit(4e5484a, "add new file in B-on-A\n", local),
-                    ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: "None",
-                    push_status: CompletelyUnpushed,
-                    base: "d79bba9",
-                },
-                ref_info::ui::Segment {
-                    ref_name: "►A",
-                    remote_tracking_ref_name: "refs/remotes/origin/A",
-                    commits: [
-                        LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
-                    ],
-                    commits_on_remote: [
-                        Commit(89cc2d3, "change in A\n"),
-                    ],
-                    commits_outside: None,
-                    metadata: "None",
-                    push_status: UnpushedCommitsRequiringForce,
-                    base: "c166d42",
-                },
-            ],
-        },
     ],
     target_ref: Some(
         TargetRef {
@@ -3751,14 +3507,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -3784,7 +3532,7 @@ RefInfo {
                 "refs/heads/gitbutler/workspace",
             ),
             commit_id: Some(
-                Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
+                Sha1(fe1a116f4ca988026773b0739234a1baaab5649d),
             ),
             worktree: Some(
                 Worktree {
@@ -3798,6 +3546,40 @@ RefInfo {
         "origin",
     },
     stacks: [
+        Stack {
+            id: None,
+            base: Some(
+                Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+            ),
+            segments: [
+                ref_info::ui::Segment {
+                    ref_name: "►B-on-A",
+                    remote_tracking_ref_name: "None",
+                    commits: [
+                        LocalCommit(4e5484a, "add new file in B-on-A\n", local),
+                    ],
+                    commits_on_remote: [],
+                    commits_outside: None,
+                    metadata: "None",
+                    push_status: CompletelyUnpushed,
+                    base: "d79bba9",
+                },
+                👉ref_info::ui::Segment {
+                    ref_name: "►A",
+                    remote_tracking_ref_name: "refs/remotes/origin/A",
+                    commits: [
+                        LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
+                    ],
+                    commits_on_remote: [
+                        Commit(89cc2d3, "change in A\n"),
+                    ],
+                    commits_outside: None,
+                    metadata: "None",
+                    push_status: UnpushedCommitsRequiringForce,
+                    base: "c166d42",
+                },
+            ],
+        },
         Stack {
             id: Some(
                 00000000-0000-0000-0000-000000000001,
@@ -3834,40 +3616,6 @@ RefInfo {
                 },
             ],
         },
-        Stack {
-            id: None,
-            base: Some(
-                Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            ),
-            segments: [
-                ref_info::ui::Segment {
-                    ref_name: "►B-on-A",
-                    remote_tracking_ref_name: "None",
-                    commits: [
-                        LocalCommit(4e5484a, "add new file in B-on-A\n", local),
-                    ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: "None",
-                    push_status: CompletelyUnpushed,
-                    base: "d79bba9",
-                },
-                👉ref_info::ui::Segment {
-                    ref_name: "►A",
-                    remote_tracking_ref_name: "refs/remotes/origin/A",
-                    commits: [
-                        LocalCommit(d79bba9, "new file in A\n", local/remote(identity)),
-                    ],
-                    commits_on_remote: [
-                        Commit(89cc2d3, "change in A\n"),
-                    ],
-                    commits_outside: None,
-                    metadata: "None",
-                    push_status: UnpushedCommitsRequiringForce,
-                    base: "c166d42",
-                },
-            ],
-        },
     ],
     target_ref: Some(
         TargetRef {
@@ -3876,14 +3624,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(3),
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -3966,14 +3706,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
-    ),
     is_managed_ref: true,
     is_managed_commit: true,
     ancestor_workspace_commit: None,
@@ -4038,14 +3770,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(0),
-    ),
     is_managed_ref: true,
     is_managed_commit: true,
     ancestor_workspace_commit: None,
@@ -4092,14 +3816,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
-    ),
     is_managed_ref: true,
     is_managed_commit: true,
     ancestor_workspace_commit: None,
@@ -4119,37 +3835,23 @@ RefInfo {
     workspace_ref_info: Some(
         RefInfo {
             ref_name: FullName(
-                "refs/heads/unrelated",
+                "refs/heads/gitbutler/workspace",
             ),
             commit_id: Some(
-                Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                Sha1(c7276fa4ef234bed041b4293f46615a99afc7f50),
             ),
-            worktree: None,
+            worktree: Some(
+                Worktree {
+                    kind: Main,
+                    owned_by_repo: true,
+                },
+            ),
         },
     ),
     symbolic_remote_names: {
         "origin",
     },
-    stacks: [
-        Stack {
-            id: Some(
-                00000000-0000-0000-0000-000000000001,
-            ),
-            base: None,
-            segments: [
-                ref_info::ui::Segment {
-                    ref_name: "►unrelated",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "None",
-                },
-            ],
-        },
-    ],
+    stacks: [],
     target_ref: Some(
         TargetRef {
             ref_name: FullName(
@@ -4158,16 +3860,10 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        },
-    ),
-    lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
+    is_managed_ref: true,
+    is_managed_commit: true,
     ancestor_workspace_commit: None,
-    is_entrypoint: true,
+    is_entrypoint: false,
 }
 
 "#]]
@@ -4244,7 +3940,7 @@ fn advanced_workspace_single_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         err.to_string(),
         snapbox::str![[r#"
-Found 4 commit(s) on top of the workspace commit.
+Found 5 commit(s) on top of the workspace commit.
 
 Run the following command in your working directory to fix this while leaving your worktree unchanged.
 Worktree changes need to be re-committed manually for now.
@@ -4261,7 +3957,7 @@ mod legacy;
 
 pub(crate) mod utils {
     use but_core::{RefMetadata, ref_metadata::StackId};
-    use but_graph::init::Options;
+    use but_graph::walk::Options;
     use but_meta::{
         VirtualBranchesTomlMetadata,
         virtual_branches_legacy_types::{Stack, StackBranch, Target},
@@ -4341,7 +4037,7 @@ pub(crate) mod utils {
         init_meta: impl FnMut(&mut VirtualBranchesTomlMetadata),
     ) -> anyhow::Result<(
         TempDir,
-        but_graph::Graph,
+        but_graph::Workspace,
         gix::Repository,
         VirtualBranchesTomlMetadata,
         String,
@@ -4385,7 +4081,7 @@ pub(crate) mod utils {
         mut init_meta: impl FnMut(&mut VirtualBranchesTomlMetadata),
     ) -> anyhow::Result<(
         TempDir,
-        but_graph::Graph,
+        but_graph::Workspace,
         gix::Repository,
         VirtualBranchesTomlMetadata,
         String,
@@ -4401,7 +4097,7 @@ pub(crate) mod utils {
                     .expect("valid workspace ref"),
             )?
             .project_meta();
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &meta,
             project_meta,
@@ -4410,7 +4106,7 @@ pub(crate) mod utils {
                 ..Options::limited()
             },
         )?;
-        Ok((tmp, graph, repo, meta, desc))
+        Ok((tmp, ws, repo, meta, desc))
     }
 
     pub fn named_writable_scenario(

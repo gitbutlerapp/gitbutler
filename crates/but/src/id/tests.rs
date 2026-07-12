@@ -2666,21 +2666,12 @@ mod util {
         for id in remote_commit_ids {
             commits_on_remote.push(commit(id, None))
         }
-        StackSegment {
-            ref_info,
-            remote_tracking_ref_name: None,
-            sibling_segment_id: None,
-            remote_tracking_branch_segment_id: None,
-            id: Default::default(),
-            commits,
-            commits_outside: None,
-            base,
-            base_segment_id: None,
-            commits_by_segment: Vec::new(),
-            commits_on_remote,
-            metadata: None,
-            is_entrypoint: false,
-        }
+        let mut segment = StackSegment::default_for_testing();
+        segment.ref_info = ref_info;
+        segment.commits = commits;
+        segment.base = base;
+        segment.commits_on_remote = commits_on_remote;
+        segment
     }
 
     pub fn stack<const N: usize>(segments: [StackSegment; N]) -> Stack {

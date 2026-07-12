@@ -90,11 +90,13 @@ Use it for state/query questions such as:
 - which commits belong under a ref or stack-like UI grouping?
 - what branch/ref relationships exist before deciding what to display or mutate?
 
+Construction: production code asks for the projection directly — `but_graph::Workspace::from_head()`, `Workspace::from_tip()`, `workspace.redo()`, or `SuccessfulRebase::overlayed_workspace()` after an editor rebase. The graph rides along as `Workspace::graph`; only tests and debug tooling build a bare `Graph`.
+
 Caveats:
 
 - The graph is segment/bucket based because older UI concerns influenced it.
 - It can encode ordering information Git itself does not represent, especially around refs.
-- Merge parent order may not always be reliable; be careful with first-parent traversal or UI that assumes the first parent is the mainline.
+- Within `but_graph`, parent order is preserved and authoritative: parent arrays are ordered, and a segment's outgoing connections follow them. Whether the *first* parent is the user's "mainline" is still a workflow assumption — question it at the product level, not the graph level.
 
 ## Workspace projection and refinfo
 
@@ -194,7 +196,7 @@ Ask this for both read/query code and mutation code:
 
 ## Examples / starting points
 
-- Graph construction and workspace projection: `crates/but-graph/tests/graph/init/with_workspace.rs`, especially `workspace_with_stack_and_local_target()` and `workspace_projection_with_advanced_stack_tip()`, shows `Graph::from_head()`, `validated()`, `into_workspace()`, and snapshot-backed graph/projection expectations.
+- Graph construction and workspace projection: `crates/but-graph/tests/graph/walk/with_workspace.rs`, especially `workspace_with_stack_and_local_target()` and `workspace_projection_with_advanced_stack_tip()`, shows `Graph::from_head()`, `validated()`, `into_workspace()`, and snapshot-backed graph/projection expectations.
 - Target ref and target commit semantics: `crates/but-graph/tests/graph/workspace/resolved_target_commit_id.rs`, especially `prefers_target_commit_over_target_ref()` and `returns_none_with_only_extra_target()`, shows cases where target commit metadata, target refs, and extra traversal targets intentionally differ.
 - Graph editor mutation patterns: `crates/but-rebase/tests/rebase/graph_rebase/replace.rs` and `crates/but-rebase/tests/rebase/graph_rebase/insert.rs` show selecting commits, replacing/inserting steps, checking `overlayed_graph()`, and materializing once.
 - Workspace mutation call sites layered over the graph editor: `crates/but-workspace/tests/workspace/commit/move_commit.rs` shows creating an editor, calling `but_workspace::commit::move_commit`, materializing, refreshing workspace state, and asserting ref movement.

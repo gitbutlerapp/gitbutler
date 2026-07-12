@@ -10,7 +10,8 @@ use but_rebase::{
     commit::DateMode,
     graph_rebase::{
         Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector,
-        mutate::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet},
+        mutate::InsertSide,
+        selector::{RelativeTo, SelectorSet, StepRange},
     },
 };
 
@@ -48,13 +49,13 @@ pub struct ReviewIntegrationHint {
 }
 
 /// The outcome of integrating upstream
-pub struct IntegrateUpstreamOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct IntegrateUpstreamOutcome<'meta, M: RefMetadata> {
     /// The updated workspace metadata.
     pub ws_meta: Option<but_core::ref_metadata::Workspace>,
     /// The updated project metadata.
     pub project_meta: ProjectMeta,
     /// The rebased outcome.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: SuccessfulRebase<'meta, M>,
 }
 
 #[derive(Clone, Debug)]
@@ -147,26 +148,26 @@ struct Stack {
 ///   and those that are. These edges get replaced with edges to `target.ref`
 /// - We replace all steps marked as `content_integrated` that are not
 ///   `historically_integrated` with `None` steps.
-pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
-    workspace: &'ws mut but_graph::Workspace,
+pub fn integrate_upstream<'meta, M: RefMetadata>(
+    workspace: &but_graph::Workspace,
     meta: &'meta mut M,
     project_meta: ProjectMeta,
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
-) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
+) -> Result<IntegrateUpstreamOutcome<'meta, M>> {
     integrate_upstream_with_hints(workspace, meta, project_meta, repo, updates, &[])
 }
 
 /// Like [`integrate_upstream()`], but accepts merged-review-derived integration
 /// anchors to classify additional integrated history.
-pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
-    workspace: &'ws mut but_graph::Workspace,
+pub fn integrate_upstream_with_hints<'meta, M: RefMetadata>(
+    workspace: &but_graph::Workspace,
     meta: &'meta mut M,
     project_meta: ProjectMeta,
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
     review_hints: &[ReviewIntegrationHint],
-) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
+) -> Result<IntegrateUpstreamOutcome<'meta, M>> {
     if matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc)
         && workspace.ref_name().is_none()
     {
@@ -183,11 +184,10 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         .context("Cannot update a workspace with no target ref")?;
     let target_ref_commit = repo.find_reference(&target_ref.ref_name)?.id();
 
-    let entrypoint = workspace.graph.entrypoint()?;
-    let head_commit = entrypoint
-        .commit()
+    let head_commit = workspace
+        .entrypoint_commit_id()?
         .context("Cannot update workspace without head commit")?;
-    let head_commit = repo.find_commit(head_commit.id)?;
+    let head_commit = repo.find_commit(head_commit)?;
     let head_commit_id = head_commit.id;
     let head_is_workspace_commit = is_managed_workspace_by_message(head_commit.message_raw()?);
     let direct_checkout_head_ref_name = if head_is_workspace_commit {
@@ -198,7 +198,12 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
     // The editor contains every segment in the graph; the target ref's segment
     // is reachable from HEAD and so is mutable by default.
-    let mut editor = Editor::create(workspace, meta, repo)?;
+    let mut editor = Editor::create(
+        workspace.commit_graph(),
+        workspace.project_meta(),
+        meta,
+        repo,
+    )?;
 
     let updates_with_selectors = updates
         .iter()
@@ -253,12 +258,12 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
             while let Some(tip) = tips.pop() {
                 for c in editor
-                    .direct_children(tip)?
+                    .position_children(tip)?
                     .iter()
-                    .filter_map(|(c, _)| stack.nodes.contains_key(c).then_some(*c))
+                    .filter(|c| stack.nodes.contains_key(*c))
                 {
-                    if seen.insert(c) {
-                        tips.push(c);
+                    if seen.insert(*c) {
+                        tips.push(*c);
                     }
                 }
             }
@@ -358,7 +363,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 // Only parent is the old target sha, and that's not the latest tip of the target ref.
                 // We need to reparent it onto the latest target ref.
                 editor.remove_edges(workspace_commit_selector, *parent_selector)?;
-                editor.add_edge(
+                editor.insert_edge(
                     workspace_commit_selector,
                     target_ref_selector,
                     *parent_order,
@@ -366,7 +371,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             }
             [] if !fully_integrated_workspace_parents.is_empty() => {
                 // Orphaned workspace, reparent onto the target ref.
-                editor.add_edge(workspace_commit_selector, target_ref_selector, 0)?;
+                editor.insert_edge(workspace_commit_selector, target_ref_selector, 0)?;
             }
             _ => {}
         }
@@ -395,7 +400,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 Step::Pick(Pick::new_untracked_pick(merge_commit)),
                 insert_side,
             )?;
-            editor.add_edge(merge_commit, target_ref_selector, 1)?;
+            editor.insert_edge(merge_commit, target_ref_selector, 1)?;
         } else {
             let mut edges_to_replace = HashSet::new();
 
@@ -438,11 +443,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
             for (child, parent) in edges_to_replace {
                 let removed = editor.remove_edges(child, parent)?;
-                // Add back the lowest ordered parent that was removed.
+                // Put the target ref where the lowest removed parent number was.
                 // We could add back multiple, but it's likely unintentional
                 // that there were two parents in the first place.
-                if let Some(removed) = removed.iter().min() {
-                    editor.add_edge(child, target_ref_selector, *removed)?;
+                if let Some(parent_number) = removed.iter().min() {
+                    editor.insert_edge(child, target_ref_selector, *parent_number)?;
                 }
             }
         }
@@ -458,10 +463,10 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn collect_stacks<'ws, 'meta, M: RefMetadata>(
+fn collect_stacks<'meta, M: RefMetadata>(
     head_commit: gix::Commit<'_>,
     head_is_workspace_commit: bool,
-    editor: &Editor<'ws, 'meta, M>,
+    editor: &Editor<'meta, M>,
     from_target_sha: HashSet<Selector>,
     from_target_ref: HashSet<Selector>,
     target_sha: gix::ObjectId,
@@ -471,9 +476,9 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
 ) -> Result<Vec<Stack>> {
     let mut stacks = if head_is_workspace_commit {
         editor
-            .direct_parents(head_commit.id)?
+            .position_parents(head_commit.id)?
             .into_iter()
-            .map(|(c, _)| Stack {
+            .map(|c| Stack {
                 to_merge: false,
                 nodes: HashMap::from([(c, AnnotatedNode::new())]),
                 heads: HashSet::from([c]),
@@ -493,7 +498,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
         let mut tips = stack.nodes.keys().copied().collect::<Vec<_>>();
 
         while let Some(tip) = tips.pop() {
-            for (parent, _order) in editor.direct_parents(tip)? {
+            for parent in editor.position_parents(tip)? {
                 if from_target_sha.contains(&parent) {
                     continue;
                 }
@@ -545,15 +550,18 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
 
         for node in nodes.keys() {
             if editor
-                .direct_parents(*node)?
+                .position_parents(*node)?
                 .iter()
-                .all(|(p, _)| !nodes.contains_key(p))
+                .all(|p| !nodes.contains_key(p))
             {
                 bottoms.insert(*node);
             }
         }
 
         for (node, attrs) in nodes.iter_mut() {
+            // Reachability also marks REFERENCES: a ref chain reachable from the target lies
+            // on integrated history (its anchor commit is integrated), so this is anchor-based
+            // integration expressed through the graph walk.
             if from_target_ref.contains(node) {
                 attrs.historically_integrated = true;
             }
@@ -597,7 +605,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             let mut traversed_commits = false;
 
             'traversal: while let Some(tip) = tips.pop() {
-                for (parent, _) in editor.direct_parents(tip)? {
+                for parent in editor.position_parents(tip)? {
                     let Some(attrs) = stack.nodes.get(&parent) else {
                         continue;
                     };
@@ -630,7 +638,6 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                 *r_sel,
                 r_name.as_ref(),
                 &reference_nodes,
-                &from_target_ref,
                 target_sha,
                 target_ref_name,
                 target_ref_commit,
@@ -661,12 +668,11 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
 /// target, and preserves an empty branch if it sits on top of another local
 /// branch that is not itself target-integrated.
 #[allow(clippy::too_many_arguments)]
-fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
+fn empty_local_reference_remote_tip_integrated<'meta, M: RefMetadata>(
+    editor: &Editor<'meta, M>,
     selector: Selector,
     ref_name: &gix::refs::FullNameRef,
     reference_nodes: &HashMap<Selector, gix::refs::FullName>,
-    from_target_ref: &HashSet<Selector>,
     target_sha: gix::ObjectId,
     target_ref_name: &gix::refs::FullNameRef,
     target_ref_commit: gix::ObjectId,
@@ -674,10 +680,14 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
     if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
         return Ok(false);
     }
-    if editor.direct_parents(selector)?.iter().any(|(parent, _)| {
+    // An empty branch sitting on another local branch is that stack's forward-going tip and
+    // survives the cleanup — unless the parent branch literally rests at the target position.
+    // (An earlier `!from_target_ref.contains(parent)` conjunct here was constant-true under the
+    // merge-bypass rule — workspace-lane ref nodes were never target-reachable — so the live
+    // semantics were always just the points-to-target check.)
+    if editor.position_parents(selector)?.iter().any(|parent| {
         reference_nodes.get(parent).is_some_and(|parent_ref| {
             parent_ref.category() == Some(gix::refs::Category::LocalBranch)
-                && !from_target_ref.contains(parent)
                 && !reference_points_to_target(
                     editor.repo(),
                     parent_ref.as_ref(),
@@ -761,7 +771,7 @@ fn should_delete_integrated_local_branch(ref_name: &gix::refs::FullNameRef) -> b
 /// Commits above the hinted head are intentionally left local, which lets a
 /// branch keep extra post-merge commits while dropping the already-merged prefix.
 fn apply_review_integration_hints<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     stack: &mut Stack,
     review_hints: &[ReviewIntegrationHint],
 ) -> Result<()> {
@@ -815,7 +825,7 @@ fn apply_review_integration_hints<M: RefMetadata>(
 /// repeated ancestor walks while preserving independent matched branches in a
 /// multi-head stack.
 fn highest_review_heads<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     stack: &Stack,
     matching_heads: &[Selector],
 ) -> Result<Vec<Selector>> {
@@ -857,8 +867,8 @@ fn highest_review_heads<M: RefMetadata>(
 /// expected parentages after mutations in the editor.
 ///
 /// Prefer using the selectors if possible.
-fn commit_ids<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
+fn commit_ids<'meta, M: RefMetadata>(
+    editor: &Editor<'meta, M>,
     selectors: impl IntoIterator<Item = Selector>,
 ) -> Result<Vec<gix::ObjectId>> {
     selectors
@@ -876,7 +886,7 @@ fn commit_ids<'ws, 'meta, M: RefMetadata>(
 }
 
 fn selector_commit_id<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     selector: Selector,
 ) -> Result<Option<gix::ObjectId>> {
     Ok(match editor.lookup_step(selector)? {
@@ -902,10 +912,10 @@ fn selector_commit_id<M: RefMetadata>(
 /// and point it at the latest target commit.
 ///
 /// The old checkout reference can be on the target ancestry path. Before repointing the step to
-/// the target tip, `disconnect_segment_from()` rewires its children around the old reference to
+/// the target tip, `disconnect_range_from()` rewires its children around the old reference to
 /// preserve the existing graph and avoid introducing a cycle.
 fn replace_direct_checkout_ref_with_fallback<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+    editor: &mut Editor<'_, M>,
     repo: &gix::Repository,
     head_ref_name: &gix::refs::FullNameRef,
     target_tip_selector: Selector,
@@ -918,8 +928,8 @@ fn replace_direct_checkout_ref_with_fallback<M: RefMetadata>(
         Step::new_reference(fallback_ref_name.clone()),
     )?;
 
-    editor.disconnect_segment_from(
-        SegmentDelimiter {
+    editor.disconnect_range_from(
+        StepRange {
             child: head_ref_selector,
             parent: head_ref_selector,
         },
@@ -928,13 +938,13 @@ fn replace_direct_checkout_ref_with_fallback<M: RefMetadata>(
         false,
     )?;
     preserve_pick_parents(editor, target_tip_selector)?;
-    editor.add_edge(head_ref_selector, target_tip_selector, 0)?;
+    editor.insert_edge(head_ref_selector, target_tip_selector, 0)?;
 
     Ok((head_ref_selector, fallback_ref_name))
 }
 
 fn preserve_pick_parents<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+    editor: &mut Editor<'_, M>,
     selector: Selector,
 ) -> Result<()> {
     let Step::Pick(mut pick) = editor.lookup_step(selector)? else {

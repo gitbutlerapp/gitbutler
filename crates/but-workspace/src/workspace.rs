@@ -87,13 +87,33 @@ pub struct DetailedGraphWorkspace {
     pub stacks: Vec<Stack>,
 }
 
+/// Preview the workspace as it will look after `rebase` materializes, without materializing:
+/// project the rebase's already-mutated commit graph directly, serving its pending ref edits
+/// and entrypoint from the overlay — no repository rewalk.
+pub fn overlayed_workspace<M: RefMetadata>(
+    workspace: &but_graph::Workspace,
+    rebase: &but_rebase::graph_rebase::SuccessfulRebase<'_, M>,
+) -> Result<but_graph::Workspace> {
+    workspace.preview_from_commit_graph(
+        rebase.arena().clone(),
+        rebase.repo(),
+        rebase.meta(),
+        rebase.rebase_overlay()?,
+    )
+}
+
 /// A detailed graph workspace
 pub fn detailed_graph_workspace<M: RefMetadata>(
-    workspace: &mut but_graph::Workspace,
+    workspace: &but_graph::Workspace,
     meta: &mut M,
     repo: &gix::Repository,
 ) -> Result<DetailedGraphWorkspace> {
-    let editor = Editor::create(workspace, meta, repo)?;
+    let editor = Editor::create(
+        workspace.commit_graph(),
+        workspace.project_meta(),
+        meta,
+        repo,
+    )?;
     let ws = editor.graph_workspace()?;
 
     Ok(DetailedGraphWorkspace {
@@ -106,13 +126,13 @@ pub fn detailed_graph_workspace<M: RefMetadata>(
 }
 
 fn stack_rows<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     stack: &but_rebase::graph_rebase::Subgraph,
     reference_status: &HashMap<Selector, ReferenceStatus>,
     commit_state: &HashMap<Selector, CommitState>,
 ) -> Result<Stack> {
     let mut visible_nodes = HashSet::new();
-    for selector in &stack.nodes {
+    for selector in &stack.entries {
         if is_visible_step(editor, *selector)? {
             visible_nodes.insert(*selector);
         }
@@ -120,7 +140,7 @@ fn stack_rows<M: RefMetadata>(
     let parents_by_node = visible_nodes
         .iter()
         .copied()
-        .map(|node| Ok((node, visible_parents(editor, &stack.nodes, node)?)))
+        .map(|node| Ok((node, visible_parents(editor, &stack.entries, node)?)))
         .collect::<Result<HashMap<_, _>>>()?;
 
     // Seed the traversal from the stack's visible tips (nodes no visible child
@@ -175,7 +195,7 @@ fn stack_rows<M: RefMetadata>(
     })
 }
 
-fn is_visible_step<M: RefMetadata>(editor: &Editor<'_, '_, M>, selector: Selector) -> Result<bool> {
+fn is_visible_step<M: RefMetadata>(editor: &Editor<'_, M>, selector: Selector) -> Result<bool> {
     Ok(match editor.lookup_step(selector)? {
         Step::Pick(_) => true,
         Step::Reference { refname, .. } => {
@@ -186,20 +206,19 @@ fn is_visible_step<M: RefMetadata>(editor: &Editor<'_, '_, M>, selector: Selecto
 }
 
 fn visible_parents<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     stack_nodes: &HashSet<Selector>,
     selector: Selector,
 ) -> Result<Vec<Selector>> {
     fn walk<M: RefMetadata>(
-        editor: &Editor<'_, '_, M>,
+        editor: &Editor<'_, M>,
         stack_nodes: &HashSet<Selector>,
         selector: Selector,
         seen: &mut HashSet<Selector>,
         out: &mut Vec<Selector>,
     ) -> Result<()> {
-        let mut parents = editor.direct_parents(selector)?;
-        parents.sort_by_key(|(_, order)| *order);
-        for (parent, _) in parents {
+        let parents = editor.position_parents(selector)?;
+        for parent in parents {
             if !stack_nodes.contains(&parent) || !seen.insert(parent) {
                 continue;
             }
@@ -219,10 +238,7 @@ fn visible_parents<M: RefMetadata>(
 
 /// Deterministic ordering key for seed tips: commits before references, then by
 /// id / refname. Mirrors `graph_rebase::testing::compare_heads`.
-fn seed_key<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    selector: Selector,
-) -> Result<(u8, String)> {
+fn seed_key<M: RefMetadata>(editor: &Editor<'_, M>, selector: Selector) -> Result<(u8, String)> {
     Ok(match editor.lookup_step(selector)? {
         Step::Pick(Pick { id, .. }) => (0, id.to_string()),
         Step::Reference { refname, .. } => (1, refname.as_bstr().to_string()),
@@ -384,7 +400,7 @@ fn reference_segments(
 }
 
 fn row_data<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     selector: Selector,
     reference_status: &HashMap<Selector, ReferenceStatus>,
     commit_state: &HashMap<Selector, CommitState>,

@@ -771,13 +771,12 @@ impl Context {
             self.project_data_dir().join("virtual_branches.toml"),
             self.project_data_dir(),
         )?;
-        let graph = but_graph::Graph::from_head(
+        but_graph::Workspace::from_head(
             &repo,
             &meta,
             self.project_meta()?,
-            but_graph::init::Options::limited(),
-        )?;
-        graph.into_workspace()
+            but_graph::walk::Options::limited(),
+        )
     }
 
     fn meta_inner_read_only(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {

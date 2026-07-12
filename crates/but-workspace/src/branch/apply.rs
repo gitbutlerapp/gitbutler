@@ -176,7 +176,10 @@ use but_core::{
         WorkspaceCommitRelation::{Merged, Outside},
     },
 };
-use but_graph::{SegmentIndex, init::Overlay, petgraph::Direction, workspace::WorkspaceKind};
+use but_graph::{
+    walk::Overlay,
+    workspace::{StackTip, WorkspaceKind},
+};
 use gix::{
     prelude::ObjectIdExt,
     reference::Category,
@@ -190,7 +193,7 @@ use tracing::instrument;
 use crate::{
     WorkspaceCommit,
     branch::{anon_stacks, ensure_no_missing_stacks},
-    commit::merge::Tip,
+    commit::merge::Seed,
     ref_info::WorkspaceExt,
 };
 
@@ -234,7 +237,7 @@ pub fn apply(
     let branch_orig = branch;
     let (mut branch_ref, mut incoming_branch_is_remote_tracking_without_local_tracking) =
         (try_find_validated_ref(repo, branch, "apply")?, false);
-    if ws.is_branch_the_target_or_its_local_tracking_branch(branch) {
+    if ws.is_target_or_its_local_tracking(branch) {
         bail!("Cannot add the target '{branch}' branch to its own workspace");
     }
     let mut branch = branch.to_owned();
@@ -273,8 +276,7 @@ pub fn apply(
     } else if !branch_has_applied_metadata && ws.refname_is_segment(branch.as_ref()) {
         // This means our workspace encloses the desired branch, but it's not checked out yet.
         let commit_to_checkout = ws
-            .tip_commit()
-            .map(|commit| commit.id)
+            .tip_commit_id()
             .context("Workspace must point to a commit to check out")?;
         let ws_ref_name = ws.ref_name().map(|rn| rn.to_owned());
         but_core::worktree::safe_checkout_from_head(
@@ -294,14 +296,11 @@ pub fn apply(
             add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), order, new_stack_id);
             persist_metadata_and_gitconfig(meta, &applied_branches, &ws_md, None)?;
         }
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                repo,
-                meta,
-                Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name.clone()),
-            )?
-            .into_workspace()?;
+        let ws = ws.redo(
+            repo,
+            meta,
+            Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name.clone()),
+        )?;
         set_head_to_reference(
             repo,
             commit_to_checkout,
@@ -367,11 +366,8 @@ pub fn apply(
                 // soon-to-be-created workspace.
                 // This is a 'trick' to allow callers to prevent 'main' to be added to the workspace automatically
                 // even though the new workspace is supposed to have it as target.
-                let is_branch_target = next_ws_md
-                    .is_branch_the_target_or_its_local_tracking_branch(
-                        current_head_ref.as_ref(),
-                        repo,
-                    )?;
+                let is_branch_target =
+                    next_ws_md.is_target_or_its_local_tracking(current_head_ref.as_ref(), repo)?;
                 if is_branch_target {
                     current_unmanaged_head_branch_name.take();
                 }
@@ -399,7 +395,7 @@ pub fn apply(
     {
         None => {
             // Pretend to create a workspace reference later at the current AdHoc workspace id
-            let tip = ws.tip_commit().map(|c| c.id).context(
+            let tip = ws.tip_commit_id().context(
                     "BUG: how can an empty ad-hoc workspace exist? Should have at least one stack-segment with commit",
                 )?;
             (tip, false)
@@ -487,14 +483,11 @@ pub fn apply(
         }))
         .with_branch_metadata_override(branch_mds)
         .with_workspace_metadata_override(ws_md_override);
-    let ws = ws
-        .graph
-        .redo_traversal_with_overlay(repo, meta, overlay.clone())?
-        .into_workspace()?;
+    let ws = ws.redo(repo, meta, overlay.clone())?;
 
     let all_applied_branches_are_already_visible = branches_to_apply.iter().all(|rn| {
         ws.find_segment_and_stack_by_refname(rn.as_ref())
-            .is_some_and(|(_stack, segment)| !segment.is_projected_from_outside(&ws.graph))
+            .is_some_and(|(_stack, segment)| !segment.name_projected_from_outside)
     });
     let needs_ws_ref_creation = !ws_ref_exists;
     let local_tracking_config_and_ref_info = local_tracking_config_and_ref_info
@@ -527,11 +520,11 @@ pub fn apply(
             head_id.object()?.peel_to_tree()?.id,
         )?;
         let ws_commit_with_new_message = ws_commit_with_new_message.id.detach();
-        let (graph, new_head_id) = if (ws_commit_with_new_message != head_id
+        let (ws, new_head_id) = if (ws_commit_with_new_message != head_id
             && ws.kind.has_managed_commit())
             || needs_workspace_commit_without_remerge(&ws, integration_mode)
         {
-            let graph = ws.graph.redo_traversal_with_overlay(
+            let ws = ws.redo(
                 repo,
                 meta,
                 overlay.with_entrypoint(
@@ -539,9 +532,9 @@ pub fn apply(
                     Some(workspace_ref_name_to_update.clone()),
                 ),
             )?;
-            (graph, ws_commit_with_new_message)
+            (ws, ws_commit_with_new_message)
         } else {
-            (ws.graph, ws_ref_id)
+            (ws, ws_ref_id)
         };
 
         set_head_to_reference(
@@ -552,7 +545,7 @@ pub fn apply(
             (!head_on_workspace_ref).then_some(workspace_ref_name_to_update.as_ref()),
         )?;
         return Ok(Outcome {
-            workspace: graph.into_workspace()?,
+            workspace: ws,
             status: OutcomeStatus::Applied,
             workspace_ref_created: needs_ws_ref_creation,
             workspace_merge: None,
@@ -584,7 +577,7 @@ pub fn apply(
             anon_stacks(&ws.stacks),
             &existing_stacks_superseded_by_branch,
         ),
-        &ws.graph,
+        &ws,
         &in_memory_repo,
         Some(branch.as_ref()),
     )?;
@@ -612,11 +605,7 @@ pub fn apply(
     let overlay = overlay
         .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
         .with_workspace_metadata_override(ws_md_override);
-    let graph = ws
-        .graph
-        .redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
-
-    let mut ws = graph.into_workspace()?;
+    let mut ws = ws.redo(&in_memory_repo, meta, overlay.clone())?;
     let collect_unapplied_branches = |ws: &but_graph::Workspace| {
         branches_to_apply
             .iter()
@@ -699,7 +688,7 @@ pub fn apply(
                 anon_stacks(&ws.stacks),
                 &existing_stacks_superseded_by_branch,
             ),
-            &ws.graph,
+            &ws,
             &in_memory_repo,
             Some(branch.as_ref()),
         )?;
@@ -721,16 +710,13 @@ pub fn apply(
         conflicting_stacks = correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
         remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stacks);
         let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
-        ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                &in_memory_repo,
-                meta,
-                overlay
-                    .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
-                    .with_workspace_metadata_override(ws_md_override),
-            )?
-            .into_workspace()?;
+        ws = ws.redo(
+            &in_memory_repo,
+            meta,
+            overlay
+                .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
+                .with_workspace_metadata_override(ws_md_override),
+        )?;
         let unapplied_branches = collect_unapplied_branches(&ws);
 
         if !unapplied_branches.is_empty() {
@@ -853,33 +839,23 @@ fn branch_has_applied_workspace_metadata(
 
 fn filter_superseded_metadata_stacks<'a>(
     stack_iter: impl Iterator<Item = &'a ref_metadata::WorkspaceStack>,
-    existing_stacks_superseded_by_branch: &[(
-        SegmentIndex,
-        Option<gix::refs::FullName>,
-        Option<gix::ObjectId>,
-    )],
+    existing_stacks_superseded_by_branch: &[StackTip],
 ) -> impl Iterator<Item = &'a ref_metadata::WorkspaceStack> {
     stack_iter.into_iter().filter(|ws_stack| {
         !existing_stacks_superseded_by_branch
             .iter()
-            .any(|(_sidx, ref_name, _cid)| ws_stack.ref_name() == ref_name.as_ref())
+            .any(|tip| ws_stack.ref_name() == tip.ref_name.as_ref())
     })
 }
 
 fn filter_superseded_anon_stacks(
-    tips_iter: impl Iterator<Item = (usize, Tip)>,
-    existing_stacks_superseded_by_branch: &[(
-        SegmentIndex,
-        Option<gix::refs::FullName>,
-        Option<gix::ObjectId>,
-    )],
-) -> impl Iterator<Item = (usize, Tip)> {
+    tips_iter: impl Iterator<Item = (usize, Seed)>,
+    existing_stacks_superseded_by_branch: &[StackTip],
+) -> impl Iterator<Item = (usize, Seed)> {
     tips_iter.filter(|(_parent_idx, anon_tip)| {
         !existing_stacks_superseded_by_branch
             .iter()
-            .any(|(sidx, _ref_name, cid)| {
-                anon_tip.segment_idx == *sidx || cid.is_some_and(|cid| cid == anon_tip.commit_id)
-            })
+            .any(|tip| tip.commit_id.is_some_and(|cid| cid == anon_tip.commit_id))
     })
 }
 
@@ -898,54 +874,20 @@ fn find_superseded_stacks(
     branch: &FullNameRef,
     workspace: &but_graph::Workspace,
     ws_meta: &mut ref_metadata::Workspace,
-) -> Vec<(
-    SegmentIndex,
-    Option<gix::refs::FullName>,
-    Option<gix::ObjectId>,
-)> {
-    let graph = &workspace.graph;
-    let superseded = if let Some(branch_segment) = graph.segment_by_ref_name(branch) {
-        // At this stage we know first segment isn't in the workspace, so exclude it.
-        let _tip_commit_ids_and_sidx: Vec<_> = workspace
-            .stacks
-            .iter()
-            .filter_map(|stack| {
-                stack
-                    .segments
-                    .first()
-                    .and_then(|s| s.commits.first().map(|c| (c.id, s.id)))
-            })
-            .collect();
-        let mut superseded = Vec::new();
-        graph.visit_all_segments_excluding_start_until(
-            branch_segment.id,
-            Direction::Outgoing,
-            |segment| {
-                let prune = _tip_commit_ids_and_sidx.iter().any(|(cid, sidx)| {
-                    segment.id == *sidx || segment.commits.first().is_some_and(|c| c.id == *cid)
-                });
-                if prune {
-                    superseded.push((
-                        segment.id,
-                        segment.ref_name().map(|rn| rn.to_owned()),
-                        segment.commits.first().map(|c| c.id),
-                    ));
-                }
-                prune
-            },
-        );
-        superseded
-    } else {
-        tracing::warn!(
-            ?branch,
-            "Didn't find branch in graph to do the 'reaches into workspace' check"
-        );
-        Vec::new()
-    };
+) -> Vec<StackTip> {
+    let superseded = workspace
+        .stack_tip_segments_below_ref(branch)
+        .unwrap_or_else(|| {
+            tracing::warn!(
+                ?branch,
+                "Didn't find branch in graph to do the 'reaches into workspace' check"
+            );
+            Vec::new()
+        });
 
     let metadata_stacks_to_remove = superseded
         .iter()
-        .filter_map(|t| t.1.as_ref().map(|rn| rn.as_ref()))
+        .filter_map(|tip| tip.ref_name.as_ref().map(|rn| rn.as_ref()))
         .filter_map(|superseded_tip_name| {
             ws_meta
                 .find_owner_indexes_by_name(superseded_tip_name, StackKind::Applied)

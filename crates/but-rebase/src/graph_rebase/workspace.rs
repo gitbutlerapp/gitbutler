@@ -1,11 +1,13 @@
 //! A graph based workspace projection, framed from the rebase [`Editor`].
 //!
-//! Rather than being its own graph, this points into the editor's internal step
+//! Rather than being its own graph, this points into the editor's internal commit
 //! graph via [`Selector`]s, so consumers can frame the mutations they're about
 //! to perform against the same selectors they'll act on.
 
 use std::collections::{HashMap, HashSet};
 
+use crate::graph_rebase::graph_editor::{PickIndex, RefIndex};
+use crate::graph_rebase::positions;
 use anyhow::Result;
 use but_core::{
     RefMetadata, WORKSPACE_REF_NAME,
@@ -17,31 +19,30 @@ use but_core::{
 };
 use but_graph::workspace::commit::is_managed_workspace_by_message;
 use gix::prelude::ObjectIdExt;
-use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
-    Checkout, Editor, LookupStep, Pick, Selector, Step, StepGraph, StepGraphIndex,
+    Checkout, Editor, EditorIndex, GraphEditor, LookupStep, Pick, Selector, Step,
     traverse::{self, AheadBehind},
 };
 
 /// A structure that gives a frame of reference to a key subgraph in the
 /// workspace framing. This could be the subgraph of all commits above the
-/// workspace, or the nodes that make up a "stack".
+/// workspace, or the entries that make up a "stack".
 ///
 /// Rather than being a full graph structure, this provides pointers into the
-/// editor's internal step graph.
+/// editor's internal commit graph.
 pub struct Subgraph {
-    /// Nodes in the subgraph that only have incoming edges
+    /// Entries in the subgraph that only have incoming edges
     pub heads: Vec<Selector>,
-    /// All the nodes in the specified subgraph
-    pub nodes: HashSet<Selector>,
+    /// All the entries in the specified subgraph
+    pub entries: HashSet<Selector>,
 }
 
 impl Subgraph {
     fn empty() -> Self {
         Self {
             heads: vec![],
-            nodes: HashSet::new(),
+            entries: HashSet::new(),
         }
     }
 }
@@ -66,29 +67,19 @@ pub struct GraphWorkspace {
     /// exclusive sub-graphs of commits that don't have any incoming or outgoing
     /// edges to other commits in other stacks.
     ///
+    /// Membership is computed over COMMITS: references are positions, not topology, so a
+    /// shared ref entry (typically the target's, sitting above an excluded target commit)
+    /// cannot glue two distinct stacks together. Each reference joins the stack its position
+    /// belongs to — its entering child's, else its pick's — and a group hanging
+    /// straight off the workspace commit keeps its own stack even without commits (an empty
+    /// branch). A reference whose position lies outside every stack (e.g. the target's own
+    /// ref) is in none of them.
+    ///
     /// As a natural extension, if we failed to find the workspace commit, this
     /// list will be empty since all the commits will deemed "above_workspace".
     ///
     /// If we're outside of the workspace branch, there will be one stack that
     /// contains all commits in the rev-set `HEAD ^target_sha`.
-    ///
-    /// # Known limitation: stacks sharing a target segment collapse into one
-    ///
-    /// Today, stacks that converge on a shared segment - most importantly the
-    /// target (`origin/main`) segment every real workspace stack sits on - get
-    /// merged into a single stack instead of staying separate. This is a
-    /// consequence of how the editor's step graph is built, *not* of the rebase
-    /// topology, so a fixture can look like N obviously-distinct stacks and
-    /// still come back as one.
-    ///
-    /// The segment's head reference becomes its first node (see `Editor::create`
-    /// in `creation.rs`), and each child stack attaches to that node. So when
-    /// two stacks share the target segment, they both point at its ref node and
-    /// the split treats them as one. A target doesn't help: it excludes the
-    /// target *commit*, but the ref node sits above that commit and survives.
-    ///
-    /// In this scenario, the but graph really ought to be providing a graph
-    /// that doesn't let us put the node there.
     pub stacks: Vec<Subgraph>,
 
     /// Per-reference push and integration status for every local-branch
@@ -125,10 +116,19 @@ struct Integration {
 
 impl GraphWorkspace {
     fn empty() -> Self {
+        Self::topology(Subgraph::empty(), None, vec![])
+    }
+
+    /// A projection skeleton with empty status maps; they are filled in later.
+    fn topology(
+        above_workspace: Subgraph,
+        workspace_commit: Option<Selector>,
+        stacks: Vec<Subgraph>,
+    ) -> Self {
         Self {
-            above_workspace: Subgraph::empty(),
-            workspace_commit: None,
-            stacks: vec![],
+            above_workspace,
+            workspace_commit,
+            stacks,
             reference_status: HashMap::new(),
             commit_state: HashMap::new(),
         }
@@ -136,48 +136,38 @@ impl GraphWorkspace {
 }
 
 /// The index-level analog of [`Subgraph`], used internally so the traversal and
-/// set-algebra stay on cheap `StepGraphIndex`es; converted to selectors once at
+/// set-algebra stay on cheap `EditorIndex`es; converted to selectors once at
 /// the boundary.
 struct NodeSet {
-    heads: Vec<StepGraphIndex>,
-    nodes: HashSet<StepGraphIndex>,
+    heads: Vec<EditorIndex>,
+    entries: HashSet<EditorIndex>,
 }
 
 impl NodeSet {
-    /// Convert into a [`Subgraph`] by pointing every index at `revision` - the
-    /// editor revision the node set was traversed against.
-    fn into_subgraph(self, revision: usize) -> Subgraph {
+    fn into_subgraph(self) -> Subgraph {
         Subgraph {
-            heads: self
-                .heads
-                .into_iter()
-                .map(|id| Selector { id, revision })
-                .collect(),
-            nodes: self
-                .nodes
-                .into_iter()
-                .map(|id| Selector { id, revision })
-                .collect(),
+            heads: self.heads.into_iter().map(|id| Selector { id }).collect(),
+            entries: self.entries.into_iter().map(|id| Selector { id }).collect(),
         }
     }
 }
 
-impl<M: RefMetadata> Editor<'_, '_, M> {
+impl<M: RefMetadata> Editor<'_, M> {
     /// Build a graph-based workspace projection framed from this editor.
     pub fn graph_workspace(&self) -> Result<GraphWorkspace> {
         let mut ws = self.graph_workspace_topology()?;
         // Every selector in the projection, so the status walks stay scoped to
         // the workspace rather than wandering down the full history.
-        let nodes: HashSet<Selector> = ws
+        let entries: HashSet<Selector> = ws
             .above_workspace
-            .nodes
+            .entries
             .iter()
-            .chain(ws.stacks.iter().flat_map(|stack| stack.nodes.iter()))
+            .chain(ws.stacks.iter().flat_map(|stack| stack.entries.iter()))
             .copied()
             .collect();
-        let integration = self.integration(&nodes)?;
+        let integration = self.integration(&entries)?;
         ws.reference_status =
-            self.reference_statuses(&nodes, &integration.integrated_references)?;
+            self.reference_statuses(&entries, &integration.integrated_references)?;
         ws.commit_state = integration.commit_state;
         Ok(ws)
     }
@@ -189,114 +179,104 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             return Ok(GraphWorkspace::empty());
         };
 
-        // In the case of no target sha:
-        // In PGM: We have one giant stack that contains all commits
-        // In A workspace:
-        //   If we find a workspace commit, we have stacks that reach the full history.
-        //   If we don't find a workspace commit, all commits from HEAD are considered above the workspace.
+        // Without a target sha:
+        // Outside the workspace branch, there is one giant stack with every commit.
+        // On the workspace branch:
+        //   With a workspace commit, the stacks reach the full history.
+        //   Without one, everything from HEAD counts as above the workspace.
 
         let ws_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-        let on_workspace = matches!(
-            &self.graph[entrypoint_ix],
-            Step::Reference { refname, .. } if *refname == ws_ref
-        );
+        let on_workspace = self
+            .graph
+            .reference(entrypoint_ix)
+            .is_some_and(|(refname, _)| *refname == ws_ref);
 
         let target_ix = self.target_selector().map(|s| s.id);
-        let revision = self.history.current_revision();
+
+        // The entrypoint is a reference: the region floods from the pick it resolves to
+        // (references carry no edges). The region is the rev-set `HEAD ^target`.
+        let entrypoint_pick = positions::resolve_to_pick(&self.graph, entrypoint_ix);
+        let mut region = NodeSet {
+            heads: vec![entrypoint_ix],
+            entries: entrypoint_pick
+                .map(|pick| {
+                    traverse::all_until_optional_limit(&self.graph, pick.into(), target_ix)
+                        .collect()
+                })
+                .unwrap_or_default(),
+        };
 
         if on_workspace {
-            let head_not_target_commit =
-                all_until_optional_limit(&self.graph, entrypoint_ix, target_ix);
-
             // The workspace commit, if present, lives somewhere in `HEAD ^target`.
-            let workspace_commit = head_not_target_commit.nodes.iter().copied().find_map(|ix| {
-                let Step::Pick(Pick { id, .. }) = &self.graph[ix] else {
-                    return None;
-                };
-                let gix_commit = self.repo.find_commit(*id).ok()?;
+            let workspace_commit = region.entries.iter().copied().find_map(|ix| {
+                let id = self.graph.commit_id(ix)?;
+                let gix_commit = self.repo.find_commit(id).ok()?;
                 is_managed_workspace_by_message(gix_commit.message_raw().ok()?).then_some(ix)
             });
 
             if let Some(workspace_commit_ix) = workspace_commit {
-                let (above_workspace, stacks) = divide_workspace_into_stacks(
-                    &self.graph,
-                    head_not_target_commit,
-                    workspace_commit_ix,
-                );
+                let (above_workspace, stacks) =
+                    divide_workspace_into_stacks(&self.graph, region, workspace_commit_ix);
 
-                Ok(GraphWorkspace {
-                    above_workspace: above_workspace.into_subgraph(revision),
-                    workspace_commit: Some(self.new_selector(workspace_commit_ix)),
-                    stacks: stacks
-                        .into_iter()
-                        .map(|s| s.into_subgraph(revision))
-                        .collect(),
-                    reference_status: HashMap::new(),
-                    commit_state: HashMap::new(),
-                })
+                Ok(GraphWorkspace::topology(
+                    above_workspace.into_subgraph(),
+                    Some(self.new_selector(workspace_commit_ix)),
+                    stacks.into_iter().map(|s| s.into_subgraph()).collect(),
+                ))
             } else {
-                Ok(GraphWorkspace {
-                    above_workspace: head_not_target_commit.into_subgraph(revision),
-                    workspace_commit: None,
-                    stacks: vec![],
-                    reference_status: HashMap::new(),
-                    commit_state: HashMap::new(),
-                })
+                attach_flooded_refs(&self.graph, &mut region.entries, Some(entrypoint_ix));
+                Ok(GraphWorkspace::topology(
+                    region.into_subgraph(),
+                    None,
+                    vec![],
+                ))
             }
         } else {
-            // We're pegging.
-            let stack = all_until_optional_limit(&self.graph, entrypoint_ix, target_ix);
-
-            Ok(GraphWorkspace {
-                above_workspace: Subgraph::empty(),
-                workspace_commit: None,
-                stacks: vec![stack.into_subgraph(revision)],
-                reference_status: HashMap::new(),
-                commit_state: HashMap::new(),
-            })
+            // HEAD is on a plain branch, not the workspace: the whole `HEAD ^target`
+            // region is one stack.
+            attach_flooded_refs(&self.graph, &mut region.entries, Some(entrypoint_ix));
+            Ok(GraphWorkspace::topology(
+                Subgraph::empty(),
+                None,
+                vec![region.into_subgraph()],
+            ))
         }
     }
 
-    /// The entrypoint (`HEAD`) reference node, or `None` if HEAD isn't on a ref.
-    fn head_index(&self) -> Option<StepGraphIndex> {
+    /// The entrypoint (`HEAD`) reference entry, or `None` if HEAD isn't on a ref.
+    fn head_index(&self) -> Option<EditorIndex> {
         self.checkouts
-            .iter()
-            .find_map(|Checkout::Head { selector, .. }| {
-                self.history
-                    .normalize_selector(*selector)
-                    .ok()
-                    .map(|s| s.id)
-            })
+            .first()
+            .map(|Checkout::Head { selector, .. }| selector.id)
     }
 
-    /// The target commit's node, if a target is configured and present.
+    /// The target commit's entry, if a target is configured and present.
     fn target_selector(&self) -> Option<Selector> {
-        let target = self.workspace.graph.project_meta.target_commit_id?;
-        let selector = self.try_select_commit(target)?;
-        self.history.normalize_selector(selector).ok()
+        let target = self.project_meta.target_commit_id?;
+        self.try_select_commit(target)
     }
 
     /// Compute the per-reference status for every local-branch reference in the
-    /// projection, given the full projection `nodes` and the references already
+    /// projection, given the full projection `entries` and the references already
     /// classified as `integrated`.
     fn reference_statuses(
         &self,
-        nodes: &HashSet<Selector>,
+        entries: &HashSet<Selector>,
         integrated: &HashSet<Selector>,
     ) -> Result<HashMap<Selector, ReferenceStatus>> {
         // First pass: each local-branch reference's own remote ref and push status.
         let mut remote_by_ref = HashMap::new();
         let mut status_by_ref = HashMap::new();
-        for node in nodes {
-            let Step::Reference { refname, .. } = self.lookup_step(*node)? else {
+        for entry in entries {
+            let Step::Reference { refname, .. } = self.lookup_step(*entry)? else {
                 continue;
             };
             if refname.category() != Some(gix::refs::Category::LocalBranch) {
                 continue;
             }
-            let (remote_ref, push_status) = self.reference_push_status(*node, refname.as_ref())?;
-            remote_by_ref.insert(*node, remote_ref);
-            status_by_ref.insert(*node, push_status);
+            let (remote_ref, push_status) = self.reference_push_status(*entry, refname.as_ref())?;
+            remote_by_ref.insert(*entry, remote_ref);
+            status_by_ref.insert(*entry, push_status);
         }
 
         // Integrated references override their push status: nothing to push once
@@ -307,29 +287,29 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             }
         }
 
-        // Adjacency among projection nodes, used by the combined walk to reach
+        // Adjacency among projection entries, used by the combined walk to reach
         // parent references through intermediate commits.
         let mut parents_by_node: HashMap<Selector, Vec<Selector>> = HashMap::new();
-        for node in nodes {
+        for entry in entries {
             let parents = self
-                .direct_parents(*node)?
+                .position_parents(*entry)?
                 .into_iter()
-                .filter_map(|(parent, _)| nodes.contains(&parent).then_some(parent))
+                .filter(|parent| entries.contains(parent))
                 .collect();
-            parents_by_node.insert(*node, parents);
+            parents_by_node.insert(*entry, parents);
         }
 
         // Second pass: fold parent references into the combined status.
         status_by_ref
             .iter()
-            .map(|(node, push_status)| {
+            .map(|(entry, push_status)| {
                 Ok((
-                    *node,
+                    *entry,
                     ReferenceStatus {
-                        remote_ref: remote_by_ref.get(node).cloned().flatten(),
+                        remote_ref: remote_by_ref.get(entry).cloned().flatten(),
                         push_status: *push_status,
                         combined_push_status: combined_push_status(
-                            *node,
+                            *entry,
                             *push_status,
                             &parents_by_node,
                             &status_by_ref,
@@ -352,8 +332,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// empty-branch remote-tip fallback that `reference_integrated` has is
     /// intentionally not ported. Without a target there is nothing to integrate
     /// into, so both sets are empty.
-    fn integration(&self, nodes: &HashSet<Selector>) -> Result<Integration> {
-        let Some(target_ref) = self.workspace.graph.project_meta.target_ref.as_ref() else {
+    fn integration(&self, entries: &HashSet<Selector>) -> Result<Integration> {
+        let Some(target_ref) = self.project_meta.target_ref.as_ref() else {
             return Ok(Integration::default());
         };
         let Some(target_ref_selector) = self.try_select_reference(target_ref.as_ref()) else {
@@ -380,7 +360,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             upstream = from_target_ref.iter().copied().collect();
         }
         let upstream_ids = self.pick_ids(upstream.into_iter())?;
-        let workspace_ids = self.pick_ids(nodes.iter().copied())?;
+        let workspace_ids = self.pick_ids(entries.iter().copied())?;
         let content = but_core::changeset::compute_similarity_by_commit_ids(
             self.repo(),
             &upstream_ids,
@@ -388,10 +368,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             true,
         )?;
 
-        let reference_names: HashMap<Selector, gix::refs::FullName> = nodes
+        let reference_names: HashMap<Selector, gix::refs::FullName> = entries
             .iter()
-            .filter_map(|node| match self.lookup_step(*node) {
-                Ok(Step::Reference { refname, .. }) => Some(Ok((*node, refname))),
+            .filter_map(|entry| match self.lookup_step(*entry) {
+                Ok(Step::Reference { refname, .. }) => Some(Ok((*entry, refname))),
                 Ok(_) => None,
                 Err(err) => Some(Err(err)),
             })
@@ -427,7 +407,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 if !remote_reachable.insert(selector) {
                     continue;
                 }
-                if !nodes.contains(&selector)
+                if !entries.contains(&selector)
                     && let Step::Pick(Pick { id, .. }) = self.lookup_step(selector)?
                 {
                     remote_only_ids.push(id);
@@ -439,20 +419,20 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         // Per-commit state: integrated wins over local-and-remote wins over local-only.
         let mut elapsed = std::time::Duration::default();
         let mut commit_state = HashMap::new();
-        for node in nodes {
-            let Step::Pick(Pick { id, .. }) = self.lookup_step(*node)? else {
+        for entry in entries {
+            let Step::Pick(Pick { id, .. }) = self.lookup_step(*entry)? else {
                 continue;
             };
-            let state = if is_commit_integrated(*node)? {
+            let state = if is_commit_integrated(*entry)? {
                 CommitState::Integrated
-            } else if remote_reachable.contains(node) {
+            } else if remote_reachable.contains(entry) {
                 CommitState::LocalAndRemote(id)
             } else if let Some(remote_id) = self.remote_similarity(id, &remote_lut, &mut elapsed)? {
                 CommitState::LocalAndRemote(remote_id)
             } else {
                 CommitState::LocalOnly
             };
-            commit_state.insert(*node, state);
+            commit_state.insert(*entry, state);
         }
 
         // Per-reference: a local branch is integrated when all the commits it
@@ -468,7 +448,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             let mut traversed_commits = false;
             'walk: while let Some(tip) = tips.pop() {
                 for (parent, _) in self.direct_parents(tip)? {
-                    if !nodes.contains(&parent) {
+                    if !entries.contains(&parent) {
                         continue;
                     }
                     // A local branch owns its own commits, so stop there. Any
@@ -554,8 +534,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let (remote_ref, remote_selector) = self.remote_for_reference(refname);
         let Some(remote_selector) = remote_selector else {
             // Either no tracking branch exists, or the remote exists but its
-            // history is outside the workspace view and so can't be compared via
-            // the editor (rare under real traversals).
+            // history is outside the workspace view and so can't be compared
+            // within the editor (rare under real traversals).
             return Ok((remote_ref, PushStatus::CompletelyUnpushed));
         };
 
@@ -566,8 +546,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     }
 
     /// Resolve `refname`'s remote-tracking ref name and a selector for it in the
-    /// editor graph, preferring its reference node and falling back to its tip
-    /// commit (limited traversals often drop the remote *ref* node while keeping
+    /// editor graph, preferring its reference entry and falling back to its tip
+    /// commit (limited traversals often drop the remote *ref* entry while keeping
     /// the commit it points at). Both are `None` when there is no tracking
     /// branch; the selector alone is `None` when the remote is outside the graph.
     fn remote_for_reference(
@@ -608,18 +588,18 @@ fn push_status_from_ahead_behind(ahead_behind: AheadBehind) -> PushStatus {
 /// Fold a reference's own push status with those of the references below it: if
 /// any parent reference requires a force push, so does this one.
 ///
-/// Generic over the node key so the force-escalation walk can be exercised with
-/// plain keys in tests. `parents_by_node` may include non-reference nodes
+/// Generic over the entry key so the force-escalation walk can be exercised with
+/// plain keys in tests. `parents_by_node` may include non-reference entries
 /// (commits) as intermediate hops; only keys present in `status_by_ref` count as
 /// references.
 fn combined_push_status<K: Copy + Eq + std::hash::Hash>(
     reference: K,
-    own: PushStatus,
+    own_status: PushStatus,
     parents_by_node: &HashMap<K, Vec<K>>,
     status_by_ref: &HashMap<K, PushStatus>,
 ) -> PushStatus {
     // An integrated reference isn't pushed at all, so parents can't change that.
-    if matches!(own, PushStatus::Integrated) {
+    if matches!(own_status, PushStatus::Integrated) {
         return PushStatus::Integrated;
     }
     let mut tips = vec![reference];
@@ -635,79 +615,147 @@ fn combined_push_status<K: Copy + Eq + std::hash::Hash>(
             tips.push(*parent);
         }
     }
-    own
-}
-
-/// All steps in `start ^limit`, or everything reachable from `start` when there
-/// is no `limit`.
-fn all_until_optional_limit(
-    graph: &StepGraph,
-    start: StepGraphIndex,
-    limit: Option<StepGraphIndex>,
-) -> NodeSet {
-    NodeSet {
-        heads: vec![start],
-        nodes: traverse::all_until_optional_limit(graph, start, limit).collect(),
-    }
+    own_status
 }
 
 /// Split the region beneath the workspace commit into mutually-exclusive stacks,
 /// returning `(above_workspace, stacks)`.
+///
+/// Membership is computed over PICKS: references are transparent for connectivity (they are
+/// positions, not topology), so a shared ref entry cannot glue two distinct stacks
+/// together. After the pick-flood, each reference joins the stack its position belongs to:
+/// the stack of its entering child, else the stack of its resolved pick, and a group
+/// hanging directly off the workspace commit keeps its own (possibly pick-less) stack —
+/// the empty-branch case.
 fn divide_workspace_into_stacks(
-    graph: &StepGraph,
+    graph: &GraphEditor,
     head_not_target: NodeSet,
-    workspace_commit_ix: StepGraphIndex,
+    workspace_commit_ix: EditorIndex,
 ) -> (NodeSet, Vec<NodeSet>) {
-    // Each parent of the workspace commit seeds a stack.
+    // Each parent of the workspace commit seeds a stack, flooded pick-to-pick: every outgoing
+    // edge resolves through reference/tombstone steps to the pick beneath.
     let mut initial_stacks = graph
-        .edges_directed(workspace_commit_ix, Direction::Outgoing)
-        .map(|edge| NodeSet {
-            heads: vec![edge.target()],
-            nodes: [edge.target()].into(),
+        .parents(workspace_commit_ix)
+        .iter()
+        .copied()
+        .map(|head| {
+            let mut entries = std::collections::HashSet::new();
+            let mut tips: Vec<PickIndex> = Vec::new();
+            if let Some(pick) = positions::resolve_to_pick(graph, head)
+                && head_not_target.entries.contains(&pick.into())
+            {
+                entries.insert(pick.into());
+                tips.push(pick);
+            }
+            while let Some(tip) = tips.pop() {
+                for parent in graph.parents(tip) {
+                    let Some(pick) = positions::resolve_to_pick(graph, parent) else {
+                        continue;
+                    };
+                    if !head_not_target.entries.contains(&pick.into()) {
+                        continue;
+                    }
+                    if entries.insert(pick.into()) {
+                        tips.push(pick);
+                    }
+                }
+            }
+            NodeSet {
+                heads: vec![head.into()],
+                entries,
+            }
         })
         .collect::<Vec<_>>();
 
-    for stack in &mut initial_stacks {
-        let mut tips = stack.heads.clone();
-        while let Some(tip) = tips.pop() {
-            for edge in graph.edges_directed(tip, Direction::Outgoing) {
-                if !head_not_target.nodes.contains(&edge.target()) {
-                    continue;
-                }
-                if stack.nodes.insert(edge.target()) {
-                    tips.push(edge.target());
-                }
-            }
-        }
-    }
-
-    // Merge stacks that share any node (they aren't actually distinct).
-    //
-    // NOTE: a shared node here includes *reference* nodes, not just commits.
-    // A segment's head ref is its first node (see `creation.rs`), so stacks that
-    // converge on a shared segment - typically the target's - both point at its
-    // ref node and collapse into one, even when a target excludes the segment's
-    // commit. This is the known limitation documented on `GraphWorkspace::stacks`.
+    // Merge stacks that share any pick (they aren't actually distinct). The pop-loop takes
+    // from the back, so reverse first: stacks come out in the workspace commit's parent number order,
+    // first parent first.
     let mut deduplicated = vec![];
+    initial_stacks.reverse();
     while let Some(mut out) = initial_stacks.pop() {
         for bix in (0..initial_stacks.len()).rev() {
             #[expect(clippy::indexing_slicing)]
             if out
-                .nodes
+                .entries
                 .iter()
-                .any(|o| initial_stacks[bix].nodes.contains(o))
+                .any(|o| initial_stacks[bix].entries.contains(o))
             {
                 let b = initial_stacks.swap_remove(bix);
-                out.nodes.extend(b.nodes);
+                out.entries.extend(b.entries);
                 out.heads.extend(b.heads);
             }
         }
         deduplicated.push(out);
     }
 
-    let mut outside = head_not_target.nodes.clone();
+    // Each positioned reference joins the stack its position belongs to: the entering child's
+    // stack (with a group hanging straight off the workspace commit falling back to its
+    // pick's stack — the workspace commit itself is in none), else the resolved pick's stack.
+    // References belonging to neither (e.g. the target's own ref above the excluded target
+    // commit) stay outside every stack.
+    for entry in graph.positioned_refs() {
+        let pick = positions::resolve_to_pick(graph, entry);
+        let entering = positions::edges_through(graph, entry);
+        let by_pick = |a: Option<PickIndex>| {
+            a.and_then(|a| {
+                deduplicated
+                    .iter()
+                    .position(|s| s.entries.contains(&a.into()))
+            })
+        };
+        // Every entering edge must agree on the stack; a group entered from several stacks
+        // (or from the workspace commit itself) falls back to its pick's stack. A root group
+        // (no entering edges) has no stack — no flood ever descended into it.
+        let pick_in_region = pick.is_some_and(|a| head_not_target.entries.contains(&a.into()));
+        let home = match entering.as_slice() {
+            // A root group: no flood ever descended into it — no stack.
+            [] => None,
+            // A single entering edge follows its child's stack, even onto an excluded pick (a stack
+            // bottom resting on the target); a group hanging straight off the workspace
+            // commit falls back to its pick's stack.
+            [(child, _)]
+                if EditorIndex::from(*child) != workspace_commit_ix
+                    && !graph.ambiguous_of(entry) =>
+            {
+                deduplicated
+                    .iter()
+                    .position(|s| s.entries.contains(&EditorIndex::from(*child)))
+                    .or_else(|| pick_in_region.then(|| by_pick(pick)).flatten())
+            }
+            [_] => pick_in_region.then(|| by_pick(pick)).flatten(),
+            // A shared group: every edge must agree on the stack; otherwise it belongs to its
+            // pick's stack when that is in region, or nowhere.
+            many => {
+                let homes: Vec<Option<usize>> = many
+                    .iter()
+                    .map(|(child, _)| {
+                        if EditorIndex::from(*child) == workspace_commit_ix {
+                            None
+                        } else {
+                            deduplicated
+                                .iter()
+                                .position(|s| s.entries.contains(&EditorIndex::from(*child)))
+                        }
+                    })
+                    .collect();
+                match homes.as_slice() {
+                    [Some(first), rest @ ..] if rest.iter().all(|h| *h == Some(*first)) => {
+                        Some(*first)
+                    }
+                    _ => pick_in_region.then(|| by_pick(pick)).flatten(),
+                }
+            }
+        };
+        if let Some(ix) = home {
+            #[expect(clippy::indexing_slicing)]
+            deduplicated[ix].entries.insert(entry.into());
+        }
+    }
+
+    let mut outside = head_not_target.entries.clone();
+    attach_flooded_refs(graph, &mut outside, None);
     for stack in &deduplicated {
-        outside = outside.difference(&stack.nodes).copied().collect();
+        outside = outside.difference(&stack.entries).copied().collect();
     }
     outside.remove(&workspace_commit_ix);
 
@@ -719,10 +767,48 @@ fn divide_workspace_into_stacks(
             .cloned()
             .filter(|h| *h != workspace_commit_ix)
             .collect(),
-        nodes: outside,
+        entries: outside,
     };
 
     (above_workspace, deduplicated)
+}
+
+/// Add the references that belong with the walked commits: groups entered by an in-region
+/// child, plus — when the walk started at a reference — that reference and its group
+/// members below it. Root groups nothing descends into (e.g. a remote ref stacked above a
+/// local one) stay out; no walk ever passes through them.
+fn attach_flooded_refs(
+    graph: &GraphEditor,
+    entries: &mut HashSet<EditorIndex>,
+    entry: Option<EditorIndex>,
+) {
+    let mut additions: Vec<RefIndex> = graph
+        .positioned_refs()
+        .filter(|&entry| {
+            // A group any in-region edge enters was flooded through before the walk
+            // stopped at a boundary — membership is broader than stack assignment, which
+            // stays arity- and ambiguity-aware in `divide_workspace_into_stacks`. Co-located
+            // group members all share the same entering edges, so a lower member is
+            // attached with the whole group, while a root ref stacked above (its own entering set
+            // empty, e.g. a remote ref over the tip) stays out.
+            positions::edges_through(graph, entry)
+                .iter()
+                .any(|(child, _)| entries.contains(&EditorIndex::from(*child)))
+        })
+        .collect();
+    if let Some(entry) = entry.and_then(|e| e.as_ref())
+        && let Some(entry_on) = graph.positioned_on(entry)
+    {
+        additions.push(entry);
+        let entry_edges = positions::edges_through(graph, entry);
+        let entry_depth = positions::ref_depth(graph, entry);
+        additions.extend(graph.positioned_refs().filter(|&other| {
+            graph.positioned_on(other) == Some(entry_on)
+                && positions::edges_through(graph, other) == entry_edges
+                && positions::ref_depth(graph, other) < entry_depth
+        }));
+    }
+    entries.extend(additions.into_iter().map(EditorIndex::from));
 }
 
 #[cfg(test)]

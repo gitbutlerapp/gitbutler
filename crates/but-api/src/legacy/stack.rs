@@ -197,8 +197,9 @@ pub fn create_branch(
                     },
                 )
                 .or_else(|| {
+                    // An anonymous segment exists to hold commits, so its tip is right here.
                     Some(but_workspace::branch::create_reference::Anchor::AtCommit {
-                        commit_id: ws.tip_commit_by_segment_id(segment.id)?.id,
+                        commit_id: segment.commits.first()?.id,
                         position: Above,
                     })
                 })

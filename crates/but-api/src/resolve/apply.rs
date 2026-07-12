@@ -213,7 +213,7 @@ pub(crate) fn apply(
     }
     let resolved_tree_id = tree_editor.write()?.detach();
 
-    let mut editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let mut editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let (target_selector, mut commit) = editor.find_selectable_commit(request.commit_id)?;
     commit.tree = resolved_tree_id;
     commit.message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
@@ -229,7 +229,8 @@ pub(crate) fn apply(
 
     let rebase = editor.rebase()?;
     let new_commit = rebase.lookup_pick(target_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?;
+    let workspace =
+        WorkspaceState::from_successful_rebase_with_db(&mut ws, rebase, &repo, dry_run, &db)?;
 
     Ok((new_commit, workspace))
 }

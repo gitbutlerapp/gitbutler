@@ -332,16 +332,12 @@ pub(super) mod function {
             Some(Anchor::AtSegment { ref_name, position }) => {
                 let mut validate_id = true;
                 let ref_target_id = if workspace.has_metadata() {
-                    let (stack_idx, seg_idx) =
-                        workspace.try_find_segment_owner_indexes_by_refname(ref_name.as_ref())?;
-                    let segment = &workspace.stacks[stack_idx].segments[seg_idx];
-
-                    let id = workspace
-                        .tip_commit_by_segment_id(segment.id)
-                        .map(|commit| position.resolve_commit(commit.into(), ws_base))
-                        .context(
-                            "BUG: we should always see through to the base or eligible commits",
-                        )??;
+                    let resting_id = workspace.try_branch_resting_commit_id(ref_name.as_ref())?;
+                    let commit = workspace
+                        .commit_graph()
+                        .node(resting_id)
+                        .context("BUG: the resting commit is part of the graph")?;
+                    let id = position.resolve_commit(commit.into(), ws_base)?;
                     if Some(id) == ws_base {
                         validate_id = false
                     }
@@ -384,15 +380,8 @@ pub(super) mod function {
                     );
                 }
                 if workspace.has_metadata() {
-                    let (stack_idx, seg_idx) =
-                        workspace.try_find_segment_owner_indexes_by_refname(anchor_ref.as_ref())?;
-                    let segment = &workspace.stacks[stack_idx].segments[seg_idx];
-                    let ref_target_id = workspace
-                        .tip_commit_by_segment_id(segment.id)
-                        .map(|commit| commit.id)
-                        .context(
-                            "BUG: we should always see through to the base or eligible commits",
-                        )?;
+                    let ref_target_id =
+                        workspace.try_branch_resting_commit_id(anchor_ref.as_ref())?;
                     AnchorResolution::positioned(
                         ref_target_id,
                         Some(ref_target_id) != ws_base,
@@ -433,12 +422,12 @@ pub(super) mod function {
             workspace.try_find_owner_indexes_by_commit_id(ref_target_id)?;
         }
 
-        let graph_with_new_ref = {
+        let updated_workspace = {
             // Always update the metadata, this may help disambiguating.
             let mut branch_md = meta.branch(ref_name)?;
             update_branch_metadata(ref_name, repo, &mut branch_md)?;
 
-            let mut overlay = but_graph::init::Overlay::default()
+            let mut overlay = but_graph::walk::Overlay::default()
                 .with_references_if_new(Some(gix::refs::Reference {
                     name: ref_name.into(),
                     target: gix::refs::Target::Object(ref_target_id),
@@ -460,12 +449,9 @@ pub(super) mod function {
                 overlay = overlay.with_entrypoint(ref_target_id, Some(new_tip));
             }
 
-            workspace
-                .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
+            workspace.redo(repo, meta, overlay)?
         };
 
-        let updated_workspace = graph_with_new_ref.into_workspace()?;
         let has_new_ref_as_standalone_segment = updated_workspace
             .find_segment_and_stack_by_refname(ref_name)
             .is_some();
@@ -611,7 +597,7 @@ pub(super) mod function {
     ///   anchor).
     /// - If `new_ref` is already present it is moved (removed then re-inserted), so re-creating or
     ///   reordering the same branch is idempotent.
-    /// - [`Position::Above`] takes the anchor's slot, pushing the anchor down; [`Position::Below`]
+    /// - [`Position::Above`] takes the anchor's parent number, pushing the anchor down; [`Position::Below`]
     ///   goes right after the anchor. This only affects *ordering* — unlike [`Anchor::AtSegment`],
     ///   it never changes which branch owns the commit.
     fn insert_into_branch_stack_order(

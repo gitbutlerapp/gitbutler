@@ -194,14 +194,6 @@ RefInfo {
             commits_ahead: 0,
         },
     ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(1),
-    ),
     is_managed_ref: false,
     is_managed_commit: false,
     ancestor_workspace_commit: None,
@@ -251,7 +243,7 @@ fn checkout_new_returns_head_info_matching_fresh_head_info() -> anyhow::Result<(
         crate::support::workspace_graph(&ctx)?,
         snapbox::str![[r#"
 ⌂:new-branch[🌳] <> ✓refs/remotes/origin/main on 5374caf
-└── ≡:new-branch[🌳] {1}
+└── ≡:new-branch[🌳] on 5374caf {1}
     └── :new-branch[🌳]
 
 "#]]
@@ -304,7 +296,9 @@ RefInfo {
             id: Some(
                 00000000-0000-0000-0000-000000000001,
             ),
-            base: None,
+            base: Some(
+                Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
+            ),
             segments: [
                 ref_info::ui::Segment {
                     ref_name: "►new-branch[🌳]",
@@ -314,7 +308,7 @@ RefInfo {
                     commits_outside: None,
                     metadata: "None",
                     push_status: CompletelyUnpushed,
-                    base: "None",
+                    base: "5374caf",
                 },
             ],
         },
@@ -326,14 +320,6 @@ RefInfo {
             ),
             commits_ahead: 0,
         },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(0),
     ),
     is_managed_ref: false,
     is_managed_commit: false,

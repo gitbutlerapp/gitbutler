@@ -47,12 +47,13 @@ pub fn commit_reword_only_with_perm(
 ) -> anyhow::Result<CommitRewordResult> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
 
     let (rebase, edited_commit_selector) =
         but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;
     let new_commit = rebase.lookup_pick(edited_commit_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?;
+    let workspace =
+        WorkspaceState::from_successful_rebase_with_db(&mut ws, rebase, &repo, dry_run, &db)?;
 
     Ok(CommitRewordResult {
         new_commit,

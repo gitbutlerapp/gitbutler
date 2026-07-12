@@ -9,37 +9,36 @@ use gix::refs::{
     transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
 };
 
-use crate::graph_rebase::{
-    Checkout, MaterializeOutcome, Pick, Step, SuccessfulRebase, util::collect_ordered_parents,
-};
+use crate::graph_rebase::{Checkout, MaterializeOutcome, Pick, Step, SuccessfulRebase};
 
-impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
+impl<'meta, M: RefMetadata> SuccessfulRebase<'meta, M> {
     /// Materializes a history rewrite
-    pub fn materialize(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
-        let repo = self.repo.clone();
+    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    pub fn materialize(mut self) -> Result<MaterializeOutcome<'meta, M>> {
         if let Some(memory) = self.repo.objects.take_object_memory() {
-            memory.persist(self.repo)?;
+            memory.persist(&self.repo)?;
         }
 
         let mut head_reference_update = None;
-        for checkout in self.checkouts {
+        for checkout in std::mem::take(&mut self.checkouts) {
             match checkout {
                 Checkout::Head {
                     selector,
                     merge_base_override,
                 } => {
-                    let selector = self.history.normalize_selector(selector)?;
-                    let step = self.graph[selector.id].clone();
+                    let step = self.graph.step_view(selector.id);
 
                     let (new_head, new_head_refname) = match step {
                         Step::None => bail!("Checkout selector is pointing to none"),
                         Step::Pick(Pick { id, .. }) => (id, None),
                         Step::Reference { refname, .. } => {
-                            let parents = collect_ordered_parents(&self.graph, selector.id);
-                            let parent_step_id =
-                                parents.first().context("No first parent to reference")?;
-                            let Step::Pick(Pick { id, .. }) = self.graph[*parent_step_id] else {
-                                bail!("collect_ordered_parents should always return a commit pick");
+                            let parent_step_id = crate::graph_rebase::positions::resolve_to_pick(
+                                &self.graph,
+                                selector.id,
+                            )
+                            .context("No commit to reference")?;
+                            let Some(id) = self.graph.commit_id(parent_step_id) else {
+                                bail!("resolve_to_pick should always return a commit pick");
                             };
                             (id, Some(refname))
                         }
@@ -50,7 +49,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                     // commit mapping), perform a safe checkout.
                     safe_checkout_from_head(
                         new_head,
-                        &repo,
+                        &self.repo,
                         Options {
                             skip_head_update: true,
                             merge_base_override,
@@ -61,9 +60,9 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             }
         }
 
-        let mut ref_edits = self.ref_edits.clone();
+        let mut ref_edits = std::mem::take(&mut self.ref_edits);
         if let Some(refname) = head_reference_update
-            && repo.head_name()?.as_ref() != Some(&refname)
+            && self.repo.head_name()?.as_ref() != Some(&refname)
         {
             let ref_short_name = refname.shorten().to_owned();
             ref_edits.push(RefEdit {
@@ -84,18 +83,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 deref: false,
             });
         }
-        repo.edit_references(ref_edits)?;
-
-        let project_meta = self.workspace.graph.project_meta.clone();
-        self.workspace
-            .refresh_from_head(&repo, &*self.meta, project_meta)?;
-
-        Ok(MaterializeOutcome {
-            graph: self.graph,
-            history: self.history,
-            workspace: self.workspace,
-            meta: self.meta,
-        })
+        self.finish(ref_edits)
     }
 
     /// Materializes a rebase without performing a checkout.
@@ -104,31 +92,26 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     /// [`Self::materialize`]. This is intended to be used in niche cases like
     /// `uncommit`.
     ///
-    /// This has means that we don't "cherry pick" the uncommitted changes from
-    /// the old head onto the new one.
-    ///
-    /// If I dropped a commit from the history,
-    /// [`Self::materialize_without_checkout`] will now see those changes in
-    /// your working directory.
-    ///
-    /// If I instead called [`Self::materialize`], the changes would instead be
-    /// gone from disk.
-    pub fn materialize_without_checkout(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
-        let repo = self.repo.clone();
+    /// Skipping the checkout means the uncommitted changes are not carried from
+    /// the old head to the new one. If you drop a commit from history, this
+    /// leaves its changes in your working directory; [`Self::materialize`]
+    /// would remove them from disk.
+    #[tracing::instrument(level = "debug", skip_all, err(Debug))]
+    pub fn materialize_without_checkout(mut self) -> Result<MaterializeOutcome<'meta, M>> {
         if let Some(memory) = self.repo.objects.take_object_memory() {
-            memory.persist(self.repo)?;
+            memory.persist(&self.repo)?;
         }
 
-        repo.edit_references(self.ref_edits.clone())?;
+        let ref_edits = std::mem::take(&mut self.ref_edits);
+        self.finish(ref_edits)
+    }
 
-        let project_meta = self.workspace.graph.project_meta.clone();
-        self.workspace
-            .refresh_from_head(&repo, &*self.meta, project_meta)?;
+    fn finish(self, ref_edits: Vec<RefEdit>) -> Result<MaterializeOutcome<'meta, M>> {
+        self.repo.edit_references(ref_edits)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,
             history: self.history,
-            workspace: self.workspace,
             meta: self.meta,
         })
     }

@@ -3,7 +3,7 @@ use bstr::ByteSlice as _;
 use but_rebase::graph_rebase::{Editor, LookupStep};
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 use but_workspace::commit::squash_commits;
-use snapbox::IntoData;
+use snapbox::prelude::*;
 
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack_with_segments,
@@ -12,7 +12,7 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 #[test]
 fn squash_top_commit_into_parent() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -29,8 +29,7 @@ fn squash_top_commit_into_parent() -> Result<()> {
     let target_id = repo.rev_parse_single("two")?.detach();
     let subject_tree = repo.find_commit(subject_id)?.tree_id()?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -39,6 +38,7 @@ fn squash_top_commit_into_parent() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -80,7 +80,7 @@ fn squash_top_commit_into_parent() -> Result<()> {
 
 #[test]
 fn squash_top_commit_into_parent_keeping_target_message() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -96,8 +96,7 @@ fn squash_top_commit_into_parent_keeping_target_message() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -106,6 +105,7 @@ fn squash_top_commit_into_parent_keeping_target_message() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -120,7 +120,7 @@ fn squash_top_commit_into_parent_keeping_target_message() -> Result<()> {
 
 #[test]
 fn squash_top_commit_into_parent_keeping_subject_message() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -136,8 +136,7 @@ fn squash_top_commit_into_parent_keeping_subject_message() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -146,6 +145,7 @@ fn squash_top_commit_into_parent_keeping_subject_message() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -160,7 +160,7 @@ fn squash_top_commit_into_parent_keeping_subject_message() -> Result<()> {
 
 #[test]
 fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -178,8 +178,7 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
     let target_id = repo.rev_parse_single("three")?.detach();
     let target_tree = repo.find_commit(target_id)?.tree_id()?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -188,6 +187,7 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -218,14 +218,13 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
 
 #[test]
 fn squash_deduplicates_duplicate_subjects() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id, subject_id],
@@ -234,6 +233,7 @@ fn squash_deduplicates_duplicate_subjects() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
     let squashed_commit = repo.find_commit(squashed_id)?;
 
@@ -248,7 +248,7 @@ fn squash_deduplicates_duplicate_subjects() -> Result<()> {
 
 #[test]
 fn squash_same_commit_is_rejected() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -263,8 +263,7 @@ fn squash_same_commit_is_rejected() -> Result<()> {
 
     let commit_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
 
     let err = squash_commits(
         editor,
@@ -294,14 +293,13 @@ fn squash_same_commit_is_rejected() -> Result<()> {
 
 #[test]
 fn squash_rejects_target_in_subject_commit_ids() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
 
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
 
     let err = squash_commits(
         editor,
@@ -321,7 +319,7 @@ fn squash_rejects_target_in_subject_commit_ids() -> Result<()> {
 
 #[test]
 fn squash_down_keeps_topmost_tree_for_shared_file_lineage() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("squash-shared-file-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -337,8 +335,7 @@ fn squash_down_keeps_topmost_tree_for_shared_file_lineage() -> Result<()> {
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("two")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -347,6 +344,7 @@ fn squash_down_keeps_topmost_tree_for_shared_file_lineage() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let spec = format!("{squashed_id}:shared.txt");
@@ -367,7 +365,7 @@ fn squash_down_keeps_topmost_tree_for_shared_file_lineage() -> Result<()> {
 
 #[test]
 fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, mut ws, repo, mut _meta, _description) =
         writable_scenario("squash-shared-file-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -383,8 +381,7 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
     let subject_id = repo.rev_parse_single("two")?.detach();
     let target_id = repo.rev_parse_single("three")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -393,6 +390,7 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let spec = format!("{squashed_id}:shared.txt");
@@ -419,7 +417,7 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
 
 #[test]
 fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("squash-shared-file-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -435,8 +433,7 @@ fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage() -> Re
     let subject_id = repo.rev_parse_single("three")?.detach();
     let target_id = repo.rev_parse_single("one")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
     let err = squash_commits(
         editor,
         vec![subject_id],
@@ -464,21 +461,20 @@ fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage() -> Re
 
 #[test]
 fn squash_across_stacks_subject_into_target() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         writable_scenario("ws-ref-ws-commit-two-stacks", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
         })?;
 
-    let mut ws = graph.into_workspace()?;
     let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
     snapbox::assert_data_eq!(
         normalized,
         snapbox::str![[r#"
-*   c49e4d8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   3147679 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\
-| * 09d8e52 (A) A
-* | c813d8d (B) B
+| * c813d8d (B) B
+* | 09d8e52 (A) A
 |/
 * 85efbe4 (origin/main, main) M
 
@@ -503,7 +499,7 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     let target_id = repo.rev_parse_single("B")?.detach();
     let subject_tree = repo.find_commit(subject_id)?.tree_id()?.detach();
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -512,6 +508,7 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -521,9 +518,9 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   5eaffd7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   1bf18d8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-* | a2dc4c7 (B) B
+| * a2dc4c7 (B) B
 |/  
 * 85efbe4 (origin/main, main, A) M
 
@@ -548,22 +545,20 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
 
 #[test]
 fn squash_across_stacks_target_into_subject() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         writable_scenario("ws-ref-ws-commit-two-stacks", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
         })?;
 
-    let mut ws = graph.into_workspace()?;
-
     let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
     snapbox::assert_data_eq!(
         normalized,
         snapbox::str![[r#"
-*   c49e4d8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   3147679 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\
-| * 09d8e52 (A) A
-* | c813d8d (B) B
+| * c813d8d (B) B
+* | 09d8e52 (A) A
 |/
 * 85efbe4 (origin/main, main) M
 
@@ -589,7 +584,7 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     let target_id = repo.rev_parse_single("A")?.detach();
     let subject_tree = repo.find_commit(subject_id)?.tree_id()?.detach();
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -598,6 +593,7 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let squashed_commit = repo.find_commit(squashed_id)?;
@@ -607,9 +603,9 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   2e7b9b5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8ffe26f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 80db672 (A) A
+* | 80db672 (A) A
 |/  
 * 85efbe4 (origin/main, main, B) M
 
@@ -634,7 +630,7 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
 
 #[test]
 fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         writable_scenario("ws-ref-ws-commit-single-stack-double-stack-files", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
@@ -644,11 +640,11 @@ fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()
     snapbox::assert_data_eq!(
         normalized,
         snapbox::str![[r#"
-*   c47834b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   12c47aa (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\
-| * 26e45af (A) A
-* | 356de85 (C) C
-* | f25f65c (B) B
+| * 356de85 (C) C
+| * f25f65c (B) B
+* | 26e45af (A) A
 |/
 * 893d602 (origin/main, main) M
 
@@ -656,11 +652,10 @@ fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()
         .raw()
     );
 
-    let mut ws = graph.into_workspace()?;
     let subject_id = repo.rev_parse_single("C")?.detach();
     let target_id = repo.rev_parse_single("A")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -669,6 +664,7 @@ fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let file_a = repo
@@ -703,7 +699,7 @@ fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()
 #[test]
 fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_state() -> Result<()>
 {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, mut ws, repo, mut meta, _description) =
         writable_scenario("ws-ref-ws-commit-double-stack-triple-stack-files", |meta| {
             add_stack_with_segments(meta, 1, "D", StackState::InWorkspace, &["A"]);
             add_stack_with_segments(meta, 2, "E", StackState::InWorkspace, &["B", "C"]);
@@ -713,13 +709,13 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
     snapbox::assert_data_eq!(
         normalized,
         snapbox::str![[r#"
-*   8cf5961 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   813c644 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\
-| * e352141 (D) D
-| * 26e45af (A) A
-* | b9b4be4 (E) E
-* | 356de85 (C) C
-* | f25f65c (B) B
+| * b9b4be4 (E) E
+| * 356de85 (C) C
+| * f25f65c (B) B
+* | e352141 (D) D
+* | 26e45af (A) A
 |/
 * 893d602 (origin/main, main) M
 
@@ -733,8 +729,7 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
     let c_id = repo.rev_parse_single("C")?.detach();
     let e_id = repo.rev_parse_single("E")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![e_id],
@@ -743,18 +738,19 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
     snapbox::assert_data_eq!(
         normalized,
         snapbox::str![[r#"
-*   c9040ff (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   d858c64 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\
-| * 56cb644 (D) D
-| * 26e45af (A) A
-* | 356de85 (E, C) C
-* | f25f65c (B) B
+| * 356de85 (E, C) C
+| * f25f65c (B) B
+* | 56cb644 (D) D
+* | 26e45af (A) A
 |/
 * 893d602 (origin/main, main) M
 
@@ -901,7 +897,7 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
 
 #[test]
 fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) = writable_scenario("three-stacks", |meta| {
+    let (_tmp, mut ws, repo, mut meta, _description) = writable_scenario("three-stacks", |meta| {
         add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
         add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
         add_stack_with_segments(meta, 3, "C", StackState::InWorkspace, &[]);
@@ -912,8 +908,7 @@ fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> Resu
     let c_third = repo.rev_parse_single("C~2")?.detach();
     let target_id = repo.rev_parse_single("B~1")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![c_top, c_second, c_third],
@@ -922,6 +917,7 @@ fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> Resu
     )?;
 
     let materialized = outcome.rebase.materialize()?;
+    ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
     let new_file_blob = repo

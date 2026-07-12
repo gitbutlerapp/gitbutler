@@ -20,7 +20,7 @@ git branch B
 git checkout -b A
   commit A
 git checkout B
-create_workspace_commit_once A B
+create_workspace_commit_once B A
 
 # Advance the target past the workspace base while leaving `gitbutler/target` at the base.
 git checkout main

@@ -4,8 +4,7 @@ use anyhow::{Context as _, anyhow};
 use but_core::{DiffSpec, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
 use but_db::DbHandle;
 use but_rebase::graph_rebase::{
-    Editor, LookupStep as _,
-    mutate::{InsertSide, RelativeToRef},
+    Editor, LookupStep as _, mutate::InsertSide, selector::RelativeToRef,
 };
 
 use crate::Outcome;
@@ -114,7 +113,7 @@ pub(crate) fn handle_changes(
         let full_ref_name: gix::refs::FullName =
             format!("refs/heads/{stack_branch_name}").try_into()?;
 
-        let editor = Editor::create(ws, meta, repo)?;
+        let editor = Editor::create(ws.commit_graph(), ws.project_meta(), meta, repo)?;
         let outcome = but_workspace::commit::commit_create(
             editor,
             diff_specs,

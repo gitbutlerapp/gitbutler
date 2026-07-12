@@ -12,7 +12,8 @@ use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, HunkLockTarget,
     hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_rebase::graph_rebase::mutate::InsertSide;
+use but_rebase::graph_rebase::selector::RelativeTo;
 use but_workspace::ui::{BranchDetails, StackDetails};
 use gitbutler_oplog::{
     OplogExt,

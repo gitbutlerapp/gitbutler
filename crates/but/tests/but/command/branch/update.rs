@@ -1,4 +1,4 @@
-use snapbox::IntoData;
+use snapbox::prelude::*;
 use snapbox::str;
 
 use crate::command::util;
@@ -148,23 +148,57 @@ fn integrate_smart_squash_applies_matching_change_ids() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* 2662ee8 (HEAD -> gitbutler/workspace, A) add only-on-local
+*   adfadbe (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 2662ee8 (A) add only-on-local
+|/  
 | * c42227a (origin/A) add only-on-remote
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
 "#]]
+        .raw()
     );
     snapbox::assert_data_eq!(
         raw_json_status(&env)?,
         snapbox::str![[r#"
-status=exit status: 1
+status=exit status: 0
 stdout:
+{
+  "uncommittedChanges": [],
+  "stacks": [],
+  "mergeBase": {
+    "cliId": "",
+    "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
+    "createdAt": "2000-01-01T00:00:00+00:00",
+    "message": "add M\n",
+    "authorName": "author",
+    "authorEmail": "author@example.com",
+    "conflicted": null,
+    "reviewId": null,
+    "changes": null
+  },
+  "upstreamState": {
+    "behind": 0,
+    "latestCommit": {
+      "cliId": "",
+      "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
+      "createdAt": "2000-01-01T00:00:00+00:00",
+      "message": "add M\n",
+      "authorName": "author",
+      "authorEmail": "author@example.com",
+      "conflicted": null,
+      "reviewId": null,
+      "changes": null
+    },
+    "lastFetched": null
+  }
+}
 
 stderr:
-Error: GitButler mode exit required: please run `but teardown` to preserve your work.
 
 "#]]
+        .raw()
     );
 
     env.but("branch update A --strategy smart-squash")
@@ -179,23 +213,57 @@ Updated branch A.
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* bf02b24 (HEAD -> gitbutler/workspace, A) add only-on-remote
+*   eeb3d3c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * bf02b24 (A) add only-on-remote
+|/  
 | * c42227a (origin/A) add only-on-remote
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
+        .raw()
     );
     snapbox::assert_data_eq!(
         raw_json_status(&env)?,
         snapbox::str![[r#"
-status=exit status: 1
+status=exit status: 0
 stdout:
+{
+  "uncommittedChanges": [],
+  "stacks": [],
+  "mergeBase": {
+    "cliId": "",
+    "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
+    "createdAt": "2000-01-01T00:00:00+00:00",
+    "message": "add M\n",
+    "authorName": "author",
+    "authorEmail": "author@example.com",
+    "conflicted": null,
+    "reviewId": null,
+    "changes": null
+  },
+  "upstreamState": {
+    "behind": 0,
+    "latestCommit": {
+      "cliId": "",
+      "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
+      "createdAt": "2000-01-01T00:00:00+00:00",
+      "message": "add M\n",
+      "authorName": "author",
+      "authorEmail": "author@example.com",
+      "conflicted": null,
+      "reviewId": null,
+      "changes": null
+    },
+    "lastFetched": null
+  }
+}
 
 stderr:
-Error: GitButler mode exit required: please run `but teardown` to preserve your work.
 
 "#]]
+        .raw()
     );
 
     Ok(())
@@ -222,7 +290,7 @@ o 0dc3733
 "#]]);
 
     snapbox::assert_data_eq!(
-        &before_log,
+        before_log.as_str(),
         snapbox::str![[r#"
 *   a952a0b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
@@ -236,7 +304,7 @@ o 0dc3733
         .raw()
     );
     snapbox::assert_data_eq!(
-        &before_status,
+        before_status.as_str(),
         snapbox::str![[r#"
 {
   "uncommittedChanges": [],

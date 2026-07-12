@@ -2,10 +2,7 @@ use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _,
-    mutate::{InsertSide, RelativeTo},
-};
+use but_rebase::graph_rebase::{Editor, LookupStep as _, mutate::InsertSide, selector::RelativeTo};
 use tracing::instrument;
 
 use super::types::CommitInsertBlankResult;
@@ -41,12 +38,13 @@ pub(crate) fn commit_insert_blank_only_impl(
 ) -> anyhow::Result<CommitInsertBlankResult> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
 
     let (rebase, blank_commit_selector) =
         but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
     let new_commit = rebase.lookup_pick(blank_commit_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?;
+    let workspace =
+        WorkspaceState::from_successful_rebase_with_db(&mut ws, rebase, &repo, dry_run, &db)?;
 
     Ok(CommitInsertBlankResult {
         new_commit,

@@ -41,7 +41,7 @@ pub fn commit(
         bail!("commit message cannot be empty");
     }
 
-    let editor = Editor::create(ws, meta, repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), meta, repo)?;
     let (rebase, edited_commit_selector) =
         but_workspace::commit::reword(editor, input.commit_id, message.as_bytes().as_bstr())?;
     let new_commit_id = rebase.lookup_pick(edited_commit_selector)?;

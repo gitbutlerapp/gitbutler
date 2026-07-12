@@ -1,4 +1,4 @@
-use snapbox::IntoData;
+use snapbox::prelude::*;
 use snapbox::str;
 
 use super::util;
@@ -234,10 +234,10 @@ fn commit_with_branch_hint() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8e93f22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 9477ae7 (A) add A
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
@@ -269,10 +269,10 @@ fn commit_with_nonexistent_branch_fails() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8e93f22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 9477ae7 (A) add A
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
@@ -299,10 +299,10 @@ fn commit_with_create_flag_creates_new_branch() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8e93f22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 9477ae7 (A) add A
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 

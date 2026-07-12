@@ -8,11 +8,11 @@ use but_rebase::{
 };
 
 /// Inserts a blank commit relative to either a reference or a commit
-pub fn insert_blank_commit<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn insert_blank_commit<'meta, M: RefMetadata>(
+    mut editor: Editor<'meta, M>,
     side: InsertSide,
     relative_to: impl ToSelector,
-) -> Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
+) -> Result<(SuccessfulRebase<'meta, M>, Selector)> {
     let commit = editor.empty_commit()?;
     let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorUpdate)?;
 

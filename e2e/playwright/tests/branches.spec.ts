@@ -346,6 +346,10 @@ test("should be able to apply a remote branch and integrate the remote changes -
 	await textEditorFillByTestId(page, "commit-drawer-description-input", "CCCCCCC");
 	await clickByTestId(page, "commit-drawer-action-button");
 
+	// Wait for the new local commit to land before integrating; otherwise integrate
+	// races commit creation and can drop it, leaving 3 commits (flaky toHaveCount(4)).
+	await expect(commitRow(page)).toHaveCount(3);
+
 	// Integrate upstream commits on top
 	await clickByTestId(page, "upstream-commits-integrate-button");
 	await waitForTestId(page, "branch-integration-apply-button");

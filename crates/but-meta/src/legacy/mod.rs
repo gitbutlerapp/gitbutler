@@ -2,7 +2,7 @@ use std::{
     any::Any,
     cell::RefCell,
     cmp::Ordering,
-    collections::{BTreeMap, BTreeSet, HashSet, btree_map},
+    collections::{BTreeMap, BTreeSet, HashSet},
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     time::Instant,
@@ -163,7 +163,7 @@ impl Snapshot {
         let mut changed = false;
         let mut empty_stacks_to_remove = Vec::new();
         let null_id = gix::hash::Kind::Sha1.null();
-        let projected_segment_ids = projected_workspace
+        let projected_refnames = projected_workspace
             .filter(|workspace| workspace.kind.has_managed_commit())
             .map(|workspace| {
                 workspace
@@ -173,11 +173,11 @@ impl Snapshot {
                     .filter_map(|segment| {
                         segment
                             .ref_name()
-                            .map(|ref_name| (ref_name.shorten().to_string(), segment.id))
+                            .map(|ref_name| ref_name.shorten().to_string())
                     })
-                    .collect::<BTreeMap<_, _>>()
+                    .collect::<BTreeSet<_>>()
             });
-        let mut seen_refnames = BTreeMap::<String, Option<but_graph::SegmentIndex>>::new();
+        let mut seen_refnames = BTreeSet::<String>::new();
         for (stack_id, stack) in self
             .content
             .branches
@@ -212,23 +212,15 @@ impl Snapshot {
                     if !seen_in_this_stack.insert(head.name.clone()) {
                         return Some(head_idx);
                     }
-                    let projected_segment_id = projected_segment_ids
-                        .as_ref()
-                        .and_then(|ids| ids.get(&head.name).copied());
-                    match seen_refnames.entry(head.name.clone()) {
-                        btree_map::Entry::Vacant(entry) => {
-                            entry.insert(projected_segment_id);
-                            None
-                        }
-                        btree_map::Entry::Occupied(entry) => {
-                            let preserve_duplicate = entry
-                                .get()
-                                .as_ref()
-                                .zip(projected_segment_id)
-                                .is_some_and(|(seen, current)| *seen == current);
-                            (!preserve_duplicate).then_some(head_idx)
-                        }
+                    if seen_refnames.insert(head.name.clone()) {
+                        return None;
                     }
+                    // A repeated head name survives only when the projection still shows
+                    // a segment of that name — the same one every duplicate resolves to.
+                    let preserve_duplicate = projected_refnames
+                        .as_ref()
+                        .is_some_and(|names| names.contains(&head.name));
+                    (!preserve_duplicate).then_some(head_idx)
                 })
                 .collect();
             for head_idx in head_indices_to_remove.into_iter().rev() {
@@ -274,16 +266,15 @@ impl Snapshot {
             },
             write_on_drop: false,
         });
-        let graph = but_graph::Graph::from_commit_traversal(
+        but_graph::Workspace::from_tip(
             commit_id,
             reference.name().to_owned(),
             &*sideeffect_free_meta,
             sideeffect_free_meta
                 .workspace(reference.name())?
                 .project_meta(),
-            but_graph::init::Options::limited(),
-        )?;
-        graph.into_workspace()
+            but_graph::walk::Options::limited(),
+        )
     }
 
     #[instrument(level = "debug", skip(self, repo, projected_workspace))]
@@ -292,7 +283,10 @@ impl Snapshot {
         repo: &gix::Repository,
         projected_workspace: Option<&but_graph::Workspace>,
     ) -> anyhow::Result<()> {
-        fn make_heads_match(ws_stack: &but_graph::workspace::Stack, vb_stack: &mut Stack) -> bool {
+        fn make_heads_match(
+            ws_stack: &but_graph::workspace::Stack,
+            vb_stack: &mut Stack,
+        ) -> (bool, Vec<String>) {
             // Always leave extra segments.
 
             // Add missing segments
@@ -308,15 +302,18 @@ impl Snapshot {
                 })
                 .collect();
 
+            let mut added_head_names = Vec::new();
             for (segment, segment_name) in segments_to_add {
                 let first_commit_or_null = segment
                     .commits
                     .first()
                     .map_or(gix::hash::Kind::Sha1.null(), |c| c.id);
                 tracing::warn!(segment_name=%segment_name.shorten(), first_commit_or_null=%first_commit_or_null, stack_id=?vb_stack.id, "Adding head to stack");
+                let name = segment_name.shorten().to_string();
+                added_head_names.push(name.clone());
                 vb_stack.heads.push(StackBranch {
                     head: first_commit_or_null,
-                    name: segment_name.shorten().to_string(),
+                    name,
                     pr_number: None,
                     archived: false,
                     review_id: None,
@@ -342,7 +339,7 @@ impl Snapshot {
             });
             // The ws_stack order is top to bottom, the other is bottom to top.
             vb_stack.heads.reverse();
-            vb_stack.heads != previous_heads
+            (vb_stack.heads != previous_heads, added_head_names)
         }
 
         let owned_workspace;
@@ -393,7 +390,7 @@ impl Snapshot {
                     stack.id = in_workspace_stack_id;
                     stack
                 });
-            let made_heads_match = make_heads_match(ws_stack, vb_stack);
+            let (made_heads_match, added_head_names) = make_heads_match(ws_stack, vb_stack);
             if !vb_stack.in_workspace {
                 tracing::warn!(
                     "Fixing stale metadata of stack {in_workspace_stack_id} to be considered inside the workspace",
@@ -408,6 +405,30 @@ impl Snapshot {
                 self.set_changed_to_necessitate_write();
             }
             if inserted_new_stack {
+                self.set_changed_to_necessitate_write();
+            }
+            // Adding a head is a move - drop it from every other stack, or the same branch is
+            // duplicated across stacks and can survive its own removal later.
+            // Stacks emptied by this are removed in `enforce_constraints()`.
+            let mut moved_head = false;
+            for (other_stack_id, other_stack) in self
+                .content
+                .branches
+                .iter_mut()
+                .filter(|(id, _)| **id != in_workspace_stack_id)
+            {
+                for added_name in &added_head_names {
+                    let head_count = other_stack.heads.len();
+                    other_stack.heads.retain(|sb| sb.name != *added_name);
+                    if other_stack.heads.len() != head_count {
+                        tracing::warn!(
+                            "Moved head '{added_name}' from stack {other_stack_id} to stack {in_workspace_stack_id}"
+                        );
+                        moved_head = true;
+                    }
+                }
+            }
+            if moved_head {
                 self.set_changed_to_necessitate_write();
             }
         }

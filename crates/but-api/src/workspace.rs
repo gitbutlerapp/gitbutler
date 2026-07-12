@@ -15,7 +15,7 @@ use but_core::{
 };
 use but_forge::ForgeReview;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::mutate::RelativeTo;
+use but_rebase::graph_rebase::selector::RelativeTo;
 use but_serde::BStringForFrontend;
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, IntegrateUpstreamOutcome, ReviewIntegrationHint,
@@ -161,9 +161,7 @@ pub fn get_workspace(
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
     let mut meta = ctx.meta()?;
     let (repo, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
-    let mut workspace = workspace.clone();
-    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo)
-        .map(Into::into)
+    but_workspace::workspace::detailed_graph_workspace(&workspace, &mut meta, &repo).map(Into::into)
 }
 
 /// Make `target_ref` the project's default target without applying branches or entering
@@ -385,7 +383,7 @@ fn forge_review_integration_hints(
     db: &but_db::DbHandle,
 ) -> anyhow::Result<Vec<ReviewIntegrationHint>> {
     let Some(target_branch_name) =
-        target_branch_name(&workspace.graph.symbolic_remote_names, project_meta)
+        target_branch_name(workspace.symbolic_remote_names(), project_meta)
     else {
         return Ok(vec![]);
     };
@@ -524,19 +522,23 @@ pub fn workspace_integrate_upstream_only_with_perm(
             ws_meta,
             project_meta,
         } = but_workspace::integrate_upstream_with_hints(
-            &mut ws,
+            &ws,
             &mut meta,
             project_meta,
             &repo,
             updates,
             &review_hints,
         )?;
-        let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
+        let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&ws, &rebase)?;
 
         if dry_run.into() {
             let replaced_commits = rebase.history.commit_mappings();
-            let workspace_state =
-                WorkspaceState::from_rebase_preview_with_db(&mut rebase, replaced_commits, &db)?;
+            let workspace_state = WorkspaceState::from_rebase_preview_with_db(
+                &ws,
+                &mut rebase,
+                replaced_commits,
+                &db,
+            )?;
             return Ok(WorkspaceIntegrateUpstreamOutcome {
                 workspace_state,
                 worktree_conflicts,
@@ -545,8 +547,9 @@ pub fn workspace_integrate_upstream_only_with_perm(
 
         let materialized = rebase.materialize()?;
         project_meta.persist_to_local_config(&repo)?;
+        ws.refresh_from_commit_graph(materialized.arena().clone(), &repo, materialized.meta)?;
 
-        if let Some(ref_name) = materialized.workspace.ref_name()
+        if let Some(ref_name) = ws.ref_name()
             && let Some(ws_meta) = ws_meta
             && is_workspace_ref_name(ref_name)
         {
@@ -557,7 +560,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
         }
 
         let workspace_state = WorkspaceState::from_workspace_with_db(
-            materialized.workspace,
+            &ws,
             materialized.meta,
             &repo,
             materialized.history.commit_mappings(),

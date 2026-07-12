@@ -1205,7 +1205,7 @@ export type Claude = {
  */
 export type Code = "Validation" | "RepoOwnership" | "ProjectGitAuth" | "DefaultTargetNotFound" | "CommitSigningFailed" | "CommitMergeConflictFailure" | "ProjectMissing" | "AuthorMissing" | "BranchNotFound" | "SecretKeychainNotFound" | "MissingLoginKeychain" | "GitForcePushProtection" | "NetworkError" | "ProjectDatabaseIncompatible" | "DefaultTerminalNotFound" | "Unknown" | "GitNonFastForward" | "CliInstallCancelled" | "GitHubTokenExpired" | "PreconditionFailed" | "EditorExitedWithNonZeroStatus";
 
-/** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch. */
+/** Commit that is a part of a legacy `StackBranch` and, as such, containing state derived in relation to the specific branch. */
 export type Commit = {
   /** The OID of the commit. */
   id: string;
@@ -2502,7 +2502,7 @@ export type Segment = {
    */
   metadata: Branch | null;
   /**
-   * This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
+   * This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Workspace::from_tip)
    * is this segment, and the surrounding workspace is provided for context.
    *
    * This means one will see the entire workspace, while knowing the focus is on one specific segment.

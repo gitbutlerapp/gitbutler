@@ -2,10 +2,7 @@ use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _,
-    mutate::{InsertSide, RelativeTo},
-};
+use but_rebase::graph_rebase::{Editor, LookupStep as _, mutate::InsertSide, selector::RelativeTo};
 use tracing::instrument;
 
 use super::types::CommitCreateResult;
@@ -59,7 +56,7 @@ pub(crate) fn commit_create_only_impl(
 ) -> anyhow::Result<CommitCreateResult> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
 
     let but_workspace::commit::CommitCreateOutcome {
         rebase,
@@ -77,7 +74,8 @@ pub(crate) fn commit_create_only_impl(
     let new_commit = commit_selector
         .map(|commit_selector| rebase.lookup_pick(commit_selector))
         .transpose()?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?;
+    let workspace =
+        WorkspaceState::from_successful_rebase_with_db(&mut ws, rebase, &repo, dry_run, &db)?;
 
     Ok(CommitCreateResult {
         new_commit,

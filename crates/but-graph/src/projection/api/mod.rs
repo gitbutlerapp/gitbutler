@@ -3,21 +3,21 @@ use std::borrow::Cow;
 use anyhow::Context;
 use bstr::BStr;
 use but_core::{RefMetadata, extract_remote_name_and_short_name, ref_metadata::StackId};
-use petgraph::Direction;
 use tracing::instrument;
 
 use crate::{
-    CommitFlags, CommitIndex, Graph, Segment, SegmentIndex, Workspace,
+    Workspace,
     workspace::{
-        Stack, StackCommit, StackSegment, TargetRef, WorkspaceKind,
-        workspace::find_segment_owner_indexes_by_refname,
+        Stack, StackCommit, StackSegment, WorkspaceKind, find_segment_owner_indexes_by_refname,
     },
 };
 
-/// A utility type to represent `(stack_idx, segment_idx, commit_idx)`.
-pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
+/// A utility type to represent `(stack_idx, segment_idx, commit_idx)`, indexing one commit
+/// as `ws.stacks[stack_idx].segments[segment_idx].commits[commit_idx]`.
+pub type CommitOwnerIndexes = (usize, usize, usize);
 
 mod queries;
+pub use queries::StackTip;
 #[cfg(feature = "legacy")]
 pub use queries::legacy::HeadStatus;
 
@@ -28,7 +28,7 @@ impl Workspace {
     /// This is useful to make this instance represent changes to `repo` or `meta`.
     ///
     /// Pass a freshly read `project_meta` to pick up target changes as well, or
-    /// `self.graph.project_meta.clone()` to deliberately keep the current one,
+    /// `self.ctx.project_meta.clone()` to deliberately keep the current one,
     /// e.g. in the middle of an operation.
     #[instrument(
         name = "Workspace::refresh_from_head",
@@ -42,9 +42,76 @@ impl Workspace {
         meta: &impl RefMetadata,
         project_meta: but_core::ref_metadata::ProjectMeta,
     ) -> anyhow::Result<()> {
-        let graph = Graph::from_head(repo, meta, project_meta, self.graph.options.clone())?;
-        *self = graph.into_workspace()?;
+        *self = Workspace::from_head(repo, meta, project_meta, self.ctx.options.clone())?;
         Ok(())
+    }
+
+    /// Refresh this instance by projecting `commit_graph` directly — typically the rebase
+    /// editor's mutated arena, which IS the next workspace, so no repository rewalk is
+    /// needed — mutate-then-project and rewalk-then-project are equivalent.
+    ///
+    /// Falls back to a rewalk when the commit graph has nothing to project: HEAD is unborn
+    /// (e.g. its referent was deleted without a repoint) or points outside the graph.
+    #[instrument(
+        name = "Workspace::refresh_from_commit_graph",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
+    pub fn refresh_from_commit_graph(
+        &mut self,
+        commit_graph: crate::CommitGraph,
+        repo: &gix::Repository,
+        meta: &impl RefMetadata,
+    ) -> anyhow::Result<()> {
+        let project_meta = self.ctx.project_meta.clone();
+        let options = self.ctx.options.clone();
+        let Some(mutated) = crate::workspace_from_commit_graph(
+            commit_graph,
+            repo,
+            meta,
+            project_meta.clone(),
+            options,
+            crate::walk::Overlay::default(),
+        )?
+        else {
+            return self.refresh_from_head(repo, meta, project_meta);
+        };
+        *self = mutated;
+        Ok(())
+    }
+
+    /// Preview `commit_graph` — typically a not-yet-materialized rebase's mutated arena, which
+    /// already IS the next workspace state — with the rebase's pending ref edits and entrypoint
+    /// served from `overlay`; no repository rewalk. The materialized twin is
+    /// [`Self::refresh_from_commit_graph`].
+    ///
+    /// Falls back to an overlay rewalk ([`Self::redo`]) when the commit graph has nothing to
+    /// project: the entrypoint is unborn or points outside the graph.
+    #[instrument(
+        name = "Workspace::preview_from_commit_graph",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
+    pub fn preview_from_commit_graph(
+        &self,
+        commit_graph: crate::CommitGraph,
+        repo: &gix::Repository,
+        meta: &impl RefMetadata,
+        overlay: crate::walk::Overlay,
+    ) -> anyhow::Result<Self> {
+        match crate::workspace_from_commit_graph(
+            commit_graph,
+            repo,
+            meta,
+            self.ctx.project_meta.clone(),
+            self.ctx.options.clone(),
+            overlay.clone(),
+        )? {
+            Some(preview) => Ok(preview),
+            None => self.redo(repo, meta, overlay),
+        }
     }
 }
 
@@ -59,12 +126,7 @@ impl Workspace {
     /// Return the name of the workspace reference by looking our segment up in `graph`.
     /// Note that for managed workspaces, this can be retrieved via [`WorkspaceKind::Managed`].
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
-        self.graph[self.id].ref_name()
-    }
-
-    /// Like [Self::ref_name()], but returns reference and worktree information instead.
-    pub fn ref_info(&self) -> Option<&crate::RefInfo> {
-        self.graph[self.id].ref_info.as_ref()
+        self.tip_ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
     }
 
     /// Like [`Self::ref_name()`], but return a generic `<anonymous>` name for unnamed workspaces.
@@ -87,7 +149,7 @@ impl Workspace {
         if let Some(tr) = self.target_ref.as_ref() {
             // TODO: should we rather get remote configuration from the repository?
             let remote_names = self
-                .graph
+                .ctx
                 .symbolic_remote_names
                 .iter()
                 .map(|name| Cow::Borrowed(name.as_str().into()))
@@ -95,7 +157,7 @@ impl Workspace {
             extract_remote_name_and_short_name(tr.ref_name.as_ref(), &remote_names)
                 .map(|(remote_name, _)| remote_name)
         } else {
-            self.graph.project_meta.push_remote.clone()
+            self.ctx.project_meta.push_remote.clone()
         }
     }
 
@@ -103,22 +165,19 @@ impl Workspace {
     ///
     /// Prefers the stored [`Self::target_commit`] (the last-synced target SHA),
     /// falling back to the tip of [`Self::target_ref`] (the remote tracking branch).
-    /// Does not consider additional traversal tips.
+    /// Does not consider additional traversal seeds.
     ///
     /// Use [`Self::stored_target_commit_id()`] instead when callers need only the explicit
     /// stored target commit without falling back to the target ref tip.
     ///
     /// Returns `None` if neither `target_commit` nor `target_ref` is configured.
     pub fn resolved_target_commit_id(&self) -> Option<gix::ObjectId> {
-        self.stored_target_commit_id().or_else(|| {
-            self.target_ref
-                .as_ref()
-                .and_then(|t| self.tip_commit_by_segment_id(t.segment_index).map(|c| c.id))
-        })
+        self.stored_target_commit_id().or(self.target_ref_commit_id)
     }
 
     /// Return the `(merge-base, target-commit-id)` of the merge-base between the `commit_to_merge`
-    /// and the effective target side, see [Self::effective_target_segment_index()].
+    /// and the effective target side (target ref, then stored target commit, then the first
+    /// integrated traversal tip).
     /// Return `None` when none of these is set, or if there was no merge-base.
     ///
     /// Use this to get the merge-base for test-merges between `commit_to_merge` and the target,
@@ -128,25 +187,11 @@ impl Workspace {
         commit_to_merge: impl Into<gix::ObjectId>,
     ) -> Option<(gix::ObjectId, gix::ObjectId)> {
         let commit_to_merge = commit_to_merge.into();
-        let commit_segment_index = self.graph.node_weights().find_map(|s| {
-            s.commits
-                .first()
-                .is_some_and(|c| c.id == commit_to_merge)
-                .then_some(s.id)
-        })?;
-
-        let target_segment_index = self.effective_target_segment_index()?;
-
-        let merge_base_segment_index = self
-            .graph
-            .find_merge_base(commit_segment_index, target_segment_index)?;
-
-        self.tip_commit_by_segment_id(merge_base_segment_index)
-            .map(|c| c.id)
-            .zip(
-                self.tip_commit_by_segment_id(target_segment_index)
-                    .map(|c| c.id),
-            )
+        let cg = self.commit_graph();
+        cg.node(commit_to_merge)?;
+        let target_commit_id = self.effective_target_commit_id()?;
+        let merge_base = cg.merge_base(commit_to_merge, target_commit_id)?;
+        Some((merge_base, target_commit_id))
     }
 
     /// Return `true` if the workspace itself is where `HEAD` is pointing to.
@@ -157,32 +202,16 @@ impl Workspace {
             .all(|s| s.segments.iter().all(|s| !s.is_entrypoint))
     }
 
-    /// Return an iterator over all commits in the workspace,
-    /// i.e. all commits in all segments in all stacks.
-    ///
-    /// This doesn't include the workspace commit.
-    pub fn commits(&self) -> impl Iterator<Item = &StackCommit> + '_ {
-        self.stacks
-            .iter()
-            .flat_map(|s| s.segments.iter())
-            .flat_map(|s| s.commits.iter())
-    }
-
     /// Return `true` if the branch with `name` is the workspace target or the targets local tracking branch.
-    pub fn is_branch_the_target_or_its_local_tracking_branch(
-        &self,
-        name: &gix::refs::FullNameRef,
-    ) -> bool {
+    pub fn is_target_or_its_local_tracking(&self, name: &gix::refs::FullNameRef) -> bool {
         let Some(t) = self.target_ref.as_ref() else {
             return false;
         };
 
         t.ref_name.as_ref() == name
             || self
-                .graph
-                .lookup_sibling_segment(t.segment_index)
-                .and_then(|local_tracking_segment| local_tracking_segment.ref_name())
-                .is_some_and(|local_tracking_ref| local_tracking_ref == name)
+                .local_tracking_branch(t.ref_name.as_ref())
+                .is_some_and(|local_tracking_ref| local_tracking_ref.as_ref() == name)
     }
 
     /// Lookup a triple obtained by [`Self::find_owner_indexes_by_commit_id()`] or panic.
@@ -300,13 +329,9 @@ impl Workspace {
         &self,
         name: &gix::refs::FullNameRef,
     ) -> Option<(&Stack, &StackSegment)> {
-        self.stacks.iter().find_map(|stack| {
-            stack.segments.iter().find_map(|seg| {
-                seg.ref_name()
-                    .is_some_and(|rn| rn == name)
-                    .then_some((stack, seg))
-            })
-        })
+        let (stack_idx, seg_idx) = find_segment_owner_indexes_by_refname(&self.stacks, name)?;
+        let stack = &self.stacks[stack_idx];
+        Some((stack, &stack.segments[seg_idx]))
     }
 
     /// Try to find a commit in the workspace and return it along with the segment and stack containing it.
@@ -314,39 +339,10 @@ impl Workspace {
         &self,
         commit_id: gix::ObjectId,
     ) -> Option<(&Stack, &StackSegment, &StackCommit)> {
-        self.stacks.iter().find_map(|stack| {
-            stack.segments.iter().find_map(|seg| {
-                seg.commits
-                    .iter()
-                    .find(|commit| commit.id == commit_id)
-                    .map(|commit| (stack, seg, commit))
-            })
-        })
-    }
-
-    /// Try to find the owning graph segment of `commit_id` in the workspace.
-    ///
-    /// This uses the stack segment's `commits_by_segment` offsets to map a projected
-    /// commit back to its source graph segment.
-    pub fn find_commit_segment_index(&self, commit_id: gix::ObjectId) -> Option<SegmentIndex> {
-        let (stack_segment, commit_offset) = self.stacks.iter().find_map(|stack| {
-            stack.segments.iter().find_map(|seg| {
-                seg.commits
-                    .iter()
-                    .enumerate()
-                    .find_map(|(offset, commit)| (commit.id == commit_id).then_some((seg, offset)))
-            })
-        })?;
-
-        let mut owning_segment = stack_segment.id;
-        for (segment_id, offset) in &stack_segment.commits_by_segment {
-            if *offset > commit_offset {
-                break;
-            }
-            owning_segment = *segment_id;
-        }
-
-        Some(owning_segment)
+        let (stack_idx, seg_idx, commit_idx) = self.find_owner_indexes_by_commit_id(commit_id)?;
+        let stack = &self.stacks[stack_idx];
+        let seg = &stack.segments[seg_idx];
+        Some((stack, seg, &seg.commits[commit_idx]))
     }
 
     /// Like [`Self::find_segment_and_stack_by_refname`], but fails with an error.
@@ -368,32 +364,23 @@ impl Workspace {
 impl Workspace {
     /// Produce a distinct and compressed debug string to show at a glance what the workspace is about.
     pub fn debug_string(&self) -> String {
-        let graph = &self.graph;
+        let ref_debug_string = |ref_name: &gix::refs::FullNameRef,
+                                worktree: Option<&crate::Worktree>| {
+            crate::debug::ref_debug_string_inner(ref_name, worktree, self.has_multiple_worktrees)
+        };
         let (name, sign) = match &self.kind {
             WorkspaceKind::Managed { ref_info } => (
-                graph.ref_debug_string_with_graph_context(
-                    ref_info.ref_name.as_ref(),
-                    ref_info.worktree.as_ref(),
-                ),
+                ref_debug_string(ref_info.ref_name.as_ref(), ref_info.worktree.as_ref()),
                 "🏘️",
             ),
             WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info } => (
-                graph.ref_debug_string_with_graph_context(
-                    ref_info.ref_name.as_ref(),
-                    ref_info.worktree.as_ref(),
-                ),
+                ref_debug_string(ref_info.ref_name.as_ref(), ref_info.worktree.as_ref()),
                 "🏘️⚠️",
             ),
             WorkspaceKind::AdHoc => (
-                graph[self.id]
-                    .ref_info
-                    .as_ref()
-                    .map_or("DETACHED".into(), |ri| {
-                        graph.ref_debug_string_with_graph_context(
-                            ri.ref_name.as_ref(),
-                            ri.worktree.as_ref(),
-                        )
-                    }),
+                self.tip_ref_info.as_ref().map_or("DETACHED".into(), |ri| {
+                    ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref())
+                }),
                 "⌂",
             ),
         };
@@ -422,40 +409,9 @@ impl Workspace {
     }
 }
 
-/// Utilities
-impl TargetRef {
-    /// Visit all segments whose commits would be considered 'upstream', or part of the target branch
-    /// whose tip is identified with `target_segment`. The `lower_bound_segment_and_generation` is another way
-    /// to stop the traversal.
-    pub(crate) fn visit_upstream_commits(
-        graph: &Graph,
-        target_segment: SegmentIndex,
-        lower_bound_segment_and_generation: Option<(SegmentIndex, usize)>,
-        mut visit: impl FnMut(&Segment),
-    ) {
-        graph.visit_all_segments_including_start_until(target_segment, Direction::Outgoing, |s| {
-            let prune = true;
-            if lower_bound_segment_and_generation.is_some_and(
-                |(lower_bound, lower_bound_generation)| {
-                    s.id == lower_bound || s.generation > lower_bound_generation
-                },
-            ) || s
-                .commits
-                .iter()
-                .any(|c| c.flags.contains(CommitFlags::InWorkspace))
-            {
-                return prune;
-            }
-            visit(s);
-            !prune
-        });
-    }
-}
-
 impl std::fmt::Debug for Workspace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(&format!("Workspace({})", self.debug_string()))
-            .field("id", &self.id.index())
             .field("kind", &self.kind)
             .field("stacks", &self.stacks)
             .field("metadata", &self.metadata)

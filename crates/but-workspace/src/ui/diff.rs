@@ -15,11 +15,9 @@ pub fn changes_in_branch(
     } else {
         // TODO: this should be (kept) in sync with branch-listing!
         let tip = repo.find_reference(branch)?.peel_to_commit()?.id;
-        workspace.target_ref.as_ref().and_then(|target| {
+        workspace.target_ref.as_ref().and_then(|_target| {
             // NOTE: Can't do merge-base computation in graph as `branch` might not be contained in it.
-            let base = workspace
-                .tip_commit_by_segment_id(target.segment_index)
-                .map(|c| c.id)?;
+            let base = workspace.effective_target_commit_id()?;
             // This works because the lower-bound itself is the merge-base
             // between all applicable targets and the workspace branches.
             repo.merge_base(tip, base)

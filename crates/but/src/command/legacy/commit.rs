@@ -9,7 +9,8 @@ use but_core::{
     sync::{RepoExclusive, RepoShared},
     ui::TreeChange,
 };
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_rebase::graph_rebase::mutate::InsertSide;
+use but_rebase::graph_rebase::selector::RelativeTo;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_repo::hooks;
 

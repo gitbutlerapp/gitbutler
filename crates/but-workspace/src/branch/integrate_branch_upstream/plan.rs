@@ -13,7 +13,7 @@ use but_rebase::{
     graph_rebase::{
         Editor, LookupStep, Selector, Step,
         merge_commit_changes::MergeCommitChangesOutcome,
-        mutate::{SegmentDelimiter, SelectorSet},
+        selector::{SelectorSet, StepRange},
     },
 };
 
@@ -210,7 +210,7 @@ pub(super) enum PreparedIntegrationStep {
 ///
 /// Returns the normalized execution plan used by later graph-building helpers.
 pub(super) fn prepare_integration_steps_for_editor<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     steps: &[InteractiveIntegrationStep],
 ) -> Result<Vec<PreparedIntegrationStep>> {
     steps
@@ -234,7 +234,7 @@ pub(super) fn prepare_integration_steps_for_editor<M: RefMetadata>(
 /// Precompute the squash payload from the current editor/repository state,
 /// before later integration graph mutations can rewire step-graph ancestry.
 fn prepare_squash_step_for_editor<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+    editor: &Editor<'_, M>,
     commit_ids: &[gix::ObjectId],
     message: Option<&str>,
 ) -> Result<gix::ObjectId> {
@@ -333,13 +333,13 @@ fn apply_merge_commit_changes_outcome(
 /// `steps` is the prepared execution plan to insert under `ref_name`, ending
 /// at the deepest rebuilt parent step.
 ///
-/// Returns the delimiter spanning from the reference node to the deepest
+/// Returns the range spanning from the reference node to the deepest
 /// inserted parent.
 pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+    editor: &mut Editor<'_, M>,
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
-) -> Result<SegmentDelimiter<Selector, Selector>> {
+) -> Result<StepRange<Selector, Selector>> {
     // Step 1: We interpret the integration steps and transform them into graph steps disconnected from their parents.
     // We disconnect them in order to be able to allow for reordering.
     let segment_steps = integration_steps_to_segment_steps_for_editor(editor, ref_name, steps)?;
@@ -362,7 +362,7 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
         parent_most = connect_parent_step(editor, parent_most, step)?;
     }
 
-    Ok(SegmentDelimiter {
+    Ok(StepRange {
         child: child_most,
         parent: parent_most,
     })
@@ -381,7 +381,7 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
 /// Returns the graph steps to insert, starting with a reference step and then
 /// the parent chain steps in insertion order.
 fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+    editor: &mut Editor<'_, M>,
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
 ) -> Result<Vec<Step>> {
@@ -413,7 +413,10 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
                 pick.preserved_parents = Some(preserved_parents);
                 let commit_to_merge = editor.add_step(commit_to_merge)?;
                 let merge_commit = editor.add_step(Step::new_untracked_pick(merge_commit))?;
-                editor.add_edge(merge_commit, commit_to_merge, 1)?;
+                // The merged side is the merge's only parent for now; the rebuilt chain's
+                // parent prepends at parent number 0 later (`connect_parent_step`), shifting it to
+                // the merge-side lane.
+                editor.insert_edge(merge_commit, commit_to_merge, 0)?;
                 out.push(editor.lookup_step(merge_commit)?);
             }
         }
@@ -434,13 +437,13 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
 /// selected parent edges, or a brand-new pick step when the commit is not yet
 /// selectable in the editor.
 fn existing_or_new_pick_step<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+    editor: &mut Editor<'_, M>,
     commit_id: gix::ObjectId,
 ) -> Result<Step> {
     if let Some(existing) = editor.try_select_commit(commit_id) {
         let parents_to_disconnect = determine_parent_selector(editor, existing)?;
-        editor.disconnect_segment_from(
-            SegmentDelimiter {
+        editor.disconnect_range_from(
+            StepRange {
                 child: existing,
                 parent: existing,
             },

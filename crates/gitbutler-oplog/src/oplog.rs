@@ -146,10 +146,12 @@ pub trait OplogExt {
 }
 
 impl OplogExt for Context {
+    #[instrument(skip(self, perm), err(Debug))]
     fn prepare_snapshot(&self, perm: &RepoShared) -> Result<gix::ObjectId> {
         prepare_snapshot(self, perm)
     }
 
+    #[instrument(skip(self, details, perm), err(Debug))]
     fn commit_snapshot(
         &self,
         snapshot_tree_id: gix::ObjectId,
