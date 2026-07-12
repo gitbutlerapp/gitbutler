@@ -1285,7 +1285,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     snapbox::assert_data_eq!(
         graph_dag(&ws),
         snapbox::str![[r#"
-*  👉🏁·fafd9d0 (⌂|🏘) ►A, ►B, ►main
+*  👉🏁·fafd9d0 (⌂|🏘|✓) ►A, ►B, ►main
 layout:
   empty chain anchors: fafd9d0 fafd9d0
 "#]]
@@ -1325,7 +1325,7 @@ layout:
     snapbox::assert_data_eq!(
         graph_dag(&ws),
         snapbox::str![[r#"
-*  👉🏁·fafd9d0 (⌂|🏘) ►A, ►B, ►main
+*  👉🏁·fafd9d0 (⌂|🏘|✓) ►A, ►B, ►main
 layout:
   empty chain anchors: fafd9d0 fafd9d0
 "#]]
@@ -1354,7 +1354,7 @@ layout:
     snapbox::assert_data_eq!(
         graph_dag(&ws),
         snapbox::str![[r#"
-*  👉🏁·fafd9d0 (⌂|🏘) ►A, ►B, ►main
+*  👉🏁·fafd9d0 (⌂|🏘|✓) ►A, ►B, ►main
 layout:
   empty chain anchors: fafd9d0 fafd9d0
 "#]]
@@ -2924,9 +2924,9 @@ layout:
 *  ·09c6e08 (⌂|✓)
 *    ·7b9f260 (⌂|✓)
 ├─╮
-│ │ *  ·4077353 (⌂|🏘)
-│ │ *  ·6b1a13b (⌂|🏘) ►B
-│ │ *  ·03ad472 (⌂|🏘)
+│ │ *  ·4077353 (⌂|🏘|✓)
+│ │ *  ·6b1a13b (⌂|🏘|✓) ►B
+│ │ *  ·03ad472 (⌂|🏘|✓)
 │ ├─╯
 │ *  ·79bbb29 (⌂|🏘|✓) ►A
 │ *  ·fc98174 (⌂|🏘|✓)
@@ -6181,10 +6181,10 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_ttb() -> anyhow::Resu
 ├─╮
 * │  ·cbc6713 (⌂|🏘) ►advanced-lane
 ├─╯
-*  👉🏁·fafd9d0 (⌂|🏘) ►lane, ►main <> origin/main
+*  👉🏁·fafd9d0 (⌂|🏘|✓) ►lane, ►main <> origin/main
 *  🏁🟣da83717 (✓) ►origin/main
 layout:
-  spliced chain anchors: fafd9d0^ cbc6713^
+  empty chain anchors: fafd9d0 cbc6713^
 "#]]
     );
     snapbox::assert_data_eq!(
@@ -6248,7 +6248,7 @@ layout:
 *  🏁🟣da83717 (✓) ►origin/main
 layout:
   materialized parents: 873d056: cbc6713 fafd9d0
-  spliced chain anchors: fafd9d0^ cbc6713^
+  empty chain anchors: fafd9d0^ cbc6713^
 "#]]
     );
 
@@ -6315,7 +6315,7 @@ fn advanced_workspace_ref() -> anyhow::Result<()> {
 *  ·bce0c5e (⌂|🏘|✓) ►main, ►origin/main <> origin/main
 *  🏁·3183e43 (⌂|🏘|✓)
 layout:
-  spliced chain anchors: 6fdab32^ 8a352d5^
+  empty chain anchors: 6fdab32^ 8a352d5^
 "#]]
     );
 
@@ -6366,7 +6366,7 @@ layout:
 *  ·bce0c5e (⌂|🏘|✓) ►main, ►origin/main <> origin/main
 *  🏁·3183e43 (⌂|🏘|✓)
 layout:
-  spliced chain anchors: 6fdab32^ 8a352d5^
+  empty chain anchors: 6fdab32^ 8a352d5^
 "#]]
     );
 

@@ -197,6 +197,7 @@ impl CommitGraph {
         )?;
         let mut outcome = Self::from_walk_outcome(walked);
         outcome.extra_target = extra_target;
+        outcome.apply_posthoc_flags();
         Ok(outcome)
     }
 
@@ -220,6 +221,7 @@ impl CommitGraph {
         let mut outcome = Self::from_walk_outcome(walked);
         outcome.explicit_seeds = true;
         outcome.extra_target = extra_target;
+        outcome.apply_posthoc_flags();
         Ok(outcome)
     }
 
@@ -247,6 +249,36 @@ impl CommitGraph {
     pub fn entrypoint_ref(&self) -> Option<&gix::refs::FullName> {
         self.entrypoint_ref.as_ref()
     }
+
+    /// Recompute the three workspace flags from the carried seeds: mark everything reachable
+    /// over the connected arena (the same sweeps the write-through seam runs). The flags the
+    /// walk set while traversing only steered the walk — these sweeps produce the
+    /// authoritative values.
+    #[tracing::instrument(level = "trace", skip_all)]
+    pub(crate) fn apply_posthoc_flags(&mut self) {
+        use crate::CommitFlags;
+        let mut integrated = Vec::new();
+        let mut ws = Vec::new();
+        let mut not_in_remote = Vec::new();
+        for s in &self.seeds {
+            if s.role.is_integrated() {
+                integrated.push(s.id);
+            } else {
+                not_in_remote.push(s.id);
+            }
+            if matches!(s.role, crate::walk::SeedRole::Workspace) {
+                ws.push(s.id);
+            }
+        }
+        integrated.extend(self.extra_target);
+        // A fresh walk's cut edges stay cut: the sweep follows only the parents the
+        // traversal connected (the seam reconciles all edges before its sweeps, so
+        // both views coincide there).
+        self.set_flag_on_ancestors(CommitFlags::Integrated, integrated);
+        self.set_flag_on_ancestors(CommitFlags::InWorkspace, ws);
+        self.set_flag_on_ancestors(CommitFlags::NotInRemote, not_in_remote);
+    }
+
     /// The worktrees referenced by any commit's refs.
     pub(crate) fn ref_worktrees(&self) -> impl Iterator<Item = &crate::Worktree> {
         self.nodes

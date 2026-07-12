@@ -1800,10 +1800,6 @@ Single commit, target, no ws commit, but ws-reference
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
 📕🏘️⚠️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡:main <> origin/main⇡1⇣1
-    └── :main <> origin/main⇡1⇣1
-        ├── 🟣3183e43 (✓)
-        └── ✂️·bce0c5e (🏘️)
 
 "#]]
         );
