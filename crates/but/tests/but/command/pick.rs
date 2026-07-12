@@ -73,7 +73,7 @@ fn pick_duplicate_sources_outputs_each_commit_once() {
 
 #[test]
 fn pick_commit_to_new_branch_outputs_json() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
     env.but("unapply A").assert().success();
@@ -131,7 +131,7 @@ Hint: run `but help` for all commands
 
 #[test]
 fn pick_commit_to_new_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
     env.but("unapply A").assert().success();
@@ -150,6 +150,11 @@ Picked 9477ae7 onto new branch 'new-branch' to create 1
 ┊╭┄ ne [new-branch]
 ┊● 1 author 2000-01-01 00:00:00 +0000 (sha f033235)
 ┊│     add A 
+├╯
+┊
+┊╭┄ g0 [B]
+┊● lrm author 2000-01-01 00:00:00 +0000 (sha d3e2ba3)
+┊│     add B 
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

@@ -71,6 +71,8 @@ but-schemars = { workspace = true, optional = true }
 sapling-renderdag.workspace = true
 
 [dev-dependencies]
+# LOCAL-ONLY: rand feeds the uncommitted fuzz harnesses (tests/workspace/branch/fuzz.rs).
+rand.workspace = true
 # We just want to test everything, with the goal that 'legacy' can one day go away.
 but-workspace = { workspace = true, features = ["legacy"] }
 but-meta = { workspace = true, features = ["legacy"] }

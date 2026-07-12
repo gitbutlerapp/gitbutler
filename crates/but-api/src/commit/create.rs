@@ -2,10 +2,7 @@ use crate::{WorkspaceState, commit::json::ChangesSource};
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _,
-    mutate::{InsertSide, RelativeTo},
-};
+use but_rebase::graph_rebase::{Editor, anchor::Anchor, mutate::InsertSide};
 use but_workspace::commit::ChangeSource;
 use gix::bstr::ByteSlice;
 use tracing::instrument;
@@ -24,7 +21,7 @@ use super::types::CommitCreateResult;
 #[instrument(err(Debug))]
 pub fn commit_create_only(
     ctx: &mut but_ctx::Context,
-    #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
+    #[but_api(crate::commit::json::RelativeTo)] relative_to: Anchor,
     side: InsertSide,
     changes: Vec<DiffSpec>,
     changes_source: ChangesSource,
@@ -53,7 +50,7 @@ pub fn commit_create_only(
 #[expect(clippy::too_many_arguments)]
 pub(crate) fn commit_create_only_impl(
     ctx: &mut but_ctx::Context,
-    relative_to: RelativeTo,
+    relative_to: Anchor,
     side: InsertSide,
     changes: Vec<DiffSpec>,
     changes_source: &ChangesSource,
@@ -65,11 +62,11 @@ pub(crate) fn commit_create_only_impl(
     let worktree = crate::worktrees::open_changes_source(ctx, changes_source)?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::for_workspace(&ws, &mut meta, &repo)?;
 
     let but_workspace::commit::CommitCreateOutcome {
         rebase,
-        commit_selector,
+        commit,
         rejected_specs,
     } = but_workspace::commit::commit_create(
         editor,
@@ -86,10 +83,9 @@ pub(crate) fn commit_create_only_impl(
             }),
     )?;
 
-    let new_commit = commit_selector
-        .map(|commit_selector| rebase.lookup_pick(commit_selector))
-        .transpose()?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?;
+    let new_commit = commit.map(|commit| rebase.id_of(commit)).transpose()?;
+    let workspace =
+        WorkspaceState::from_successful_rebase_with_db(&mut ws, rebase, &repo, dry_run, &db)?;
 
     Ok(CommitCreateResult {
         new_commit,
@@ -113,7 +109,7 @@ pub(crate) fn commit_create_only_impl(
 #[expect(clippy::too_many_arguments)]
 pub fn commit_create(
     ctx: &mut but_ctx::Context,
-    #[but_api(crate::commit::json::RelativeTo)] relative_to: RelativeTo,
+    #[but_api(crate::commit::json::RelativeTo)] relative_to: Anchor,
     side: InsertSide,
     changes: Vec<DiffSpec>,
     changes_source: ChangesSource,

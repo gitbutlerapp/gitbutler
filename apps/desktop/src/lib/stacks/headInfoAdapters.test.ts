@@ -49,7 +49,6 @@ function segment(overrides: Partial<Segment> = {}): Segment {
 		},
 		commits: [localCommit],
 		commitsOnRemote: [upstreamCommit],
-		commitsOutside: null,
 		metadata: {
 			refInfo: {
 				createdAt: null,
@@ -63,6 +62,7 @@ function segment(overrides: Partial<Segment> = {}): Segment {
 		isEntrypoint: true,
 		pushStatus: "unpushedCommits",
 		base: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		advancedOutside: [],
 		...overrides,
 	};
 }

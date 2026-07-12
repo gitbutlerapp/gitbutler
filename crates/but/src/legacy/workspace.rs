@@ -57,9 +57,9 @@ fn head_info(
     let meta = ctx.meta()?;
     let edit_mode_workspace_ref = edit_mode_workspace_ref(&repo)?;
     let traversal = if edit_mode_workspace_ref.is_some() {
-        but_graph::init::Options::limited()
+        but_graph::walk::Options::limited()
     } else {
-        ctx.graph_options(but_graph::init::Options::limited())?
+        ctx.graph_options(but_graph::walk::Options::limited())?
     };
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     let db = gerrit_mode_enabled
@@ -228,7 +228,6 @@ fn head_info_branch(segment: &Segment, null_id: gix::ObjectId) -> anyhow::Result
         ref_info,
         commits: local_commits,
         commits_on_remote,
-        commits_outside,
         metadata,
         push_status,
         base,
@@ -237,16 +236,6 @@ fn head_info_branch(segment: &Segment, null_id: gix::ObjectId) -> anyhow::Result
     let ref_info = ref_info
         .clone()
         .context("Can't handle a stack yet whose tip isn't pointed to by a ref")?;
-    if let Some(commits_outside) = commits_outside
-        .as_ref()
-        .filter(|commits| !commits.is_empty())
-    {
-        tracing::warn!(
-            ignored_outside_commits = commits_outside.len(),
-            stack_segment_ref = %ref_info.ref_name,
-            "CLI head_info branch drops commits_outside for this stack segment"
-        );
-    }
 
     let base_commit = base.unwrap_or(null_id);
     let tip = ref_info

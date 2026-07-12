@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{RefMetadata, WORKSPACE_REF_NAME};
-use but_graph::{Graph, SegmentIndex, Workspace};
+use but_graph::{CommitGraph, Workspace};
 use gix::{
     prelude::ObjectIdExt,
     refs::{Category, FullName},
@@ -194,11 +194,14 @@ pub fn list(
         target_tip_for_traversal,
         options.hard_limit,
     )?;
+    // A listing is a display concern: it wants the same hiding and remote enrichment
+    // the workspace shows, not the raw operations-facing extents.
+    let applied = ws.display_stacks()?;
 
     let mut tips: BTreeSet<gix::ObjectId> =
         refs_by_identity.values().flatten().map(|r| r.tip).collect();
     tips.extend(
-        ws.stacks
+        applied
             .iter()
             .flat_map(|stack| stack.segments.iter())
             .filter_map(walk::segment_tip),
@@ -215,7 +218,7 @@ pub fn list(
 
     let mut consumed = BTreeSet::<BString>::new();
     let mut stacks = Vec::new();
-    for stack in &ws.stacks {
+    for stack in &applied {
         stacks.extend(ctx.applied_stack(stack, &mut consumed));
     }
     stacks.extend(ctx.unapplied_stacks(&mut consumed));
@@ -271,12 +274,11 @@ struct ListingContext<'a> {
     refs_by_identity: BTreeMap<BString, Vec<BranchRef>>,
     /// The author and committer time of every branch tip, read up front.
     tip_infos: BTreeMap<gix::ObjectId, (gix::actor::Signature, i64)>,
-    /// The segment each ref name belongs to, along with the commit the ref points to:
-    /// the segment's first commit, or for empty segments the peeled id recorded on the
-    /// ref itself. Refs found on non-first commits map to the owning segment.
-    segment_by_ref: BTreeMap<FullName, (SegmentIndex, Option<gix::ObjectId>)>,
-    /// All segments whose commits the target branch has integrated.
-    target_reachable: BTreeSet<SegmentIndex>,
+    /// Where each ref name lives, along with the commit it points to. A placed ref maps
+    /// to its recorded position; a ref merely riding on a commit maps to that commit.
+    region_by_ref: BTreeMap<FullName, (walk::Region, Option<gix::ObjectId>)>,
+    /// Every commit the target branch has integrated.
+    target_reachable: BTreeSet<walk::Region>,
     /// The commit at the tip of the target branch, if there is a target.
     target_tip: Option<gix::ObjectId>,
 }
@@ -287,12 +289,12 @@ impl<'a> ListingContext<'a> {
         remote_names: gix::remote::Names,
         refs_by_identity: BTreeMap<BString, Vec<BranchRef>>,
         tip_infos: BTreeMap<gix::ObjectId, (gix::actor::Signature, i64)>,
-        target: Option<(gix::ObjectId, SegmentIndex)>,
+        target: Option<(gix::ObjectId, walk::Region)>,
     ) -> Self {
         ListingContext {
-            segment_by_ref: walk::ref_index(&ws.graph),
+            region_by_ref: walk::ref_index(ws.commit_graph()),
             target_reachable: target
-                .map(|(_, start)| walk::reachable_from(&ws.graph, start))
+                .map(|(_, start)| walk::reachable_from(ws.commit_graph(), start))
                 .unwrap_or_default(),
             ws,
             remote_names,
@@ -305,12 +307,12 @@ impl<'a> ListingContext<'a> {
     /// Count the commits reachable from `start` that the target has not integrated,
     /// or `None` if there is no target to compare against or a traversal limit
     /// makes the count unknowable.
-    fn commits_ahead_of_target(&self, start: SegmentIndex) -> Option<usize> {
+    fn commits_ahead_of_target(&self, start: walk::Region) -> Option<usize> {
         self.target_tip?;
         walk::count_outside(self.graph(), &self.target_reachable, start)
     }
 
-    fn owned_history(&self, start: SegmentIndex, identity: &BString) -> OwnedHistory {
+    fn owned_history(&self, start: walk::Region, identity: &BString) -> OwnedHistory {
         walk::owned_history(
             self.graph(),
             start,
@@ -322,8 +324,8 @@ impl<'a> ListingContext<'a> {
 
     /// How `name` relates to the graph, given the `tip` it was enumerated at.
     fn anchor_of(&self, name: &FullName, tip: gix::ObjectId) -> Option<walk::Anchor> {
-        let (segment, commit) = self.segment_by_ref.get(name).copied()?;
-        Some(walk::Anchor::classify(segment, commit, tip))
+        let (region, commit) = self.region_by_ref.get(name).copied()?;
+        Some(walk::Anchor::classify(region, commit, tip))
     }
 
     /// List one applied workspace stack, marking its identities as consumed.
@@ -355,20 +357,17 @@ impl<'a> ListingContext<'a> {
                 .filter(|r| r.remote.is_some())
                 .map(|r| r.ref_name.clone())
                 .collect();
-            // The projection's commits look exact even when the bottom graph
-            // segment was cut short, as in a shallow clone.
-            let clipped = segment
-                .commits_by_segment
-                .last()
-                .is_some_and(|&(sidx, _)| walk::traversal_was_clipped(self.graph(), sidx));
+            // The projection's commits look exact even when the walk was cut short
+            // below the segment, as in a shallow clone.
+            let exact = walk::segment_count_is_exact(self.graph(), segment);
             branches.push(ListedBranch {
                 display_name,
                 has_local: ref_name.category() == Some(Category::LocalBranch),
                 remote_refs,
                 ref_name,
                 tip,
-                commit_count: (!clipped).then_some(segment.commits.len()),
-                commits_ahead_of_target: self.commits_ahead_of_target(segment.id),
+                commit_count: exact.then_some(segment.commits.len()),
+                commits_ahead_of_target: self.commits_ahead_of_target(tip),
                 last_author,
                 updated_at_ms,
             });
@@ -465,26 +464,26 @@ impl<'a> ListingContext<'a> {
     fn infer_chains(&self, participants: &BTreeMap<BString, Participant>) -> Vec<Vec<BString>> {
         // Only own tips can anchor a walk; a ref that resolved to a commit inside
         // another segment has no exclusive history of its own.
-        let anchors: Vec<(&BString, SegmentIndex)> = participants
+        let anchors: Vec<(&BString, walk::Region)> = participants
             .values()
             .filter_map(|p| match self.anchor_of(&p.primary_ref, p.tip) {
-                Some(walk::Anchor::OwnsTip(segment)) => Some((&p.identity, segment)),
+                Some(walk::Anchor::OwnsTip(region)) => Some((&p.identity, region)),
                 _ => None,
             })
             .collect();
-        let identity_by_segment: BTreeMap<SegmentIndex, &BString> = anchors
+        let identity_by_region: BTreeMap<walk::Region, &BString> = anchors
             .iter()
-            .map(|&(identity, segment)| (segment, identity))
+            .map(|&(identity, region)| (region, identity))
             .collect();
 
-        // `A -> B` when `B` is the first named segment below `A`.
+        // `A -> B` when `B` is the first named region below `A`.
         let mut below = BTreeMap::<&BString, &BString>::new();
         let mut claims = BTreeMap::<&BString, usize>::new();
-        for &(identity, segment) in &anchors {
+        for &(identity, region) in &anchors {
             let Some(child) = self
-                .owned_history(segment, identity)
+                .owned_history(region, identity)
                 .boundary
-                .and_then(|boundary| identity_by_segment.get(&boundary).copied())
+                .and_then(|boundary| identity_by_region.get(&boundary).copied())
             else {
                 continue;
             };
@@ -519,14 +518,14 @@ impl<'a> ListingContext<'a> {
                     match self.anchor_of(&member.primary_ref, member.tip) {
                         Some(anchor) => {
                             let commit_count = match anchor {
-                                walk::Anchor::OwnsTip(segment) => {
-                                    let history = self.owned_history(segment, &member.identity);
+                                walk::Anchor::OwnsTip(region) => {
+                                    let history = self.owned_history(region, &member.identity);
                                     (!history.clipped).then_some(history.commit_count)
                                 }
                                 walk::Anchor::MidHistory(_) => Some(0),
                                 walk::Anchor::Unreached(_) => None,
                             };
-                            let ahead = self.commits_ahead_of_target(anchor.segment());
+                            let ahead = self.commits_ahead_of_target(anchor.region());
                             (commit_count, ahead)
                         }
                         // The tip is not part of the graph at all; nothing exact
@@ -581,8 +580,8 @@ impl<'a> ListingContext<'a> {
         }
     }
 
-    fn graph(&self) -> &Graph {
-        &self.ws.graph
+    fn graph(&self) -> &CommitGraph {
+        self.ws.commit_graph()
     }
 }
 

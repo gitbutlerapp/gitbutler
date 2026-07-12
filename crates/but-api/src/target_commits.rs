@@ -99,7 +99,7 @@ pub fn workspace_target_commits(
     {
         let in_workspace = !incoming.contains(&id);
         // Without a lower bound there is no shared history to walk into.
-        if !paging && in_workspace && ws.lower_bound.is_none() {
+        if !paging && in_workspace && ws.lower_bound().is_none() {
             cursor = None;
             break;
         }
@@ -114,7 +114,7 @@ pub fn workspace_target_commits(
             in_workspace,
         });
         if !paging
-            && (natural_end == Some(id) || (natural_end.is_none() && ws.lower_bound == Some(id)))
+            && (natural_end == Some(id) || (natural_end.is_none() && ws.lower_bound() == Some(id)))
         {
             cursor = None;
             break;
@@ -160,8 +160,8 @@ fn natural_end_of_line(
     let bounds = ws
         .stacks
         .iter()
-        .filter_map(|stack| stack.base())
-        .chain(ws.lower_bound);
+        .filter_map(|stack| stack.base)
+        .chain(ws.lower_bound());
     for bound in bounds {
         let mut cursor = Some(bound);
         let mut steps = 0;
@@ -214,8 +214,7 @@ fn merged_reviews_by_integration_sha(
     project_meta: &but_core::ref_metadata::ProjectMeta,
     db: &but_db::DbHandle,
 ) -> anyhow::Result<HashMap<gix::ObjectId, ForgeReview>> {
-    let Some(target_branch_name) =
-        target_branch_name(&ws.graph.symbolic_remote_names, project_meta)
+    let Some(target_branch_name) = target_branch_name(ws.symbolic_remote_names(), project_meta)
     else {
         return Ok(HashMap::new());
     };

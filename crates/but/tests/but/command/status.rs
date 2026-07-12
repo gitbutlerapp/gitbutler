@@ -471,23 +471,6 @@ fn status_hint_clean_workspace() {
 }
 
 #[test]
-fn status_hint_when_no_branches() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
-
-    env.but("unapply A").assert().success();
-
-    env.but("status")
-        .with_color_for_svg()
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::file![
-            "snapshots/status/hints/status-hint-no-branches.stdout.term.svg"
-        ]);
-}
-
-#[test]
 fn status_no_hint_flag_suppresses_hint() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
@@ -682,10 +665,8 @@ Applied remote branch 'origin/document-but-pr-skill' to workspace
 ┊╭┄ do [document-but-pr-skill] (merged upstream) (no commits)
 ├╯
 ┊
-┊● 55165db (upstream: origin/main) 1 new commit
-├╯ 55165db (common base) 2000-01-02 merge document-but-pr-skill
+┴ 55165db (common base) 2000-01-02 merge document-but-pr-skill
 
-Hint: origin/main moved ahead; run `but pull` to update the workspace
 Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
@@ -886,10 +867,21 @@ fn assert_pull_removes_merged_upstream_branch(env: &Sandbox) {
         .stdout
         .clone();
     let status_after: serde_json::Value = serde_json::from_slice(&status_after).unwrap();
+    // The merged branch goes, but the workspace is never left without stacks: a fresh
+    // canned branch takes the retired slot, ready for new work.
+    let stacks = status_after["stacks"].as_array().unwrap();
+    let names: Vec<&str> = stacks
+        .iter()
+        .map(|s| s["branches"][0]["name"].as_str().unwrap_or_default())
+        .collect();
     assert_eq!(
-        status_after["stacks"].as_array().unwrap().len(),
-        0,
-        "the merged upstream branch should be removed by `but pull`"
+        names.len(),
+        1,
+        "`but pull` removes the merged branch and leaves one fresh slot, got: {names:?}"
+    );
+    assert!(
+        names[0].starts_with("a-branch-"),
+        "the survivor is a fresh canned branch, not the merged one: {names:?}"
     );
 }
 

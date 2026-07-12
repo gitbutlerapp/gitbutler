@@ -1,12 +1,12 @@
-use std::borrow::Cow;
-
 /// Returned by [unapply()](function::unapply()).
-pub struct Outcome<'workspace> {
-    /// The updated workspace, if owned, or the one that was passed in if borrowed, to show how the workspace looks after unapplying.
-    ///
-    /// If borrowed, the graph already didn't contain the desired branch and nothing had to be unapplied. Note that metadata changes
-    /// might not be included in this case, as they aren't the source of truth.
-    pub workspace: Cow<'workspace, but_graph::Workspace>,
+pub struct Outcome {
+    /// The updated workspace substrate, or `None` if the graph already didn't contain the
+    /// desired branch and nothing had to be unapplied — the caller's workspace remains
+    /// current then (note that metadata changes might not be included in that case, as they
+    /// aren't the source of truth). Display callers materialize the pruned shape via
+    /// [`display_stacks`](but_graph::Workspace::display_stacks) (or
+    /// [`Self::display_workspace`]).
+    pub workspace: Option<but_graph::Workspace>,
     /// The unapply operation ended by checking out this ref.
     ///
     /// This is set when the operation switches back to the enclosing workspace ref after unapplying the checked-out stack,
@@ -17,28 +17,40 @@ pub struct Outcome<'workspace> {
     ///
     /// Unapply does not return conflicted merge outcomes. If rebuilding the workspace merge commit
     /// conflicts, `unapply()` fails before refs, metadata, index, or worktree are updated.
-    pub workspace_merge: Option<crate::commit::merge::Outcome>,
+    /// The rebuilt workspace merge commit, when the unapply re-merged the remaining
+    /// stack tips (absent when the workspace collapsed, emptied, or was already right).
+    pub workspace_merge: Option<gix::ObjectId>,
 }
 
-impl<'workspace> Outcome<'workspace> {
-    fn new(ws: Cow<'workspace, but_graph::Workspace>) -> Self {
+impl Outcome {
+    fn new(ws: Option<but_graph::Workspace>) -> Self {
         Outcome {
             workspace: ws,
             checked_out: None,
             workspace_merge: None,
         }
     }
-}
 
-impl Outcome<'_> {
     /// Return `true` if a new graph traversal was performed, which always is a sign for an operation which changed the workspace.
     /// This is `false` if the branch to unapply was already absent from the current workspace.
     pub fn workspace_changed(&self) -> bool {
-        matches!(self.workspace, Cow::Owned(_))
+        self.workspace.is_some()
+    }
+
+    /// The carried workspace, cloned for rendering and other display boundaries; pruning happens
+    /// when the caller asks it for [`display_stacks`](but_graph::Workspace::display_stacks).
+    /// Errors when the unapply was a no-op: the caller's own workspace is the current one then.
+    pub fn display_workspace(&self) -> anyhow::Result<but_graph::Workspace> {
+        use anyhow::Context as _;
+        Ok(self
+            .workspace
+            .as_ref()
+            .context("unapply was a no-op; the input workspace is unchanged")?
+            .clone())
     }
 }
 
-impl std::fmt::Debug for Outcome<'_> {
+impl std::fmt::Debug for Outcome {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Outcome {
             workspace: _,
@@ -96,7 +108,11 @@ pub enum WorkspaceDisposition {
     PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
 }
 
+/// The four variants are a 2x2 over two INDEPENDENT questions, which is why one of them wears a
+/// name that is two names glued together. Nothing reads the cross-product — every use collapses to
+/// one axis or the other, so both are named here and asked for by name.
 impl WorkspaceDisposition {
+    /// Axis 1: may unapply leave the workspace ref entirely, switching `HEAD` to a plain branch?
     fn may_switch_away_from_workspace(self) -> bool {
         matches!(
             self,
@@ -105,12 +121,20 @@ impl WorkspaceDisposition {
         )
     }
 
-    fn may_delete_workspace_reference(self) -> bool {
+    /// Axis 2: where the workspace ref DOES remain, must the merge commit remain under it even
+    /// when nothing needs it? Independent of axis 1: it only decides what is left behind.
+    fn insists_on_workspace_commit(self) -> bool {
         matches!(
             self,
-            WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences
+            WorkspaceDisposition::KeepWorkspaceCommit
                 | WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit
         )
+    }
+
+    fn may_delete_workspace_reference(self) -> bool {
+        // Deleting the workspace reference always requires switching away from it, so today the
+        // two permissions coincide; kept as distinct names for the distinct questions callers ask.
+        self.may_switch_away_from_workspace()
     }
 }
 
@@ -124,23 +148,18 @@ pub struct Options {
 pub(crate) mod function {
     use super::{Options, Outcome, WorkspaceDisposition};
     use anyhow::{Context as _, bail, ensure};
-    use std::borrow::Cow;
 
-    use but_core::{
-        ObjectStorageExt as _, RefMetadata, RepositoryExt as _,
-        ref_metadata::{ProjectedWorkspaceStack, StackId},
-    };
-    use but_graph::init::Overlay;
+    use but_core::{RefMetadata, ref_metadata::ProjectMeta};
+    use but_graph::walk::Overlay;
     use gix::{
         prelude::ObjectIdExt,
         refs::{
             FullName, FullNameRef, Target,
-            transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+            transaction::{Change, PreviousValue, RefEdit, RefLog},
         },
     };
 
-    use crate::{WorkspaceCommit, branch::try_find_validated_ref};
-    use crate::{branch::anon_stacks, ref_info::WorkspaceExt};
+    use crate::branch::try_find_validated_ref;
 
     /// Remove `branch` from `workspace`, updating `repo` and `meta` so the resulting workspace is the inverse of applying that branch.
     ///
@@ -148,7 +167,7 @@ pub(crate) mod function {
     /// this function can be applied indiscriminately, and in the worst case, it will do nothing.
     ///
     /// `branch` must name a branch to remove from the workspace. If it is already absent from
-    /// `workspace`, this is a no-op and the returned [`Outcome`] borrows `workspace`. Symbolic names such as `HEAD` are
+    /// `workspace`, this is a no-op and the returned [`Outcome`] carries no workspace of its own. Symbolic names such as `HEAD` are
     /// rejected to avoid ambiguity.
     ///
     /// `workspace` is the current projected workspace and is used as the source of truth for which stacks are applied,
@@ -170,9 +189,9 @@ pub(crate) mod function {
     /// - Reproject immediately when metadata did not mention the branch, but branch metadata may
     ///   still disambiguate it in the workspace. This validates whether removing branch metadata
     ///   was enough and avoids touching refs or the worktree for a metadata-only unapply.
-    /// - Reproject with the updated workspace metadata before touching refs. This gives merge and
-    ///   collapse code the projected future stacks, including anonymous stacks that metadata alone
-    ///   cannot describe.
+    /// - Derive the future stack tips from the current workspace instead of reprojecting: the
+    ///   carried stacks already say which stacks remain, which is what the merge and collapse
+    ///   decisions need.
     /// - Update the managed workspace ref, rebuilding or collapsing its merge commit, and persist
     ///   the workspace metadata.
     /// - Reproject from the updated workspace ref and persisted metadata. This is the canonical
@@ -185,42 +204,39 @@ pub(crate) mod function {
     ///   possible, check out the selected destination, delete the workspace ref plus metadata, and
     ///   reproject one last time from the new checkout target.
     /// - If the branch to unapply is the managed workspace ref itself, and the disposition allows switching,
-    ///   the workspace ref is replaced by its target's local branch, or by the named stack with the lowest
+    ///   the workspace ref is replaced by its target's local branch, or by the named stack with the highest
     ///   generation (i.e. the topologically 'newest') if there is no target.
     #[tracing::instrument(skip(workspace, repo, meta), err(Debug))]
-    pub fn unapply<'ws>(
+    pub fn unapply(
         branch: &FullNameRef,
-        workspace: &'ws but_graph::Workspace,
+        workspace: &but_graph::Workspace,
         repo: &gix::Repository,
         meta: &mut impl RefMetadata,
         Options {
             workspace_disposition,
         }: Options,
-    ) -> anyhow::Result<Outcome<'ws>> {
+    ) -> anyhow::Result<Outcome> {
         let ws = workspace;
-        let mut branch_ref = try_find_validated_ref(repo, branch, "unapply")?;
-        let branch_commit_id = branch_ref
-            .as_mut()
-            .map(|reference| reference.peel_to_id().map(|id| id.detach()))
-            .transpose()?;
+        let branch_ref = try_find_validated_ref(repo, branch, "unapply")?;
 
-        if ws.has_workspace_commit_in_ancestry(repo) {
-            bail!("Refusing to work on workspace whose workspace commit isn't at the top");
-        }
+        crate::branch::ensure_workspace_commit_at_top(ws, repo)?;
 
-        let workspace_ref_name = ws.ref_name().map(ToOwned::to_owned);
-        if matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc)
-            && branch_ref
+        let workspace_ref_name = ws.ref_name_owned();
+        // An ad-hoc workspace has no managed merge to remove a stack from: you can only
+        // APPLY branches to build one, never unapply. A branch that isn't part of the
+        // workspace at all stays a harmless no-op (idempotency) via the check below;
+        // anything actually present — the workspace ref itself or a projected segment — is
+        // refused here.
+        if matches!(ws.kind(), but_graph::workspace::WorkspaceKind::AdHoc) {
+            let is_workspace_ref = workspace_ref_name
                 .as_ref()
-                .zip(workspace_ref_name.as_ref())
-                .is_some_and(|(to_unapply, workspace_ref_name)| {
-                    to_unapply.name() == workspace_ref_name.as_ref()
-                })
-        {
-            bail!(
-                "Cannot unapply branch '{branch}' from an ad-hoc workspace because the workspace cannot be empty",
-                branch = branch.shorten()
-            );
+                .is_some_and(|name| name.as_ref() == branch);
+            if is_workspace_ref || ws.find_branch(branch).is_some() {
+                bail!(
+                    "Cannot unapply '{branch}' from an ad-hoc workspace; ad-hoc workspaces only support applying branches",
+                    branch = branch.shorten()
+                );
+            }
         }
 
         if let Some(workspace_ref_name) = workspace_ref_name.as_ref()
@@ -235,7 +251,13 @@ pub(crate) mod function {
             );
         }
 
-        let branch_in_ws = ws.find_segment_and_stack_by_refname(branch);
+        let branch_in_ws = ws.find_branch(branch);
+        #[cfg(debug_assertions)]
+        but_graph::declared::debug_assert_declared_branch_is_visible(
+            ws,
+            branch,
+            branch_in_ws.map(|(stack, _)| stack.id),
+        );
         if branch_in_ws.is_none() {
             if branch_ref.is_none() {
                 bail!(
@@ -244,10 +266,9 @@ pub(crate) mod function {
                 );
             }
             // The branch exists in Git, but does not in the workspace: Nothing to do.
-            return Ok(Outcome::new(Cow::Borrowed(workspace)));
+            return Ok(Outcome::new(None));
         }
-        let branch_stack_was_entrypoint = branch_in_ws
-            .is_some_and(|(stack, _)| stack.segments.iter().any(|segment| segment.is_entrypoint));
+        let branch_stack_was_entrypoint = ws.entry_marks_stack_of(branch);
         let workspace_tip_was_entrypoint = ws.is_entrypoint();
 
         let Some(workspace_ref_name) = workspace_ref_name else {
@@ -255,79 +276,186 @@ pub(crate) mod function {
             bail!("Cannot unapply a branch from an ad-hoc detached workspace");
         };
         let mut ws_md = meta.workspace(workspace_ref_name.as_ref())?;
-        if ws.kind.has_managed_ref() || ws.has_metadata() {
-            ws_md.reconcile_projected_stacks(
-                ws.stacks.iter().map(|stack| ProjectedWorkspaceStack {
-                    id: stack.id,
-                    branches: stack
-                        .segments
-                        .iter()
-                        .filter_map(|segment| segment.ref_name().map(ToOwned::to_owned))
-                        .collect(),
-                }),
-                |_| StackId::generate(),
-            )?;
-        }
+        // The branch leaves the DECLARATION with one targeted edit — nothing else in
+        // metadata is touched. An undeclared branch (a natural workspace) simply has
+        // nothing to remove; the graph edit below works either way.
         let branch_removed_from_ws_meta = ws_md.unapply_branch(branch);
-        if !branch_removed_from_ws_meta {
+        if !(branch_removed_from_ws_meta || ws.kind().has_managed_ref() || ws.has_metadata()) {
             // The branch wasn't in workspace metadata, yet it was present, so also delete its branch metadata
             // as it could be used to disambiguate the segment.
             // TODO: this will actually be observable even if it doens't work, unless it's run in a transaction, which right now it's not!
-            //       Should be able to redo the traversal with an overlay that hides branch metadata, but I'd say it's not important enough.
+            //       Should be able to re-run the traversal with an overlay that hides branch metadata, but I'd say it's not important enough.
             meta.remove(branch)?;
-            let graph = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, Overlay::default())?;
-            let workspace = graph.into_workspace()?;
+            let workspace = ws.rederive_with(repo, meta, Overlay::default())?;
             if workspace.refname_is_segment(branch) {
                 bail!(
                     "Cannot unapply branch '{branch}' from an ad-hoc workspace because non-tip branches can only disappear if their now removed metadata disambiguated them",
                     branch = branch.shorten()
                 );
             }
-            return Ok(Outcome::new(Cow::Owned(workspace)));
+            return Ok(Outcome::new(Some(workspace)));
         }
 
-        // Everything past this point is stricly in non-dry-run mode and we may totally end up in intermediate states
-        // if something fails.
-        // Redo the traversal with the changed workspace metadata so code below can rely on the reconciled version.
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                repo,
-                meta,
-                Overlay::default()
-                    .with_dropped_references([branch.to_owned()])
-                    .with_workspace_metadata_override(Some((
-                        workspace_ref_name.to_owned(),
-                        ws_md.clone(),
-                    ))),
-            )?
-            .into_workspace()?;
-        // Normal unapply first:
-        // - re-merge or collapse the workspace commit
-        // - point workspace to it
-        // - update metadata and workspace
-        let WorkspaceRefUpdateAfterUnapply {
-            entrypoint_id,
-            workspace_merge,
-        } = update_workspace_ref_after_unapply(
-            &ws,
-            repo,
-            workspace_ref_name.as_ref(),
-            &ws_md,
-            workspace_disposition,
-            branch_commit_id,
-        )?;
+        // THE GRAPH EDIT: unapplying a stack's TIP branch
+        // removes the entire stack — its workspace parent goes. A mid-stack branch is pure
+        // de-listing: its commits stay with the stack and the graph is already right.
+        enum ParentEdit {
+            KeepAsIs,
+            Remove,
+        }
+        let parent_edit = if ws.is_stack_tip(branch) {
+            ParentEdit::Remove
+        } else {
+            ParentEdit::KeepAsIs
+        };
+        // A GENUINE projection question: which of THESE stacks is the subject, positionally.
+        // Two stacks can rest on one commit, so the commit cannot name the subject and an index
+        // is what distinguishes them. It stays inside this function and is only ever used against
+        // the `ws` it came from — an index is meaningless in any other view of the same graph.
+        let subject_stack_index = ws
+            .segment_location(branch)
+            .map(|(stack_idx, _)| stack_idx)
+            .context("BUG: the subject was found in the workspace above")?;
+        // The tips the workspace has AFTER the edit — the disposition decides on them
+        // like it always has (collapse when one or none remains and the disposition
+        // does not insist on a workspace commit).
+        //
+        // The segment graph answers — already derived from the recorded facts.
+        // Index-based subject removal because stacks can share one commit.
+        let future_tips: Vec<gix::ObjectId> = ws
+            .stacks
+            .iter()
+            .enumerate()
+            .filter_map(|(index, stack)| {
+                if index == subject_stack_index && matches!(parent_edit, ParentEdit::Remove) {
+                    None
+                } else {
+                    stack.resting_commit()
+                }
+            })
+            .collect();
+        let keep_workspace_commit = if workspace_disposition.insists_on_workspace_commit() {
+            ws.kind().has_managed_commit()
+        } else {
+            future_tips.len() > 1
+        };
+
+        let (entrypoint_id, workspace_merge) = if !keep_workspace_commit {
+            // Collapse: the workspace ref points straight at what remains.
+            let new_head_id = future_tips
+                .first()
+                .copied()
+                .or_else(|| ws.resolved_target_commit_id())
+                .or(ws.lower_bound())
+                .context("Cannot determine commit for empty workspace after unapply")?;
+            checkout_and_update_workspace_ref(repo, new_head_id, workspace_ref_name.as_ref())?;
+            (new_head_id, None)
+        } else if matches!(parent_edit, ParentEdit::KeepAsIs) {
+            // Mid-stack de-listing: the merge is already right.
+            (
+                ws.tip_commit_id()
+                    .context("BUG: a kept workspace commit implies a tip")?,
+                None,
+            )
+        } else {
+            // One editor mutation: the workspace merge minus the subject's parent (onto
+            // the base when nothing remains). Where the subject is the physical top the parent
+            // is selected BY REFERENCE, routing the removal through the subject group's own
+            // carried edges so duplicate parents disambiguate per ref; otherwise it is severed
+            // by commit (see below). materialize() persists objects, safe-checkouts,
+            // and only then moves refs — the abort-before-ref-moves discipline.
+            let ws_commit = ws
+                .tip_commit_id()
+                .context("BUG: a kept workspace commit implies a tip")?;
+            let mut editor = but_rebase::graph_rebase::Editor::for_workspace(ws, meta, repo)?;
+            let ws_entry = editor.select_commit(ws_commit)?;
+            // The subject is the stack's NAMED tip, but anonymous segments — residue of
+            // removed refs — may sit physically above it, and then the stack's workspace
+            // edge is carried up there, not by the subject's group. Route by ref when the
+            // subject IS the physical top (per-ref duplicate disambiguation); else sever
+            // by the stack's resting commit, which is the workspace parent itself.
+            let subject_stack = ws
+                .stacks
+                .get(subject_stack_index)
+                .context("BUG: subject stack index out of the segment graph's range")?;
+            let subject_is_physical_top = subject_stack
+                .top()
+                .is_some_and(|segment| segment.ref_name() == Some(branch));
+            let removed = if subject_is_physical_top {
+                let subject_ref = editor.select_reference(branch)?;
+                editor.detach(ws_entry, subject_ref)?
+            } else {
+                let parent = subject_stack
+                    .resting_commit()
+                    .context("BUG: a removable stack rests on a commit")?;
+                // Detach-by-commit severs EVERY parent slot resolving to this
+                // commit — with duplicate parents (a sibling collapsed onto the
+                // same commit) that would silently unapply the sibling too. Refuse
+                // until slot-precise surgery exists for this shape.
+                let duplicated = ws
+                    .stacks
+                    .iter()
+                    .enumerate()
+                    .filter(|&(idx, stack)| {
+                        idx != subject_stack_index && stack.resting_commit() == Some(parent)
+                    })
+                    .count();
+                ensure!(
+                    duplicated == 0,
+                    "cannot unapply {branch}: its stack shares its workspace parent \
+                     commit with {duplicated} sibling stack(s), and removing the \
+                     parent edge would unapply them too",
+                    branch = branch.shorten(),
+                );
+                let parent_pick = editor.select_commit(parent)?;
+                editor.detach(ws_entry, parent_pick)?
+            };
+            if removed.is_empty() {
+                // A leftover empty can rest on history inside or below another lane —
+                // e.g. created free-standing while the workspace is DEGRADED (the ref
+                // points at a bare lane tip, no managed merge) — and then there is no
+                // physical leg to sever: the graph is already right and the removal is
+                // declaration-only. A rest that IS a workspace parent with nothing
+                // severed remains a hard error.
+                let ws_parents: Vec<_> = ws.commit_graph().parents(ws_commit).collect();
+                ensure!(
+                    subject_stack
+                        .resting_commit()
+                        .is_none_or(|rest| !ws_parents.contains(&rest)),
+                    "BUG: the subject's workspace parent must carry at least one edge"
+                );
+                (ws_commit, None)
+            } else {
+                if future_tips.is_empty() {
+                    // An emptied workspace keeps its managed commit ON the base — the
+                    // subject's parent was its only content, so re-parent unconditionally
+                    // (a residual parent, were one ever present, must not leave the
+                    // emptied commit off the base).
+                    let base = ws
+                        .resolved_target_commit_id()
+                        .or(ws.lower_bound())
+                        .context("Cannot determine commit for empty workspace after unapply")?;
+                    let base_pick = editor.select_commit(base)?;
+                    editor.insert_parent(ws_entry, base_pick, 0)?;
+                }
+                let materialized = editor.rebase()?.materialize()?;
+                drop(materialized);
+                let new_head_id = repo
+                    .find_reference(workspace_ref_name.as_ref())?
+                    .peel_to_id()?
+                    .detach();
+                (
+                    new_head_id,
+                    (!future_tips.is_empty()).then_some(new_head_id),
+                )
+            }
+        };
         meta.set_workspace(&ws_md)?;
         // Update the workspace *only* after a successful workspace commit merge.
         let overlay = Overlay::default()
             .with_dropped_references([branch.to_owned()])
             .with_workspace_metadata_override(Some((workspace_ref_name.to_owned(), ws_md.clone())));
-        let mut ws = ws
-            .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+        let mut ws = ws.rederive_with(repo, meta, overlay)?;
         let checked_out = if !workspace_tip_was_entrypoint
             && (ws.is_entrypoint() || branch_stack_was_entrypoint)
         {
@@ -338,10 +466,7 @@ pub(crate) mod function {
             let overlay = Overlay::default()
                 .with_dropped_references([branch.to_owned()])
                 .with_entrypoint(entrypoint_id, Some(workspace_ref_name.to_owned()));
-            ws = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
-                .into_workspace()?;
+            ws = ws.rederive_with(repo, meta, overlay)?;
             Some(workspace_ref_name.to_owned())
         } else {
             None
@@ -358,7 +483,9 @@ pub(crate) mod function {
                 branch.shorten()
             );
         }
-        match ref_to_checkout_after_workspace_deletion(&ws, workspace_disposition)? {
+        // Checkout-target selection is user-facing: it reads the pruned display stacks.
+        let display = ws;
+        match ref_to_checkout_after_workspace_deletion(&display, workspace_disposition)? {
             Some(ref_to_switch_to) => {
                 // The rebuilt workspace can be discarded entirely, switching to another branch.
                 safe_checkout_ref_to_checkout(
@@ -374,9 +501,9 @@ pub(crate) mod function {
                     repo,
                     ref_to_switch_to.ref_name.as_ref(),
                     workspace_ref_name.as_ref(),
-                    ws.tip_commit()
-                        .context("BUG: unborn should be impossible here")?
-                        .id,
+                    display
+                        .tip_commit_id()
+                        .context("BUG: unborn should be impossible here")?,
                 )?;
                 // Keep the workspace metadata or we lose the target branch.
                 // Currently that's a problem, so deal with it later.
@@ -387,19 +514,16 @@ pub(crate) mod function {
                         Some(ref_to_switch_to.ref_name.clone()),
                     )
                     .with_dropped_references([branch.to_owned()]);
-                let ws = ws
-                    .graph
-                    .redo_traversal_with_overlay(repo, meta, overlay)?
-                    .into_workspace()?;
+                let ws = display.rederive_with(repo, meta, overlay)?;
 
                 Ok(Outcome {
-                    workspace: Cow::Owned(ws),
+                    workspace: Some(ws),
                     checked_out: Some(ref_to_switch_to.ref_name),
                     workspace_merge: None,
                 })
             }
             None => Ok(Outcome {
-                workspace: Cow::Owned(ws),
+                workspace: Some(display),
                 checked_out,
                 workspace_merge,
             }),
@@ -434,117 +558,11 @@ pub(crate) mod function {
             "BUG: workspace ref '{}' points to {actual_workspace_ref_id}, expected {expected_workspace_ref_id}",
             workspace_ref_name.shorten()
         );
-        repo.edit_reference(RefEdit {
-            change: Change::Update {
-                log: LogChange {
-                    mode: RefLog::AndReference,
-                    force_create_reflog: false,
-                    message: "GitButler switch to workspace during unapply-branch".into(),
-                },
-                expected: PreviousValue::Any,
-                new: Target::Symbolic(workspace_ref_name.to_owned()),
-            },
-            name: "HEAD".try_into().expect("well-formed root ref"),
-            deref: false,
-        })?;
+        repo.edit_reference(crate::branch::ref_edits::head_to_ref(
+            workspace_ref_name,
+            "GitButler switch to workspace during unapply-branch",
+        ))?;
         Ok(())
-    }
-
-    /// Update the managed workspace reference after metadata has removed the branch.
-    ///
-    /// If the remaining applied stacks still need a workspace merge commit, this rebuilds it in
-    /// memory first, then safely checks out the resulting tree and moves the workspace ref.
-    /// Workspace merge conflicts are errors and leave refs, metadata, index, and worktree
-    /// untouched.
-    ///
-    /// `ws` is the workspace projection after the branch was removed from workspace metadata.
-    /// `ws_md` is the metadata that produced that projection. `repo` is the repository whose
-    /// workspace ref and worktree may be updated. `workspace_ref_name` is the managed workspace
-    /// ref to move to the new workspace commit. `disposition` controls whether an unnecessary
-    /// workspace merge commit is kept or not.
-    fn update_workspace_ref_after_unapply(
-        ws: &but_graph::Workspace,
-        repo: &gix::Repository,
-        workspace_ref_name: &FullNameRef,
-        ws_md: &but_core::ref_metadata::Workspace,
-        disposition: WorkspaceDisposition,
-        excluded_anonymous_tip_id: Option<gix::ObjectId>,
-    ) -> anyhow::Result<WorkspaceRefUpdateAfterUnapply> {
-        let future_workspace_tips = future_workspace_tips(ws_md, ws, excluded_anonymous_tip_id)?;
-        let remaining_tip_count = future_workspace_tips.len();
-        let keep_workspace_commit = match disposition {
-            WorkspaceDisposition::KeepWorkspaceCommit
-            | WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit => {
-                ws.kind.has_managed_commit()
-            }
-            WorkspaceDisposition::KeepWorkspaceReference
-            | WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences => {
-                remaining_tip_count > 1
-            }
-        };
-
-        if !keep_workspace_commit {
-            let new_head_id =
-                commit_to_point_workspace_ref_to_after_unapply(ws, &future_workspace_tips)?;
-            checkout_and_update_workspace_ref(repo, new_head_id, workspace_ref_name)?;
-            return Ok(WorkspaceRefUpdateAfterUnapply {
-                entrypoint_id: new_head_id,
-                workspace_merge: None,
-            });
-        }
-
-        let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
-        let merge = merge_workspace_after_unapply(ws, &future_workspace_tips, &in_memory_repo)?;
-
-        // materialize the merged objects.
-        let new_head_id = merge.workspace_commit_id;
-        if let Some(storage) = in_memory_repo.objects.take_object_memory() {
-            storage.persist(repo)?;
-            drop(in_memory_repo);
-        }
-        checkout_and_update_workspace_ref(repo, new_head_id, workspace_ref_name)?;
-        Ok(WorkspaceRefUpdateAfterUnapply {
-            entrypoint_id: new_head_id,
-            workspace_merge: merge.workspace_merge,
-        })
-    }
-
-    /// Result of updating a managed workspace ref while keeping the workspace metadata around.
-    struct WorkspaceRefUpdateAfterUnapply {
-        /// Commit to use as the entrypoint when rebuilding the workspace projection.
-        entrypoint_id: gix::ObjectId,
-        /// Merge attempt, present when rebuilding or trying to rebuild the workspace commit.
-        workspace_merge: Option<crate::commit::merge::Outcome>,
-    }
-
-    struct WorkspaceMergeAfterUnapply {
-        /// The commit to materialize as the new workspace ref target.
-        workspace_commit_id: gix::ObjectId,
-        /// The merge attempt callers should receive, if it represents a real workspace merge.
-        ///
-        /// This is `None` for the legacy empty-workspace keep-merge case, where the merge outcome
-        /// is only an implementation detail used to create a managed no-op workspace commit.
-        workspace_merge: Option<crate::commit::merge::Outcome>,
-    }
-
-    fn future_workspace_tips(
-        ws_md: &but_core::ref_metadata::Workspace,
-        ws: &but_graph::Workspace,
-        excluded_anonymous_tip_id: Option<gix::ObjectId>,
-    ) -> anyhow::Result<Vec<crate::commit::merge::Tip>> {
-        let crate::commit::merge::ResolvedTips {
-            tips,
-            missing_stacks,
-        } = WorkspaceCommit::tips_from_metadata(
-            ws_md.stacks.iter(),
-            anon_stacks_to_preserve(ws, excluded_anonymous_tip_id),
-            &ws.graph,
-        );
-        ensure!(
-            missing_stacks.is_empty(),
-            "Somehow some of the workspace stacks weren't part of the graph: {missing_stacks:#?}"
-        );
-        Ok(tips)
     }
 
     /// Unapply the managed workspace reference itself.
@@ -562,7 +580,7 @@ pub(crate) mod function {
         meta: &mut impl RefMetadata,
         workspace_ref_name: &FullNameRef,
         disposition: WorkspaceDisposition,
-    ) -> anyhow::Result<Outcome<'static>> {
+    ) -> anyhow::Result<Outcome> {
         if !disposition.may_switch_away_from_workspace() {
             bail!(
                 "Cannot unapply workspace reference '{}' without switching away from it",
@@ -570,6 +588,8 @@ pub(crate) mod function {
             );
         }
 
+        // Checkout-target selection is user-facing: it reads the pruned display stacks
+        // rather than the substrate operations read.
         let ref_to_checkout = ref_to_checkout_after_workspace_unapply(ws)?;
         safe_checkout_ref_to_checkout(
             repo,
@@ -581,117 +601,30 @@ pub(crate) mod function {
         )?;
 
         let workspace_ref_expected = ws
-            .tip_commit()
-            .context("BUG: unborn should be impossible here")?
-            .id;
+            .tip_commit_id()
+            .context("BUG: unborn should be impossible here")?;
         switch_head_and_delete_workspace_ref(
             repo,
             ref_to_checkout.ref_name.as_ref(),
             workspace_ref_name,
             workspace_ref_expected,
         )?;
-        // Fully remove the workspace metadata. Project metadata remains independent in Git config.
+        // Fully remove the workspace, which includes the target branch.
         meta.remove(workspace_ref_name)?;
+        // The project metadata ported to repo-local Git config mirrors the just-removed
+        // workspace metadata, so clear it as well or the deleted target would keep resolving.
+        ProjectMeta::remove_from_local_config(repo)?;
 
         let overlay = Overlay::default().with_entrypoint(
             ref_to_checkout.commit_id,
             Some(ref_to_checkout.ref_name.clone()),
         );
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+        let ws = ws.rederive_with(repo, meta, overlay)?;
         Ok(Outcome {
-            workspace: Cow::Owned(ws),
+            workspace: Some(ws),
             checked_out: Some(ref_to_checkout.ref_name),
             workspace_merge: None,
         })
-    }
-
-    /// Rebuild the managed workspace commit after `branch` has been removed from metadata.
-    ///
-    /// The metadata is resolved to tips first so all rebuilds use the lower-level tip merge API.
-    /// If metadata and anonymous workspace inputs resolve to no tips, the legacy keep-merge path
-    /// still needs a managed commit, so we synthesize a single unnamed tip at the post-unapply
-    /// base/checkout commit.
-    fn merge_workspace_after_unapply(
-        ws: &but_graph::Workspace,
-        future_workspace_tips: &[crate::commit::merge::Tip],
-        repo: &gix::Repository,
-    ) -> anyhow::Result<WorkspaceMergeAfterUnapply> {
-        let mut tips = future_workspace_tips.to_vec();
-        let report_workspace_merge = !tips.is_empty();
-        if tips.is_empty() {
-            tips.push(base_tip_after_unapply(ws, future_workspace_tips)?);
-        }
-        let outcome = WorkspaceCommit::from_new_merge_with_tips(tips, &ws.graph, repo, None)?;
-        ensure_workspace_merge_has_no_conflicts(&outcome)?;
-        let workspace_commit_id = outcome.workspace_commit_id;
-        Ok(WorkspaceMergeAfterUnapply {
-            workspace_commit_id,
-            workspace_merge: report_workspace_merge.then_some(outcome),
-        })
-    }
-
-    fn ensure_workspace_merge_has_no_conflicts(
-        outcome: &crate::commit::merge::Outcome,
-    ) -> anyhow::Result<()> {
-        ensure!(
-            !outcome.has_conflicts(),
-            "Failed to unapply branch due to conflicts while rebuilding the workspace merge commit: {}",
-            describe_conflicting_stacks(&outcome.conflicting_stacks)
-        );
-        Ok(())
-    }
-
-    fn describe_conflicting_stacks(
-        conflicting_stacks: &[crate::commit::merge::ConflictingStack],
-    ) -> String {
-        let ref_names = conflicting_stacks
-            .iter()
-            .filter_map(|stack| stack.ref_name.as_ref())
-            .map(|ref_name| ref_name.shorten().to_string())
-            .collect::<Vec<_>>();
-        if ref_names.is_empty() {
-            format!("{} stack(s)", conflicting_stacks.len())
-        } else {
-            ref_names.join(", ")
-        }
-    }
-
-    /// Convert the commit that should remain checked out after unapply into a synthetic merge tip.
-    fn base_tip_after_unapply(
-        ws: &but_graph::Workspace,
-        future_workspace_tips: &[crate::commit::merge::Tip],
-    ) -> anyhow::Result<crate::commit::merge::Tip> {
-        let commit_id = commit_to_point_workspace_ref_to_after_unapply(ws, future_workspace_tips)?;
-        let segment_idx = ws
-            .graph
-            .segment_by_commit_id(commit_id)
-            .with_context(|| {
-                format!("BUG: could not find workspace segment for base commit {commit_id}")
-            })?
-            .id;
-        Ok(crate::commit::merge::Tip {
-            name: None,
-            commit_id,
-            segment_idx,
-        })
-    }
-
-    /// Return anonymous stacks that should be kept while rebuilding the workspace merge commit.
-    ///
-    /// Reprojecting after metadata changes can leave old workspace-commit parents visible as
-    /// anonymous stacks. If such a stack still has a metadata [stack id](but_core::ref_metadata::StackId),
-    /// it is a projected remnant of the old workspace commit rather than independent anonymous work,
-    /// and feeding it back into the merge would preserve the removed stack.
-    fn anon_stacks_to_preserve<'a>(
-        ws: &'a but_graph::Workspace,
-        excluded_tip_id: Option<gix::ObjectId>,
-    ) -> impl Iterator<Item = (usize, crate::commit::merge::Tip)> + 'a {
-        anon_stacks(&ws.stacks)
-            .filter(move |(idx, _)| ws.stacks.get(*idx).is_none_or(|stack| stack.id.is_none()))
-            .filter(move |(_, tip)| excluded_tip_id.is_none_or(|id| tip.commit_id != id))
     }
 
     /// Local tracking branch of target ref or the most recent named stack tip.
@@ -701,30 +634,33 @@ pub(crate) mod function {
         if let Some(target) = local_tracking_branch_of_target(ws)? {
             return Ok(target);
         }
-        named_stack_with_lowest_generation(ws)?.with_context(
+        most_recent_named_stack(ws)?.with_context(
             || "Cannot unapply workspace reference because no target or named stack could be found",
         )
     }
 
-    /// The idea here is to put the user at the topologically most recent stack.
-    /// This is also arbitrary, but *feels* like what one would want.
-    fn named_stack_with_lowest_generation(
-        ws: &but_graph::Workspace,
-    ) -> anyhow::Result<Option<RefToCheckout>> {
+    /// The idea here is to put the user at the topologically most recent stack — the one whose
+    /// first segment's anchor commit (its tip, or the pointed-at commit for an empty splice)
+    /// sits deepest in the carried commit graph; stack order breaks ties. This is also
+    /// arbitrary, but *feels* like what one would want.
+    fn most_recent_named_stack(ws: &but_graph::Workspace) -> anyhow::Result<Option<RefToCheckout>> {
+        let cg = ws.commit_graph();
         let mut selected = None;
-        for stack in &ws.stacks {
-            let Some((sidx, ref_info)) = stack
-                .segments
-                .first()
-                .and_then(|s| s.ref_info.as_ref().map(|ri| (s.id, ri)))
-            else {
+        for stack in ws.display_stacks()? {
+            let Some((ref_info, anchor)) = stack.segments.first().and_then(|s| {
+                s.ref_info
+                    .as_ref()
+                    .map(|ri| (ri, s.commits.first().map(|c| c.id).or(ri.commit_id)))
+            }) else {
                 continue;
             };
-            let generation = ws.graph[sidx].generation;
-            let ref_to_checkout = RefToCheckout::from_segment_ref_info(ws, sidx, ref_info)?;
+            let generation = anchor
+                .and_then(|anchor| cg.generation_of(anchor))
+                .unwrap_or(0);
+            let ref_to_checkout = RefToCheckout::from_segment_ref_info(ws, ref_info)?;
             if selected
                 .as_ref()
-                .is_none_or(|(best_generation, _)| generation < *best_generation)
+                .is_none_or(|(best_generation, _)| generation > *best_generation)
             {
                 selected = Some((generation, ref_to_checkout));
             }
@@ -767,23 +703,8 @@ pub(crate) mod function {
                 ref_to_checkout.ref_name.shorten()
             );
         }
-        safe_checkout(repo, ref_to_checkout.commit_id, options)
-    }
-
-    /// Return the commit the workspace ref should point to when no workspace merge commit remains.
-    ///
-    /// A single remaining future tip is preferred. Otherwise, an empty workspace falls back to the
-    /// resolved target or the workspace lower bound.
-    fn commit_to_point_workspace_ref_to_after_unapply(
-        ws: &but_graph::Workspace,
-        future_workspace_tips: &[crate::commit::merge::Tip],
-    ) -> anyhow::Result<gix::ObjectId> {
-        if let Some(tip) = future_workspace_tips.first() {
-            return Ok(tip.commit_id);
-        }
-        ws.resolved_target_commit_id()
-            .or(ws.lower_bound)
-            .context("Cannot determine commit for empty workspace after unapply")
+        // The ref-aware conflict check above already covered what `safe_checkout` would re-check.
+        but_core::worktree::safe_checkout_from_head(ref_to_checkout.commit_id, repo, options)
     }
 
     /// Safely update the worktree and move the managed workspace ref to `new_head_id`.
@@ -804,19 +725,11 @@ pub(crate) mod function {
                 ..Default::default()
             },
         )?;
-        repo.edit_reference(RefEdit {
-            change: Change::Update {
-                log: LogChange {
-                    mode: RefLog::AndReference,
-                    force_create_reflog: false,
-                    message: "GitButler update workspace during unapply-branch".into(),
-                },
-                expected: PreviousValue::Any,
-                new: Target::Object(new_head_id),
-            },
-            name: workspace_ref_name.to_owned(),
-            deref: false,
-        })?;
+        repo.edit_reference(crate::branch::ref_edits::ref_to_commit(
+            workspace_ref_name.to_owned(),
+            new_head_id,
+            "GitButler update workspace during unapply-branch",
+        ))?;
         Ok(())
     }
 
@@ -837,7 +750,7 @@ pub(crate) mod function {
             return Ok(None);
         }
 
-        match ws.stacks.first() {
+        match ws.display_stacks()?.first() {
             None => {
                 if let Some(fallback) = local_tracking_branch_of_target(ws)? {
                     return Ok(Some(fallback));
@@ -847,7 +760,7 @@ pub(crate) mod function {
                     "keeping workspace reference after unapply because no non-stack checkout fallback is available"
                 );
             }
-            Some(first_stack) if ws.stacks.len() == 1 => {
+            Some(first_stack) if ws.display_stacks()?.len() == 1 => {
                 if let Some(ref_to_checkout) = stack_to_checkout(ws, first_stack)? {
                     return Ok(Some(ref_to_checkout));
                 }
@@ -871,30 +784,34 @@ pub(crate) mod function {
                 segment
                     .ref_info
                     .as_ref()
-                    .map(|ref_info| RefToCheckout::from_segment_ref_info(ws, segment.id, ref_info))
+                    .map(|ref_info| RefToCheckout::from_segment_ref_info(ws, ref_info))
             })
             .transpose()
     }
 
-    /// Return the local branch to check out for the workspace target.
+    /// The local branch tracking the workspace target (e.g. `main` for `origin/main`), resolved
+    /// as data: the graph's carried tracking map names it, the carried commit graph positions it.
     ///
-    /// `ws` is the current graph projection with adjusted metadata. The workspace target already
-    /// carries the local tracking branch inferred while building the graph, including the peeled
-    /// commit id to check out.
+    /// `ws` is the current graph projection with adjusted metadata.
     fn local_tracking_branch_of_target(
         ws: &but_graph::Workspace,
     ) -> anyhow::Result<Option<RefToCheckout>> {
         let Some(target_ref) = ws.target_ref.as_ref() else {
             return Ok(None);
         };
-        let Some(local_target_ref_sidx) = ws.graph[target_ref.segment_index].sibling_segment_id
-        else {
-            return Ok(None);
-        };
-        let Some(ref_info) = ws.graph[local_target_ref_sidx].ref_info.as_ref() else {
-            return Ok(None);
-        };
-        RefToCheckout::from_segment_ref_info(ws, local_target_ref_sidx, ref_info).map(Some)
+        Ok(ws
+            .local_tracking_branch(target_ref.ref_name.as_ref())
+            .and_then(|local| {
+                let cg = ws.commit_graph();
+                cg.commit_by_ref(local.as_ref())
+                    // A local proven behind the target is carried as a seed fact
+                    // instead of being walked to — still the right checkout.
+                    .or_else(|| cg.behind_target_local_tip(local.as_ref()))
+                    .map(|commit_id| RefToCheckout {
+                        ref_name: local.clone(),
+                        commit_id,
+                    })
+            }))
     }
 
     /// Ref name and peeled commit id selected from the workspace projection for checkout.
@@ -907,14 +824,16 @@ pub(crate) mod function {
     impl RefToCheckout {
         fn from_segment_ref_info(
             ws: &but_graph::Workspace,
-            segment_id: but_graph::SegmentIndex,
             ref_info: &but_graph::RefInfo,
         ) -> anyhow::Result<Self> {
             Ok(RefToCheckout {
                 ref_name: ref_info.ref_name.clone(),
+                // Checkout-target selection is USER-FACING: resolve the resting commit over the
+                // pruned DISPLAY (what the user sees), deliberately — this ref was itself picked
+                // from the display. Structural OPERATION decisions resolve on the segment graph
+                // instead; the checkout path is the one intended exception.
                 commit_id: ws
-                    .tip_commit_by_segment_id(segment_id)
-                    .map(|commit| commit.id)
+                    .branch_resting_commit_id_in_display(ref_info.ref_name.as_ref())
                     .or(ref_info.commit_id)
                     .with_context(|| {
                         format!(
@@ -948,20 +867,10 @@ pub(crate) mod function {
                 name: workspace_ref_name.to_owned(),
                 deref: false,
             },
-            RefEdit {
-                change: Change::Update {
-                    log: LogChange {
-                        mode: RefLog::AndReference,
-                        force_create_reflog: false,
-                        message: "GitButler switch away from workspace during unapply-branch"
-                            .into(),
-                    },
-                    expected: PreviousValue::Any,
-                    new: Target::Symbolic(target_ref.to_owned()),
-                },
-                name: "HEAD".try_into().expect("well-formed root ref"),
-                deref: false,
-            },
+            crate::branch::ref_edits::head_to_ref(
+                target_ref,
+                "GitButler switch away from workspace during unapply-branch",
+            ),
         ])?;
         Ok(())
     }

@@ -28,7 +28,7 @@ export const StackRow: FC<
 > = ({ projectId, stack, ...restProps }) => {
 	const relativeTo = stackBottomRelativeTo(stack);
 	const rebaseUpdate: BottomUpdate | null = relativeTo
-		? { kind: "rebase", selector: relativeTo }
+		? { kind: "rebase", anchor: relativeTo }
 		: null;
 	const isDefaultMode = useAppSelector(
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",

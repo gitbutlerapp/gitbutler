@@ -1,7 +1,7 @@
 use anyhow::bail;
 use bstr::ByteSlice as _;
 use but_core::RefMetadata;
-use but_rebase::graph_rebase::{Editor, LookupStep as _};
+use but_rebase::graph_rebase::Editor;
 
 #[derive(Debug, Clone)]
 pub struct RewordInput {
@@ -41,11 +41,12 @@ pub fn commit(
         bail!("commit message cannot be empty");
     }
 
-    let editor = Editor::create(ws, meta, repo)?;
-    let (rebase, edited_commit_selector) =
-        but_workspace::commit::reword(editor, input.commit_id, message.as_bytes().as_bstr())?;
-    let new_commit_id = rebase.lookup_pick(edited_commit_selector)?;
-    rebase.materialize(Default::default())?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), meta, repo)?;
+    let commit = editor.select_commit(input.commit_id)?;
+    let (rebase, edited_commit_handle) =
+        but_workspace::commit::reword(editor, commit, message.as_bytes().as_bstr())?;
+    let new_commit_id = rebase.id_of(edited_commit_handle)?;
+    rebase.materialize()?;
 
     Ok((new_commit_id, message))
 }

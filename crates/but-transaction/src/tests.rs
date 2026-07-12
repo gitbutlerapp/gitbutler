@@ -1,8 +1,9 @@
 use but_api::WorkspaceState;
-use but_core::{DiffSpec, DryRun, RefMetadata};
+use but_core::{DiffSpec, DryRun, RefMetadata, ref_metadata::ValueInfo};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_rebase::graph_rebase::anchor::Anchor as GraphAnchor;
+use but_rebase::graph_rebase::mutate::InsertSide;
 use but_testsupport::Sandbox;
 use but_workspace::{
     branch::create_reference::{Anchor, Position},
@@ -49,7 +50,7 @@ fn assert_num_snapshots(ctx: &Context, expected: usize) {
 #[test]
 fn squashing_three_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
@@ -102,7 +103,7 @@ fn squashing_three_commits() {
 #[test]
 fn rollback() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
@@ -148,7 +149,7 @@ fn rollback() {
 #[test]
 fn create_reference_without_creating_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -282,7 +283,7 @@ fn create_reference_rolls_back_branch_stack_order_in_single_branch_mode() {
 #[test]
 fn create_reference_relative_to_various_anchors() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, two, base] = find_commits(&env, ["1e25c58", "9b3b3d5", "6674d4f"]);
 
@@ -349,7 +350,7 @@ fn create_reference_relative_to_various_anchors() {
 #[test]
 fn create_reference_then_remove_it_in_same_transaction() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -386,13 +387,63 @@ fn create_reference_then_remove_it_in_same_transaction() {
         ref_target(&env, refname.as_ref()),
         "reference created and removed in one transaction should not persist"
     );
+    assert!(
+        meta.branch(refname.as_ref()).unwrap().is_default(),
+        "reference created and removed in one transaction leaves no metadata behind"
+    );
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn remove_reference_then_recreate_it_keeps_the_new_metadata() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["branch"]);
+
+    let [three] = find_commits(&env, ["1e25c58"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo_for_testing(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+
+    let mut meta = ctx.meta().unwrap();
+    let snapshot_details = SnapshotDetails::new(OperationKind::CreateBranch);
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+
+    let _workspace: WorkspaceState = with_transaction(
+        &mut ctx,
+        &mut meta,
+        snapshot_details,
+        DryRun::No,
+        |mut tx| {
+            tx.remove_reference(branch.as_ref())?;
+            tx.create_reference(
+                branch.as_ref(),
+                Anchor::at_id(three, Position::Above),
+                |_| but_core::ref_metadata::StackId::generate(),
+                None,
+            )?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        Some(three),
+        ref_target(&env, branch.as_ref()),
+        "the recreated branch exists at its anchor"
+    );
+    assert!(
+        !meta.branch(branch.as_ref()).unwrap().is_default(),
+        "a removal earlier in the transaction must not erase the recreated branch's metadata"
+    );
     assert_num_snapshots(&ctx, 1);
 }
 
 #[test]
 fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, base] = find_commits(&env, ["1e25c58", "6674d4f"]);
 
@@ -419,7 +470,7 @@ fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
                 None,
             )?;
             let new_commit =
-                tx.insert_blank_commit(RelativeTo::Reference(refname.clone()), InsertSide::Below)?;
+                tx.insert_blank_commit(GraphAnchor::Reference(refname.clone()), InsertSide::Below)?;
 
             Ok(DynamicOutcome::<_, ()>::Commit(new_commit))
         },
@@ -463,7 +514,7 @@ fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
 #[test]
 fn cherry_pick_then_reword_copied_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, one] = find_commits(&env, ["1e25c58", "dbdbcea"]);
 
@@ -481,8 +532,12 @@ fn cherry_pick_then_reword_copied_commit() {
         snapshot_details,
         DryRun::No,
         |mut tx| {
-            let copied =
-                tx.cherry_pick_commits([one], RelativeTo::Commit(three), InsertSide::Above, false)?;
+            let copied = tx.cherry_pick_commits(
+                [one],
+                GraphAnchor::Commit(three),
+                InsertSide::Above,
+                false,
+            )?;
             let reworded = tx.reword_commit(copied[0].id, "copied commit".into())?;
 
             Ok(DynamicOutcome::<_, ()>::Commit(reworded))
@@ -515,7 +570,7 @@ fn cherry_pick_then_reword_copied_commit() {
 #[test]
 fn move_commits_then_commit_relative_to_moved_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, one] = find_commits(&env, ["1e25c58", "dbdbcea"]);
 
@@ -533,8 +588,8 @@ fn move_commits_then_commit_relative_to_moved_commit() {
         snapshot_details,
         DryRun::No,
         |mut tx| {
-            tx.move_commits([one], RelativeTo::Commit(three), InsertSide::Above)?;
-            let new_commit = tx.insert_blank_commit(RelativeTo::Commit(one), InsertSide::Above)?;
+            tx.move_commits([one], GraphAnchor::Commit(three), InsertSide::Above)?;
+            let new_commit = tx.insert_blank_commit(GraphAnchor::Commit(one), InsertSide::Above)?;
 
             Ok(DynamicOutcome::<_, ()>::Commit(new_commit))
         },
@@ -571,7 +626,7 @@ fn move_commits_then_commit_relative_to_moved_commit() {
 #[test]
 fn move_commits_reorders_multiple_subjects() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
@@ -589,7 +644,7 @@ fn move_commits_reorders_multiple_subjects() {
         snapshot_details,
         DryRun::No,
         |mut tx| {
-            tx.move_commits([one, two], RelativeTo::Commit(three), InsertSide::Above)?;
+            tx.move_commits([one, two], GraphAnchor::Commit(three), InsertSide::Above)?;
 
             Ok(())
         },
@@ -613,7 +668,7 @@ fn move_commits_reorders_multiple_subjects() {
 #[test]
 fn create_reference_then_commit_relative_to_it() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -639,7 +694,7 @@ fn create_reference_then_commit_relative_to_it() {
                 None,
             )?;
             let new_commit =
-                tx.insert_blank_commit(RelativeTo::Reference(refname.clone()), InsertSide::Below)?;
+                tx.insert_blank_commit(GraphAnchor::Reference(refname.clone()), InsertSide::Below)?;
 
             Ok(DynamicOutcome::<_, ()>::Commit(new_commit))
         },
@@ -660,7 +715,7 @@ fn create_reference_then_commit_relative_to_it() {
 #[test]
 fn create_reference_is_removed_on_rollback() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -703,7 +758,7 @@ fn create_reference_is_removed_on_rollback() {
 #[test]
 fn dynamic_rollback() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
@@ -755,7 +810,7 @@ fn dynamic_rollback() {
 #[test]
 fn discarding_three_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     snapbox::assert_data_eq!(
         env.git_log(),
@@ -811,7 +866,7 @@ fn discarding_three_commits() {
 #[test]
 fn discard_changes_from_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [two] = find_commits(&env, ["9b3b3d5"]);
 
@@ -868,7 +923,7 @@ fn discard_changes_from_commit() {
 #[test]
 fn remove_references() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     snapbox::assert_data_eq!(
         env.git_log(),

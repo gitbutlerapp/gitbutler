@@ -148,8 +148,8 @@ fn land_fast_forwards_self_remote() {
     let status = status_json(&env);
     assert_eq!(
         status["stacks"].as_array().unwrap().len(),
-        0,
-        "the landed branch should be removed from the workspace"
+        1,
+        "the landed branch is replaced by a fresh stack, never leaving the workspace empty"
     );
     assert_eq!(
         status["upstreamState"]["behind"].as_u64(),
@@ -362,10 +362,16 @@ fn land_whole_stack_lands_top_segment() {
         top_tip,
         "the self-remote land should move the local target too"
     );
-    assert_eq!(
-        status_json(&env)["stacks"].as_array().unwrap().len(),
-        0,
-        "both landed segments should be removed from the workspace"
+    let stacks = status_json(&env)["stacks"].clone();
+    let stacks = stacks.as_array().unwrap();
+    // Landing everything retires both segments, and the workspace is never left empty:
+    // the integration installs a canned stand-in branch so the user keeps somewhere to
+    // work (see `upstream_integration`'s retired-stack replacement).
+    assert_eq!(stacks.len(), 1, "only the stand-in stack remains");
+    let stand_in = stacks[0].to_string();
+    assert!(
+        !stand_in.contains("top-seg") && !stand_in.contains("bottom-seg"),
+        "both landed segments should be removed from the workspace; got:\n{stand_in}"
     );
 }
 

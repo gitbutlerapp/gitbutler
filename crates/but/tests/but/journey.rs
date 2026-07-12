@@ -1,5 +1,7 @@
 //! Tests for various nice user-journeys, from different starting points, performing multiple common steps in sequence.
 #[cfg(feature = "legacy")]
+use snapbox::IntoData;
+#[cfg(feature = "legacy")]
 use snapbox::str;
 
 #[cfg(feature = "legacy")]
@@ -142,7 +144,6 @@ Hint: run `but branch new` to create a new branch to work on
 #[cfg(feature = "legacy")]
 #[test]
 fn from_workspace() {
-    use snapbox::IntoData;
     use snapbox::file;
 
     use crate::utils::CommandExt;
@@ -150,10 +151,10 @@ fn from_workspace() {
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   8e93f22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-| * 9477ae7 (A) add A
-* | d3e2ba3 (B) add B
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 

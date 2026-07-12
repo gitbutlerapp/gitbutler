@@ -371,27 +371,27 @@ fn squash_whole_branch_into_commit_on_other_branch() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ fi [add-file-branch]
-┊● 1#0 author 2000-01-01 00:00:00 +0000 (sha e528488)
-┊│     add file
-┊│     1#0:q A file
+┊╭┄ br [a-branch-1]
+┊● 1#0 author 2000-01-01 00:00:00 +0000 (sha f55169f)
+┊│     add three
+┊│     1#0:o A three
+┊● 1#1 author 2000-01-01 00:00:00 +0000 (sha f63361f)
+┊│     add two
+┊│     1#1:t A two
+┊● 1#2 author 2000-01-01 00:00:00 +0000 (sha ea345ba)
+┊│     add one
+┊│     1#2:k A one
 ├╯
 ┊
 ┊╭┄ ta [target-branch]
-┊● 1#1 author 2000-01-01 00:00:00 +0000 (sha d1d6a19) (no changes)
+┊● 1#3 author 2000-01-01 00:00:00 +0000 (sha d1d6a19) (no changes)
 ┊│     new commit on new branch
 ├╯
 ┊
-┊╭┄ br [a-branch-1]
-┊● 1#2 author 2000-01-01 00:00:00 +0000 (sha f55169f)
-┊│     add three
-┊│     1#2:o A three
-┊● 1#3 author 2000-01-01 00:00:00 +0000 (sha f63361f)
-┊│     add two
-┊│     1#3:t A two
-┊● 1#4 author 2000-01-01 00:00:00 +0000 (sha ea345ba)
-┊│     add one
-┊│     1#4:k A one
+┊╭┄ fi [add-file-branch]
+┊● 1#4 author 2000-01-01 00:00:00 +0000 (sha e528488)
+┊│     add file
+┊│     1#4:q A file
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -414,13 +414,18 @@ Squashed branches 'a-branch-1', 'add-file-branch' into 1
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
+┊╭┄ br [a-branch-1]
+┊● 1#0 author 2000-01-01 00:00:00 +0000 (sha 4249cd3)
+┊│     add two
+┊│     1#0:q A file
+┊│     1#0:k A one
+┊│     1#0:o A three
+┊│     1#0:t A two
+├╯
+┊
 ┊╭┄ ta [target-branch]
-┊● 1 author 2000-01-01 00:00:00 +0000 (sha 44aa30a)
+┊● 1#1 author 2000-01-01 00:00:00 +0000 (sha d1d6a19) (no changes)
 ┊│     new commit on new branch
-┊│     1:q A file
-┊│     1:k A one
-┊│     1:o A three
-┊│     1:t A two
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -452,29 +457,29 @@ fn squash_multiple_branches_into_commit_on_one_of_the_branch_sources() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ fi [add-file-branch]
-┊● 1#0 author 2000-01-01 00:00:00 +0000 (sha e528488)
-┊│     add file
-┊│     1#0:q A file
+┊╭┄ br [a-branch-1]
+┊● 1#0 author 2000-01-01 00:00:00 +0000 (sha f55169f)
+┊│     add three
+┊│     1#0:o A three
+┊● 1#1 author 2000-01-01 00:00:00 +0000 (sha f63361f)
+┊│     add two
+┊│     1#1:t A two
+┊● 1#2 author 2000-01-01 00:00:00 +0000 (sha ea345ba)
+┊│     add one
+┊│     1#2:k A one
 ├╯
 ┊
 ┊╭┄ ta [target-branch]
-┊● 1#1 author 2000-01-01 00:00:00 +0000 (sha a489b93) (no changes)
+┊● 1#3 author 2000-01-01 00:00:00 +0000 (sha a489b93) (no changes)
 ┊│     random commit on target-branch
-┊● 1#2 author 2000-01-01 00:00:00 +0000 (sha 561a8d8) (no changes)
+┊● 1#4 author 2000-01-01 00:00:00 +0000 (sha 561a8d8) (no changes)
 ┊│     target commit
 ├╯
 ┊
-┊╭┄ br [a-branch-1]
-┊● 1#3 author 2000-01-01 00:00:00 +0000 (sha f55169f)
-┊│     add three
-┊│     1#3:o A three
-┊● 1#4 author 2000-01-01 00:00:00 +0000 (sha f63361f)
-┊│     add two
-┊│     1#4:t A two
-┊● 1#5 author 2000-01-01 00:00:00 +0000 (sha ea345ba)
-┊│     add one
-┊│     1#5:k A one
+┊╭┄ fi [add-file-branch]
+┊● 1#5 author 2000-01-01 00:00:00 +0000 (sha e528488)
+┊│     add file
+┊│     1#5:q A file
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -497,9 +502,9 @@ Squashed branches 'target-branch', 'a-branch-1', 'add-file-branch' into 1
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ ta [target-branch]
-┊● 1 author 2000-01-01 00:00:00 +0000 (sha 0653794)
-┊│     target commit
+┊╭┄ br [a-branch-1]
+┊● 1 author 2000-01-01 00:00:00 +0000 (sha acd8672)
+┊│     add one
 ┊│     1:q A file
 ┊│     1:k A one
 ┊│     1:o A three
@@ -783,18 +788,18 @@ fn cannot_squash_into_commits_on_unapplied_branches() {
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ se [second]
-┊●   1#0 add four
-┊│     1#0:q A four
-┊●   1#1 add three
-┊│     1#1:o A three
+┊╭┄ on [one]
+┊●   1#0 add two
+┊│     1#0:t A two
+┊●   1#1 add one
+┊│     1#1:k A one
 ├╯
 ┊
-┊╭┄ on [one]
-┊●   1#2 add two
-┊│     1#2:t A two
-┊●   1#3 add one
-┊│     1#3:k A one
+┊╭┄ se [second]
+┊●   1#2 add four
+┊│     1#2:q A four
+┊●   1#3 add three
+┊│     1#3:o A three
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M
@@ -916,13 +921,17 @@ Squashed branch 'one' into 1
         .stdout_eq(snapbox::str![[r#"
 ╭┄ zz [uncommitted] (no changes)
 ┊
-┊╭┄ se [second]
-┊●   1#0 add four
-┊│     1#0:q A four
+┊╭┄ on [one]
+┊●   1#0 add two
 ┊│     1#0:k A one
 ┊│     1#0:t A two
-┊●   1#1 add three
-┊│     1#1:o A three
+├╯
+┊
+┊╭┄ se [second]
+┊●   1#1 add four
+┊│     1#1:q A four
+┊●   1#2 add three
+┊│     1#2:o A three
 ├╯
 ┊
 ┴ 0dc3733 (common base) 2000-01-02 add M

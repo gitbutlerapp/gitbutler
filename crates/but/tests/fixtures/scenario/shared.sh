@@ -74,11 +74,25 @@ function create_workspace_commit_once() {
     fi
   fi
 
-  git checkout -b gitbutler/workspace
-  if [ $# == 1 ] || [ $# == 0 ]; then
-    git commit --allow-empty -m "$workspace_commit_subject"
+  if [ $# -gt 1 ]; then
+    # Args become the workspace commit's parents, in order.
+    git checkout "$1"
+    git checkout -b gitbutler/workspace
+    git merge --no-ff -m "$workspace_commit_subject" "${@:2}"
+    # `git merge` silently drops heads that are already ancestors (and creates no commit at
+    # all if that leaves nothing to merge). Rebuild with every arg as a parent, in arg order,
+    # to match how but writes workspace commits for stacks with an empty one among them.
+    local expected actual
+    expected=$(git rev-parse "$@" | tr '\n' ' ')
+    actual=$(git show -s --format='%P ' HEAD)
+    if [ "$actual" != "$expected" ]; then
+      local parent_args=() p
+      for p in "$@"; do parent_args+=(-p "$p"); done
+      git reset --hard "$(git commit-tree "$(git rev-parse "HEAD^{tree}")" "${parent_args[@]}" -m "$workspace_commit_subject")"
+    fi
   else
-    git merge --no-ff -m "$workspace_commit_subject" "${@}"
+    git checkout -b gitbutler/workspace
+    git commit --allow-empty -m "$workspace_commit_subject"
   fi
 }
 

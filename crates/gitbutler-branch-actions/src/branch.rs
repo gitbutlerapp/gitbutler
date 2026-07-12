@@ -26,7 +26,7 @@ pub fn list_branches(
     filter: Option<BranchListingFilter>,
     filter_branch_names: Option<Vec<BranchIdentity>>,
 ) -> Result<Vec<BranchListing>> {
-    let traversal = ctx.graph_options(but_graph::init::Options::limited())?;
+    let traversal = ctx.graph_options(but_graph::walk::Options::limited())?;
     let mut repo = ctx.repo.get()?.clone();
     repo.object_cache_size_if_unset(1024 * 1024);
     let has_filter = filter.is_some();

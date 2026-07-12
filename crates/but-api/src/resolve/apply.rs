@@ -7,7 +7,7 @@ use but_core::DryRun;
 use but_core::commit::Headers;
 use but_core::sync::RepoExclusive;
 use but_rebase::commit::DateMode;
-use but_rebase::graph_rebase::{Editor, LookupStep as _, Step};
+use but_rebase::graph_rebase::{CommitSpec, Editor};
 
 use super::context::{FileConflict, ResolutionRequest, is_marker_shaped, scan_conflict_blocks};
 use super::prompt::ResolutionResponse;
@@ -213,8 +213,9 @@ pub(crate) fn apply(
     }
     let resolved_tree_id = tree_editor.write()?.detach();
 
-    let mut editor = Editor::create(&mut ws, &mut meta, &repo)?;
-    let (target_selector, mut commit) = editor.find_selectable_commit(request.commit_id)?;
+    let mut editor = Editor::for_workspace(&ws, &mut meta, &repo)?;
+    let target_handle = editor.select_commit(request.commit_id)?;
+    let mut commit = editor.commit_of(target_handle)?;
     commit.tree = resolved_tree_id;
     commit.message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
     if let Some(headers) = Headers::try_from_commit(&commit) {
@@ -225,11 +226,12 @@ pub(crate) fn apply(
         .set_in_commit(&mut commit);
     }
     let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?;
-    editor.replace(target_selector, Step::new_pick(new_id))?;
+    editor.replace_commit(target_handle, CommitSpec::new(new_id))?;
 
     let rebase = editor.rebase()?;
-    let new_commit = rebase.lookup_pick(target_selector)?;
-    let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?;
+    let new_commit = rebase.id_of(target_handle)?;
+    let workspace =
+        WorkspaceState::from_successful_rebase_with_db(&mut ws, rebase, &repo, dry_run, &db)?;
 
     Ok((new_commit, workspace))
 }

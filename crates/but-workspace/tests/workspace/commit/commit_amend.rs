@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_core::DiffSpec;
-use but_rebase::graph_rebase::{Editor, LookupStep as _};
+use but_rebase::graph_rebase::Editor;
 use but_testsupport::git_status;
 use but_workspace::commit::{ChangeSource, commit_amend};
 
@@ -40,7 +40,7 @@ fn worktree_changes_as_specs_with_hunks(
 
 #[test]
 fn amend_commit_smoke_test() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, ws, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
     std::fs::write(
@@ -48,20 +48,20 @@ fn amend_commit_smoke_test() -> Result<()> {
         "amended\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut _meta, &repo)?;
+    let subject = editor.select_commit(two_id)?;
     let outcome = commit_amend(
         editor,
-        two_id,
+        subject,
         worktree_changes_as_specs(&repo)?,
         0,
         ChangeSource::Head,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
-    let selector = outcome.commit_selector.expect("selector exists");
-    let materialized = outcome.rebase.materialize(Default::default())?;
-    let rewritten_id = materialized.lookup_pick(selector)?;
+    let handle = outcome.commit.expect("handle exists");
+    let rewritten_id = outcome.rebase.id_of(handle)?;
+    outcome.rebase.materialize()?;
 
     let rewritten_commit = repo.find_commit(rewritten_id)?;
     assert_eq!(rewritten_commit.message_raw()?, "commit two\n");
@@ -84,7 +84,7 @@ fn amend_commit_smoke_test() -> Result<()> {
 /// After amend, there should be no remaining uncommitted changes.
 #[test]
 fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("amend-with-partial-commit", |_| {})?;
 
     // Find the "save 1" commit (first commit on the stack, parent of "partial 1")
@@ -104,19 +104,19 @@ fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
     );
 
     let context_lines = 0;
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
+    let subject = editor.select_commit(save_1_id)?;
     let outcome = commit_amend(
         editor,
-        save_1_id,
+        subject,
         worktree_changes_as_specs_with_hunks(&repo, context_lines)?,
         context_lines,
         ChangeSource::Head,
     )?;
 
     assert!(outcome.rejected_specs.is_empty());
-    let _selector = outcome.commit_selector.expect("amend selector exists");
-    let _materialized = outcome.rebase.materialize(Default::default())?;
+    let _selector = outcome.commit.expect("amend handle exists");
+    let _materialized = outcome.rebase.materialize()?;
 
     // No uncommitted changes should remain: the change was amended into
     // "save 1", so it must not persist as an uncommitted worktree change.
@@ -141,7 +141,7 @@ fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
 /// After amend, b-file.txt must still appear as a deleted uncommitted change.
 #[test]
 fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, ws, repo, mut meta, _description) =
         writable_scenario("amend-two-stacks-with-deletions", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &[]);
@@ -181,12 +181,14 @@ fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
     // Find the commit on branch A
     let a_commit_id = repo.rev_parse_single("A")?.detach();
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
-    let outcome = commit_amend(editor, a_commit_id, a_file_specs, 0, ChangeSource::Head)?;
+    let editor = Editor::create(ws.commit_graph(), ws.project_meta(), &mut meta, &repo)?;
+    let outcome = {
+        let subject = editor.select_commit(a_commit_id)?;
+        commit_amend(editor, subject, a_file_specs, 0, ChangeSource::Head)?
+    };
 
     assert!(outcome.rejected_specs.is_empty());
-    let _materialized = outcome.rebase.materialize(Default::default())?;
+    let _materialized = outcome.rebase.materialize()?;
 
     // After amend: a-file.txt should no longer be modified (it was amended)
     // but b-file.txt should STILL be deleted (uncommitted deletion preserved)
@@ -218,9 +220,9 @@ fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
 mod from_worktree {
     use anyhow::Result;
     use but_core::DiffSpec;
-    use but_graph::Graph;
+    use but_graph::Workspace;
     use but_meta::VirtualBranchesTomlMetadata;
-    use but_rebase::graph_rebase::{Editor, LookupStep as _, mutate::InsertSide};
+    use but_rebase::graph_rebase::{Editor, mutate::InsertSide};
     use but_testsupport::{git_status_at_dir, visualize_commit_graph_all};
     use but_workspace::{
         commit::{ChangeSource, commit_amend, commit_create},
@@ -249,21 +251,21 @@ mod from_worktree {
     fn graph_with_worktree_tips(
         repo: &gix::Repository,
         meta: &impl but_core::RefMetadata,
-    ) -> Result<Graph> {
-        let mut options = but_graph::init::Options::limited();
+    ) -> Result<but_graph::Workspace> {
+        let mut options = but_graph::walk::Options::limited();
         options.worktree_tips = vec![
-            but_graph::init::WorktreeTip {
+            but_graph::walk::WorktreeTip {
                 name: "wt".into(),
                 ref_name: Some("refs/heads/feat".try_into()?),
                 id: repo.find_reference("feat")?.peel_to_id()?.detach(),
             },
-            but_graph::init::WorktreeTip {
+            but_graph::walk::WorktreeTip {
                 name: "wt-detached".into(),
                 ref_name: None,
                 id: detached_tip(repo)?,
             },
         ];
-        Graph::from_head(repo, meta, Default::default(), options)?.validated()
+        Workspace::from_head(repo, meta, Default::default(), options)?.validated()
     }
 
     fn detached_tip(repo: &gix::Repository) -> Result<gix::ObjectId> {
@@ -291,16 +293,17 @@ mod from_worktree {
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
 
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let ws = graph;
+        let editor = Editor::for_workspace(&ws, &mut *meta, &repo)?;
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
 
         // Only the tracked modification - the untracked file must survive.
+        let subject = editor.select_commit(f1_id)?;
         let outcome = commit_amend(
             editor,
-            f1_id,
+            subject,
             whole_file_spec("a-file"),
             0,
             ChangeSource::Worktree {
@@ -313,9 +316,9 @@ mod from_worktree {
             "{:?}",
             outcome.rejected_specs
         );
-        let selector = outcome.commit_selector.expect("a commit was amended");
-        let materialized = outcome.rebase.materialize(Default::default())?;
-        let new_id = materialized.lookup_pick(selector)?;
+        let handle = outcome.commit.expect("a commit was amended");
+        let new_id = outcome.rebase.id_of(handle)?;
+        outcome.rebase.materialize()?;
 
         assert_eq!(
             repo.rev_parse_single("feat")?.detach(),
@@ -347,8 +350,8 @@ mod from_worktree {
         std::fs::write(wt_dir.join("a-file"), "ONE\ntwo\nthree\nfour\n")?;
 
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let ws = graph;
+        let editor = Editor::for_workspace(&ws, &mut *meta, &repo)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let change = but_core::diff::worktree_changes(&wt_repo)?
             .changes
@@ -368,9 +371,10 @@ mod from_worktree {
             ..Default::default()
         };
 
+        let subject = editor.select_commit(repo.rev_parse_single("feat")?.detach())?;
         let outcome = commit_amend(
             editor,
-            repo.rev_parse_single("feat")?.detach(),
+            subject,
             vec![selected],
             0,
             ChangeSource::Worktree {
@@ -378,9 +382,9 @@ mod from_worktree {
                 name: "wt".into(),
             },
         )?;
-        let selector = outcome.commit_selector.expect("a commit was amended");
-        let materialized = outcome.rebase.materialize(Default::default())?;
-        let new_id = materialized.lookup_pick(selector)?;
+        let handle = outcome.commit.expect("a commit was amended");
+        let new_id = outcome.rebase.id_of(handle)?;
+        outcome.rebase.materialize()?;
 
         assert_eq!(
             blob(&repo, &format!("{new_id}:a-file"))?,
@@ -401,8 +405,8 @@ mod from_worktree {
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
 
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let ws = graph;
+        let editor = Editor::for_workspace(&ws, &mut *meta, &repo)?;
 
         snapbox::assert_data_eq!(
             git_status_at_dir(repo.workdir().unwrap())?,
@@ -438,9 +442,10 @@ mod from_worktree {
 
         // The untracked addition applies cleanly onto a commit outside the
         // worktree's history.
+        let subject = editor.select_commit(m1_id)?;
         let outcome = commit_amend(
             editor,
-            m1_id,
+            subject,
             whole_file_spec("new-file"),
             0,
             ChangeSource::Worktree {
@@ -453,7 +458,7 @@ mod from_worktree {
             "{:?}",
             outcome.rejected_specs
         );
-        outcome.rebase.materialize(Default::default())?;
+        outcome.rebase.materialize()?;
 
         snapbox::assert_data_eq!(
             git_status_at_dir(repo.workdir().unwrap())?,
@@ -490,17 +495,18 @@ mod from_worktree {
     fn amend_into_an_immutable_commit_fails_fast() -> Result<()> {
         let (repo, _tmp, mut meta) = scenario();
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let ws = graph;
+        let editor = Editor::for_workspace(&ws, &mut *meta, &repo)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
 
         // The detached worktree's commit is in the graph, but no branch points at
         // it, so it is never forced mutable. Amending into it used to write the
         // amended commit and report success while no ref ever adopted it.
         let d1_id = detached_tip(&repo)?;
+        let subject = editor.select_commit(d1_id)?;
         let err = commit_amend(
             editor,
-            d1_id,
+            subject,
             whole_file_spec("a-file"),
             0,
             ChangeSource::Worktree {
@@ -518,16 +524,17 @@ mod from_worktree {
     fn amend_from_an_unknown_worktree_fails_without_moving_refs() -> Result<()> {
         let (repo, _tmp, mut meta) = scenario();
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let ws = graph;
+        let editor = Editor::for_workspace(&ws, &mut *meta, &repo)?;
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
         let m1_id = repo.head_id()?.detach();
 
+        let subject = editor.select_commit(f1_id)?;
         let err = commit_amend(
             editor,
-            f1_id,
+            subject,
             whole_file_spec("a-file"),
             0,
             ChangeSource::Worktree {
@@ -553,15 +560,15 @@ mod from_worktree {
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
 
         let graph = graph_with_worktree_tips(&repo, &*meta)?;
-        let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let ws = graph;
+        let editor = Editor::for_workspace(&ws, &mut *meta, &repo)?;
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
 
         let outcome = commit_create(
             editor,
             whole_file_spec("a-file"),
-            but_rebase::graph_rebase::mutate::RelativeTo::Reference("refs/heads/feat".try_into()?),
+            but_rebase::graph_rebase::anchor::Anchor::Reference("refs/heads/feat".try_into()?),
             InsertSide::Below,
             "F2",
             0,
@@ -575,9 +582,9 @@ mod from_worktree {
             "{:?}",
             outcome.rejected_specs
         );
-        let selector = outcome.commit_selector.expect("a commit was created");
-        let materialized = outcome.rebase.materialize(Default::default())?;
-        let new_id = materialized.lookup_pick(selector)?;
+        let handle = outcome.commit.expect("a commit was created");
+        let new_id = outcome.rebase.id_of(handle)?;
+        outcome.rebase.materialize()?;
 
         assert_eq!(
             repo.rev_parse_single("feat")?.detach(),

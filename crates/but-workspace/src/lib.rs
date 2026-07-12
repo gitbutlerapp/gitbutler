@@ -22,6 +22,38 @@
 //! * **DiffSpec**
 //!   - A type that identifies changes, either as whole file, or as hunks in the file.
 //!   - It doesn't specify if the change is in a commit, or in the worktree, so that information must be provided separately.
+//!
+//! ### Workspace rules
+//!
+//! Three rules are easy to mistake for one, because each was first written down as "the workspace
+//! is never left without stacks". They answer different questions, are enforced in different
+//! places, and a change to one is not a change to the others. Sites that implement them say which.
+//!
+//! * **NAME WHAT THE MERGE HOLDS** — the projection (`but-graph`'s partition engine).
+//!   Every parent of a managed merge is an applied branch and is named as a lane, even when it owns
+//!   no commits of its own. This is about VISIBILITY, not emptiness: an unnamed parent is invisible
+//!   to everything downstream, which is how a branch that had already landed once survived
+//!   `but pull`. The write-side half lives in [`commit`]: a sole stack is materialized as a merge
+//!   parent even when empty, so there is something to name.
+//!
+//! * **RECORD WHAT IS APPLIED** — [`branch::apply`](mod@branch::apply).
+//!   A stack can be in the workspace without being declared: standing on `main`, it is a stack by
+//!   virtue of the merge alone. Applying a second branch declares both. This is about the
+//!   DECLARATION matching the merge — the vb-toml write-back used to do it by copying the view back
+//!   into the declaration, which is exactly the authoring that was removed.
+//!
+//! * **NEVER STRAND THE USER** — write operations.
+//!   No operation leaves a managed workspace with nothing to work on. Two enforcers, because there
+//!   are two ways to get there: `upstream_integration` mints a stand-in branch when it retires the
+//!   last stack, and unapply refuses to take the last one (in `but-api`, at the entry both the CLI
+//!   and the desktop pass through). Deliberately NOT inside [`branch::unapply`](mod@branch::unapply): two of its
+//!   `WorkspaceDisposition` variants exist precisely to empty a workspace, and the op fuzzers
+//!   depend on that working.
+//!
+//! None of this makes an empty workspace unobservable, and readers still handle one. A workspace
+//! emptied before these rules existed is still readable, and a walk truncated by a limit
+//! legitimately yields nothing — forcing a lane there would invent structure rather than report it.
+//! So "cannot be created" is the guarantee; "cannot be seen" is not.
 use but_core::DiffSpec;
 
 /// **Do not use!**
@@ -48,7 +80,6 @@ pub mod branch;
 mod changeset;
 mod divergence;
 pub use but_core::branch::resolve_tracking_branch_ref_name;
-mod graph_manipulation;
 
 /// Utility types for the [`WorkspaceCommit`].
 pub mod commit;
@@ -61,7 +92,6 @@ pub use ref_info::{graph_to_ref_info, head_info, head_info_and_workspace, ref_in
 
 mod branch_details;
 pub use branch_details::{branch_details, local_commits_for_branch};
-use but_graph::{SegmentIndex, workspace::TargetCommit};
 
 mod upstream_integration;
 pub use upstream_integration::{
@@ -101,23 +131,9 @@ pub struct RefInfo {
     /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
     /// This happens when there is a local branch checked out without a remote tracking branch.
     pub target_ref: Option<but_graph::workspace::TargetRef>,
-    /// A commit reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
-    /// past its computed lower bound.
-    ///
-    /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
-    pub target_commit: Option<TargetCommit>,
-    /// The bound can be imagined as the segment from which all other commits in the workspace originate.
-    /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,
-    /// as antagonist to the first commit in tip of the segment with `id`, serving as first commit that is
-    /// inside the workspace.
-    ///
-    /// As such, it's always the longest path to the first shared commit with the target among
-    /// all of our stacks, or it is the first commit that is shared among all of our stacks in absence of a target.
-    /// One can also think of it as the starting point from which all workspace commits can be reached when
-    /// following all incoming connections and stopping at the tip of the workspace.
-    ///
-    /// It is `None` there is only a single stack and no target, so nothing was integrated.
-    pub lower_bound: Option<SegmentIndex>,
+    /// The number of commits on the target the workspace doesn't have yet — derived once
+    /// when this presentation record is built, for the UI's counter.
+    pub target_commits_ahead: usize,
     /// The `workspace_ref_name` is `Some(_)` and belongs to GitButler, because it had metadata attached.
     pub is_managed_ref: bool,
     /// The `workspace_ref_name` points to a commit that was specifically created by us.
@@ -161,10 +177,8 @@ pub struct AncestorWorkspaceCommit {
     /// The commits along the first parent that are between the managed workspace reference and the managed workspace commit.
     /// The vec *should* not be empty, but it can be empty in practice for reasons yet to be discovered.
     pub commits_outside: Vec<ref_info::Commit>,
-    /// The index of the segment that actually holds the managed workspace commit.
-    pub segment_with_managed_commit: SegmentIndex,
-    /// The index of the workspace commit within the `commits` array in its parent segment.
-    pub commit_index_of_managed_commit: but_graph::CommitIndex,
+    /// The id of the managed workspace commit found in the ancestry.
+    pub commit_id: gix::ObjectId,
 }
 
 /// A representation of the commit that is the tip of the workspace i.e., usually what `HEAD` points to,

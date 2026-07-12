@@ -4,22 +4,24 @@ use anyhow::Result;
 use but_core::RefMetadata;
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToSelector, mutate::InsertSide},
+    graph_rebase::{
+        CommitIndex, CommitSpec, Editor, RebasedEditor, anchor::Anchor, mutate::InsertSide,
+    },
 };
 
 /// Inserts a blank commit relative to either a reference or a commit
-pub fn insert_blank_commit<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn insert_blank_commit<'meta, M: RefMetadata>(
+    mut editor: Editor<'meta, M>,
+    relative_to: Anchor,
     side: InsertSide,
-    relative_to: impl ToSelector,
-) -> Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
+) -> Result<(RebasedEditor<'meta, M>, CommitIndex)> {
     let commit = editor.empty_commit()?;
     let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorUpdate)?;
 
-    let blank_commit_selector =
-        editor.insert(relative_to, Step::new_untracked_pick(new_id), side)?;
+    let blank_commit_handle =
+        editor.insert_commit(relative_to, CommitSpec::untracked(new_id), side)?;
 
     let outcome = editor.rebase()?;
 
-    Ok((outcome, blank_commit_selector))
+    Ok((outcome, blank_commit_handle))
 }

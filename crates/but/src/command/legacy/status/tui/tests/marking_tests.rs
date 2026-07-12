@@ -104,10 +104,14 @@ fn marking_section_edge_moves_only_when_neighbor_differs() {
         tui.input(KeyCode::Enter);
     }
 
-    tui.input(' ').assert_current_line_eq(str!["[..]one[..]"]);
-    tui.input(' ').assert_current_line_eq(str!["[..]one[..]"]);
-    tui.input(' ').assert_current_line_eq(str!["[..]two[..]"]);
-    tui.input(' ').assert_current_line_eq(str!["[..]two[..]"]);
+    tui.input(' ')
+        .assert_current_line_eq(str!["┊●   1#1 one (no changes)"]);
+    tui.input(' ')
+        .assert_current_line_eq(str!["┊✔︎   1#1 one (no changes)"]);
+    tui.input(' ')
+        .assert_current_line_eq(str!["┊✔︎   1#0 two (no changes)"]);
+    tui.input(' ')
+        .assert_current_line_eq(str!["┊●   1#0 two (no changes)"]);
 }
 
 #[test]
@@ -290,10 +294,10 @@ fn marking_and_squashing_branches() {
         .assert_current_line_eq(str!["┊╭┄ ra [c-branch-2]"])
         .assert_rendered_term_svg_eq(file!["snapshots/marking_and_squashing_branches_001.svg"]);
     tui.input(' ')
-        .assert_current_line_eq(str!["┊╭┄ an [c-branch-1]"])
+        .assert_current_line_eq(str!["┊╭┄ an [c-branch-3]"])
         .assert_rendered_term_svg_eq(file!["snapshots/marking_and_squashing_branches_002.svg"]);
     tui.input(' ')
-        .assert_current_line_eq(str!["┊✔︎  an [c-branch-1]"])
+        .assert_current_line_eq(str!["┊✔︎  an [c-branch-3]"])
         .assert_rendered_term_svg_eq(file!["snapshots/marking_and_squashing_branches_003.svg"]);
 
     tui.input('r');

@@ -11,7 +11,6 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_forge::ForgeReview;
-use but_graph::SegmentIndex;
 use but_workspace::{
     ref_info::{Commit, LocalCommit, LocalCommitRelation, Segment},
     ui::PushStatus,
@@ -234,6 +233,28 @@ struct UpstreamState {
     author_email: String,
 }
 
+/// Identifies a stack segment across two projections of the same workspace:
+/// its branch name when named, and the commit it rests on otherwise.
+pub(super) type SegmentStatusKey = (Option<gix::refs::FullName>, Option<gix::ObjectId>);
+
+/// The key for the id-mapped segment wrapper, whose `inner` has its commit
+/// lists blanked — the originals ride in `workspace_commits`.
+pub(super) fn segment_status_key_with_id(segment: &crate::id::SegmentWithId) -> SegmentStatusKey {
+    (
+        segment.inner.ref_name().map(ToOwned::to_owned),
+        segment.workspace_commits.first().map(|c| c.inner.id),
+    )
+}
+
+pub(super) fn segment_status_key_ui(
+    segment: &but_workspace::ref_info::Segment,
+) -> SegmentStatusKey {
+    (
+        segment.ref_info.as_ref().map(|ri| ri.ref_name.clone()),
+        segment.commits.first().map(|c| c.id),
+    )
+}
+
 struct StatusContext<'a> {
     flags: StatusFlags,
     stack_details: Vec<StackEntry>,
@@ -253,10 +274,13 @@ struct StatusContext<'a> {
     is_paged: bool,
     should_truncate_for_terminal: bool,
     id_map: IdMap,
-    push_statuses_by_segment_id: HashMap<SegmentIndex, but_workspace::ui::PushStatus>,
+    push_statuses_by_segment_id: HashMap<SegmentStatusKey, but_workspace::ui::PushStatus>,
     local_commits_by_id: HashMap<gix::ObjectId, LocalCommit>,
     remote_commits_by_id: HashMap<gix::ObjectId, Commit>,
     base_branch: Option<gitbutler_branch_actions::BaseBranch>,
+    /// A configured upstream the workspace could not resolve — reported so the user learns the
+    /// remote is gone rather than silently seeing a workspace with no base.
+    missing_upstream: Option<gix::refs::FullName>,
     mode: &'a gitbutler_operating_modes::OperatingMode,
 }
 
@@ -442,24 +466,26 @@ fn build_status_context<'a>(
         stacks,
         resolved_target,
         commit_id_to_change_id,
+        missing_upstream,
     ) = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let head_info = but_workspace::graph_to_ref_info(
             &ws,
             &repo,
             but_workspace::ref_info::Options {
-                project_meta: ws.graph.project_meta.clone(),
+                project_meta: ws.project_meta().clone(),
                 expensive_commit_info: true,
                 ..Default::default()
             },
         )?;
-        let mut push_statuses_by_segment_id = HashMap::<SegmentIndex, PushStatus>::new();
+        let mut push_statuses_by_segment_id = HashMap::<SegmentStatusKey, PushStatus>::new();
         let mut local_commits_by_id = HashMap::<gix::ObjectId, LocalCommit>::new();
         let mut remote_commits_by_id = HashMap::<gix::ObjectId, Commit>::new();
         let mut commit_id_to_change_id =
             gix::hashtable::HashMap::<gix::ObjectId, ChangeId>::default();
         for stack in head_info.stacks {
             for segment in stack.segments {
+                let key = segment_status_key_ui(&segment);
                 let Segment {
                     commits,
                     commits_on_remote,
@@ -474,18 +500,20 @@ fn build_status_context<'a>(
                 for remote_commit in commits_on_remote {
                     remote_commits_by_id.insert(remote_commit.id, remote_commit);
                 }
-                push_statuses_by_segment_id.insert(segment.id, push_status);
+                push_statuses_by_segment_id.insert(key, push_status);
             }
         }
 
         let resolved_target = workspace_target::ResolvedTarget::from_workspace(&ws)?;
+        let missing_upstream = ws.missing_target_ref_name().map(ToOwned::to_owned);
         (
             push_statuses_by_segment_id,
             local_commits_by_id,
             remote_commits_by_id,
-            ws.stacks.clone(),
+            ws.display_stacks()?.to_vec(),
             resolved_target,
             commit_id_to_change_id,
+            missing_upstream,
         )
     };
 
@@ -669,6 +697,7 @@ fn build_status_context<'a>(
         remote_commits_by_id,
         base_branch,
         mode,
+        missing_upstream,
     })
 }
 
@@ -686,6 +715,7 @@ fn build_status_output(
     let has_merged_upstream_branch = print_worktree_status(ctx, status_ctx, output)?;
     print_upstream_state(ctx, status_ctx, output)?;
     print_common_merge_base_summary(status_ctx, output)?;
+    print_missing_upstream_warning(status_ctx, output)?;
     print_conflicted_files_warning(status_ctx, output)?;
     let warn_about_outside_workspace = matches!(
         status_ctx.mode,
@@ -755,6 +785,22 @@ fn print_outside_workspace_warning(
         )]))?;
     }
 
+    Ok(())
+}
+
+/// Report a configured upstream that no longer resolves. The workspace still renders — a
+/// recording is a floor only while its ref resolves — so without this the only symptom is a
+/// missing base, which reads like a bug rather than a gone remote.
+fn print_missing_upstream_warning(
+    status_ctx: &StatusContext<'_>,
+    output: &mut StatusOutput<'_>,
+) -> anyhow::Result<()> {
+    if let Some(name) = status_ctx.missing_upstream.as_ref() {
+        output.warning(Vec::from([Span::raw(format!(
+            "⚠️  The configured upstream '{}' no longer exists — fetch it, or set a new target.",
+            name.shorten()
+        ))]))?;
+    }
     Ok(())
 }
 
@@ -870,7 +916,7 @@ fn branch_is_merged_upstream(
     if matches!(
         status_ctx
             .push_statuses_by_segment_id
-            .get(&segment.inner.id),
+            .get(&segment_status_key_with_id(segment)),
         Some(PushStatus::Integrated)
     ) || matches!(
         branch_merge_status(status_ctx, segment),
@@ -1155,14 +1201,15 @@ fn ci_map(
     ctx: &Context,
     cache_config: &but_forge::CacheConfig,
     stack_details: &[StackEntry],
-    push_statuses_by_segment_id: &HashMap<SegmentIndex, PushStatus>,
+    push_statuses_by_segment_id: &HashMap<SegmentStatusKey, PushStatus>,
     review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
 ) -> Result<BTreeMap<String, Vec<but_forge::CiCheck>>, anyhow::Error> {
     let mut ci_map = BTreeMap::new();
     for (_, (stack_with_id, _)) in stack_details {
         if let Some(stack_with_id) = stack_with_id {
             for segment in &stack_with_id.segments {
-                let push_status = push_statuses_by_segment_id.get(&segment.inner.id);
+                let push_status =
+                    push_statuses_by_segment_id.get(&segment_status_key_with_id(segment));
                 if push_status.is_none() {
                     eprintln!("warning: head_info does not contain segment that graph has");
                 }

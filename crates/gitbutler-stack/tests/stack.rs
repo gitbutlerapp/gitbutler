@@ -319,6 +319,7 @@ fn seed_metadata(repo: &gix::Repository, name: &str) -> Result<()> {
         branches: vec![WorkspaceStackBranch {
             ref_name: "refs/heads/first_branch".try_into()?,
             archived: false,
+            parents: None,
         }],
         workspacecommit_relation: WorkspaceCommitRelation::Merged,
     });
@@ -327,6 +328,7 @@ fn seed_metadata(repo: &gix::Repository, name: &str) -> Result<()> {
         branches: vec![WorkspaceStackBranch {
             ref_name: "refs/heads/virtual".try_into()?,
             archived: false,
+            parents: None,
         }],
         workspacecommit_relation: WorkspaceCommitRelation::Merged,
     });

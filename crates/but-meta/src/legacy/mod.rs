@@ -2,7 +2,7 @@ use std::{
     any::Any,
     cell::RefCell,
     cmp::Ordering,
-    collections::{BTreeMap, BTreeSet, HashSet, btree_map},
+    collections::{BTreeMap, BTreeSet, HashSet},
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     time::Instant,
@@ -114,7 +114,7 @@ impl Snapshot {
 impl Snapshot {
     /// The fixes here aren't relevant for the ref-metadata, but important for storage.
     /// Instead of trying to maintain this, let's just fix it before writing.
-    /// `reconcile` controls if the data should also be reconciled.
+    /// `reconcile` is ignored: the projection is never a write source here.
     fn to_consistent_data(
         &self,
         reconcile: ReconcileWithWorkspace,
@@ -125,14 +125,12 @@ impl Snapshot {
         //            this probably won't be needed once no old code is running, and by then
         //            we should move away from this anyway and have a DB backed implementation.
         let mut clone = self.clone();
-        if let Some(repo) = repo
-            .as_ref()
-            .filter(|_| matches!(reconcile, ReconcileWithWorkspace::Allow))
-        {
-            clone
-                .reconcile_and_fix_vb_toml(repo, projected_workspace)
-                .ok();
-        }
+        // NO WRITE-BACK. The projection is a derived VIEW and never a write source: copying its
+        // segments into the declaration let a RENDERING decision (which of several refs names a
+        // commit) become a durable workspace fact, and the declaration is what the next derivation
+        // reads. Operations record their own intent now. `enforce_constraints` stays — filling null
+        // hashes and de-duplicating names are repairs of the toml itself, not of the view.
+        let _ = reconcile;
         clone.enforce_constraints(repo, projected_workspace);
         clone.content
     }
@@ -159,21 +157,22 @@ impl Snapshot {
         let mut changed = false;
         let mut empty_stacks_to_remove = Vec::new();
         let null_id = gix::hash::Kind::Sha1.null();
-        let projected_segment_ids = projected_workspace
-            .filter(|workspace| workspace.kind.has_managed_commit())
+        let projected_refnames = projected_workspace
+            .filter(|workspace| workspace.kind().has_managed_commit())
             .map(|workspace| {
                 workspace
-                    .stacks
+                    .display_stacks()
+                    .unwrap_or_default()
                     .iter()
                     .flat_map(|stack| stack.segments.iter())
                     .filter_map(|segment| {
                         segment
                             .ref_name()
-                            .map(|ref_name| (ref_name.shorten().to_string(), segment.id))
+                            .map(|ref_name| ref_name.shorten().to_string())
                     })
-                    .collect::<BTreeMap<_, _>>()
+                    .collect::<BTreeSet<_>>()
             });
-        let mut seen_refnames = BTreeMap::<String, Option<but_graph::SegmentIndex>>::new();
+        let mut seen_refnames = BTreeSet::<String>::new();
         for (stack_id, stack) in self
             .content
             .branches
@@ -208,23 +207,15 @@ impl Snapshot {
                     if !seen_in_this_stack.insert(head.name.clone()) {
                         return Some(head_idx);
                     }
-                    let projected_segment_id = projected_segment_ids
-                        .as_ref()
-                        .and_then(|ids| ids.get(&head.name).copied());
-                    match seen_refnames.entry(head.name.clone()) {
-                        btree_map::Entry::Vacant(entry) => {
-                            entry.insert(projected_segment_id);
-                            None
-                        }
-                        btree_map::Entry::Occupied(entry) => {
-                            let preserve_duplicate = entry
-                                .get()
-                                .as_ref()
-                                .zip(projected_segment_id)
-                                .is_some_and(|(seen, current)| *seen == current);
-                            (!preserve_duplicate).then_some(head_idx)
-                        }
+                    if seen_refnames.insert(head.name.clone()) {
+                        return None;
                     }
+                    // A repeated head name survives only when the projection still shows
+                    // a segment of that name — the same one every duplicate resolves to.
+                    let preserve_duplicate = projected_refnames
+                        .as_ref()
+                        .is_some_and(|names| names.contains(&head.name));
+                    (!preserve_duplicate).then_some(head_idx)
                 })
                 .collect();
             for head_idx in head_indices_to_remove.into_iter().rev() {
@@ -270,15 +261,13 @@ impl Snapshot {
             },
             write_on_drop: false,
         });
-        let project_meta = ProjectMeta::resolve(repo)?;
-        let graph = but_graph::Graph::from_commit_traversal(
+        but_graph::Workspace::from_tip(
             commit_id,
             reference.name().to_owned(),
             &*sideeffect_free_meta,
-            project_meta,
-            but_graph::init::Options::limited(),
-        )?;
-        graph.into_workspace()
+            ProjectMeta::resolve(repo)?,
+            but_graph::walk::Options::limited(),
+        )
     }
 
     #[instrument(level = "debug", skip(self, repo, projected_workspace))]
@@ -287,7 +276,10 @@ impl Snapshot {
         repo: &gix::Repository,
         projected_workspace: Option<&but_graph::Workspace>,
     ) -> anyhow::Result<()> {
-        fn make_heads_match(ws_stack: &but_graph::workspace::Stack, vb_stack: &mut Stack) -> bool {
+        fn make_heads_match(
+            ws_stack: &but_graph::workspace::Stack,
+            vb_stack: &mut Stack,
+        ) -> (bool, Vec<String>) {
             // Always leave extra segments.
 
             // Add missing segments
@@ -303,15 +295,18 @@ impl Snapshot {
                 })
                 .collect();
 
+            let mut added_head_names = Vec::new();
             for (segment, segment_name) in segments_to_add {
                 let first_commit_or_null = segment
                     .commits
                     .first()
                     .map_or(gix::hash::Kind::Sha1.null(), |c| c.id);
                 tracing::warn!(segment_name=%segment_name.shorten(), first_commit_or_null=%first_commit_or_null, stack_id=?vb_stack.id, "Adding head to stack");
+                let name = segment_name.shorten().to_string();
+                added_head_names.push(name.clone());
                 vb_stack.heads.push(StackBranch {
                     head: first_commit_or_null,
-                    name: segment_name.shorten().to_string(),
+                    name,
                     pr_number: None,
                     archived: false,
                     review_id: None,
@@ -337,7 +332,7 @@ impl Snapshot {
             });
             // The ws_stack order is top to bottom, the other is bottom to top.
             vb_stack.heads.reverse();
-            vb_stack.heads != previous_heads
+            (vb_stack.heads != previous_heads, added_head_names)
         }
 
         let owned_workspace;
@@ -347,7 +342,7 @@ impl Snapshot {
             owned_workspace = self.project_workspace(repo)?;
             &owned_workspace
         };
-        if !ws.kind.has_managed_commit() {
+        if !ws.kind().has_managed_commit() {
             tracing::debug!("Avoiding workspace->vb-toml reconciliation in unmanaged workspace");
             return Ok(());
         }
@@ -366,8 +361,8 @@ impl Snapshot {
             stack_id
         };
         let original_stack_ids: Vec<_> = self.content.branches.keys().copied().collect();
-        let ws_stacks_to_represent_in_vb_toml: Vec<_> = ws
-            .stacks
+        let ws_display_stacks = ws.display_stacks()?;
+        let ws_stacks_to_represent_in_vb_toml: Vec<_> = ws_display_stacks
             .iter()
             .enumerate()
             .map(|(idx, s)| {
@@ -388,7 +383,7 @@ impl Snapshot {
                     stack.id = in_workspace_stack_id;
                     stack
                 });
-            let made_heads_match = make_heads_match(ws_stack, vb_stack);
+            let (made_heads_match, added_head_names) = make_heads_match(ws_stack, vb_stack);
             if !vb_stack.in_workspace {
                 tracing::warn!(
                     "Fixing stale metadata of stack {in_workspace_stack_id} to be considered inside the workspace",
@@ -403,6 +398,30 @@ impl Snapshot {
                 self.set_changed_to_necessitate_write();
             }
             if inserted_new_stack {
+                self.set_changed_to_necessitate_write();
+            }
+            // Adding a head is a move - drop it from every other stack, or the same branch is
+            // duplicated across stacks and can survive its own removal later.
+            // Stacks emptied by this are removed in `enforce_constraints()`.
+            let mut moved_head = false;
+            for (other_stack_id, other_stack) in self
+                .content
+                .branches
+                .iter_mut()
+                .filter(|(id, _)| **id != in_workspace_stack_id)
+            {
+                for added_name in &added_head_names {
+                    let head_count = other_stack.heads.len();
+                    other_stack.heads.retain(|sb| sb.name != *added_name);
+                    if other_stack.heads.len() != head_count {
+                        tracing::warn!(
+                            "Moved head '{added_name}' from stack {other_stack_id} to stack {in_workspace_stack_id}"
+                        );
+                        moved_head = true;
+                    }
+                }
+            }
+            if moved_head {
                 self.set_changed_to_necessitate_write();
             }
         }
@@ -574,7 +593,9 @@ impl VirtualBranchesTomlMetadata {
 // Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).
 impl Drop for VirtualBranchesTomlMetadata {
     fn drop(&mut self) {
-        if self.write_on_drop {
+        // The write-back projects the workspace, which can panic (debug asserts) — while
+        // already unwinding that would abort the process and hide the original panic.
+        if self.write_on_drop && !std::thread::panicking() {
             self.snapshot
                 .try_write_if_changed(ReconcileWithWorkspace::Allow, None);
         }
@@ -1189,6 +1210,7 @@ impl VirtualBranchesTomlMetadata {
                                 WorkspaceStackBranch {
                                     ref_name,
                                     archived: sb.archived,
+                                    parents: None,
                                 }
                             })
                         })

@@ -33,18 +33,12 @@ impl Archival {
 
     /// Create an anonymous archive commit graph for `ctx`, such that it doesn't reveal PII.
     pub fn zip_anonymous_graph(&self, ctx: &Context) -> Result<PathBuf> {
-        let mut options = ctx.graph_options(Default::default())?;
+        let options = ctx.graph_options(Default::default())?;
         let repo = ctx.repo.get()?;
         let meta = ctx.meta()?;
         let project_meta = ctx.project_meta()?;
-        let mut graph =
-            but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), options.clone())
-                .or_else(|_| {
-                    // Assume it fails because of post-processing, try again without.
-                    options.dangerously_skip_postprocessing_for_debugging = true;
-                    but_graph::Graph::from_head(&repo, &meta, project_meta, options)
-                })?;
-        let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph_pruned();
+        let ws = but_graph::Workspace::from_head(&repo, &meta, project_meta, options)?;
+        let dot_file_contents = ws.anonymized(&repo.remote_names())?.dot_graph_pruned();
         let output_file = self.cache_dir.join(format!(
             "commit-graph-anon-{date}.zip",
             date = filesafe_date_time()

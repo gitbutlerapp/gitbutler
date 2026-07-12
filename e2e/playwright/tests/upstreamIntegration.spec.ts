@@ -116,7 +116,11 @@ test("should handle the update of workspace with integrated branch gracefully", 
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
 	await syncAndIntegrate(page);
 
-	await waitForTestIdToNotExist(page, "stack");
+	// The workspace is never left without stacks (product ruling 2026-07-26): the integrated
+	// branch was the last one, so a fresh branch at the target stands in its place.
+	await expect(stack(page, "branch1")).toHaveCount(0);
+	await expect(stack(page, "master")).toHaveCount(0);
+	await expect(stack(page)).toHaveCount(1);
 });
 
 test("should reparent workspace commit to advanced target after integrating all stacks", async ({
@@ -136,7 +140,10 @@ test("should reparent workspace commit to advanced target after integrating all 
 	);
 	await syncAndIntegrate(page);
 
-	await waitForTestIdToNotExist(page, "stack");
+	// The workspace is never left without stacks (product ruling 2026-07-26): the integrated
+	// branch was the last one, so a fresh branch at the target stands in its place.
+	await expect(stack(page, "branch1")).toHaveCount(0);
+	await expect(stack(page)).toHaveCount(1);
 	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
 });
 
@@ -157,7 +164,10 @@ test("should reparent workspace commit to advanced merge target after integratin
 	);
 	await syncAndIntegrate(page);
 
-	await waitForTestIdToNotExist(page, "stack");
+	// The workspace is never left without stacks (product ruling 2026-07-26): the integrated
+	// branch was the last one, so a fresh branch at the target stands in its place.
+	await expect(stack(page, "branch1")).toHaveCount(0);
+	await expect(stack(page)).toHaveCount(1);
 	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
 });
 
@@ -238,7 +248,14 @@ test("should handle the update of the workspace with two integrated stacks grace
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch2"]);
 	await syncAndIntegrate(page);
 
-	await expect(stack(page)).toHaveCount(0);
+	// The workspace is never left without stacks (product ruling 2026-07-26): the integrated
+	// branch was the last one, so a fresh branch at the target stands in its place.
+	await expect(stack(page, "branch1")).toHaveCount(0);
+	await expect(stack(page, "branch2")).toHaveCount(0);
+	// Nor `master`: the target's own branch is never applied. The surviving lane is a branch
+	// none of these names match, which is the stand-in and the only thing that could be there.
+	await expect(stack(page, "master")).toHaveCount(0);
+	await expect(stack(page)).toHaveCount(1);
 	await waitForTestIdToNotExist(page, "integrate-upstream-commits-button");
 });
 

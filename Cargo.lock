@@ -1374,14 +1374,12 @@ dependencies = [
  "boolean-enums",
  "bstr",
  "but-core",
- "but-graph",
  "but-meta",
  "but-testsupport",
  "gitbutler-reference",
  "gix",
- "itertools",
- "petgraph",
  "snapbox",
+ "termtree",
  "tracing",
 ]
 
@@ -1571,7 +1569,6 @@ dependencies = [
  "but-testsupport",
  "gitbutler-reference",
  "gix",
- "petgraph",
  "sapling-renderdag",
  "schemars 1.2.1",
  "serde",
@@ -1670,6 +1667,7 @@ dependencies = [
  "gix",
  "gix-testtools",
  "regex",
+ "sapling-renderdag",
  "shell-words",
  "snapbox",
  "temp-env",
@@ -1700,6 +1698,7 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-db",
+ "but-graph",
  "but-oplog",
  "but-rebase",
  "but-testsupport",
@@ -1782,6 +1781,7 @@ dependencies = [
  "indexmap 2.14.0",
  "itertools",
  "md5",
+ "rand 0.9.4",
  "sapling-renderdag",
  "schemars 1.2.1",
  "serde",
@@ -7570,7 +7570,6 @@ dependencies = [
  "fixedbitset 0.5.7",
  "hashbrown 0.15.5",
  "indexmap 2.14.0",
- "serde",
 ]
 
 [[package]]
