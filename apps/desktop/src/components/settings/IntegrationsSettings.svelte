@@ -14,6 +14,12 @@
 			autoFillPrDescriptionFromCommit: !$appSettings?.reviews.autoFillPrDescriptionFromCommit,
 		});
 	}
+
+	async function toggleStackFooter() {
+		await settingsService.updateReviews({
+			enableStackFooter: !($appSettings?.reviews.enableStackFooter ?? true),
+		});
+	}
 </script>
 
 <GithubIntegration />
@@ -33,6 +39,21 @@
 				id="autoFillPrDescription"
 				checked={$appSettings?.reviews.autoFillPrDescriptionFromCommit ?? true}
 				onclick={toggleAutoFillPrDescription}
+			/>
+		{/snippet}
+	</CardGroup.Item>
+	<CardGroup.Item labelFor="enableStackFooter">
+		{#snippet title()}
+			Add GitButler stack footer to PR/MR descriptions
+		{/snippet}
+		{#snippet caption()}
+			Append the list of pull requests in the same stack to the description.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="enableStackFooter"
+				checked={$appSettings?.reviews.enableStackFooter ?? true}
+				onclick={toggleStackFooter}
 			/>
 		{/snippet}
 	</CardGroup.Item>

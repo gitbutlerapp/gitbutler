@@ -302,7 +302,8 @@
 			// If we now have two or more pull requests we add a stack table to the description.
 			prNumbers[currentIndex] = pr.number;
 			const definedPrNumbers = prNumbers.filter(isDefined);
-			if (definedPrNumbers.length > 0) {
+			const enableStackFooter = $appSettings?.reviews.enableStackFooter ?? true;
+			if (enableStackFooter && definedPrNumbers.length > 0) {
 				updatePrStackInfo(prService, projectId, definedPrNumbers, forgeInfo?.unit.symbol);
 			}
 

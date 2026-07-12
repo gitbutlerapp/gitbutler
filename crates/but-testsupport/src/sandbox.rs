@@ -532,6 +532,7 @@ impl Sandbox {
             },
             reviews: Reviews {
                 auto_fill_pr_description_from_commit: false,
+                enable_stack_footer: true,
             },
             ui: UiSettings {
                 use_native_title_bar: false,

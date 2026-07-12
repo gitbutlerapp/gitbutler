@@ -96,6 +96,8 @@ but_schemars::register_sdk_type!(Claude);
 pub struct Reviews {
     /// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
     pub auto_fill_pr_description_from_commit: bool,
+    /// Whether to append the GitButler stack footer to pull request descriptions.
+    pub enable_stack_footer: bool,
 }
 but_schemars::register_sdk_type!(Reviews);
 

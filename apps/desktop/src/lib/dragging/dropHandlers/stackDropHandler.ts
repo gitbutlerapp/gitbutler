@@ -9,11 +9,14 @@ import { BranchDropData } from "$lib/dragging/dropHandlers/branchDropHandler";
 import { CommitDropData } from "$lib/dragging/dropHandlers/commitDropHandler";
 import { classify } from "$lib/error/errorClassification";
 import { unstackPRs, updateStackPrs } from "$lib/forge/shared/prFooter";
+import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 import { toCommitMovePlacement } from "$lib/stacks/commitMovePlacement";
 import StackMacros from "$lib/stacks/macros";
 import { toMoveBranchWarning } from "$lib/stacks/stack";
 import { withStackBusy } from "$lib/state/uiState.svelte";
+import { inject } from "@gitbutler/core/context";
 import { untrack } from "svelte";
+import { get } from "svelte/store";
 import type { DropResult } from "$lib/dragging/dropResult";
 import type { DropzoneHandler } from "$lib/dragging/handler";
 import type { PrService } from "$lib/forge/prService.svelte";
@@ -26,6 +29,7 @@ import type { HunkAssignmentTarget } from "@gitbutler/but-sdk";
 /** Handler when drop changes on a special outside lanes dropzone. */
 export class OutsideLaneDzHandler implements DropzoneHandler {
 	private macros: StackMacros;
+	private readonly settingsService = inject(SETTINGS_SERVICE);
 
 	constructor(
 		private stackService: StackService,
@@ -282,6 +286,9 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 		}
 
 		await unstackPRs(this.prService, this.projectId, [data.prNumber], this.baseBranchName);
+		const enableStackFooter =
+			get(this.settingsService.appSettings)?.reviews.enableStackFooter ?? true;
+		if (!enableStackFooter) return;
 		const branchDetails = await this.stackService.fetchBranches(this.projectId, data.stackId);
 		await updateStackPrs(
 			this.prService,

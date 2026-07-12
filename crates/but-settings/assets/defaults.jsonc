@@ -61,7 +61,9 @@
 	// Settings related to code reviews and pull requests.
 	"reviews": {
 		// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
-		"autoFillPrDescriptionFromCommit": true
+		"autoFillPrDescriptionFromCommit": true,
+		// Whether to append the GitButler stack footer to pull request descriptions.
+		"enableStackFooter": true
 	},
 	// UI settings.
 	"ui": {
