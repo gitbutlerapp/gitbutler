@@ -104,14 +104,14 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -123,13 +123,13 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(outcome.workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:5:C on 85efbe4 {2}
-    ├── 📙:5:C
-    └── 📙:6:B
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -189,14 +189,14 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -208,14 +208,14 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(outcome.workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:C on 85efbe4 {2}
+    ├── 📙:C
     │   └── ·8e00332 (🏘️)
-    └── 📙:5:B
+    └── 📙:B
 
 "#]]
     );

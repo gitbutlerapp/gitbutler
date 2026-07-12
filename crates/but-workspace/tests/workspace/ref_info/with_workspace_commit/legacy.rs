@@ -594,14 +594,14 @@ StackDetails {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓!
-└── ≡📙:4:B →:1: {1}
-    ├── 📙:4:B →:1:
+📕🏘️:gitbutler/workspace[🌳] <> ✓!
+└── ≡📙:B {1}
+    ├── 📙:B
     │   ├── ·cc0bf57*
     │   └── ·d69fe94 (🏘️)
-    ├── 📙:2:A
+    ├── 📙:A
     │   └── ·09d8e52 (🏘️)
-    └── :3:main
+    └── :main
         └── ·85efbe4 (🏘️)
 
 "#]]
@@ -609,7 +609,7 @@ StackDetails {
         snapbox::assert_data_eq!(
             ws.to_debug(),
             snapbox::str![[r#"
-Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓!) {
+Workspace(📕🏘️:gitbutler/workspace[🌳] <> ✓!) {
     id: 0,
     kind: Managed {
         ref_info: RefInfo {
@@ -628,9 +628,9 @@ Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓!) {
         },
     },
     stacks: [
-        Stack(≡📙:4:B →:1: {1}) {
+        Stack(≡📙:B {1}) {
             segments: [
-                StackSegment(📙:4:B →:1:) {
+                StackSegment(📙:B) {
                     commits: [
                         "·d69fe94 (🏘\u{fe0f})",
                     ],
@@ -641,14 +641,14 @@ Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓!) {
                         ],
                     ),
                 },
-                StackSegment(📙:2:A) {
+                StackSegment(📙:A) {
                     commits: [
                         "·09d8e52 (🏘\u{fe0f})",
                     ],
                     commits_on_remote: [],
                     commits_outside: None,
                 },
-                StackSegment(:3:main) {
+                StackSegment(:main) {
                     commits: [
                         "·85efbe4 (🏘\u{fe0f})",
                     ],
@@ -729,7 +729,6 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(5),
                     ref_name: "►B",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -746,7 +745,6 @@ RefInfo {
                     base: "09d8e52",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
                     ref_name: "►A",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -766,14 +764,12 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            segment_index: NodeIndex(1),
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
-            segment_index: NodeIndex(2),
         },
     ),
     lower_bound: Some(

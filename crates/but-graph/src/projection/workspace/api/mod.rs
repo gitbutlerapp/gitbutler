@@ -412,9 +412,8 @@ impl Workspace {
             },
         );
         format!(
-            "{meta}{sign}:{id}:{name} <> ✓{target}{bound}",
+            "{meta}{sign}:{name} <> ✓{target}{bound}",
             meta = if self.metadata.is_some() { "📕" } else { "" },
-            id = self.id.index(),
             bound = self
                 .lower_bound
                 .map(|base| format!(" on {}", base.to_hex_with_len(7)))

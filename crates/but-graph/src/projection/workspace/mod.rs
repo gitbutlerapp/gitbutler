@@ -224,7 +224,7 @@ impl WorkspaceKind {
 
 /// Information about the target reference, which marks a portion in the commit-graph
 /// that the workspace wants to integrate with.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TargetRef {
     /// The name of the target branch, i.e. the branch that all [Stacks](Stack) want to get merged into.
     /// Typically, this is `refs/remotes/origin/main`.
@@ -235,19 +235,38 @@ pub struct TargetRef {
     pub commits_ahead: usize,
 }
 
+/// Segment indices are ephemeral; keep them out of snapshot output.
+impl std::fmt::Debug for TargetRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TargetRef")
+            .field("ref_name", &self.ref_name)
+            .field("commits_ahead", &self.commits_ahead)
+            .finish()
+    }
+}
+
 /// Information about the target commit, which marks a portion in the commit-graph
 /// that the workspace wants to integrate with.
 ///
 /// It's an unnamed point of interest which may
 /// be set by any means. Typically, it's set by using a stored value, which makes it
 /// a point in time at which we have seen the [`TargetRef`].
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TargetCommit {
     /// The hash of the commit that was once included in the [target ref](TargetRef), and that we remember to expand
     /// the reach of the workspace.
     pub commit_id: gix::ObjectId,
     /// The index to the respective segment in the graph that contains [`Self::commit_id`].
     pub segment_index: SegmentIndex,
+}
+
+/// Segment indices are ephemeral; keep them out of snapshot output.
+impl std::fmt::Debug for TargetCommit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TargetCommit")
+            .field("commit_id", &self.commit_id)
+            .finish()
+    }
 }
 
 impl TargetCommit {

@@ -363,7 +363,8 @@ impl std::fmt::Debug for Segment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Segment {
             ref_info,
-            id,
+            // Segment indices are ephemeral; keep them out of snapshot output.
+            id: _,
             commits,
             commits_on_remote,
             commits_outside,
@@ -378,7 +379,6 @@ impl std::fmt::Debug for Segment {
             "{ep}ref_info::ui::Segment",
             ep = if *is_entrypoint { "👉" } else { "" }
         ))
-        .field("id", &id)
         .field(
             "ref_name",
             &match ref_info.as_ref() {

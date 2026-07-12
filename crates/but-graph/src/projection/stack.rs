@@ -412,11 +412,12 @@ impl StackSegment {
 
     /// Digest as much as possible into a single line.
     pub fn debug_string(&self) -> String {
+        // Segment indices are ephemeral; keep them out of snapshot output.
         self.debug_string_with_ref_name_remote(Graph::ref_and_remote_debug_string(
             self.ref_info.as_ref(),
             self.remote_tracking_ref_name.as_ref(),
-            self.sibling_segment_id,
-            self.remote_tracking_branch_segment_id,
+            None,
+            None,
         ))
     }
 
@@ -426,8 +427,8 @@ impl StackSegment {
             graph.ref_and_remote_debug_string_with_graph_context(
                 self.ref_info.as_ref(),
                 self.remote_tracking_ref_name.as_ref(),
-                self.sibling_segment_id,
-                self.remote_tracking_branch_segment_id,
+                None,
+                None,
             ),
         )
     }
@@ -446,10 +447,9 @@ impl StackSegment {
             0
         };
         format!(
-            "{ep}{meta}:{id}:{ref_name_remote}{local_commits}{remote_commits}",
+            "{ep}{meta}:{ref_name_remote}{local_commits}{remote_commits}",
             ep = if self.is_entrypoint { "👉" } else { "" },
             meta = if self.metadata.is_some() { "📙" } else { "" },
-            id = self.id.index(),
             local_commits = if num_local_commits == 0 {
                 "".into()
             } else {
