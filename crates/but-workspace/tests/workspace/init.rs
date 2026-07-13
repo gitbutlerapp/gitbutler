@@ -133,12 +133,12 @@ fn resetting_the_same_ref_keeps_the_target_commit_id() {
     assert_eq!(
         stored_meta(&repo, &meta).target_commit_id,
         Some(initial_target_id),
-        "an existing target commit id is never overwritten"
+        "the target commit stays stable when its ref advances"
     );
 }
 
 #[test]
-fn changing_the_target_ref_preserves_the_target_commit_id() {
+fn changing_the_target_ref_recomputes_the_target_commit_id() {
     let (repo, mut meta, _tmp) = scenario();
     set_target_ref(&repo, &mut meta, "refs/remotes/origin/main", None).unwrap();
     let initial_target_id = stored_meta(&repo, &meta).target_commit_id.unwrap();
@@ -165,8 +165,13 @@ fn changing_the_target_ref_preserves_the_target_commit_id() {
     );
     assert_eq!(
         project_meta.target_commit_id,
+        Some(new_commit),
+        "a different target ref gets its own merge-base"
+    );
+    assert_ne!(
+        project_meta.target_commit_id,
         Some(initial_target_id),
-        "the stored id is kept verbatim even for a different target branch"
+        "switching targets must not retain the old frame of reference"
     );
 }
 

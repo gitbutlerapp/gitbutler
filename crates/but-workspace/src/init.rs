@@ -21,8 +21,10 @@ use but_core::{
 ///   back-fills the legacy metadata in `meta`,
 /// * set `log.excludeDecoration = refs/gitbutler` in the repository-local Git config.
 ///
-/// The target commit id is only computed - as the merge-base between `HEAD` and
-/// `target_ref` - if it isn't already set; an existing value is never overwritten.
+/// The target commit id is computed as the merge-base between `HEAD` and `target_ref`
+/// when it isn't already set or when the target ref changes. An existing value is
+/// preserved when setting the same target ref again, keeping the workspace frame stable
+/// if that ref has advanced.
 /// `push_remote`, if `Some`, is validated and stored; if `None`, an existing push remote
 /// is kept as is.
 ///
@@ -83,9 +85,13 @@ pub fn set_target_ref_and_init_project(
         .url(gix::remote::Direction::Fetch)
         .with_context(|| format!("failed to get remote url for '{remote_name}'"))?;
 
+    let target_ref_changed = project_meta
+        .as_ref()
+        .and_then(|meta| meta.target_ref.as_ref())
+        .is_none_or(|existing| existing.as_ref() != target_ref);
     let sha = match project_meta.as_ref().and_then(|meta| meta.target_commit_id) {
-        Some(existing) => existing,
-        None => {
+        Some(existing) if !target_ref_changed => existing,
+        _ => {
             let head_commit = repo
                 .head()
                 .context("Failed to get HEAD reference")?

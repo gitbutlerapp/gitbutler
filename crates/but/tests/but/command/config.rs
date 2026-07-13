@@ -8,6 +8,15 @@ fn target_configures_distinct_push_remote_for_fork() {
     env.but("setup").assert().success();
     env.invoke_git("remote add upstream .");
     env.invoke_git("update-ref refs/remotes/upstream/main refs/remotes/origin/main");
+    let expected_target_commit_id = env.invoke_git("merge-base HEAD refs/remotes/upstream/main");
+    let stale_target_commit_id = env.invoke_git("commit-tree HEAD^{tree} -p HEAD -m stale-target");
+    assert_ne!(
+        stale_target_commit_id, expected_target_commit_id,
+        "the seeded target commit must expose accidental preservation"
+    );
+    env.invoke_git(&format!(
+        "config --local gitbutler.project.targetCommitId {stale_target_commit_id}"
+    ));
 
     env.but("config target upstream/main --push-remote origin")
         .assert()
@@ -20,6 +29,11 @@ fn target_configures_distinct_push_remote_for_fork() {
     assert_eq!(
         env.invoke_git("config --local --get gitbutler.project.pushRemote"),
         "origin"
+    );
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetCommitId"),
+        expected_target_commit_id,
+        "switching target refs recomputes the merge-base"
     );
 }
 

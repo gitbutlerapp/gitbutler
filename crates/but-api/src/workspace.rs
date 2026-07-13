@@ -36,9 +36,10 @@ pub fn get_workspace(
 ///
 /// This acquires exclusive worktree access from `ctx` before updating project metadata.
 /// See [`but_workspace::init::set_target_ref_and_init_project()`] for details; notably the
-/// target commit id is only computed when it wasn't set before, and an omitted
-/// `push_remote` keeps the currently configured one. It deliberately records no oplog
-/// snapshot - only project metadata changes, no repository state.
+/// target commit id is recomputed when the target ref changes and preserved when the same
+/// ref is set again. An omitted `push_remote` keeps the currently configured one. It
+/// deliberately records no oplog snapshot - only project metadata changes, no repository
+/// state.
 #[cfg(feature = "legacy")]
 #[but_api(napi)]
 #[instrument(err(Debug))]
