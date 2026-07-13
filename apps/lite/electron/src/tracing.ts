@@ -16,11 +16,20 @@
  *    the Network row's end-to-end duration, which includes any simulated network delay. The JSON
  *    response and explicit `Content-Length` keep DevTools' Response and Size views populated.
  *
+ * Watcher events use one shared streaming fetch per renderer while any watcher subscriptions are
+ * active. Preload copies each event through main to Vite, which writes it as a server-sent event;
+ * Chromium then exposes the copies in the request's EventStream tab. The real watcher callback runs
+ * immediately, so throttling or failure of the diagnostic stream never changes event delivery. A
+ * single stream avoids consuming one HTTP/1.1 connection per subscription, and mirrored events are
+ * dropped while the response is backpressured rather than allowing diagnostics to grow memory.
+ *
  * The dedicated `ipc.localhost` origin is essential even though it reaches the same Vite server.
  * Held trace responses must not occupy the app origin's connection pool and block navigation. The
- * completion cache handles the inverse race, where IPC finishes before a queued trace reaches Vite.
- * Preload aborts its gate after 60 seconds so tracing cannot freeze the app; Vite retains state only
- * slightly longer to cover timer skew and clean up requests whose connection does not close cleanly.
+ * permanent watcher stream and its relay traffic use `ipc-watcher.localhost` as well, so they cannot
+ * reduce the connection budget available to ordinary IPC traces. The completion cache handles the
+ * inverse race, where IPC finishes before a queued trace reaches Vite. Preload aborts its gate after
+ * 60 seconds so tracing cannot freeze the app; Vite retains state only slightly longer to cover
+ * timer skew and clean up requests whose connection does not close cleanly.
  *
  * Consuming the response makes latency and bandwidth throttling part of the IPC boundary, which can
  * approximate slow local work. Fetch is required so DevTools retains the response body. Tracing
@@ -38,10 +47,15 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 
 export const ipcTraceCompleteChannel = "lite:ipc-trace-complete";
+export const ipcTraceWatcherEventChannel = "lite:ipc-trace-watcher-event";
 export const ipcTraceHost = "ipc.localhost";
+export const ipcTraceWatcherHost = "ipc-watcher.localhost";
 const ipcTracePathPrefix = "/__ipc/";
 const ipcTraceAcceptPrefix = "application/json; trace-id=";
+const ipcTraceStreamAcceptPrefix = "text/event-stream; trace-id=";
 export const ipcTraceCompletionPath = `${ipcTracePathPrefix}complete`;
+export const ipcTraceWatcherEventPath = `${ipcTracePathPrefix}watcher-event`;
+const ipcTraceWatcherEventsPath = `${ipcTracePathPrefix}watcher-events`;
 
 interface IpcTraceCompletion {
 	traceId: string;
@@ -49,6 +63,15 @@ interface IpcTraceCompletion {
 	body: string;
 	durationMs: number;
 }
+
+interface IpcTraceWatcherEvent {
+	streamId: string;
+	type: string;
+	body: string;
+}
+
+const isIpcTraceId = (value: string): boolean =>
+	/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(value);
 
 export const isIpcTraceCompletion = (value: unknown): value is IpcTraceCompletion =>
 	typeof value === "object" &&
@@ -64,11 +87,28 @@ export const isIpcTraceCompletion = (value: unknown): value is IpcTraceCompletio
 	Number.isFinite(value.durationMs) &&
 	value.durationMs >= 0;
 
-const ipcTraceIdFromAccept = (accept: string | undefined): string | undefined => {
-	if (accept === undefined || !accept.startsWith(ipcTraceAcceptPrefix)) return undefined;
+export const isIpcTraceWatcherEvent = (value: unknown): value is IpcTraceWatcherEvent =>
+	typeof value === "object" &&
+	value !== null &&
+	"streamId" in value &&
+	typeof value.streamId === "string" &&
+	isIpcTraceId(value.streamId) &&
+	"type" in value &&
+	typeof value.type === "string" &&
+	value.type.length > 0 &&
+	!/[\r\n]/.test(value.type) &&
+	"body" in value &&
+	typeof value.body === "string" &&
+	!/[\r\n]/.test(value.body);
 
-	const traceId = accept.slice(ipcTraceAcceptPrefix.length);
-	return /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(traceId) ? traceId : undefined;
+const ipcTraceIdFromAccept = (
+	accept: string | undefined,
+	prefix = ipcTraceAcceptPrefix,
+): string | undefined => {
+	if (accept === undefined || !accept.startsWith(prefix)) return undefined;
+
+	const traceId = accept.slice(prefix.length);
+	return isIpcTraceId(traceId) ? traceId : undefined;
 };
 
 const readRequestBody = async (request: IncomingMessage): Promise<string> =>
@@ -96,10 +136,12 @@ export const ipcTracePlugin = (): Plugin => {
 		response: ServerResponse;
 		timeout: ReturnType<typeof setTimeout>;
 	};
+	type WatcherEventStream = { response: ServerResponse };
 
 	// Preload gives up after 60 seconds; retain server state just long enough to cover timer skew.
 	const traceRetentionMs = 65_000;
 	const pendingTraces = new Map<string, PendingTrace>();
+	const watcherEventStreams = new Map<string, WatcherEventStream>();
 	const storedCompletions = new Map<
 		string,
 		{ completion: IpcTraceCompletion; timeout: ReturnType<typeof setTimeout> }
@@ -125,6 +167,76 @@ export const ipcTracePlugin = (): Plugin => {
 				const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
 				if (!requestUrl.pathname.startsWith(ipcTracePathPrefix)) {
 					next();
+					return;
+				}
+
+				if (requestUrl.pathname === ipcTraceWatcherEventsPath) {
+					if (request.method !== "GET") {
+						response.statusCode = 405;
+						response.end("Method not allowed");
+						return;
+					}
+
+					const streamId = ipcTraceIdFromAccept(request.headers.accept, ipcTraceStreamAcceptPrefix);
+					if (streamId === undefined) {
+						response.statusCode = 400;
+						response.end("Missing IPC watcher stream ID");
+						return;
+					}
+
+					watcherEventStreams.get(streamId)?.response.end();
+					watcherEventStreams.set(streamId, { response });
+					response.statusCode = 200;
+					response.setHeader("access-control-allow-origin", "*");
+					response.setHeader("cache-control", "no-cache, no-store");
+					response.setHeader("content-type", "text/event-stream");
+					response.flushHeaders();
+
+					response.on("close", () => {
+						if (watcherEventStreams.get(streamId)?.response === response)
+							watcherEventStreams.delete(streamId);
+					});
+					return;
+				}
+
+				if (requestUrl.pathname === ipcTraceWatcherEventPath) {
+					if (request.method !== "POST") {
+						response.statusCode = 405;
+						response.end("Method not allowed");
+						return;
+					}
+
+					let payload: unknown;
+					try {
+						payload = JSON.parse(await readRequestBody(request));
+					} catch {
+						response.statusCode = 400;
+						response.end("Invalid IPC watcher event payload");
+						return;
+					}
+
+					if (!isIpcTraceWatcherEvent(payload)) {
+						response.statusCode = 400;
+						response.end("Invalid IPC watcher event");
+						return;
+					}
+
+					const stream = watcherEventStreams.get(payload.streamId);
+					if (stream === undefined) {
+						response.statusCode = 404;
+						response.end("IPC watcher event stream not found");
+						return;
+					}
+					if (stream.response.writableNeedDrain) {
+						response.statusCode = 429;
+						response.end("IPC watcher event stream is backpressured");
+						return;
+					}
+
+					stream.response.write(`event: ${payload.type}\ndata: ${payload.body}\n\n`);
+
+					response.statusCode = 204;
+					response.end();
 					return;
 				}
 
