@@ -11,7 +11,7 @@ import {
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import type { OperationType } from "#ui/operations/operation.ts";
+import type { OperationType, TransferSpec } from "#ui/operations/operation.ts";
 import {
 	absorbOutlineMode,
 	defaultOutlineMode,
@@ -363,6 +363,13 @@ export const projectReducers = {
 	},
 };
 
+const selectSelectionOutline = (state: ProjectState, navigationIndex: NavigationIndex<Operand>) =>
+	resolveNavigationIndexSelection(
+		navigationIndex,
+		state.workspace.selection.outline,
+		operandIdentityKey,
+	);
+
 export const projectSelectors = {
 	selectFilesVisible: (state: ProjectState) => state.filesVisible,
 	selectDetailsFullWindow: (state: ProjectState) => state.detailsFullWindow,
@@ -379,12 +386,29 @@ export const projectSelectors = {
 		);
 		return selection !== null && operandEquals(selection, operand);
 	},
-	selectSelectionOutline: (state: ProjectState, navigationIndex: NavigationIndex<Operand>) =>
-		resolveNavigationIndexSelection(
-			navigationIndex,
-			state.workspace.selection.outline,
-			operandIdentityKey,
-		),
+	selectSelectionOutline,
+	selectPendingTransferSpec: (
+		state: ProjectState,
+		navigationIndex: NavigationIndex<Operand>,
+	): TransferSpec | null => {
+		const { mode } = state.workspace;
+
+		if (mode._tag !== "Transfer" || mode.value.operationType === null) return null;
+
+		const target = Match.value(mode.value).pipe(
+			Match.tagsExhaustive({
+				Pointer: (mode) => mode.target,
+				Keyboard: () => selectSelectionOutline(state, navigationIndex),
+			}),
+		);
+		if (target === null) return null;
+
+		return {
+			source: mode.value.source,
+			target,
+			operationType: mode.value.operationType,
+		};
+	},
 	selectSelectionFiles: (state: ProjectState, navigationIndex: NavigationIndex<string>) =>
 		resolveNavigationIndexSelection(
 			navigationIndex,

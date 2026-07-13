@@ -27,7 +27,7 @@ import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { FC, type ReactNode } from "react";
 import styles from "./OperationControls.module.css";
-import { AbsorbMode, KeyboardTransferMode } from "#ui/outline/mode.ts";
+import { AbsorbMode } from "#ui/outline/mode.ts";
 import { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
@@ -285,22 +285,20 @@ const TransferTypeToggleGroup: FC<{
 const TransferKeyboardOperationControls: FC<{
 	headInfoIndex: HeadInfoIndex;
 	projectId: string;
-	mode: KeyboardTransferMode;
 	outlineNavigationIndex: NavigationIndex<Operand>;
-}> = ({ headInfoIndex, projectId, mode, outlineNavigationIndex }) => {
-	const selection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionOutline(state, projectId, outlineNavigationIndex),
+}> = ({ headInfoIndex, projectId, outlineNavigationIndex }) => {
+	const pendingTransferSpec = useAppSelector((state) =>
+		projectSlice.selectors.selectPendingTransferSpec(state, projectId, outlineNavigationIndex),
 	);
 
 	const dispatch = useAppDispatch();
 	const { mutate: runOperation } = useRunOperation();
 
-	if (!selection) return null;
+	if (!pendingTransferSpec) return null;
 
-	const target = selection;
-
-	const operations = getOperations(mode.source, target);
-	const operation = operations[mode.operationType];
+	const { source, target, operationType } = pendingTransferSpec;
+	const operations = getOperations(source, target);
+	const operation = operations[operationType];
 
 	const run = () => {
 		dispatch(projectSlice.actions.exitMode({ projectId }));
@@ -321,12 +319,12 @@ const TransferKeyboardOperationControls: FC<{
 			<TransferTypeToggleGroup
 				projectId={projectId}
 				operations={operations}
-				operationType={mode.operationType}
+				operationType={operationType}
 			/>
 			<Separator />
 			<ControlsRow>
 				<Label>
-					<div>Source: {operandLabel({ headInfoIndex, operand: mode.source })}</div>
+					<div>Source: {operandLabel({ headInfoIndex, operand: source })}</div>
 					<div>Target: {operandLabel({ headInfoIndex, operand: target })}</div>
 				</Label>
 				<Controls
@@ -381,12 +379,11 @@ export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Ope
 			Transfer: ({ value: mode }) =>
 				Match.value(mode).pipe(
 					Match.tags({
-						Keyboard: (mode) =>
+						Keyboard: () =>
 							headInfoIndex && (
 								<TransferKeyboardOperationControls
 									headInfoIndex={headInfoIndex}
 									projectId={projectId}
-									mode={mode}
 									outlineNavigationIndex={outlineNavigationIndex}
 								/>
 							),

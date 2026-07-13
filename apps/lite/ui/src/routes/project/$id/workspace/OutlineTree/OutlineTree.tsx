@@ -101,12 +101,14 @@ const OperandC: FC<
 > = ({ projectId, operand, outline, render, ...props }) => {
 	const absorptionTargetKeys = assert(use(AbsorptionTargetKeysContext));
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useAppSelector((state) =>
-		projectSlice.selectors.selectIsSelectedOutline(state, projectId, navigationIndex, operand),
-	);
 
 	const activeOperation = useAppSelector((state) => {
 		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
+		const pendingTransferSpec = projectSlice.selectors.selectPendingTransferSpec(
+			state,
+			projectId,
+			navigationIndex,
+		);
 
 		return Match.value(outlineMode).pipe(
 			Match.tags({
@@ -116,24 +118,13 @@ const OperandC: FC<
 
 					return { operationType: "into", tooltip: "Absorb target" };
 				},
-				Transfer: ({ value: mode }): ActiveOperation | null => {
-					if (mode.operationType === null) return null;
-
-					const isActive = Match.value(mode).pipe(
-						Match.tagsExhaustive({
-							Pointer: (mode) => mode.target !== null && operandEquals(mode.target, operand),
-							Keyboard: () => isSelected,
-						}),
-					);
-					if (!isActive) return null;
+				Transfer: (): ActiveOperation | null => {
+					if (!pendingTransferSpec || !operandEquals(pendingTransferSpec.target, operand))
+						return null;
 
 					return {
-						operationType: mode.operationType,
-						tooltip: getOperation({
-							source: mode.source,
-							target: operand,
-							operationType: mode.operationType,
-						})?.label,
+						operationType: pendingTransferSpec.operationType,
+						tooltip: getOperation(pendingTransferSpec)?.label,
 					};
 				},
 			}),
@@ -538,35 +529,12 @@ const Stacks: FC<{
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const dryRunOperation = useAppSelector((state) => {
-		const selection = projectSlice.selectors.selectSelectionOutline(
+		const pendingTransferSpec = projectSlice.selectors.selectPendingTransferSpec(
 			state,
 			projectId,
 			navigationIndex,
 		);
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
-
-		return Match.value(outlineMode).pipe(
-			Match.tags({
-				Transfer: ({ value: mode }) => {
-					if (mode.operationType === null) return;
-
-					const target = Match.value(mode).pipe(
-						Match.tagsExhaustive({
-							Pointer: (mode) => mode.target,
-							Keyboard: () => selection,
-						}),
-					);
-					if (!target) return;
-
-					return getOperation({
-						source: mode.source,
-						target,
-						operationType: mode.operationType,
-					})?.operation;
-				},
-			}),
-			Match.orElse(() => undefined),
-		);
+		return pendingTransferSpec ? getOperation(pendingTransferSpec)?.operation : undefined;
 	});
 
 	// TODO: debounce?

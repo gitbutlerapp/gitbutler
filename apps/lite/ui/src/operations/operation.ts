@@ -548,8 +548,11 @@ export const getOperations = (source: Operand, target: Operand): OperationsByTyp
 	};
 };
 
-export const getOperation = (x: {
+export type TransferSpec = {
 	source: Operand;
 	target: Operand;
 	operationType: OperationType;
-}): OperationWithLabel | null => getOperations(x.source, x.target)[x.operationType];
+};
+
+export const getOperation = (x: TransferSpec): OperationWithLabel | null =>
+	getOperations(x.source, x.target)[x.operationType];
