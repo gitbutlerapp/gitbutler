@@ -255,6 +255,7 @@ pub(crate) mod function {
             bail!("Cannot unapply a branch from an ad-hoc detached workspace");
         };
         let mut ws_md = meta.workspace(workspace_ref_name.as_ref())?;
+        ws_md.set_project_meta(ws.graph.project_meta.clone());
         if ws.kind.has_managed_ref() || ws.has_metadata() {
             ws_md.reconcile_projected_stacks(
                 ws.stacks.iter().map(|stack| ProjectedWorkspaceStack {

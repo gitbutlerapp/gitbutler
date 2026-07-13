@@ -17,15 +17,21 @@ use crate::init::{
     StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev,
     read_only_in_memory_scenario, standard_options,
     utils::{
-        add_stack, add_workspace_with_target, add_workspace_without_target,
-        named_read_only_in_memory_scenario, remove_target, standard_options_with_extra_target,
+        add_stack, add_workspace_with_target, default_project_meta,
+        named_read_only_in_memory_scenario, standard_options_with_extra_target,
     },
 };
 
 fn project_meta(meta: &impl RefMetadata) -> ProjectMeta {
-    meta.workspace(WORKSPACE_REF_NAME.try_into().expect("valid workspace ref"))
-        .map(|workspace| workspace.project_meta())
-        .unwrap_or_default()
+    let workspace = meta
+        .workspace(WORKSPACE_REF_NAME.try_into().expect("valid workspace ref"))
+        .expect("workspace metadata is readable");
+    let project_meta = workspace.project_meta();
+    if project_meta != ProjectMeta::default() || workspace.stacks.is_empty() {
+        project_meta
+    } else {
+        default_project_meta()
+    }
 }
 
 #[test]
@@ -1915,19 +1921,19 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
 fn workspace_target_commit_and_extra_target_commit_can_overlap() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
     let target_id = id_by_rev(&repo, "main").detach();
-    add_workspace_with_target(&mut meta, target_id);
+    let project_meta = add_workspace_with_target(&mut meta, target_id);
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
 
     let baseline =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, project_meta.clone(), standard_options())?.validated()?;
     let baseline_tree = graph_tree(&baseline).to_string();
     let baseline_workspace = graph_workspace(&baseline.into_workspace()?).to_string();
 
     let graph = Graph::from_head(
         &repo,
         &*meta,
-        project_meta(&*meta),
+        project_meta,
         standard_options().with_extra_target_commit_id(target_id),
     )?
     .validated()?;
@@ -2600,12 +2606,9 @@ fn deduced_remote_ahead() -> anyhow::Result<()> {
     );
 
     // When the push-remote is configured, it overrides the remote we use for listing, even if a fetch remote is available.
-    let mut ws = meta.workspace(WORKSPACE_REF_NAME.try_into().expect("valid workspace ref"))?;
-    let mut pm = ws.project_meta();
+    let mut pm = project_meta(&*meta);
     pm.push_remote = Some("push-remote".into());
-    ws.set_project_meta(pm);
-    meta.set_workspace(&ws)?;
-    let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?;
+    let graph = Graph::from_head(&repo, &*meta, pm, standard_options())?;
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
@@ -3765,7 +3768,7 @@ fn workspace_without_target_can_see_remote() -> anyhow::Result<()> {
     meta.set_workspace(&ws)?;
 
     let graph =
-        Graph::from_head(&repo, &meta, project_meta(&meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &meta, ProjectMeta::default(), standard_options())?.validated()?;
     // Main is a normal branch, and its remote is known.
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -3862,14 +3865,10 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
         .raw()
     );
     add_workspace_without_target(&mut meta);
-    assert!(
-        meta.data_mut().default_target.is_none(),
-        "without target, limits affect workspaces too"
-    );
     let graph = Graph::from_head(
         &repo,
         &*meta,
-        project_meta(&*meta),
+        ProjectMeta::default(),
         standard_options().with_limit_hint(0),
     )?
     .validated()?;
@@ -3894,10 +3893,6 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
 
     meta.data_mut().branches.clear();
     add_workspace(&mut meta);
-    assert!(
-        meta.data_mut().default_target.is_some(),
-        "But with workspace and target, we see everything"
-    );
     // It's notable that there is no way to bypass the early abort when everything is integrated.
     // and there is no deductible remote relationship between origin/main and main (no remote not configured).
     // Then the traversal ends on integrated branches as `main` isn't a target.
@@ -4725,7 +4720,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
 
     // With a lower base for the target, we see more.
     let target_commit_id = repo.rev_parse_single("3183e43")?.detach();
-    add_workspace_with_target(&mut meta, target_commit_id);
+    ws.graph.project_meta = add_workspace_with_target(&mut meta, target_commit_id);
 
     let ws = ws
         .graph
@@ -4756,7 +4751,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
 
     // We can also add stacked virtual branches to that new base.
     meta.data_mut().branches.clear();
-    add_workspace_with_target(&mut meta, target_commit_id);
+    add_workspace(&mut meta);
     add_stack_with_segments(&mut meta, 3, "A", StackState::InWorkspace, &["B"]);
     let ws = ws
         .graph
@@ -7425,9 +7420,8 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    meta.data_mut().default_target = None;
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
@@ -7578,9 +7572,8 @@ fn applied_stack_above_explicit_lower_bound() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    meta.data_mut().default_target = None;
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
@@ -8091,10 +8084,9 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
 "#]]
     );
     add_workspace(&mut meta);
-    remove_target(&mut meta);
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
@@ -8187,7 +8179,6 @@ fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
 
 "#]]
     );
-    remove_target(&mut meta);
     add_stack_with_segments(&mut meta, 0, "main", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
 
@@ -8946,11 +8937,10 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
     );
 
     let init_id = repo.rev_parse_single("main~1")?.detach();
-    add_workspace_with_target(&mut meta, init_id);
+    let project_meta = add_workspace_with_target(&mut meta, init_id);
     add_stack_with_segments(&mut meta, 0, "my-branch", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = Graph::from_head(&repo, &*meta, project_meta, standard_options())?.validated()?;
     // With the target at "init", A and B are above the target and should be
     // kept even though they are marked integrated.
     snapbox::assert_data_eq!(
@@ -8969,10 +8959,10 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
     // Both commits are at or below the new target and should be pruned,
     // but the metadata-tracked branch entry is preserved.
     let main_id = repo.rev_parse_single("main")?.detach();
-    add_workspace_with_target(&mut meta, main_id);
+    let project_meta = add_workspace_with_target(&mut meta, main_id);
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, project_meta.clone(), standard_options())?.validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -8986,7 +8976,7 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
     let graph = Graph::from_head(
         &repo,
         &*meta,
-        project_meta(&*meta),
+        project_meta,
         standard_options().with_hard_limit(usize::MAX),
     )?
     .validated()?;
@@ -9027,15 +9017,14 @@ fn integrated_commits_below_target_pruned_when_upstream_ahead() -> anyhow::Resul
 
     // Stored target is 'target' (main~1); origin/main is one commit ahead at 'upstream'.
     let target_id = repo.rev_parse_single("main~1")?.detach();
-    add_workspace_with_target(&mut meta, target_id);
+    let project_meta = add_workspace_with_target(&mut meta, target_id);
     add_stack_with_segments(&mut meta, 0, "my-branch", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 1, "old-branch", StackState::InWorkspace, &[]);
 
     // 'W' and 'O' are above/beside the target and kept; 'target' and 'base' are
     // integrated and at or below the target, so they are pruned from both stacks
     // even though origin/main has advanced past the target.
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = Graph::from_head(&repo, &*meta, project_meta, standard_options())?.validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
@@ -9081,11 +9070,10 @@ fn catchup_merge_below_target_floors_at_fork() -> anyhow::Result<()> {
 
     // Stored target is 'T' (main~2); origin/main is two commits ahead at 'U'.
     let target_id = repo.rev_parse_single("main~2")?.detach();
-    add_workspace_with_target(&mut meta, target_id);
+    let project_meta = add_workspace_with_target(&mut meta, target_id);
     add_stack_with_segments(&mut meta, 0, "X", StackState::InWorkspace, &[]);
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = Graph::from_head(&repo, &*meta, project_meta, standard_options())?.validated()?;
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"

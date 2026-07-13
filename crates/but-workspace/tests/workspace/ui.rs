@@ -1,11 +1,13 @@
 mod changes_in_branch {
-    use but_core::RefMetadata;
     use but_graph::init::Options;
     use but_testsupport::visualize_commit_graph_all;
     use but_workspace::ui;
     use snapbox::prelude::*;
 
-    use crate::{ref_info::with_workspace_commit::utils::read_only_in_memory_scenario, utils::r};
+    use crate::{
+        ref_info::with_workspace_commit::utils::{project_meta, read_only_in_memory_scenario},
+        utils::r,
+    };
 
     #[test]
     fn multiple_inside_and_outside_of_workspace() -> anyhow::Result<()> {
@@ -22,13 +24,8 @@ mod changes_in_branch {
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
-            &repo,
-            &*meta,
-            meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
-                .project_meta(),
-            Options::limited(),
-        )?;
+        let graph =
+            but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
         let ws = graph.into_workspace()?;
 
         snapbox::assert_data_eq!(
@@ -174,9 +171,7 @@ TreeChanges {
             &repo,
             &*meta,
             but_workspace::ref_info::Options {
-                project_meta: meta
-                    .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
-                    .project_meta(),
+                project_meta: project_meta(&repo)?,
                 ..Default::default()
             },
         )?

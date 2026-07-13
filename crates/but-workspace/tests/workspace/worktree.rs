@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
+use but_core::ref_metadata::ProjectMeta;
 use but_graph::init::Options;
-use but_meta::virtual_branches_legacy_types::Target;
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, integrate_upstream, worktree_conflicts_for_rebase,
@@ -10,10 +10,12 @@ use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack, named_writable_scenario_with_description,
 };
 
-fn project_meta(meta: &impl but_core::RefMetadata) -> Result<but_core::ref_metadata::ProjectMeta> {
-    Ok(meta
-        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
-        .project_meta())
+fn project_meta(repo: &gix::Repository) -> Result<ProjectMeta> {
+    Ok(ProjectMeta {
+        target_ref: Some("refs/remotes/origin/A".try_into()?),
+        target_commit_id: Some(repo.rev_parse_single("main")?.detach()),
+        push_remote: None,
+    })
 }
 
 #[test]
@@ -25,7 +27,7 @@ fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
     )?;
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
-    let project_meta = project_meta(&meta)?;
+    let project_meta = project_meta(&repo)?;
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -62,7 +64,7 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
     )?;
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
-    let project_meta = project_meta(&meta)?;
+    let project_meta = project_meta(&repo)?;
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -94,7 +96,7 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
     )?;
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
-    let project_meta = project_meta(&meta)?;
+    let project_meta = project_meta(&repo)?;
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -138,7 +140,7 @@ fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result
     )?;
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
-    let project_meta = project_meta(&meta)?;
+    let project_meta = project_meta(&repo)?;
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -170,7 +172,7 @@ fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<
     )?;
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
-    let project_meta = project_meta(&meta)?;
+    let project_meta = project_meta(&repo)?;
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -200,14 +202,6 @@ fn upstream_conflict_fixture() -> Result<(
 )> {
     let (tmp, repo, mut meta, description) =
         named_writable_scenario_with_description("remote-diverged-with-workspace-conflicting")?;
-    let target_sha = repo.rev_parse_single("main")?.detach();
-
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "A"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
 
     Ok((tmp, repo, meta, description))
@@ -221,7 +215,7 @@ fn workspace_for_stack(
     let ws = but_graph::Graph::from_head(
         repo,
         meta,
-        project_meta(meta)?,
+        project_meta(repo)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()

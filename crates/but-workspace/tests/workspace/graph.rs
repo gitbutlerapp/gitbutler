@@ -11,9 +11,9 @@
 //! readable.
 
 use anyhow::Result;
-use but_core::{RefMetadata as _, ref_metadata::ProjectMeta};
+use but_core::ref_metadata::ProjectMeta;
 use but_graph::{Graph, init::Options};
-use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
+use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::{gix_testtools::tempfile::TempDir, visualize_commit_graph_all};
 use but_workspace::workspace::{
     DetailedGraphWorkspace, GraphRowData, Stack, detailed_graph_workspace,
@@ -65,17 +65,13 @@ fn detailed_writable(
 ) -> Result<(TempDir, DetailedGraphWorkspace)> {
     let (tmp, repo, mut meta, _desc) = named_writable_scenario_with_description(fixture)?;
     let target_sha = repo.rev_parse_single(target_rev)?.detach();
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new(target_remote, target_branch),
-        remote_url: "unused".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
     configure_stacks(&mut meta);
 
-    let project_meta = meta
-        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
-        .project_meta();
+    let project_meta = ProjectMeta {
+        target_ref: Some(format!("refs/remotes/{target_remote}/{target_branch}").try_into()?),
+        target_commit_id: Some(target_sha),
+        push_remote: None,
+    };
     let graph = Graph::from_head(
         &repo,
         &meta,
@@ -864,7 +860,7 @@ refs/heads/main push=NothingToPush                  combined=NothingToPush      
 /// has landed upstream — it reports `Integrated`. Branch `B` has an un-merged
 /// commit, so it has no remote tracking branch (`CompletelyUnpushed`). Mirrors
 /// the `fully-integrated-branch` upstream-integration fixture, which needs real
-/// workspace metadata (a `default_target`) for the projection to know what it
+/// project metadata for the projection to know what it
 /// integrates into.
 ///
 /// Note the force statuses in the snapshot: `origin/main` was advanced past
@@ -1143,17 +1139,14 @@ f0c6d1c add foo.txt state=local/remote(identity)
 #[test]
 fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
     use crate::ref_info::with_workspace_commit::utils::{
-        StackState, add_stack, read_only_in_memory_scenario,
+        StackState, add_stack, project_meta, read_only_in_memory_scenario,
     };
     use anyhow::Context as _;
-    use but_core::RefMetadata as _;
 
     let (repo, mut meta) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
 
-    let project_meta = meta
-        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
-        .project_meta();
+    let project_meta = project_meta(&repo)?;
     let target_sha = project_meta
         .target_commit_id
         .context("scenario should configure a target")?;

@@ -288,25 +288,6 @@ fn legacy_to_snapshot(
     }: DbTomlFileState,
 ) -> anyhow::Result<VirtualBranchesSnapshot> {
     let initialized = true;
-    let (
-        default_target_remote_name,
-        default_target_branch_name,
-        default_target_remote_url,
-        default_target_sha,
-        default_target_push_remote_name,
-    ) = vb
-        .default_target
-        .as_ref()
-        .map(|target| {
-            (
-                Some(target.branch.remote().to_owned()),
-                Some(target.branch.branch().to_owned()),
-                Some(target.remote_url.clone()),
-                Some(target.sha.to_string()),
-                target.push_remote_name.clone(),
-            )
-        })
-        .unwrap_or_default();
     let last_pushed_base_sha = vb.last_pushed_base.map(|oid| oid.to_string());
 
     let mut stacks: Vec<_> = vb.branches.iter().collect();
@@ -403,11 +384,11 @@ fn legacy_to_snapshot(
 
     Ok(VirtualBranchesSnapshot {
         state: VbState {
-            default_target_remote_name,
-            default_target_branch_name,
-            default_target_remote_url,
-            default_target_sha,
-            default_target_push_remote_name,
+            default_target_remote_name: None,
+            default_target_branch_name: None,
+            default_target_remote_url: None,
+            default_target_sha: None,
+            default_target_push_remote_name: None,
             last_pushed_base_sha,
             initialized,
             toml_last_seen_mtime_ns,
@@ -426,22 +407,6 @@ fn snapshot_to_legacy(snapshot: &VirtualBranchesSnapshot) -> anyhow::Result<Virt
         heads,
         branch_targets: snapshot_branch_targets,
     } = snapshot;
-    let default_target = match (
-        state.default_target_remote_name.as_ref(),
-        state.default_target_branch_name.as_ref(),
-        state.default_target_remote_url.as_ref(),
-        state.default_target_sha.as_ref(),
-    ) {
-        (Some(remote), Some(branch), Some(remote_url), Some(sha)) => Some(Target {
-            branch: RemoteRefname::new(remote, branch),
-            remote_url: remote_url.clone(),
-            sha: gix::ObjectId::from_str(sha)
-                .with_context(|| format!("Invalid default target sha: {sha}"))?,
-            push_remote_name: state.default_target_push_remote_name.clone(),
-        }),
-        _ => None,
-    };
-
     let last_pushed_base = state
         .last_pushed_base_sha
         .as_ref()
@@ -583,7 +548,6 @@ fn snapshot_to_legacy(snapshot: &VirtualBranchesSnapshot) -> anyhow::Result<Virt
     }
 
     Ok(VirtualBranches {
-        default_target,
         branch_targets,
         branches,
         last_pushed_base,

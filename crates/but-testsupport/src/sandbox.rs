@@ -140,24 +140,19 @@ impl Sandbox {
         if matches!(meta_mode, InitMetadata::Allow)
             && let Ok(commit_id) = repo.rev_parse_single("origin/main")
         {
+            let storage_path = repo.gitbutler_storage_path().unwrap();
             sandbox.file(
-                repo.gitbutler_storage_path()
-                    .unwrap()
-                    .join("virtual_branches.toml"),
-                r#"
-[default_target]
-branchName = "main"
-remoteName = "origin"
-remoteUrl = "https://github.com/gitbutlerapp/gitbutler"
-sha = "<EXTRA_TARGET>"
-pushRemoteName = "origin"
-
-[branch_targets]
-
-[branches]
-        "#
-                .replace("<EXTRA_TARGET>", &commit_id.to_string()),
+                storage_path.join("virtual_branches.toml"),
+                "[branch_targets]\n\n[branches]\n",
             );
+            ProjectMeta {
+                target_ref: Some("refs/remotes/origin/main".try_into().unwrap()),
+                target_commit_id: Some(commit_id.detach()),
+                push_remote: Some("origin".into()),
+            }
+            .persist(&repo)
+            .unwrap();
+            let _ = std::fs::remove_file(storage_path.join("REFRESH"));
         }
         #[cfg(feature = "sandbox-but-api")]
         sandbox.set_default_settings();
@@ -245,7 +240,7 @@ impl Sandbox {
         .unwrap()
     }
 
-    /// Read project-scoped metadata, falling back to legacy workspace metadata.
+    /// Read project-scoped metadata.
     pub fn project_meta(&self) -> ProjectMeta {
         ProjectMeta::resolve(&self.open_repo(), &self.meta()).unwrap()
     }

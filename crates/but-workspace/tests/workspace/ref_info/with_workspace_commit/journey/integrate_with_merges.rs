@@ -4,10 +4,9 @@ use but_testsupport::visualize_commit_graph_all;
 use snapbox::prelude::*;
 
 use crate::ref_info::{
-    head_info,
     utils::standard_options,
     with_workspace_commit::{
-        journey::utils::standard_options_with_extra_target,
+        head_info, journey::utils::standard_options_with_extra_target,
         utils::named_read_only_in_memory_scenario_with_description,
     },
 };

@@ -22,7 +22,7 @@ use gix::refs::{FullName, FullNameRef};
 use itertools::Itertools;
 use tracing::instrument;
 
-use crate::virtual_branches_legacy_types::{Stack, StackBranch, Target, VirtualBranches};
+use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
 
 #[cfg(feature = "legacy")]
 pub mod storage;
@@ -254,26 +254,14 @@ impl Snapshot {
     fn project_workspace(&self, repo: &gix::Repository) -> anyhow::Result<but_graph::Workspace> {
         let mut reference = repo.find_reference(INTEGRATION_BRANCH)?;
         let commit_id = reference.peel_to_commit()?.id();
-        let mut sideeffect_free_meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata {
+        let sideeffect_free_meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata {
             snapshot: Snapshot {
                 changed_at: None,
                 ..self.clone()
             },
             write_on_drop: false,
         });
-        let project_meta = ProjectMeta::resolve(repo, &*sideeffect_free_meta)?;
-        // Project the resolved value into this side-effect-free legacy view so config always wins
-        // over stale legacy metadata during workspace reconciliation.
-        sideeffect_free_meta.snapshot.content.default_target =
-            match (&project_meta.target_ref, project_meta.target_commit_id) {
-                (Some(target_ref), Some(sha)) => Some(Target {
-                    branch: target_ref.to_string().parse()?,
-                    remote_url: String::new(),
-                    sha,
-                    push_remote_name: project_meta.push_remote.clone(),
-                }),
-                _ => None,
-            };
+        let project_meta = ProjectMeta::resolve(repo)?;
         let graph = but_graph::Graph::from_commit_traversal(
             commit_id,
             reference.name().to_owned(),
@@ -1162,16 +1150,6 @@ impl RefMetadata for BranchOrderMetadata {
 
 impl VirtualBranchesTomlMetadata {
     fn workspace_from_data(data: &VirtualBranches) -> Workspace {
-        let project_meta = data
-            .default_target
-            .as_ref()
-            .map(|target| ProjectMeta {
-                target_ref: gix::refs::FullName::try_from(target.branch.to_string()).ok(),
-                target_commit_id: (!target.sha.is_null()).then_some(target.sha),
-                push_remote: target.push_remote_name.clone(),
-            })
-            .unwrap_or_default();
-
         let stacks: Vec<_> = data
             .branches
             .values()
@@ -1179,9 +1157,9 @@ impl VirtualBranchesTomlMetadata {
             .cloned()
             .collect();
 
-        Workspace::new(
-            managed_ref_info(),
-            stacks
+        Workspace {
+            ref_info: managed_ref_info(),
+            stacks: stacks
                 .iter()
                 // We aren't able to handle these well, so let's ignore them.
                 .filter(|stack| !stack.heads.is_empty())
@@ -1208,7 +1186,7 @@ impl VirtualBranchesTomlMetadata {
                         .collect(),
                 })
                 .collect(),
-            project_meta,
+            ProjectMeta::default(),
         )
     }
 

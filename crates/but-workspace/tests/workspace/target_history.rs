@@ -1,3 +1,4 @@
+use but_core::ref_metadata::ProjectMeta;
 use but_testsupport::{CommandExt, git_at_dir, open_repo};
 
 #[test]
@@ -48,23 +49,11 @@ fn log_target_first_parent_uses_persisted_target_outside_workspace() -> anyhow::
         "the checked-out branch upstream must differ from the configured GitButler target"
     );
 
-    std::fs::create_dir_all(ctx.project_data_dir())?;
-    std::fs::write(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-        format!(
-            r#"
-[default_target]
-branchName = "main"
-remoteName = "origin"
-remoteUrl = ""
-sha = "{main_tip}"
-
-[branch_targets]
-
-[branches]
-"#
-        ),
-    )?;
+    ctx.set_project_meta(ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: Some(main_tip),
+        push_remote: None,
+    })?;
 
     let commits = but_workspace::legacy::log_target_first_parent(&ctx, None, 1)?;
 

@@ -20,10 +20,25 @@ pub fn head_info(
     meta: &but_meta::VirtualBranchesTomlMetadata,
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<but_workspace::RefInfo> {
-    opts.project_meta = meta
+    if opts.project_meta == Default::default() {
+        opts.project_meta = project_meta(repo, meta)?;
+    }
+    but_workspace::head_info(repo, meta, opts)
+}
+
+fn project_meta(
+    repo: &gix::Repository,
+    meta: &but_meta::VirtualBranchesTomlMetadata,
+) -> anyhow::Result<but_core::ref_metadata::ProjectMeta> {
+    let project_meta = meta
         .workspace(WORKSPACE_REF_NAME.try_into()?)?
         .project_meta();
-    but_workspace::head_info(repo, meta, opts)
+    if project_meta == Default::default() && repo.try_find_reference(WORKSPACE_REF_NAME)?.is_some()
+    {
+        with_workspace_commit::utils::project_meta(repo)
+    } else {
+        Ok(project_meta)
+    }
 }
 
 #[deprecated(
@@ -38,9 +53,7 @@ pub fn stacks_v3(
     but_workspace::legacy::stacks_v3(
         repo,
         meta,
-        &meta
-            .workspace(WORKSPACE_REF_NAME.try_into()?)?
-            .project_meta(),
+        &project_meta(repo, meta)?,
         filter,
         ref_name_override,
     )
@@ -54,14 +67,7 @@ pub fn stack_details_v3(
     repo: &gix::Repository,
     meta: &but_meta::VirtualBranchesTomlMetadata,
 ) -> anyhow::Result<but_workspace::ui::StackDetails> {
-    but_workspace::legacy::stack_details_v3(
-        stack_id,
-        repo,
-        meta,
-        &meta
-            .workspace(WORKSPACE_REF_NAME.try_into()?)?
-            .project_meta(),
-    )
+    but_workspace::legacy::stack_details_v3(stack_id, repo, meta, &project_meta(repo, meta)?)
 }
 
 fn first_commit(info: &but_workspace::RefInfo) -> &but_workspace::ref_info::LocalCommit {

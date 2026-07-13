@@ -380,7 +380,6 @@ fn read_only() -> anyhow::Result<()> {
 fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_unapply()
 -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
-    store.data_mut().default_target = None;
 
     let ws_ref = "refs/heads/gitbutler/workspace".try_into()?;
     let mut ws_md = store.workspace(ws_ref)?;
@@ -598,7 +597,6 @@ Workspace {
 #[test]
 fn set_workspace_stack_only_changes_are_written_on_drop() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
-    store.data_mut().default_target = None;
     let first_stack_id = StackId::from_number_for_testing(1);
     let second_stack_id = StackId::from_number_for_testing(2);
     let first_head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
@@ -665,7 +663,6 @@ fn set_workspace_stack_only_changes_are_written_on_drop() -> anyhow::Result<()> 
 #[test]
 fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
-    store.data_mut().default_target = None;
 
     let toml_path = store.path().to_owned();
     let branch_name: gix::refs::FullName = "refs/heads/feat".try_into()?;
@@ -1085,14 +1082,14 @@ Workspace {
 }
 
 #[test]
-fn legacy_project_meta_projection_is_read_only() -> anyhow::Result<()> {
+fn project_meta_is_not_stored_in_legacy_metadata() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
     let ws_name = "refs/heads/gitbutler/workspace".try_into()?;
     let mut ws = store.workspace(ws_name)?;
     assert_eq!(
         ws.project_meta().target_ref,
-        Some("refs/remotes/origin/sub-name/main".try_into()?),
-        "legacy metadata remains available for one-time migration"
+        None,
+        "legacy metadata no longer contains project metadata"
     );
     ws.set_project_meta(but_core::ref_metadata::ProjectMeta {
         target_ref: Some("refs/remotes/origin/main".try_into()?),
@@ -1115,8 +1112,8 @@ fn legacy_project_meta_projection_is_read_only() -> anyhow::Result<()> {
             .workspace("refs/heads/gitbutler/workspace".try_into()?)?
             .project_meta()
             .target_ref,
-        Some("refs/remotes/origin/sub-name/main".try_into()?),
-        "setting workspace ProjectMeta does not update the read-only legacy target"
+        None,
+        "setting workspace ProjectMeta does not add it to legacy metadata"
     );
 
     Ok(())
@@ -1294,7 +1291,7 @@ Workspace {
             workspacecommit_relation: Outside,
         },
     ],
-    target_ref: "refs/remotes/origin/sub-name/main",
+    target_ref: None,
     target_commit_id: None,
     push_remote: None,
 }
@@ -1335,7 +1332,7 @@ Workspace {
             workspacecommit_relation: Outside,
         },
     ],
-    target_ref: "refs/remotes/origin/sub-name/main",
+    target_ref: None,
     target_commit_id: None,
     push_remote: None,
 }
@@ -1348,26 +1345,6 @@ Workspace {
 #[test]
 fn dlib_rs_auto_fix() -> anyhow::Result<()> {
     let (store, _tmp) = vb_store_rw("non-unique-branches")?;
-
-    snapbox::assert_data_eq!(
-        store.data().default_target.to_debug(),
-        snapbox::str![[r#"
-Some(
-    Target {
-        branch: Refname {
-            remote: "origin",
-            branch: "main",
-        },
-        remote_url: "https://github.com/A2va/dlib-rs",
-        sha: Sha1(39b41821d90a6445815f32777ec5dbebb716897f),
-        push_remote_name: Some(
-            "origin",
-        ),
-    },
-)
-
-"#]]
-    );
     let ws_ref_name = "refs/heads/gitbutler/workspace".try_into()?;
     let ws = store.workspace(ws_ref_name)?;
     let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
@@ -1410,12 +1387,20 @@ Some(
     );
 
     // The above being stable already fixes `dlib`.
-    let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
+    let (repo, _repo_tmp) = but_testsupport::writable_scenario("dlib-standin");
+    let project_meta = but_core::ref_metadata::ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: Some(gix::ObjectId::from_hex(
+            b"39b41821d90a6445815f32777ec5dbebb716897f",
+        )?),
+        push_remote: Some("origin".into()),
+    };
+    project_meta.persist(&repo)?;
     let graph = but_graph::Graph::from_commit_traversal(
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
-        store.workspace(ws_ref_name)?.project_meta(),
+        project_meta.clone(),
         but_graph::init::Options::limited(),
     )?;
     // It looks very empty without reconciliation, as if it had not found any metadata (even though it's there).
@@ -1438,34 +1423,13 @@ Some(
     store.write_reconciled(&repo)?;
 
     let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
-    // The target was adjusted to fit the computed lower bound, which took the possibly stale
-    // stored value into consideration.
-    snapbox::assert_data_eq!(
-        store.data().default_target.to_debug(),
-        snapbox::str![[r#"
-Some(
-    Target {
-        branch: Refname {
-            remote: "origin",
-            branch: "main",
-        },
-        remote_url: "https://github.com/A2va/dlib-rs",
-        sha: Sha1(39b41821d90a6445815f32777ec5dbebb716897f),
-        push_remote_name: Some(
-            "origin",
-        ),
-    },
-)
-
-"#]]
-    );
 
     let ws = store.workspace(ws_ref_name)?;
     let graph = but_graph::Graph::from_commit_traversal(
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
-        store.workspace(ws_ref_name)?.project_meta(),
+        project_meta,
         but_graph::init::Options::limited(),
     )?;
     snapbox::assert_data_eq!(
@@ -1555,13 +1519,9 @@ fn vb_store_rw(name: &str) -> anyhow::Result<(VirtualBranchesTomlMetadata, TempD
 }
 
 #[test]
-fn legacy_target_is_read_but_not_written() -> anyhow::Result<()> {
+fn legacy_target_is_ignored_and_not_written() -> anyhow::Result<()> {
     let historical: but_meta::virtual_branches_legacy_types::VirtualBranches =
         toml::from_str(&std::fs::read_to_string(vb_fixture("virtual-branches-01"))?)?;
-    assert!(
-        historical.default_target.is_some(),
-        "historical default target remains readable"
-    );
 
     let stack_id = StackId::from_number_for_testing(1);
     let branch_target = Target {
@@ -1571,8 +1531,8 @@ fn legacy_target_is_read_but_not_written() -> anyhow::Result<()> {
         push_remote_name: Some("origin".into()),
     };
     let data = but_meta::virtual_branches_legacy_types::VirtualBranches {
-        default_target: historical.default_target,
         branch_targets: [(stack_id, branch_target.clone())].into(),
+        branches: historical.branches,
         ..Default::default()
     };
     let canonical = toml::to_string(&data)?;
@@ -1626,18 +1586,8 @@ fn rename_onto_an_existing_branch_is_rejected() -> anyhow::Result<()> {
 
 fn empty_vb_store_rw() -> anyhow::Result<(VirtualBranchesTomlMetadata, TempDir)> {
     let tmp = tempdir()?;
-    let mut store = VirtualBranchesTomlMetadata::from_path(tmp.path().join("vb.toml"))?;
-    store.data_mut().default_target = Some(default_target());
+    let store = VirtualBranchesTomlMetadata::from_path(tmp.path().join("vb.toml"))?;
     Ok((store, tmp))
-}
-
-fn default_target() -> Target {
-    Target {
-        branch: RemoteRefname::new("origin/sub-name", "main"),
-        remote_url: "https://example.com/example-org/example-repo".to_string(),
-        sha: gix::hash::Kind::Sha1.null(),
-        push_remote_name: None,
-    }
 }
 
 /// Assure everything can round-trip and the data looks consistent, independently of the actual data,
@@ -1764,7 +1714,6 @@ fn garbage_collect_removes_outside_workspace_stack_at_target() -> anyhow::Result
     let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
     let target = repo.head_id()?.detach();
     let (mut store, _tmp) = empty_vb_store_rw()?;
-    store.data_mut().default_target.as_mut().unwrap().sha = target;
 
     let workspace_stack = LegacyStack::new_with_just_heads(
         vec![StackBranch {
@@ -1799,7 +1748,7 @@ fn garbage_collect_removes_outside_workspace_stack_at_target() -> anyhow::Result
         .branches
         .insert(outside_stack_id, outside_stack);
 
-    store.garbage_collect(&repo, &project_meta(&store))?;
+    store.garbage_collect(&repo, &project_meta(target))?;
 
     assert!(store.data().branches.contains_key(&workspace_stack_id));
     assert!(!store.data().branches.contains_key(&outside_stack_id));
@@ -1812,7 +1761,6 @@ fn garbage_collect_removes_outside_workspace_stack_with_missing_head() -> anyhow
     let target = repo.head_id()?.detach();
     let missing_head = gix::ObjectId::from_hex(b"30696678319e0fa3a20e54f22d47fc8cf1ceaade")?;
     let (mut store, _tmp) = empty_vb_store_rw()?;
-    store.data_mut().default_target.as_mut().unwrap().sha = target;
     let outside_stack = LegacyStack::new_with_just_heads(
         vec![StackBranch {
             head: missing_head,
@@ -1830,7 +1778,7 @@ fn garbage_collect_removes_outside_workspace_stack_with_missing_head() -> anyhow
         .branches
         .insert(outside_stack_id, outside_stack);
 
-    store.garbage_collect(&repo, &project_meta(&store))?;
+    store.garbage_collect(&repo, &project_meta(target))?;
 
     assert!(!store.data().branches.contains_key(&outside_stack_id));
     Ok(())
@@ -1849,7 +1797,6 @@ fn garbage_collect_removes_outside_workspace_stack_with_broken_ref() -> anyhow::
     )?;
     repo.reload()?;
     let (mut store, _tmp) = empty_vb_store_rw()?;
-    store.data_mut().default_target.as_mut().unwrap().sha = target;
     let outside_stack = LegacyStack::new_with_just_heads(
         vec![StackBranch {
             head: target,
@@ -1867,7 +1814,7 @@ fn garbage_collect_removes_outside_workspace_stack_with_broken_ref() -> anyhow::
         .branches
         .insert(outside_stack_id, outside_stack);
 
-    store.garbage_collect(&repo, &project_meta(&store))?;
+    store.garbage_collect(&repo, &project_meta(target))?;
 
     assert!(!store.data().branches.contains_key(&outside_stack_id));
     Ok(())
@@ -1875,14 +1822,14 @@ fn garbage_collect_removes_outside_workspace_stack_with_broken_ref() -> anyhow::
 
 #[test]
 fn preserves_duplicate_heads_if_they_map_to_the_same_workspace_segment() -> anyhow::Result<()> {
-    let repo = but_testsupport::read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
+    let (repo, _repo_tmp) = but_testsupport::writable_scenario("ws/multi-lane-with-shared-segment");
     let (mut store, _tmp) = empty_vb_store_rw()?;
-    store.data_mut().default_target = Some(Target {
-        branch: RemoteRefname::new("origin", "main"),
-        remote_url: "https://example.com/example-org/example-repo".to_string(),
-        sha: gix::hash::Kind::Sha1.null(),
-        push_remote_name: Some("origin".into()),
-    });
+    but_core::ref_metadata::ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: None,
+        push_remote: Some("origin".into()),
+    }
+    .persist(&repo)?;
 
     let stack_a = LegacyStack::new_with_just_heads(
         vec![
@@ -1969,12 +1916,9 @@ fn falls_back_to_in_memory_db_when_persistent_db_open_fails() -> anyhow::Result<
     Ok(())
 }
 
-fn project_meta(meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
-    meta.workspace(
-        but_core::WORKSPACE_REF_NAME
-            .try_into()
-            .expect("valid workspace ref"),
-    )
-    .map(|workspace| workspace.project_meta())
-    .unwrap_or_default()
+fn project_meta(target_commit_id: gix::ObjectId) -> but_core::ref_metadata::ProjectMeta {
+    but_core::ref_metadata::ProjectMeta {
+        target_commit_id: Some(target_commit_id),
+        ..Default::default()
+    }
 }

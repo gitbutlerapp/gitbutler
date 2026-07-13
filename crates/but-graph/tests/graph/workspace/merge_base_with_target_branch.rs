@@ -78,13 +78,12 @@ fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
     );
 
     add_workspace(&mut meta);
-    meta.data_mut().default_target = None;
 
     // Use extra_target to set a lower bound
     let graph = Graph::from_head(
         &repo,
         &*meta,
-        project_meta(&*meta),
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -112,8 +111,13 @@ fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace_without_target(&mut meta);
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let ws = graph.into_workspace()?;
 
     assert!(ws.target_ref.is_none(), "should not have target_ref");

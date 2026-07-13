@@ -13,9 +13,6 @@ use serde::{Deserialize, Serialize};
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct VirtualBranches {
-    /// This is the target/base that is set when a repo is added to gb
-    #[serde(default, skip_serializing)]
-    pub default_target: Option<Target>,
     /// The targets for each virtual branch
     pub branch_targets: HashMap<StackId, Target>,
     /// The current state of the virtual branches
@@ -464,7 +461,6 @@ pub use stack::*;
 mod target {
     use std::str::FromStr;
 
-    use but_core::ref_metadata::ProjectMeta;
     use gitbutler_reference::RemoteRefname;
     use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeStruct};
 
@@ -488,18 +484,6 @@ mod target {
         pub sha: gix::ObjectId,
         /// The name of the remote to push to.
         pub push_remote_name: Option<String>,
-    }
-
-    impl TryFrom<&Target> for ProjectMeta {
-        type Error = anyhow::Error;
-
-        fn try_from(target: &Target) -> anyhow::Result<Self> {
-            Ok(ProjectMeta {
-                target_ref: Some(target.branch.to_string().try_into()?),
-                target_commit_id: Some(target.sha),
-                push_remote: target.push_remote_name.clone(),
-            })
-        }
     }
 
     impl Serialize for Target {

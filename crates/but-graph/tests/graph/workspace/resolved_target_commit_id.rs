@@ -109,11 +109,11 @@ fn prefers_target_commit_over_target_ref() -> anyhow::Result<()> {
         .raw()
     );
 
-    // Set target_commit (default_target.sha) to M2, while target_ref points to origin/main (RM1).
+    // Set target_commit to M2, while target_ref points to origin/main (RM1).
     let m2 = repo.rev_parse_single(":/M2")?.detach();
-    add_workspace_with_target(&mut meta, m2);
+    let project_meta = add_workspace_with_target(&mut meta, m2);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+    let ws = Graph::from_head(&repo, &*meta, project_meta, standard_options())?
         .validated()?
         .into_workspace()?;
 
@@ -135,9 +135,14 @@ fn returns_none_when_no_target() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
     add_workspace_without_target(&mut meta);
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
 
     assert!(
         ws.resolved_target_commit_id().is_none(),
@@ -152,12 +157,11 @@ fn returns_extra_target_without_target_ref() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
 
     add_workspace(&mut meta);
-    meta.data_mut().default_target = None;
 
     let ws = Graph::from_head(
         &repo,
         &*meta,
-        project_meta(&*meta),
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?

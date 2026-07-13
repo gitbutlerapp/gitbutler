@@ -1,10 +1,11 @@
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
-use but_core::{Commit, RefMetadata};
+use but_core::{Commit, RefMetadata, ref_metadata::ProjectMeta};
 use but_graph::init::{Options, Tip};
-use but_meta::virtual_branches_legacy_types::Target;
 use but_rebase::graph_rebase::mutate::RelativeTo;
-use but_testsupport::{CommandExt, git, graph_workspace, visualize_commit_graph_all};
+use but_testsupport::{
+    CommandExt, InMemoryRefMetadata, git, graph_workspace, visualize_commit_graph_all,
+};
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, ReviewIntegrationHint, integrate_upstream,
     integrate_upstream_with_hints, worktree_conflicts_for_rebase,
@@ -17,10 +18,12 @@ use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack, add_stack_with_segments, named_writable_scenario_with_description,
 };
 
-fn project_meta(meta: &impl RefMetadata) -> Result<but_core::ref_metadata::ProjectMeta> {
-    Ok(meta
-        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
-        .project_meta())
+fn target_project_meta(target_ref: &str, target_commit_id: gix::ObjectId) -> Result<ProjectMeta> {
+    Ok(ProjectMeta {
+        target_ref: Some(target_ref.try_into()?),
+        target_commit_id: Some(target_commit_id),
+        push_remote: None,
+    })
 }
 
 #[test]
@@ -29,17 +32,12 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         named_writable_scenario_with_description("diamond-partially-historically-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "master"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: o1_id,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -122,17 +120,12 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         named_writable_scenario_with_description("diamond-partially-historically-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "master"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: o1_id,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -213,17 +206,12 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         named_writable_scenario_with_description("diamond-partially-content-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "master"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: o1_id,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -311,17 +299,12 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         named_writable_scenario_with_description("diamond-partially-content-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "master"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: o1_id,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -400,12 +383,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
 
     // No workspace branch, commit, or stack metadata: HEAD is checked out directly on `A`,
     // the top of a two-branch stack whose bottom branch `B` is integrated into the target.
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -416,7 +394,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
             ),
         ],
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -496,12 +474,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
     git(&repo).args(["branch", "-f", "main", "B"]).run();
     git(&repo).args(["branch", "master", "B"]).run();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -512,7 +485,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
             ),
         ],
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -559,12 +532,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
 
     // No workspace branch, commit, or stack metadata: HEAD is checked out directly on `A`,
     // the top of a two-branch stack whose bottom branch `B` is integrated into the target.
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -575,7 +543,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
             ),
         ],
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -663,17 +631,12 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         named_writable_scenario_with_description("remote-diverged-with-workspace-conflicting")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "A"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/A", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -767,18 +730,13 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -814,7 +772,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
 "#]]
     );
 
-    integrate_and_materialize(
+    let project_meta = integrate_and_materialize(
         &mut workspace,
         &mut meta,
         &repo,
@@ -831,7 +789,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -863,17 +821,12 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-single-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -902,7 +855,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
 "#]]
     );
 
-    integrate_and_materialize(
+    let project_meta = integrate_and_materialize(
         &mut workspace,
         &mut meta,
         &repo,
@@ -912,8 +865,9 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         }],
     )?;
 
+    let meta = empty_managed_workspace_metadata(&meta)?;
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -941,17 +895,12 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -984,7 +933,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
 "#]]
     );
 
-    integrate_and_materialize(
+    let project_meta = integrate_and_materialize(
         &mut workspace,
         &mut meta,
         &repo,
@@ -994,8 +943,9 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         }],
     )?;
 
+    let meta = empty_managed_workspace_metadata(&meta)?;
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1025,17 +975,12 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1043,7 +988,6 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
     )?;
 
     let mut workspace = graph.into_workspace()?;
-    let project_meta = project_meta(&meta)?;
     let out = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -1094,17 +1038,12 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     )?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1142,7 +1081,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
 "#]]
     );
 
-    integrate_and_materialize(
+    let project_meta = integrate_and_materialize(
         &mut workspace,
         &mut meta,
         &repo,
@@ -1152,8 +1091,9 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
         }],
     )?;
 
+    let meta = empty_managed_workspace_metadata(&meta)?;
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1199,16 +1139,11 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         PreviousValue::MustNotExist,
         "reserve first canned branch name",
     )?;
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1295,16 +1230,11 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         PreviousValue::MustNotExist,
         "reserve first canned branch name",
     )?;
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1354,20 +1284,26 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
 
 #[test]
 fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, meta, _description) =
         named_writable_scenario_with_description("empty-workspace-target-advanced")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
-    let graph = but_graph::Graph::from_head(
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let mut meta = empty_managed_workspace_metadata(&meta)?;
+    let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
+        [
+            Tip::entrypoint(
+                repo.head_id()?.detach(),
+                Some(but_core::WORKSPACE_REF_NAME.try_into()?),
+            ),
+            Tip::integrated(
+                repo.rev_parse_single("origin/main")?.detach(),
+                Some("refs/remotes/origin/main".try_into()?),
+            ),
+        ],
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1387,20 +1323,26 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
 
 #[test]
 fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, meta, _description) =
         named_writable_scenario_with_description("empty-workspace-target-advanced-through-merge")?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
-    let graph = but_graph::Graph::from_head(
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let mut meta = empty_managed_workspace_metadata(&meta)?;
+    let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
+        [
+            Tip::entrypoint(
+                repo.head_id()?.detach(),
+                Some(but_core::WORKSPACE_REF_NAME.try_into()?),
+            ),
+            Tip::integrated(
+                repo.rev_parse_single("origin/main")?.detach(),
+                Some("refs/remotes/origin/main".try_into()?),
+            ),
+        ],
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1427,17 +1369,12 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     let target_sha = repo.rev_parse_single("target-sha")?.detach();
     let anonymous_commit_c2 = repo.rev_parse_single("gitbutler/workspace^")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1473,7 +1410,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
 
 "#]]
     );
-    integrate_and_materialize(
+    let project_meta = integrate_and_materialize(
         &mut workspace,
         &mut meta,
         &repo,
@@ -1484,7 +1421,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1528,17 +1465,12 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
         named_writable_scenario_with_description("upstream-integration-worktree-conflict")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1547,7 +1479,6 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
     let mut workspace = graph.into_workspace()?;
 
     std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
-    let project_meta = project_meta(&meta)?;
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -1583,17 +1514,12 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
         named_writable_scenario_with_description("upstream-integration-worktree-conflict")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1605,7 +1531,6 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
     git(&repo).args(["add", "shared.txt"]).run();
     std::fs::write(tmp.path().join("shared.txt"), "base\n")?;
 
-    let project_meta = project_meta(&meta)?;
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -1633,18 +1558,13 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         named_writable_scenario_with_description("partially-integrated-multi-branch-stack")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1683,7 +1603,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
 "#]]
     );
 
-    integrate_and_materialize(
+    let project_meta = integrate_and_materialize(
         &mut workspace,
         &mut meta,
         &repo,
@@ -1700,7 +1620,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1739,18 +1659,13 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-multi-branch-stack")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1789,7 +1704,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
 "#]]
     );
 
-    integrate_and_materialize(
+    let project_meta = integrate_and_materialize(
         &mut workspace,
         &mut meta,
         &repo,
@@ -1806,7 +1721,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1839,18 +1754,13 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-two-stacks")?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1893,7 +1803,7 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
 "#]]
     );
 
-    integrate_and_materialize(
+    let project_meta = integrate_and_materialize(
         &mut workspace,
         &mut meta,
         &repo,
@@ -1909,8 +1819,9 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
         ],
     )?;
 
+    let meta = empty_managed_workspace_metadata(&meta)?;
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1948,17 +1859,12 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
     )?;
     let target_sha = repo.rev_parse_single("main~3")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1992,18 +1898,13 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
     )?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2036,18 +1937,13 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2085,17 +1981,12 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-empty-stack-target-advanced")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2128,17 +2019,12 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         named_writable_scenario_with_description("empty-branch-remote-tip-integrated")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "topic", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2174,7 +2060,6 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
 
     let topic_bottom_commit = repo.rev_parse_single("topic")?.object()?.id;
 
-    let project_meta = project_meta(&meta)?;
     let out = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -2229,17 +2114,12 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
         named_writable_scenario_with_description("non-empty-branch-remote-tip-integrated")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "topic", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2276,7 +2156,6 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
 "#]]
     );
     let topic_base = repo.rev_parse_single("topic~")?.object()?.id;
-    let project_meta = project_meta(&meta)?;
     integrate_and_materialize(
         &mut workspace,
         &mut meta,
@@ -2336,17 +2215,12 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         named_writable_scenario_with_description("merged-branch-below-empty-branch")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "top", StackState::InWorkspace, &["bottom"]);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2382,7 +2256,6 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     );
 
     let bottom_bottom_commit = repo.rev_parse_single("bottom")?.object()?.id;
-    let project_meta = project_meta(&meta)?;
     let out = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -2446,17 +2319,12 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-single-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2495,18 +2363,13 @@ fn orphan_reparent_two_stacks_through_merge_target() -> Result<()> {
     )?;
     let target_sha = repo.rev_parse_single("main~3")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2546,12 +2409,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -2562,7 +2420,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
             ),
         ],
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2607,18 +2465,13 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2723,12 +2576,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -2739,7 +2587,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
             ),
         ],
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2829,17 +2677,12 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A^")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -2874,7 +2717,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
 "#]]
     );
 
-    integrate_with_hints_and_materialize(
+    let project_meta = integrate_with_hints_and_materialize(
         &mut workspace,
         &mut meta,
         &repo,
@@ -2888,7 +2731,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_head(&repo, &meta, project_meta.clone(), Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -2923,12 +2766,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A^")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -2939,7 +2777,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
             ),
         ],
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3037,12 +2875,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A")?.detach();
 
-    meta.data_mut().default_target = Some(Target {
-        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-        sha: target_sha,
-        push_remote_name: None,
-    });
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
     std::fs::write(
         repo.workdir()
             .context("fixture repos should be writable")?
@@ -3064,7 +2897,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
             ),
         ],
         &meta,
-        project_meta(&meta)?,
+        project_meta.clone(),
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -3113,24 +2946,34 @@ fn integrate_and_materialize<M: RefMetadata>(
     meta: &mut M,
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
-) -> Result<()> {
+) -> Result<ProjectMeta> {
+    let current_project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
         ws_meta,
         project_meta,
-    } = integrate_upstream(workspace, meta, project_meta(&*meta)?, repo, updates)?;
+    } = integrate_upstream(workspace, meta, current_project_meta, repo, updates)?;
     let materialized = rebase.materialize()?;
     if let Some(ref_name) = materialized.workspace.ref_name()
         && let Some(ws_meta) = ws_meta
     {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
-        md.set_project_meta(project_meta);
+        md.set_project_meta(project_meta.clone());
         materialized.meta.set_workspace(&md)?;
     }
     drop(materialized);
 
-    Ok(())
+    Ok(project_meta)
+}
+
+fn empty_managed_workspace_metadata(meta: &impl RefMetadata) -> Result<InMemoryRefMetadata> {
+    let ref_name = gix::refs::FullName::try_from(but_core::WORKSPACE_REF_NAME)?;
+    let workspace = (*meta.workspace(ref_name.as_ref())?).clone();
+    Ok(InMemoryRefMetadata {
+        workspaces: vec![(ref_name, workspace)],
+        ..Default::default()
+    })
 }
 
 fn integrate_with_hints_and_materialize<M: RefMetadata>(
@@ -3139,7 +2982,8 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
     review_hints: &[ReviewIntegrationHint],
-) -> Result<()> {
+) -> Result<ProjectMeta> {
+    let current_project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
         ws_meta,
@@ -3147,7 +2991,7 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
     } = integrate_upstream_with_hints(
         workspace,
         meta,
-        project_meta(&*meta)?,
+        current_project_meta,
         repo,
         updates,
         review_hints,
@@ -3158,12 +3002,12 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
     {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
-        md.set_project_meta(project_meta);
+        md.set_project_meta(project_meta.clone());
         materialized.meta.set_workspace(&md)?;
     }
     drop(materialized);
 
-    Ok(())
+    Ok(project_meta)
 }
 
 fn workspace_first_parent(repo: &gix::Repository) -> Result<gix::ObjectId> {

@@ -1,13 +1,15 @@
-use but_core::RefMetadata;
 use but_testsupport::visualize_commit_graph_all;
 use but_workspace::branch_details;
 use snapbox::prelude::*;
 
-use crate::ref_info::with_workspace_commit::read_only_in_memory_scenario;
+use crate::ref_info::with_workspace_commit::{
+    read_only_in_memory_scenario,
+    utils::{StackState, add_stack},
+};
 
 #[test]
 fn disjoint() -> anyhow::Result<()> {
-    let (repo, meta) = read_only_in_memory_scenario("disjoint")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("disjoint")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -17,9 +19,8 @@ fn disjoint() -> anyhow::Result<()> {
 "#]]
     );
 
-    let project_meta = meta
-        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
-        .project_meta();
+    add_stack(&mut meta, 1, "disjoint", StackState::InWorkspace);
+    let project_meta = super::utils::project_meta(&repo)?;
     let actual = branch_details(
         &repo,
         "refs/heads/disjoint".try_into()?,

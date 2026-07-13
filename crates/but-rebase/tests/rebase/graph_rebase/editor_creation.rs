@@ -10,13 +10,26 @@ use crate::{
 };
 
 fn project_meta(meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
-    meta.workspace(
-        but_core::WORKSPACE_REF_NAME
-            .try_into()
-            .expect("valid workspace ref"),
-    )
-    .map(|workspace| workspace.project_meta())
-    .unwrap_or_default()
+    let project_meta = meta
+        .workspace(
+            but_core::WORKSPACE_REF_NAME
+                .try_into()
+                .expect("valid workspace ref"),
+        )
+        .map(|workspace| workspace.project_meta())
+        .unwrap_or_default();
+    if project_meta == but_core::ref_metadata::ProjectMeta::default() {
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(
+                "refs/remotes/origin/main"
+                    .try_into()
+                    .expect("valid target ref"),
+            ),
+            ..Default::default()
+        }
+    } else {
+        project_meta
+    }
 }
 
 #[test]

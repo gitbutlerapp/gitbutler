@@ -1,7 +1,7 @@
 use crate::{
     ref_info::with_workspace_commit::utils::{
         StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
-        named_writable_scenario, named_writable_scenario_with_description_and_graph,
+        named_writable_scenario, named_writable_scenario_with_description_and_graph, project_meta,
     },
     utils::r,
 };
@@ -28,16 +28,6 @@ use but_workspace::branch::{
 };
 use gix::refs::{Category, transaction::PreviousValue};
 use snapbox::prelude::*;
-
-fn project_meta(meta: &impl RefMetadata) -> ref_metadata::ProjectMeta {
-    meta.workspace(
-        but_core::WORKSPACE_REF_NAME
-            .try_into()
-            .expect("valid workspace ref"),
-    )
-    .map(|workspace| workspace.project_meta())
-    .unwrap_or_default()
-}
 
 fn assert_worktree_files(repo: &gix::Repository, present: &[&str], absent: &[&str]) {
     for path in present {
@@ -658,7 +648,7 @@ Outcome {
         let ws = Graph::from_head(
             &repo,
             &meta,
-            project_meta(&meta),
+            project_meta(&repo)?,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -721,7 +711,7 @@ Outcome {
         let ws = Graph::from_head(
             &repo,
             &meta,
-            project_meta(&meta),
+            project_meta(&repo)?,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -776,7 +766,7 @@ Outcome {
         let ws = Graph::from_head(
             &repo,
             &meta,
-            project_meta(&meta),
+            project_meta(&repo)?,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -919,7 +909,7 @@ Outcome {
         let ws = Graph::from_head(
             &repo,
             &meta,
-            project_meta(&meta),
+            project_meta(&repo)?,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -1582,26 +1572,11 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
             |_meta| {},
         )?;
 
-    // Delete the target branch.
-    {
-        let mut ws_md = meta.workspace("refs/heads/gitbutler/workspace".try_into().unwrap())?;
-        let mut project_meta = ws_md.project_meta();
-        assert!(project_meta.target_ref.is_some());
-        project_meta.target_ref.take();
-        ws_md.set_project_meta(project_meta);
-        meta.set_workspace(&ws_md)?;
-        let ws_md = meta.workspace("refs/heads/gitbutler/workspace".try_into().unwrap())?;
-        assert!(
-            ws_md.project_meta().target_ref.is_none(),
-            "we just deleted it, it should be transferred"
-        );
-    }
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta(&meta),
-        standard_traversal_options(),
-    )?;
+    let mut project_meta = project_meta(&repo)?;
+    project_meta.target_ref = None;
+    project_meta.target_commit_id = None;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, standard_traversal_options())?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -1811,7 +1786,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_with_target
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta),
+        project_meta(&repo)?,
         standard_traversal_options(),
     )?;
     snapbox::assert_data_eq!(
@@ -2115,7 +2090,7 @@ fn apply_from_enclosed_adhoc_workspace_rebuilds_around_current_and_applied() -> 
     let ws = Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta),
+        project_meta(&repo)?,
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -2284,7 +2259,7 @@ fn apply_from_adhoc_checkout_rebuilds_around_current_and_applied() -> anyhow::Re
     let ws = Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta),
+        project_meta(&repo)?,
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -2387,7 +2362,7 @@ fn apply_already_applied_branch_from_adhoc_checkout_excludes_other_applied_stack
     let ws = Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta),
+        project_meta(&repo)?,
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -2454,14 +2429,14 @@ fn new_workspace_exists_elsewhere_and_to_be_applied_branch_exists_there() -> any
         but_graph::init::Options::default(),
     )?;
     let ws = graph.into_workspace()?;
-    // Note how the existing `gitbutler/workspace` disappears, which is expected here.
+    // The existing workspace isn't projected without its ProjectMeta, but its ref stays visible.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:1:B <> ✓!
-└── ≡:1:B {1}
-    └── :1:B
-        └── ·e5d0542 ►A, ►main
+⌂:0:B <> ✓!
+└── ≡:0:B {1}
+    └── :0:B
+        └── ·e5d0542 ►A, ►gitbutler/workspace[🌳], ►main
 
 "#]]
     );
@@ -2750,7 +2725,7 @@ Outcome {
         let ws = Graph::from_head(
             &repo,
             &meta,
-            project_meta(&meta),
+            project_meta(&repo)?,
             standard_traversal_options(),
         )?
         .into_workspace()?;
@@ -2960,9 +2935,7 @@ Outcome {
 #[test]
 fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
     let (_tmp, mut graph, repo, mut meta, _description) =
-        named_writable_scenario_with_description_and_graph("one-fork", |meta| {
-            meta.data_mut().default_target = None;
-        })?;
+        named_writable_scenario_with_description_and_graph("one-fork", |_| {})?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -2977,6 +2950,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
 "#]]
     );
 
+    graph.project_meta = Default::default();
     graph.options.extra_target_commit_id = None;
     let graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;
     let ws = graph.into_workspace()?;
@@ -3185,9 +3159,7 @@ Outcome {
 #[test]
 fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> {
     let (_tmp, mut graph, repo, mut meta, _description) =
-        named_writable_scenario_with_description_and_graph("one-fork", |meta| {
-            meta.data_mut().default_target = None;
-        })?;
+        named_writable_scenario_with_description_and_graph("one-fork", |_| {})?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -3201,6 +3173,7 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
 
 "#]]
     );
+    graph.project_meta = Default::default();
     graph.options.extra_target_commit_id = None;
     let graph = graph.redo_traversal_with_overlay(&repo, &meta, Overlay::default())?;
     let ws = graph.into_workspace()?;
@@ -4153,9 +4126,7 @@ Outcome {
 #[test]
 fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Result<()> {
     let (_tmp, _, repo, mut meta, _description) =
-        named_writable_scenario_with_description_and_graph("with-conflict", |meta| {
-            meta.data_mut().default_target = None;
-        })?;
+        named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
     // the fixture starts on a conflicted main commit
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -4174,7 +4145,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
     let ws = Graph::from_head(
         &repo,
         &meta,
-        project_meta(&meta),
+        ref_metadata::ProjectMeta::default(),
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -4921,7 +4892,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
     let mut ws = but_graph::Graph::from_head(
         &repo,
         &meta,
-        but_core::ref_metadata::ProjectMeta::default(),
+        project_meta(&repo)?,
         Options {
             extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
             ..Options::limited()
@@ -5641,7 +5612,7 @@ Outcome {
     let ws = but_graph::Graph::from_head(
         &repo,
         &meta,
-        but_core::ref_metadata::ProjectMeta::default(),
+        project_meta(&repo)?,
         standard_traversal_options_with_extra_target(&repo),
     )?
     .into_workspace()?;
@@ -5869,7 +5840,7 @@ Outcome {
         b_id,
         b_ref.clone(),
         &meta,
-        project_meta(&meta),
+        project_meta(&repo)?,
         but_graph::init::Options::default(),
     )?
     .into_workspace()?;
@@ -5972,25 +5943,13 @@ fn apply_nonexisting_branch_failure() -> anyhow::Result<()> {
 "#]]
     );
 
-    meta.data_mut()
-        .default_target
-        .as_mut()
-        .expect("workspace configured")
-        .sha = gix::hash::Kind::Sha1.null();
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓!
-└── ≡:1:anon:
-    └── :1:anon:
-        └── ·e5d0542 (🏘️) ►A, ►B, ►main
+📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
 
 "#]]
     );
@@ -6031,25 +5990,13 @@ fn unapply_nonexisting_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    meta.data_mut()
-        .default_target
-        .as_mut()
-        .expect("workspace configured")
-        .sha = gix::hash::Kind::Sha1.null();
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &*meta, project_meta(&repo)?, Options::limited())?;
     let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓!
-└── ≡:1:anon:
-    └── :1:anon:
-        └── ·e5d0542 (🏘️) ►A, ►B, ►main
+📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
 
 "#]]
     );

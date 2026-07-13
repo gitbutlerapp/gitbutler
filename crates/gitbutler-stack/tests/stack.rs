@@ -914,14 +914,7 @@ fn storage_sync_bootstraps_db_from_existing_toml() -> Result<()> {
     let toml_path = tmp.path().join("virtual_branches.toml");
     fs::write(
         &toml_path,
-        r#"[default_target]
-branchName = "main"
-remoteName = "origin"
-remoteUrl = "https://example.invalid/repo"
-sha = "1111111111111111111111111111111111111111"
-pushRemoteName = "origin"
-
-[branch_targets]
+        r#"[branch_targets]
 
 [branches]
 "#,
@@ -931,10 +924,7 @@ pushRemoteName = "origin"
     let state = handle.read_file()?;
     let mut handle = handle;
     handle.write_file(&state)?;
-    assert!(
-        !fs::read_to_string(toml_path)?.contains("[default_target]"),
-        "the legacy target is accepted as input but removed by a canonical write"
-    );
+    assert!(toml_path.exists(), "the TOML mirror stays available");
 
     Ok(())
 }

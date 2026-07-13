@@ -28,7 +28,6 @@ pub struct VirtualBranches {
 impl From<virtual_branches_legacy_types::VirtualBranches> for VirtualBranches {
     fn from(
         virtual_branches_legacy_types::VirtualBranches {
-            default_target: _,
             branch_targets,
             branches,
             last_pushed_base,
@@ -54,7 +53,6 @@ impl From<VirtualBranches> for virtual_branches_legacy_types::VirtualBranches {
         }: VirtualBranches,
     ) -> Self {
         virtual_branches_legacy_types::VirtualBranches {
-            default_target: None,
             branch_targets: branch_targets
                 .into_iter()
                 .map(|(k, v)| (k, v.into()))

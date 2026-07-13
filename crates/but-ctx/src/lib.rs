@@ -777,12 +777,6 @@ impl Context {
         )?;
         graph.into_workspace()
     }
-
-    fn meta_inner_read_only(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
-        but_meta::VirtualBranchesTomlMetadata::from_path_read_only(
-            self.project_data_dir().join("virtual_branches.toml"),
-        )
-    }
 }
 
 /// Non-project/global data access. Only for when no project is available (yet).
@@ -799,25 +793,14 @@ impl Context {
 
 /// Utilities
 impl Context {
-    /// Return project metadata from Git config, porting and removing legacy workspace metadata.
+    /// Return project metadata from Git config.
     ///
     /// This always reads the current on-disk state, so target changes made by other processes
     /// or through other repository handles are observed even by long-lived instances.
     pub fn project_meta(&self) -> anyhow::Result<ProjectMeta> {
         let repo = self.repo.get()?;
-        let was_ported = ProjectMeta::is_ported_repo(&repo)?;
-        let mut legacy_meta = self.meta_inner_read_only()?;
-        let had_legacy_target = legacy_meta.data().default_target.is_some();
-        let mut project_meta = ProjectMeta::resolve(&repo, &legacy_meta)?;
-        if !was_ported {
-            project_meta = project_meta.persist(&repo)?;
-        }
-        if had_legacy_target {
-            legacy_meta.data_mut().default_target = None;
-            legacy_meta.set_changed_to_necessitate_write();
-            legacy_meta.write_unreconciled()?;
-        }
-        Ok(project_meta)
+        let config = but_core::git_config::open_repo_local_config_for_reading(&repo)?;
+        ProjectMeta::try_from_config(&config)
     }
 
     /// Store project metadata in Git config.

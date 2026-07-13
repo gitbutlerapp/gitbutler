@@ -468,7 +468,7 @@ impl ProjectMeta {
 
 impl ProjectMeta {
     /// Read project metadata for `repo`, falling back to the legacy workspace metadata in `meta`
-    /// when it wasn't ported to Git configuration yet.
+    /// when Git configuration contains no project metadata yet.
     ///
     /// This re-reads the repository-local configuration file from disk so that changes made
     /// through other repository handles or by other processes are always observed.
@@ -476,8 +476,9 @@ impl ProjectMeta {
     /// porting legacy metadata with [`Self::persist()`].
     pub fn resolve(repo: &gix::Repository, meta: &impl crate::RefMetadata) -> anyhow::Result<Self> {
         let config = git_config::open_repo_local_config_for_reading(repo)?;
-        if Self::is_ported(&config) {
-            return Self::try_from_config(&config);
+        let project_meta = Self::try_from_config(&config)?;
+        if Self::is_ported(&config) || project_meta != Self::default() {
+            return Ok(project_meta);
         }
         Self::from_legacy_meta(meta)
     }
@@ -491,8 +492,9 @@ impl ProjectMeta {
         legacy_fallback: impl FnOnce() -> anyhow::Result<M>,
     ) -> anyhow::Result<Self> {
         let config = git_config::open_repo_local_config_for_reading(repo)?;
-        if Self::is_ported(&config) {
-            return Self::try_from_config(&config);
+        let project_meta = Self::try_from_config(&config)?;
+        if Self::is_ported(&config) || project_meta != Self::default() {
+            return Ok(project_meta);
         }
         Self::from_legacy_meta(&legacy_fallback()?)
     }

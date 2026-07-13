@@ -2,10 +2,12 @@ use anyhow::{Context as _, Result, anyhow};
 use bstr::BString;
 use but_core::{
     RefMetadata, RepositoryExt,
-    ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
+    ref_metadata::{
+        ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
+    },
 };
 use but_ctx::Context;
-use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
+use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::{gix_testtools, open_repo, visualize_commit_graph};
 use gitbutler_edit_mode::commands::{
     abort_and_return_to_workspace, enter_edit_mode, save_and_return_to_workspace,
@@ -52,16 +54,15 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
         }],
         workspacecommit_relation: WorkspaceCommitRelation::Merged,
     });
-    let target = Target {
-        branch: "refs/remotes/origin/main".parse()?,
-        remote_url: ".".to_owned(),
-        sha: repo.rev_parse_single("refs/remotes/origin/main")?.detach(),
-        push_remote_name: Some("origin".to_owned()),
-    };
     meta.set_workspace(&ws)?;
-    meta.data_mut().default_target = Some(target);
     meta.set_changed_to_necessitate_write();
     meta.write_unreconciled()?;
+    ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: Some(repo.rev_parse_single("refs/remotes/origin/main")?.detach()),
+        push_remote: Some("origin".to_owned()),
+    }
+    .persist(repo)?;
     Ok(())
 }
 

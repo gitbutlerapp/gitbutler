@@ -4,9 +4,9 @@ use but_testsupport::visualize_commit_graph_all;
 use snapbox::prelude::*;
 
 use crate::ref_info::{
-    head_info,
     utils::standard_options,
     with_workspace_commit::{
+        head_info,
         journey::utils::standard_options_with_extra_target,
         utils::{
             StackState, add_stack_with_segments,

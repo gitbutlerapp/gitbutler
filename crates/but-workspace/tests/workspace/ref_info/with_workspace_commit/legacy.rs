@@ -301,6 +301,7 @@ StackDetails {
 }
 
 mod stack_details {
+    use but_core::RefMetadata;
     use but_testsupport::{graph_workspace, invoke_bash, visualize_commit_graph_all};
     use snapbox::prelude::*;
 
@@ -582,10 +583,23 @@ StackDetails {
         // The raw workspace projection can now link the advanced tip back to `refs/heads/B` even
         // though the extra commit sits outside the workspace commit. That sibling link records the
         // outside commit separately from the in-workspace `B` commit.
+        let mut workspace = (*meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?).clone();
+        workspace.set_project_meta(crate::ref_info::with_workspace_commit::utils::project_meta(
+            &repo,
+        )?);
+        let mut graph_meta = but_testsupport::InMemoryRefMetadata {
+            workspaces: vec![(but_core::WORKSPACE_REF_NAME.try_into()?, workspace)],
+            ..Default::default()
+        };
+        for ref_name in ["refs/heads/B", "refs/heads/A"] {
+            let ref_name: gix::refs::FullName = ref_name.try_into()?;
+            let branch = (*meta.branch(ref_name.as_ref())?).clone();
+            graph_meta.branches.push((ref_name, branch));
+        }
         let graph = but_graph::Graph::from_head(
             &repo,
-            &meta,
-            but_core::ref_metadata::ProjectMeta::default(),
+            &graph_meta,
+            Default::default(),
             but_graph::init::Options {
                 ..standard_options().traversal
             },

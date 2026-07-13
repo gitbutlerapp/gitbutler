@@ -1,14 +1,11 @@
+use crate::utils::{r, writable_scenario_slow};
 use bstr::ByteSlice;
-use but_core::RefMetadata;
-use but_meta::virtual_branches_legacy_types::Target;
+use but_core::ref_metadata::ProjectMeta;
 use but_workspace::{
     RefInfo,
     ref_info::Options,
     ui::PushStatus::{CompletelyUnpushed, NothingToPush, UnpushedCommitsRequiringForce},
 };
-use gitbutler_reference::RemoteRefname;
-
-use crate::utils::{r, writable_scenario_slow};
 
 static ASKPASS: std::sync::Once = std::sync::Once::new();
 
@@ -31,16 +28,18 @@ fn fixture(
         status.success(),
         "fixture remote URL should be normalized to an absolute path"
     );
-    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+    let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
         repo.path().join("virtual-branches.toml"),
     )?;
-    meta.data_mut().default_target = Some(Target {
-        branch: RemoteRefname::new("origin", "main"),
-        remote_url: "resolved from repo remote".to_string(),
-        sha: repo.rev_parse_single("main")?.detach(),
-        push_remote_name: None,
-    });
     Ok((tmp, repo, meta))
+}
+
+fn project_meta(repo: &gix::Repository) -> anyhow::Result<ProjectMeta> {
+    Ok(ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: Some(repo.rev_parse_single("main")?.detach()),
+        push_remote: None,
+    })
 }
 
 fn head_info(
@@ -51,9 +50,7 @@ fn head_info(
         repo,
         meta,
         Options {
-            project_meta: meta
-                .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
-                .project_meta(),
+            project_meta: project_meta(repo)?,
             expensive_commit_info: true,
             ..Default::default()
         },
@@ -73,9 +70,7 @@ fn push(
     but_workspace::legacy::workspace_branch_and_ancestors_push(
         repo,
         &workspace,
-        &meta
-            .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
-            .project_meta(),
+        &project_meta(repo)?,
         &info,
         &mut db,
         false,

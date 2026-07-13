@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::{Context as _, bail, ensure};
 use bstr::ByteSlice;
 use but_core::{
-    RefMetadata, extract_remote_name_and_short_name,
+    RefMetadata, WORKSPACE_REF_NAME, extract_remote_name_and_short_name,
     ref_metadata::{self, ProjectMeta},
 };
 use gix::{
@@ -1530,7 +1530,27 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
     project_meta: &ProjectMeta,
     extra_target_commit_id: Option<gix::ObjectId>,
 ) -> anyhow::Result<Vec<Tip>> {
-    let workspaces = obtain_workspace_infos(repo, entrypoint_ref.map(|rn| rn.as_ref()), meta)?;
+    let mut workspaces = obtain_workspace_infos(repo, entrypoint_ref.map(|rn| rn.as_ref()), meta)?;
+    let has_project_meta = project_meta != &ProjectMeta::default();
+    if has_project_meta {
+        for (_, _, workspace) in &mut workspaces {
+            workspace.set_project_meta(project_meta.clone());
+        }
+    }
+    if has_project_meta
+        && !workspaces
+            .iter()
+            .any(|(_, ref_name, _)| ref_name.as_bstr() == WORKSPACE_REF_NAME.as_bytes())
+    {
+        let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
+        if let Some(workspace_tip) = try_refname_to_id(repo, workspace_ref.as_ref())? {
+            workspaces.push((
+                workspace_tip,
+                workspace_ref,
+                ref_metadata::Workspace::new(Default::default(), Vec::new(), project_meta.clone()),
+            ));
+        }
+    }
     let tip_ref_matches_ws_ref = workspaces
         .iter()
         .find_map(|(ws_tip, ws_rn, _)| (Some(ws_rn) == entrypoint_ref).then_some(ws_tip));

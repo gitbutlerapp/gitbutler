@@ -225,11 +225,20 @@ pub(super) mod function {
         let order = order.into();
 
         let ws_base = workspace.lower_bound;
-        // Note that we will never create metadata for a workspace!
+        // A projected managed workspace may not have persisted stack metadata yet.
         let mut existing_ws_meta = workspace
             .ref_name()
             .and_then(|ws_ref| meta.workspace_opt(ws_ref).transpose())
             .transpose()?;
+        if existing_ws_meta.is_none()
+            && workspace.has_metadata()
+            && let Some(ws_ref) = workspace.ref_name()
+        {
+            existing_ws_meta = Some(meta.workspace(ws_ref)?);
+        }
+        if let Some(existing_ws_meta) = existing_ws_meta.as_mut() {
+            existing_ws_meta.set_project_meta(workspace.graph.project_meta.clone());
+        }
         let ref_name = ref_name.borrow();
         let existing_ref_target_id = repo
             .try_find_reference(ref_name)?

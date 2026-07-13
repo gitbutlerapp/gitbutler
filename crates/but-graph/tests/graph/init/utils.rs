@@ -1,7 +1,7 @@
-use but_core::{RefMetadata, ref_metadata::StackId};
+use but_core::ref_metadata::{ProjectMeta, StackId};
 use but_meta::{
     VirtualBranchesTomlMetadata,
-    virtual_branches_legacy_types::{Stack, StackBranch, Target},
+    virtual_branches_legacy_types::{Stack, StackBranch},
 };
 use but_testsupport::gix_testtools::scripted_fixture_read_only;
 
@@ -63,37 +63,28 @@ pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
 pub fn add_workspace_with_target(
     meta: &mut VirtualBranchesTomlMetadata,
     target_commit: impl Into<gix::ObjectId>,
-) {
+) -> ProjectMeta {
     add_stack(
         meta,
         usize::MAX,
         "definitely-outside-of-the-workspace-just-to-have-it",
         StackState::Inactive,
     );
-    meta.data_mut()
-        .default_target
-        .as_mut()
-        .expect("set in prior call")
-        .sha = target_commit.into();
+    ProjectMeta {
+        target_commit_id: Some(target_commit.into()),
+        ..default_project_meta()
+    }
 }
 
-pub fn remove_target(meta: &mut VirtualBranchesTomlMetadata) {
-    let mut ws_md = meta
-        .workspace(
-            "refs/heads/gitbutler/workspace"
+pub fn default_project_meta() -> ProjectMeta {
+    ProjectMeta {
+        target_ref: Some(
+            "refs/remotes/origin/main"
                 .try_into()
                 .expect("statically known to be valid"),
-        )
-        .unwrap();
-    let mut project_meta = ws_md.project_meta();
-    project_meta.target_ref = None;
-    ws_md.set_project_meta(project_meta);
-    meta.set_workspace(&ws_md).unwrap();
-}
-
-pub fn add_workspace_without_target(meta: &mut VirtualBranchesTomlMetadata) {
-    add_workspace(meta);
-    meta.data_mut().default_target = None;
+        ),
+        ..Default::default()
+    }
 }
 
 pub fn add_stack(
@@ -137,15 +128,6 @@ pub fn add_stack_with_segments(
     let stack_id = StackId::from_number_for_testing(stack_id as u128);
     stack.id = stack_id;
     meta.data_mut().branches.insert(stack_id, stack);
-    // Assure we have a target set.
-    if meta.data_mut().default_target.is_none() {
-        meta.data_mut().default_target = Some(Target {
-            branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-            remote_url: "does not matter".to_string(),
-            sha: gix::hash::Kind::Sha1.null(),
-            push_remote_name: None,
-        });
-    }
     stack_id
 }
 

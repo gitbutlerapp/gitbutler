@@ -1,5 +1,4 @@
 use bstr::ByteSlice;
-use but_core::RefMetadata;
 use but_testsupport::{visualize_commit_graph, visualize_commit_graph_all};
 use but_workspace::RefInfo;
 use snapbox::prelude::*;
@@ -9,11 +8,11 @@ pub fn head_info(
     meta: &but_meta::VirtualBranchesTomlMetadata,
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<RefInfo> {
-    opts.project_meta = meta
-        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
-        .project_meta();
+    if opts.project_meta == Default::default() {
+        opts.project_meta = utils::project_meta(repo)?;
+    }
     if opts.traversal.extra_target_commit_id.is_none() {
-        opts.traversal.extra_target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
+        opts.traversal.extra_target_commit_id = opts.project_meta.target_commit_id;
     }
     crate::ref_info::head_info(repo, meta, opts)
 }
@@ -23,11 +22,11 @@ pub fn ref_info(
     meta: &but_meta::VirtualBranchesTomlMetadata,
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<RefInfo> {
-    opts.project_meta = meta
-        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
-        .project_meta();
+    if opts.project_meta == Default::default() {
+        opts.project_meta = utils::project_meta(existing_ref.repo)?;
+    }
     if opts.traversal.extra_target_commit_id.is_none() {
-        opts.traversal.extra_target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
+        opts.traversal.extra_target_commit_id = opts.project_meta.target_commit_id;
     }
     but_workspace::ref_info(existing_ref, meta, opts)
 }
@@ -929,12 +928,12 @@ RefInfo {
     );
 
     // If we set a reasonably old extra target, then the A segment, despite integrated, is shown.
-    meta.data_mut()
-        .default_target
-        .as_mut()
-        .expect("target setup")
-        .sha = repo.rev_parse_single("fafd9d0")?.detach();
-    let info = head_info(&repo, &meta, standard_options())?;
+    let old_target = repo.rev_parse_single("fafd9d0")?.detach();
+    let mut options = standard_options();
+    options.project_meta = utils::project_meta(&repo)?;
+    options.project_meta.target_commit_id = Some(old_target);
+    options.traversal.extra_target_commit_id = Some(old_target);
+    let info = head_info(&repo, &meta, options)?;
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -4357,11 +4356,11 @@ mod journey;
 mod legacy;
 
 pub(crate) mod utils {
-    use but_core::{RefMetadata, ref_metadata::StackId};
+    use but_core::ref_metadata::{ProjectMeta, StackId};
     use but_graph::init::Options;
     use but_meta::{
         VirtualBranchesTomlMetadata,
-        virtual_branches_legacy_types::{Stack, StackBranch, Target},
+        virtual_branches_legacy_types::{Stack, StackBranch},
     };
     use but_testsupport::gix_testtools::tempfile::TempDir;
 
@@ -4381,23 +4380,21 @@ pub(crate) mod utils {
         gix::Repository,
         std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
     )> {
-        let (repo, mut meta) =
+        let (repo, meta) =
             crate::ref_info::utils::named_read_only_in_memory_scenario(script, name)?;
-        let vb = meta.data_mut();
-        vb.default_target = Some(Target {
-            // For simplicity, we stick to the defaults.
-            branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-            // Not required
-            remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-            sha: repo
-                .try_find_reference("main")?
-                .map(|mut r| r.peel_to_id())
-                .transpose()?
-                .map(|id| id.detach())
-                .unwrap_or_else(|| gix::hash::Kind::Sha1.null()),
-            push_remote_name: None,
-        });
         Ok((repo, meta))
+    }
+
+    pub fn project_meta(repo: &gix::Repository) -> anyhow::Result<ProjectMeta> {
+        Ok(ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: repo
+                .try_find_reference("main")?
+                .map(|mut reference| reference.peel_to_id())
+                .transpose()?
+                .map(|id| id.detach()),
+            push_remote: None,
+        })
     }
 
     pub fn named_writable_scenario_with_description(
@@ -4433,22 +4430,17 @@ pub(crate) mod utils {
         VirtualBranchesTomlMetadata,
         String,
     )> {
-        let (tmp, repo, mut meta) =
+        let (tmp, repo, meta) =
             crate::ref_info::utils::named_writable_scenario_with_args(name, args)?;
-        let vb = meta.data_mut();
-        vb.default_target = Some(Target {
-            // For simplicity, we stick to the defaults.
-            branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
-            // Not required
-            remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
-            sha: repo
-                .try_find_reference("main")?
-                .map(|mut r| r.peel_to_id())
-                .transpose()?
-                .map(|id| id.detach())
-                .unwrap_or_else(|| gix::hash::Kind::Sha1.null()),
-            push_remote_name: None,
-        });
+        project_meta(&repo)?.persist(&repo)?;
+        let refresh_sentinel = meta
+            .path()
+            .parent()
+            .expect("metadata has a parent directory")
+            .join("REFRESH");
+        if refresh_sentinel.exists() {
+            std::fs::remove_file(refresh_sentinel)?;
+        }
         let desc = std::fs::read_to_string(repo.git_dir().join("description"))?;
         Ok((tmp, repo, meta, desc))
     }
@@ -4469,13 +4461,7 @@ pub(crate) mod utils {
             named_writable_scenario_with_args_and_description(name, args)?;
 
         init_meta(&mut meta);
-        let project_meta = meta
-            .workspace(
-                but_core::WORKSPACE_REF_NAME
-                    .try_into()
-                    .expect("valid workspace ref"),
-            )?
-            .project_meta();
+        let project_meta = project_meta(&repo)?;
         let graph = but_graph::Graph::from_head(
             &repo,
             &meta,

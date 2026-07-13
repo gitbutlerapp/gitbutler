@@ -33,9 +33,14 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
 
     add_workspace_without_target(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?
+    .into_workspace()?;
 
     assert!(ws.target_ref.is_none(), "should not have a target_ref");
     assert!(

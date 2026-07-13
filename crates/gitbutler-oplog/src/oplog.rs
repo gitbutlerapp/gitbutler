@@ -12,7 +12,7 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_meta::virtual_branches_legacy_types::VirtualBranches;
+use but_meta::virtual_branches_legacy_types::{Target, VirtualBranches};
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_repo::{
     SignaturePurpose, commit_ids_excluding_reachable_from_with_graph, commit_without_signature_gix,
@@ -48,6 +48,14 @@ struct SnapshotProjectMeta {
     target_commit_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     push_remote: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct SnapshotVirtualBranches {
+    #[serde(default)]
+    default_target: Option<Target>,
+    #[serde(flatten)]
+    virtual_branches: VirtualBranches,
 }
 
 impl TryFrom<&ProjectMeta> for SnapshotProjectMeta {
@@ -509,7 +517,10 @@ fn snapshot_metadata(
     let vb_toml_blob = repo
         .find_blob(vb_toml_entry.id())
         .context("failed to convert virtual_branches.toml tree entry to blob")?;
-    let virtual_branches: VirtualBranches = toml::from_str(
+    let SnapshotVirtualBranches {
+        default_target,
+        virtual_branches,
+    } = toml::from_str(
         from_utf8(&vb_toml_blob.data).context("virtual_branches.toml is not UTF-8")?,
     )
     .context("failed to parse virtual_branches.toml")?;
@@ -524,12 +535,16 @@ fn snapshot_metadata(
                     .context("failed to parse project_meta.toml")?;
             stored.try_into()?
         }
-        None => ProjectMeta::try_from(
-            virtual_branches
-                .default_target
+        None => {
+            let target = default_target
                 .as_ref()
-                .context("snapshot has neither project_meta.toml nor a legacy default target")?,
-        )?,
+                .context("snapshot has neither project_meta.toml nor a legacy default target")?;
+            ProjectMeta {
+                target_ref: Some(target.branch.to_string().try_into()?),
+                target_commit_id: Some(target.sha),
+                push_remote: target.push_remote_name.clone(),
+            }
+        }
     };
     project_meta.target_commit_id_or_err()?;
     Ok((project_meta, virtual_branches))
@@ -842,10 +857,9 @@ fn restore_snapshot(
     let snapshot_tree = snapshot_commit.tree()?;
     // Validate both metadata formats before creating the before-restore snapshot or mutating the
     // worktree, refs, config, TOML, or database.
-    let (restored_project_meta, mut restored_virtual_branches) =
+    let (restored_project_meta, restored_virtual_branches) =
         snapshot_metadata(&snapshot_tree, &repo)?;
     let restored_target = restored_project_meta.target_commit_id_or_err()?;
-    restored_virtual_branches.default_target = None;
     let restored_vb_toml = toml::to_string(&restored_virtual_branches)?;
 
     let before_restore_snapshot_tree_id =
