@@ -1,6 +1,12 @@
 import { checkForUpdates, registerUpdater } from "./updater.js";
 import WatcherManager from "./watcher.js";
 import {
+	ipcTraceCompleteChannel,
+	ipcTraceCompletionPath,
+	ipcTraceHost,
+	isIpcTraceCompletion,
+} from "./tracing.js";
+import {
 	liteIpcChannels,
 	type AbsorbParams,
 	type AbsorptionPlanParams,
@@ -347,6 +353,31 @@ const registerIpcHandlers = (): void => {
 
 		ipcMain.handle(channel, senderValidatingListener);
 	};
+
+	if (!app.isPackaged) {
+		senderValidatingHandle(
+			ipcTraceCompleteChannel,
+			async (_event, value: unknown): Promise<boolean> => {
+				if (!isIpcTraceCompletion(value)) return false;
+
+				const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+				if (devServerUrl === undefined) return false;
+
+				const completionUrl = new URL(ipcTraceCompletionPath, devServerUrl);
+				try {
+					const response = await net.fetch(completionUrl.toString(), {
+						method: "POST",
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify(value),
+					});
+					return response.ok;
+				} catch {
+					// Tracing must never affect the real IPC call.
+					return false;
+				}
+			},
+		);
+	}
 
 	senderValidatingHandle(
 		liteIpcChannels.absorptionPlan,
@@ -790,6 +821,8 @@ void app.whenReady().then(async () => {
 		});
 	} else {
 		await installExtension([REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS]);
+		const ipcTraceUrl = new URL(process.env.VITE_DEV_SERVER_URL ?? "http://127.0.0.1:5173");
+		ipcTraceUrl.hostname = ipcTraceHost;
 
 		if (process.platform === "darwin") {
 			const dockIcon = getMacDockIcon();
@@ -806,7 +839,7 @@ void app.whenReady().then(async () => {
 			"style-src 'self' 'unsafe-inline';" +
 			"font-src 'self';" +
 			// ws source for HMR
-			"connect-src 'self' ws://127.0.0.1:5173;" +
+			`connect-src 'self' ws://127.0.0.1:5173 ${ipcTraceUrl.origin};` +
 			"object-src 'none';" +
 			"base-uri 'none';" +
 			"frame-ancestors 'none';" +
