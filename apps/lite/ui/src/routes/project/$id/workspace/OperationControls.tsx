@@ -11,8 +11,8 @@ import { Operand } from "#ui/operands.ts";
 import {
 	getOperations,
 	useRunOperation,
-	type OperationType,
-	type OperationsByType,
+	type TransferPosition,
+	type OperationsByPosition,
 } from "#ui/operations/operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { operandLabel } from "#ui/routes/project/$id/workspace/operandLabel.ts";
@@ -199,34 +199,34 @@ const AbsorbOperationControls: FC<{
 	);
 };
 
-const TransferTypeToggleGroup: FC<{
+const TransferPositionToggleGroup: FC<{
 	projectId: string;
-	operations: OperationsByType;
-	operationType: OperationType;
-}> = ({ projectId, operations, operationType }) => {
+	operations: OperationsByPosition;
+	position: TransferPosition;
+}> = ({ projectId, operations, position }) => {
 	const dispatch = useAppDispatch();
 
-	const setOperationType = (operationType: OperationType) =>
-		dispatch(projectSlice.actions.updateTransferOperationType({ projectId, operationType }));
+	const setPosition = (position: TransferPosition) =>
+		dispatch(projectSlice.actions.updateTransferPosition({ projectId, position }));
 
 	useHotkeys([
 		{
 			hotkey: operationHotkeys.selectAbove.hotkey,
-			callback: () => setOperationType("above"),
+			callback: () => setPosition("above"),
 			options: {
 				conflictBehavior: "allow",
 			},
 		},
 		{
 			hotkey: operationHotkeys.selectInto.hotkey,
-			callback: () => setOperationType("into"),
+			callback: () => setPosition("into"),
 			options: {
 				conflictBehavior: "allow",
 			},
 		},
 		{
 			hotkey: operationHotkeys.selectBelow.hotkey,
-			callback: () => setOperationType("below"),
+			callback: () => setPosition("below"),
 			options: {
 				conflictBehavior: "allow",
 			},
@@ -235,16 +235,16 @@ const TransferTypeToggleGroup: FC<{
 
 	const onValueChange = (value: Array<string>) => {
 		if (value.length === 0) return;
-		const nextOperationType = value[0] as OperationType;
+		const nextPosition = value[0] as TransferPosition;
 
-		setOperationType(nextOperationType);
+		setPosition(nextPosition);
 		focusSelectionScope("outline");
 	};
 
 	return (
 		<ToggleGroup
-			aria-label="Operation type"
-			value={[operationType]}
+			aria-label="Transfer position"
+			value={[position]}
 			onValueChange={onValueChange}
 			className={styles.toggleGroupRow}
 			onMouseDown={(event) => {
@@ -252,7 +252,7 @@ const TransferTypeToggleGroup: FC<{
 				if (!event.defaultPrevented) event.preventDefault();
 			}}
 		>
-			<Toggle className={styles.toggleGroupRowToggle} value={"above" satisfies OperationType}>
+			<Toggle className={styles.toggleGroupRowToggle} value={"above" satisfies TransferPosition}>
 				{operations.above && (
 					<div className={classes("text-12", styles.operationLabel)}>{operations.above.label}</div>
 				)}
@@ -261,7 +261,7 @@ const TransferTypeToggleGroup: FC<{
 				</div>
 			</Toggle>
 
-			<Toggle className={styles.toggleGroupRowToggle} value={"into" satisfies OperationType}>
+			<Toggle className={styles.toggleGroupRowToggle} value={"into" satisfies TransferPosition}>
 				{operations.into && (
 					<div className={classes("text-12", styles.operationLabel)}>{operations.into.label}</div>
 				)}
@@ -270,7 +270,7 @@ const TransferTypeToggleGroup: FC<{
 				</div>
 			</Toggle>
 
-			<Toggle className={styles.toggleGroupRowToggle} value={"below" satisfies OperationType}>
+			<Toggle className={styles.toggleGroupRowToggle} value={"below" satisfies TransferPosition}>
 				{operations.below && (
 					<div className={classes("text-12", styles.operationLabel)}>{operations.below.label}</div>
 				)}
@@ -296,9 +296,9 @@ const TransferKeyboardOperationControls: FC<{
 
 	if (!pendingTransferSpec) return null;
 
-	const { source, target, operationType } = pendingTransferSpec;
+	const { source, target, position } = pendingTransferSpec;
 	const operations = getOperations(source, target);
-	const operation = operations[operationType];
+	const operation = operations[position];
 
 	const run = () => {
 		dispatch(projectSlice.actions.exitMode({ projectId }));
@@ -316,10 +316,10 @@ const TransferKeyboardOperationControls: FC<{
 
 	return (
 		<Container>
-			<TransferTypeToggleGroup
+			<TransferPositionToggleGroup
 				projectId={projectId}
 				operations={operations}
-				operationType={operationType}
+				position={position}
 			/>
 			<Separator />
 			<ControlsRow>

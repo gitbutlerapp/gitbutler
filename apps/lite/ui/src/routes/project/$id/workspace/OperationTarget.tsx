@@ -4,7 +4,7 @@ import styles from "./OperationTarget.module.css";
 import {
 	getOperation,
 	getOperations,
-	type OperationType,
+	type TransferPosition,
 	useRunOperation,
 } from "#ui/operations/operation.ts";
 import { classes } from "#ui/components/classes.ts";
@@ -26,12 +26,12 @@ type OnDropArgs = Parameters<NonNullable<DropTargetParams["onDrop"]>>[0];
 
 type DropData = OnDropArgs["self"]["data"];
 
-const getOperationTypeFromData = (data: DropData): OperationType | null => {
+const getTransferPositionFromData = (data: DropData): TransferPosition | null => {
 	const instruction = extractInstruction(data);
 	if (!instruction) return null;
 
 	return Match.value(instruction.operation).pipe(
-		Match.withReturnType<OperationType>(),
+		Match.withReturnType<TransferPosition>(),
 		Match.when("combine", () => "into"),
 		Match.when("reorder-before", () => "above"),
 		Match.when("reorder-after", () => "below"),
@@ -87,13 +87,13 @@ const useOperationDropTarget = ({
 
 				if (!isActiveDropTarget) return;
 
-				const operationType = getOperationTypeFromData(args.self.data);
+				const position = getTransferPositionFromData(args.self.data);
 
 				dispatch(
 					projectSlice.actions.updatePointerTransfer({
 						projectId,
 						target,
-						operationType,
+						position,
 					}),
 				);
 			},
@@ -102,7 +102,7 @@ const useOperationDropTarget = ({
 					projectSlice.actions.updatePointerTransfer({
 						projectId,
 						target: null,
-						operationType: null,
+						position: null,
 					}),
 				);
 			},
@@ -113,13 +113,13 @@ const useOperationDropTarget = ({
 				if (!isActiveDropTarget) return;
 
 				const dragData = parseDragData(args.source.data);
-				const operationType = getOperationTypeFromData(args.self.data);
+				const position = getTransferPositionFromData(args.self.data);
 				const operation =
-					dragData && operationType !== null
+					dragData && position !== null
 						? getOperation({
 								source: dragData.source,
 								target,
-								operationType,
+								position,
 							})
 						: null;
 
@@ -139,7 +139,7 @@ const useOperationDropTarget = ({
 
 export type OperationTargetOutline = "inside" | "outside";
 
-export type ActiveOperation = { operationType: OperationType; tooltip?: string | undefined };
+export type ActiveOperation = { position: TransferPosition; tooltip?: string | undefined };
 
 export const OperationTarget: FC<
 	{
@@ -162,7 +162,7 @@ export const OperationTarget: FC<
 		<Tooltip.Root open={activeOperation?.tooltip !== undefined} disableHoverablePopup>
 			<Tooltip.Trigger
 				render={targetEl}
-				className={Match.value(activeOperation?.operationType).pipe(
+				className={Match.value(activeOperation?.position).pipe(
 					Match.when("above", () => classes(styles.insertionTarget, styles.insertionTargetAbove)),
 					Match.when("below", () => classes(styles.insertionTarget, styles.insertionTargetBelow)),
 					Match.when("into", () =>

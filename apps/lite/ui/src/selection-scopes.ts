@@ -1,5 +1,5 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
-import { type OperationType } from "#ui/operations/operation.ts";
+import { type TransferPosition } from "#ui/operations/operation.ts";
 import { type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
@@ -259,7 +259,7 @@ export const useNavigationIndexHotkeys = <T>({
 		},
 	]);
 
-	const enterTransferModeForSelection = (operationType: OperationType) => {
+	const enterTransferModeForSelection = (position: TransferPosition) => {
 		if (selection === null) return;
 
 		const source = operationSourceForItem(selection);
@@ -268,7 +268,7 @@ export const useNavigationIndexHotkeys = <T>({
 			projectSlice.actions.enterKeyboardTransferMode({
 				projectId,
 				source,
-				operationType,
+				position,
 			}),
 		);
 		focusSelectionScope("outline");

@@ -11,7 +11,7 @@ import {
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import type { OperationType, TransferSpec } from "#ui/operations/operation.ts";
+import type { TransferPosition, TransferSpec } from "#ui/operations/operation.ts";
 import {
 	absorbOutlineMode,
 	defaultOutlineMode,
@@ -191,13 +191,13 @@ export const projectReducers = {
 	},
 	enterKeyboardTransferMode: (
 		state: ProjectState,
-		{ source, operationType }: { source: Operand; operationType?: OperationType },
+		{ source, position }: { source: Operand; position?: TransferPosition },
 	) => {
 		const workspaceState = state.workspace;
 		workspaceState.mode = transferOutlineMode(
 			keyboardTransferMode({
 				source,
-				operationType: operationType ?? "into",
+				position: position ?? "into",
 				restoreSelection: {
 					outline: workspaceState.selection.outline,
 					files: workspaceState.selection.files,
@@ -223,7 +223,7 @@ export const projectReducers = {
 	},
 	updatePointerTransfer: (
 		state: ProjectState,
-		{ target, operationType }: { target: Operand | null; operationType: OperationType | null },
+		{ target, position }: { target: Operand | null; position: TransferPosition | null },
 	) => {
 		const workspaceState = state.workspace;
 		Match.value(workspaceState.mode).pipe(
@@ -232,30 +232,27 @@ export const projectReducers = {
 					target === null
 						? mode.target === null
 						: mode.target !== null && operandEquals(mode.target, target);
-				if (sameTarget && mode.operationType === operationType) return;
+				if (sameTarget && mode.position === position) return;
 
 				workspaceState.mode = transferOutlineMode(
 					pointerTransferMode({
 						source: mode.source,
 						target,
-						operationType,
+						position,
 					}),
 				);
 			}),
 			Match.orElse(() => {}),
 		);
 	},
-	updateTransferOperationType: (
-		state: ProjectState,
-		{ operationType }: { operationType: OperationType },
-	) => {
+	updateTransferPosition: (state: ProjectState, { position }: { position: TransferPosition }) => {
 		const workspaceState = state.workspace;
 		Match.value(workspaceState.mode).pipe(
 			Match.when({ _tag: "Transfer", value: { _tag: "Keyboard" } }, ({ value: mode }) => {
 				workspaceState.mode = transferOutlineMode(
 					keyboardTransferMode({
 						source: mode.source,
-						operationType,
+						position,
 						restoreSelection: mode.restoreSelection,
 					}),
 				);
@@ -389,7 +386,7 @@ export const projectSelectors = {
 	): TransferSpec | null => {
 		const { mode } = state.workspace;
 
-		if (mode._tag !== "Transfer" || mode.value.operationType === null) return null;
+		if (mode._tag !== "Transfer" || mode.value.position === null) return null;
 
 		const target = Match.value(mode.value).pipe(
 			Match.tagsExhaustive({
@@ -402,7 +399,7 @@ export const projectSelectors = {
 		return {
 			source: mode.value.source,
 			target,
-			operationType: mode.value.operationType,
+			position: mode.value.position,
 		};
 	},
 	selectSelectionFiles: (state: ProjectState, navigationIndex: NavigationIndex<string>) =>

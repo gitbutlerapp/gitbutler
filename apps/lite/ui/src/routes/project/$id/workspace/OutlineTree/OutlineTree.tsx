@@ -116,14 +116,14 @@ const OperandC: FC<
 					const isActive = absorptionTargetKeys.has(operandIdentityKey(operand));
 					if (!isActive) return null;
 
-					return { operationType: "into", tooltip: "Absorb target" };
+					return { position: "into", tooltip: "Absorb target" };
 				},
 				Transfer: (): ActiveOperation | null => {
 					if (!pendingTransferSpec || !operandEquals(pendingTransferSpec.target, operand))
 						return null;
 
 					return {
-						operationType: pendingTransferSpec.operationType,
+						position: pendingTransferSpec.position,
 						tooltip: getOperation(pendingTransferSpec)?.label,
 					};
 				},

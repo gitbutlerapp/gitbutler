@@ -67,7 +67,7 @@ export const OperationSourceC: FC<
 				mode: pointerTransferMode({
 					source,
 					target: null,
-					operationType: null,
+					position: null,
 				}),
 			}),
 		);

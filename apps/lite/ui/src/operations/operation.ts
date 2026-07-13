@@ -523,7 +523,7 @@ const moveOperation = ({
 	);
 };
 
-export type OperationType = "into" | "above" | "below";
+export type TransferPosition = "into" | "above" | "below";
 
 const isOperationSourceEnabled = (source: Operand): boolean =>
 	Match.value(source).pipe(
@@ -531,9 +531,9 @@ const isOperationSourceEnabled = (source: Operand): boolean =>
 		Match.orElse(() => true),
 	);
 
-export type OperationsByType = Record<OperationType, OperationWithLabel | null>;
+export type OperationsByPosition = Record<TransferPosition, OperationWithLabel | null>;
 
-export const getOperations = (source: Operand, target: Operand): OperationsByType => {
+export const getOperations = (source: Operand, target: Operand): OperationsByPosition => {
 	if (operandEquals(source, target) || !isOperationSourceEnabled(source)) {
 		return {
 			into: null,
@@ -551,8 +551,8 @@ export const getOperations = (source: Operand, target: Operand): OperationsByTyp
 export type TransferSpec = {
 	source: Operand;
 	target: Operand;
-	operationType: OperationType;
+	position: TransferPosition;
 };
 
-export const getOperation = (x: TransferSpec): OperationWithLabel | null =>
-	getOperations(x.source, x.target)[x.operationType];
+export const getOperation = (spec: TransferSpec): OperationWithLabel | null =>
+	getOperations(spec.source, spec.target)[spec.position];
