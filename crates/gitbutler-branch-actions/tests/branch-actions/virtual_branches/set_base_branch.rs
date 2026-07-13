@@ -109,6 +109,36 @@ mod error {
             "remote branch 'refs/remotes/origin/missing' not found"
         );
     }
+
+    #[test]
+    fn missing_remote_url_does_not_mutate_project() {
+        let Test { repo, ctx, .. } = &mut Test::default();
+        but_core::git_config::edit_repo_config(
+            &repo.open(),
+            gix::config::Source::Local,
+            |config| but_core::git_config::remove_config_value(config, "remote.origin.url"),
+        )
+        .unwrap();
+        ctx.repo.get_mut().unwrap().reload().unwrap();
+        let before = ctx.project_meta().unwrap();
+
+        let mut guard = ctx.exclusive_worktree_access();
+        let error = gitbutler_branch_actions::set_base_branch(
+            ctx,
+            &RemoteRefname::from_str("refs/remotes/origin/master").unwrap(),
+            guard.write_permission(),
+        )
+        .unwrap_err();
+        drop(guard);
+
+        let message = format!("{error:#}");
+        assert!(
+            message.contains("failed to find remote origin for branch refs/remotes/origin/master"),
+            "{message}"
+        );
+        assert_eq!(ctx.project_meta().unwrap(), before);
+        assert!(stack_details(ctx).is_empty());
+    }
 }
 
 mod go_back_to_workspace {

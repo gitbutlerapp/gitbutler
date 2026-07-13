@@ -2,7 +2,9 @@ use std::ops::DerefMut;
 
 use but_core::{
     RefMetadata, WORKSPACE_REF_NAME,
-    ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
+    ref_metadata::{
+        ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
+    },
 };
 use snapbox::str;
 
@@ -720,12 +722,10 @@ fn setup_single_stack_metadata_at_target(
             .collect(),
         workspacecommit_relation: WorkspaceCommitRelation::Merged,
     }];
-    let mut project_meta = ws.project_meta();
+    let mut project_meta = ProjectMeta::resolve(&repo)?;
     project_meta.target_commit_id = Some(repo.rev_parse_single(target_spec)?.detach());
-    ws.set_project_meta(project_meta);
-    let project_meta = ws.project_meta();
     meta.set_workspace(&ws)?;
-    project_meta.persist_to_local_config(&repo)?;
+    project_meta.persist(&repo)?;
     Ok(())
 }
 

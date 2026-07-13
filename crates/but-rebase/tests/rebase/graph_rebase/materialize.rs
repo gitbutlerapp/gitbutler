@@ -9,31 +9,8 @@ use snapbox::IntoData;
 
 use crate::{
     graph_rebase::add_stack_with_segments,
-    utils::{fixture_writable, standard_options},
+    utils::{fixture_writable, standard_options, target_meta},
 };
-
-fn project_meta(meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
-    let project_meta = meta
-        .workspace(
-            but_core::WORKSPACE_REF_NAME
-                .try_into()
-                .expect("valid workspace ref"),
-        )
-        .map(|workspace| workspace.project_meta())
-        .unwrap_or_default();
-    if project_meta == but_core::ref_metadata::ProjectMeta::default() {
-        but_core::ref_metadata::ProjectMeta {
-            target_ref: Some(
-                "refs/remotes/origin/main"
-                    .try_into()
-                    .expect("valid target ref"),
-            ),
-            ..Default::default()
-        }
-    } else {
-        project_meta
-    }
-}
 
 #[test]
 fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
@@ -65,7 +42,7 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     );
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -146,7 +123,7 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     );
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -205,8 +182,8 @@ fn both_methods_update_references_identically() -> Result<()> {
     let (ref_after_materialize, overlayed_materialize) = {
         let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-            .validated()?;
+        let graph =
+            Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
         let mut ws = graph.into_workspace()?;
         let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -229,8 +206,8 @@ fn both_methods_update_references_identically() -> Result<()> {
     let (ref_after_materialize_without_checkout, overlayed_without_checkout) = {
         let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-            .validated()?;
+        let graph =
+            Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
         let mut ws = graph.into_workspace()?;
         let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -283,7 +260,7 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     let head_before = repo.rev_parse_single("HEAD")?.detach();
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -337,7 +314,7 @@ fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is
     let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -390,7 +367,7 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
     );
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -432,8 +409,7 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     let main_before = repo.rev_parse_single("main")?.detach();
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 

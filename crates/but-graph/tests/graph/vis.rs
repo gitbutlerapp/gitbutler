@@ -24,11 +24,9 @@ fn post_graph_traversal() -> anyhow::Result<()> {
             worktree: None,
         }),
         remote_tracking_ref_name: Some("refs/remotes/origin/main".try_into()?),
-        metadata: Some(SegmentMetadata::Workspace(ref_metadata::Workspace::new(
-            Default::default(),
-            vec![],
-            ref_metadata::ProjectMeta::default(),
-        ))),
+        metadata: Some(SegmentMetadata::Workspace(
+            ref_metadata::Workspace::default(),
+        )),
         ..Default::default()
     };
 

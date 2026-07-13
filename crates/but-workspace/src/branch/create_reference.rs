@@ -225,20 +225,12 @@ pub(super) mod function {
         let order = order.into();
 
         let ws_base = workspace.lower_bound;
-        // A projected managed workspace may not have persisted stack metadata yet.
-        let mut existing_ws_meta = workspace
+        // Only update workspace metadata when the projection came from a persisted record.
+        let existing_ws_meta = workspace
             .ref_name()
-            .and_then(|ws_ref| meta.workspace_opt(ws_ref).transpose())
+            .filter(|_| workspace.has_metadata())
+            .map(|ws_ref| meta.workspace(ws_ref))
             .transpose()?;
-        if existing_ws_meta.is_none()
-            && workspace.has_metadata()
-            && let Some(ws_ref) = workspace.ref_name()
-        {
-            existing_ws_meta = Some(meta.workspace(ws_ref)?);
-        }
-        if let Some(existing_ws_meta) = existing_ws_meta.as_mut() {
-            existing_ws_meta.set_project_meta(workspace.graph.project_meta.clone());
-        }
         let ref_name = ref_name.borrow();
         let existing_ref_target_id = repo
             .try_find_reference(ref_name)?
@@ -430,7 +422,6 @@ pub(super) mod function {
         };
 
         let updated_ws_meta = existing_ws_meta
-            .take()
             .zip(instruction)
             .map(|(mut existing, instruction)| {
                 update_workspace_metadata(&mut existing, ref_name, instruction, new_stack_id, order)
@@ -534,9 +525,6 @@ pub(super) mod function {
         // Important to first update the workspace so we have the correct stack setup.
         if let Some(ws_meta) = updated_ws_meta {
             meta.set_workspace(&ws_meta)?;
-        } else if let Some(existing) = existing_ws_meta {
-            // TODO: overwrite stored information with reality in new graph.
-            meta.set_workspace(&existing)?;
         }
         if let Some(branch_stack_order) = branch_stack_order
             && let Err(err) = meta.set_branch_stack_order(&branch_stack_order)

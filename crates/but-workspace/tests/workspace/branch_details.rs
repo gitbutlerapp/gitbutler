@@ -8,7 +8,7 @@ mod with_workspace {
 
     use but_core::{
         RefMetadata,
-        ref_metadata::{Branch, RefInfo, Review, Workspace},
+        ref_metadata::{Branch, ProjectMeta, RefInfo, Review, Workspace},
     };
     use but_testsupport::{visualize_commit_graph, visualize_commit_graph_all};
     use gix::refs::{FullName, FullNameRef};
@@ -47,7 +47,7 @@ mod with_workspace {
                 &repo,
                 refname("A").as_ref(),
                 &store,
-                &store.workspace.project_meta(),
+                &store.project_meta,
             )
             .unwrap()
             .to_debug(),
@@ -110,7 +110,7 @@ BranchDetails {
                 &repo,
                 refname("A").as_ref(),
                 &store,
-                &store.workspace.project_meta()
+                &store.project_meta
             )
             .unwrap()
             .to_debug(),
@@ -178,7 +178,7 @@ BranchDetails {
                 &repo,
                 refname("A").as_ref(),
                 &store,
-                &store.workspace.project_meta()
+                &store.project_meta
             )
             .unwrap()
             .to_debug(),
@@ -227,7 +227,7 @@ BranchDetails {
                 &repo,
                 refname("origin/A").as_ref(),
                 &store,
-                &store.workspace.project_meta()
+                &store.project_meta
             )
             .unwrap()
             .to_debug(),
@@ -287,7 +287,7 @@ BranchDetails {
                 &repo,
                 refname("A").as_ref(),
                 &store,
-                &store.workspace.project_meta()
+                &store.project_meta
             )
             .unwrap()
             .to_debug(),
@@ -337,20 +337,13 @@ BranchDetails {
     #[derive(Default)]
     struct WorkspaceRefMetadataStore {
         workspace: Workspace,
+        project_meta: ProjectMeta,
         branches: Vec<(FullName, Branch)>,
     }
 
     impl WorkspaceRefMetadataStore {
         pub fn with_target(mut self, short_name: &str) -> Self {
-            self.workspace = Workspace::new(
-                Default::default(),
-                vec![],
-                but_core::ref_metadata::ProjectMeta {
-                    target_ref: Some(refname(short_name)),
-                    target_commit_id: None,
-                    push_remote: None,
-                },
-            );
+            self.project_meta.target_ref = Some(refname(short_name));
             self
         }
 

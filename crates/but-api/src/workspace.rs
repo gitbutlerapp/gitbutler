@@ -50,13 +50,7 @@ pub fn set_target_ref_and_init_project(
     let mut guard = ctx.exclusive_worktree_access();
     {
         let repo = ctx.repo.get()?;
-        let mut meta = ctx.meta()?;
-        but_workspace::init::set_target_ref_and_init_project(
-            &repo,
-            &mut meta,
-            target_ref,
-            push_remote,
-        )?;
+        but_workspace::init::set_target_ref_and_init_project(&repo, target_ref, push_remote)?;
     }
     ctx.invalidate_workspace_cache()?;
     crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission())
@@ -360,7 +354,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
         }
 
         let materialized = rebase.materialize()?;
-        project_meta.persist_to_local_config(&repo)?;
+        project_meta.persist(&repo)?;
 
         if let Some(ref_name) = materialized.workspace.ref_name()
             && let Some(ws_meta) = ws_meta

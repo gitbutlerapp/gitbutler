@@ -10,14 +10,13 @@ use but_core::{
 };
 use but_meta::{
     VirtualBranchesTomlMetadata,
-    virtual_branches_legacy_types::{Stack as LegacyStack, StackBranch, Target},
+    virtual_branches_legacy_types::{Stack as LegacyStack, StackBranch},
 };
 use but_testsupport::{
     debug_str,
     gix_testtools::tempfile::{TempDir, tempdir},
     sanitize_uuids_and_timestamps, sanitize_uuids_and_timestamps_with_mapping,
 };
-use gitbutler_reference::RemoteRefname;
 use snapbox::prelude::*;
 
 #[test]
@@ -33,8 +32,6 @@ fn journey() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         std::fs::read_to_string(&writable_toml_path)?,
         snapbox::str![[r#"
-[branch_targets]
-
 [branches]
 
 "#]]
@@ -54,8 +51,6 @@ fn journey() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         std::fs::read_to_string(&writable_toml_path)?,
         snapbox::str![[r#"
-[branch_targets]
-
 [branches]
 
 "#]]
@@ -366,8 +361,6 @@ fn read_only() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         std::fs::read_to_string(&toml_path)?,
         snapbox::str![[r#"
-[branch_targets]
-
 [branches]
 
 "#]]
@@ -389,9 +382,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
 Workspace {
     ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
     stacks: [],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 
 "#]]
@@ -447,9 +437,6 @@ Workspace {
             workspacecommit_relation: Outside,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 
 "#]]
@@ -487,9 +474,6 @@ Workspace {
             workspacecommit_relation: Outside,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 
 "#]]
@@ -528,9 +512,6 @@ Workspace {
             workspacecommit_relation: Merged,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 
 "#]]
@@ -583,9 +564,6 @@ Workspace {
             workspacecommit_relation: Merged,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 
 "#]]
@@ -672,8 +650,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         std::fs::read_to_string(&toml_path)?,
         snapbox::str![[r#"
-[branch_targets]
-
 [branches]
 
 "#]]
@@ -805,8 +781,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         actual,
         snapbox::str![[r#"
-[branch_targets]
-
 [branches.1]
 id = "1"
 order = 0
@@ -1055,9 +1029,6 @@ CommitId = "0000000000000000000000000000000000000000"
 Workspace {
     ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
     stacks: [],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 
 "#]]
@@ -1067,8 +1038,6 @@ Workspace {
     snapbox::assert_data_eq!(
         std::fs::read_to_string(&toml_path)?,
         snapbox::str![[r#"
-[branch_targets]
-
 [branches]
 
 "#]]
@@ -1076,44 +1045,6 @@ Workspace {
     assert!(
         toml_path.exists(),
         "default state is still mirrored into TOML"
-    );
-
-    Ok(())
-}
-
-#[test]
-fn project_meta_is_not_stored_in_legacy_metadata() -> anyhow::Result<()> {
-    let (mut store, _tmp) = empty_vb_store_rw()?;
-    let ws_name = "refs/heads/gitbutler/workspace".try_into()?;
-    let mut ws = store.workspace(ws_name)?;
-    assert_eq!(
-        ws.project_meta().target_ref,
-        None,
-        "legacy metadata no longer contains project metadata"
-    );
-    ws.set_project_meta(but_core::ref_metadata::ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
-        target_commit_id: Some(gix::ObjectId::from_hex(
-            b"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
-        )?),
-        push_remote: Some("origin".into()),
-    });
-    store.set_workspace(&ws)?;
-
-    let path = store.path().to_owned();
-    store.set_changed_to_necessitate_write();
-    store.write_unreconciled()?;
-    let written = std::fs::read_to_string(&path)?;
-    assert!(!written.contains("[default_target]"));
-
-    let store = VirtualBranchesTomlMetadata::from_path(path)?;
-    assert_eq!(
-        store
-            .workspace("refs/heads/gitbutler/workspace".try_into()?)?
-            .project_meta()
-            .target_ref,
-        None,
-        "setting workspace ProjectMeta does not add it to legacy metadata"
     );
 
     Ok(())
@@ -1291,9 +1222,6 @@ Workspace {
             workspacecommit_relation: Outside,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 "#]]
     );
@@ -1332,9 +1260,6 @@ Workspace {
             workspacecommit_relation: Outside,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 "#]]
     );
@@ -1520,31 +1445,12 @@ fn vb_store_rw(name: &str) -> anyhow::Result<(VirtualBranchesTomlMetadata, TempD
 
 #[test]
 fn legacy_target_is_ignored_and_not_written() -> anyhow::Result<()> {
-    let historical: but_meta::virtual_branches_legacy_types::VirtualBranches =
+    let data: but_meta::virtual_branches_legacy_types::VirtualBranches =
         toml::from_str(&std::fs::read_to_string(vb_fixture("virtual-branches-01"))?)?;
-
-    let stack_id = StackId::from_number_for_testing(1);
-    let branch_target = Target {
-        branch: RemoteRefname::new("origin", "stack-base"),
-        remote_url: "https://example.com/repo".into(),
-        sha: gix::ObjectId::from_hex(b"1111111111111111111111111111111111111111")?,
-        push_remote_name: Some("origin".into()),
-    };
-    let data = but_meta::virtual_branches_legacy_types::VirtualBranches {
-        branch_targets: [(stack_id, branch_target.clone())].into(),
-        branches: historical.branches,
-        ..Default::default()
-    };
     let canonical = toml::to_string(&data)?;
     assert!(
         !canonical.contains("[default_target]"),
         "canonical TOML omits the legacy project target"
-    );
-    let roundtrip: but_meta::virtual_branches_legacy_types::VirtualBranches =
-        toml::from_str(&canonical)?;
-    assert_eq!(
-        roundtrip.branch_targets.get(&stack_id),
-        Some(&branch_target)
     );
     Ok(())
 }
@@ -1887,7 +1793,7 @@ fn falls_back_to_in_memory_db_when_persistent_db_open_fails() -> anyhow::Result<
 
     let tmp = tempdir()?;
     let toml_path = tmp.path().join("virtual_branches.toml");
-    std::fs::write(&toml_path, "[branch_targets]\n\n[branches]\n")?;
+    std::fs::write(&toml_path, "[branches]\n")?;
 
     let original_permissions = std::fs::metadata(tmp.path())?.permissions();
     let mut read_only_permissions = original_permissions.clone();

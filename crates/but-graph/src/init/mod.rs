@@ -1532,11 +1532,6 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
 ) -> anyhow::Result<Vec<Tip>> {
     let mut workspaces = obtain_workspace_infos(repo, entrypoint_ref.map(|rn| rn.as_ref()), meta)?;
     let has_project_meta = project_meta != &ProjectMeta::default();
-    if has_project_meta {
-        for (_, _, workspace) in &mut workspaces {
-            workspace.set_project_meta(project_meta.clone());
-        }
-    }
     if has_project_meta
         && !workspaces
             .iter()
@@ -1544,11 +1539,7 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
     {
         let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
         if let Some(workspace_tip) = try_refname_to_id(repo, workspace_ref.as_ref())? {
-            workspaces.push((
-                workspace_tip,
-                workspace_ref,
-                ref_metadata::Workspace::new(Default::default(), Vec::new(), project_meta.clone()),
-            ));
+            workspaces.push((workspace_tip, workspace_ref, Default::default()));
         }
     }
     let tip_ref_matches_ws_ref = workspaces

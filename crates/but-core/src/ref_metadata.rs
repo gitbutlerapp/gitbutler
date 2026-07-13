@@ -34,35 +34,14 @@ pub struct ProjectMeta {
 /// We would have to detect this case by validating parents, and the refs pointing to it, before
 /// using the metadata, or at least have a way to communicate possible states when trying to use
 /// this information.
-#[derive(Default, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct Workspace {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
 
     /// An array entry for each parent of the *workspace commit* the last time we saw it, and while it is
     /// considered to be inside the workspace, *or outside of it*.
-    /// The first parent, and always the first parent, or the first entry in this list,
-    /// could have a tip named `Self::target_ref`, and if so, it's not meant to be visible when asking for stacks.
     pub stacks: Vec<WorkspaceStack>,
-
-    /// The name of the reference to integrate with, if present.
-    /// Fetch its metadata for more information.
-    ///
-    /// If there is no target name, this is a local workspace (and if no global target is set).
-    /// Note that even though this is per workspace, the implementation can fill in global information at will.
-    target_ref: Option<gix::refs::FullName>,
-
-    /// The commit id of a commit that was reachable by [`Self::target_ref`] and that should be included in the workspace.
-    /// This is useful to make workspaces appear stable in relationship to the target reference, which may be updated each
-    /// time a `git fetch` is performed.
-    ///
-    /// This commit id has the same effect as the commit that the [`Self::target_ref`] is pointing to, and they are cumulative,
-    /// to include up to two commits of the target in the workspace.
-    target_commit_id: Option<gix::ObjectId>,
-    /// The symbolic name of the remote to push branches to.
-    ///
-    /// This is useful when there are no push permissions for the remote behind `target_ref`.
-    push_remote: Option<String>,
 }
 
 /// A projected workspace stack used to reconcile persisted workspace metadata.
@@ -84,71 +63,8 @@ pub struct ProjectedWorkspaceStack {
     pub branches: Vec<gix::refs::FullName>,
 }
 
-impl std::fmt::Debug for Workspace {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Workspace {
-            ref_info,
-            stacks,
-            target_ref,
-            push_remote,
-            target_commit_id,
-        } = self;
-        f.debug_struct("Workspace")
-            .field("ref_info", ref_info)
-            .field("stacks", stacks)
-            .field(
-                "target_ref",
-                &MaybeDebug(&target_ref.as_ref().map(|rn| rn.as_bstr())),
-            )
-            .field("target_commit_id", &MaybeDebug(target_commit_id))
-            .field("push_remote", &MaybeDebug(push_remote))
-            .finish()
-    }
-}
-
 /// Mutations
 impl Workspace {
-    /// Create workspace metadata from its parts.
-    pub fn new(
-        ref_info: RefInfo,
-        stacks: Vec<WorkspaceStack>,
-        project_meta: ProjectMeta,
-    ) -> Workspace {
-        let ProjectMeta {
-            target_ref,
-            target_commit_id,
-            push_remote,
-        } = project_meta;
-        Workspace {
-            ref_info,
-            stacks,
-            target_ref,
-            target_commit_id,
-            push_remote,
-        }
-    }
-
-    /// Return metadata that is moving to project-local Git configuration.
-    pub fn project_meta(&self) -> ProjectMeta {
-        ProjectMeta {
-            target_ref: self.target_ref.clone(),
-            target_commit_id: self.target_commit_id,
-            push_remote: self.push_remote.clone(),
-        }
-    }
-
-    /// Back-fill the legacy workspace metadata fields.
-    pub fn set_project_meta(&mut self, project_meta: ProjectMeta) {
-        let ProjectMeta {
-            target_ref,
-            target_commit_id,
-            push_remote,
-        } = project_meta;
-        self.target_ref = target_ref;
-        self.target_commit_id = target_commit_id;
-        self.push_remote = push_remote;
-    }
-
     /// Add missing metadata for stacks visible in the current workspace projection.
     ///
     /// This is additive with respect to branch names: projected branches are
@@ -467,42 +383,24 @@ impl ProjectMeta {
 }
 
 impl ProjectMeta {
-    /// Read project metadata for `repo`, falling back to the legacy workspace metadata in `meta`
-    /// when Git configuration contains no project metadata yet.
+    /// Read project metadata for `repo` from repository-local Git configuration.
     ///
     /// This re-reads the repository-local configuration file from disk so that changes made
     /// through other repository handles or by other processes are always observed.
-    /// This is a read-only operation. Callers at a mutable project boundary are responsible for
-    /// porting legacy metadata with [`Self::persist()`].
-    pub fn resolve(repo: &gix::Repository, meta: &impl crate::RefMetadata) -> anyhow::Result<Self> {
+    /// This is a read-only operation.
+    pub fn resolve(repo: &gix::Repository) -> anyhow::Result<Self> {
         let config = git_config::open_repo_local_config_for_reading(repo)?;
-        let project_meta = Self::try_from_config(&config)?;
-        if Self::is_ported(&config) || project_meta != Self::default() {
-            return Ok(project_meta);
-        }
-        Self::from_legacy_meta(meta)
+        Self::try_from_config(&config)
     }
 
-    /// Like [`Self::resolve()`], but obtain the legacy metadata through `legacy_fallback` so it
-    /// is only constructed when the repository wasn't ported to Git configuration yet.
-    ///
-    /// Prefer this over [`Self::resolve()`] when creating the legacy metadata is costly.
-    pub fn resolve_with<M: crate::RefMetadata>(
-        repo: &gix::Repository,
-        legacy_fallback: impl FnOnce() -> anyhow::Result<M>,
-    ) -> anyhow::Result<Self> {
+    /// Return whether legacy project metadata has already been ported to repository-local Git
+    /// configuration.
+    pub fn is_ported_repo(repo: &gix::Repository) -> anyhow::Result<bool> {
         let config = git_config::open_repo_local_config_for_reading(repo)?;
-        let project_meta = Self::try_from_config(&config)?;
-        if Self::is_ported(&config) || project_meta != Self::default() {
-            return Ok(project_meta);
-        }
-        Self::from_legacy_meta(&legacy_fallback()?)
-    }
-
-    fn from_legacy_meta(meta: &impl crate::RefMetadata) -> anyhow::Result<Self> {
-        Ok(meta
-            .workspace(crate::WORKSPACE_REF_NAME.try_into()?)?
-            .project_meta())
+        Ok(matches!(
+            config.boolean(PROJECT_PORTED_META),
+            Some(Ok(true))
+        ))
     }
 
     /// Read project metadata from the given repository-local Git configuration.
@@ -557,33 +455,9 @@ impl ProjectMeta {
         })
     }
 
-    /// Return whether project metadata has already been ported to Git config.
-    pub fn is_ported(config: &gix::config::File<'_>) -> bool {
-        matches!(config.boolean(PROJECT_PORTED_META), Some(Ok(true)))
-    }
-
-    /// Return whether project metadata has already been ported to the repository-local
-    /// Git configuration of `repo`, re-reading it from disk.
-    ///
-    /// This is the cheap way to check the ported marker without resolving any metadata.
-    pub fn is_ported_repo(repo: &gix::Repository) -> anyhow::Result<bool> {
-        let config = git_config::open_repo_local_config_for_reading(repo)?;
-        Ok(Self::is_ported(&config))
-    }
-
-    /// Persist project metadata to the repository-local Git config of `repo`, repairing
-    /// partially migrated target information first.
-    ///
-    /// Returns the metadata as persisted. Callers that cache workspace projections must
-    /// invalidate them afterwards.
-    pub fn persist(self, repo: &gix::Repository) -> anyhow::Result<Self> {
-        let project_meta = repair_target_metadata_for_migration(&self, repo);
-        project_meta.persist_to_local_config(repo)?;
-        Ok(project_meta)
-    }
-
-    /// Persist project metadata to repository-local Git config and mark it as ported.
-    pub fn persist_to_local_config(&self, repo: &gix::Repository) -> anyhow::Result<()> {
+    /// Persist project metadata to repository-local Git config, repairing partially migrated
+    /// target information first.
+    pub fn persist(&self, repo: &gix::Repository) -> anyhow::Result<()> {
         let project_meta = repair_target_metadata_for_migration(self, repo);
         let changed = git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
             set_or_remove(
@@ -610,25 +484,6 @@ impl ProjectMeta {
         if changed && let Ok(storage_path) = but_project_handle::gitbutler_storage_path(repo) {
             but_project_handle::write_refresh_sentinel(&storage_path.join("virtual_branches.toml"));
         }
-        Ok(())
-    }
-
-    /// Remove all project metadata keys, including the ported marker, from the
-    /// repository-local Git configuration of `repo`.
-    ///
-    /// Afterwards [`Self::resolve()`] falls back to the legacy workspace metadata again.
-    pub fn remove_from_local_config(repo: &gix::Repository) -> anyhow::Result<()> {
-        git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
-            for key in [
-                PROJECT_TARGET_REF,
-                PROJECT_TARGET_COMMIT_ID,
-                PROJECT_PUSH_REMOTE,
-                PROJECT_PORTED_META,
-            ] {
-                git_config::remove_config_value(config, key)?;
-            }
-            Ok(())
-        })?;
         Ok(())
     }
 }
@@ -693,21 +548,6 @@ pub enum StackKind {
 
 /// Access
 impl Workspace {
-    /// The name of the reference to integrate with, if present.
-    pub fn target_ref(&self) -> Option<&gix::refs::FullName> {
-        self.target_ref.as_ref()
-    }
-
-    /// The stable target commit that should be included in the workspace.
-    pub fn target_commit_id(&self) -> Option<gix::ObjectId> {
-        self.target_commit_id
-    }
-
-    /// The symbolic name of the remote to push branches to.
-    pub fn push_remote(&self) -> Option<&str> {
-        self.push_remote.as_deref()
-    }
-
     /// Return all stacks that are supposed to be inside the workspace, i.e. applied.
     /// Use `kind` for filtering.
     pub fn stacks(&self, kind: StackKind) -> impl Iterator<Item = &WorkspaceStack> {
@@ -737,29 +577,6 @@ impl Workspace {
     pub fn stack_names(&self, kind: StackKind) -> impl Iterator<Item = &gix::refs::FullNameRef> {
         self.stacks(kind)
             .filter_map(|s| s.ref_name().map(|rn| rn.as_ref()))
-    }
-
-    /// Return `true` if the branch with `name` is the workspace target or the targets local tracking branch,
-    /// using `repo` for the lookup of the local tracking branch.
-    pub fn is_branch_the_target_or_its_local_tracking_branch(
-        &self,
-        name: &gix::refs::FullNameRef,
-        repo: &gix::Repository,
-    ) -> anyhow::Result<bool> {
-        let Some(target_ref) = self.target_ref.as_ref() else {
-            return Ok(false);
-        };
-
-        if target_ref.as_ref() == name {
-            Ok(true)
-        } else {
-            let Some((local_tracking_branch, _remote_name)) =
-                repo.upstream_branch_and_remote_for_tracking_branch(target_ref.as_ref())?
-            else {
-                return Ok(false);
-            };
-            Ok(local_tracking_branch.as_ref() == name)
-        }
     }
 
     /// Return `true` if `name` is an reference mentioned in our [stacks](Workspace::stacks).

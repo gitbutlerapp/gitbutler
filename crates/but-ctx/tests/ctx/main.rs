@@ -1,9 +1,9 @@
-use but_core::{RefMetadata as _, WORKSPACE_REF_NAME, ref_metadata::ProjectMeta};
+use std::fs;
+
+use but_core::ref_metadata::ProjectMeta;
 use but_ctx::{Context, ProjectHandle};
-use but_meta::VirtualBranchesTomlMetadata;
 use but_path::AppChannel;
 use but_testsupport::{CommandExt as _, git, gix_testtools::tempfile::TempDir, open_repo};
-use snapbox::ToDebug;
 
 #[test]
 fn new_from_project_handle_uses_repo_gitdir() -> anyhow::Result<()> {
@@ -136,93 +136,22 @@ fn discover_with_app_channel_uses_requested_project_data_dir() -> anyhow::Result
 }
 
 #[test]
-fn set_project_meta_updates_only_git_config() -> anyhow::Result<()> {
+fn set_project_meta_persists_git_config() -> anyhow::Result<()> {
     let (_tmp, repo, target_commit_id) = run_fixture("project-meta-base")?;
     let ctx = Context::from_repo_for_testing(repo)?;
     let project_meta = project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?;
 
-    snapbox::assert_data_eq!(
-        storage_state(&ctx)?.to_debug(),
-        snapbox::str![
-            r#"
-StorageState {
-    config_ported: false,
-    config: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    toml: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    db: None,
-}
-
-"#
-        ]
-    );
+    assert_eq!(ctx.project_meta()?, ProjectMeta::default());
 
     ctx.set_project_meta(project_meta.clone())?;
+    assert_eq!(ctx.project_meta()?, project_meta);
 
-    snapbox::assert_data_eq!(
-        storage_state_with_db(&ctx)?.to_debug(),
-        snapbox::str![
-            r#"
-StorageState {
-    config_ported: true,
-    config: ProjectMetaView {
-        target_ref: Some(
-            "refs/remotes/origin/main",
-        ),
-        target_commit_id: Some(
-            "[OID]",
-        ),
-        push_remote: Some(
-            "fork",
-        ),
-    },
-    toml: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    db: Some(
-        DbStateView {
-            initialized: true,
-            default_target_remote_name: None,
-            default_target_branch_name: None,
-            default_target_sha: None,
-            default_target_push_remote_name: None,
-        },
-    ),
-}
-
-"#
-        ]
-    );
-
-    let refresh_sentinel = ctx.project_data_dir().join("REFRESH");
-    assert!(
-        refresh_sentinel.exists(),
-        "a changed config should notify other processes"
-    );
-    std::fs::remove_file(&refresh_sentinel)?;
-
-    assert!(
-        !refresh_sentinel.exists(),
-        "an unchanged config should not notify other processes"
-    );
-
-    ctx.set_project_meta(ProjectMeta {
+    let changed = ProjectMeta {
         push_remote: Some("another-fork".into()),
         ..project_meta
-    })?;
-    assert!(
-        refresh_sentinel.exists(),
-        "a subsequent config change should notify other processes"
-    );
+    };
+    ctx.set_project_meta(changed.clone())?;
+    assert_eq!(ctx.project_meta()?, changed);
     Ok(())
 }
 
@@ -246,9 +175,6 @@ fn set_project_meta_fills_missing_target_commit_id_from_target_ref() -> anyhow::
         Some(expected_target_id),
         "migration should fill a missing target commit from the target ref tip"
     );
-    let state = storage_state(&ctx)?;
-    assert_eq!(state.config.target_commit_id, Some("[OID]"));
-    assert_eq!(state.toml.target_commit_id, None);
     Ok(())
 }
 
@@ -288,9 +214,6 @@ fn set_project_meta_clears_missing_target_ref() -> anyhow::Result<()> {
     })?;
 
     assert_eq!(ctx.project_meta()?.target_ref, None);
-    let state = storage_state(&ctx)?;
-    assert_eq!(state.config.target_ref, None);
-    assert_eq!(state.toml.target_ref, None);
     Ok(())
 }
 
@@ -299,56 +222,10 @@ fn project_meta_defaults_when_config_and_toml_are_unset() -> anyhow::Result<()> 
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-base")?;
     let ctx = Context::from_repo_for_testing(repo)?;
 
-    snapbox::assert_data_eq!(
-        storage_state(&ctx)?.to_debug(),
-        snapbox::str![
-            r#"
-StorageState {
-    config_ported: false,
-    config: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    toml: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    db: None,
-}
-
-"#
-        ]
-    );
-
     let actual = ctx.project_meta()?;
     snapbox::assert_data_eq!(
         project_meta_summary(actual),
         snapbox::str!["target_ref=<unset>; target_commit_id=<unset>; push_remote=<unset>"]
-    );
-
-    snapbox::assert_data_eq!(
-        storage_state(&ctx)?.to_debug(),
-        snapbox::str![
-            r#"
-StorageState {
-    config_ported: false,
-    config: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    toml: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    db: None,
-}
-
-"#
-        ]
     );
     Ok(())
 }
@@ -376,62 +253,36 @@ fn project_meta_observes_changes_made_through_other_repository_handles() -> anyh
 }
 
 #[test]
-fn project_meta_ignores_legacy_toml() -> anyhow::Result<()> {
-    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-toml")?;
+fn context_creation_ports_legacy_toml_before_cleanup() -> anyhow::Result<()> {
+    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-toml")?;
     let ctx = Context::from_repo_for_testing(repo)?;
+    let expected = project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?;
 
-    snapbox::assert_data_eq!(
-        storage_state(&ctx)?.to_debug(),
-        snapbox::str![
-            r#"
-StorageState {
-    config_ported: false,
-    config: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    toml: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    db: None,
+    assert_eq!(ctx.project_meta()?, expected);
+
+    fs::write(
+        ctx.project_data_dir().join("virtual_branches.toml"),
+        "[branches]\n",
+    )?;
+    let reopened = Context::from_repo_for_testing(open_repo(&ctx.gitdir)?)?;
+    assert_eq!(reopened.project_meta()?, expected);
+    Ok(())
 }
 
-"#
-        ]
-    );
+#[test]
+fn context_creation_preserves_unmarked_project_config() -> anyhow::Result<()> {
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-ported")?;
+    but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        but_core::git_config::remove_config_value(config, "gitbutler.project.portedMeta")
+    })?;
 
-    let actual = ctx.project_meta()?;
+    let ctx = Context::from_repo_for_testing(repo)?;
     snapbox::assert_data_eq!(
-        project_meta_summary(actual),
-        snapbox::str!["target_ref=<unset>; target_commit_id=<unset>; push_remote=<unset>"]
-    );
-
-    snapbox::assert_data_eq!(
-        storage_state(&ctx)?.to_debug(),
+        project_meta_summary(ctx.project_meta()?),
         snapbox::str![
-            r#"
-StorageState {
-    config_ported: false,
-    config: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    toml: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    db: None,
-}
-
-"#
+            "target_ref=refs/remotes/upstream/trunk; target_commit_id=[OID]; push_remote=origin"
         ]
     );
-
     Ok(())
 }
 
@@ -440,69 +291,11 @@ fn project_meta_reads_git_config_and_ignores_stale_toml() -> anyhow::Result<()> 
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-ported")?;
     let ctx = Context::from_repo_for_testing(repo)?;
 
-    snapbox::assert_data_eq!(
-        storage_state(&ctx)?.to_debug(),
-        snapbox::str![
-            r#"
-StorageState {
-    config_ported: true,
-    config: ProjectMetaView {
-        target_ref: Some(
-            "refs/remotes/upstream/trunk",
-        ),
-        target_commit_id: Some(
-            "[OID]",
-        ),
-        push_remote: Some(
-            "origin",
-        ),
-    },
-    toml: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    db: None,
-}
-
-"#
-        ]
-    );
-
     let actual = ctx.project_meta()?;
     snapbox::assert_data_eq!(
         project_meta_summary(actual),
         snapbox::str![
             "target_ref=refs/remotes/upstream/trunk; target_commit_id=[OID]; push_remote=origin"
-        ]
-    );
-
-    snapbox::assert_data_eq!(
-        storage_state(&ctx)?.to_debug(),
-        snapbox::str![
-            r#"
-StorageState {
-    config_ported: true,
-    config: ProjectMetaView {
-        target_ref: Some(
-            "refs/remotes/upstream/trunk",
-        ),
-        target_commit_id: Some(
-            "[OID]",
-        ),
-        push_remote: Some(
-            "origin",
-        ),
-    },
-    toml: ProjectMetaView {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    db: None,
-}
-
-"#
         ]
     );
     Ok(())
@@ -526,96 +319,14 @@ fn project_meta(
     })
 }
 
-#[derive(Debug)]
-#[allow(
-    dead_code,
-    reason = "fields are asserted through snapbox debug snapshots"
-)]
-struct StorageState {
-    config_ported: bool,
-    config: ProjectMetaView,
-    toml: ProjectMetaView,
-    db: Option<DbStateView>,
-}
-
-#[derive(Debug)]
-struct ProjectMetaView {
-    target_ref: Option<String>,
-    target_commit_id: Option<&'static str>,
-    push_remote: Option<String>,
-}
-
-#[derive(Debug)]
-#[expect(
-    dead_code,
-    reason = "fields are asserted through snapbox debug snapshots"
-)]
-struct DbStateView {
-    initialized: bool,
-    default_target_remote_name: Option<String>,
-    default_target_branch_name: Option<String>,
-    default_target_sha: Option<&'static str>,
-    default_target_push_remote_name: Option<String>,
-}
-
-/// Read the storage state as it is on disk, like production reads do.
-fn storage_state(ctx: &Context) -> anyhow::Result<StorageState> {
-    storage_state_with_repo(ctx, open_repo(&ctx.gitdir)?, false)
-}
-
-fn storage_state_with_db(ctx: &Context) -> anyhow::Result<StorageState> {
-    storage_state_with_repo(ctx, open_repo(&ctx.gitdir)?, true)
-}
-
-fn storage_state_with_repo(
-    ctx: &Context,
-    repo: gix::Repository,
-    include_db: bool,
-) -> anyhow::Result<StorageState> {
-    let toml_meta = VirtualBranchesTomlMetadata::from_path_read_only(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
-    let toml = toml_meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
-    let db = if include_db {
-        ctx.db
-            .get_cache()?
-            .virtual_branches()
-            .get_snapshot()?
-            .map(|snapshot| DbStateView {
-                initialized: snapshot.state.initialized,
-                default_target_remote_name: snapshot.state.default_target_remote_name,
-                default_target_branch_name: snapshot.state.default_target_branch_name,
-                default_target_sha: snapshot.state.default_target_sha.as_ref().map(|_| "[OID]"),
-                default_target_push_remote_name: snapshot.state.default_target_push_remote_name,
-            })
-    } else {
-        None
-    };
-
-    Ok(StorageState {
-        config_ported: ProjectMeta::is_ported(&repo.config_snapshot()),
-        config: ProjectMeta::try_from_config(&repo.config_snapshot())?.into(),
-        toml: toml.project_meta().into(),
-        db,
-    })
-}
-
 fn project_meta_summary(project_meta: ProjectMeta) -> String {
-    let view = ProjectMetaView::from(project_meta);
     format!(
         "target_ref={}; target_commit_id={}; push_remote={}",
-        view.target_ref.as_deref().unwrap_or("<unset>"),
-        view.target_commit_id.unwrap_or("<unset>"),
-        view.push_remote.as_deref().unwrap_or("<unset>")
+        project_meta
+            .target_ref
+            .as_ref()
+            .map_or("<unset>".into(), ToString::to_string),
+        project_meta.target_commit_id.map_or("<unset>", |_| "[OID]"),
+        project_meta.push_remote.as_deref().unwrap_or("<unset>")
     )
-}
-
-impl From<ProjectMeta> for ProjectMetaView {
-    fn from(value: ProjectMeta) -> Self {
-        ProjectMetaView {
-            target_ref: value.target_ref.map(|name| name.to_string()),
-            target_commit_id: value.target_commit_id.map(|_| "[OID]"),
-            push_remote: value.push_remote,
-        }
-    }
 }

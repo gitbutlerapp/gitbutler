@@ -349,12 +349,12 @@ fn can_undo_but_squash_with_two_commits() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-c5d83d9 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (32bd7b0)
-32bd7b0 2000-01-02 00:00:00 [SQUASH] Squashed commit
-68ab82c 2000-01-02 00:00:00 [REWORD] Updated commit message
-39c0943 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
-af394f9 2000-01-02 00:00:00 [REWORD] Updated commit message
-083e937 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+e1ee47f 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (1d8470b)
+1d8470b 2000-01-02 00:00:00 [SQUASH] Squashed commit
+962a041 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d8549e 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+5a402a5 2000-01-02 00:00:00 [REWORD] Updated commit message
+5820dad 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
 
 "#]]);
 }
@@ -382,14 +382,14 @@ fn can_undo_but_squash_with_three_commits() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-f6b7464 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (a7a1cd4)
-a7a1cd4 2000-01-02 00:00:00 [SQUASH] Squashed commit
-c763bf9 2000-01-02 00:00:00 [REWORD] Updated commit message
-3d40c95 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
-68ab82c 2000-01-02 00:00:00 [REWORD] Updated commit message
-39c0943 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
-af394f9 2000-01-02 00:00:00 [REWORD] Updated commit message
-083e937 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+4163245 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (f0d401a)
+f0d401a 2000-01-02 00:00:00 [SQUASH] Squashed commit
+dd54bf3 2000-01-02 00:00:00 [REWORD] Updated commit message
+76d02d9 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+962a041 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d8549e 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+5a402a5 2000-01-02 00:00:00 [REWORD] Updated commit message
+5820dad 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
 
 "#]]);
 }
@@ -421,14 +421,14 @@ Squashed 2 commits → [..]
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-602cfc8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (a7a1cd4)
-a7a1cd4 2000-01-02 00:00:00 [SQUASH] Squashed commit
-c763bf9 2000-01-02 00:00:00 [REWORD] Updated commit message
-3d40c95 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
-68ab82c 2000-01-02 00:00:00 [REWORD] Updated commit message
-39c0943 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
-af394f9 2000-01-02 00:00:00 [REWORD] Updated commit message
-083e937 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+c7e1cf4 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (f0d401a)
+f0d401a 2000-01-02 00:00:00 [SQUASH] Squashed commit
+dd54bf3 2000-01-02 00:00:00 [REWORD] Updated commit message
+76d02d9 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+962a041 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d8549e 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+5a402a5 2000-01-02 00:00:00 [REWORD] Updated commit message
+5820dad 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
 
 "#]]);
 }
@@ -457,12 +457,12 @@ fn can_undo_but_squash_with_two_commits_with_message() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-e394b4a 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (32bd7b0)
-32bd7b0 2000-01-02 00:00:00 [SQUASH] Squashed commit
-68ab82c 2000-01-02 00:00:00 [REWORD] Updated commit message
-39c0943 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
-af394f9 2000-01-02 00:00:00 [REWORD] Updated commit message
-083e937 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+b49b23c 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (1d8470b)
+1d8470b 2000-01-02 00:00:00 [SQUASH] Squashed commit
+962a041 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d8549e 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+5a402a5 2000-01-02 00:00:00 [REWORD] Updated commit message
+5820dad 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
 
 "#]]);
 }
@@ -487,12 +487,12 @@ fn can_undo_but_squash_with_branch() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-b4f79ed 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (32bd7b0)
-32bd7b0 2000-01-02 00:00:00 [SQUASH] Squashed commit
-68ab82c 2000-01-02 00:00:00 [REWORD] Updated commit message
-39c0943 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
-af394f9 2000-01-02 00:00:00 [REWORD] Updated commit message
-083e937 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+dd5748a 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (1d8470b)
+1d8470b 2000-01-02 00:00:00 [SQUASH] Squashed commit
+962a041 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d8549e 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+5a402a5 2000-01-02 00:00:00 [REWORD] Updated commit message
+5820dad 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
 
 "#]]);
 }
@@ -517,12 +517,12 @@ fn can_undo_but_squash_with_branch_and_drop_message() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-64f3cfa 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (32bd7b0)
-32bd7b0 2000-01-02 00:00:00 [SQUASH] Squashed commit
-68ab82c 2000-01-02 00:00:00 [REWORD] Updated commit message
-39c0943 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
-af394f9 2000-01-02 00:00:00 [REWORD] Updated commit message
-083e937 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+cbdd86d 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (1d8470b)
+1d8470b 2000-01-02 00:00:00 [SQUASH] Squashed commit
+962a041 2000-01-02 00:00:00 [REWORD] Updated commit message
+3d8549e 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
+5a402a5 2000-01-02 00:00:00 [REWORD] Updated commit message
+5820dad 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
 
 "#]]);
 }

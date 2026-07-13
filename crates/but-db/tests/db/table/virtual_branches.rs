@@ -1,4 +1,4 @@
-use but_db::{VbBranchTarget, VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
+use but_db::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
 
 use crate::table::in_memory_db;
 
@@ -56,8 +56,6 @@ fn replace_snapshot_replaces_existing_data() -> anyhow::Result<()> {
         archived: true,
         review_id: None,
     }];
-    next.branch_targets = vec![];
-
     let handle = db.virtual_branches_mut()?;
     handle.replace_snapshot(&next)?;
 
@@ -101,30 +99,12 @@ fn replace_snapshot_rejects_heads_without_existing_stack() -> anyhow::Result<()>
 }
 
 #[test]
-fn replace_snapshot_rejects_branch_targets_without_existing_stack() -> anyhow::Result<()> {
-    let mut db = in_memory_db();
-    let mut snapshot = sample_snapshot();
-    snapshot.stacks.clear();
-    snapshot.heads.clear();
-
-    let handle = db.virtual_branches_mut()?;
-    let err = handle
-        .replace_snapshot(&snapshot)
-        .expect_err("branch target rows must reference an existing stack");
-    assert!(
-        err.to_string().contains("FOREIGN KEY"),
-        "unexpected error: {err}"
-    );
-    Ok(())
-}
-
-#[test]
 fn set_state_upsert_updates_existing_row() -> anyhow::Result<()> {
     let mut db = in_memory_db();
 
     let mut initial = VbState {
         initialized: true,
-        default_target_branch_name: Some("main".into()),
+        last_pushed_base_sha: Some("1111111111111111111111111111111111111111".into()),
         ..VbState::default()
     };
     {
@@ -132,7 +112,7 @@ fn set_state_upsert_updates_existing_row() -> anyhow::Result<()> {
         handle.set_state(&initial)?;
     }
 
-    initial.default_target_branch_name = Some("next".into());
+    initial.last_pushed_base_sha = Some("2222222222222222222222222222222222222222".into());
     initial.toml_last_seen_mtime_ns = Some(123);
     initial.toml_last_seen_sha256 = Some("abc123".into());
     {
@@ -147,7 +127,6 @@ fn set_state_upsert_updates_existing_row() -> anyhow::Result<()> {
     assert_eq!(snapshot.state, initial);
     assert!(snapshot.stacks.is_empty());
     assert!(snapshot.heads.is_empty());
-    assert!(snapshot.branch_targets.is_empty());
     Ok(())
 }
 
@@ -252,25 +231,6 @@ fn get_snapshot_returns_deterministic_ordering() -> anyhow::Result<()> {
             review_id: None,
         },
     ];
-    snapshot.branch_targets = vec![
-        VbBranchTarget {
-            stack_id: "stack-b".into(),
-            remote_name: "origin".into(),
-            branch_name: "b".into(),
-            remote_url: "https://example.invalid/repo".into(),
-            sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into(),
-            push_remote_name: None,
-        },
-        VbBranchTarget {
-            stack_id: "stack-a".into(),
-            remote_name: "origin".into(),
-            branch_name: "a".into(),
-            remote_url: "https://example.invalid/repo".into(),
-            sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into(),
-            push_remote_name: None,
-        },
-    ];
-
     let handle = db.virtual_branches_mut()?;
     handle.replace_snapshot(&snapshot)?;
 
@@ -294,15 +254,6 @@ fn get_snapshot_returns_deterministic_ordering() -> anyhow::Result<()> {
             .collect::<Vec<_>>(),
         vec!["stack-a:0", "stack-a:1", "stack-b:1"]
     );
-    assert_eq!(
-        actual
-            .branch_targets
-            .iter()
-            .map(|t| t.stack_id.as_str())
-            .collect::<Vec<_>>(),
-        vec!["stack-a", "stack-b"]
-    );
-
     // Round-trip the already read snapshot to ensure ordering remains stable.
     let handle = db.virtual_branches_mut()?;
     handle.replace_snapshot(&actual)?;
@@ -327,19 +278,11 @@ fn get_snapshot_returns_deterministic_ordering() -> anyhow::Result<()> {
             .collect::<Vec<_>>(),
         vec!["stack-a:0", "stack-a:1", "stack-b:1"]
     );
-    assert_eq!(
-        roundtripped
-            .branch_targets
-            .iter()
-            .map(|t| t.stack_id.as_str())
-            .collect::<Vec<_>>(),
-        vec!["stack-a", "stack-b"]
-    );
     Ok(())
 }
 
 #[test]
-fn deleting_stack_cascades_to_heads_and_branch_targets() -> anyhow::Result<()> {
+fn deleting_stack_cascades_to_heads() -> anyhow::Result<()> {
     let mut conn = rusqlite::Connection::open_in_memory()?;
     but_db::migration::run(&mut conn, but_db::migration::ours())?;
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
@@ -358,17 +301,6 @@ fn deleting_stack_cascades_to_heads_and_branch_targets() -> anyhow::Result<()> {
         ],
     )?;
     conn.execute(
-        "INSERT INTO vb_branch_targets (stack_id, remote_name, branch_name, remote_url, sha) VALUES (?1, ?2, ?3, ?4, ?5)",
-        rusqlite::params![
-            "stack-a",
-            "origin",
-            "main",
-            "https://example.invalid/repo",
-            "2222222222222222222222222222222222222222"
-        ],
-    )?;
-
-    conn.execute(
         "DELETE FROM vb_stacks WHERE id = ?1",
         rusqlite::params!["stack-a"],
     )?;
@@ -378,13 +310,7 @@ fn deleting_stack_cascades_to_heads_and_branch_targets() -> anyhow::Result<()> {
         rusqlite::params!["stack-a"],
         |row| row.get(0),
     )?;
-    let targets: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM vb_branch_targets WHERE stack_id = ?1",
-        rusqlite::params!["stack-a"],
-        |row| row.get(0),
-    )?;
     assert_eq!(heads, 0);
-    assert_eq!(targets, 0);
     Ok(())
 }
 
@@ -392,11 +318,6 @@ fn sample_snapshot() -> VirtualBranchesSnapshot {
     VirtualBranchesSnapshot {
         state: VbState {
             initialized: true,
-            default_target_remote_name: Some("origin".into()),
-            default_target_branch_name: Some("main".into()),
-            default_target_remote_url: Some("https://example.invalid/repo".into()),
-            default_target_sha: Some("1111111111111111111111111111111111111111".into()),
-            default_target_push_remote_name: Some("origin".into()),
             last_pushed_base_sha: Some("2222222222222222222222222222222222222222".into()),
             toml_last_seen_mtime_ns: Some(42),
             toml_last_seen_sha256: Some("abc".into()),
@@ -426,14 +347,6 @@ fn sample_snapshot() -> VirtualBranchesSnapshot {
             pr_number: Some(7),
             archived: false,
             review_id: Some("rvw_1".into()),
-        }],
-        branch_targets: vec![VbBranchTarget {
-            stack_id: "stack-a".into(),
-            remote_name: "origin".into(),
-            branch_name: "main".into(),
-            remote_url: "https://example.invalid/repo".into(),
-            sha: "dddddddddddddddddddddddddddddddddddddddd".into(),
-            push_remote_name: Some("origin".into()),
         }],
     }
 }

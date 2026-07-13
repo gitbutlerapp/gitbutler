@@ -941,4 +941,15 @@ pub mod utils {
             dangerously_skip_postprocessing_for_debugging: false,
         }
     }
+
+    pub fn target_meta() -> but_core::ref_metadata::ProjectMeta {
+        but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(
+                "refs/remotes/origin/main"
+                    .try_into()
+                    .expect("valid target ref"),
+            ),
+            ..Default::default()
+        }
+    }
 }

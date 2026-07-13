@@ -6,31 +6,8 @@ use snapbox::IntoData;
 
 use crate::{
     graph_rebase::add_stack_with_segments,
-    utils::{fixture, fixture_writable, standard_options},
+    utils::{fixture, fixture_writable, standard_options, target_meta},
 };
-
-fn project_meta(meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
-    let project_meta = meta
-        .workspace(
-            but_core::WORKSPACE_REF_NAME
-                .try_into()
-                .expect("valid workspace ref"),
-        )
-        .map(|workspace| workspace.project_meta())
-        .unwrap_or_default();
-    if project_meta == but_core::ref_metadata::ProjectMeta::default() {
-        but_core::ref_metadata::ProjectMeta {
-            target_ref: Some(
-                "refs/remotes/origin/main"
-                    .try_into()
-                    .expect("valid target ref"),
-            ),
-            ..Default::default()
-        }
-    } else {
-        project_meta
-    }
-}
 
 #[test]
 fn four_commits() -> Result<()> {
@@ -48,7 +25,7 @@ fn four_commits() -> Result<()> {
     );
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -87,7 +64,7 @@ fn merge_in_the_middle() -> Result<()> {
     );
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -137,7 +114,7 @@ fn three_branches_merged() -> Result<()> {
     );
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -183,7 +160,7 @@ fn many_references() -> Result<()> {
     );
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -240,7 +217,7 @@ fn first_parent_leg_long() -> Result<()> {
     );
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -311,7 +288,7 @@ fn second_parent_leg_long() -> Result<()> {
     );
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -385,8 +362,7 @@ fn workspace_with_empty_stack() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -457,8 +433,7 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -526,7 +501,7 @@ fn commit_with_two_parents() -> Result<()> {
     );
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -565,8 +540,8 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
 
     {
-        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-            .validated()?;
+        let graph =
+            Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -593,8 +568,8 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     }
 
     {
-        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-            .validated()?;
+        let graph =
+            Graph::from_head(&repo, &*meta, target_meta(), standard_options())?.validated()?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create_with_opts(
             &mut ws,
@@ -657,7 +632,7 @@ fn merge_first_parent_older_than_second() -> Result<()> {
     );
 
     let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -743,7 +718,7 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
             ),
         ],
         &*meta,
-        project_meta(&*meta),
+        Default::default(),
         standard_options(),
     )?
     .validated()?;

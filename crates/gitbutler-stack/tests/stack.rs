@@ -912,35 +912,144 @@ fn next_available_name_avoids_remote_tracking_branches() -> Result<()> {
 fn storage_sync_bootstraps_db_from_existing_toml() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let toml_path = tmp.path().join("virtual_branches.toml");
-    fs::write(
-        &toml_path,
-        r#"[branch_targets]
-
-[branches]
-"#,
-    )?;
+    let expected = storage_stack(1);
+    write_stack_toml(&toml_path, expected.clone())?;
 
     let handle = VirtualBranchesHandle::new(tmp.path());
     let state = handle.read_file()?;
-    let mut handle = handle;
-    handle.write_file(&state)?;
-    assert!(toml_path.exists(), "the TOML mirror stays available");
+    assert_eq!(state.branches.get(&expected.id), Some(&expected));
+
+    fs::remove_file(&toml_path)?;
+    assert_eq!(
+        handle.read_file()?.branches.get(&expected.id),
+        Some(&expected),
+        "the imported stack survives when TOML is recreated from the DB"
+    );
 
     Ok(())
 }
 
 #[test]
-fn storage_sync_recreates_toml_when_missing() -> Result<()> {
+fn storage_sync_creates_toml_on_first_read() -> Result<()> {
     let tmp = tempfile::tempdir()?;
     let handle = VirtualBranchesHandle::new(tmp.path());
     let _ = handle.read_file()?;
     let toml_path = tmp.path().join("virtual_branches.toml");
     assert!(toml_path.exists(), "initial sync creates TOML");
+    Ok(())
+}
+
+#[test]
+fn storage_sync_equal_mtime_and_changed_hash_imports_toml() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let mut handle = VirtualBranchesHandle::new(tmp.path());
+    let db_stack = storage_stack(1);
+    handle.set_stack(db_stack)?;
+
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    let mtime = fs::metadata(&toml_path)?.modified()?;
+    let toml_stack = storage_stack(2);
+    write_stack_toml(&toml_path, toml_stack.clone())?;
+    set_file_mtime(&toml_path, FileTime::from_system_time(mtime))?;
+
+    let state = handle.read_file()?;
+    assert_eq!(state.branches.get(&toml_stack.id), Some(&toml_stack));
+    assert_eq!(state.branches.len(), 1);
 
     fs::remove_file(&toml_path)?;
-    assert!(!toml_path.exists(), "sanity check");
-
-    let _ = handle.read_file()?;
-    assert!(toml_path.exists(), "TOML should be recreated from DB");
+    let state = handle.read_file()?;
+    assert_eq!(state.branches.get(&toml_stack.id), Some(&toml_stack));
+    assert_eq!(state.branches.len(), 1);
     Ok(())
+}
+
+#[test]
+fn storage_sync_older_toml_is_rewritten_from_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let mut handle = VirtualBranchesHandle::new(tmp.path());
+    let db_stack = storage_stack(1);
+    handle.set_stack(db_stack.clone())?;
+
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    let mtime = fs::metadata(&toml_path)?
+        .modified()?
+        .duration_since(UNIX_EPOCH)?;
+    write_stack_toml(&toml_path, storage_stack(2))?;
+    set_file_mtime(
+        &toml_path,
+        FileTime::from_unix_time(
+            i64::try_from(mtime.as_secs())?.saturating_sub(1),
+            mtime.subsec_nanos(),
+        ),
+    )?;
+
+    assert_eq!(
+        handle.read_file()?.branches.get(&db_stack.id),
+        Some(&db_stack)
+    );
+    assert_eq!(
+        read_stack_toml(&toml_path)?.branches.get(&db_stack.id),
+        Some(&db_stack)
+    );
+    Ok(())
+}
+
+#[test]
+fn storage_sync_invalid_toml_is_rewritten_from_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let mut handle = VirtualBranchesHandle::new(tmp.path());
+    let db_stack = storage_stack(1);
+    handle.set_stack(db_stack.clone())?;
+
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    fs::write(&toml_path, "not valid toml = [")?;
+
+    assert_eq!(
+        handle.read_file()?.branches.get(&db_stack.id),
+        Some(&db_stack)
+    );
+    assert_eq!(
+        read_stack_toml(&toml_path)?.branches.get(&db_stack.id),
+        Some(&db_stack)
+    );
+    Ok(())
+}
+
+#[test]
+fn storage_sync_restore_imports_toml_into_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let mut handle = VirtualBranchesHandle::new(tmp.path());
+    handle.set_stack(storage_stack(1))?;
+
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    let restored = storage_stack(2);
+    write_stack_toml(&toml_path, restored.clone())?;
+    handle.import_toml_into_db_for_restore()?;
+
+    fs::remove_file(&toml_path)?;
+    let state = handle.read_file()?;
+    assert_eq!(state.branches.get(&restored.id), Some(&restored));
+    assert_eq!(state.branches.len(), 1);
+    Ok(())
+}
+
+fn storage_stack(number: u128) -> Stack {
+    let mut stack = Stack::new_with_just_heads(Vec::new(), number as usize, true);
+    stack.id = StackId::from_number_for_testing(number);
+    stack
+}
+
+fn write_stack_toml(path: &Path, stack: Stack) -> Result<()> {
+    let mut state = gitbutler_stack::VirtualBranchesState::default();
+    state.branches.insert(stack.id, stack);
+    let legacy: but_meta::virtual_branches_legacy_types::VirtualBranches = state.into();
+    fs::write(path, toml::to_string(&legacy)?)?;
+    Ok(())
+}
+
+fn read_stack_toml(path: &Path) -> Result<gitbutler_stack::VirtualBranchesState> {
+    let legacy = toml::from_str::<but_meta::virtual_branches_legacy_types::VirtualBranches>(
+        &fs::read_to_string(path)?,
+    )?;
+    Ok(legacy.into())
 }

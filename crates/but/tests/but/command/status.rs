@@ -694,7 +694,7 @@ Applied remote branch 'origin/document-but-pr-skill' to workspace
         .clone();
     let output = String::from_utf8_lossy(&output);
     assert!(
-        output.contains("[document-but-pr-skill] (merged upstream) (no commits)"),
+        output.contains("[document-but-pr-skill] (merged upstream)"),
         "the fast-forward merged branch should be labelled as merged upstream:\n{output}"
     );
 

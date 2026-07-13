@@ -532,9 +532,10 @@ mod tests {
     }
 
     fn workspace_with_stacks<const N: usize>(stacks: [WorkspaceStack; N]) -> Workspace {
-        let mut workspace = Workspace::default();
-        workspace.stacks = stacks.into();
-        workspace
+        Workspace {
+            stacks: stacks.into(),
+            ..Default::default()
+        }
     }
 
     fn stack(

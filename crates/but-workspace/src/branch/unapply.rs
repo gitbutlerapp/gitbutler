@@ -128,7 +128,7 @@ pub(crate) mod function {
 
     use but_core::{
         ObjectStorageExt as _, RefMetadata, RepositoryExt as _,
-        ref_metadata::{ProjectMeta, ProjectedWorkspaceStack, StackId},
+        ref_metadata::{ProjectedWorkspaceStack, StackId},
     };
     use but_graph::init::Overlay;
     use gix::{
@@ -255,7 +255,6 @@ pub(crate) mod function {
             bail!("Cannot unapply a branch from an ad-hoc detached workspace");
         };
         let mut ws_md = meta.workspace(workspace_ref_name.as_ref())?;
-        ws_md.set_project_meta(ws.graph.project_meta.clone());
         if ws.kind.has_managed_ref() || ws.has_metadata() {
             ws_md.reconcile_projected_stacks(
                 ws.stacks.iter().map(|stack| ProjectedWorkspaceStack {
@@ -591,13 +590,8 @@ pub(crate) mod function {
             workspace_ref_name,
             workspace_ref_expected,
         )?;
-        // Fully remove the workspace, which includes the target branch.
-        // For this we will need more flexibility, on-demand inference or
-        // git-configuration based configuration, so there is always a fallback.
+        // Fully remove the workspace metadata. Project metadata remains independent in Git config.
         meta.remove(workspace_ref_name)?;
-        // The project metadata ported to repo-local Git config mirrors the just-removed
-        // workspace metadata, so clear it as well or the deleted target would keep resolving.
-        ProjectMeta::remove_from_local_config(repo)?;
 
         let overlay = Overlay::default().with_entrypoint(
             ref_to_checkout.commit_id,

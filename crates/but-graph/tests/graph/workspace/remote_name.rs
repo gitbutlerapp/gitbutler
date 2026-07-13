@@ -2,10 +2,8 @@ use but_core::RefMetadata;
 use but_graph::Graph;
 use but_testsupport::{graph_tree, visualize_commit_graph_all};
 
-use super::project_meta;
-use crate::init::utils::{
-    add_workspace, add_workspace_without_target, read_only_in_memory_scenario, standard_options,
-};
+use super::target_meta;
+use crate::init::utils::{add_workspace, read_only_in_memory_scenario, standard_options};
 
 #[test]
 fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
@@ -13,7 +11,7 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
         .validated()?
         .into_workspace()?;
 
@@ -31,7 +29,7 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
 fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
-    add_workspace_without_target(&mut meta);
+    add_workspace(&mut meta);
 
     let ws = Graph::from_head(
         &repo,
@@ -73,7 +71,7 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     branch.update_times(false);
     meta.set_branch(&branch)?;
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+    let ws = Graph::from_head(&repo, &*meta, target_meta(), standard_options())?
         .validated()?
         .into_workspace()?;
     // the target remote and its local tracking branch get sibling links even when another branch owns the shared commit

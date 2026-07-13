@@ -2959,7 +2959,6 @@ fn integrate_and_materialize<M: RefMetadata>(
     {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
-        md.set_project_meta(project_meta.clone());
         materialized.meta.set_workspace(&md)?;
     }
     drop(materialized);
@@ -3002,7 +3001,6 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
     {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
-        md.set_project_meta(project_meta.clone());
         materialized.meta.set_workspace(&md)?;
     }
     drop(materialized);

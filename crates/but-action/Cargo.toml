@@ -25,7 +25,6 @@ but-rebase.workspace = true
 but-hunk-assignment.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 but-llm.workspace = true
-but-meta = { workspace = true, features = ["legacy"] }
 
 gitbutler-operating-modes.workspace = true
 gitbutler-branch-actions.workspace = true

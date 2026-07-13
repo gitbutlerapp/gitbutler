@@ -9,7 +9,6 @@ pub use stack::Stack;
     reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
 )]
 pub use state::{VirtualBranches as VirtualBranchesState, VirtualBranchesHandle};
-pub use target::Target;
 
 mod heads;
 pub use heads::add_head;

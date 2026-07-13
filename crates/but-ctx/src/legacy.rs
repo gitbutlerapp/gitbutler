@@ -49,7 +49,7 @@ impl Context {
         let project_data_dir = repo.gitbutler_storage_path()?;
         let app_cache_dir = but_path::app_cache_dir().ok();
         let cache_mode = CacheMode::Disk;
-        Ok(Context {
+        Context {
             settings,
             gitdir: gitdir.clone(),
             project_data_dir: project_data_dir.clone(),
@@ -63,7 +63,7 @@ impl Context {
             app_cache_dir,
             workspace: Default::default(),
         }
-        .with_repo(repo))
+        .with_repo(repo)
     }
 
     /// Open the repository identified by `legacy_project` and `settings`.

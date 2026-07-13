@@ -1186,8 +1186,7 @@ impl VirtualBranchesTomlMetadata {
                         .collect(),
                 })
                 .collect(),
-            ProjectMeta::default(),
-        )
+        }
     }
 
     fn remove_branch(&mut self, ref_name: &FullNameRef) -> anyhow::Result<Option<StackBranch>> {
@@ -1278,14 +1277,13 @@ fn standard_time() -> gix::date::Time {
 }
 
 fn default_workspace() -> Workspace {
-    Workspace::new(
-        RefInfo {
+    Workspace {
+        ref_info: RefInfo {
             created_at: Some(standard_time()),
             updated_at: None,
         },
-        Vec::new(),
-        Default::default(),
-    )
+        stacks: Vec::new(),
+    }
 }
 
 fn full_branch_name(name: &str) -> Option<gix::refs::FullName> {

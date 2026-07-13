@@ -583,10 +583,7 @@ StackDetails {
         // The raw workspace projection can now link the advanced tip back to `refs/heads/B` even
         // though the extra commit sits outside the workspace commit. That sibling link records the
         // outside commit separately from the in-workspace `B` commit.
-        let mut workspace = (*meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?).clone();
-        workspace.set_project_meta(crate::ref_info::with_workspace_commit::utils::project_meta(
-            &repo,
-        )?);
+        let workspace = (*meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?).clone();
         let mut graph_meta = but_testsupport::InMemoryRefMetadata {
             workspaces: vec![(but_core::WORKSPACE_REF_NAME.try_into()?, workspace)],
             ..Default::default()
@@ -599,7 +596,7 @@ StackDetails {
         let graph = but_graph::Graph::from_head(
             &repo,
             &graph_meta,
-            Default::default(),
+            crate::ref_info::with_workspace_commit::utils::project_meta(&repo)?,
             but_graph::init::Options {
                 ..standard_options().traversal
             },
@@ -608,22 +605,20 @@ StackDetails {
         snapbox::assert_data_eq!(
             graph_workspace(&ws).to_string(),
             snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓!
-└── ≡📙:4:B →:1: {1}
-    ├── 📙:4:B →:1:
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:5:B →:3: on 85efbe4 {1}
+    ├── 📙:5:B →:3:
     │   ├── ·cc0bf57*
     │   └── ·d69fe94 (🏘️)
-    ├── 📙:2:A
-    │   └── ·09d8e52 (🏘️)
-    └── :3:main
-        └── ·85efbe4 (🏘️)
+    └── 📙:4:A
+        └── ·09d8e52 (🏘️)
 
 "#]]
         );
         snapbox::assert_data_eq!(
             ws.to_debug(),
             snapbox::str![[r#"
-Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓!) {
+Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4) {
     id: 0,
     kind: Managed {
         ref_info: RefInfo {
@@ -642,9 +637,9 @@ Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓!) {
         },
     },
     stacks: [
-        Stack(≡📙:4:B →:1: {1}) {
+        Stack(≡📙:5:B →:3: on 85efbe4 {1}) {
             segments: [
-                StackSegment(📙:4:B →:1:) {
+                StackSegment(📙:5:B →:3:) {
                     commits: [
                         "·d69fe94 (🏘\u{fe0f})",
                     ],
@@ -655,16 +650,9 @@ Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓!) {
                         ],
                     ),
                 },
-                StackSegment(📙:2:A) {
+                StackSegment(📙:4:A) {
                     commits: [
                         "·09d8e52 (🏘\u{fe0f})",
-                    ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                },
-                StackSegment(:3:main) {
-                    commits: [
-                        "·85efbe4 (🏘\u{fe0f})",
                     ],
                     commits_on_remote: [],
                     commits_outside: None,
@@ -692,13 +680,23 @@ Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓!) {
                     workspacecommit_relation: Merged,
                 },
             ],
-            target_ref: "refs/remotes/origin/main",
-            target_commit_id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
-            push_remote: None,
         },
     ),
-    target_ref: None,
-    target_commit: None,
+    target_ref: Some(
+        TargetRef {
+            ref_name: FullName(
+                "refs/remotes/origin/main",
+            ),
+            segment_index: NodeIndex(1),
+            commits_ahead: 0,
+        },
+    ),
+    target_commit: Some(
+        TargetCommit {
+            commit_id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
+            segment_index: NodeIndex(2),
+        },
+    ),
 }
 
 "#]]

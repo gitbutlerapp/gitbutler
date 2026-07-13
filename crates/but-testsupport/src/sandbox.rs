@@ -141,10 +141,7 @@ impl Sandbox {
             && let Ok(commit_id) = repo.rev_parse_single("origin/main")
         {
             let storage_path = repo.gitbutler_storage_path().unwrap();
-            sandbox.file(
-                storage_path.join("virtual_branches.toml"),
-                "[branch_targets]\n\n[branches]\n",
-            );
+            sandbox.file(storage_path.join("virtual_branches.toml"), "[branches]\n");
             ProjectMeta {
                 target_ref: Some("refs/remotes/origin/main".try_into().unwrap()),
                 target_commit_id: Some(commit_id.detach()),
@@ -242,7 +239,7 @@ impl Sandbox {
 
     /// Read project-scoped metadata.
     pub fn project_meta(&self) -> ProjectMeta {
-        ProjectMeta::resolve(&self.open_repo(), &self.meta()).unwrap()
+        ProjectMeta::resolve(&self.open_repo()).unwrap()
     }
 
     /// Return a fully isolated context configured to interact with this repository.
@@ -452,11 +449,7 @@ impl Sandbox {
             );
         }
         let out = ws_data.stacks.iter().map(|s| s.id).collect();
-        let project_meta = ws.project_meta();
         meta.set_workspace(&ws).unwrap();
-        project_meta
-            .persist_to_local_config(&self.open_repo())
-            .unwrap();
 
         out
     }
@@ -465,16 +458,11 @@ impl Sandbox {
     ///
     /// Returns the target sha we ended up setting.
     pub fn set_target_sha(&self, spec: &str) -> gix::ObjectId {
-        let mut meta = self.meta();
-        let mut ws = meta.workspace(r(WORKSPACE_REF_NAME)).unwrap();
         let repo = self.open_repo();
         let target_sha = repo.rev_parse_single(spec).unwrap();
-        let mut project_meta = ws.project_meta();
+        let mut project_meta = self.project_meta();
         project_meta.target_commit_id = Some(target_sha.detach());
-        ws.set_project_meta(project_meta);
-        let project_meta = ws.project_meta();
-        meta.set_workspace(&ws).unwrap();
-        project_meta.persist_to_local_config(&repo).unwrap();
+        project_meta.persist(&repo).unwrap();
 
         target_sha.detach()
     }

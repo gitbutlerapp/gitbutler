@@ -291,7 +291,6 @@ pub fn apply(
                 .as_ref()
                 .context("Workspace metadata must be available to repair stale applied state")?;
             let mut ws_md = meta.workspace(ws_ref_name.as_ref())?;
-            ws_md.set_project_meta(ws.graph.project_meta.clone());
             add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), order, new_stack_id);
             persist_metadata_and_gitconfig(meta, &applied_branches, &ws_md, None)?;
         }
@@ -366,17 +365,7 @@ pub fn apply(
                 // soon-to-be-created workspace.
                 // This is a 'trick' to allow callers to prevent 'main' to be added to the workspace automatically
                 // even though the new workspace is supposed to have it as target.
-                let is_branch_target = ws
-                    .is_branch_the_target_or_its_local_tracking_branch(current_head_ref.as_ref())
-                    || if let Some(next_ws_md) = meta.workspace_opt(next_ws_ref_name.as_ref())? {
-                        next_ws_md.is_branch_the_target_or_its_local_tracking_branch(
-                            current_head_ref.as_ref(),
-                            repo,
-                        )?
-                    } else {
-                        false
-                    };
-                if is_branch_target {
+                if ws.is_branch_the_target_or_its_local_tracking_branch(current_head_ref.as_ref()) {
                     current_unmanaged_head_branch_name.take();
                 }
             }
@@ -415,7 +404,6 @@ pub fn apply(
     };
 
     let mut ws_md = meta.workspace(workspace_ref_name_to_update.as_ref())?;
-    ws_md.set_project_meta(ws.graph.project_meta.clone());
     // When HEAD is on a branch that's already in the workspace, applying another branch re-roots
     // the workspace around just that branch plus the ones we apply.
     let head_branch_in_workspace = head_ref_name.as_ref().is_some_and(|head| {

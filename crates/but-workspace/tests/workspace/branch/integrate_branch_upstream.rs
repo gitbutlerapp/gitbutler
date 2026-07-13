@@ -3,7 +3,7 @@ use std::vec;
 
 use anyhow::{Result, bail};
 use bstr::ByteSlice;
-use but_core::{ChangeId, Commit, RefMetadata, commit::Headers};
+use but_core::{ChangeId, Commit, commit::Headers};
 use but_graph::init::Options;
 use but_testsupport::gix_testtools::tempfile::TempDir;
 use but_testsupport::{InMemoryRefMetadata, visualize_commit_graph_all, visualize_tree};
@@ -38,16 +38,6 @@ fn normalized_tree_snapshot(tree_id: gix::ObjectId, repo: &gix::Repository) -> R
         .map(str::trim_end)
         .collect::<Vec<_>>()
         .join("\n"))
-}
-
-fn project_meta(meta: &impl RefMetadata) -> but_core::ref_metadata::ProjectMeta {
-    meta.workspace(
-        but_core::WORKSPACE_REF_NAME
-            .try_into()
-            .expect("valid workspace ref"),
-    )
-    .map(|workspace| workspace.project_meta())
-    .unwrap_or_default()
 }
 
 fn labeled_integration_snapshot(
@@ -218,7 +208,7 @@ fn integration_graph_for_branch(
                 but_graph::init::Tip::integrated(target_id, Some(target_ref_name.to_owned())),
             ],
             meta,
-            project_meta(meta),
+            Default::default(),
             Options::limited(),
         )
     } else if let Ok(upstream_ref_name) = resolve_tracking_branch_ref_name(ref_name, repo) {
@@ -243,11 +233,11 @@ fn integration_graph_for_branch(
                 but_graph::init::Tip::reachable(upstream_id, Some(upstream_ref_name.into_owned())),
             ],
             meta,
-            project_meta(meta),
+            Default::default(),
             Options::limited(),
         )
     } else {
-        but_graph::Graph::from_head(repo, meta, project_meta(meta), Options::limited())
+        but_graph::Graph::from_head(repo, meta, Default::default(), Options::limited())
     }
 }
 

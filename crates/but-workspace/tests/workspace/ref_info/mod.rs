@@ -6,7 +6,7 @@
 use snapbox::prelude::*;
 use std::borrow::Cow;
 
-use but_core::{RefMetadata, WORKSPACE_REF_NAME, ref_metadata::StackId};
+use but_core::{WORKSPACE_REF_NAME, ref_metadata::StackId};
 use but_workspace::{legacy::StacksFilter, ref_info};
 use gix::prelude::ObjectIdExt;
 
@@ -21,18 +21,13 @@ pub fn head_info(
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<but_workspace::RefInfo> {
     if opts.project_meta == Default::default() {
-        opts.project_meta = project_meta(repo, meta)?;
+        opts.project_meta = project_meta(repo)?;
     }
     but_workspace::head_info(repo, meta, opts)
 }
 
-fn project_meta(
-    repo: &gix::Repository,
-    meta: &but_meta::VirtualBranchesTomlMetadata,
-) -> anyhow::Result<but_core::ref_metadata::ProjectMeta> {
-    let project_meta = meta
-        .workspace(WORKSPACE_REF_NAME.try_into()?)?
-        .project_meta();
+fn project_meta(repo: &gix::Repository) -> anyhow::Result<but_core::ref_metadata::ProjectMeta> {
+    let project_meta = but_core::ref_metadata::ProjectMeta::resolve(repo)?;
     if project_meta == Default::default() && repo.try_find_reference(WORKSPACE_REF_NAME)?.is_some()
     {
         with_workspace_commit::utils::project_meta(repo)
@@ -50,13 +45,7 @@ pub fn stacks_v3(
     filter: StacksFilter,
     ref_name_override: Option<&gix::refs::FullNameRef>,
 ) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
-    but_workspace::legacy::stacks_v3(
-        repo,
-        meta,
-        &project_meta(repo, meta)?,
-        filter,
-        ref_name_override,
-    )
+    but_workspace::legacy::stacks_v3(repo, meta, &project_meta(repo)?, filter, ref_name_override)
 }
 
 #[deprecated(
@@ -67,7 +56,7 @@ pub fn stack_details_v3(
     repo: &gix::Repository,
     meta: &but_meta::VirtualBranchesTomlMetadata,
 ) -> anyhow::Result<but_workspace::ui::StackDetails> {
-    but_workspace::legacy::stack_details_v3(stack_id, repo, meta, &project_meta(repo, meta)?)
+    but_workspace::legacy::stack_details_v3(stack_id, repo, meta, &project_meta(repo)?)
 }
 
 fn first_commit(info: &but_workspace::RefInfo) -> &but_workspace::ref_info::LocalCommit {

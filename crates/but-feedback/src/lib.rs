@@ -38,7 +38,7 @@ impl Archival {
         repo: &gix::Repository,
         meta: &impl RefMetadata,
     ) -> Result<PathBuf> {
-        let project_meta = but_core::ref_metadata::ProjectMeta::resolve(repo, meta)?;
+        let project_meta = but_core::ref_metadata::ProjectMeta::resolve(repo)?;
         let mut graph =
             but_graph::Graph::from_head(repo, meta, project_meta.clone(), Default::default())
                 .or_else(|_| {

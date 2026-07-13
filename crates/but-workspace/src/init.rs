@@ -6,7 +6,6 @@
 
 use anyhow::{Context as _, Result, bail};
 use but_core::{
-    RefMetadata,
     git_config::{edit_repo_config, ensure_config_value},
     ref_metadata::ProjectMeta,
 };
@@ -16,7 +15,7 @@ use but_core::{
 ///
 /// This performs the metadata-only parts of the legacy `set_base_branch()`:
 ///
-/// * repair partially migrated target metadata and persist it if it changed,
+/// * repair partially migrated target metadata before applying the target change,
 /// * store the target as [`ProjectMeta`] via [`ProjectMeta::persist()`],
 /// * set `log.excludeDecoration = refs/gitbutler` in the repository-local Git config.
 ///
@@ -30,21 +29,12 @@ use but_core::{
 /// access, and to invalidate any cached workspace projection afterwards.
 pub fn set_target_ref_and_init_project(
     repo: &gix::Repository,
-    meta: &mut impl RefMetadata,
     target_ref: &gix::refs::FullNameRef,
     push_remote: Option<String>,
 ) -> Result<()> {
-    let project_meta = match ProjectMeta::resolve(repo, &*meta) {
-        Ok(project_meta) => {
-            let repaired =
-                but_core::ref_metadata::repair_target_metadata_for_migration(&project_meta, repo);
-            if repaired != project_meta {
-                repaired.clone().persist(repo)?;
-            }
-            Some(repaired)
-        }
-        Err(_) => None,
-    };
+    let project_meta = ProjectMeta::resolve(repo)?;
+    let repaired =
+        but_core::ref_metadata::repair_target_metadata_for_migration(&project_meta, repo);
 
     if target_ref.category() != Some(gix::refs::Category::RemoteBranch) {
         bail!(
@@ -82,7 +72,7 @@ pub fn set_target_ref_and_init_project(
         .url(gix::remote::Direction::Fetch)
         .with_context(|| format!("failed to get remote url for '{remote_name}'"))?;
 
-    let sha = match project_meta.as_ref().and_then(|meta| meta.target_commit_id) {
+    let sha = match repaired.target_commit_id {
         Some(existing) => existing,
         None => {
             let head_commit = repo
@@ -109,7 +99,7 @@ pub fn set_target_ref_and_init_project(
         }
         // Unlike the legacy `set_base_branch()`, keep an existing push remote instead of
         // clearing it - the target may be (re-)set at any time.
-        None => project_meta.and_then(|meta| meta.push_remote),
+        None => repaired.push_remote,
     };
 
     ProjectMeta {

@@ -58,9 +58,6 @@ mod workspace {
 Workspace {
     ref_info: RefInfo { created_at: None, updated_at: None },
     stacks: [],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 
 "#]]
@@ -110,9 +107,6 @@ Workspace {
             workspacecommit_relation: Outside,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 "#]]
         );
@@ -147,9 +141,6 @@ Workspace {
             workspacecommit_relation: Merged,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 "#]]
         );
@@ -193,9 +184,6 @@ Workspace {
             workspacecommit_relation: Outside,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 "#]]
         );
@@ -235,9 +223,6 @@ Workspace {
             workspacecommit_relation: Merged,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 "#]]
         );
@@ -307,9 +292,6 @@ Workspace {
             workspacecommit_relation: Merged,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 "#]]
         );
@@ -325,9 +307,6 @@ Workspace {
 Workspace {
     ref_info: RefInfo { created_at: None, updated_at: None },
     stacks: [],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 
 "#]]
@@ -417,9 +396,6 @@ Workspace {
             workspacecommit_relation: Merged,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 "#]]
         );
@@ -485,9 +461,6 @@ Workspace {
             workspacecommit_relation: Merged,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 
 "#]]
@@ -569,9 +542,6 @@ Workspace {
             workspacecommit_relation: Merged,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 
 "#]]
@@ -688,9 +658,6 @@ Workspace {
             workspacecommit_relation: Merged,
         },
     ],
-    target_ref: None,
-    target_commit_id: None,
-    push_remote: None,
 }
 
 "#]]
@@ -737,9 +704,10 @@ Workspace {
     }
 
     fn workspace(stacks: Vec<WorkspaceStack>) -> Workspace {
-        let mut ws = Workspace::default();
-        ws.stacks = stacks;
-        ws
+        Workspace {
+            stacks,
+            ..Default::default()
+        }
     }
 
     fn r(name: &str) -> &gix::refs::FullNameRef {

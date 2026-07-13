@@ -12,7 +12,7 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_meta::virtual_branches_legacy_types::{Target, VirtualBranches};
+use but_meta::virtual_branches_legacy_types::VirtualBranches;
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_repo::{
     SignaturePurpose, commit_ids_excluding_reachable_from_with_graph, commit_without_signature_gix,
@@ -53,9 +53,18 @@ struct SnapshotProjectMeta {
 #[derive(serde::Deserialize)]
 struct SnapshotVirtualBranches {
     #[serde(default)]
-    default_target: Option<Target>,
+    default_target: Option<SnapshotTarget>,
     #[serde(flatten)]
     virtual_branches: VirtualBranches,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SnapshotTarget {
+    branch_name: String,
+    remote_name: String,
+    sha: String,
+    push_remote_name: Option<String>,
 }
 
 impl TryFrom<&ProjectMeta> for SnapshotProjectMeta {
@@ -540,8 +549,18 @@ fn snapshot_metadata(
                 .as_ref()
                 .context("snapshot has neither project_meta.toml nor a legacy default target")?;
             ProjectMeta {
-                target_ref: Some(target.branch.to_string().try_into()?),
-                target_commit_id: Some(target.sha),
+                target_ref: Some(
+                    format!(
+                        "refs/remotes/{remote}/{branch}",
+                        remote = target.remote_name,
+                        branch = target.branch_name
+                    )
+                    .try_into()?,
+                ),
+                target_commit_id: Some(
+                    gix::ObjectId::from_str(&target.sha)
+                        .context("invalid legacy default target sha")?,
+                ),
                 push_remote: target.push_remote_name.clone(),
             }
         }

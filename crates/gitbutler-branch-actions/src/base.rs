@@ -4,6 +4,7 @@ use anyhow::{Context as _, Result, anyhow};
 use but_core::{
     WORKSPACE_REF_NAME,
     git_config::{edit_repo_config, ensure_config_value},
+    ref_metadata::ProjectMeta,
     sync::RepoShared,
 };
 use but_ctx::Context;
@@ -13,7 +14,7 @@ use gitbutler_git::GitContextExt as _;
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::first_parent_commit_ids_until;
-use gitbutler_stack::{Stack, Target, canned_branch_name};
+use gitbutler_stack::{Stack, canned_branch_name};
 use serde::Serialize;
 use tracing::instrument;
 
@@ -114,8 +115,8 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
     };
     let remote_name = remote_name.to_string();
 
-    let target = match inferred_default_target(&repo, &remote_name) {
-        Ok(Some(target)) => target,
+    let project_meta = match inferred_default_target(&repo, &remote_name) {
+        Ok(Some(project_meta)) => project_meta,
         Ok(None) => return Ok(false),
         Err(err) => {
             tracing::debug!(
@@ -126,11 +127,7 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
             return Ok(false);
         }
     };
-    ctx.set_project_meta(but_core::ref_metadata::ProjectMeta {
-        target_ref: Some(target.branch.to_string().try_into()?),
-        target_commit_id: Some(target.sha),
-        push_remote: target.push_remote_name.clone(),
-    })?;
+    ctx.set_project_meta(project_meta)?;
     set_exclude_decoration(ctx)?;
     Ok(true)
 }
@@ -189,19 +186,6 @@ pub(crate) fn set_base_branch(
         .try_find_reference(target_branch_ref.to_string().as_str())?
         .ok_or(anyhow!("remote branch '{target_branch_ref}' not found"))?;
 
-    let remote = repo
-        .find_remote(target_branch_ref.remote())
-        .context(format!(
-            "failed to find remote for branch {target_branch_ref}"
-        ))?;
-    let remote_url = remote
-        .url(gix::remote::Direction::Fetch)
-        .map(|url| url.to_bstring().to_string())
-        .context(format!(
-            "failed to get remote url for {}",
-            target_branch_ref.remote()
-        ))?;
-
     let target_branch_head = target_branch
         .peel_to_commit()
         .context(format!(
@@ -223,18 +207,13 @@ pub(crate) fn set_base_branch(
             "Failed to calculate merge base between {current_head_commit} and {target_branch_head}"
         ))?;
 
-    let target = Target {
-        branch: target_branch_ref.clone(),
-        remote_url,
-        sha: target_commit_oid,
-        push_remote_name: None,
+    let project_meta = ProjectMeta {
+        target_ref: Some(target_branch_ref.to_string().try_into()?),
+        target_commit_id: Some(target_commit_oid),
+        push_remote: None,
     };
-
-    ctx.set_project_meta(but_core::ref_metadata::ProjectMeta {
-        target_ref: Some(target.branch.to_string().try_into()?),
-        target_commit_id: Some(target.sha),
-        push_remote: target.push_remote_name.clone(),
-    })?;
+    project_meta.remote_url_with_fallback(&repo)?;
+    ctx.set_project_meta(project_meta)?;
     let mut vb_state = ctx.virtual_branches();
 
     // TODO: make sure this is a real branch
@@ -251,7 +230,7 @@ pub(crate) fn set_base_branch(
         // put them into a virtual branch
 
         let changes = but_core::diff::worktree_changes(&*ctx.repo.get()?)?.changes;
-        if !changes.is_empty() || current_head_commit != target.sha {
+        if !changes.is_empty() || current_head_commit != target_commit_oid {
             let (upstream, branch_matches_target) = if let Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
                 if upstream_name.eq(target_branch_ref) {
@@ -424,18 +403,10 @@ pub(crate) fn target_to_base_branch(
 /// 1. `refs/remotes/<remote>/HEAD`
 /// 2. `refs/remotes/<remote>/main`
 /// 3. `refs/remotes/<remote>/master`
-fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<Option<Target>> {
-    let remote_url = repo
-        .find_remote(remote_name)
-        .ok()
-        .and_then(|remote| {
-            remote
-                .url(gix::remote::Direction::Fetch)
-                .map(ToOwned::to_owned)
-        })
-        .map(|url| url.to_bstring().to_string())
-        .unwrap_or_default();
-
+fn inferred_default_target(
+    repo: &gix::Repository,
+    remote_name: &str,
+) -> Result<Option<ProjectMeta>> {
     let remote_head_ref = format!("refs/remotes/{remote_name}/HEAD");
     if let Ok(mut head_ref) = repo.find_reference(remote_head_ref.as_str())
         && let Some(branch_name) = head_ref
@@ -443,18 +414,18 @@ fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<
             .try_name()
             .map(|name| name.as_bstr().to_string())
     {
-        let branch = branch_name
-            .parse()
-            .with_context(|| format!("Remote HEAD resolved to invalid ref '{branch_name}'"))?;
         let sha = head_ref
             .peel_to_commit()
             .context("Remote HEAD did not point to a commit")?
             .id;
-        return Ok(Some(Target {
-            branch,
-            remote_url,
-            sha,
-            push_remote_name: Some(remote_name.to_owned()),
+        return Ok(Some(ProjectMeta {
+            target_ref: Some(
+                branch_name.as_str().try_into().with_context(|| {
+                    format!("Remote HEAD resolved to invalid ref '{branch_name}'")
+                })?,
+            ),
+            target_commit_id: Some(sha),
+            push_remote: Some(remote_name.to_owned()),
         }));
     }
 
@@ -467,11 +438,10 @@ fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<
                     format!("Fallback target '{full_name}' did not point to a commit")
                 })?
                 .id;
-            return Ok(Some(Target {
-                branch: full_name.parse()?,
-                remote_url,
-                sha,
-                push_remote_name: Some(remote_name.to_owned()),
+            return Ok(Some(ProjectMeta {
+                target_ref: Some(full_name.as_str().try_into()?),
+                target_commit_id: Some(sha),
+                push_remote: Some(remote_name.to_owned()),
             }));
         }
     }

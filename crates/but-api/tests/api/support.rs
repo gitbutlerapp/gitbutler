@@ -43,7 +43,7 @@ pub fn set_project_target_to_feature(repo: &gix::Repository) -> anyhow::Result<g
         target_commit_id: Some(target_commit_id),
         push_remote: Some("origin".into()),
     }
-    .persist_to_local_config(repo)?;
+    .persist(repo)?;
     Ok(target_commit_id)
 }
 
@@ -131,7 +131,7 @@ pub fn persist_default_target(repo: &gix::Repository) -> anyhow::Result<gix::Obj
         target_commit_id: Some(target_commit_id),
         push_remote: Some("origin".into()),
     }
-    .persist_to_local_config(repo)?;
+    .persist(repo)?;
     Ok(target_commit_id)
 }
 

@@ -519,17 +519,6 @@ CREATE TABLE `hunk_assignments`(
 	PRIMARY KEY(`path`, `hunk_header`)
 );
 
--- table vb_branch_targets
-CREATE TABLE `vb_branch_targets`(
-	`stack_id` TEXT NOT NULL PRIMARY KEY,
-	`remote_name` TEXT NOT NULL,
-	`branch_name` TEXT NOT NULL,
-	`remote_url` TEXT NOT NULL,
-	`sha` TEXT NOT NULL,
-	`push_remote_name` TEXT,
-	FOREIGN KEY(`stack_id`) REFERENCES `vb_stacks`(`id`) ON DELETE CASCADE
-);
-
 -- table vb_stack_heads
 CREATE TABLE `vb_stack_heads`(
 	`stack_id` TEXT NOT NULL,
@@ -566,11 +555,6 @@ CREATE TABLE `vb_stacks`(
 CREATE TABLE `vb_state`(
 	`id` INTEGER PRIMARY KEY CHECK (`id` = 1),
 	`initialized` INTEGER NOT NULL DEFAULT 0,
-	`default_target_remote_name` TEXT,
-	`default_target_branch_name` TEXT,
-	`default_target_remote_url` TEXT,
-	`default_target_sha` TEXT,
-	`default_target_push_remote_name` TEXT,
 	`last_pushed_base_sha` TEXT,
 	`toml_last_seen_mtime_ns` INTEGER,
 	`toml_last_seen_sha256` TEXT
@@ -656,6 +640,7 @@ Text("20260618093000")
 Text("20260624170000")
 Text("20260626120000")
 Text("20260626120100")
+Text("20260713120000")
 
 Table: hunk_assignments
 hunk_header | path | path_bytes | stack_id | id | branch_ref
@@ -688,16 +673,13 @@ Table: ci_checks
 id | name | output_summary | output_text | output_title | started_at | status_type | status_conclusion | status_completed_at | head_sha | url | html_url | details_url | pull_requests | reference | last_sync_at | struct_version
 
 Table: vb_state
-id | initialized | default_target_remote_name | default_target_branch_name | default_target_remote_url | default_target_sha | default_target_push_remote_name | last_pushed_base_sha | toml_last_seen_mtime_ns | toml_last_seen_sha256
+id | initialized | last_pushed_base_sha | toml_last_seen_mtime_ns | toml_last_seen_sha256
 
 Table: vb_stacks
 id | source_refname | upstream_remote_name | upstream_branch_name | sort_order | in_workspace | legacy_name | legacy_notes | legacy_ownership | legacy_allow_rebasing | legacy_post_commits | legacy_tree_sha | legacy_head_sha | legacy_created_timestamp_ms | legacy_updated_timestamp_ms
 
 Table: vb_stack_heads
 stack_id | position | name | head_sha | pr_number | archived | review_id
-
-Table: vb_branch_targets
-stack_id | remote_name | branch_name | remote_url | sha | push_remote_name
 
 Table: branch_order
 branch_ref_name | parent_ref_name

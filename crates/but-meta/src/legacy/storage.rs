@@ -5,12 +5,47 @@ use std::{
 };
 
 use anyhow::{Context as _, anyhow, bail};
-use but_core::ref_metadata::StackId;
-use but_db::{VbBranchTarget, VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
+use but_core::ref_metadata::{ProjectMeta, StackId};
+use but_db::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
 use gitbutler_reference::{Refname, RemoteRefname};
 use sha2::{Digest, Sha256};
 
-use crate::virtual_branches_legacy_types::{Stack, StackBranch, Target, VirtualBranches};
+use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
+
+#[derive(serde::Deserialize)]
+struct LegacyProjectMetaFile {
+    default_target: Option<LegacyTarget>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyTarget {
+    remote_name: String,
+    branch_name: String,
+    sha: String,
+    push_remote_name: Option<String>,
+}
+
+/// Read the project metadata that older versions stored in `virtual_branches.toml` without
+/// opening or migrating the project database.
+pub fn read_legacy_project_meta(path: &Path) -> anyhow::Result<Option<ProjectMeta>> {
+    let content = match std::fs::read_to_string(path) {
+        Ok(content) => content,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(err.into()),
+    };
+    let Some(target) = toml::from_str::<LegacyProjectMetaFile>(&content)?.default_target else {
+        return Ok(None);
+    };
+    let target_commit_id = gix::ObjectId::from_str(&target.sha)?;
+    Ok(Some(ProjectMeta {
+        target_ref: Some(
+            format!("refs/remotes/{}/{}", target.remote_name, target.branch_name).try_into()?,
+        ),
+        target_commit_id: (!target_commit_id.is_null()).then_some(target_commit_id),
+        push_remote: target.push_remote_name,
+    }))
+}
 
 /// Read virtual-branches state using DB as runtime source of truth while synchronizing with TOML.
 ///
@@ -360,35 +395,8 @@ fn legacy_to_snapshot(
         }
     }
 
-    let mut out_targets: Vec<_> = vb.branch_targets.iter().collect();
-    out_targets.sort_by_key(|(sid, _)| **sid);
-    let branch_targets = out_targets
-        .into_iter()
-        .map(|(stack_id, target)| {
-            let Target {
-                branch,
-                remote_url,
-                sha,
-                push_remote_name,
-            } = target;
-            VbBranchTarget {
-                stack_id: stack_id.to_string(),
-                remote_name: branch.remote().to_owned(),
-                branch_name: branch.branch().to_owned(),
-                remote_url: remote_url.clone(),
-                sha: sha.to_string(),
-                push_remote_name: push_remote_name.clone(),
-            }
-        })
-        .collect();
-
     Ok(VirtualBranchesSnapshot {
         state: VbState {
-            default_target_remote_name: None,
-            default_target_branch_name: None,
-            default_target_remote_url: None,
-            default_target_sha: None,
-            default_target_push_remote_name: None,
             last_pushed_base_sha,
             initialized,
             toml_last_seen_mtime_ns,
@@ -396,7 +404,6 @@ fn legacy_to_snapshot(
         },
         stacks: out_stacks,
         heads: out_heads,
-        branch_targets,
     })
 }
 
@@ -405,7 +412,6 @@ fn snapshot_to_legacy(snapshot: &VirtualBranchesSnapshot) -> anyhow::Result<Virt
         state,
         stacks,
         heads,
-        branch_targets: snapshot_branch_targets,
     } = snapshot;
     let last_pushed_base = state
         .last_pushed_base_sha
@@ -522,39 +528,12 @@ fn snapshot_to_legacy(snapshot: &VirtualBranchesSnapshot) -> anyhow::Result<Virt
         });
     }
 
-    let mut branch_targets = HashMap::new();
-    for target in snapshot_branch_targets {
-        let VbBranchTarget {
-            stack_id,
-            remote_name,
-            branch_name,
-            remote_url,
-            sha,
-            push_remote_name,
-        } = target;
-        let stack_id = StackId::from_str(stack_id)
-            .with_context(|| format!("Invalid branch_targets stack id '{stack_id}'"))?;
-        branch_targets.insert(
-            stack_id,
-            Target {
-                branch: RemoteRefname::new(remote_name, branch_name),
-                remote_url: remote_url.clone(),
-                sha: gix::ObjectId::from_str(sha).with_context(|| {
-                    format!("Invalid branch target sha '{sha}' for '{stack_id}'")
-                })?,
-                push_remote_name: push_remote_name.clone(),
-            },
-        );
-    }
-
     Ok(VirtualBranches {
-        branch_targets,
         branches,
         last_pushed_base,
     })
 }
 
-#[expect(clippy::large_enum_variant)]
 enum TomlInfo {
     Missing,
     Parsed(ParsedToml),

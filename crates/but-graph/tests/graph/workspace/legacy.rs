@@ -1,8 +1,7 @@
 use but_graph::Graph;
 
 use crate::init::utils::{
-    add_workspace_with_target, add_workspace_without_target, read_only_in_memory_scenario,
-    standard_options,
+    add_workspace, add_workspace_with_target, read_only_in_memory_scenario, standard_options,
 };
 
 #[test]
@@ -31,7 +30,7 @@ fn distinguishes_target_base_from_ref_tip() -> anyhow::Result<()> {
 fn target_helpers_return_none_without_target() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-target-without-ws-commit")?;
 
-    add_workspace_without_target(&mut meta);
+    add_workspace(&mut meta);
 
     let ws = Graph::from_head(
         &repo,
