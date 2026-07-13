@@ -4,6 +4,8 @@ echo "GIT CONFIG $GIT_CONFIG_GLOBAL"
 echo "DATA DIR $E2E_TEST_APP_DATA_DIR"
 echo "BUT $BUT"
 
+FORGE_REMOTE_URL="${1:-}"
+
 # Setup a remote project. GitButler currently requires projects to have a remote.
 mkdir remote-project
 pushd remote-project
@@ -13,6 +15,7 @@ echo "base line 2" >> a_file
 echo "base line 3" >> a_file
 git add a_file
 git commit -m "base: initial commit"
+git config http.receivepack true
 popd
 
 # Clone the remote, register the project with GitButler, configure the target,
@@ -38,4 +41,9 @@ pushd local-clone
   echo "single branch file" > single_branch_file.txt
   git add single_branch_file.txt
   git commit -m "single-branch: add file"
+
+  if [ -n "$FORGE_REMOTE_URL" ]; then
+    git push -u origin single-branch-fixture
+    git remote set-url origin "$FORGE_REMOTE_URL"
+  fi
 popd

@@ -14,7 +14,9 @@
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 	import { showError } from "$lib/error/showError";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
+	import { LISTING_SERVICE } from "$lib/forge/listingService.svelte";
 	import { GIT_SERVICE } from "$lib/git/gitService";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { projectChannel } from "$lib/irc/protocol";
@@ -87,6 +89,23 @@
 	// =============================================================================
 
 	const gitlabUserService = inject(GITLAB_USER_SERVICE);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const listingService = inject(LISTING_SERVICE);
+	const projectForgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const canListReviews = $derived(
+		projectForgeInfoQuery.response?.capabilities.listService ?? false,
+	);
+	const forgeReviews = $derived(
+		canListReviews ? listingService.list(projectId, 15 * 60 * 1000) : undefined,
+	);
+
+	// Keep one project-level subscription alive so a cold workspace populates
+	// the backend forge cache even when the Branches view is never opened.
+	// Reading the result makes the lazy derived query part of this component's
+	// reactive graph; cache-write completion invalidates head_info in the service.
+	$effect(() => {
+		forgeReviews?.result;
+	});
 
 	// Migrate stored GitLab access token from the legacy location to the
 	// per-account secrets entry on app load. Safe no-op when already done.
@@ -193,8 +212,6 @@
 			// Activity that requires re-reading workspace state — emitted on
 			// remote-ref updates (push, external fetch) and on external
 			// writes to `virtual_branches.toml` (e.g. by the `but` CLI).
-			// Picks up PR numbers written by external tools without a forge
-			// round-trip.
 			backend.listen(`project://${projectId}/workspace-activity`, () => {
 				clientState.dispatch(
 					clientState.backendApi.util.invalidateTags([
