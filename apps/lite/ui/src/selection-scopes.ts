@@ -1,5 +1,5 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
-import { type TransferPosition } from "#ui/operations/operation.ts";
+import { type TransferPosition } from "#ui/operations/transfer-operation.ts";
 import { type Operand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";

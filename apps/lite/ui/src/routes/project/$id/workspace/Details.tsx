@@ -42,7 +42,7 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
-import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
+import { TransferOperationSource } from "#ui/routes/project/$id/workspace/TransferOperationSource.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import {
@@ -628,7 +628,11 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	const collapseLabel = collapseHotkey.meta.name;
 
 	return (
-		<OperationSourceC projectId={p.projectId} source={fileOperand(p.operand)} outline="inside">
+		<TransferOperationSource
+			projectId={p.projectId}
+			source={fileOperand(p.operand)}
+			outline="inside"
+		>
 			<header
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);
@@ -674,7 +678,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					</Toolbar.Button>
 				</Toolbar.Root>
 			</header>
-		</OperationSourceC>
+		</TransferOperationSource>
 	);
 };
 

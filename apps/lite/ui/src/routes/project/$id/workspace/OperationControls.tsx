@@ -9,11 +9,11 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { operationHotkeys } from "#ui/hotkeys.ts";
 import { Operand } from "#ui/operands.ts";
 import {
-	getOperations,
-	useRunOperation,
+	getTransferOperations,
+	useRunTransferOperation,
 	type TransferPosition,
-	type OperationsByPosition,
-} from "#ui/operations/operation.ts";
+	type TransferOperationsByPosition,
+} from "#ui/operations/transfer-operation.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { operandLabel } from "#ui/routes/project/$id/workspace/operandLabel.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
@@ -201,7 +201,7 @@ const AbsorbOperationControls: FC<{
 
 const TransferPositionToggleGroup: FC<{
 	projectId: string;
-	operations: OperationsByPosition;
+	operations: TransferOperationsByPosition;
 	position: TransferPosition;
 }> = ({ projectId, operations, position }) => {
 	const dispatch = useAppDispatch();
@@ -292,12 +292,12 @@ const TransferKeyboardOperationControls: FC<{
 	);
 
 	const dispatch = useAppDispatch();
-	const { mutate: runOperation } = useRunOperation();
+	const { mutate: runTransferOperation } = useRunTransferOperation();
 
 	if (!pendingTransferSpec) return null;
 
 	const { source, target, position } = pendingTransferSpec;
-	const operations = getOperations(source, target);
+	const operations = getTransferOperations(source, target);
 	const operation = operations[position];
 
 	const run = () => {
@@ -306,7 +306,7 @@ const TransferKeyboardOperationControls: FC<{
 
 		if (!operation) return;
 
-		runOperation(operation.operation);
+		runTransferOperation(operation.operation);
 	};
 
 	const cancel = () => {

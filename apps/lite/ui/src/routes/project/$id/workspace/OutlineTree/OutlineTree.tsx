@@ -15,12 +15,12 @@ import {
 	operandEquals,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
+import { TransferOperationSource } from "#ui/routes/project/$id/workspace/TransferOperationSource.tsx";
 import {
 	ActiveOperation,
-	OperationTarget,
-	OperationTargetOutline,
-} from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
+	TransferOperationTarget,
+	TransferOperationTargetOutline,
+} from "#ui/routes/project/$id/workspace/TransferOperationTarget.tsx";
 import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
@@ -41,7 +41,10 @@ import { ComponentProps, createContext, FC, Fragment, use, useRef } from "react"
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import styles from "./OutlineTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "../Row.tsx";
-import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
+import {
+	getTransferOperation,
+	useDryRunTransferOperation,
+} from "#ui/operations/transfer-operation.ts";
 import { GraphSegment, GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { segmentBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
@@ -96,7 +99,7 @@ const OperandC: FC<
 	{
 		projectId: string;
 		operand: Operand;
-		outline: OperationTargetOutline;
+		outline: TransferOperationTargetOutline;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, operand, outline, render, ...props }) => {
 	const absorptionTargetKeys = assert(use(AbsorptionTargetKeysContext));
@@ -124,7 +127,7 @@ const OperandC: FC<
 
 					return {
 						position: pendingTransferSpec.position,
-						tooltip: getOperation(pendingTransferSpec)?.label,
+						tooltip: getTransferOperation(pendingTransferSpec)?.label,
 					};
 				},
 			}),
@@ -134,12 +137,12 @@ const OperandC: FC<
 
 	return useRender({
 		render: (
-			<OperationSourceC
+			<TransferOperationSource
 				projectId={projectId}
 				source={operand}
 				outline={outline}
 				render={
-					<OperationTarget
+					<TransferOperationTarget
 						enabled={navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 						projectId={projectId}
 						target={operand}
@@ -528,18 +531,21 @@ const Stacks: FC<{
 }> = ({ projectId, commitTarget }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const dryRunOperation = useAppSelector((state) => {
+	const dryRunTransferOperation = useAppSelector((state) => {
 		const pendingTransferSpec = projectSlice.selectors.selectPendingTransferSpec(
 			state,
 			projectId,
 			navigationIndex,
 		);
-		return pendingTransferSpec ? getOperation(pendingTransferSpec)?.operation : undefined;
+		return pendingTransferSpec ? getTransferOperation(pendingTransferSpec)?.operation : undefined;
 	});
 
 	// TODO: debounce?
-	const dryRunOperationQuery = useDryRunOperation({ projectId, operation: dryRunOperation });
-	const dryRunWorkspace = dryRunOperationQuery.data?.workspace ?? null;
+	const dryRunTransferOperationQuery = useDryRunTransferOperation({
+		projectId,
+		operation: dryRunTransferOperation,
+	});
+	const dryRunWorkspace = dryRunTransferOperationQuery.data?.workspace ?? null;
 
 	return (
 		<DryRunWorkspaceContext value={dryRunWorkspace}>

@@ -47,7 +47,7 @@ import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
 import { Outline } from "./Outline.tsx";
-import { getOperations } from "#ui/operations/operation.ts";
+import { getTransferOperations } from "#ui/operations/transfer-operation.ts";
 import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { WorkspacePageErrorBoundary } from "./WorkspacePageErrorBoundary.tsx";
@@ -174,7 +174,7 @@ const outlineNavigationItems = ({
 };
 
 const hasAnyOperation = (source: Operand, target: Operand) => {
-	const operations = getOperations(source, target);
+	const operations = getTransferOperations(source, target);
 	return !!operations.into || !!operations.above || !!operations.below;
 };
 

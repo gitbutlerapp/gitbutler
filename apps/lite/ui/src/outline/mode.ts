@@ -7,7 +7,7 @@ import {
 	operandEquals,
 	type Operand,
 } from "#ui/operands.ts";
-import { TransferPosition } from "#ui/operations/operation.ts";
+import { TransferPosition } from "#ui/operations/transfer-operation.ts";
 import type { SelectionState } from "#ui/projects/project.ts";
 import { AbsorptionTarget } from "@gitbutler/but-sdk";
 

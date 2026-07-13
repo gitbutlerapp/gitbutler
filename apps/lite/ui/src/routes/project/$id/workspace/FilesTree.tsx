@@ -15,7 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ComponentProps, FC, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
-import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
+import { TransferOperationSource } from "#ui/routes/project/$id/workspace/TransferOperationSource.tsx";
 import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { changesFileHotkeys } from "#ui/hotkeys.ts";
@@ -186,7 +186,7 @@ export const FilesTree: FC<
 								}
 								path={item.path}
 								render={
-									<OperationSourceC
+									<TransferOperationSource
 										projectId={projectId}
 										source={fileOperand({ parent: fileParent, path: item.path })}
 										outline="outside"

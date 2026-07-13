@@ -11,7 +11,7 @@ import {
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import type { TransferPosition, TransferSpec } from "#ui/operations/operation.ts";
+import type { TransferPosition, TransferSpec } from "#ui/operations/transfer-operation.ts";
 import {
 	absorbOutlineMode,
 	defaultOutlineMode,

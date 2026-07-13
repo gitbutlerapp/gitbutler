@@ -1,12 +1,12 @@
 import { type Operand } from "#ui/operands.ts";
 import { parseDragData } from "./DragData.ts";
-import styles from "./OperationTarget.module.css";
+import styles from "./TransferOperationTarget.module.css";
 import {
-	getOperation,
-	getOperations,
+	getTransferOperation,
+	getTransferOperations,
 	type TransferPosition,
-	useRunOperation,
-} from "#ui/operations/operation.ts";
+	useRunTransferOperation,
+} from "#ui/operations/transfer-operation.ts";
 import { classes } from "#ui/components/classes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
@@ -39,7 +39,7 @@ const getTransferPositionFromData = (data: DropData): TransferPosition | null =>
 	);
 };
 
-const useOperationDropTarget = ({
+const useTransferOperationDropTarget = ({
 	enabled,
 	target,
 	projectId,
@@ -49,14 +49,14 @@ const useOperationDropTarget = ({
 	projectId: string;
 }) => {
 	const dispatch = useAppDispatch();
-	const { mutate: runOperation } = useRunOperation();
+	const { mutate: runTransferOperation } = useRunTransferOperation();
 	const dropRef = useRef<HTMLElement>(null);
 
 	const getData = useEffectEvent(({ input, element, source }: GetDataArgs) => {
 		const dragData = parseDragData(source.data);
 		if (!dragData) return {};
 
-		const { into, above, below } = getOperations(dragData.source, target);
+		const { into, above, below } = getTransferOperations(dragData.source, target);
 		return attachInstruction(
 			{},
 			{
@@ -116,7 +116,7 @@ const useOperationDropTarget = ({
 				const position = getTransferPositionFromData(args.self.data);
 				const operation =
 					dragData && position !== null
-						? getOperation({
+						? getTransferOperation({
 								source: dragData.source,
 								target,
 								position,
@@ -129,28 +129,28 @@ const useOperationDropTarget = ({
 				}
 
 				dispatch(projectSlice.actions.exitMode({ projectId }));
-				runOperation(operation.operation);
+				runTransferOperation(operation.operation);
 			},
 		});
-	}, [dispatch, projectId, runOperation, target]);
+	}, [dispatch, projectId, runTransferOperation, target]);
 
 	return { dropRef };
 };
 
-export type OperationTargetOutline = "inside" | "outside";
+export type TransferOperationTargetOutline = "inside" | "outside";
 
 export type ActiveOperation = { position: TransferPosition; tooltip?: string | undefined };
 
-export const OperationTarget: FC<
+export const TransferOperationTarget: FC<
 	{
 		enabled: boolean;
 		target: Operand;
 		projectId: string;
 		activeOperation?: ActiveOperation | null;
-		outline: OperationTargetOutline;
+		outline: TransferOperationTargetOutline;
 	} & useRender.ComponentProps<"div">
 > = ({ enabled, target, projectId, activeOperation, outline, render, ...props }) => {
-	const { dropRef } = useOperationDropTarget({ enabled, target, projectId });
+	const { dropRef } = useTransferOperationDropTarget({ enabled, target, projectId });
 
 	const targetEl = useRender({
 		render,

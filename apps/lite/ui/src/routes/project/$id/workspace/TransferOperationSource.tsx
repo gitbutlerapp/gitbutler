@@ -1,6 +1,6 @@
 import { Operand, operandEquals } from "#ui/operands.ts";
 import { getOperationSource, pointerTransferMode } from "#ui/outline/mode.ts";
-import styles from "./OperationSourceC.module.css";
+import styles from "./TransferOperationSource.module.css";
 import { operandLabel } from "./operandLabel.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
@@ -21,13 +21,13 @@ const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes(styles.dragPreview, "text-13")}>{children}</div>
 );
 
-type OperationSourceOutline = "inside" | "outside";
+type TransferOperationSourceOutline = "inside" | "outside";
 
-export const OperationSourceC: FC<
+export const TransferOperationSource: FC<
 	{
 		projectId: string;
 		source: Operand;
-		outline: OperationSourceOutline;
+		outline: TransferOperationSourceOutline;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
 > = ({ projectId, source, outline, render, ...props }) => {
 	const { data: headInfoIndex } = useQuery({
