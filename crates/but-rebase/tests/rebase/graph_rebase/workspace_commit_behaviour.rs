@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Step};
+use but_rebase::graph_rebase::{Editor, LookupStep, Pick, RebaseError, Step};
 use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
@@ -306,6 +306,7 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
 
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let workspace_commit_id = repo.rev_parse_single("HEAD")?.detach();
 
     // Dropping c will cause the workspace commit to conflict because the WC
     // depends on a file created in c
@@ -313,16 +314,16 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
     let c_sel = editor.select_commit(c.detach())?;
     editor.replace(c_sel, Step::None)?;
 
-    // We should see an error given saying the workspace commit ended up being
-    // conflicted
-    snapbox::assert_data_eq!(
-        editor.rebase().to_debug(),
-        snapbox::str![[r#"
-Err(
-    "Commit 01bb7bd5af4d6d3cf2e131f7ffb82431b84083e0 was marked as not conflictable, but resulted in a conflicted state",
-)
-
-"#]]
+    let error = editor
+        .rebase()
+        .expect_err("the workspace commit should reject conflicts");
+    assert!(
+        matches!(
+            &error,
+            RebaseError::NonConflictableCommitConflicted { commit_id }
+                if *commit_id == workspace_commit_id
+        ),
+        "unexpected error: {error:#}"
     );
 
     Ok(())

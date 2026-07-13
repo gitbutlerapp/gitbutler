@@ -5,7 +5,6 @@ use std::{
     fmt::Write as _,
 };
 
-use anyhow::{Context, Result, bail};
 use but_core::RefMetadata;
 use gix::refs::{
     Target,
@@ -14,14 +13,14 @@ use gix::refs::{
 use petgraph::{Direction, visit::EdgeRef};
 
 use crate::graph_rebase::{
-    Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
+    Editor, Pick, RebaseError, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
     cherry_pick::{CherryPickOutcome, cherry_pick},
     util::collect_ordered_parents,
 };
 
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
     /// Perform the rebase
-    pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph, M>> {
+    pub fn rebase(self) -> std::result::Result<SuccessfulRebase<'ws, 'graph, M>, RebaseError> {
         // First we want to get a list of nodes that can be reached by
         // traversing downwards from the heads that we care about.
         // Usually there would be just one "head" which is an index to access
@@ -64,15 +63,20 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                             .iter()
                             .map(|idx| {
                                 let Some(new_idx) = graph_mapping.get(idx) else {
-                                    bail!("A matching parent can't be found in the output graph");
+                                    return Err(RebaseError::InvalidGraph {
+                                        message:
+                                            "A matching parent can't be found in the output graph",
+                                    });
                                 };
 
                                 match output_graph[*new_idx] {
                                     Step::Pick(Pick { id, .. }) => Ok(id),
-                                    _ => bail!("A parent in the output graph is not a pick"),
+                                    _ => Err(RebaseError::InvalidGraph {
+                                        message: "A parent in the output graph is not a pick",
+                                    }),
                                 }
                             })
-                            .collect::<Result<Vec<_>>>()?,
+                            .collect::<std::result::Result<Vec<_>, RebaseError>>()?,
                     };
 
                     let outcome = cherry_pick(
@@ -82,15 +86,18 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                         pick.pick_mode,
                         pick.tree_merge_mode,
                         pick.sign_commit,
-                    )?;
+                    )
+                    .map_err(|source| RebaseError::CherryPick {
+                        commit_id: pick.id,
+                        source,
+                    })?;
 
                     if matches!(outcome, CherryPickOutcome::ConflictedCommit(_))
                         && !pick.conflictable
                     {
-                        bail!(
-                            "Commit {} was marked as not conflictable, but resulted in a conflicted state",
-                            pick.id
-                        );
+                        return Err(RebaseError::NonConflictableCommitConflicted {
+                            commit_id: pick.id,
+                        });
                     }
 
                     match outcome {
@@ -113,14 +120,21 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                             onto_merge_failed,
                             ontos,
                         } => {
-                            // Exit early - the rebase failed because it encountered a commit it couldn't pick
-                            bail!(format_base_merge_error(
+                            let message = format_base_merge_error(
                                 pick.id,
+                                base_merge_failed,
+                                bases.clone(),
+                                onto_merge_failed,
+                                ontos.clone(),
+                            );
+                            return Err(RebaseError::FailedToMergeBases {
+                                commit_id: pick.id,
                                 base_merge_failed,
                                 bases,
                                 onto_merge_failed,
-                                ontos
-                            ));
+                                ontos,
+                                message,
+                            });
                         }
                     }
                 }
@@ -129,19 +143,33 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     // but never moved, created, or deleted.
                     if mutable {
                         let graph_parents = collect_ordered_parents(&self.graph, step_idx);
-                        let first_parent_idx = graph_parents
-                            .first()
-                            .context("References should have at least one parent")?;
+                        let Some(first_parent_idx) = graph_parents.first() else {
+                            return Err(RebaseError::InvalidGraph {
+                                message: "References should have at least one parent",
+                            });
+                        };
                         let Some(new_idx) = graph_mapping.get(first_parent_idx) else {
-                            bail!("A matching parent can't be found in the output graph");
+                            return Err(RebaseError::InvalidGraph {
+                                message: "A matching parent can't be found in the output graph",
+                            });
                         };
 
                         let to_reference = match output_graph[*new_idx] {
                             Step::Pick(Pick { id, .. }) => id,
-                            _ => bail!("A parent in the output graph is not a pick"),
+                            _ => {
+                                return Err(RebaseError::InvalidGraph {
+                                    message: "A parent in the output graph is not a pick",
+                                });
+                            }
                         };
 
-                        let reference = self.repo.try_find_reference(&refname)?;
+                        let reference =
+                            self.repo.try_find_reference(&refname).map_err(|source| {
+                                RebaseError::FindReference {
+                                    refname: refname.clone(),
+                                    source: source.into(),
+                                }
+                            })?;
 
                         if let Some(reference) = reference {
                             let target = reference.target();
@@ -164,7 +192,9 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                                     }
                                 }
                                 gix::refs::TargetRef::Symbolic(name) => {
-                                    bail!("Attempted to update the symbolic reference {name}");
+                                    return Err(RebaseError::SymbolicReferenceUpdate {
+                                        name: name.to_owned(),
+                                    });
                                 }
                             }
                         } else {
@@ -196,7 +226,9 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
 
             for e in edges {
                 let Some(new_parent) = graph_mapping.get(&e.target()) else {
-                    bail!("Failed to find corresponding parent");
+                    return Err(RebaseError::InvalidGraph {
+                        message: "Failed to find corresponding parent",
+                    });
                 };
 
                 output_graph.add_edge(new_idx, *new_parent, e.weight().clone());

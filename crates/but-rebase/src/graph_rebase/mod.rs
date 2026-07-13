@@ -5,6 +5,7 @@
 //! and in the darknes bind them.
 
 mod creation;
+mod error;
 pub mod rebase;
 pub mod traverse;
 use std::collections::{BTreeMap, HashMap};
@@ -13,6 +14,7 @@ use anyhow::{Context, Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
+pub use error::RebaseError;
 use gix::refs::transaction::RefEdit;
 
 use crate::graph_rebase::util::collect_ordered_parents;

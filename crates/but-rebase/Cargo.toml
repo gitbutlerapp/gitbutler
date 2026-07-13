@@ -27,6 +27,7 @@ but-graph.workspace = true
 
 gix = { workspace = true, features = ["revision", "merge"] }
 anyhow.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 bstr.workspace = true
 tempfile.workspace = true

@@ -1,15 +1,13 @@
 //! Exercises the step option for whether a step should be allowed to enter a conflicted state.
 
+use crate::utils::{fixture_writable, standard_options};
 use anyhow::{Result, bail};
 use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
-    graph_rebase::{Editor, LookupStep, Step, mutate::InsertSide},
+    graph_rebase::{Editor, LookupStep, RebaseError, Step, mutate::InsertSide},
 };
 use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
-use snapbox::prelude::*;
-
-use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn by_default_conflicts_are_allowed() -> Result<()> {
@@ -129,15 +127,16 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
     c_pick.conflictable = false;
     editor.replace(c_sel, Step::Pick(c_pick))?;
 
-    // We should see an error given saying C ended up being conflicted
-    snapbox::assert_data_eq!(
-        editor.rebase().to_debug(),
-        snapbox::str![[r#"
-Err(
-    "Commit f37690fa0ac6f48391974bb0a7cdc4c8a6c6fe7a was marked as not conflictable, but resulted in a conflicted state",
-)
-
-"#]]
+    let error = editor
+        .rebase()
+        .expect_err("a non-conflictable commit should reject conflicts");
+    assert!(
+        matches!(
+            &error,
+            RebaseError::NonConflictableCommitConflicted { commit_id }
+                if *commit_id == c.detach()
+        ),
+        "unexpected error: {error:#}"
     );
 
     Ok(())

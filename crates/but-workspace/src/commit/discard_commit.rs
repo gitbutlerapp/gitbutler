@@ -38,5 +38,5 @@ pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
         bail!("no commit IDs provided for discard");
     }
 
-    editor.rebase()
+    Ok(editor.rebase()?)
 }

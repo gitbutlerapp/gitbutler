@@ -2,7 +2,7 @@ use anyhow::{Context as _, Result, bail};
 use bstr::BString;
 use but_core::{RefMetadata, RepositoryExt as _};
 use but_rebase::graph_rebase::{
-    Editor, LookupStep as _, Step, SuccessfulRebase, mutate::InsertSide,
+    Editor, LookupStep as _, RebaseError, Step, SuccessfulRebase, mutate::InsertSide,
 };
 use gix::prelude::ObjectIdExt as _;
 use serde::{Deserialize, Serialize};
@@ -193,13 +193,14 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
 
     let rebase = match editor.rebase() {
         Ok(rebase) => rebase,
-        Err(err) => {
-            // The workspace commit is the only non-conflictable pick in the
-            // graph, so failing to rebuild the workspace with the squash
-            // inserted means the workspace would conflict.
+        Err(
+            err @ (RebaseError::NonConflictableCommitConflicted { .. }
+            | RebaseError::FailedToMergeBases { .. }),
+        ) => {
             tracing::debug!("worktree integration rebase failed: {err:#}");
             return Ok((WorktreeIntegrationStatus::CausesWorkspaceConflicts, None));
         }
+        Err(err) => return Err(err.into()),
     };
 
     // Inspect the in-memory result for conflicts.

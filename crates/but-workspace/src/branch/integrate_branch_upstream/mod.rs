@@ -197,7 +197,7 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
         &parents_to_reconnect,
     )?;
 
-    editor.rebase()
+    Ok(editor.rebase()?)
 }
 
 fn integration_step_commit_ids(steps: &[InteractiveIntegrationStep]) -> HashSet<gix::ObjectId> {

@@ -28,7 +28,7 @@ pub fn move_commit<'ws, 'meta, M: RefMetadata>(
     side: InsertSide,
 ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
     let editor = move_commit_no_rebase(editor, subject_commit, anchor, side)?;
-    editor.rebase()
+    Ok(editor.rebase()?)
 }
 
 /// Move multiple commits.
@@ -70,7 +70,7 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
         editor = move_commit_no_rebase(editor, subject_id, relative_to.clone(), side)?;
     }
 
-    editor.rebase()
+    Ok(editor.rebase()?)
 }
 
 /// Move a commit without rebasing.
