@@ -20,6 +20,7 @@ import { ProjectForFrontend, RefInfo, Segment } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
+	queryOptions,
 	useQueries,
 	useQuery,
 	useSuspenseQuery,
@@ -366,16 +367,20 @@ const WorkspacePage: FC = () => {
 		Match.tags({ Absorb: ({ sourceTarget }) => sourceTarget }),
 		Match.orElse(() => null),
 	);
-	const [absorptionPlanQuery] = useQueries({
+	const [_absorptionTargetKeys] = useQueries({
 		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
-			absorptionPlanQueryOptions({ projectId, target }),
+			queryOptions({
+				...absorptionPlanQueryOptions({ projectId, target }),
+				select: (data) =>
+					new Set(
+						data.map(({ stackId, commitId }) =>
+							operandIdentityKey(commitOperand({ stackId, commitId })),
+						),
+					),
+			}),
 		),
 	});
-	const absorptionTargetKeys = new Set(
-		absorptionPlanQuery?.data?.map(({ stackId, commitId }) =>
-			operandIdentityKey(commitOperand({ stackId, commitId })),
-		),
-	);
+	const absorptionTargetKeys = _absorptionTargetKeys?.data ?? new Set<string>();
 
 	const outlineNavigationIndex = useOutlineNavigationIndex({
 		projectId,
