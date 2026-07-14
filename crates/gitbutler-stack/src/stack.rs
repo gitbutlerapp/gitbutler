@@ -644,33 +644,6 @@ impl Stack {
         self.set_all_heads(&*ctx.repo.get()?, &ctx.project_data_dir(), new_heads)
     }
 
-    /// Sets the forge identifier for a given series/branch.
-    /// Existing value is overwritten - passing `None` sets the forge identifier to `None`.
-    ///
-    /// # Errors
-    /// If the series does not exist, this method will return an error.
-    /// If the stack has not been initialized, this method will return an error.
-    pub fn set_pr_number(
-        &mut self,
-        ctx: &Context,
-        branch_name: &str,
-        new_pr_number: Option<usize>,
-    ) -> Result<()> {
-        self.ensure_initialized()?;
-        match self.heads.iter_mut().find(|r| r.name() == branch_name) {
-            Some(head) => {
-                head.pr_number = new_pr_number;
-                let mut state = branch_state(ctx);
-                state.set_stack(self.clone())
-            }
-            None => bail!(
-                "Series {} does not exist on stack {}",
-                branch_name,
-                self.name()
-            ),
-        }
-    }
-
     pub fn heads(&self, exclude_archived: bool) -> Vec<String> {
         if !exclude_archived {
             self.heads.iter().map(|h| h.name().clone()).collect()

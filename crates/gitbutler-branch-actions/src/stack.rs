@@ -2,11 +2,8 @@ use anyhow::{Context as _, Result};
 use but_core::{RepositoryExt, extract_remote_name_and_short_name, ref_metadata::StackId};
 use but_ctx::{Context, access::RepoShared};
 use gitbutler_git::{GitContextExt as _, PushResult};
-use gitbutler_operating_modes::{ensure_open_workspace_mode, in_open_workspace_mode};
-use gitbutler_oplog::{
-    OplogExt, SnapshotExt,
-    entry::{OperationKind, SnapshotDetails},
-};
+use gitbutler_operating_modes::ensure_open_workspace_mode;
+use gitbutler_oplog::SnapshotExt;
 use gitbutler_reference::{RemoteRefname, normalize_branch_name};
 use gitbutler_repo::hooks;
 use gitbutler_stack::{PatchReferenceUpdate, Stack, StackBranch};
@@ -110,38 +107,6 @@ pub fn update_branch_name_with_perm(
         },
     )?;
     Ok(normalized_head_name)
-}
-
-/// Sets the forge identifier for a given series/branch. Existing value is overwritten.
-///
-/// # Errors
-/// This method will return an error if:
-///  - The series does not exist
-///  - The stack can't be found
-///  - The stack has not been initialized
-///  - The project is not in workspace mode
-///  - Persisting the changes failed
-pub fn update_branch_pr_number(
-    ctx: &mut Context,
-    stack_id: StackId,
-    branch_name: String,
-    pr_number: Option<usize>,
-) -> Result<()> {
-    let mut guard = ctx.exclusive_worktree_access();
-    // In single branch mode there's no open workspace, so there's no stack
-    // metadata to update — just no-op instead of erroring out.
-    if !in_open_workspace_mode(ctx, guard.read_permission())? {
-        // TODO: Write the metadata somewhere else.
-        return Ok(());
-    }
-    // Pure metadata write — skip verify so background syncs aren't
-    // blocked when HEAD is off the workspace ref (e.g. edit mode).
-    let _ = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::UpdateDependentBranchPrNumber),
-        guard.write_permission(),
-    );
-    let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
-    stack.set_pr_number(ctx, &branch_name, pr_number)
 }
 
 /// Pushes all series in the stack to the remote.

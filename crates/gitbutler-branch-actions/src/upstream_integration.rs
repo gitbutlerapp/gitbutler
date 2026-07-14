@@ -851,15 +851,9 @@ pub(crate) fn integrate_upstream(
                 stack.set_heads_from_rebase_output(ctx, active_references)?;
             }
 
-            // Dissociate closed reviews
-            for head in stack.clone().heads.iter() {
-                let branch_name = head.name.to_string();
-                if let Some(review) = review_map.get(&branch_name)
-                    && !review.is_open()
-                {
-                    stack.set_pr_number(ctx, &branch_name, None)?;
-                }
-            }
+            // A closed review no longer needs to be dissociated from its branch:
+            // the PR association is derived from the forge review cache at
+            // projection time, which already reflects the closed/merged state.
 
             stack.set_stack_head(&mut virtual_branches_state, &repo, *head)?;
         }

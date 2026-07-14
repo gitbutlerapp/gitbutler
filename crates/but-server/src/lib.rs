@@ -805,10 +805,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             "/update_branch_name",
             but_post(legacy::stack::update_branch_name_cmd),
         )
-        .route(
-            "/update_branch_pr_number",
-            but_post(legacy::stack::update_branch_pr_number_cmd),
-        )
         .route("/push_stack", but_post(legacy::stack::push_stack_cmd))
         // Undo/Snapshot commands
         .route(

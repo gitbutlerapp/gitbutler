@@ -927,19 +927,10 @@ async fn publish_review_for_branch(
         },
     )
     .await
-    .map(|review| {
-        if let Some(stack_id) = stack_id {
-            let review_number = review.number.try_into().ok();
-            but_api::legacy::stack::update_branch_pr_number(
-                ctx,
-                stack_id,
-                branch_name.to_string(),
-                review_number,
-            )
-            .ok();
-        }
-        PublishReviewResult::Published(Box::new(review))
-    })
+    // The PR association is derived from the forge review cache; `publish_review`
+    // optimistically caches the created review, so there is no PR number to
+    // persist onto branch metadata here.
+    .map(|review| PublishReviewResult::Published(Box::new(review)))
 }
 
 /// Get the default commit for the branch, if it has exactly one commit.
