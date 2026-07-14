@@ -37,17 +37,6 @@ export type Workspace = {
 	selection: Selection;
 };
 
-const createSelection = (): Selection => ({
-	outline: null,
-	files: null,
-	diff: null,
-});
-
-export const createWorkspace = (): Workspace => ({
-	mode: defaultOutlineMode,
-	selection: createSelection(),
-});
-
 const selectOutline = (workspace: Workspace, selection: Operand | null): Workspace => {
 	if (
 		selection &&

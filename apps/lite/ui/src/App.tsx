@@ -13,11 +13,12 @@ import { FilesVisibleRegistryContext } from "#ui/FilesVisibleContext.ts";
 import { HighlightedCommitIdsRegistryContext } from "#ui/HighlightedCommitIdsContext.ts";
 import { useProjectRegistry } from "#ui/ProjectRegistry.ts";
 import { WorkspaceRegistryContext } from "#ui/WorkspaceContext.ts";
-import { createWorkspace } from "#ui/workspace.ts";
+import type { Workspace } from "#ui/workspace.ts";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
 import { getGUISettingsQueryOptions } from "./api/queries.ts";
 import { defaultSettings } from "./settings.ts";
 import type { RelativeTo } from "@gitbutler/but-sdk";
+import { defaultOutlineMode } from "./outline/mode.ts";
 
 const workerFactory = (): Worker =>
 	new Worker(new URL("@pierre/diffs/worker/worker.js", import.meta.url), {
@@ -67,7 +68,14 @@ export const App: FC<{
 	const checkedCommitIdsRegistry = useProjectRegistry(new Set<string>());
 	const highlightedCommitIdsRegistry = useProjectRegistry(new Set<string>());
 	const commitTargetRegistry = useProjectRegistry<RelativeTo | null>(null);
-	const workspaceRegistry = useProjectRegistry(createWorkspace());
+	const workspaceRegistry = useProjectRegistry<Workspace>({
+		mode: defaultOutlineMode,
+		selection: {
+			outline: null,
+			files: null,
+			diff: null,
+		},
+	});
 
 	const [dialog, setDialog] = useState<Dialog>({ _tag: "None" });
 	const openDialog = (nextDialog: Dialog) => setDialog(nextDialog);
