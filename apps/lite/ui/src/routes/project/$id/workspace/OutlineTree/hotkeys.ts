@@ -19,6 +19,7 @@ import {
 	uncommittedChangesOperand,
 	type Operand,
 } from "#ui/operands.ts";
+import { DialogContext } from "#ui/DialogContext.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -36,7 +37,7 @@ import {
 import { UseHotkeyDefinition, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type RefObject } from "react";
+import { type RefObject, use } from "react";
 import { commitMessageInputId } from "../CommitForm.tsx";
 import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
 import { downstackPushStatusDisabled, downstackPushStatusFromSegments } from "#ui/segment.ts";
@@ -77,6 +78,7 @@ export const useOutlineTreeHotkeys = ({
 	projectId: string;
 	ref: RefObject<HTMLElement | null>;
 }) => {
+	const { openDialog } = use(DialogContext);
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
@@ -133,7 +135,7 @@ export const useOutlineTreeHotkeys = ({
 	const branchCreateMutation = useBranchCreate();
 
 	const openBranchPicker = () => {
-		dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "BranchPicker" } }));
+		openDialog({ _tag: "BranchPicker" });
 	};
 
 	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {

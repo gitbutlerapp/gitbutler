@@ -38,6 +38,8 @@ import {
 	type Operand,
 } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
+import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
+import { FilesVisibleContext } from "#ui/FilesVisibleContext.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -77,6 +79,7 @@ import {
 	type RefObject,
 	SubmitEventHandler,
 	Suspense,
+	use,
 	useId,
 	useLayoutEffect,
 	useRef,
@@ -764,11 +767,7 @@ const Title: FC<{
 const FilesToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
 > = (toggleProps) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
-	const filesVisible = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
+	const { filesVisible, toggleFiles } = use(FilesVisibleContext);
 
 	return (
 		<Tooltip.Root>
@@ -778,7 +777,7 @@ const FilesToggle: FC<
 						{...toggleProps}
 						aria-label="Toggle files"
 						pressed={filesVisible}
-						onPressedChange={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
+						onPressedChange={toggleFiles}
 					/>
 				}
 			/>
@@ -1491,12 +1490,8 @@ export const Details: FC<
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
 	const dispatch = useAppDispatch();
-	const detailsFullWindow = useAppSelector((state) =>
-		projectSlice.selectors.selectDetailsFullWindow(state, projectId),
-	);
-	const filesVisible = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
+	const { detailsFullWindow } = use(DetailsFullWindowContext);
+	const { filesVisible } = use(FilesVisibleContext);
 	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
 	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
 	const commitBodyId = useId();

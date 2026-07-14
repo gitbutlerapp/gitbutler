@@ -8,6 +8,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { branchOperand, type BranchOperand, type Operand } from "#ui/operands.ts";
+import { DialogContext } from "#ui/DialogContext.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -17,7 +18,7 @@ import { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useIsFetching, useIsMutating, useQuery } from "@tanstack/react-query";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Match } from "effect";
-import { type ComponentProps, type FC } from "react";
+import { type ComponentProps, type FC, use } from "react";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import {
 	buildCommitTargetComboboxItems,
@@ -54,6 +55,7 @@ export const Outline: FC<
 	} & ComponentProps<"div">
 > = ({ absorptionTargetCommitIds, navigationIndex, project, projectId, ...restProps }) => {
 	const dispatch = useAppDispatch();
+	const { openDialog } = use(DialogContext);
 	const outlineMode = useAppSelector((state) =>
 		projectSlice.selectors.selectOutlineModeState(state, projectId),
 	);
@@ -69,15 +71,15 @@ export const Outline: FC<
 	};
 
 	const openApplyBranchPicker = () => {
-		dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "ApplyBranchPicker" } }));
+		openDialog({ _tag: "ApplyBranchPicker" });
 	};
 
 	const openProjectPicker = () => {
-		dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "ProjectPicker" } }));
+		openDialog({ _tag: "ProjectPicker" });
 	};
 
 	const openSettings = () => {
-		dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "Settings" } }));
+		openDialog({ _tag: "Settings" });
 	};
 
 	const branchCreateMutation = useBranchCreate();
