@@ -15,8 +15,16 @@ import { Toolbar } from "@base-ui/react/toolbar";
 import { BranchReference, InsertSide, PushStatus, RelativeTo } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { type ComponentProps, type FC, type MouseEvent, useOptimistic, useTransition } from "react";
+import {
+	type ComponentProps,
+	type FC,
+	type MouseEvent,
+	use,
+	useOptimistic,
+	useTransition,
+} from "react";
 import { classes } from "#ui/components/classes.ts";
+import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -133,6 +141,7 @@ export const BranchRow: FC<
 	isTopSegment,
 	...restProps
 }) => {
+	const { setCommitTarget: updateCommitTarget } = use(CommitTargetContext);
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
 
@@ -227,7 +236,7 @@ export const BranchRow: FC<
 		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
 
 	const setCommitTarget = () => {
-		dispatch(projectSlice.actions.setCommitTarget({ projectId, commitTarget: relativeTo }));
+		updateCommitTarget(relativeTo);
 	};
 
 	const composeCommitHere = () => {

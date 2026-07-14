@@ -1,4 +1,3 @@
-import { bytesEqual } from "#ui/api/bytes.ts";
 import { rewrittenCommitOperand, rewrittenCommitSelection } from "#ui/commit.ts";
 import {
 	branchOperand,
@@ -25,7 +24,7 @@ import {
 	type TransferMode,
 } from "#ui/outline/mode.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import type { AbsorptionTarget, RefInfo, RelativeTo } from "@gitbutler/but-sdk";
+import type { AbsorptionTarget, RefInfo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 
 export type Dialog =
@@ -43,7 +42,6 @@ export type SelectionState = {
 };
 
 type WorkspaceState = {
-	commitTarget: RelativeTo | null;
 	mode: OutlineMode;
 	selection: SelectionState;
 };
@@ -55,7 +53,6 @@ const createInitialSelectionState = (): SelectionState => ({
 });
 
 const createInitialWorkspaceState = (): WorkspaceState => ({
-	commitTarget: null,
 	mode: defaultOutlineMode,
 	selection: createInitialSelectionState(),
 });
@@ -161,16 +158,6 @@ export const projectReducers = {
 			workspaceState.selection.outline = newBranchOperand;
 
 		if (
-			workspaceState.commitTarget?.type === "referenceBytes" &&
-			bytesEqual(workspaceState.commitTarget.subject, oldBranch.branchRef)
-		) {
-			workspaceState.commitTarget = {
-				type: "referenceBytes",
-				subject: newBranch.branchRef,
-			};
-		}
-
-		if (
 			workspaceState.mode._tag === "RenameBranch" &&
 			operandEquals(branchOperand(workspaceState.mode.operand), oldBranchOperand)
 		)
@@ -271,9 +258,6 @@ export const projectReducers = {
 
 		workspaceState.selection = restoreSelection;
 	},
-	setCommitTarget: (state: ProjectState, { commitTarget }: { commitTarget: RelativeTo | null }) => {
-		state.workspace.commitTarget = commitTarget;
-	},
 	updateRewrittenCommitReferences: (
 		state: ProjectState,
 		{ replacedCommits, headInfo }: { replacedCommits: Record<string, string>; headInfo: RefInfo },
@@ -285,12 +269,6 @@ export const projectReducers = {
 			headInfo,
 		});
 		if (commit) workspaceState.selection.outline = commit;
-
-		if (workspaceState.commitTarget?.type === "commit") {
-			const commitId = replacedCommits[workspaceState.commitTarget.subject];
-			if (commitId !== undefined)
-				workspaceState.commitTarget = { type: "commit", subject: commitId };
-		}
 
 		if (workspaceState.mode._tag === "RewordCommit") {
 			const commit = rewrittenCommitOperand({
@@ -335,5 +313,4 @@ export const projectSelectors = {
 			hunkOperandIdentityKey,
 		),
 	selectOutlineModeState: (state: ProjectState) => state.workspace.mode,
-	selectCommitTarget: (state: ProjectState) => state.workspace.commitTarget,
 };

@@ -6,6 +6,7 @@ import { RegisteredRouter, RouterProvider } from "@tanstack/react-router";
 import { type FC, useEffect, useState } from "react";
 import { Provider } from "react-redux";
 import { CheckedCommitIdsRegistryContext } from "#ui/CheckedCommitIdsContext.ts";
+import { CommitTargetRegistryContext } from "#ui/CommitTargetContext.ts";
 import { store } from "#ui/store.ts";
 import { Toasts } from "#ui/components/Toasts.tsx";
 import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
@@ -17,6 +18,7 @@ import type { Dialog } from "#ui/projects/project.ts";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
 import { getGUISettingsQueryOptions } from "./api/queries.ts";
 import { defaultSettings } from "./settings.ts";
+import type { RelativeTo } from "@gitbutler/but-sdk";
 
 const workerFactory = (): Worker =>
 	new Worker(new URL("@pierre/diffs/worker/worker.js", import.meta.url), {
@@ -65,41 +67,44 @@ export const App: FC<{
 
 	const checkedCommitIdsRegistry = useProjectRegistry(new Set<string>());
 	const highlightedCommitIdsRegistry = useProjectRegistry(new Set<string>());
+	const commitTargetRegistry = useProjectRegistry<RelativeTo | null>(null);
 
 	const [dialog, setDialog] = useState<Dialog>({ _tag: "None" });
 	const openDialog = (nextDialog: Dialog) => setDialog(nextDialog);
 	const closeDialog = () => setDialog({ _tag: "None" });
 
 	return (
-		<HighlightedCommitIdsRegistryContext value={highlightedCommitIdsRegistry}>
-			<CheckedCommitIdsRegistryContext value={checkedCommitIdsRegistry}>
-				<FilesVisibleRegistryContext value={filesVisibleContext}>
-					<DetailsFullWindowContext
-						value={{ detailsFullWindow, setDetailsFullWindow, toggleDetailsFullWindow }}
-					>
-						<DialogContext value={{ dialog, openDialog, closeDialog }}>
-							<Provider store={store}>
-								<QueryClientProvider client={queryClient}>
-									<Toast.Provider toastManager={toastManager}>
-										<Tooltip.Provider>
-											<WorkerPoolContextProvider
-												poolOptions={{ workerFactory }}
-												highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
-											>
-												<ThemeSync />
-												<RouterProvider router={router} />
-												<AskpassPromptDialog />
-												<Toasts />
-											</WorkerPoolContextProvider>
-										</Tooltip.Provider>
-									</Toast.Provider>
-									<ReactQueryDevtools />
-								</QueryClientProvider>
-							</Provider>
-						</DialogContext>
-					</DetailsFullWindowContext>
-				</FilesVisibleRegistryContext>
-			</CheckedCommitIdsRegistryContext>
-		</HighlightedCommitIdsRegistryContext>
+		<CommitTargetRegistryContext value={commitTargetRegistry}>
+			<HighlightedCommitIdsRegistryContext value={highlightedCommitIdsRegistry}>
+				<CheckedCommitIdsRegistryContext value={checkedCommitIdsRegistry}>
+					<FilesVisibleRegistryContext value={filesVisibleContext}>
+						<DetailsFullWindowContext
+							value={{ detailsFullWindow, setDetailsFullWindow, toggleDetailsFullWindow }}
+						>
+							<DialogContext value={{ dialog, openDialog, closeDialog }}>
+								<Provider store={store}>
+									<QueryClientProvider client={queryClient}>
+										<Toast.Provider toastManager={toastManager}>
+											<Tooltip.Provider>
+												<WorkerPoolContextProvider
+													poolOptions={{ workerFactory }}
+													highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
+												>
+													<ThemeSync />
+													<RouterProvider router={router} />
+													<AskpassPromptDialog />
+													<Toasts />
+												</WorkerPoolContextProvider>
+											</Tooltip.Provider>
+										</Toast.Provider>
+										<ReactQueryDevtools />
+									</QueryClientProvider>
+								</Provider>
+							</DialogContext>
+						</DetailsFullWindowContext>
+					</FilesVisibleRegistryContext>
+				</CheckedCommitIdsRegistryContext>
+			</HighlightedCommitIdsRegistryContext>
+		</CommitTargetRegistryContext>
 	);
 };

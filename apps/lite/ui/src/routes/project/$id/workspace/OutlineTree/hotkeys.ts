@@ -21,6 +21,7 @@ import {
 } from "#ui/operands.ts";
 import { DialogContext } from "#ui/DialogContext.ts";
 import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
+import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -80,6 +81,7 @@ export const useOutlineTreeHotkeys = ({
 	ref: RefObject<HTMLElement | null>;
 }) => {
 	const { checkedCommitIds, setCommitsChecked } = use(CheckedCommitIdsContext);
+	const { setCommitTarget: updateCommitTarget } = use(CommitTargetContext);
 	const { openDialog } = use(DialogContext);
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
@@ -145,7 +147,7 @@ export const useOutlineTreeHotkeys = ({
 	};
 
 	const setCommitTarget = (relativeTo: RelativeTo) => {
-		dispatch(projectSlice.actions.setCommitTarget({ projectId, commitTarget: relativeTo }));
+		updateCommitTarget(relativeTo);
 	};
 
 	const composeCommitHere = (relativeTo: RelativeTo) => {

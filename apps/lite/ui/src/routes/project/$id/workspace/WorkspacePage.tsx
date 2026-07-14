@@ -5,6 +5,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
+import { bytesEqual } from "#ui/api/bytes.ts";
 import {
 	focusAdjacentSelectionScope,
 	focusSelectionScope,
@@ -16,6 +17,7 @@ import {
 	CheckedCommitIdsContext,
 	CheckedCommitIdsRegistryContext,
 } from "#ui/CheckedCommitIdsContext.ts";
+import { CommitTargetContext, CommitTargetRegistryContext } from "#ui/CommitTargetContext.ts";
 import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
 import { DialogContext } from "#ui/DialogContext.ts";
 import { FilesVisibleContext, FilesVisibleRegistryContext } from "#ui/FilesVisibleContext.ts";
@@ -27,7 +29,7 @@ import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { ProjectForFrontend, RefInfo, Segment } from "@gitbutler/but-sdk";
+import { ProjectForFrontend, RefInfo, Segment, type RelativeTo } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
@@ -460,6 +462,25 @@ export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const filesVisibleContext = use(FilesVisibleRegistryContext)(projectId);
+	const [commitTarget, updateCommitTarget] = use(CommitTargetRegistryContext)(projectId);
+	const commitTargetContext = {
+		commitTarget,
+		setCommitTarget: (commitTarget: RelativeTo | null) => updateCommitTarget(() => commitTarget),
+		updateRewrittenCommitReferences: (replacedCommits: Record<string, string>) =>
+			updateCommitTarget((current) => {
+				if (current?.type !== "commit") return current;
+				const commitId = replacedCommits[current.subject];
+				return commitId === undefined || commitId === current.subject
+					? current
+					: { type: "commit", subject: commitId };
+			}),
+		updateRewrittenBranchReferences: (oldBranch: BranchOperand, newBranch: BranchOperand) =>
+			updateCommitTarget((current) =>
+				current?.type === "referenceBytes" && bytesEqual(current.subject, oldBranch.branchRef)
+					? { type: "referenceBytes", subject: newBranch.branchRef }
+					: current,
+			),
+	};
 
 	const [highlightedCommitIds, setHighlightedCommitIds] = use(HighlightedCommitIdsRegistryContext)(
 		projectId,
@@ -503,18 +524,20 @@ export const Route: FC = () => {
 	if (!project) return <p className={styles.notFound}>Project not found.</p>;
 
 	return (
-		<HighlightedCommitIdsContext value={highlightedCommitIdsContext}>
-			<CheckedCommitIdsContext value={checkedCommitIdsContext}>
-				<FilesVisibleContext value={filesVisibleContext}>
-					<QueryErrorResetBoundary>
-						{({ reset }) => (
-							<WorkspacePageErrorBoundary onReset={reset}>
-								<WorkspacePage />
-							</WorkspacePageErrorBoundary>
-						)}
-					</QueryErrorResetBoundary>
-				</FilesVisibleContext>
-			</CheckedCommitIdsContext>
-		</HighlightedCommitIdsContext>
+		<CommitTargetContext value={commitTargetContext}>
+			<HighlightedCommitIdsContext value={highlightedCommitIdsContext}>
+				<CheckedCommitIdsContext value={checkedCommitIdsContext}>
+					<FilesVisibleContext value={filesVisibleContext}>
+						<QueryErrorResetBoundary>
+							{({ reset }) => (
+								<WorkspacePageErrorBoundary onReset={reset}>
+									<WorkspacePage />
+								</WorkspacePageErrorBoundary>
+							)}
+						</QueryErrorResetBoundary>
+					</FilesVisibleContext>
+				</CheckedCommitIdsContext>
+			</HighlightedCommitIdsContext>
+		</CommitTargetContext>
 	);
 };

@@ -7,6 +7,7 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
 import {
 	changesHotkeys,
 	formatForDisplaySorted,
@@ -16,13 +17,13 @@ import {
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useAppSelector } from "#ui/store.ts";
 import { Button, Tooltip } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import type { RelativeTo } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
-import { type FC, type SubmitEventHandler, useRef, useState } from "react";
+import { type FC, type SubmitEventHandler, use, useRef, useState } from "react";
 import styles from "./CommitForm.module.css";
 
 export type CommitTargetComboboxItem = {
@@ -62,7 +63,7 @@ export const CommitForm: FC<{
 	commitTarget: CommitTargetComboboxItem | null;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
 }> = ({ projectId, commitTarget, targetComboboxItems }) => {
-	const dispatch = useAppDispatch();
+	const { setCommitTarget } = use(CommitTargetContext);
 	const commitCreateMutation = useCommitCreate({ projectId });
 	const commitAmendMutation = useCommitAmend({ projectId });
 
@@ -91,12 +92,7 @@ export const CommitForm: FC<{
 	const [open, setOpen] = useState(false);
 
 	const selectBranch = (option: CommitTargetComboboxItem | null) => {
-		dispatch(
-			projectSlice.actions.setCommitTarget({
-				projectId,
-				commitTarget: option?.relativeTo ?? null,
-			}),
-		);
+		setCommitTarget(option?.relativeTo ?? null);
 		setOpen(false);
 	};
 

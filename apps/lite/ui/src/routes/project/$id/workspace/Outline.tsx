@@ -8,6 +8,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { branchOperand, type BranchOperand, type Operand } from "#ui/operands.ts";
+import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
 import { DialogContext } from "#ui/DialogContext.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
@@ -55,6 +56,7 @@ export const Outline: FC<
 	} & ComponentProps<"div">
 > = ({ absorptionTargetCommitIds, navigationIndex, project, projectId, ...restProps }) => {
 	const dispatch = useAppDispatch();
+	const { commitTarget: commitTargetState } = use(CommitTargetContext);
 	const { openDialog } = use(DialogContext);
 	const outlineMode = useAppSelector((state) =>
 		projectSlice.selectors.selectOutlineModeState(state, projectId),
@@ -105,9 +107,6 @@ export const Outline: FC<
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
-	const commitTargetState = useAppSelector((state) =>
-		projectSlice.selectors.selectCommitTarget(state, projectId),
-	);
 	const targetComboboxItems = buildCommitTargetComboboxItems({
 		headInfo,
 		headInfoIndex,

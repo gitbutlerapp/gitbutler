@@ -18,6 +18,7 @@ import {
 import { commitOperand, type BranchOperand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
+import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { Toast } from "@base-ui/react";
 import {
@@ -39,7 +40,10 @@ type AnyResponse = PromiseReturnType<(typeof window.lite)[keyof typeof window.li
 
 export const useSyncCoreCaches = () => {
 	const dispatch = useAppDispatch();
-	const { updateRewrittenCommitReferences } = use(CheckedCommitIdsContext);
+	const { updateRewrittenCommitReferences: updateCheckedCommitReferences } =
+		use(CheckedCommitIdsContext);
+	const { updateRewrittenCommitReferences: updateCommitTargetReferences } =
+		use(CommitTargetContext);
 
 	return (queryClient: QueryClient, projectId: string, response: Exclude<AnyResponse, void>) => {
 		if (typeof response !== "object" || response === null) return;
@@ -60,7 +64,8 @@ export const useSyncCoreCaches = () => {
 				headInfo: workspace.headInfo,
 			}),
 		);
-		updateRewrittenCommitReferences(workspace.replacedCommits);
+		updateCheckedCommitReferences(workspace.replacedCommits);
+		updateCommitTargetReferences(workspace.replacedCommits);
 	};
 };
 
@@ -389,9 +394,9 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 
 export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 	const syncCoreCaches = useSyncCoreCaches();
+	const { setCommitTarget } = use(CommitTargetContext);
 	const toastManager = Toast.useToastManager();
 	const queryClient = useQueryClient();
-	const dispatch = useAppDispatch();
 
 	return useMutation({
 		mutationFn: async ({ message, relativeTo }: { message: string; relativeTo: RelativeTo }) => {
@@ -418,14 +423,8 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 		onSuccess: async (response, input, _ctx, mutation) => {
 			syncCoreCaches(mutation.client, projectId, response);
 
-			if (input.relativeTo.type === "commit" && response.newCommit !== null) {
-				dispatch(
-					projectSlice.actions.setCommitTarget({
-						projectId,
-						commitTarget: { type: "commit", subject: response.newCommit },
-					}),
-				);
-			}
+			if (input.relativeTo.type === "commit" && response.newCommit !== null)
+				setCommitTarget({ type: "commit", subject: response.newCommit });
 
 			if (response.rejectedChanges.length > 0) {
 				toastManager.add(
@@ -828,6 +827,7 @@ export const useUpdateBranchName = ({
 	oldBranch: BranchOperand;
 }) => {
 	const dispatch = useAppDispatch();
+	const { updateRewrittenBranchReferences } = use(CommitTargetContext);
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
@@ -857,6 +857,7 @@ export const useUpdateBranchName = ({
 					newBranch,
 				}),
 			);
+			updateRewrittenBranchReferences(oldBranch, newBranch);
 
 			await moveDraftPR({
 				queryClient: mutation.client,

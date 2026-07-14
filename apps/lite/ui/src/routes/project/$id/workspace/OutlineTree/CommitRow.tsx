@@ -14,6 +14,7 @@ import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
+import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
 import { HighlightedCommitIdsContext } from "#ui/HighlightedCommitIdsContext.ts";
 import { assert } from "#ui/assert.ts";
 import {
@@ -65,6 +66,7 @@ export const CommitRow: FC<
 	} & ComponentProps<"div">
 > = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
 	const { checkedCommitIds, setCommitsChecked } = use(CheckedCommitIdsContext);
+	const { setCommitTarget: updateCommitTarget } = use(CommitTargetContext);
 	const { highlightedCommitIds } = use(HighlightedCommitIdsContext);
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
@@ -237,7 +239,7 @@ export const CommitRow: FC<
 	};
 
 	const setCommitTarget = () => {
-		dispatch(projectSlice.actions.setCommitTarget({ projectId, commitTarget: relativeTo }));
+		updateCommitTarget(relativeTo);
 	};
 
 	const composeCommitHere = () => {
