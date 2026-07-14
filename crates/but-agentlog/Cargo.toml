@@ -11,6 +11,8 @@ description = "Capture coding-agent session logs into Git metadata"
 anyhow.workspace = true
 bstr.workspace = true
 but-core.workspace = true
+but-db.workspace = true
+but-forge.workspace = true
 but-meta = { workspace = true, features = ["legacy"] }
 but-workspace.workspace = true
 chrono = { workspace = true, features = ["clock"] }

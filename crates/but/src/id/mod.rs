@@ -444,14 +444,6 @@ impl SegmentWithId {
             None
         }
     }
-    /// Returns the PR number.
-    pub fn pr_number(&self) -> Option<usize> {
-        if let Some(metadata) = &self.inner.metadata {
-            metadata.review.pull_request
-        } else {
-            None
-        }
-    }
 }
 impl<'a> Node<'a> for &'a SegmentWithId {
     fn parse(

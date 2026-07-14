@@ -1,5 +1,6 @@
 use std::{
     any::Any,
+    collections::HashMap,
     ops::{Deref, DerefMut},
     path::Path,
 };
@@ -360,14 +361,14 @@ fn workspace_snapshot_with_current_branch_fallback(
     match workspace_snapshot_with_meta(repo, meta) {
         Ok(mut observation) => {
             if observation.observed_targets.is_empty()
-                && let Ok(fallback) = current_branch_targets(repo, meta)
+                && let Ok(fallback) = current_branch_targets(repo)
                 && !fallback.is_empty()
             {
                 observation.observed_targets = fallback;
             }
             Ok(observation)
         }
-        Err(error) => match current_branch_targets(repo, meta) {
+        Err(error) => match current_branch_targets(repo) {
             Ok(fallback) if !fallback.is_empty() => Ok(WorkspaceObservation {
                 stacks: Vec::new(),
                 observed_targets: fallback,
@@ -378,10 +379,7 @@ fn workspace_snapshot_with_current_branch_fallback(
     }
 }
 
-fn current_branch_targets(
-    repo: &gix::Repository,
-    meta: &impl RefMetadata,
-) -> anyhow::Result<ObservedTargets> {
+fn current_branch_targets(repo: &gix::Repository) -> anyhow::Result<ObservedTargets> {
     let head = repo.head()?;
     let Some(ref_name) = head.referent_name() else {
         anyhow::bail!("HEAD is detached");
@@ -397,12 +395,17 @@ fn current_branch_targets(
         key: format!("ref:{full_ref_name}"),
         name: ref_name.shorten().to_string(),
     };
-    let reviews = meta
-        .branch_opt(ref_name)
-        .ok()
-        .flatten()
-        .map(|branch_metadata| review_targets(&branch.key, Some(&branch_metadata)))
-        .unwrap_or_default();
+    // Derive the PR association from the forge review cache rather than stored
+    // metadata. Synthesize a metadata entry carrying the resolved number so a
+    // branch with a cached PR is reported even without stored branch metadata.
+    let reviews = match resolve_branch_pr(repo, ref_name, &forge_prs_by_head(repo)) {
+        Some(pull_request) => {
+            let mut metadata = Branch::default();
+            metadata.review.pull_request = Some(pull_request);
+            review_targets(&branch.key, Some(&metadata))
+        }
+        None => Vec::new(),
+    };
     let mut observed_targets = ObservedTargets {
         branches: vec![branch],
         reviews,
@@ -416,7 +419,7 @@ fn workspace_snapshot_with_meta(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
 ) -> anyhow::Result<WorkspaceObservation> {
-    let info = but_workspace::head_info(
+    let mut info = but_workspace::head_info(
         repo,
         meta,
         but_workspace::ref_info::Options {
@@ -425,6 +428,10 @@ fn workspace_snapshot_with_meta(
             ..Default::default()
         },
     )?;
+
+    // Derive each segment's PR association from the forge review cache instead of
+    // stored branch metadata, so the observation records live associations.
+    info.apply_forge_review_associations(repo, &forge_prs_by_head(repo));
 
     let mut observed_targets = ObservedTargets::default();
     let mut stacks = Vec::new();
@@ -505,6 +512,40 @@ fn workspace_snapshot_with_meta(
             None
         },
     })
+}
+
+/// Best-effort forge PR association map (`pushed short name -> PR number`), read
+/// from the project's cached review list. Opened read-only and returns empty when
+/// the project database is absent or unreadable, so the observation degrades to
+/// "no reviews" rather than failing.
+fn forge_prs_by_head(repo: &gix::Repository) -> HashMap<String, usize> {
+    let Ok(storage_dir) = repo.gitbutler_storage_path() else {
+        return HashMap::new();
+    };
+    match but_db::DbHandle::open_existing_read_only_in_directory(&storage_dir) {
+        Ok(Some(db)) => but_forge::pr_numbers_by_head(&db).unwrap_or_default(),
+        _ => HashMap::new(),
+    }
+}
+
+/// Resolve the cache-derived PR number for a single local branch by matching its
+/// remote-tracking short name against `prs_by_head`, mirroring the projection
+/// resolver used for workspace segments.
+fn resolve_branch_pr(
+    repo: &gix::Repository,
+    ref_name: &gix::refs::FullNameRef,
+    prs_by_head: &HashMap<String, usize>,
+) -> Option<usize> {
+    let remote_tracking = repo
+        .branch_remote_tracking_ref_name(ref_name, gix::remote::Direction::Fetch)
+        .transpose()
+        .ok()
+        .flatten()?;
+    let (_, short) = but_core::extract_remote_name_and_short_name(
+        remote_tracking.as_ref(),
+        &repo.remote_names(),
+    )?;
+    prs_by_head.get(&short.to_string()).copied()
 }
 
 fn review_targets(branch_key: &str, metadata: Option<&Branch>) -> Vec<ReviewTarget> {

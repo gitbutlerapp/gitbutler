@@ -523,7 +523,8 @@ fn convert_branch_to_json(
 
     let review_numbers = crate::command::legacy::forge::review::get_review_numbers(
         &segment.branch_name().unwrap_or_default().to_string(),
-        &segment.pr_number(),
+        // Resolved by branch name from the cached review list; no stored PR number.
+        &None,
         &status_ctx.review_map,
     );
     let review_id = {

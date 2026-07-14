@@ -12,10 +12,7 @@ use but_rebase::graph_rebase::{MaterializeOutcome, SuccessfulRebase};
 /// head_info cache without refetching — stay consistent with the query.
 pub(crate) fn forge_prs_by_head(ctx: &but_ctx::Context) -> anyhow::Result<HashMap<String, usize>> {
     let db = ctx.db.get_cache()?;
-    Ok(but_forge::reviews_by_head(&db)?
-        .into_iter()
-        .filter_map(|(head, review)| usize::try_from(review.number).ok().map(|n| (head, n)))
-        .collect())
+    but_forge::pr_numbers_by_head(&db)
 }
 
 impl WorkspaceState {

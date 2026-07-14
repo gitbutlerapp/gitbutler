@@ -31,6 +31,20 @@ pub fn review_for_head_ref(
 }
 
 /// Build a lookup from a branch's remote/pushed short name to its associated
+/// PR number, for enriching a workspace projection (see
+/// `but_workspace::RefInfo::apply_forge_pr_associations`) in one pass.
+///
+/// This is [`reviews_by_head`] reduced to just the number each projection needs,
+/// so callers across crates don't each re-implement the `ForgeReview -> usize`
+/// extraction.
+pub fn pr_numbers_by_head(db: &but_db::DbHandle) -> anyhow::Result<HashMap<String, usize>> {
+    Ok(reviews_by_head(db)?
+        .into_iter()
+        .filter_map(|(head, review)| usize::try_from(review.number).ok().map(|n| (head, n)))
+        .collect())
+}
+
+/// Build a lookup from a branch's remote/pushed short name to its associated
 /// review, so a projection can resolve many branches in one pass without a cache
 /// read per branch.
 ///

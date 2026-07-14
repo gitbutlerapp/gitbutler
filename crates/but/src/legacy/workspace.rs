@@ -69,13 +69,20 @@ fn head_info(
         expensive_commit_info,
         gerrit_mode,
     };
-    let info = match edit_mode_workspace_ref(&repo)? {
+    let mut info = match edit_mode_workspace_ref(&repo)? {
         Some(ref_name) => {
             but_workspace::ref_info(repo.find_reference(ref_name.as_ref())?, &meta, options)
         }
         None => but_workspace::head_info(&repo, &meta, options),
     }?
     .pruned_to_entrypoint();
+
+    // Derive each segment's PR association from the forge review cache instead of
+    // stored branch metadata, mirroring the desktop's `head_info` command.
+    let review_cache = ctx.db.get_cache()?;
+    let prs_by_head = but_forge::pr_numbers_by_head(&review_cache)?;
+    info.apply_forge_review_associations(&repo, &prs_by_head);
+
     Ok((info, object_hash))
 }
 
