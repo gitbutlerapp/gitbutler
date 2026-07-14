@@ -524,9 +524,9 @@ export const useCommitInsertBlank = () => {
 			const stackId = getHeadInfoIndex(response.workspace.headInfo).commitContextById(
 				response.newCommit,
 			)?.stack.id;
-			if (stackId != null) {
+			if (stackId != null) 
 				selectOutline(input.projectId, commitOperand({ stackId, commitId: response.newCommit }));
-			}
+			
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console

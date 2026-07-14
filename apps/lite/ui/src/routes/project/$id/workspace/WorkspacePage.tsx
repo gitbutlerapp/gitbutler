@@ -58,7 +58,7 @@ import {
 	uncommittedChangesFileParent,
 	uncommittedChangesOperand,
 } from "#ui/operands.ts";
-import { reduceWorkspace, resolveOutlineSelection, type WorkspaceAction } from "#ui/workspace.ts";
+import { resolveOutlineSelection, workspaceTransitions } from "#ui/workspace.ts";
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
 import { useActiveElement } from "#ui/focus.ts";
@@ -456,57 +456,67 @@ const WorkspacePage: FC = () => {
 export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const [workspace, updateWorkspace] = use(WorkspaceRegistryContext)(projectId);
-	const dispatchWorkspace = (projectId: string, action: WorkspaceAction) =>
-		updateWorkspace(projectId, (current) => reduceWorkspace(current, action));
 	const outlineSelectionContext: OutlineSelectionContext = {
 		outlineSelection: workspace.selection.outline,
 		selectOutline: (projectId, selection) =>
-			dispatchWorkspace(projectId, { type: "selectOutline", selection }),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.selectOutline(workspace, selection),
+			),
 		updateRewrittenCommitReferences: (projectId, replacedCommits, headInfo) =>
-			dispatchWorkspace(projectId, {
-				type: "updateRewrittenCommitReferences",
-				replacedCommits,
-				headInfo,
-			}),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.updateRewrittenCommitReferences(workspace, replacedCommits, headInfo),
+			),
 		updateRewrittenBranchReferences: (projectId, oldBranch, newBranch) =>
-			dispatchWorkspace(projectId, {
-				type: "updateRewrittenBranchReferences",
-				oldBranch,
-				newBranch,
-			}),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.updateRewrittenBranchReferences(workspace, oldBranch, newBranch),
+			),
 	};
 	const filesSelectionContext: FilesSelectionContext = {
 		filesSelection: workspace.selection.files,
 		selectFiles: (projectId, selection) =>
-			dispatchWorkspace(projectId, { type: "selectFiles", selection }),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.selectFiles(workspace, selection),
+			),
 	};
 	const diffSelectionContext: DiffSelectionContext = {
 		diffSelection: workspace.selection.diff,
 		selectDiff: (projectId, selection) =>
-			dispatchWorkspace(projectId, { type: "selectDiff", selection }),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.selectDiff(workspace, selection),
+			),
 	};
 	const outlineModeContext: OutlineModeContext = {
 		outlineMode: workspace.mode,
 		startRewordCommit: (projectId, commit) =>
-			dispatchWorkspace(projectId, { type: "startRewordCommit", commit }),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.startRewordCommit(workspace, commit),
+			),
 		startRenameBranch: (projectId, branch) =>
-			dispatchWorkspace(projectId, { type: "startRenameBranch", branch }),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.startRenameBranch(workspace, branch),
+			),
 		enterTransferMode: (projectId, mode) =>
-			dispatchWorkspace(projectId, { type: "enterTransferMode", mode }),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.enterTransferMode(workspace, mode),
+			),
 		enterKeyboardTransferMode: (projectId, source, operationType) =>
-			dispatchWorkspace(projectId, {
-				type: "enterKeyboardTransferMode",
-				source,
-				operationType,
-			}),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.enterKeyboardTransferMode(workspace, source, operationType),
+			),
 		enterAbsorbMode: (projectId, source, sourceTarget) =>
-			dispatchWorkspace(projectId, { type: "enterAbsorbMode", source, sourceTarget }),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.enterAbsorbMode(workspace, source, sourceTarget),
+			),
 		updatePointerTransfer: (projectId, target, operationType) =>
-			dispatchWorkspace(projectId, { type: "updatePointerTransfer", target, operationType }),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.updatePointerTransfer(workspace, target, operationType),
+			),
 		updateTransferOperationType: (projectId, operationType) =>
-			dispatchWorkspace(projectId, { type: "updateTransferOperationType", operationType }),
-		exitMode: (projectId) => dispatchWorkspace(projectId, { type: "exitMode" }),
-		cancelMode: (projectId) => dispatchWorkspace(projectId, { type: "cancelMode" }),
+			updateWorkspace(projectId, (workspace) =>
+				workspaceTransitions.updateTransferOperationType(workspace, operationType),
+			),
+		exitMode: (projectId) => updateWorkspace(projectId, workspaceTransitions.exitMode),
+		cancelMode: (projectId) => updateWorkspace(projectId, workspaceTransitions.cancelMode),
 	};
 
 	const filesVisibleContext = use(FilesVisibleRegistryContext)(projectId);

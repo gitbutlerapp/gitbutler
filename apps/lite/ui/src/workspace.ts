@@ -37,26 +37,6 @@ export type Workspace = {
 	selection: Selection;
 };
 
-export type WorkspaceAction =
-	| { type: "selectOutline"; selection: Operand | null }
-	| { type: "selectFiles"; selection: string | null }
-	| { type: "selectDiff"; selection: HunkOperand | null }
-	| { type: "startRewordCommit"; commit: CommitOperand }
-	| { type: "startRenameBranch"; branch: BranchOperand }
-	| { type: "updateRewrittenBranchReferences"; oldBranch: BranchOperand; newBranch: BranchOperand }
-	| { type: "enterTransferMode"; mode: TransferMode }
-	| { type: "enterKeyboardTransferMode"; source: Operand; operationType?: OperationType }
-	| { type: "enterAbsorbMode"; source: Operand; sourceTarget: AbsorptionTarget }
-	| { type: "updatePointerTransfer"; target: Operand | null; operationType: OperationType | null }
-	| { type: "updateTransferOperationType"; operationType: OperationType }
-	| { type: "exitMode" }
-	| { type: "cancelMode" }
-	| {
-			type: "updateRewrittenCommitReferences";
-			replacedCommits: Record<string, string>;
-			headInfo: RefInfo;
-	  };
-
 const createSelection = (): Selection => ({
 	outline: null,
 	files: null,
@@ -93,6 +73,11 @@ const selectOutline = (workspace: Workspace, selection: Operand | null): Workspa
 		selection: { outline: selection, files: null, diff: null },
 	};
 };
+
+const selectFiles = (workspace: Workspace, selection: string | null): Workspace =>
+	workspace.selection.files === selection
+		? workspace
+		: { ...workspace, selection: { ...workspace.selection, files: selection } };
 
 const selectDiff = (workspace: Workspace, selection: HunkOperand | null): Workspace => {
 	const current = workspace.selection.diff;
@@ -156,6 +141,39 @@ const updateRewrittenBranchReferences = (
 	};
 };
 
+const enterTransferMode = (workspace: Workspace, mode: TransferMode): Workspace => ({
+	...workspace,
+	mode: transferOutlineMode(mode),
+});
+
+const enterKeyboardTransferMode = (
+	workspace: Workspace,
+	source: Operand,
+	operationType?: OperationType,
+): Workspace => ({
+	...workspace,
+	mode: transferOutlineMode(
+		keyboardTransferMode({
+			source,
+			operationType: operationType ?? "into",
+			restoreSelection: workspace.selection,
+		}),
+	),
+});
+
+const enterAbsorbMode = (
+	workspace: Workspace,
+	source: Operand,
+	sourceTarget: AbsorptionTarget,
+): Workspace => ({
+	...workspace,
+	mode: absorbOutlineMode({
+		source,
+		restoreSelection: workspace.selection,
+		sourceTarget,
+	}),
+});
+
 const updatePointerTransfer = (
 	workspace: Workspace,
 	target: Operand | null,
@@ -176,6 +194,29 @@ const updatePointerTransfer = (
 		mode: transferOutlineMode(pointerTransferMode({ source: mode.source, target, operationType })),
 	};
 };
+
+const updateTransferOperationType = (
+	workspace: Workspace,
+	operationType: OperationType,
+): Workspace => {
+	if (workspace.mode._tag !== "Transfer" || workspace.mode.value._tag !== "Keyboard")
+		return workspace;
+	if (workspace.mode.value.operationType === operationType) return workspace;
+
+	return {
+		...workspace,
+		mode: transferOutlineMode(
+			keyboardTransferMode({
+				source: workspace.mode.value.source,
+				operationType,
+				restoreSelection: workspace.mode.value.restoreSelection,
+			}),
+		),
+	};
+};
+
+const exitMode = (workspace: Workspace): Workspace =>
+	workspace.mode._tag === "Default" ? workspace : { ...workspace, mode: defaultOutlineMode };
 
 const cancelMode = (workspace: Workspace): Workspace => {
 	const restoreSelection =
@@ -224,70 +265,21 @@ const updateRewrittenCommitReferences = (
 	};
 };
 
-export const reduceWorkspace = (workspace: Workspace, action: WorkspaceAction): Workspace => {
-	switch (action.type) {
-		case "selectOutline":
-			return selectOutline(workspace, action.selection);
-		case "selectFiles":
-			return workspace.selection.files === action.selection
-				? workspace
-				: { ...workspace, selection: { ...workspace.selection, files: action.selection } };
-		case "selectDiff":
-			return selectDiff(workspace, action.selection);
-		case "startRewordCommit":
-			return startRewordCommit(workspace, action.commit);
-		case "startRenameBranch":
-			return startRenameBranch(workspace, action.branch);
-		case "updateRewrittenBranchReferences":
-			return updateRewrittenBranchReferences(workspace, action.oldBranch, action.newBranch);
-		case "enterTransferMode":
-			return { ...workspace, mode: transferOutlineMode(action.mode) };
-		case "enterKeyboardTransferMode":
-			return {
-				...workspace,
-				mode: transferOutlineMode(
-					keyboardTransferMode({
-						source: action.source,
-						operationType: action.operationType ?? "into",
-						restoreSelection: workspace.selection,
-					}),
-				),
-			};
-		case "enterAbsorbMode":
-			return {
-				...workspace,
-				mode: absorbOutlineMode({
-					source: action.source,
-					restoreSelection: workspace.selection,
-					sourceTarget: action.sourceTarget,
-				}),
-			};
-		case "updatePointerTransfer":
-			return updatePointerTransfer(workspace, action.target, action.operationType);
-		case "updateTransferOperationType": {
-			if (workspace.mode._tag !== "Transfer" || workspace.mode.value._tag !== "Keyboard")
-				return workspace;
-			if (workspace.mode.value.operationType === action.operationType) return workspace;
-			return {
-				...workspace,
-				mode: transferOutlineMode(
-					keyboardTransferMode({
-						source: workspace.mode.value.source,
-						operationType: action.operationType,
-						restoreSelection: workspace.mode.value.restoreSelection,
-					}),
-				),
-			};
-		}
-		case "exitMode":
-			return workspace.mode._tag === "Default"
-				? workspace
-				: { ...workspace, mode: defaultOutlineMode };
-		case "cancelMode":
-			return cancelMode(workspace);
-		case "updateRewrittenCommitReferences":
-			return updateRewrittenCommitReferences(workspace, action.replacedCommits, action.headInfo);
-	}
+export const workspaceTransitions = {
+	selectOutline,
+	selectFiles,
+	selectDiff,
+	startRewordCommit,
+	startRenameBranch,
+	updateRewrittenBranchReferences,
+	enterTransferMode,
+	enterKeyboardTransferMode,
+	enterAbsorbMode,
+	updatePointerTransfer,
+	updateTransferOperationType,
+	exitMode,
+	cancelMode,
+	updateRewrittenCommitReferences,
 };
 
 const resolveNavigationIndexSelection = <T>(
