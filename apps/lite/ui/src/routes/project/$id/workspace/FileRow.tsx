@@ -1,4 +1,5 @@
 import { FileIcon } from "#ui/components/FileIcon.tsx";
+import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
 import rowStyles from "./Row.module.css";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { FileParent } from "#ui/operands.ts";
@@ -9,7 +10,7 @@ import { classes } from "#ui/components/classes.ts";
 import { Tooltip } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { Match } from "effect";
-import { ComponentProps, FC } from "react";
+import { ComponentProps, FC, use } from "react";
 import styles from "./FileRow.module.css";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
 import { getRowButtonClassName } from "./Row-utils.ts";
@@ -26,6 +27,7 @@ export const FileRow: FC<
 		branchNameByCommitId: (commitId: string) => string | undefined;
 	} & Omit<ComponentProps<typeof Row>, "projectId">
 > = ({ item, projectId, fileParent, branchNameByCommitId, id, ...restProps }) => {
+	const { checkedCommitIds } = use(CheckedCommitIdsContext);
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const outlineMode = useAppSelector((state) =>
@@ -38,9 +40,7 @@ export const FileRow: FC<
 		change: item._tag === "Change" ? item.change : undefined,
 	});
 
-	const hasCheckedCommits = useAppSelector((state) =>
-		projectSlice.selectors.selectHasCheckedCommits(state, projectId),
-	);
+	const hasCheckedCommits = checkedCommitIds.size > 0;
 
 	const lastSepIdx = relativePath.lastIndexOf("/");
 	const directoryPath = lastSepIdx !== -1 ? relativePath.slice(0, lastSepIdx) : null;

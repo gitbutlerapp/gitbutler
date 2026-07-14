@@ -3,6 +3,7 @@ import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/que
 import { relativeToEquals } from "#ui/api/relative-to.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
 import {
 	branchOperand,
 	uncommittedChangesOperand,
@@ -585,12 +586,11 @@ export const OutlineTree: FC<
 	ref: refProp,
 	...props
 }) => {
+	const { checkedCommitIds } = use(CheckedCommitIdsContext);
 	const selection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionOutline(state, projectId, navigationIndex),
 	);
-	const hasCheckedCommits = useAppSelector((state) =>
-		projectSlice.selectors.selectHasCheckedCommits(state, projectId),
-	);
+	const hasCheckedCommits = checkedCommitIds.size > 0;
 
 	const layoutId = `project=${projectId}:outline-tree`;
 	const outlineLayout = useDefaultLayout({

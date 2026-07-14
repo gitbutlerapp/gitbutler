@@ -43,7 +43,6 @@ export type SelectionState = {
 };
 
 type WorkspaceState = {
-	checkedCommitIds: Record<string, true>;
 	commitTarget: RelativeTo | null;
 	highlightedCommitIds: Array<string>;
 	mode: OutlineMode;
@@ -57,7 +56,6 @@ const createInitialSelectionState = (): SelectionState => ({
 });
 
 const createInitialWorkspaceState = (): WorkspaceState => ({
-	checkedCommitIds: {},
 	commitTarget: null,
 	highlightedCommitIds: [],
 	mode: defaultOutlineMode,
@@ -281,27 +279,6 @@ export const projectReducers = {
 	) => {
 		state.workspace.highlightedCommitIds = commitIds ?? [];
 	},
-	setCommitChecked: (
-		state: ProjectState,
-		{ commitId, checked }: { commitId: string; checked: boolean },
-	) => {
-		const checkedCommitIds = state.workspace.checkedCommitIds;
-		if (checked) checkedCommitIds[commitId] = true;
-		else delete checkedCommitIds[commitId];
-	},
-	setCommitsChecked: (
-		state: ProjectState,
-		{ commitIds, checked }: { commitIds: Array<string>; checked: boolean },
-	) => {
-		const checkedCommitIds = state.workspace.checkedCommitIds;
-		for (const commitId of commitIds) {
-			if (checked) checkedCommitIds[commitId] = true;
-			else delete checkedCommitIds[commitId];
-		}
-	},
-	clearCheckedCommits: (state: ProjectState) => {
-		state.workspace.checkedCommitIds = {};
-	},
 	setCommitTarget: (state: ProjectState, { commitTarget }: { commitTarget: RelativeTo | null }) => {
 		state.workspace.commitTarget = commitTarget;
 	},
@@ -321,14 +298,6 @@ export const projectReducers = {
 			const commitId = replacedCommits[workspaceState.commitTarget.subject];
 			if (commitId !== undefined)
 				workspaceState.commitTarget = { type: "commit", subject: commitId };
-		}
-
-		for (const oldId of Object.keys(workspaceState.checkedCommitIds)) {
-			const newId = replacedCommits[oldId];
-			if (newId !== undefined) {
-				delete workspaceState.checkedCommitIds[oldId];
-				workspaceState.checkedCommitIds[newId] = true;
-			}
 		}
 
 		if (workspaceState.mode._tag === "RewordCommit") {
@@ -375,11 +344,5 @@ export const projectSelectors = {
 		),
 	selectOutlineModeState: (state: ProjectState) => state.workspace.mode,
 	selectHighlightedCommitIds: (state: ProjectState) => state.workspace.highlightedCommitIds,
-	selectCommitChecked: (state: ProjectState, commitId: string) =>
-		state.workspace.checkedCommitIds[commitId] === true,
-	selectCheckedCommitCount: (state: ProjectState) =>
-		Object.keys(state.workspace.checkedCommitIds).length,
-	selectHasCheckedCommits: (state: ProjectState) =>
-		Object.keys(state.workspace.checkedCommitIds).length > 0,
 	selectCommitTarget: (state: ProjectState) => state.workspace.commitTarget,
 };

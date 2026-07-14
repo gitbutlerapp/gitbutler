@@ -12,6 +12,10 @@ import {
 	SelectionScope,
 } from "#ui/selection-scopes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
+import {
+	CheckedCommitIdsContext,
+	CheckedCommitIdsRegistryContext,
+} from "#ui/CheckedCommitIdsContext.ts";
 import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
 import { DialogContext } from "#ui/DialogContext.ts";
 import { FilesVisibleContext, FilesVisibleRegistryContext } from "#ui/FilesVisibleContext.ts";
@@ -452,20 +456,23 @@ export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const filesVisibleContext = use(FilesVisibleRegistryContext)(projectId);
+	const checkedCommitIdsContext = use(CheckedCommitIdsRegistryContext)(projectId);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const project = projects.find((project) => project.id === projectId);
 	if (!project) return <p className={styles.notFound}>Project not found.</p>;
 
 	return (
-		<FilesVisibleContext value={filesVisibleContext}>
-			<QueryErrorResetBoundary>
-				{({ reset }) => (
-					<WorkspacePageErrorBoundary onReset={reset}>
-						<WorkspacePage />
-					</WorkspacePageErrorBoundary>
-				)}
-			</QueryErrorResetBoundary>
-		</FilesVisibleContext>
+		<CheckedCommitIdsContext value={checkedCommitIdsContext}>
+			<FilesVisibleContext value={filesVisibleContext}>
+				<QueryErrorResetBoundary>
+					{({ reset }) => (
+						<WorkspacePageErrorBoundary onReset={reset}>
+							<WorkspacePage />
+						</WorkspacePageErrorBoundary>
+					)}
+				</QueryErrorResetBoundary>
+			</FilesVisibleContext>
+		</CheckedCommitIdsContext>
 	);
 };

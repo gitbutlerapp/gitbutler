@@ -13,6 +13,7 @@ import { classes } from "#ui/components/classes.ts";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
 import { assert } from "#ui/assert.ts";
 import {
 	commitBody,
@@ -62,15 +63,14 @@ export const CommitRow: FC<
 		dryRunCommit: Commit | null;
 	} & ComponentProps<"div">
 > = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
+	const { checkedCommitIds, setCommitsChecked } = use(CheckedCommitIdsContext);
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
 
 	const isHighlighted = useAppSelector((state) =>
 		projectSlice.selectors.selectHighlightedCommitIds(state, projectId).includes(commit.id),
 	);
-	const isChecked = useAppSelector((state) =>
-		projectSlice.selectors.selectCommitChecked(state, projectId, commit.id),
-	);
+	const isChecked = checkedCommitIds.has(commit.id);
 
 	const dispatch = useAppDispatch();
 	const navigationIndex = assert(use(NavigationIndexContext));
@@ -380,9 +380,7 @@ export const CommitRow: FC<
 						nativeButton
 						render={<Tooltip.Trigger />}
 						onCheckedChange={(checked) => {
-							dispatch(
-								projectSlice.actions.setCommitChecked({ projectId, commitId: commit.id, checked }),
-							);
+							setCommitsChecked([commit.id], checked);
 						}}
 					/>
 					<Tooltip.Portal>

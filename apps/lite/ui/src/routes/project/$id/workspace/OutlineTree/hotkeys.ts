@@ -20,6 +20,7 @@ import {
 	type Operand,
 } from "#ui/operands.ts";
 import { DialogContext } from "#ui/DialogContext.ts";
+import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -78,6 +79,7 @@ export const useOutlineTreeHotkeys = ({
 	projectId: string;
 	ref: RefObject<HTMLElement | null>;
 }) => {
+	const { checkedCommitIds, setCommitsChecked } = use(CheckedCommitIdsContext);
 	const { openDialog } = use(DialogContext);
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
@@ -100,18 +102,12 @@ export const useOutlineTreeHotkeys = ({
 			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segment
 			: undefined;
 
-	const selectedBranchCommitsChecked = useAppSelector((state) =>
+	const selectedBranchCommitsChecked =
 		selectedBranchSegment && selectedBranchSegment.commits.length > 0
-			? selectedBranchSegment.commits.every((commit) =>
-					projectSlice.selectors.selectCommitChecked(state, projectId, commit.id),
-				)
-			: false,
-	);
-	const selectedCommitChecked = useAppSelector((state) =>
-		selection?._tag === "Commit"
-			? projectSlice.selectors.selectCommitChecked(state, projectId, selection.commitId)
-			: false,
-	);
+			? selectedBranchSegment.commits.every((commit) => checkedCommitIds.has(commit.id))
+			: false;
+	const selectedCommitChecked =
+		selection?._tag === "Commit" ? checkedCommitIds.has(selection.commitId) : false;
 	const selectedCommit =
 		selection?._tag === "Commit"
 			? (headInfoIndex?.commitContextById(selection.commitId) ?? null)?.commit
@@ -226,24 +222,15 @@ export const useOutlineTreeHotkeys = ({
 	const toggleSelectedCommitChecked = () => {
 		if (!selection || selection._tag !== "Commit") return;
 
-		dispatch(
-			projectSlice.actions.setCommitChecked({
-				projectId,
-				commitId: selection.commitId,
-				checked: !selectedCommitChecked,
-			}),
-		);
+		setCommitsChecked([selection.commitId], !selectedCommitChecked);
 	};
 
 	const toggleSelectedBranchChecked = () => {
 		if (!selectedBranchSegment) return;
 
-		dispatch(
-			projectSlice.actions.setCommitsChecked({
-				projectId,
-				commitIds: selectedBranchSegment.commits.map((commit) => commit.id),
-				checked: !selectedBranchCommitsChecked,
-			}),
+		setCommitsChecked(
+			selectedBranchSegment.commits.map((commit) => commit.id),
+			!selectedBranchCommitsChecked,
 		);
 	};
 

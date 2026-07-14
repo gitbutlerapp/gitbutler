@@ -2,6 +2,7 @@ import { useAbsorb } from "#ui/api/mutations.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
@@ -25,7 +26,7 @@ import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { FC, type ReactNode } from "react";
+import { FC, type ReactNode, use } from "react";
 import styles from "./OperationControls.module.css";
 import { AbsorbMode, KeyboardTransferMode } from "#ui/outline/mode.ts";
 import { NavigationIndex } from "#ui/workspace/navigation-index.ts";
@@ -130,14 +131,13 @@ const Controls: FC<{
 	);
 };
 
-const CheckedCommitOperationControls: FC<{ checkedCommitCount: number; projectId: string }> = ({
+const CheckedCommitOperationControls: FC<{ checkedCommitCount: number }> = ({
 	checkedCommitCount,
-	projectId,
 }) => {
-	const dispatch = useAppDispatch();
+	const { clearCheckedCommits } = use(CheckedCommitIdsContext);
 
 	const cancel = () => {
-		dispatch(projectSlice.actions.clearCheckedCommits({ projectId }));
+		clearCheckedCommits();
 		focusSelectionScope("outline");
 	};
 
@@ -349,6 +349,7 @@ const TransferKeyboardOperationControls: FC<{
 export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Operand> }> = ({
 	outlineNavigationIndex,
 }) => {
+	const { checkedCommitIds } = use(CheckedCommitIdsContext);
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const outlineMode = useAppSelector((state) =>
 		projectSlice.selectors.selectOutlineModeState(state, projectId),
@@ -357,18 +358,13 @@ export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Ope
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
-	const checkedCommitCount = useAppSelector((state) =>
-		projectSlice.selectors.selectCheckedCommitCount(state, projectId),
-	);
+	const checkedCommitCount = checkedCommitIds.size;
 
 	return Match.value(outlineMode).pipe(
 		Match.tagsExhaustive({
 			Default: () =>
 				checkedCommitCount > 0 && (
-					<CheckedCommitOperationControls
-						checkedCommitCount={checkedCommitCount}
-						projectId={projectId}
-					/>
+					<CheckedCommitOperationControls checkedCommitCount={checkedCommitCount} />
 				),
 			Absorb: (mode) =>
 				headInfoIndex && (

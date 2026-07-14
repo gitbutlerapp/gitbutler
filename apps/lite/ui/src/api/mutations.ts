@@ -17,7 +17,8 @@ import {
 } from "#ui/operations/toastOptions.tsx";
 import { commitOperand, type BranchOperand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
+import { CheckedCommitIdsRegistryContext } from "#ui/CheckedCommitIdsContext.ts";
+import { useAppDispatch } from "#ui/store.ts";
 import { Toast } from "@base-ui/react";
 import {
 	type CommitAbsorption,
@@ -30,35 +31,37 @@ import { Match } from "effect";
 import type { OpenInEditorParams } from "#electron/ipc.ts";
 import type { GUISettings } from "#electron/settings.ts";
 import { moveDraftPR } from "#ui/pr.ts";
+import { use } from "react";
 
 // oxlint-disable-next-line typescript/no-explicit-any
 type PromiseReturnType<T> = T extends (...args: Array<any>) => Promise<infer U> ? U : never;
 type AnyResponse = PromiseReturnType<(typeof window.lite)[keyof typeof window.lite]>;
 
-export const syncCoreCaches = (
-	queryClient: QueryClient,
-	dispatch: AppDispatch,
-	projectId: string,
-	response: Exclude<AnyResponse, void>,
-) => {
-	if (typeof response !== "object" || response === null) return;
+export const useSyncCoreCaches = () => {
+	const dispatch = useAppDispatch();
+	const checkedCommitIdsRegistry = use(CheckedCommitIdsRegistryContext);
 
-	const workspace =
-		"workspace" in response
-			? response.workspace
-			: "workspaceState" in response
-				? response.workspaceState
-				: null;
-	if (workspace === null) return;
+	return (queryClient: QueryClient, projectId: string, response: Exclude<AnyResponse, void>) => {
+		if (typeof response !== "object" || response === null) return;
 
-	queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
-	dispatch(
-		projectSlice.actions.updateRewrittenCommitReferences({
-			projectId,
-			replacedCommits: workspace.replacedCommits,
-			headInfo: workspace.headInfo,
-		}),
-	);
+		const workspace =
+			"workspace" in response
+				? response.workspace
+				: "workspaceState" in response
+					? response.workspaceState
+					: null;
+		if (workspace === null) return;
+
+		queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
+		dispatch(
+			projectSlice.actions.updateRewrittenCommitReferences({
+				projectId,
+				replacedCommits: workspace.replacedCommits,
+				headInfo: workspace.headInfo,
+			}),
+		);
+		checkedCommitIdsRegistry(projectId).updateRewrittenCommitReferences(workspace.replacedCommits);
+	};
 };
 
 export const useAbsorb = ({ projectId }: { projectId: string }) => {
@@ -84,7 +87,7 @@ export const useAbsorb = ({ projectId }: { projectId: string }) => {
 };
 
 export const useApply = () => {
-	const dispatch = useAppDispatch();
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
@@ -106,7 +109,7 @@ export const useApply = () => {
 									projectId: input.projectId,
 									branch: encodeBytes(input.existingBranch),
 								});
-								syncCoreCaches(mutation.client, dispatch, input.projectId, checkoutResponse);
+								syncCoreCaches(mutation.client, input.projectId, checkoutResponse);
 								toastManager.close(toastId);
 							})().catch((error) => {
 								// oxlint-disable-next-line no-console
@@ -139,13 +142,13 @@ export const useApply = () => {
 };
 
 export const useBranchCreate = () => {
-	const dispatch = useAppDispatch();
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.branchCreate,
 		onSuccess: async (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			syncCoreCaches(mutation.client, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -326,9 +329,9 @@ export const useOpenInEditor = () => {
 };
 
 export const useCommitAmend = ({ projectId }: { projectId: string }) => {
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 	const queryClient = useQueryClient();
-	const dispatch = useAppDispatch();
 
 	return useMutation({
 		mutationFn: async ({ commitId }: { commitId: string }) => {
@@ -347,7 +350,6 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 		onSuccess: async (response, input, _ctx, mutation) => {
 			syncCoreCaches(
 				mutation.client,
-				dispatch,
 				projectId,
 				// Workaround for https://linear.app/gitbutler/issue/GB-1570/amending-commit-has-wrong-replaced-commits
 				{
@@ -386,6 +388,7 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 };
 
 export const useCommitCreate = ({ projectId }: { projectId: string }) => {
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 	const queryClient = useQueryClient();
 	const dispatch = useAppDispatch();
@@ -413,7 +416,7 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onSuccess: async (response, input, _ctx, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, projectId, response);
+			syncCoreCaches(mutation.client, projectId, response);
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null) {
 				dispatch(
@@ -448,13 +451,13 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 };
 
 export const useCommitDiscard = () => {
-	const dispatch = useAppDispatch();
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.commitDiscard,
 		onSuccess: async (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			syncCoreCaches(mutation.client, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -471,13 +474,13 @@ export const useCommitDiscard = () => {
 };
 
 export const useCommitDiscardChanges = () => {
-	const dispatch = useAppDispatch();
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.commitDiscardChanges,
 		onSuccess: async (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			syncCoreCaches(mutation.client, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -517,13 +520,14 @@ export const useDiscardWorktreeChanges = () => {
 };
 
 export const useCommitInsertBlank = () => {
+	const syncCoreCaches = useSyncCoreCaches();
 	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.commitInsertBlank,
 		onSuccess: async (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			syncCoreCaches(mutation.client, input.projectId, response);
 
 			const stackId = getHeadInfoIndex(response.workspace.headInfo).commitContextById(
 				response.newCommit,
@@ -552,13 +556,13 @@ export const useCommitInsertBlank = () => {
 };
 
 export const useCommitMove = () => {
-	const dispatch = useAppDispatch();
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.commitMove,
 		onSuccess: async (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			syncCoreCaches(mutation.client, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -575,13 +579,13 @@ export const useCommitMove = () => {
 };
 
 export const useCommitReword = () => {
-	const dispatch = useAppDispatch();
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.commitReword,
 		onSuccess: async (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			syncCoreCaches(mutation.client, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -598,13 +602,13 @@ export const useCommitReword = () => {
 };
 
 export const useCommitUncommit = () => {
-	const dispatch = useAppDispatch();
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.commitUncommit,
 		onSuccess: async (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			syncCoreCaches(mutation.client, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -621,13 +625,13 @@ export const useCommitUncommit = () => {
 };
 
 export const useCommitUncommitChanges = () => {
-	const dispatch = useAppDispatch();
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.commitUncommitChanges,
 		onSuccess: async (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			syncCoreCaches(mutation.client, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -668,13 +672,13 @@ export const useWorkspaceBranchAndAncestorsPush = () => {
 };
 
 export const useWorkspaceIntegrateUpstream = () => {
-	const dispatch = useAppDispatch();
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.workspaceIntegrateUpstream,
 		onSuccess: (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			syncCoreCaches(mutation.client, input.projectId, response);
 		},
 		onError: (error, input) => {
 			// oxlint-disable-next-line no-console
@@ -771,13 +775,13 @@ export const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 };
 
 export const useTearOffBranch = () => {
-	const dispatch = useAppDispatch();
+	const syncCoreCaches = useSyncCoreCaches();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.tearOffBranch,
 		onSuccess: async (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+			syncCoreCaches(mutation.client, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console

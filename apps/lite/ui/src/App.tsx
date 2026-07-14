@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RegisteredRouter, RouterProvider } from "@tanstack/react-router";
 import { type FC, useEffect, useState } from "react";
 import { Provider } from "react-redux";
+import { CheckedCommitIdsRegistryContext } from "#ui/CheckedCommitIdsContext.ts";
 import { store } from "#ui/store.ts";
 import { Toasts } from "#ui/components/Toasts.tsx";
 import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
@@ -40,6 +41,9 @@ const ThemeSync: FC = () => {
 	return null;
 };
 
+// Reuse for reference stability.
+const emptySet: Set<never> = new Set();
+
 export const App: FC<{
 	queryClient: QueryClient;
 	toastManager: ToastManager;
@@ -60,36 +64,73 @@ export const App: FC<{
 			}),
 	});
 
+	const [checkedCommitIdsByProjectId, setCheckedCommitIdsByProjectId] = useState(
+		() => new Map<string, Set<string>>(),
+	);
+	const mapCheckedCommitIdsBy = (
+		projectId: string,
+		update: (current: Set<string>) => Set<string>,
+	) =>
+		setCheckedCommitIdsByProjectId((curr) => {
+			const current = curr.get(projectId) ?? emptySet;
+			const next = update(current);
+			return next === current ? curr : new Map(curr).set(projectId, next);
+		});
+	const checkedCommitIdsContext = (projectId: string) => ({
+		checkedCommitIds: checkedCommitIdsByProjectId.get(projectId) ?? emptySet,
+		setCommitsChecked: (commitIds: Array<string>, checked: boolean) =>
+			mapCheckedCommitIdsBy(projectId, (curr) => {
+				const toggled = new Set(commitIds);
+				return checked ? curr.union(toggled) : curr.difference(toggled);
+			}),
+		clearCheckedCommits: () => mapCheckedCommitIdsBy(projectId, () => emptySet),
+		updateRewrittenCommitReferences: (replacedCommits: Record<string, string>) =>
+			mapCheckedCommitIdsBy(projectId, (curr) => {
+				let next: Set<string> | undefined;
+				for (const id of curr) {
+					const newId = replacedCommits[id];
+					if (newId === undefined || newId === id) continue;
+
+					next ??= new Set(curr);
+					next.delete(id);
+					next.add(newId);
+				}
+				return next ?? curr;
+			}),
+	});
+
 	const [dialog, setDialog] = useState<Dialog>({ _tag: "None" });
 	const openDialog = (nextDialog: Dialog) => setDialog(nextDialog);
 	const closeDialog = () => setDialog({ _tag: "None" });
 
 	return (
-		<FilesVisibleRegistryContext value={filesVisibleContext}>
-			<DetailsFullWindowContext
-				value={{ detailsFullWindow, setDetailsFullWindow, toggleDetailsFullWindow }}
-			>
-				<DialogContext value={{ dialog, openDialog, closeDialog }}>
-					<Provider store={store}>
-						<QueryClientProvider client={queryClient}>
-							<Toast.Provider toastManager={toastManager}>
-								<Tooltip.Provider>
-									<WorkerPoolContextProvider
-										poolOptions={{ workerFactory }}
-										highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
-									>
-										<ThemeSync />
-										<RouterProvider router={router} />
-										<AskpassPromptDialog />
-										<Toasts />
-									</WorkerPoolContextProvider>
-								</Tooltip.Provider>
-							</Toast.Provider>
-							<ReactQueryDevtools />
-						</QueryClientProvider>
-					</Provider>
-				</DialogContext>
-			</DetailsFullWindowContext>
-		</FilesVisibleRegistryContext>
+		<CheckedCommitIdsRegistryContext value={checkedCommitIdsContext}>
+			<FilesVisibleRegistryContext value={filesVisibleContext}>
+				<DetailsFullWindowContext
+					value={{ detailsFullWindow, setDetailsFullWindow, toggleDetailsFullWindow }}
+				>
+					<DialogContext value={{ dialog, openDialog, closeDialog }}>
+						<Provider store={store}>
+							<QueryClientProvider client={queryClient}>
+								<Toast.Provider toastManager={toastManager}>
+									<Tooltip.Provider>
+										<WorkerPoolContextProvider
+											poolOptions={{ workerFactory }}
+											highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
+										>
+											<ThemeSync />
+											<RouterProvider router={router} />
+											<AskpassPromptDialog />
+											<Toasts />
+										</WorkerPoolContextProvider>
+									</Tooltip.Provider>
+								</Toast.Provider>
+								<ReactQueryDevtools />
+							</QueryClientProvider>
+						</Provider>
+					</DialogContext>
+				</DetailsFullWindowContext>
+			</FilesVisibleRegistryContext>
+		</CheckedCommitIdsRegistryContext>
 	);
 };
