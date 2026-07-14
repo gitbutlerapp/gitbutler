@@ -7,12 +7,11 @@ import {
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { uncommittedChangesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { OutlineModeContext } from "#ui/WorkspaceContext.ts";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { ComponentProps, FC, useRef } from "react";
+import { ComponentProps, FC, use, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -40,9 +39,7 @@ const useFilesTreeHotkeys = ({
 	fileParent: FileParent;
 	selection: string | null;
 }) => {
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+	const { outlineMode, enterAbsorbMode } = use(OutlineModeContext);
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
@@ -50,8 +47,6 @@ const useFilesTreeHotkeys = ({
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
 	const openInEditor = useOpenInEditor();
-
-	const dispatch = useAppDispatch();
 
 	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
 
@@ -61,18 +56,15 @@ const useFilesTreeHotkeys = ({
 		const change = worktreeChanges?.changes.find((change) => change.path === selectedChangesFile);
 		if (!change) return;
 
-		dispatch(
-			projectSlice.actions.enterAbsorbMode({
-				projectId,
-				source: fileOperand({ parent: uncommittedChangesFileParent, path: selectedChangesFile }),
-				sourceTarget: {
-					type: "treeChanges",
-					subject: {
-						changes: [change],
-						assignedStackId: null,
-					},
+		enterAbsorbMode(
+			fileOperand({ parent: uncommittedChangesFileParent, path: selectedChangesFile }),
+			{
+				type: "treeChanges",
+				subject: {
+					changes: [change],
+					assignedStackId: null,
 				},
-			}),
+			},
 		);
 		focusSelectionScope("outline");
 	};
@@ -111,7 +103,6 @@ const useFilesTreeHotkeys = ({
 
 	useNavigationIndexHotkeys({
 		navigationIndex,
-		projectId,
 		group: "File",
 		select: onFileSelection,
 		selection,

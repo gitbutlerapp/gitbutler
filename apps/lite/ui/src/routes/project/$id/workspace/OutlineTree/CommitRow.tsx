@@ -34,9 +34,8 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import { branchOperand, commitOperand, operandEquals, type CommitOperand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { OutlineModeContext, OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
 import { RelativeTo, type Commit } from "@gitbutler/but-sdk";
 import { Toast, Tooltip } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
@@ -74,23 +73,23 @@ export const CommitRow: FC<
 	const isHighlighted = highlightedCommitIds.has(commit.id);
 	const isChecked = checkedCommitIds.has(commit.id);
 
-	const dispatch = useAppDispatch();
+	const {
+		outlineMode,
+		startRewordCommit: enterRewordMode,
+		enterKeyboardTransferMode,
+		exitMode,
+	} = use(OutlineModeContext);
+	const { selectOutline } = use(OutlineSelectionContext);
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const commitOperandV: CommitOperand = {
 		stackId,
 		commitId: commit.id,
 	};
 	const operand = commitOperand(commitOperandV);
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
-	);
-	const isRewording = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
-		return (
-			outlineMode._tag === "RewordCommit" &&
-			operandEquals(operand, commitOperand(outlineMode.operand))
-		);
-	});
+	const isDefaultMode = outlineMode._tag === "Default";
+	const isRewording =
+		outlineMode._tag === "RewordCommit" &&
+		operandEquals(operand, commitOperand(outlineMode.operand));
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -139,13 +138,10 @@ export const CommitRow: FC<
 					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
 
 					if (newBranchStack && newBranchStack.id !== null) {
-						dispatch(
-							projectSlice.actions.selectOutline({
-								projectId,
-								selection: branchOperand({
-									stackId: newBranchStack.id,
-									branchRef: response.newRef.fullNameBytes,
-								}),
+						selectOutline(
+							branchOperand({
+								stackId: newBranchStack.id,
+								branchRef: response.newRef.fullNameBytes,
 							}),
 						);
 					}
@@ -168,14 +164,11 @@ export const CommitRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId,
-							selection: rewrittenCommitSelection({
-								selection: selectionAfterDiscard,
-								replacedCommits: response.workspace.replacedCommits,
-								headInfo: response.workspace.headInfo,
-							}),
+					selectOutline(
+						rewrittenCommitSelection({
+							selection: selectionAfterDiscard,
+							replacedCommits: response.workspace.replacedCommits,
+							headInfo: response.workspace.headInfo,
 						}),
 					);
 				},
@@ -184,23 +177,17 @@ export const CommitRow: FC<
 	};
 
 	const cutCommit = () => {
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				source: operand,
-			}),
-		);
+		enterKeyboardTransferMode(operand);
 		focusSelectionScope("outline");
 	};
 
 	const startEditing = () => {
-		dispatch(projectSlice.actions.startRewordCommit({ projectId, commit: commitOperandV }));
+		enterRewordMode(commitOperandV);
 	};
 
 	const endEditing = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
-		dispatch(projectSlice.actions.selectOutline({ projectId, selection: operand }));
-		focusSelectionScope("outline");
+		exitMode();
+		selectOutline(operand);
 	};
 
 	const toastManager = Toast.useToastManager();
@@ -355,7 +342,6 @@ export const CommitRow: FC<
 	return (
 		<ItemRow
 			{...restProps}
-			projectId={projectId}
 			operand={operand}
 			isHighlighted={isHighlighted}
 			onContextMenu={(event) => {

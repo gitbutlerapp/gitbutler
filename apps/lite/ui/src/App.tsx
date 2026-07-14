@@ -4,17 +4,16 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RegisteredRouter, RouterProvider } from "@tanstack/react-router";
 import { type FC, useEffect, useState } from "react";
-import { Provider } from "react-redux";
 import { CheckedCommitIdsRegistryContext } from "#ui/CheckedCommitIdsContext.ts";
 import { CommitTargetRegistryContext } from "#ui/CommitTargetContext.ts";
-import { store } from "#ui/store.ts";
 import { Toasts } from "#ui/components/Toasts.tsx";
 import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
-import { DialogContext } from "#ui/DialogContext.ts";
+import { DialogContext, type Dialog } from "#ui/DialogContext.ts";
 import { FilesVisibleRegistryContext } from "#ui/FilesVisibleContext.ts";
 import { HighlightedCommitIdsRegistryContext } from "#ui/HighlightedCommitIdsContext.ts";
 import { useProjectRegistry } from "#ui/ProjectRegistry.ts";
-import type { Dialog } from "#ui/projects/project.ts";
+import { WorkspaceRegistryContext } from "#ui/WorkspaceContext.ts";
+import { createWorkspace } from "#ui/workspace.ts";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
 import { getGUISettingsQueryOptions } from "./api/queries.ts";
 import { defaultSettings } from "./settings.ts";
@@ -68,21 +67,22 @@ export const App: FC<{
 	const checkedCommitIdsRegistry = useProjectRegistry(new Set<string>());
 	const highlightedCommitIdsRegistry = useProjectRegistry(new Set<string>());
 	const commitTargetRegistry = useProjectRegistry<RelativeTo | null>(null);
+	const workspaceRegistry = useProjectRegistry(createWorkspace());
 
 	const [dialog, setDialog] = useState<Dialog>({ _tag: "None" });
 	const openDialog = (nextDialog: Dialog) => setDialog(nextDialog);
 	const closeDialog = () => setDialog({ _tag: "None" });
 
 	return (
-		<CommitTargetRegistryContext value={commitTargetRegistry}>
-			<HighlightedCommitIdsRegistryContext value={highlightedCommitIdsRegistry}>
-				<CheckedCommitIdsRegistryContext value={checkedCommitIdsRegistry}>
-					<FilesVisibleRegistryContext value={filesVisibleContext}>
-						<DetailsFullWindowContext
-							value={{ detailsFullWindow, setDetailsFullWindow, toggleDetailsFullWindow }}
-						>
-							<DialogContext value={{ dialog, openDialog, closeDialog }}>
-								<Provider store={store}>
+		<WorkspaceRegistryContext value={workspaceRegistry}>
+			<CommitTargetRegistryContext value={commitTargetRegistry}>
+				<HighlightedCommitIdsRegistryContext value={highlightedCommitIdsRegistry}>
+					<CheckedCommitIdsRegistryContext value={checkedCommitIdsRegistry}>
+						<FilesVisibleRegistryContext value={filesVisibleContext}>
+							<DetailsFullWindowContext
+								value={{ detailsFullWindow, setDetailsFullWindow, toggleDetailsFullWindow }}
+							>
+								<DialogContext value={{ dialog, openDialog, closeDialog }}>
 									<QueryClientProvider client={queryClient}>
 										<Toast.Provider toastManager={toastManager}>
 											<Tooltip.Provider>
@@ -99,12 +99,12 @@ export const App: FC<{
 										</Toast.Provider>
 										<ReactQueryDevtools />
 									</QueryClientProvider>
-								</Provider>
-							</DialogContext>
-						</DetailsFullWindowContext>
-					</FilesVisibleRegistryContext>
-				</CheckedCommitIdsRegistryContext>
-			</HighlightedCommitIdsRegistryContext>
-		</CommitTargetRegistryContext>
+								</DialogContext>
+							</DetailsFullWindowContext>
+						</FilesVisibleRegistryContext>
+					</CheckedCommitIdsRegistryContext>
+				</HighlightedCommitIdsRegistryContext>
+			</CommitTargetRegistryContext>
+		</WorkspaceRegistryContext>
 	);
 };

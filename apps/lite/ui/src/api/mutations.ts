@@ -16,10 +16,9 @@ import {
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
 import { commitOperand, type BranchOperand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
 import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { OutlineModeContext, OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
 import { Toast } from "@base-ui/react";
 import {
 	type CommitAbsorption,
@@ -39,7 +38,7 @@ type PromiseReturnType<T> = T extends (...args: Array<any>) => Promise<infer U> 
 type AnyResponse = PromiseReturnType<(typeof window.lite)[keyof typeof window.lite]>;
 
 export const useSyncCoreCaches = () => {
-	const dispatch = useAppDispatch();
+	const { updateRewrittenCommitReferences: updateOutlineReferences } = use(OutlineSelectionContext);
 	const { updateRewrittenCommitReferences: updateCheckedCommitReferences } =
 		use(CheckedCommitIdsContext);
 	const { updateRewrittenCommitReferences: updateCommitTargetReferences } =
@@ -57,13 +56,7 @@ export const useSyncCoreCaches = () => {
 		if (workspace === null) return;
 
 		queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
-		dispatch(
-			projectSlice.actions.updateRewrittenCommitReferences({
-				projectId,
-				replacedCommits: workspace.replacedCommits,
-				headInfo: workspace.headInfo,
-			}),
-		);
+		updateOutlineReferences(workspace.replacedCommits, workspace.headInfo);
 		updateCheckedCommitReferences(workspace.replacedCommits);
 		updateCommitTargetReferences(workspace.replacedCommits);
 	};
@@ -520,7 +513,7 @@ export const useDiscardWorktreeChanges = () => {
 
 export const useCommitInsertBlank = () => {
 	const syncCoreCaches = useSyncCoreCaches();
-	const dispatch = useAppDispatch();
+	const { selectOutline } = use(OutlineSelectionContext);
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
@@ -531,14 +524,7 @@ export const useCommitInsertBlank = () => {
 			const stackId = getHeadInfoIndex(response.workspace.headInfo).commitContextById(
 				response.newCommit,
 			)?.stack.id;
-			if (stackId != null) {
-				dispatch(
-					projectSlice.actions.selectOutline({
-						projectId: input.projectId,
-						selection: commitOperand({ stackId, commitId: response.newCommit }),
-					}),
-				);
-			}
+			if (stackId != null) selectOutline(commitOperand({ stackId, commitId: response.newCommit }));
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -826,8 +812,10 @@ export const useUpdateBranchName = ({
 	branchRef: Array<number>;
 	oldBranch: BranchOperand;
 }) => {
-	const dispatch = useAppDispatch();
-	const { updateRewrittenBranchReferences } = use(CommitTargetContext);
+	const { updateRewrittenBranchReferences: updateCommitTargetReferences } =
+		use(CommitTargetContext);
+	const { updateRewrittenBranchReferences: updateOutlineReferences } = use(OutlineSelectionContext);
+	const { exitMode } = use(OutlineModeContext);
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
@@ -850,14 +838,8 @@ export const useUpdateBranchName = ({
 				});
 			});
 
-			dispatch(
-				projectSlice.actions.updateRewrittenBranchReferences({
-					projectId,
-					oldBranch,
-					newBranch,
-				}),
-			);
-			updateRewrittenBranchReferences(oldBranch, newBranch);
+			updateOutlineReferences(oldBranch, newBranch);
+			updateCommitTargetReferences(oldBranch, newBranch);
 
 			await moveDraftPR({
 				queryClient: mutation.client,
@@ -868,7 +850,7 @@ export const useUpdateBranchName = ({
 				newBranch: newRef.displayName,
 			});
 
-			dispatch(projectSlice.actions.exitMode({ projectId }));
+			exitMode();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console

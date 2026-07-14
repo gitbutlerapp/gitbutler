@@ -8,8 +8,7 @@ import {
 	useRunOperation,
 } from "#ui/operations/operation.ts";
 import { classes } from "#ui/components/classes.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { OutlineModeContext } from "#ui/WorkspaceContext.ts";
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import {
 	attachInstruction,
@@ -17,7 +16,7 @@ import {
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
 import { Tooltip, useRender } from "@base-ui/react";
 import { Match } from "effect";
-import { FC, useEffect, useEffectEvent, useRef } from "react";
+import { FC, use, useEffect, useEffectEvent, useRef } from "react";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 
 type DropTargetParams = Parameters<typeof dropTargetForElements>[0];
@@ -39,16 +38,8 @@ const getOperationTypeFromData = (data: DropData): OperationType | null => {
 	);
 };
 
-const useOperationDropTarget = ({
-	enabled,
-	target,
-	projectId,
-}: {
-	enabled: boolean;
-	target: Operand;
-	projectId: string;
-}) => {
-	const dispatch = useAppDispatch();
+const useOperationDropTarget = ({ enabled, target }: { enabled: boolean; target: Operand }) => {
+	const { updatePointerTransfer, cancelMode, exitMode } = use(OutlineModeContext);
 	const { mutate: runOperation } = useRunOperation();
 	const dropRef = useRef<HTMLElement>(null);
 
@@ -89,22 +80,10 @@ const useOperationDropTarget = ({
 
 				const operationType = getOperationTypeFromData(args.self.data);
 
-				dispatch(
-					projectSlice.actions.updatePointerTransfer({
-						projectId,
-						target,
-						operationType,
-					}),
-				);
+				updatePointerTransfer(target, operationType);
 			},
 			onDragLeave: () => {
-				dispatch(
-					projectSlice.actions.updatePointerTransfer({
-						projectId,
-						target: null,
-						operationType: null,
-					}),
-				);
+				updatePointerTransfer(null, null);
 			},
 			onDrop: (args) => {
 				const [innerMost] = args.location.current.dropTargets;
@@ -124,15 +103,15 @@ const useOperationDropTarget = ({
 						: null;
 
 				if (!operation) {
-					dispatch(projectSlice.actions.cancelMode({ projectId }));
+					cancelMode();
 					return;
 				}
 
-				dispatch(projectSlice.actions.exitMode({ projectId }));
+				exitMode();
 				runOperation(operation.operation);
 			},
 		});
-	}, [dispatch, projectId, runOperation, target]);
+	}, [cancelMode, exitMode, runOperation, target, updatePointerTransfer]);
 
 	return { dropRef };
 };
@@ -145,12 +124,11 @@ export const OperationTarget: FC<
 	{
 		enabled: boolean;
 		target: Operand;
-		projectId: string;
 		activeOperation?: ActiveOperation | null;
 		outline: OperationTargetOutline;
 	} & useRender.ComponentProps<"div">
-> = ({ enabled, target, projectId, activeOperation, outline, render, ...props }) => {
-	const { dropRef } = useOperationDropTarget({ enabled, target, projectId });
+> = ({ enabled, target, activeOperation, outline, render, ...props }) => {
+	const { dropRef } = useOperationDropTarget({ enabled, target });
 
 	const targetEl = useRender({
 		render,

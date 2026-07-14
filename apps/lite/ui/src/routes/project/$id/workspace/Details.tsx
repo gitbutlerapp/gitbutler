@@ -37,15 +37,15 @@ import {
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
 import { FilesVisibleContext } from "#ui/FilesVisibleContext.ts";
+import { DiffSelectionContext, FilesSelectionContext } from "#ui/WorkspaceContext.ts";
+import { resolveDiffSelection, resolveFilesSelection } from "#ui/workspace.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import {
 	FieldControlStyles,
@@ -336,7 +336,8 @@ const DiffContents: FC<{
 	didScrollToViaFileRef,
 }) => {
 	const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
-	const dispatch = useAppDispatch();
+	const { diffSelection: storedDiffSelection, selectDiff: setDiffSelection } =
+		use(DiffSelectionContext);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
 		...getGUISettingsQueryOptions(),
@@ -356,9 +357,7 @@ const DiffContents: FC<{
 	});
 	const openInEditor = useOpenInEditor();
 
-	const diffSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionDiff(state, projectId, navigationIndex),
-	);
+	const diffSelection = resolveDiffSelection(storedDiffSelection, navigationIndex);
 	const diffSelectionFile =
 		diffSelection !== null ? fileByHunkKey.get(hunkOperandIdentityKey(diffSelection)) : null;
 	const selectedRange = diffSelection
@@ -366,7 +365,7 @@ const DiffContents: FC<{
 		: null;
 
 	const selectDiff = (selection: HunkOperand) => {
-		dispatch(projectSlice.actions.selectDiff({ projectId, selection }));
+		setDiffSelection(selection);
 
 		const selectedRange = hunkByKey.get(hunkOperandIdentityKey(selection))?.selectedLines;
 		if (!selectedRange) return;
@@ -381,7 +380,6 @@ const DiffContents: FC<{
 
 	useNavigationIndexHotkeys({
 		navigationIndex,
-		projectId,
 		group: "Diff",
 		select: selectDiff,
 		selection: diffSelection,
@@ -455,7 +453,7 @@ const DiffContents: FC<{
 
 	// We currently only support selecting contiguous blocks.
 	const handleLinesSelected = (sel: CodeViewLineSelection | null): void => {
-		if (!sel) return void dispatch(projectSlice.actions.selectDiff({ projectId, selection: null }));
+		if (!sel) return setDiffSelection(null);
 
 		const file = fileByItemId.get(sel.id);
 		if (!file) throw new Error("Could not get file by item ID");
@@ -472,19 +470,14 @@ const DiffContents: FC<{
 		});
 		if (!selection) return;
 
-		dispatch(
-			projectSlice.actions.selectDiff({
-				projectId,
-				selection: {
-					parent: {
-						parent: fileParent,
-						path: file.change.path,
-					},
-					...selection,
-					isResultOfBinaryToTextConversion: file.patch.subject.isResultOfBinaryToTextConversion,
-				},
-			}),
-		);
+		setDiffSelection({
+			parent: {
+				parent: fileParent,
+				path: file.change.path,
+			},
+			...selection,
+			isResultOfBinaryToTextConversion: file.patch.subject.isResultOfBinaryToTextConversion,
+		});
 	};
 
 	const handleSetCollapsed = (itemId: string) => (collapsed: boolean) => {
@@ -961,15 +954,14 @@ const Diff: FC<{
 	// container, but that comes with other complexities and tradeoffs.
 	const didScrollToViaFileRef = useRef(false);
 
-	const dispatch = useAppDispatch();
+	const { filesSelection: storedFilesSelection } = use(FilesSelectionContext);
+	const { selectDiff } = use(DiffSelectionContext);
 	const files = filesItems.map((item) => item.path);
 	const filesNavigationIndex: NavigationIndex<string> = {
 		items: files,
 		indexByKey: buildIndexByKey(files, (path) => path),
 	};
-	const filesSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionFiles(state, projectId, filesNavigationIndex),
-	);
+	const filesSelection = resolveFilesSelection(storedFilesSelection, filesNavigationIndex);
 
 	const changesetKey = Match.value(outlineSelection).pipe(
 		Match.tags({
@@ -1004,12 +996,7 @@ const Diff: FC<{
 	const selectFileAndNavigateDiff = (selection: string) => {
 		onFileSelection(selection);
 
-		dispatch(
-			projectSlice.actions.selectDiff({
-				projectId,
-				selection: diffView.fileByPath.get(selection)?.hunks[0]?.operand ?? null,
-			}),
-		);
+		selectDiff(diffView.fileByPath.get(selection)?.hunks[0]?.operand ?? null);
 
 		didScrollToViaFileRef.current = true;
 		viewerRef.current?.scrollTo({
@@ -1489,7 +1476,7 @@ export const Details: FC<
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
-	const dispatch = useAppDispatch();
+	const { selectFiles } = use(FilesSelectionContext);
 	const { detailsFullWindow } = use(DetailsFullWindowContext);
 	const { filesVisible } = use(FilesVisibleContext);
 	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
@@ -1497,7 +1484,7 @@ export const Details: FC<
 	const commitBodyId = useId();
 
 	const selectFile = (selection: string) => {
-		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
+		selectFiles(selection);
 	};
 
 	if (!outlineSelection) return;

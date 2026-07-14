@@ -15,10 +15,10 @@ import {
 	type OperationType,
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { operandLabel } from "#ui/routes/project/$id/workspace/operandLabel.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { OutlineModeContext, OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
+import { resolveOutlineSelection } from "#ui/workspace.ts";
 import { Button, Tooltip } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
@@ -160,7 +160,7 @@ const AbsorbOperationControls: FC<{
 	projectId: string;
 	mode: AbsorbMode;
 }> = ({ headInfoIndex, projectId, mode }) => {
-	const dispatch = useAppDispatch();
+	const { exitMode, cancelMode } = use(OutlineModeContext);
 	const absorptionPlan = useQuery(
 		absorptionPlanQueryOptions({ projectId, target: mode.sourceTarget }),
 	);
@@ -169,14 +169,14 @@ const AbsorbOperationControls: FC<{
 	const absorbMutation = useAbsorb({ projectId });
 
 	const run = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
+		exitMode();
 		focusSelectionScope("outline");
 
 		absorbMutation.mutate(absorptionPlan.data);
 	};
 
 	const cancel = () => {
-		dispatch(projectSlice.actions.cancelMode({ projectId }));
+		cancelMode();
 		focusSelectionScope("outline");
 	};
 
@@ -200,14 +200,13 @@ const AbsorbOperationControls: FC<{
 };
 
 const TransferTypeToggleGroup: FC<{
-	projectId: string;
 	operations: OperationsByType;
 	operationType: OperationType;
-}> = ({ projectId, operations, operationType }) => {
-	const dispatch = useAppDispatch();
+}> = ({ operations, operationType }) => {
+	const { updateTransferOperationType } = use(OutlineModeContext);
 
 	const setOperationType = (operationType: OperationType) =>
-		dispatch(projectSlice.actions.updateTransferOperationType({ projectId, operationType }));
+		updateTransferOperationType(operationType);
 
 	useHotkeys([
 		{
@@ -284,15 +283,12 @@ const TransferTypeToggleGroup: FC<{
 
 const TransferKeyboardOperationControls: FC<{
 	headInfoIndex: HeadInfoIndex;
-	projectId: string;
 	mode: KeyboardTransferMode;
 	outlineNavigationIndex: NavigationIndex<Operand>;
-}> = ({ headInfoIndex, projectId, mode, outlineNavigationIndex }) => {
-	const selection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionOutline(state, projectId, outlineNavigationIndex),
-	);
-
-	const dispatch = useAppDispatch();
+}> = ({ headInfoIndex, mode, outlineNavigationIndex }) => {
+	const { outlineSelection } = use(OutlineSelectionContext);
+	const { exitMode, cancelMode } = use(OutlineModeContext);
+	const selection = resolveOutlineSelection(outlineSelection, outlineNavigationIndex);
 	const { mutate: runOperation } = useRunOperation();
 
 	if (!selection) return null;
@@ -303,7 +299,7 @@ const TransferKeyboardOperationControls: FC<{
 	const operation = operations[mode.operationType];
 
 	const run = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
+		exitMode();
 		focusSelectionScope("outline");
 
 		if (!operation) return;
@@ -312,17 +308,13 @@ const TransferKeyboardOperationControls: FC<{
 	};
 
 	const cancel = () => {
-		dispatch(projectSlice.actions.cancelMode({ projectId }));
+		cancelMode();
 		focusSelectionScope("outline");
 	};
 
 	return (
 		<Container>
-			<TransferTypeToggleGroup
-				projectId={projectId}
-				operations={operations}
-				operationType={mode.operationType}
-			/>
+			<TransferTypeToggleGroup operations={operations} operationType={mode.operationType} />
 			<Separator />
 			<ControlsRow>
 				<Label>
@@ -351,9 +343,7 @@ export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Ope
 }) => {
 	const { checkedCommitIds } = use(CheckedCommitIdsContext);
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+	const { outlineMode } = use(OutlineModeContext);
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
@@ -381,7 +371,6 @@ export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Ope
 							headInfoIndex && (
 								<TransferKeyboardOperationControls
 									headInfoIndex={headInfoIndex}
-									projectId={projectId}
 									mode={mode}
 									outlineNavigationIndex={outlineNavigationIndex}
 								/>

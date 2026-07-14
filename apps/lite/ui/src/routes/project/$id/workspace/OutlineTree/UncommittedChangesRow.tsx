@@ -9,13 +9,12 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import { uncommittedChangesOperand, type Operand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
+import { uncommittedChangesOperand } from "#ui/operands.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { OutlineModeContext } from "#ui/WorkspaceContext.ts";
 import { Toolbar } from "@base-ui/react/toolbar";
-import { AbsorptionTarget, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
-import { FC } from "react";
+import { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import { FC, use } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { RowBubble, RowBubbleGroup, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { ItemRow } from "./ItemRow.tsx";
@@ -47,27 +46,16 @@ export const UncommittedChangesRow: FC<{
 	const lineStats = getLineStats(treeChangeDiffs.map((result) => result.data));
 
 	const operand = uncommittedChangesOperand;
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
-	);
+	const { outlineMode, enterAbsorbMode, enterKeyboardTransferMode } = use(OutlineModeContext);
+	const isDefaultMode = outlineMode._tag === "Default";
 	const discardWorktreeChanges = useDiscardWorktreeChanges();
-
-	const dispatch = useAppDispatch();
-	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {
-		dispatch(projectSlice.actions.enterAbsorbMode({ projectId, source, sourceTarget }));
-	};
 
 	const absorb = () => {
 		enterAbsorbMode(operand, { type: "all" });
 	};
 
 	const cutChanges = () => {
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				source: operand,
-			}),
-		);
+		enterKeyboardTransferMode(operand);
 		focusSelectionScope("outline");
 	};
 
@@ -100,7 +88,6 @@ export const UncommittedChangesRow: FC<{
 
 	return (
 		<ItemRow
-			projectId={projectId}
 			operand={operand}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);

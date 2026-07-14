@@ -8,12 +8,11 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppSelector } from "#ui/store.ts";
+import { OutlineModeContext } from "#ui/WorkspaceContext.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { BottomUpdate, Stack } from "@gitbutler/but-sdk";
-import { ComponentProps, FC } from "react";
+import { ComponentProps, FC, use } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { Row, RowLabelContainer, RowToolbar } from "../Row.tsx";
 
@@ -27,9 +26,8 @@ export const StackRow: FC<
 	const rebaseUpdate: BottomUpdate | null = relativeTo
 		? { kind: "rebase", selector: relativeTo }
 		: null;
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
-	);
+	const { outlineMode } = use(OutlineModeContext);
+	const isDefaultMode = outlineMode._tag === "Default";
 
 	const unapplyStackMutation = useUnapplyStack();
 	const unapply = () => {

@@ -38,9 +38,8 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import { branchOperand, operandEquals, type BranchOperand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { OutlineModeContext, OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import {
 	RowBubble,
@@ -156,22 +155,22 @@ export const BranchRow: FC<
 	const ciURL =
 		pullRequest !== null ? forgeInfo && ciChecksSummaryUrl(pullRequest, forgeInfo) : null;
 
-	const dispatch = useAppDispatch();
+	const {
+		outlineMode,
+		startRenameBranch: enterRenameMode,
+		enterKeyboardTransferMode,
+		exitMode,
+	} = use(OutlineModeContext);
+	const { selectOutline } = use(OutlineSelectionContext);
 	const branchOperandV: BranchOperand = {
 		stackId,
 		branchRef: refName.fullNameBytes,
 	};
 	const operand = branchOperand(branchOperandV);
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
-	);
-	const isRenaming = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
-		return (
-			outlineMode._tag === "RenameBranch" &&
-			operandEquals(operand, branchOperand(outlineMode.operand))
-		);
-	});
+	const isDefaultMode = outlineMode._tag === "Default";
+	const isRenaming =
+		outlineMode._tag === "RenameBranch" &&
+		operandEquals(operand, branchOperand(outlineMode.operand));
 	const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
 		refName.displayName,
 		(_currentBranchName, nextBranchName: string) => nextBranchName,
@@ -186,13 +185,12 @@ export const BranchRow: FC<
 	});
 
 	const startEditing = () => {
-		dispatch(projectSlice.actions.startRenameBranch({ projectId, branch: branchOperandV }));
+		enterRenameMode(branchOperandV);
 	};
 
 	const endEditing = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
-		dispatch(projectSlice.actions.selectOutline({ projectId, selection: operand }));
-		focusSelectionScope("outline");
+		exitMode();
+		selectOutline(operand);
 	};
 
 	const toastManager = Toast.useToastManager();
@@ -245,12 +243,7 @@ export const BranchRow: FC<
 	};
 
 	const cutBranch = () => {
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				source: operand,
-			}),
-		);
+		enterKeyboardTransferMode(operand);
 		focusSelectionScope("outline");
 	};
 
@@ -283,13 +276,10 @@ export const BranchRow: FC<
 					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
 
 					if (newBranchStack && newBranchStack.id !== null) {
-						dispatch(
-							projectSlice.actions.selectOutline({
-								projectId,
-								selection: branchOperand({
-									stackId: newBranchStack.id,
-									branchRef: response.newRef.fullNameBytes,
-								}),
+						selectOutline(
+							branchOperand({
+								stackId: newBranchStack.id,
+								branchRef: response.newRef.fullNameBytes,
 							}),
 						);
 					}
@@ -420,7 +410,6 @@ export const BranchRow: FC<
 	return (
 		<ItemRow
 			{...restProps}
-			projectId={projectId}
 			operand={operand}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);

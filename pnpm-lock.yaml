@@ -422,9 +422,6 @@ importers:
       '@pierre/theming':
         specifier: ^0.0.2
         version: 0.0.2(@pierre/theme@1.1.0)(@shikijs/themes@4.3.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(shiki@4.3.0)
-      '@reduxjs/toolkit':
-        specifier: catalog:redux
-        version: 2.11.2(react-redux@9.2.0(@types/react@19.2.14)(react@19.2.4)(redux@5.0.1))(react@19.2.4)
       '@suspensive/react-query':
         specifier: npm:@suspensive/react-query-5@^3.21.2
         version: '@suspensive/react-query-5@3.21.2(@tanstack/react-query@5.90.21(react@19.2.4))(react@19.2.4)'
@@ -464,9 +461,6 @@ importers:
       react-dom:
         specifier: ^19.2.4
         version: 19.2.4(react@19.2.4)
-      react-redux:
-        specifier: ^9.2.0
-        version: 9.2.0(@types/react@19.2.14)(react@19.2.4)(redux@5.0.1)
       react-resizable-panels:
         specifier: ^4.11.2
         version: 4.11.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -13460,7 +13454,8 @@ snapshots:
 
   '@types/unist@3.0.3': {}
 
-  '@types/use-sync-external-store@0.0.6': {}
+  '@types/use-sync-external-store@0.0.6':
+    optional: true
 
   '@types/verror@1.10.11':
     optional: true
@@ -17933,6 +17928,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.14
       redux: 5.0.1
+    optional: true
 
   react-refresh@0.18.0: {}
 

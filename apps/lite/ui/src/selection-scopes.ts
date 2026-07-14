@@ -1,10 +1,10 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { type Operand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { OutlineModeContext } from "#ui/WorkspaceContext.ts";
 import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
+import { use } from "react";
 
 export type SelectionScope = "outline" | "files" | "diff";
 const allSelectionScopes: Array<SelectionScope> = ["outline", "files", "diff"];
@@ -61,7 +61,6 @@ export const focusAdjacentSelectionScope = ({
 
 export const useNavigationIndexHotkeys = <T>({
 	navigationIndex,
-	projectId,
 	group,
 	select,
 	selection,
@@ -71,7 +70,6 @@ export const useNavigationIndexHotkeys = <T>({
 	getKey,
 }: {
 	navigationIndex: NavigationIndex<T>;
-	projectId: string;
 	group: CommandGroup;
 	select: (newItem: T) => void;
 	selection: T | null;
@@ -80,7 +78,7 @@ export const useNavigationIndexHotkeys = <T>({
 	operationSourceForItem: (item: T) => Operand;
 	getKey: (item: T) => string;
 }) => {
-	const dispatch = useAppDispatch();
+	const { enterKeyboardTransferMode } = use(OutlineModeContext);
 
 	const moveSelection = (offset: -1 | 1) => {
 		const newItem =
@@ -264,13 +262,7 @@ export const useNavigationIndexHotkeys = <T>({
 
 		const source = operationSourceForItem(selection);
 
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				source,
-				operationType,
-			}),
-		);
+		enterKeyboardTransferMode(source, operationType);
 		focusSelectionScope("outline");
 	};
 

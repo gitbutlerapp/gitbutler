@@ -12,7 +12,6 @@ import {
 	getFocusedSelectionScope,
 	SelectionScope,
 } from "#ui/selection-scopes.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import {
 	CheckedCommitIdsContext,
 	CheckedCommitIdsRegistryContext,
@@ -25,10 +24,16 @@ import {
 	HighlightedCommitIdsContext,
 	HighlightedCommitIdsRegistryContext,
 } from "#ui/HighlightedCommitIdsContext.ts";
+import {
+	DiffSelectionContext,
+	FilesSelectionContext,
+	OutlineModeContext,
+	OutlineSelectionContext,
+	WorkspaceRegistryContext,
+} from "#ui/WorkspaceContext.ts";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { ProjectForFrontend, RefInfo, Segment, type RelativeTo } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
@@ -53,6 +58,7 @@ import {
 	uncommittedChangesFileParent,
 	uncommittedChangesOperand,
 } from "#ui/operands.ts";
+import { reduceWorkspace, resolveOutlineSelection, type WorkspaceAction } from "#ui/workspace.ts";
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
 import { useActiveElement } from "#ui/focus.ts";
@@ -76,9 +82,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const { filesVisible, toggleFiles } = use(FilesVisibleContext);
 	const activeElement = useActiveElement();
 	const focusedSelectionScope = getFocusedSelectionScope(activeElement);
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+	const { outlineMode } = use(OutlineModeContext);
 	const outlineVisible = !detailsFullWindow;
 
 	const restoreSnapshotMutation = useRestoreSnapshot({ projectId });
@@ -189,9 +193,7 @@ const useOutlineNavigationIndex = ({
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+	const { outlineMode } = use(OutlineModeContext);
 
 	const items = outlineNavigationItems({
 		headInfo,
@@ -266,26 +268,18 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 };
 
 const WorkspacePage: FC = () => {
-	const dispatch = useAppDispatch();
-
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const { detailsFullWindow, toggleDetailsFullWindow: toggleDetailsFullWindowState } =
 		use(DetailsFullWindowContext);
 	const { dialog, openDialog, closeDialog } = use(DialogContext);
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+	const { outlineMode } = use(OutlineModeContext);
+	const { outlineSelection, selectOutline } = use(OutlineSelectionContext);
 
 	useWorkspaceHotkeys(projectId);
 
 	const selectBranch = (branch: BranchOperand) => {
-		dispatch(
-			projectSlice.actions.selectOutline({
-				projectId,
-				selection: branchOperand(branch),
-			}),
-		);
+		selectOutline(branchOperand(branch));
 		focusSelectionScope("outline");
 	};
 
@@ -369,11 +363,12 @@ const WorkspacePage: FC = () => {
 		absorptionTargetCommitIds,
 	});
 
-	const outlineSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionOutline(state, projectId, outlineNavigationIndex),
+	const resolvedOutlineSelection = resolveOutlineSelection(
+		outlineSelection,
+		outlineNavigationIndex,
 	);
 
-	const deferredOutlineSelection = useDeferredValue(outlineSelection);
+	const deferredOutlineSelection = useDeferredValue(resolvedOutlineSelection);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 
@@ -460,6 +455,41 @@ const WorkspacePage: FC = () => {
 
 export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const [workspace, updateWorkspace] = use(WorkspaceRegistryContext)(projectId);
+	const dispatchWorkspace = (action: WorkspaceAction) =>
+		updateWorkspace((current) => reduceWorkspace(current, action));
+	const outlineSelectionContext: OutlineSelectionContext = {
+		outlineSelection: workspace.selection.outline,
+		selectOutline: (selection) => dispatchWorkspace({ type: "selectOutline", selection }),
+		updateRewrittenCommitReferences: (replacedCommits, headInfo) =>
+			dispatchWorkspace({ type: "updateRewrittenCommitReferences", replacedCommits, headInfo }),
+		updateRewrittenBranchReferences: (oldBranch, newBranch) =>
+			dispatchWorkspace({ type: "updateRewrittenBranchReferences", oldBranch, newBranch }),
+	};
+	const filesSelectionContext: FilesSelectionContext = {
+		filesSelection: workspace.selection.files,
+		selectFiles: (selection) => dispatchWorkspace({ type: "selectFiles", selection }),
+	};
+	const diffSelectionContext: DiffSelectionContext = {
+		diffSelection: workspace.selection.diff,
+		selectDiff: (selection) => dispatchWorkspace({ type: "selectDiff", selection }),
+	};
+	const outlineModeContext: OutlineModeContext = {
+		outlineMode: workspace.mode,
+		startRewordCommit: (commit) => dispatchWorkspace({ type: "startRewordCommit", commit }),
+		startRenameBranch: (branch) => dispatchWorkspace({ type: "startRenameBranch", branch }),
+		enterTransferMode: (mode) => dispatchWorkspace({ type: "enterTransferMode", mode }),
+		enterKeyboardTransferMode: (source, operationType) =>
+			dispatchWorkspace({ type: "enterKeyboardTransferMode", source, operationType }),
+		enterAbsorbMode: (source, sourceTarget) =>
+			dispatchWorkspace({ type: "enterAbsorbMode", source, sourceTarget }),
+		updatePointerTransfer: (target, operationType) =>
+			dispatchWorkspace({ type: "updatePointerTransfer", target, operationType }),
+		updateTransferOperationType: (operationType) =>
+			dispatchWorkspace({ type: "updateTransferOperationType", operationType }),
+		exitMode: () => dispatchWorkspace({ type: "exitMode" }),
+		cancelMode: () => dispatchWorkspace({ type: "cancelMode" }),
+	};
 
 	const filesVisibleContext = use(FilesVisibleRegistryContext)(projectId);
 	const [commitTarget, updateCommitTarget] = use(CommitTargetRegistryContext)(projectId);
@@ -524,20 +554,28 @@ export const Route: FC = () => {
 	if (!project) return <p className={styles.notFound}>Project not found.</p>;
 
 	return (
-		<CommitTargetContext value={commitTargetContext}>
-			<HighlightedCommitIdsContext value={highlightedCommitIdsContext}>
-				<CheckedCommitIdsContext value={checkedCommitIdsContext}>
-					<FilesVisibleContext value={filesVisibleContext}>
-						<QueryErrorResetBoundary>
-							{({ reset }) => (
-								<WorkspacePageErrorBoundary onReset={reset}>
-									<WorkspacePage />
-								</WorkspacePageErrorBoundary>
-							)}
-						</QueryErrorResetBoundary>
-					</FilesVisibleContext>
-				</CheckedCommitIdsContext>
-			</HighlightedCommitIdsContext>
-		</CommitTargetContext>
+		<OutlineModeContext value={outlineModeContext}>
+			<OutlineSelectionContext value={outlineSelectionContext}>
+				<FilesSelectionContext value={filesSelectionContext}>
+					<DiffSelectionContext value={diffSelectionContext}>
+						<CommitTargetContext value={commitTargetContext}>
+							<HighlightedCommitIdsContext value={highlightedCommitIdsContext}>
+								<CheckedCommitIdsContext value={checkedCommitIdsContext}>
+									<FilesVisibleContext value={filesVisibleContext}>
+										<QueryErrorResetBoundary>
+											{({ reset }) => (
+												<WorkspacePageErrorBoundary onReset={reset}>
+													<WorkspacePage />
+												</WorkspacePageErrorBoundary>
+											)}
+										</QueryErrorResetBoundary>
+									</FilesVisibleContext>
+								</CheckedCommitIdsContext>
+							</HighlightedCommitIdsContext>
+						</CommitTargetContext>
+					</DiffSelectionContext>
+				</FilesSelectionContext>
+			</OutlineSelectionContext>
+		</OutlineModeContext>
 	);
 };

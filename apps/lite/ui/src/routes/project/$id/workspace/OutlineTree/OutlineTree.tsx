@@ -15,7 +15,6 @@ import {
 	type Operand,
 	operandEquals,
 } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import {
 	ActiveOperation,
@@ -23,7 +22,8 @@ import {
 	OperationTargetOutline,
 } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { OutlineModeContext, OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
+import { isOutlineSelected, resolveOutlineSelection } from "#ui/workspace.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { mergeProps, useRender } from "@base-ui/react";
@@ -37,7 +37,7 @@ import {
 } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { ComponentProps, createContext, FC, Fragment, use, useRef } from "react";
+import { ComponentProps, createContext, FC, Fragment, use, useLayoutEffect, useRef } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import styles from "./OutlineTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "../Row.tsx";
@@ -74,14 +74,12 @@ const treeItemId = (operand: Operand): string =>
 
 const TreeItem: FC<
 	{
-		projectId: string;
 		operand: Operand;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, operand, render, ...props }) => {
+> = ({ operand, render, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useAppSelector((state) =>
-		projectSlice.selectors.selectIsSelectedOutline(state, projectId, navigationIndex, operand),
-	);
+	const { outlineSelection } = use(OutlineSelectionContext);
+	const isSelected = isOutlineSelected(outlineSelection, navigationIndex, operand);
 
 	return useRender({
 		render,
@@ -103,46 +101,42 @@ const OperandC: FC<
 > = ({ projectId, operand, outline, render, ...props }) => {
 	const absorptionTargetCommitIds = assert(use(AbsorptionTargetCommitIdsContext));
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useAppSelector((state) =>
-		projectSlice.selectors.selectIsSelectedOutline(state, projectId, navigationIndex, operand),
-	);
+	const { outlineSelection } = use(OutlineSelectionContext);
+	const { outlineMode } = use(OutlineModeContext);
+	const isSelected = isOutlineSelected(outlineSelection, navigationIndex, operand);
 
-	const activeOperation = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
+	const activeOperation = Match.value(outlineMode).pipe(
+		Match.tags({
+			Absorb: (): ActiveOperation | null => {
+				const isActive =
+					operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId);
+				if (!isActive) return null;
 
-		return Match.value(outlineMode).pipe(
-			Match.tags({
-				Absorb: (): ActiveOperation | null => {
-					const isActive =
-						operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId);
-					if (!isActive) return null;
+				return { operationType: "into", tooltip: "Absorb target" };
+			},
+			Transfer: ({ value: mode }): ActiveOperation | null => {
+				if (mode.operationType === null) return null;
 
-					return { operationType: "into", tooltip: "Absorb target" };
-				},
-				Transfer: ({ value: mode }): ActiveOperation | null => {
-					if (mode.operationType === null) return null;
+				const isActive = Match.value(mode).pipe(
+					Match.tagsExhaustive({
+						Pointer: (mode) => mode.target !== null && operandEquals(mode.target, operand),
+						Keyboard: () => isSelected,
+					}),
+				);
+				if (!isActive) return null;
 
-					const isActive = Match.value(mode).pipe(
-						Match.tagsExhaustive({
-							Pointer: (mode) => mode.target !== null && operandEquals(mode.target, operand),
-							Keyboard: () => isSelected,
-						}),
-					);
-					if (!isActive) return null;
-
-					return {
+				return {
+					operationType: mode.operationType,
+					tooltip: getOperation({
+						source: mode.source,
+						target: operand,
 						operationType: mode.operationType,
-						tooltip: getOperation({
-							source: mode.source,
-							target: operand,
-							operationType: mode.operationType,
-						})?.label,
-					};
-				},
-			}),
-			Match.orElse(() => null),
-		);
-	});
+					})?.label,
+				};
+			},
+		}),
+		Match.orElse(() => null),
+	);
 
 	return useRender({
 		render: (
@@ -153,7 +147,6 @@ const OperandC: FC<
 				render={
 					<OperationTarget
 						enabled={navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
-						projectId={projectId}
 						target={operand}
 						activeOperation={activeOperation}
 						outline={outline}
@@ -180,7 +173,6 @@ const UncommittedChanges: FC<{
 
 	return (
 		<TreeItem
-			projectId={projectId}
 			operand={operand}
 			aria-label={`Uncommitted changes (${worktreeChanges?.changes.length ?? 0})`}
 			className={styles.section}
@@ -222,14 +214,11 @@ const UncommittedFileRow: FC<{
 		path: item.path,
 	});
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useAppSelector((state) =>
-		projectSlice.selectors.selectIsSelectedOutline(state, projectId, navigationIndex, operand),
-	);
-	const dispatch = useAppDispatch();
+	const { outlineSelection, selectOutline } = use(OutlineSelectionContext);
+	const isSelected = isOutlineSelected(outlineSelection, navigationIndex, operand);
 
 	return (
 		<TreeItem
-			projectId={projectId}
 			operand={operand}
 			aria-label={item.path}
 			render={
@@ -245,9 +234,7 @@ const UncommittedFileRow: FC<{
 							branchNameByCommitId={branchNameByCommitId}
 							inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 							isSelected={isSelected}
-							onSelect={() => {
-								dispatch(projectSlice.actions.selectOutline({ projectId, selection: operand }));
-							}}
+							onSelect={() => selectOutline(operand)}
 						/>
 					}
 				/>
@@ -295,7 +282,6 @@ const BranchSegment: FC<{
 
 	return (
 		<TreeItem
-			projectId={projectId}
 			operand={operand}
 			aria-label={refName.displayName}
 			aria-expanded
@@ -388,7 +374,6 @@ const SegmentContent: FC<{
 				return (
 					<TreeItem
 						key={commit.id}
-						projectId={projectId}
 						operand={operand}
 						aria-label={commitTitle(commit.message) ?? "(no message)"}
 						render={
@@ -442,7 +427,6 @@ const StackC: FC<{
 
 	return (
 		<TreeItem
-			projectId={projectId}
 			operand={operand}
 			aria-label="Stack"
 			aria-expanded
@@ -524,37 +508,31 @@ const Stacks: FC<{
 }> = ({ projectId, commitTarget }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const dryRunOperation = useAppSelector((state) => {
-		const selection = projectSlice.selectors.selectSelectionOutline(
-			state,
-			projectId,
-			navigationIndex,
-		);
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
+	const { outlineSelection } = use(OutlineSelectionContext);
+	const { outlineMode } = use(OutlineModeContext);
+	const selection = resolveOutlineSelection(outlineSelection, navigationIndex);
+	const dryRunOperation = Match.value(outlineMode).pipe(
+		Match.tags({
+			Transfer: ({ value: mode }) => {
+				if (mode.operationType === null) return;
 
-		return Match.value(outlineMode).pipe(
-			Match.tags({
-				Transfer: ({ value: mode }) => {
-					if (mode.operationType === null) return;
+				const target = Match.value(mode).pipe(
+					Match.tagsExhaustive({
+						Pointer: (mode) => mode.target,
+						Keyboard: () => selection,
+					}),
+				);
+				if (!target) return;
 
-					const target = Match.value(mode).pipe(
-						Match.tagsExhaustive({
-							Pointer: (mode) => mode.target,
-							Keyboard: () => selection,
-						}),
-					);
-					if (!target) return;
-
-					return getOperation({
-						source: mode.source,
-						target,
-						operationType: mode.operationType,
-					})?.operation;
-				},
-			}),
-			Match.orElse(() => undefined),
-		);
-	});
+				return getOperation({
+					source: mode.source,
+					target,
+					operationType: mode.operationType,
+				})?.operation;
+			},
+		}),
+		Match.orElse(() => undefined),
+	);
 
 	// TODO: debounce?
 	const dryRunOperationQuery = useDryRunOperation({ projectId, operation: dryRunOperation });
@@ -587,9 +565,9 @@ export const OutlineTree: FC<
 	...props
 }) => {
 	const { checkedCommitIds } = use(CheckedCommitIdsContext);
-	const selection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionOutline(state, projectId, navigationIndex),
-	);
+	const { outlineSelection } = use(OutlineSelectionContext);
+	const { outlineMode } = use(OutlineModeContext);
+	const selection = resolveOutlineSelection(outlineSelection, navigationIndex);
 	const hasCheckedCommits = checkedCommitIds.size > 0;
 
 	const layoutId = `project=${projectId}:outline-tree`;
@@ -599,6 +577,15 @@ export const OutlineTree: FC<
 	});
 
 	const hotkeysRef = useRef<HTMLDivElement>(null);
+	const isEditing = outlineMode._tag === "RenameBranch" || outlineMode._tag === "RewordCommit";
+	const wasEditing = useRef(isEditing);
+	useLayoutEffect(() => {
+		if (wasEditing.current && !isEditing && document.activeElement === document.body)
+			hotkeysRef.current?.focus({ focusVisible: false });
+
+		wasEditing.current = isEditing;
+	}, [isEditing]);
+
 	useOutlineTreeHotkeys({
 		navigationIndex,
 		projectId,

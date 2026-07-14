@@ -8,21 +8,21 @@ import {
 	type Operand,
 } from "#ui/operands.ts";
 import { OperationType } from "#ui/operations/operation.ts";
-import type { SelectionState } from "#ui/projects/project.ts";
+import type { Selection } from "#ui/workspace.ts";
 import { AbsorptionTarget } from "@gitbutler/but-sdk";
 
 /** @public */
 export type AbsorbMode = {
 	source: Operand;
 	sourceTarget: AbsorptionTarget;
-	restoreSelection: SelectionState;
+	restoreSelection: Selection;
 };
 
 /** @public */
 export type KeyboardTransferMode = {
 	source: Operand;
 	operationType: OperationType;
-	restoreSelection: SelectionState;
+	restoreSelection: Selection;
 };
 
 /** @public */

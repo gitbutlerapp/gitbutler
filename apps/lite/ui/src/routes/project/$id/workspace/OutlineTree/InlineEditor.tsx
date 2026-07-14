@@ -3,7 +3,7 @@ import { RowLabel, RowLabelContainer, RowLabelFooter } from "../Row.tsx";
 import { formatForDisplaySorted } from "#ui/hotkeys.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { FC, useId, useRef } from "react";
+import { FC, type FormEvent, useId, useRef } from "react";
 import styles from "./InlineEditor.module.css";
 
 export const InlineEditor: FC<{
@@ -18,9 +18,10 @@ export const InlineEditor: FC<{
 	const name = useId();
 	const formRef = useRef<HTMLFormElement | null>(null);
 	const textFieldRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
-	const submitAction = (formData: FormData) => {
+	const submit = (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
 		onExit();
-		onSubmit(formData.get(name) as string);
+		onSubmit(new FormData(event.currentTarget).get(name) as string);
 	};
 
 	useHotkey("Enter", () => formRef.current?.requestSubmit(), {
@@ -42,7 +43,7 @@ export const InlineEditor: FC<{
 	});
 
 	return (
-		<form ref={formRef} className={styles.form} action={submitAction}>
+		<form ref={formRef} className={styles.form} onSubmit={submit}>
 			<RowLabelContainer>
 				<RowLabel
 					heading={heading}

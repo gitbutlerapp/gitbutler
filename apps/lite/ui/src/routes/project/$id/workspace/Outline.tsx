@@ -10,9 +10,8 @@ import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { branchOperand, type BranchOperand, type Operand } from "#ui/operands.ts";
 import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
 import { DialogContext } from "#ui/DialogContext.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { OutlineModeContext, OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
@@ -55,20 +54,13 @@ export const Outline: FC<
 		projectId: string;
 	} & ComponentProps<"div">
 > = ({ absorptionTargetCommitIds, navigationIndex, project, projectId, ...restProps }) => {
-	const dispatch = useAppDispatch();
 	const { commitTarget: commitTargetState } = use(CommitTargetContext);
 	const { openDialog } = use(DialogContext);
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+	const { outlineMode } = use(OutlineModeContext);
+	const { selectOutline } = use(OutlineSelectionContext);
 
 	const selectBranch = (branch: BranchOperand) => {
-		dispatch(
-			projectSlice.actions.selectOutline({
-				projectId,
-				selection: branchOperand(branch),
-			}),
-		);
+		selectOutline(branchOperand(branch));
 		focusSelectionScope("outline");
 	};
 

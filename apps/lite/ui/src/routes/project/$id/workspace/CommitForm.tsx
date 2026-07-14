@@ -15,9 +15,8 @@ import {
 	toElectronAccelerator,
 } from "#ui/hotkeys.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppSelector } from "#ui/store.ts";
+import { OutlineModeContext } from "#ui/WorkspaceContext.ts";
 import { Button, Tooltip } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import type { RelativeTo } from "@gitbutler/but-sdk";
@@ -71,9 +70,8 @@ export const CommitForm: FC<{
 
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
-	);
+	const { outlineMode } = use(OutlineModeContext);
+	const isDefaultMode = outlineMode._tag === "Default";
 
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
