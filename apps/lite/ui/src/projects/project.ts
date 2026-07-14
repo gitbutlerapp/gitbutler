@@ -379,11 +379,7 @@ export const projectSelectors = {
 		navigationIndex: NavigationIndex<Operand>,
 		operand: Operand,
 	) => {
-		const selection = resolveNavigationIndexSelection(
-			navigationIndex,
-			state.workspace.selection.outline,
-			operandIdentityKey,
-		);
+		const selection = selectSelectionOutline(state, navigationIndex);
 		return selection !== null && operandEquals(selection, operand);
 	},
 	selectSelectionOutline,
