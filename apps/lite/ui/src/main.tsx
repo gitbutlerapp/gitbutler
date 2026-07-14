@@ -2,6 +2,7 @@ import * as ReactQuery from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { App } from "#ui/App.tsx";
 import { routeTree } from "#ui/routeTree.ts";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./global.css";
 import { Toast } from "@base-ui/react";
@@ -55,4 +56,8 @@ const root = createRoot(rootElement, {
 		});
 	},
 });
-root.render(<App queryClient={queryClient} toastManager={toastManager} router={router} />);
+root.render(
+	<StrictMode>
+		<App queryClient={queryClient} toastManager={toastManager} router={router} />
+	</StrictMode>,
+);
