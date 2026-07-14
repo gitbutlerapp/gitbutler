@@ -364,7 +364,13 @@ async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Er
             ctx,
             ctx.shared_worktree_access().read_permission(),
         )?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&base_branch.remote_url);
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &base_branch.remote_url,
+            ctx.legacy_project
+                .forge_override
+                .as_deref()
+                .and_then(but_forge::ForgeName::from_override_str),
+        );
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,

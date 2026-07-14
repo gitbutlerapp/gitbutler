@@ -979,7 +979,16 @@ fn resolve_review_map(
     ctx: ThreadSafeContext,
     base_branch: &BaseBranch,
 ) -> Result<HashMap<String, but_forge::ForgeReview>> {
-    let forge_repo_info = but_forge::derive_forge_repo_info(&base_branch.remote_url);
+    let ctx = ctx.into_thread_local();
+    // Honor the project's saved forge override so self-hosted forges resolve
+    // (and their reviews show up) before an account is configured - see #14319.
+    let forge_repo_info = but_forge::derive_forge_repo_info(
+        &base_branch.remote_url,
+        ctx.legacy_project
+            .forge_override
+            .as_deref()
+            .and_then(but_forge::ForgeName::from_override_str),
+    );
     let Some(forge_repo_info) = forge_repo_info.as_ref() else {
         // No forge? No problem!
         // If there's no forge associated with the base branch, there can't be any reviews.
@@ -991,7 +1000,6 @@ fn resolve_review_map(
         local: None,
         applied: Some(true),
     });
-    let ctx = ctx.into_thread_local();
     let (branches, preferred_forge_user) = {
         let preferred_forge_user = ctx.legacy_project.preferred_forge_user.clone();
         (list_branches(&ctx, filter)?, preferred_forge_user)

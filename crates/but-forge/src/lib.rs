@@ -39,22 +39,24 @@ fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
 
 /// Derive the forge repository information from a remote URL.
 ///
-/// If the forge type can't be determined by simply looking for keywords in the repositories URL,
-/// look through all the known accounts and try to match their custom host strings to the repository's URL host.
-/// Looking at the known accounts involves retrieving data from storage, so that is a bit more expensive
-/// and that's why it's a fallback mechanism.
-pub fn derive_forge_repo_info(url: &str) -> Option<ForgeRepoInfo> {
+/// The forge type is resolved by `resolve_forge_name`: the URL host first,
+/// then a match against configured accounts' custom hosts, and finally the
+/// project's `override_forge` (from its stored `forge_override`) as a last
+/// resort. Pass `None` for `override_forge` when no project preference applies,
+/// e.g. when comparing two arbitrary remote URLs for identity.
+pub fn derive_forge_repo_info(
+    url: &str,
+    override_forge: Option<ForgeName>,
+) -> Option<ForgeRepoInfo> {
     let git_url = GitUrl::parse(url).ok()?;
     let host = git_url.host()?;
     let protocol = git_url.scheme()?;
 
     let provider_info: GenericProvider = git_url.provider_info().ok()?;
-    // Attempt to figure out the forge by looking at the host string and
-    // falling back to matching it to the known accounts custom host URL.
-    let forge = determine_forge_from_host(host).or_else(|| {
-        // Only fetch the accounts if it can't determine the forge type from the repository's host.
-        let accounts = get_all_forge_accounts().unwrap_or_default();
-        match_host_to_accounts_custom_host(host, &accounts)
+    let forge = resolve_forge_name(host, override_forge, || {
+        // Only fetch the accounts if the forge type can't be determined from the
+        // repository's host - reading them involves retrieving data from storage.
+        get_all_forge_accounts().unwrap_or_default()
     })?;
 
     Some(ForgeRepoInfo {
@@ -63,6 +65,29 @@ pub fn derive_forge_repo_info(url: &str) -> Option<ForgeRepoInfo> {
         repo: provider_info.repo().to_string(),
         protocol: protocol.to_string(),
     })
+}
+
+/// Resolve the forge type for a repository `host`, in priority order:
+///
+/// 1. keywords in the host itself (`github.com`, `gitlab.*`, ...),
+/// 2. a configured account whose custom host matches (fetched lazily via
+///    `accounts`, since that reads from storage),
+/// 3. the project's saved `forge_override`, honored only as a last resort.
+///
+/// Step 3 mirrors the pre-0.20.1 frontend, which applied the override only when
+/// host detection returned "default" (`if forgeType === "default" &&
+/// forgeOverride`). It is what lets a self-hosted forge - e.g. GitLab on a
+/// private host - resolve again before an account has been configured (#14319).
+/// A recognizable host or a matching account always wins over the override, so
+/// a stale preference can never mislabel a repository whose forge is known.
+fn resolve_forge_name(
+    host: &str,
+    override_forge: Option<ForgeName>,
+    accounts: impl FnOnce() -> Vec<ForgeUser>,
+) -> Option<ForgeName> {
+    determine_forge_from_host(host)
+        .or_else(|| match_host_to_accounts_custom_host(host, &accounts()))
+        .or(override_forge)
 }
 
 /// Look for the best matching account by comparing the repository host to the
@@ -161,8 +186,90 @@ pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ForgeName, ForgeUser, match_host_to_accounts_custom_host, normalize_host_for_comparison,
+        ForgeName, ForgeUser, derive_forge_repo_info, match_host_to_accounts_custom_host,
+        normalize_host_for_comparison, resolve_forge_name,
     };
+
+    #[test]
+    fn forge_override_resolves_unrecognized_self_hosted_host() {
+        // The #14319 regression: a self-hosted host matches no built-in forge
+        // and (here) no account, so the project's saved override is the only
+        // thing that can identify it. Without the override this returns `None`
+        // and the UI reports "No forge could be determined".
+        assert_eq!(
+            resolve_forge_name("git.selfhosted.example", Some(ForgeName::GitLab), Vec::new),
+            Some(ForgeName::GitLab)
+        );
+    }
+
+    #[test]
+    fn detected_host_wins_over_override() {
+        // A recognizable host is authoritative - the override must never
+        // override a forge we can already identify from the URL. Here the host
+        // is GitLab and the (contradictory) override is GitHub; GitLab wins.
+        assert_eq!(
+            resolve_forge_name("gitlab.com", Some(ForgeName::GitHub), Vec::new),
+            Some(ForgeName::GitLab)
+        );
+    }
+
+    #[test]
+    fn matching_account_wins_over_override() {
+        // A configured account whose custom host matches is a stronger signal
+        // than a saved preference, so it takes precedence over the override.
+        let accounts = vec![ForgeUser::GitLab(
+            but_gitlab::GitlabAccountIdentifier::selfhosted("bob", "gl.example.com"),
+        )];
+        assert_eq!(
+            resolve_forge_name("gl.example.com", Some(ForgeName::GitHub), || accounts
+                .clone()),
+            Some(ForgeName::GitLab)
+        );
+    }
+
+    #[test]
+    fn no_override_and_unknown_host_resolves_to_none() {
+        assert_eq!(
+            resolve_forge_name("git.selfhosted.example", None, Vec::new),
+            None
+        );
+    }
+
+    #[test]
+    fn derive_repo_info_uses_override_for_self_hosted_url() {
+        // End-to-end for #14319, exercising the real parse -> provider_info ->
+        // resolve path (not just the host->forge helper): a self-hosted URL that
+        // host detection can't classify still yields a `ForgeRepoInfo` via the
+        // override, with owner/repo parsed from the URL. Guards the ordering trap
+        // that the override is only consulted *after* `provider_info()` succeeds -
+        // if `GenericProvider` rejected this URL shape the fix would silently
+        // no-op. (The account lookup finds nothing for this synthetic host, so
+        // the result is deterministic regardless of locally-configured accounts.)
+        let info = derive_forge_repo_info(
+            "https://git.selfhosted.example/group/repo.git",
+            Some(ForgeName::GitLab),
+        )
+        .expect("override should resolve the forge for an otherwise-unknown host");
+        assert_eq!(info.forge, ForgeName::GitLab);
+        assert_eq!(info.owner, "group");
+        assert_eq!(info.repo, "repo");
+        assert_eq!(info.protocol, "https");
+    }
+
+    #[test]
+    fn from_override_str_is_case_and_whitespace_insensitive() {
+        assert_eq!(
+            ForgeName::from_override_str("gitlab"),
+            Some(ForgeName::GitLab)
+        );
+        assert_eq!(
+            ForgeName::from_override_str("  GitLab "),
+            Some(ForgeName::GitLab)
+        );
+        // "default" (the unset sentinel) and anything unrecognized are no-override.
+        assert_eq!(ForgeName::from_override_str("default"), None);
+        assert_eq!(ForgeName::from_override_str("subversion"), None);
+    }
 
     #[test]
     fn matches_github_enterprise_custom_host() {
