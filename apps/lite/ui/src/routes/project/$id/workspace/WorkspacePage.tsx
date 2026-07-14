@@ -19,6 +19,10 @@ import {
 import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
 import { DialogContext } from "#ui/DialogContext.ts";
 import { FilesVisibleContext, FilesVisibleRegistryContext } from "#ui/FilesVisibleContext.ts";
+import {
+	HighlightedCommitIdsContext,
+	HighlightedCommitIdsRegistryContext,
+} from "#ui/HighlightedCommitIdsContext.ts";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
@@ -457,6 +461,19 @@ export const Route: FC = () => {
 
 	const filesVisibleContext = use(FilesVisibleRegistryContext)(projectId);
 
+	const [highlightedCommitIds, setHighlightedCommitIds] = use(HighlightedCommitIdsRegistryContext)(
+		projectId,
+	);
+	const highlightedCommitIdsContext = {
+		highlightedCommitIds,
+		setHighlightedCommitIds: (commitIds: Array<string>) =>
+			setHighlightedCommitIds((current) => {
+				const next = new Set(commitIds);
+				return next.size === current.size && next.isSubsetOf(current) ? current : next;
+			}),
+		clearHighlightedCommitIds: () => setHighlightedCommitIds(() => new Set()),
+	};
+
 	const [checkedCommitIds, setCheckedCommitIds] = use(CheckedCommitIdsRegistryContext)(projectId);
 	const checkedCommitIdsContext = {
 		checkedCommitIds,
@@ -486,16 +503,18 @@ export const Route: FC = () => {
 	if (!project) return <p className={styles.notFound}>Project not found.</p>;
 
 	return (
-		<CheckedCommitIdsContext value={checkedCommitIdsContext}>
-			<FilesVisibleContext value={filesVisibleContext}>
-				<QueryErrorResetBoundary>
-					{({ reset }) => (
-						<WorkspacePageErrorBoundary onReset={reset}>
-							<WorkspacePage />
-						</WorkspacePageErrorBoundary>
-					)}
-				</QueryErrorResetBoundary>
-			</FilesVisibleContext>
-		</CheckedCommitIdsContext>
+		<HighlightedCommitIdsContext value={highlightedCommitIdsContext}>
+			<CheckedCommitIdsContext value={checkedCommitIdsContext}>
+				<FilesVisibleContext value={filesVisibleContext}>
+					<QueryErrorResetBoundary>
+						{({ reset }) => (
+							<WorkspacePageErrorBoundary onReset={reset}>
+								<WorkspacePage />
+							</WorkspacePageErrorBoundary>
+						)}
+					</QueryErrorResetBoundary>
+				</FilesVisibleContext>
+			</CheckedCommitIdsContext>
+		</HighlightedCommitIdsContext>
 	);
 };

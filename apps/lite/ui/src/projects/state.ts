@@ -55,7 +55,6 @@ export const projectSlice = createSlice({
 		updateTransferOperationType: withProject(projectReducers.updateTransferOperationType),
 		exitMode: withProject(projectReducers.exitMode),
 		cancelMode: withProject(projectReducers.cancelMode),
-		setHighlightedCommitIds: withProject(projectReducers.setHighlightedCommitIds),
 		setCommitTarget: withProject(projectReducers.setCommitTarget),
 		updateRewrittenCommitReferences: withProject(projectReducers.updateRewrittenCommitReferences),
 	},
@@ -65,7 +64,6 @@ export const projectSlice = createSlice({
 		selectSelectionFiles: fromProject(projectSelectors.selectSelectionFiles),
 		selectSelectionDiff: fromProject(projectSelectors.selectSelectionDiff),
 		selectOutlineModeState: fromProject(projectSelectors.selectOutlineModeState),
-		selectHighlightedCommitIds: fromProject(projectSelectors.selectHighlightedCommitIds),
 		selectCommitTarget: fromProject(projectSelectors.selectCommitTarget),
 	},
 });

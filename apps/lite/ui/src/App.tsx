@@ -11,6 +11,7 @@ import { Toasts } from "#ui/components/Toasts.tsx";
 import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
 import { DialogContext } from "#ui/DialogContext.ts";
 import { FilesVisibleRegistryContext } from "#ui/FilesVisibleContext.ts";
+import { HighlightedCommitIdsRegistryContext } from "#ui/HighlightedCommitIdsContext.ts";
 import { useProjectRegistry } from "#ui/ProjectRegistry.ts";
 import type { Dialog } from "#ui/projects/project.ts";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
@@ -63,39 +64,42 @@ export const App: FC<{
 	});
 
 	const checkedCommitIdsRegistry = useProjectRegistry(new Set<string>());
+	const highlightedCommitIdsRegistry = useProjectRegistry(new Set<string>());
 
 	const [dialog, setDialog] = useState<Dialog>({ _tag: "None" });
 	const openDialog = (nextDialog: Dialog) => setDialog(nextDialog);
 	const closeDialog = () => setDialog({ _tag: "None" });
 
 	return (
-		<CheckedCommitIdsRegistryContext value={checkedCommitIdsRegistry}>
-			<FilesVisibleRegistryContext value={filesVisibleContext}>
-				<DetailsFullWindowContext
-					value={{ detailsFullWindow, setDetailsFullWindow, toggleDetailsFullWindow }}
-				>
-					<DialogContext value={{ dialog, openDialog, closeDialog }}>
-						<Provider store={store}>
-							<QueryClientProvider client={queryClient}>
-								<Toast.Provider toastManager={toastManager}>
-									<Tooltip.Provider>
-										<WorkerPoolContextProvider
-											poolOptions={{ workerFactory }}
-											highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
-										>
-											<ThemeSync />
-											<RouterProvider router={router} />
-											<AskpassPromptDialog />
-											<Toasts />
-										</WorkerPoolContextProvider>
-									</Tooltip.Provider>
-								</Toast.Provider>
-								<ReactQueryDevtools />
-							</QueryClientProvider>
-						</Provider>
-					</DialogContext>
-				</DetailsFullWindowContext>
-			</FilesVisibleRegistryContext>
-		</CheckedCommitIdsRegistryContext>
+		<HighlightedCommitIdsRegistryContext value={highlightedCommitIdsRegistry}>
+			<CheckedCommitIdsRegistryContext value={checkedCommitIdsRegistry}>
+				<FilesVisibleRegistryContext value={filesVisibleContext}>
+					<DetailsFullWindowContext
+						value={{ detailsFullWindow, setDetailsFullWindow, toggleDetailsFullWindow }}
+					>
+						<DialogContext value={{ dialog, openDialog, closeDialog }}>
+							<Provider store={store}>
+								<QueryClientProvider client={queryClient}>
+									<Toast.Provider toastManager={toastManager}>
+										<Tooltip.Provider>
+											<WorkerPoolContextProvider
+												poolOptions={{ workerFactory }}
+												highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
+											>
+												<ThemeSync />
+												<RouterProvider router={router} />
+												<AskpassPromptDialog />
+												<Toasts />
+											</WorkerPoolContextProvider>
+										</Tooltip.Provider>
+									</Toast.Provider>
+									<ReactQueryDevtools />
+								</QueryClientProvider>
+							</Provider>
+						</DialogContext>
+					</DetailsFullWindowContext>
+				</FilesVisibleRegistryContext>
+			</CheckedCommitIdsRegistryContext>
+		</HighlightedCommitIdsRegistryContext>
 	);
 };

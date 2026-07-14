@@ -14,6 +14,7 @@ import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
+import { HighlightedCommitIdsContext } from "#ui/HighlightedCommitIdsContext.ts";
 import { assert } from "#ui/assert.ts";
 import {
 	commitBody,
@@ -64,12 +65,11 @@ export const CommitRow: FC<
 	} & ComponentProps<"div">
 > = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
 	const { checkedCommitIds, setCommitsChecked } = use(CheckedCommitIdsContext);
+	const { highlightedCommitIds } = use(HighlightedCommitIdsContext);
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
 
-	const isHighlighted = useAppSelector((state) =>
-		projectSlice.selectors.selectHighlightedCommitIds(state, projectId).includes(commit.id),
-	);
+	const isHighlighted = highlightedCommitIds.has(commit.id);
 	const isChecked = checkedCommitIds.has(commit.id);
 
 	const dispatch = useAppDispatch();

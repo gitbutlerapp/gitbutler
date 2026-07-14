@@ -1,17 +1,15 @@
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { HighlightedCommitIdsContext } from "#ui/HighlightedCommitIdsContext.ts";
 import { Tooltip } from "@base-ui/react";
-import { ComponentProps, FC } from "react";
+import { ComponentProps, FC, use } from "react";
 
 export const DependencyIndicator: FC<
 	{
-		projectId: string;
 		commitIds: Array<string>;
 		branchNameByCommitId: (commitId: string) => string | undefined;
 	} & ComponentProps<"button">
-> = ({ projectId, commitIds, branchNameByCommitId, ...restProps }) => {
-	const dispatch = useAppDispatch();
+> = ({ commitIds, branchNameByCommitId, ...restProps }) => {
+	const { setHighlightedCommitIds, clearHighlightedCommitIds } = use(HighlightedCommitIdsContext);
 	const branchNames = new Set(
 		commitIds.flatMap((commitId) => branchNameByCommitId(commitId) ?? []),
 	);
@@ -19,17 +17,7 @@ export const DependencyIndicator: FC<
 		branchNames.size > 0
 			? `Depends on ${branchNames.values().toArray().join(", ")}`
 			: "Unknown dependencies";
-	const highlightCommitIds = () => {
-		dispatch(
-			projectSlice.actions.setHighlightedCommitIds({
-				projectId,
-				commitIds,
-			}),
-		);
-	};
-	const clearHighlightedCommitIds = () => {
-		dispatch(projectSlice.actions.setHighlightedCommitIds({ projectId, commitIds: null }));
-	};
+	const highlightCommitIds = () => setHighlightedCommitIds(commitIds);
 
 	return (
 		<Tooltip.Root>

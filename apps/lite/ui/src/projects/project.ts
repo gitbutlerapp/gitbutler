@@ -44,7 +44,6 @@ export type SelectionState = {
 
 type WorkspaceState = {
 	commitTarget: RelativeTo | null;
-	highlightedCommitIds: Array<string>;
 	mode: OutlineMode;
 	selection: SelectionState;
 };
@@ -57,7 +56,6 @@ const createInitialSelectionState = (): SelectionState => ({
 
 const createInitialWorkspaceState = (): WorkspaceState => ({
 	commitTarget: null,
-	highlightedCommitIds: [],
 	mode: defaultOutlineMode,
 	selection: createInitialSelectionState(),
 });
@@ -273,12 +271,6 @@ export const projectReducers = {
 
 		workspaceState.selection = restoreSelection;
 	},
-	setHighlightedCommitIds: (
-		state: ProjectState,
-		{ commitIds }: { commitIds: Array<string> | null },
-	) => {
-		state.workspace.highlightedCommitIds = commitIds ?? [];
-	},
 	setCommitTarget: (state: ProjectState, { commitTarget }: { commitTarget: RelativeTo | null }) => {
 		state.workspace.commitTarget = commitTarget;
 	},
@@ -343,6 +335,5 @@ export const projectSelectors = {
 			hunkOperandIdentityKey,
 		),
 	selectOutlineModeState: (state: ProjectState) => state.workspace.mode,
-	selectHighlightedCommitIds: (state: ProjectState) => state.workspace.highlightedCommitIds,
 	selectCommitTarget: (state: ProjectState) => state.workspace.commitTarget,
 };
