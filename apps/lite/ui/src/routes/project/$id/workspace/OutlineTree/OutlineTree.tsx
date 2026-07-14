@@ -28,7 +28,6 @@ import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/nav
 import { mergeProps, useRender } from "@base-ui/react";
 import {
 	BranchReference,
-	Commit,
 	RelativeTo,
 	Segment,
 	Stack,
@@ -158,40 +157,6 @@ const OperandC: FC<
 		defaultTagName: "div",
 		props,
 	});
-};
-
-const CommitC: FC<{
-	commit: Commit;
-	projectId: string;
-	stackId: string;
-	isCommitTarget: boolean;
-	dryRunCommit: Commit | null;
-}> = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit }) => {
-	const operand = commitOperand({ stackId, commitId: commit.id });
-
-	return (
-		<TreeItem
-			projectId={projectId}
-			operand={operand}
-			aria-label={commitTitle(commit.message) ?? "(no message)"}
-			render={
-				<OperandC
-					projectId={projectId}
-					operand={operand}
-					outline="outside"
-					render={
-						<CommitRow
-							commit={commit}
-							projectId={projectId}
-							stackId={stackId}
-							isCommitTarget={isCommitTarget}
-							dryRunCommit={dryRunCommit}
-						/>
-					}
-				/>
-			}
-		/>
-	);
 };
 
 const UncommittedChanges: FC<{
@@ -406,23 +371,41 @@ const SegmentContent: FC<{
 	return (
 		<div>
 			{segment.commits.map((commit) => {
+				const operand = commitOperand({ stackId, commitId: commit.id });
 				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
 				const dryRunCommit =
 					dryRunCommitId !== undefined
 						? (dryRunHeadInfoIndex?.commitContextById(dryRunCommitId)?.commit ?? null)
 						: null;
 				return (
-					<CommitC
+					<TreeItem
 						key={commit.id}
-						commit={commit}
 						projectId={projectId}
-						stackId={stackId}
-						isCommitTarget={
-							commitTarget
-								? relativeToEquals(commitTarget, { type: "commit", subject: commit.id })
-								: false
+						operand={operand}
+						aria-label={commitTitle(commit.message) ?? "(no message)"}
+						render={
+							<OperandC
+								projectId={projectId}
+								operand={operand}
+								outline="outside"
+								render={
+									<CommitRow
+										commit={commit}
+										projectId={projectId}
+										stackId={stackId}
+										isCommitTarget={
+											commitTarget
+												? relativeToEquals(commitTarget, {
+														type: "commit",
+														subject: commit.id,
+													})
+												: false
+										}
+										dryRunCommit={dryRunCommit}
+									/>
+								}
+							/>
 						}
-						dryRunCommit={dryRunCommit}
 					/>
 				);
 			})}
