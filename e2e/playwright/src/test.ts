@@ -1,5 +1,10 @@
 import { serverLogSink } from "./serverLog.ts";
 import { startGitButler, type GitButler } from "./setup.ts";
+import {
+	startFakeGitHubServer,
+	type FakeGitHubOptions,
+	type FakeGitHubServer,
+} from "./fakeGithub.ts";
 import { test as base } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
@@ -35,6 +40,7 @@ export const test = base.extend<{
 	_autoArtifacts: void;
 	gitbutlerOptions: GitButlerOptions;
 	gitbutler: GitButler;
+	fakeGithub: (options: FakeGitHubOptions) => Promise<FakeGitHubServer>;
 }>({
 	gitbutlerOptions: [{ config: { onboardingComplete: true } }, { option: true }],
 	gitbutler: async ({ context, gitbutlerOptions }, use, testInfo) => {
@@ -49,6 +55,15 @@ export const test = base.extend<{
 		);
 		await use(instance);
 		await instance.destroy();
+	},
+	fakeGithub: async ({}, use) => {
+		const servers: FakeGitHubServer[] = [];
+		await use(async (options) => {
+			const server = await startFakeGitHubServer(options);
+			servers.push(server);
+			return server;
+		});
+		await Promise.all(servers.map((server) => server.close()));
 	},
 	_autoArtifacts: [
 		async ({ page }, use, testInfo) => {
