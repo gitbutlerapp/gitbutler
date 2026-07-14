@@ -456,7 +456,30 @@ export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const filesVisibleContext = use(FilesVisibleRegistryContext)(projectId);
-	const checkedCommitIdsContext = use(CheckedCommitIdsRegistryContext)(projectId);
+
+	const [checkedCommitIds, setCheckedCommitIds] = use(CheckedCommitIdsRegistryContext)(projectId);
+	const checkedCommitIdsContext = {
+		checkedCommitIds,
+		setCommitsChecked: (commitIds: Array<string>, checked: boolean) =>
+			setCheckedCommitIds((current) => {
+				const toggled = new Set(commitIds);
+				return checked ? current.union(toggled) : current.difference(toggled);
+			}),
+		clearCheckedCommits: () => setCheckedCommitIds(() => new Set()),
+		updateRewrittenCommitReferences: (replacedCommits: Record<string, string>) =>
+			setCheckedCommitIds((current) => {
+				let next: Set<string> | undefined;
+				for (const id of current) {
+					const newId = replacedCommits[id];
+					if (newId === undefined || newId === id) continue;
+
+					next ??= new Set(current);
+					next.delete(id);
+					next.add(newId);
+				}
+				return next ?? current;
+			}),
+	};
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const project = projects.find((project) => project.id === projectId);

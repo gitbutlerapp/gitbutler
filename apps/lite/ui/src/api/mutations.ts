@@ -17,7 +17,7 @@ import {
 } from "#ui/operations/toastOptions.tsx";
 import { commitOperand, type BranchOperand } from "#ui/operands.ts";
 import { projectSlice } from "#ui/projects/state.ts";
-import { CheckedCommitIdsRegistryContext } from "#ui/CheckedCommitIdsContext.ts";
+import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { Toast } from "@base-ui/react";
 import {
@@ -39,7 +39,7 @@ type AnyResponse = PromiseReturnType<(typeof window.lite)[keyof typeof window.li
 
 export const useSyncCoreCaches = () => {
 	const dispatch = useAppDispatch();
-	const checkedCommitIdsRegistry = use(CheckedCommitIdsRegistryContext);
+	const { updateRewrittenCommitReferences } = use(CheckedCommitIdsContext);
 
 	return (queryClient: QueryClient, projectId: string, response: Exclude<AnyResponse, void>) => {
 		if (typeof response !== "object" || response === null) return;
@@ -60,7 +60,7 @@ export const useSyncCoreCaches = () => {
 				headInfo: workspace.headInfo,
 			}),
 		);
-		checkedCommitIdsRegistry(projectId).updateRewrittenCommitReferences(workspace.replacedCommits);
+		updateRewrittenCommitReferences(workspace.replacedCommits);
 	};
 };
 

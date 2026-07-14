@@ -11,6 +11,7 @@ import { Toasts } from "#ui/components/Toasts.tsx";
 import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
 import { DialogContext } from "#ui/DialogContext.ts";
 import { FilesVisibleRegistryContext } from "#ui/FilesVisibleContext.ts";
+import { useProjectRegistry } from "#ui/ProjectRegistry.ts";
 import type { Dialog } from "#ui/projects/project.ts";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
 import { getGUISettingsQueryOptions } from "./api/queries.ts";
@@ -41,9 +42,6 @@ const ThemeSync: FC = () => {
 	return null;
 };
 
-// Reuse for reference stability.
-const emptySet: Set<never> = new Set();
-
 export const App: FC<{
 	queryClient: QueryClient;
 	toastManager: ToastManager;
@@ -64,47 +62,14 @@ export const App: FC<{
 			}),
 	});
 
-	const [checkedCommitIdsByProjectId, setCheckedCommitIdsByProjectId] = useState(
-		() => new Map<string, Set<string>>(),
-	);
-	const mapCheckedCommitIdsBy = (
-		projectId: string,
-		update: (current: Set<string>) => Set<string>,
-	) =>
-		setCheckedCommitIdsByProjectId((curr) => {
-			const current = curr.get(projectId) ?? emptySet;
-			const next = update(current);
-			return next === current ? curr : new Map(curr).set(projectId, next);
-		});
-	const checkedCommitIdsContext = (projectId: string) => ({
-		checkedCommitIds: checkedCommitIdsByProjectId.get(projectId) ?? emptySet,
-		setCommitsChecked: (commitIds: Array<string>, checked: boolean) =>
-			mapCheckedCommitIdsBy(projectId, (curr) => {
-				const toggled = new Set(commitIds);
-				return checked ? curr.union(toggled) : curr.difference(toggled);
-			}),
-		clearCheckedCommits: () => mapCheckedCommitIdsBy(projectId, () => emptySet),
-		updateRewrittenCommitReferences: (replacedCommits: Record<string, string>) =>
-			mapCheckedCommitIdsBy(projectId, (curr) => {
-				let next: Set<string> | undefined;
-				for (const id of curr) {
-					const newId = replacedCommits[id];
-					if (newId === undefined || newId === id) continue;
-
-					next ??= new Set(curr);
-					next.delete(id);
-					next.add(newId);
-				}
-				return next ?? curr;
-			}),
-	});
+	const checkedCommitIdsRegistry = useProjectRegistry(new Set<string>());
 
 	const [dialog, setDialog] = useState<Dialog>({ _tag: "None" });
 	const openDialog = (nextDialog: Dialog) => setDialog(nextDialog);
 	const closeDialog = () => setDialog({ _tag: "None" });
 
 	return (
-		<CheckedCommitIdsRegistryContext value={checkedCommitIdsContext}>
+		<CheckedCommitIdsRegistryContext value={checkedCommitIdsRegistry}>
 			<FilesVisibleRegistryContext value={filesVisibleContext}>
 				<DetailsFullWindowContext
 					value={{ detailsFullWindow, setDetailsFullWindow, toggleDetailsFullWindow }}
