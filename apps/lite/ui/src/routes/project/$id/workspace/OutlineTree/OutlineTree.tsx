@@ -107,11 +107,6 @@ const OperandC: FC<
 
 	const activeOperation = useAppSelector((state) => {
 		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
-		const pendingTransferSpec = projectSlice.selectors.selectPendingTransferSpec(
-			state,
-			projectId,
-			navigationIndex,
-		);
 
 		return Match.value(outlineMode).pipe(
 			Match.tags({
@@ -122,6 +117,12 @@ const OperandC: FC<
 					return { position: "into", tooltip: "Absorb target" };
 				},
 				Transfer: (): ActiveOperation | null => {
+					const pendingTransferSpec = projectSlice.selectors.selectPendingTransferSpec(
+						state,
+						projectId,
+						navigationIndex,
+					);
+
 					if (!pendingTransferSpec || !operandEquals(pendingTransferSpec.target, operand))
 						return null;
 
