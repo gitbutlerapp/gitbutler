@@ -149,7 +149,7 @@ pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::
     let project_meta = ctx.project_meta()?;
     let meta = ctx.meta()?;
     let repo = ctx.repo.get()?;
-    but_workspace::head_info(
+    let mut info = but_workspace::head_info(
         &repo,
         &meta,
         but_workspace::ref_info::Options {
@@ -158,8 +158,15 @@ pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::
             expensive_commit_info: true,
             ..Default::default()
         },
-    )
-    .map(but_workspace::RefInfo::pruned_to_entrypoint)
+    )?
+    .pruned_to_entrypoint();
+    let db = ctx.db.get_cache()?;
+    let prs_by_head = but_forge::reviews_by_head(&db)?
+        .into_iter()
+        .filter_map(|(head, review)| usize::try_from(review.number).ok().map(|n| (head, n)))
+        .collect();
+    info.apply_forge_review_associations(&repo, &prs_by_head);
+    Ok(info)
 }
 
 #[cfg(feature = "graph-workspace")]
