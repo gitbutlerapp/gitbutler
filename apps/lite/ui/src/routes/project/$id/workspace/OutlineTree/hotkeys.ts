@@ -133,7 +133,7 @@ export const useOutlineTreeHotkeys = ({
 	};
 
 	const setCommitTarget = (relativeTo: RelativeTo) => {
-		updateCommitTarget(relativeTo);
+		updateCommitTarget(projectId, relativeTo);
 	};
 
 	const composeCommitHere = (relativeTo: RelativeTo) => {
@@ -193,6 +193,7 @@ export const useOutlineTreeHotkeys = ({
 
 					if (newBranchStack && newBranchStack.id !== null) {
 						selectOutline(
+							projectId,
 							branchOperand({
 								stackId: newBranchStack.id,
 								branchRef: response.newRef.fullNameBytes,
@@ -207,13 +208,14 @@ export const useOutlineTreeHotkeys = ({
 	const toggleSelectedCommitChecked = () => {
 		if (!selection || selection._tag !== "Commit") return;
 
-		setCommitsChecked([selection.commitId], !selectedCommitChecked);
+		setCommitsChecked(projectId, [selection.commitId], !selectedCommitChecked);
 	};
 
 	const toggleSelectedBranchChecked = () => {
 		if (!selectedBranchSegment) return;
 
 		setCommitsChecked(
+			projectId,
 			selectedBranchSegment.commits.map((commit) => commit.id),
 			!selectedBranchCommitsChecked,
 		);
@@ -267,6 +269,7 @@ export const useOutlineTreeHotkeys = ({
 			{
 				onSuccess: (response) => {
 					selectOutline(
+						projectId,
 						rewrittenCommitSelection({
 							selection: selectionAfterDiscard,
 							replacedCommits: response.workspace.replacedCommits,
@@ -351,7 +354,8 @@ export const useOutlineTreeHotkeys = ({
 		ref,
 		navigationIndex,
 		group: "Outline",
-		select: selectOutline,
+		projectId,
+		select: (selection) => selectOutline(projectId, selection),
 		selection,
 		getKey: operandIdentityKey,
 		operationSourceForItem: (operand) => operand,
@@ -371,7 +375,7 @@ export const useOutlineTreeHotkeys = ({
 		{
 			hotkey: outlineHotkeys.selectChanges.hotkey,
 			callback: () => {
-				selectOutline(uncommittedChangesOperand);
+				selectOutline(projectId, uncommittedChangesOperand);
 				focusSelectionScope("outline");
 			},
 			options: { conflictBehavior: "allow" },
@@ -392,7 +396,7 @@ export const useOutlineTreeHotkeys = ({
 					{
 						hotkey: outlineHotkeys.rewordCommit.hotkey,
 						callback: () => {
-							startRewordCommit(selection);
+							startRewordCommit(projectId, selection);
 						},
 						options: {
 							conflictBehavior: "allow",
@@ -406,7 +410,7 @@ export const useOutlineTreeHotkeys = ({
 					{
 						hotkey: outlineHotkeys.renameBranch.hotkey,
 						callback: () => {
-							startRenameBranch(selection);
+							startRenameBranch(projectId, selection);
 						},
 						options: {
 							conflictBehavior: "allow",
@@ -596,7 +600,7 @@ export const useOutlineTreeHotkeys = ({
 		{
 			hotkey: outlineHotkeys.absorb.hotkey,
 			callback: () => {
-				enterAbsorbMode(uncommittedChangesOperand, { type: "all" });
+				enterAbsorbMode(projectId, uncommittedChangesOperand, { type: "all" });
 			},
 			options: {
 				conflictBehavior: "allow",

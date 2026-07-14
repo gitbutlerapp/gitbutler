@@ -53,9 +53,9 @@ export const App: FC<{
 	const toggleDetailsFullWindow = () => setDetailsFullWindow((fullWindow) => !fullWindow);
 
 	const [filesVisibleByProjectId, setFilesVisibleByProjectId] = useState(() => new Set<string>());
-	const filesVisibleContext = (projectId: string) => ({
-		filesVisible: filesVisibleByProjectId.has(projectId),
-		toggleFiles: () =>
+	const filesVisibleContext = (currentProjectId: string) => ({
+		filesVisible: filesVisibleByProjectId.has(currentProjectId),
+		toggleFiles: (projectId: string) =>
 			setFilesVisibleByProjectId((curr) => {
 				const next = new Set(curr);
 				if (next.has(projectId)) next.delete(projectId);

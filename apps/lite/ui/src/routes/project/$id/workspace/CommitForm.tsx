@@ -90,7 +90,7 @@ export const CommitForm: FC<{
 	const [open, setOpen] = useState(false);
 
 	const selectBranch = (option: CommitTargetComboboxItem | null) => {
-		setCommitTarget(option?.relativeTo ?? null);
+		setCommitTarget(projectId, option?.relativeTo ?? null);
 		setOpen(false);
 	};
 

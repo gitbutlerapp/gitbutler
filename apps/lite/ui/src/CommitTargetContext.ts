@@ -5,9 +5,16 @@ import type { RelativeTo } from "@gitbutler/but-sdk";
 
 type CommitTargetContext = {
 	commitTarget: RelativeTo | null;
-	setCommitTarget: (commitTarget: RelativeTo | null) => void;
-	updateRewrittenCommitReferences: (replacedCommits: Record<string, string>) => void;
-	updateRewrittenBranchReferences: (oldBranch: BranchOperand, newBranch: BranchOperand) => void;
+	setCommitTarget: (projectId: string, commitTarget: RelativeTo | null) => void;
+	updateRewrittenCommitReferences: (
+		projectId: string,
+		replacedCommits: Record<string, string>,
+	) => void;
+	updateRewrittenBranchReferences: (
+		projectId: string,
+		oldBranch: BranchOperand,
+		newBranch: BranchOperand,
+	) => void;
 };
 
 export const CommitTargetContext = createContext({} as CommitTargetContext);

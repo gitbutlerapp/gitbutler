@@ -365,7 +365,7 @@ const DiffContents: FC<{
 		: null;
 
 	const selectDiff = (selection: HunkOperand) => {
-		setDiffSelection(selection);
+		setDiffSelection(projectId, selection);
 
 		const selectedRange = hunkByKey.get(hunkOperandIdentityKey(selection))?.selectedLines;
 		if (!selectedRange) return;
@@ -381,6 +381,7 @@ const DiffContents: FC<{
 	useNavigationIndexHotkeys({
 		navigationIndex,
 		group: "Diff",
+		projectId,
 		select: selectDiff,
 		selection: diffSelection,
 		selectSectionPredicate: (hunk) => {
@@ -453,7 +454,7 @@ const DiffContents: FC<{
 
 	// We currently only support selecting contiguous blocks.
 	const handleLinesSelected = (sel: CodeViewLineSelection | null): void => {
-		if (!sel) return setDiffSelection(null);
+		if (!sel) return setDiffSelection(projectId, null);
 
 		const file = fileByItemId.get(sel.id);
 		if (!file) throw new Error("Could not get file by item ID");
@@ -470,7 +471,7 @@ const DiffContents: FC<{
 		});
 		if (!selection) return;
 
-		setDiffSelection({
+		setDiffSelection(projectId, {
 			parent: {
 				parent: fileParent,
 				path: file.change.path,
@@ -758,8 +759,11 @@ const Title: FC<{
 	);
 
 const FilesToggle: FC<
-	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
-> = (toggleProps) => {
+	{ projectId: string } & Omit<
+		ComponentProps<typeof Toggle>,
+		"aria-label" | "pressed" | "onPressedChange"
+	>
+> = ({ projectId, ...toggleProps }) => {
 	const { filesVisible, toggleFiles } = use(FilesVisibleContext);
 
 	return (
@@ -770,7 +774,7 @@ const FilesToggle: FC<
 						{...toggleProps}
 						aria-label="Toggle files"
 						pressed={filesVisible}
-						onPressedChange={toggleFiles}
+						onPressedChange={() => toggleFiles(projectId)}
 					/>
 				}
 			/>
@@ -996,7 +1000,7 @@ const Diff: FC<{
 	const selectFileAndNavigateDiff = (selection: string) => {
 		onFileSelection(selection);
 
-		selectDiff(diffView.fileByPath.get(selection)?.hunks[0]?.operand ?? null);
+		selectDiff(projectId, diffView.fileByPath.get(selection)?.hunks[0]?.operand ?? null);
 
 		didScrollToViaFileRef.current = true;
 		viewerRef.current?.scrollTo({
@@ -1061,7 +1065,9 @@ const Diff: FC<{
 	return (
 		<div className={styles.diffTab}>
 			<div className={styles.actions}>
-				<FilesToggle className={getButtonClassName({})}>Toggle files</FilesToggle>
+				<FilesToggle projectId={projectId} className={getButtonClassName({})}>
+					Toggle files
+				</FilesToggle>
 
 				<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
 					<ToggleGroupStyles>
@@ -1484,7 +1490,7 @@ export const Details: FC<
 	const commitBodyId = useId();
 
 	const selectFile = (selection: string) => {
-		selectFiles(selection);
+		selectFiles(projectId, selection);
 	};
 
 	if (!outlineSelection) return;

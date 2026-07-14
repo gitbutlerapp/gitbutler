@@ -51,11 +51,11 @@ export const UncommittedChangesRow: FC<{
 	const discardWorktreeChanges = useDiscardWorktreeChanges();
 
 	const absorb = () => {
-		enterAbsorbMode(operand, { type: "all" });
+		enterAbsorbMode(projectId, operand, { type: "all" });
 	};
 
 	const cutChanges = () => {
-		enterKeyboardTransferMode(operand);
+		enterKeyboardTransferMode(projectId, operand);
 		focusSelectionScope("outline");
 	};
 
@@ -88,6 +88,7 @@ export const UncommittedChangesRow: FC<{
 
 	return (
 		<ItemRow
+			projectId={projectId}
 			operand={operand}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);

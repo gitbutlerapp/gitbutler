@@ -114,6 +114,7 @@ export const FileRow: FC<
 							<Toolbar.Button
 								render={
 									<DependencyIndicator
+										projectId={projectId}
 										commitIds={item.dependencyCommitIds}
 										branchNameByCommitId={branchNameByCommitId}
 										className={getRowButtonClassName({ iconOnly: true })}

@@ -60,7 +60,7 @@ export const Outline: FC<
 	const { selectOutline } = use(OutlineSelectionContext);
 
 	const selectBranch = (branch: BranchOperand) => {
-		selectOutline(branchOperand(branch));
+		selectOutline(projectId, branchOperand(branch));
 		focusSelectionScope("outline");
 	};
 

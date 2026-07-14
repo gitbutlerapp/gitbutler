@@ -147,6 +147,7 @@ const OperandC: FC<
 				render={
 					<OperationTarget
 						enabled={navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
+						projectId={projectId}
 						target={operand}
 						activeOperation={activeOperation}
 						outline={outline}
@@ -234,7 +235,7 @@ const UncommittedFileRow: FC<{
 							branchNameByCommitId={branchNameByCommitId}
 							inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 							isSelected={isSelected}
-							onSelect={() => selectOutline(operand)}
+							onSelect={() => selectOutline(projectId, operand)}
 						/>
 					}
 				/>

@@ -38,7 +38,15 @@ const getOperationTypeFromData = (data: DropData): OperationType | null => {
 	);
 };
 
-const useOperationDropTarget = ({ enabled, target }: { enabled: boolean; target: Operand }) => {
+const useOperationDropTarget = ({
+	enabled,
+	projectId,
+	target,
+}: {
+	enabled: boolean;
+	projectId: string;
+	target: Operand;
+}) => {
 	const { updatePointerTransfer, cancelMode, exitMode } = use(OutlineModeContext);
 	const { mutate: runOperation } = useRunOperation();
 	const dropRef = useRef<HTMLElement>(null);
@@ -80,10 +88,10 @@ const useOperationDropTarget = ({ enabled, target }: { enabled: boolean; target:
 
 				const operationType = getOperationTypeFromData(args.self.data);
 
-				updatePointerTransfer(target, operationType);
+				updatePointerTransfer(projectId, target, operationType);
 			},
 			onDragLeave: () => {
-				updatePointerTransfer(null, null);
+				updatePointerTransfer(projectId, null, null);
 			},
 			onDrop: (args) => {
 				const [innerMost] = args.location.current.dropTargets;
@@ -103,15 +111,15 @@ const useOperationDropTarget = ({ enabled, target }: { enabled: boolean; target:
 						: null;
 
 				if (!operation) {
-					cancelMode();
+					cancelMode(projectId);
 					return;
 				}
 
-				exitMode();
+				exitMode(projectId);
 				runOperation(operation.operation);
 			},
 		});
-	}, [cancelMode, exitMode, runOperation, target, updatePointerTransfer]);
+	}, [cancelMode, exitMode, projectId, runOperation, target, updatePointerTransfer]);
 
 	return { dropRef };
 };
@@ -123,12 +131,13 @@ export type ActiveOperation = { operationType: OperationType; tooltip?: string |
 export const OperationTarget: FC<
 	{
 		enabled: boolean;
+		projectId: string;
 		target: Operand;
 		activeOperation?: ActiveOperation | null;
 		outline: OperationTargetOutline;
 	} & useRender.ComponentProps<"div">
-> = ({ enabled, target, activeOperation, outline, render, ...props }) => {
-	const { dropRef } = useOperationDropTarget({ enabled, target });
+> = ({ enabled, projectId, target, activeOperation, outline, render, ...props }) => {
+	const { dropRef } = useOperationDropTarget({ enabled, projectId, target });
 
 	const targetEl = useRender({
 		render,

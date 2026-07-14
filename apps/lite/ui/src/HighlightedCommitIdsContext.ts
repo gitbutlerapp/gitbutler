@@ -3,8 +3,8 @@ import type { ProjectRegistry } from "#ui/ProjectRegistry.ts";
 
 type HighlightedCommitIdsContext = {
 	highlightedCommitIds: Set<string>;
-	setHighlightedCommitIds: (commitIds: Array<string>) => void;
-	clearHighlightedCommitIds: () => void;
+	setHighlightedCommitIds: (projectId: string, commitIds: Array<string>) => void;
+	clearHighlightedCommitIds: (projectId: string) => void;
 };
 
 export const HighlightedCommitIdsContext = createContext({} as HighlightedCommitIdsContext);

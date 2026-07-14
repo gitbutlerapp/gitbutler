@@ -56,9 +56,9 @@ export const useSyncCoreCaches = () => {
 		if (workspace === null) return;
 
 		queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
-		updateOutlineReferences(workspace.replacedCommits, workspace.headInfo);
-		updateCheckedCommitReferences(workspace.replacedCommits);
-		updateCommitTargetReferences(workspace.replacedCommits);
+		updateOutlineReferences(projectId, workspace.replacedCommits, workspace.headInfo);
+		updateCheckedCommitReferences(projectId, workspace.replacedCommits);
+		updateCommitTargetReferences(projectId, workspace.replacedCommits);
 	};
 };
 
@@ -417,7 +417,7 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 			syncCoreCaches(mutation.client, projectId, response);
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null)
-				setCommitTarget({ type: "commit", subject: response.newCommit });
+				setCommitTarget(projectId, { type: "commit", subject: response.newCommit });
 
 			if (response.rejectedChanges.length > 0) {
 				toastManager.add(
@@ -524,7 +524,9 @@ export const useCommitInsertBlank = () => {
 			const stackId = getHeadInfoIndex(response.workspace.headInfo).commitContextById(
 				response.newCommit,
 			)?.stack.id;
-			if (stackId != null) selectOutline(commitOperand({ stackId, commitId: response.newCommit }));
+			if (stackId != null) {
+				selectOutline(input.projectId, commitOperand({ stackId, commitId: response.newCommit }));
+			}
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -838,8 +840,8 @@ export const useUpdateBranchName = ({
 				});
 			});
 
-			updateOutlineReferences(oldBranch, newBranch);
-			updateCommitTargetReferences(oldBranch, newBranch);
+			updateOutlineReferences(projectId, oldBranch, newBranch);
+			updateCommitTargetReferences(projectId, oldBranch, newBranch);
 
 			await moveDraftPR({
 				queryClient: mutation.client,
@@ -850,7 +852,7 @@ export const useUpdateBranchName = ({
 				newBranch: newRef.displayName,
 			});
 
-			exitMode();
+			exitMode(projectId);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console

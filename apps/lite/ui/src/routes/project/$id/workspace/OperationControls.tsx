@@ -131,13 +131,14 @@ const Controls: FC<{
 	);
 };
 
-const CheckedCommitOperationControls: FC<{ checkedCommitCount: number }> = ({
+const CheckedCommitOperationControls: FC<{ checkedCommitCount: number; projectId: string }> = ({
 	checkedCommitCount,
+	projectId,
 }) => {
 	const { clearCheckedCommits } = use(CheckedCommitIdsContext);
 
 	const cancel = () => {
-		clearCheckedCommits();
+		clearCheckedCommits(projectId);
 		focusSelectionScope("outline");
 	};
 
@@ -169,14 +170,14 @@ const AbsorbOperationControls: FC<{
 	const absorbMutation = useAbsorb({ projectId });
 
 	const run = () => {
-		exitMode();
+		exitMode(projectId);
 		focusSelectionScope("outline");
 
 		absorbMutation.mutate(absorptionPlan.data);
 	};
 
 	const cancel = () => {
-		cancelMode();
+		cancelMode(projectId);
 		focusSelectionScope("outline");
 	};
 
@@ -202,11 +203,12 @@ const AbsorbOperationControls: FC<{
 const TransferTypeToggleGroup: FC<{
 	operations: OperationsByType;
 	operationType: OperationType;
-}> = ({ operations, operationType }) => {
+	projectId: string;
+}> = ({ operations, operationType, projectId }) => {
 	const { updateTransferOperationType } = use(OutlineModeContext);
 
 	const setOperationType = (operationType: OperationType) =>
-		updateTransferOperationType(operationType);
+		updateTransferOperationType(projectId, operationType);
 
 	useHotkeys([
 		{
@@ -285,7 +287,8 @@ const TransferKeyboardOperationControls: FC<{
 	headInfoIndex: HeadInfoIndex;
 	mode: KeyboardTransferMode;
 	outlineNavigationIndex: NavigationIndex<Operand>;
-}> = ({ headInfoIndex, mode, outlineNavigationIndex }) => {
+	projectId: string;
+}> = ({ headInfoIndex, mode, outlineNavigationIndex, projectId }) => {
 	const { outlineSelection } = use(OutlineSelectionContext);
 	const { exitMode, cancelMode } = use(OutlineModeContext);
 	const selection = resolveOutlineSelection(outlineSelection, outlineNavigationIndex);
@@ -299,7 +302,7 @@ const TransferKeyboardOperationControls: FC<{
 	const operation = operations[mode.operationType];
 
 	const run = () => {
-		exitMode();
+		exitMode(projectId);
 		focusSelectionScope("outline");
 
 		if (!operation) return;
@@ -308,13 +311,17 @@ const TransferKeyboardOperationControls: FC<{
 	};
 
 	const cancel = () => {
-		cancelMode();
+		cancelMode(projectId);
 		focusSelectionScope("outline");
 	};
 
 	return (
 		<Container>
-			<TransferTypeToggleGroup operations={operations} operationType={mode.operationType} />
+			<TransferTypeToggleGroup
+				operations={operations}
+				operationType={mode.operationType}
+				projectId={projectId}
+			/>
 			<Separator />
 			<ControlsRow>
 				<Label>
@@ -354,7 +361,10 @@ export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Ope
 		Match.tagsExhaustive({
 			Default: () =>
 				checkedCommitCount > 0 && (
-					<CheckedCommitOperationControls checkedCommitCount={checkedCommitCount} />
+					<CheckedCommitOperationControls
+						checkedCommitCount={checkedCommitCount}
+						projectId={projectId}
+					/>
 				),
 			Absorb: (mode) =>
 				headInfoIndex && (
@@ -373,6 +383,7 @@ export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Ope
 									headInfoIndex={headInfoIndex}
 									mode={mode}
 									outlineNavigationIndex={outlineNavigationIndex}
+									projectId={projectId}
 								/>
 							),
 					}),

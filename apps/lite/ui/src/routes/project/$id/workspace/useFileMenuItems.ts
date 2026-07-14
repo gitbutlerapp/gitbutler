@@ -51,7 +51,7 @@ export const useFileMenuItems = ({
 	const discardWorktreeChanges = useDiscardWorktreeChanges();
 	const openInEditor = useOpenInEditor();
 	const cutFile = () => {
-		enterKeyboardTransferMode(fileOperand(operand));
+		enterKeyboardTransferMode(projectId, fileOperand(operand));
 		focusSelectionScope("outline");
 	};
 
@@ -152,7 +152,7 @@ export const useFileMenuItems = ({
 					}),
 					Match.when({ parent: { _tag: "UncommittedChanges" } }, (operand) => {
 						const absorb = () => {
-							enterAbsorbMode(fileOperand(operand), {
+							enterAbsorbMode(projectId, fileOperand(operand), {
 								type: "treeChanges",
 								subject: {
 									changes: [change],

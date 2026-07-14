@@ -62,6 +62,7 @@ export const focusAdjacentSelectionScope = ({
 export const useNavigationIndexHotkeys = <T>({
 	navigationIndex,
 	group,
+	projectId,
 	select,
 	selection,
 	ref,
@@ -71,6 +72,7 @@ export const useNavigationIndexHotkeys = <T>({
 }: {
 	navigationIndex: NavigationIndex<T>;
 	group: CommandGroup;
+	projectId: string;
 	select: (newItem: T) => void;
 	selection: T | null;
 	ref: React.RefObject<HTMLElement | null>;
@@ -262,7 +264,7 @@ export const useNavigationIndexHotkeys = <T>({
 
 		const source = operationSourceForItem(selection);
 
-		enterKeyboardTransferMode(source, operationType);
+		enterKeyboardTransferMode(projectId, source, operationType);
 		focusSelectionScope("outline");
 	};
 

@@ -139,6 +139,7 @@ export const CommitRow: FC<
 
 					if (newBranchStack && newBranchStack.id !== null) {
 						selectOutline(
+							projectId,
 							branchOperand({
 								stackId: newBranchStack.id,
 								branchRef: response.newRef.fullNameBytes,
@@ -165,6 +166,7 @@ export const CommitRow: FC<
 			{
 				onSuccess: (response) => {
 					selectOutline(
+						projectId,
 						rewrittenCommitSelection({
 							selection: selectionAfterDiscard,
 							replacedCommits: response.workspace.replacedCommits,
@@ -177,17 +179,17 @@ export const CommitRow: FC<
 	};
 
 	const cutCommit = () => {
-		enterKeyboardTransferMode(operand);
+		enterKeyboardTransferMode(projectId, operand);
 		focusSelectionScope("outline");
 	};
 
 	const startEditing = () => {
-		enterRewordMode(commitOperandV);
+		enterRewordMode(projectId, commitOperandV);
 	};
 
 	const endEditing = () => {
-		exitMode();
-		selectOutline(operand);
+		exitMode(projectId);
+		selectOutline(projectId, operand);
 	};
 
 	const toastManager = Toast.useToastManager();
@@ -226,7 +228,7 @@ export const CommitRow: FC<
 	};
 
 	const setCommitTarget = () => {
-		updateCommitTarget(relativeTo);
+		updateCommitTarget(projectId, relativeTo);
 	};
 
 	const composeCommitHere = () => {
@@ -342,6 +344,7 @@ export const CommitRow: FC<
 	return (
 		<ItemRow
 			{...restProps}
+			projectId={projectId}
 			operand={operand}
 			isHighlighted={isHighlighted}
 			onContextMenu={(event) => {
@@ -368,7 +371,7 @@ export const CommitRow: FC<
 						nativeButton
 						render={<Tooltip.Trigger />}
 						onCheckedChange={(checked) => {
-							setCommitsChecked([commit.id], checked);
+							setCommitsChecked(projectId, [commit.id], checked);
 						}}
 					/>
 					<Tooltip.Portal>

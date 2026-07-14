@@ -5,10 +5,11 @@ import { ComponentProps, FC, use } from "react";
 
 export const DependencyIndicator: FC<
 	{
+		projectId: string;
 		commitIds: Array<string>;
 		branchNameByCommitId: (commitId: string) => string | undefined;
 	} & ComponentProps<"button">
-> = ({ commitIds, branchNameByCommitId, ...restProps }) => {
+> = ({ projectId, commitIds, branchNameByCommitId, ...restProps }) => {
 	const { setHighlightedCommitIds, clearHighlightedCommitIds } = use(HighlightedCommitIdsContext);
 	const branchNames = new Set(
 		commitIds.flatMap((commitId) => branchNameByCommitId(commitId) ?? []),
@@ -17,7 +18,8 @@ export const DependencyIndicator: FC<
 		branchNames.size > 0
 			? `Depends on ${branchNames.values().toArray().join(", ")}`
 			: "Unknown dependencies";
-	const highlightCommitIds = () => setHighlightedCommitIds(commitIds);
+	const highlightCommitIds = () => setHighlightedCommitIds(projectId, commitIds);
+	const clearHighlightCommitIds = () => clearHighlightedCommitIds(projectId);
 
 	return (
 		<Tooltip.Root>
@@ -25,9 +27,9 @@ export const DependencyIndicator: FC<
 				{...restProps}
 				onMouseEnter={highlightCommitIds}
 				// TODO: we should also clear if the element unmounts
-				onMouseLeave={clearHighlightedCommitIds}
+				onMouseLeave={clearHighlightCommitIds}
 				onFocus={highlightCommitIds}
-				onBlur={clearHighlightedCommitIds}
+				onBlur={clearHighlightCommitIds}
 				aria-label={tooltip}
 			/>
 			<Tooltip.Portal>

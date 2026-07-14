@@ -8,12 +8,17 @@ import { createContext } from "react";
 
 export type OutlineSelectionContext = {
 	outlineSelection: Operand | null;
-	selectOutline: (selection: Operand | null) => void;
+	selectOutline: (projectId: string, selection: Operand | null) => void;
 	updateRewrittenCommitReferences: (
+		projectId: string,
 		replacedCommits: Record<string, string>,
 		headInfo: RefInfo,
 	) => void;
-	updateRewrittenBranchReferences: (oldBranch: BranchOperand, newBranch: BranchOperand) => void;
+	updateRewrittenBranchReferences: (
+		projectId: string,
+		oldBranch: BranchOperand,
+		newBranch: BranchOperand,
+	) => void;
 };
 
 export const OutlineSelectionContext = createContext({} as OutlineSelectionContext);
@@ -21,7 +26,7 @@ OutlineSelectionContext.displayName = "OutlineSelectionContext";
 
 export type FilesSelectionContext = {
 	filesSelection: string | null;
-	selectFiles: (selection: string | null) => void;
+	selectFiles: (projectId: string, selection: string | null) => void;
 };
 
 export const FilesSelectionContext = createContext({} as FilesSelectionContext);
@@ -29,7 +34,7 @@ FilesSelectionContext.displayName = "FilesSelectionContext";
 
 export type DiffSelectionContext = {
 	diffSelection: HunkOperand | null;
-	selectDiff: (selection: HunkOperand | null) => void;
+	selectDiff: (projectId: string, selection: HunkOperand | null) => void;
 };
 
 export const DiffSelectionContext = createContext({} as DiffSelectionContext);
@@ -37,15 +42,23 @@ DiffSelectionContext.displayName = "DiffSelectionContext";
 
 export type OutlineModeContext = {
 	outlineMode: OutlineMode;
-	startRewordCommit: (commit: CommitOperand) => void;
-	startRenameBranch: (branch: BranchOperand) => void;
-	enterTransferMode: (mode: TransferMode) => void;
-	enterKeyboardTransferMode: (source: Operand, operationType?: OperationType) => void;
-	enterAbsorbMode: (source: Operand, sourceTarget: AbsorptionTarget) => void;
-	updatePointerTransfer: (target: Operand | null, operationType: OperationType | null) => void;
-	updateTransferOperationType: (operationType: OperationType) => void;
-	exitMode: () => void;
-	cancelMode: () => void;
+	startRewordCommit: (projectId: string, commit: CommitOperand) => void;
+	startRenameBranch: (projectId: string, branch: BranchOperand) => void;
+	enterTransferMode: (projectId: string, mode: TransferMode) => void;
+	enterKeyboardTransferMode: (
+		projectId: string,
+		source: Operand,
+		operationType?: OperationType,
+	) => void;
+	enterAbsorbMode: (projectId: string, source: Operand, sourceTarget: AbsorptionTarget) => void;
+	updatePointerTransfer: (
+		projectId: string,
+		target: Operand | null,
+		operationType: OperationType | null,
+	) => void;
+	updateTransferOperationType: (projectId: string, operationType: OperationType) => void;
+	exitMode: (projectId: string) => void;
+	cancelMode: (projectId: string) => void;
 };
 
 export const OutlineModeContext = createContext({} as OutlineModeContext);

@@ -185,12 +185,12 @@ export const BranchRow: FC<
 	});
 
 	const startEditing = () => {
-		enterRenameMode(branchOperandV);
+		enterRenameMode(projectId, branchOperandV);
 	};
 
 	const endEditing = () => {
-		exitMode();
-		selectOutline(operand);
+		exitMode(projectId);
+		selectOutline(projectId, operand);
 	};
 
 	const toastManager = Toast.useToastManager();
@@ -234,7 +234,7 @@ export const BranchRow: FC<
 		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
 
 	const setCommitTarget = () => {
-		updateCommitTarget(relativeTo);
+		updateCommitTarget(projectId, relativeTo);
 	};
 
 	const composeCommitHere = () => {
@@ -243,7 +243,7 @@ export const BranchRow: FC<
 	};
 
 	const cutBranch = () => {
-		enterKeyboardTransferMode(operand);
+		enterKeyboardTransferMode(projectId, operand);
 		focusSelectionScope("outline");
 	};
 
@@ -277,6 +277,7 @@ export const BranchRow: FC<
 
 					if (newBranchStack && newBranchStack.id !== null) {
 						selectOutline(
+							projectId,
 							branchOperand({
 								stackId: newBranchStack.id,
 								branchRef: response.newRef.fullNameBytes,
@@ -410,6 +411,7 @@ export const BranchRow: FC<
 	return (
 		<ItemRow
 			{...restProps}
+			projectId={projectId}
 			operand={operand}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);

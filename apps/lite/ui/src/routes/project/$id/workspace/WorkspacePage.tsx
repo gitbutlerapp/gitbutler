@@ -122,7 +122,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 				if (focusedSelectionScope === "files" && filesVisible)
 					focusSelectionScope(outlineVisible ? "outline" : "diff");
 
-				toggleFiles();
+				toggleFiles(projectId);
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -279,7 +279,7 @@ const WorkspacePage: FC = () => {
 	useWorkspaceHotkeys(projectId);
 
 	const selectBranch = (branch: BranchOperand) => {
-		selectOutline(branchOperand(branch));
+		selectOutline(projectId, branchOperand(branch));
 		focusSelectionScope("outline");
 	};
 
@@ -456,56 +456,79 @@ const WorkspacePage: FC = () => {
 export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const [workspace, updateWorkspace] = use(WorkspaceRegistryContext)(projectId);
-	const dispatchWorkspace = (action: WorkspaceAction) =>
-		updateWorkspace((current) => reduceWorkspace(current, action));
+	const dispatchWorkspace = (projectId: string, action: WorkspaceAction) =>
+		updateWorkspace(projectId, (current) => reduceWorkspace(current, action));
 	const outlineSelectionContext: OutlineSelectionContext = {
 		outlineSelection: workspace.selection.outline,
-		selectOutline: (selection) => dispatchWorkspace({ type: "selectOutline", selection }),
-		updateRewrittenCommitReferences: (replacedCommits, headInfo) =>
-			dispatchWorkspace({ type: "updateRewrittenCommitReferences", replacedCommits, headInfo }),
-		updateRewrittenBranchReferences: (oldBranch, newBranch) =>
-			dispatchWorkspace({ type: "updateRewrittenBranchReferences", oldBranch, newBranch }),
+		selectOutline: (projectId, selection) =>
+			dispatchWorkspace(projectId, { type: "selectOutline", selection }),
+		updateRewrittenCommitReferences: (projectId, replacedCommits, headInfo) =>
+			dispatchWorkspace(projectId, {
+				type: "updateRewrittenCommitReferences",
+				replacedCommits,
+				headInfo,
+			}),
+		updateRewrittenBranchReferences: (projectId, oldBranch, newBranch) =>
+			dispatchWorkspace(projectId, {
+				type: "updateRewrittenBranchReferences",
+				oldBranch,
+				newBranch,
+			}),
 	};
 	const filesSelectionContext: FilesSelectionContext = {
 		filesSelection: workspace.selection.files,
-		selectFiles: (selection) => dispatchWorkspace({ type: "selectFiles", selection }),
+		selectFiles: (projectId, selection) =>
+			dispatchWorkspace(projectId, { type: "selectFiles", selection }),
 	};
 	const diffSelectionContext: DiffSelectionContext = {
 		diffSelection: workspace.selection.diff,
-		selectDiff: (selection) => dispatchWorkspace({ type: "selectDiff", selection }),
+		selectDiff: (projectId, selection) =>
+			dispatchWorkspace(projectId, { type: "selectDiff", selection }),
 	};
 	const outlineModeContext: OutlineModeContext = {
 		outlineMode: workspace.mode,
-		startRewordCommit: (commit) => dispatchWorkspace({ type: "startRewordCommit", commit }),
-		startRenameBranch: (branch) => dispatchWorkspace({ type: "startRenameBranch", branch }),
-		enterTransferMode: (mode) => dispatchWorkspace({ type: "enterTransferMode", mode }),
-		enterKeyboardTransferMode: (source, operationType) =>
-			dispatchWorkspace({ type: "enterKeyboardTransferMode", source, operationType }),
-		enterAbsorbMode: (source, sourceTarget) =>
-			dispatchWorkspace({ type: "enterAbsorbMode", source, sourceTarget }),
-		updatePointerTransfer: (target, operationType) =>
-			dispatchWorkspace({ type: "updatePointerTransfer", target, operationType }),
-		updateTransferOperationType: (operationType) =>
-			dispatchWorkspace({ type: "updateTransferOperationType", operationType }),
-		exitMode: () => dispatchWorkspace({ type: "exitMode" }),
-		cancelMode: () => dispatchWorkspace({ type: "cancelMode" }),
+		startRewordCommit: (projectId, commit) =>
+			dispatchWorkspace(projectId, { type: "startRewordCommit", commit }),
+		startRenameBranch: (projectId, branch) =>
+			dispatchWorkspace(projectId, { type: "startRenameBranch", branch }),
+		enterTransferMode: (projectId, mode) =>
+			dispatchWorkspace(projectId, { type: "enterTransferMode", mode }),
+		enterKeyboardTransferMode: (projectId, source, operationType) =>
+			dispatchWorkspace(projectId, {
+				type: "enterKeyboardTransferMode",
+				source,
+				operationType,
+			}),
+		enterAbsorbMode: (projectId, source, sourceTarget) =>
+			dispatchWorkspace(projectId, { type: "enterAbsorbMode", source, sourceTarget }),
+		updatePointerTransfer: (projectId, target, operationType) =>
+			dispatchWorkspace(projectId, { type: "updatePointerTransfer", target, operationType }),
+		updateTransferOperationType: (projectId, operationType) =>
+			dispatchWorkspace(projectId, { type: "updateTransferOperationType", operationType }),
+		exitMode: (projectId) => dispatchWorkspace(projectId, { type: "exitMode" }),
+		cancelMode: (projectId) => dispatchWorkspace(projectId, { type: "cancelMode" }),
 	};
 
 	const filesVisibleContext = use(FilesVisibleRegistryContext)(projectId);
 	const [commitTarget, updateCommitTarget] = use(CommitTargetRegistryContext)(projectId);
 	const commitTargetContext = {
 		commitTarget,
-		setCommitTarget: (commitTarget: RelativeTo | null) => updateCommitTarget(() => commitTarget),
-		updateRewrittenCommitReferences: (replacedCommits: Record<string, string>) =>
-			updateCommitTarget((current) => {
+		setCommitTarget: (projectId: string, commitTarget: RelativeTo | null) =>
+			updateCommitTarget(projectId, () => commitTarget),
+		updateRewrittenCommitReferences: (projectId: string, replacedCommits: Record<string, string>) =>
+			updateCommitTarget(projectId, (current) => {
 				if (current?.type !== "commit") return current;
 				const commitId = replacedCommits[current.subject];
 				return commitId === undefined || commitId === current.subject
 					? current
 					: { type: "commit", subject: commitId };
 			}),
-		updateRewrittenBranchReferences: (oldBranch: BranchOperand, newBranch: BranchOperand) =>
-			updateCommitTarget((current) =>
+		updateRewrittenBranchReferences: (
+			projectId: string,
+			oldBranch: BranchOperand,
+			newBranch: BranchOperand,
+		) =>
+			updateCommitTarget(projectId, (current) =>
 				current?.type === "referenceBytes" && bytesEqual(current.subject, oldBranch.branchRef)
 					? { type: "referenceBytes", subject: newBranch.branchRef }
 					: current,
@@ -517,25 +540,26 @@ export const Route: FC = () => {
 	);
 	const highlightedCommitIdsContext = {
 		highlightedCommitIds,
-		setHighlightedCommitIds: (commitIds: Array<string>) =>
-			setHighlightedCommitIds((current) => {
+		setHighlightedCommitIds: (projectId: string, commitIds: Array<string>) =>
+			setHighlightedCommitIds(projectId, (current) => {
 				const next = new Set(commitIds);
 				return next.size === current.size && next.isSubsetOf(current) ? current : next;
 			}),
-		clearHighlightedCommitIds: () => setHighlightedCommitIds(() => new Set()),
+		clearHighlightedCommitIds: (projectId: string) =>
+			setHighlightedCommitIds(projectId, () => new Set()),
 	};
 
 	const [checkedCommitIds, setCheckedCommitIds] = use(CheckedCommitIdsRegistryContext)(projectId);
 	const checkedCommitIdsContext = {
 		checkedCommitIds,
-		setCommitsChecked: (commitIds: Array<string>, checked: boolean) =>
-			setCheckedCommitIds((current) => {
+		setCommitsChecked: (projectId: string, commitIds: Array<string>, checked: boolean) =>
+			setCheckedCommitIds(projectId, (current) => {
 				const toggled = new Set(commitIds);
 				return checked ? current.union(toggled) : current.difference(toggled);
 			}),
-		clearCheckedCommits: () => setCheckedCommitIds(() => new Set()),
-		updateRewrittenCommitReferences: (replacedCommits: Record<string, string>) =>
-			setCheckedCommitIds((current) => {
+		clearCheckedCommits: (projectId: string) => setCheckedCommitIds(projectId, () => new Set()),
+		updateRewrittenCommitReferences: (projectId: string, replacedCommits: Record<string, string>) =>
+			setCheckedCommitIds(projectId, (current) => {
 				let next: Set<string> | undefined;
 				for (const id of current) {
 					const newId = replacedCommits[id];

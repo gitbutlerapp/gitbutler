@@ -57,6 +57,7 @@ const useFilesTreeHotkeys = ({
 		if (!change) return;
 
 		enterAbsorbMode(
+			projectId,
 			fileOperand({ parent: uncommittedChangesFileParent, path: selectedChangesFile }),
 			{
 				type: "treeChanges",
@@ -104,6 +105,7 @@ const useFilesTreeHotkeys = ({
 	useNavigationIndexHotkeys({
 		navigationIndex,
 		group: "File",
+		projectId,
 		select: onFileSelection,
 		selection,
 		ref,

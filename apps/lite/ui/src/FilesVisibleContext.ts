@@ -2,7 +2,7 @@ import { createContext } from "react";
 
 type FilesVisibleContext = {
 	filesVisible: boolean;
-	toggleFiles: () => void;
+	toggleFiles: (projectId: string) => void;
 };
 
 export const FilesVisibleContext = createContext({} as FilesVisibleContext);

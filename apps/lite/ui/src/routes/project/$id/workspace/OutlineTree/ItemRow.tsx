@@ -40,14 +40,15 @@ const CommitTargetIndicator: FC = () => (
 export const ItemRow: FC<
 	{
 		operand: Operand;
+		projectId: string;
 		isCommitTarget?: boolean;
 	} & Omit<ComponentProps<typeof Row>, "inert" | "isSelected" | "onSelect">
-> = ({ operand, isCommitTarget, ...props }) => {
+> = ({ operand, projectId, isCommitTarget, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const { outlineSelection, selectOutline } = use(OutlineSelectionContext);
 	const isSelected = isOutlineSelected(outlineSelection, navigationIndex, operand);
 	const selectItem = () => {
-		selectOutline(operand);
+		selectOutline(projectId, operand);
 	};
 
 	return (

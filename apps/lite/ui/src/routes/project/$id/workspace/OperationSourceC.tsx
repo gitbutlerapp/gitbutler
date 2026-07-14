@@ -57,6 +57,7 @@ export const OperationSourceC: FC<
 	);
 	const onDragStart = useEffectEvent(() => {
 		enterTransferMode(
+			projectId,
 			pointerTransferMode({
 				source,
 				target: null,
@@ -80,10 +81,10 @@ export const OperationSourceC: FC<
 			onDrop: ({ location }) => {
 				if (location.current.dropTargets.length > 0) return;
 
-				cancelMode();
+				cancelMode(projectId);
 			},
 		});
-	}, [cancelMode]);
+	}, [cancelMode, projectId]);
 
 	const operationSource = getOperationSource(outlineMode);
 	const isActiveSource = operationSource ? operandEquals(operationSource, source) : false;
