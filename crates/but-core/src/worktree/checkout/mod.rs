@@ -28,5 +28,4 @@ pub struct Outcome {
 }
 
 pub(crate) mod function;
-mod tree;
 mod utils;

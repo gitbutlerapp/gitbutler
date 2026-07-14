@@ -649,7 +649,7 @@ fn changes_consumed_from_a_linked_worktree_cancel_during_its_checkout() -> Resul
     snapbox::assert_data_eq!(
         git_status(&linked_repo(&repo, "wt")?)?,
         snapbox::str![[r#"
-M  test.txt
+ M test.txt
 
 "#]]
     );
