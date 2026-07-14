@@ -75,6 +75,23 @@ function injectBackendEndpoints(api: BackendApi) {
 					const prs = response.map((pr) => mapForgeReviewToPullRequest(pr));
 					return prAdapter.addMany(prAdapter.getInitialState(), prs);
 				},
+				async onQueryStarted(_projectId, { dispatch, queryFulfilled }) {
+					try {
+						// `list_reviews` updates the backend forge cache. Workspace PR
+						// associations are projected from that cache, so rebuild the
+						// workspace view only after the cache-writing request succeeds.
+						await queryFulfilled;
+						dispatch(
+							api.util.invalidateTags([
+								invalidatesList(ReduxTag.Stacks),
+								invalidatesList(ReduxTag.StackDetails),
+							]),
+						);
+					} catch {
+						// Keep the last cache-derived workspace view when the forge is
+						// unavailable. The query exposes the listing error separately.
+					}
+				},
 				providesTags: [providesList(ReduxTag.PullRequests)],
 			}),
 			// One-shot live fetch used by `refresh()` to repopulate the DB

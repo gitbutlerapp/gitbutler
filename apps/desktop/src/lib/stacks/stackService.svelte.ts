@@ -680,10 +680,6 @@ export class StackService {
 		return this.backendApi.endpoints.stashIntoBranch.mutate;
 	}
 
-	get updateBranchPrNumber() {
-		return this.backendApi.endpoints.updateBranchPrNumber.mutate;
-	}
-
 	get updateBranchName() {
 		return this.backendApi.endpoints.updateBranchName.useMutation({
 			sideEffect: (_, args) => {

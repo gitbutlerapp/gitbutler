@@ -289,15 +289,9 @@
 				posthogLabel: forgeInfo?.posthogLabel,
 			});
 
-			// Store the new pull request number with the branch data.
-			if (params.stackId) {
-				await stackService.updateBranchPrNumber({
-					projectId,
-					stackId: params.stackId,
-					branchName: params.branchName,
-					prNumber: pr.number,
-				});
-			}
+			// The PR association is now derived from the forge review cache (the
+			// backend optimistically caches the just-created review), so there is
+			// no longer any PR number to persist onto branch metadata here.
 
 			// If we now have two or more pull requests we add a stack table to the description.
 			prNumbers[currentIndex] = pr.number;

@@ -218,7 +218,14 @@ function injectBackendEndpoints(api: BackendApi) {
 			>({
 				extraOptions: { command: "publish_review" },
 				query: (args) => args,
-				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)],
+				// The backend optimistically caches the created review, so refetch
+				// the head_info-backed workspace view (Stacks/StackDetails) to surface
+				// the PR association without waiting for the next review-list sync.
+				invalidatesTags: [
+					invalidatesList(ReduxTag.PullRequests),
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.StackDetails),
+				],
 			}),
 			getReview: build.query<ForgeReview, { projectId: string; reviewId: number }>({
 				extraOptions: { command: "get_review" },
