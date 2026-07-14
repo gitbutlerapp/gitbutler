@@ -62,27 +62,27 @@ fn resolve_project_repo_exact(
 }
 
 #[expect(clippy::result_large_err)]
-fn resolve_project_repo_by_discovery(
-    path: &Path,
-) -> std::result::Result<ResolvedProjectRepo, AddProjectOutcome> {
-    let repo = match gix::discover(path) {
-        Ok(repo) => repo,
-        Err(err) => return Err(AddProjectOutcome::NotAGitRepository(err.to_string())),
-    };
-
-    normalize_project_repo(repo)
+fn discover_project_repo(path: &Path) -> std::result::Result<gix::Repository, AddProjectOutcome> {
+    gix::discover(path).map_err(|err| AddProjectOutcome::NotAGitRepository(err.to_string()))
 }
 
-fn find_existing_project_by_git_dir(
+fn find_existing_project_by_common_git_dir(
     all_projects: &[Project],
-    git_dir: &Path,
+    common_git_dir: &Path,
 ) -> Result<Option<Project>> {
+    let common_git_dir = gix::path::realpath(common_git_dir)?;
     for project in all_projects {
         let project = project
             .clone()
             .migrated()
             .unwrap_or_else(|_| project.clone());
-        if project.git_dir_opt() == Some(git_dir) {
+        let Some(project_git_dir) = project.git_dir_opt() else {
+            continue;
+        };
+        let Ok(project_common_git_dir) = gix::path::realpath(project_git_dir) else {
+            continue;
+        };
+        if project_common_git_dir == common_git_dir {
             return Ok(Some(project));
         }
     }
@@ -190,17 +190,23 @@ impl Controller {
             }
             return Ok(AddProjectOutcome::NotADirectory);
         }
-        let resolved_repo = match resolve_project_repo_by_discovery(&resolved_path) {
+        let repo = match discover_project_repo(&resolved_path) {
             Ok(repo) => repo,
             Err(outcome) => return Ok(outcome),
         };
 
         if let Some(existing_project) =
-            find_existing_project_by_git_dir(&all_projects, resolved_repo.repo.git_dir())?
+            find_existing_project_by_common_git_dir(&all_projects, repo.common_dir())?
         {
-            return Ok(AddProjectOutcome::AlreadyExists(existing_project));
+            return Ok(AddProjectOutcome::AlreadyExists(
+                existing_project.with_repository(&repo)?,
+            ));
         }
 
+        let resolved_repo = match normalize_project_repo(repo) {
+            Ok(repo) => repo,
+            Err(outcome) => return Ok(outcome),
+        };
         self.add(resolved_repo.worktree_dir)
     }
 
@@ -222,7 +228,7 @@ impl Controller {
             .list()
             .context("failed to list projects from storage")?;
         if let Some(existing_project) =
-            find_existing_project_by_git_dir(&all_projects, resolved_repo.repo.git_dir())?
+            find_existing_project_by_common_git_dir(&all_projects, resolved_repo.repo.common_dir())?
         {
             return Ok(AddProjectOutcome::AlreadyExists(existing_project));
         }

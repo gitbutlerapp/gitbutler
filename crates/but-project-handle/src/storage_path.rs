@@ -19,20 +19,26 @@ pub fn storage_path_config_key_for_app_channel(channel: AppChannel) -> &'static 
 }
 
 /// Return the path where per-project GitButler data should be stored for `repo`.
+///
+/// The repository's common Git directory anchors storage so all linked worktrees share it.
 pub fn gitbutler_storage_path(repo: &gix::Repository) -> anyhow::Result<PathBuf> {
     gitbutler_storage_path_for_channel(repo, AppChannel::new())
 }
 
 /// Return the path where per-project GitButler data should be stored for `repo` and `channel`.
+///
+/// The repository's common Git directory anchors storage so all linked worktrees share it.
 pub fn gitbutler_storage_path_for_channel(
     repo: &gix::Repository,
     channel: AppChannel,
 ) -> anyhow::Result<PathBuf> {
-    let git_dir = repo.git_dir();
+    let git_dir = gix::path::normalize(repo.common_dir().into(), repo.git_dir())
+        .unwrap_or(Cow::Borrowed(repo.common_dir()))
+        .into_owned();
     let storage_key = storage_path_config_key_for_channel(&channel);
 
     match repo.config_snapshot().trusted_path(storage_key) {
-        Some(Ok(path)) => resolve_configured_storage_path(git_dir, path.as_ref()),
+        Some(Ok(path)) => resolve_configured_storage_path(&git_dir, path.as_ref()),
         Some(Err(err)) => {
             Err(err).with_context(|| format!("{storage_key} contains an invalid path"))
         }
@@ -110,7 +116,7 @@ fn validate_in_git_storage_path(
     Ok(())
 }
 
-/// Name of the default GitButler storage directory inside the git dir.
+/// Name of the default GitButler storage directory inside the common Git directory.
 pub const DEFAULT_STORAGE_DIR_NAME: &str = "gitbutler";
 
 /// Git-dir-relative path of the refresh sentinel, `gitbutler/REFRESH`.

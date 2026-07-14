@@ -5,7 +5,7 @@ use but_project_handle::{
     ProjectHandle, gitbutler_storage_path, gitbutler_storage_path_for_channel,
     storage_path_config_key, storage_path_config_key_for_app_channel,
 };
-use but_testsupport::{CommandExt as _, git, gix_testtools, open_repo};
+use but_testsupport::{CommandExt as _, git, git_at_dir, gix_testtools, open_repo};
 use gix_testtools::tempfile::TempDir;
 
 fn init_repo() -> anyhow::Result<(TempDir, gix::Repository)> {
@@ -97,6 +97,43 @@ fn storage_path_default_stays_in_git_dir() -> anyhow::Result<()> {
     let expected = repo.git_dir().join(default_storage_dir_name());
 
     assert_eq!(gitbutler_storage_path(&repo)?, expected);
+    Ok(())
+}
+
+#[test]
+fn linked_worktrees_share_configured_storage_path() -> anyhow::Result<()> {
+    let tmp = TempDir::new()?;
+    let main_worktree = tmp.path().join("main");
+    let linked_worktree = tmp.path().join("linked");
+    git_at_dir(tmp.path())
+        .args(["init"])
+        .arg(&main_worktree)
+        .run();
+    git_at_dir(&main_worktree)
+        .args(["commit", "--allow-empty", "-m", "initial commit"])
+        .run();
+    git_at_dir(&main_worktree)
+        .args(["worktree", "add", "-b", "feature"])
+        .arg(&linked_worktree)
+        .run();
+
+    let main_repo = set_git_config(
+        &open_repo(&main_worktree)?,
+        storage_path_config_key(),
+        "gitbutler-custom",
+    )?;
+    let linked_repo = open_repo(&linked_worktree)?;
+    let expected = main_repo.common_dir().join("gitbutler-custom");
+    let main_storage = gitbutler_storage_path(&main_repo)?;
+    let linked_storage = gitbutler_storage_path(&linked_repo)?;
+
+    assert_eq!(main_storage, expected);
+    std::fs::create_dir_all(&main_storage)?;
+    assert_eq!(
+        gix::path::realpath(&linked_storage)?,
+        gix::path::realpath(&main_storage)?,
+        "configured storage remains anchored at the common Git directory"
+    );
     Ok(())
 }
 

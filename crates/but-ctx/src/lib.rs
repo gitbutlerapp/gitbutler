@@ -299,12 +299,7 @@ impl Context {
         }
         #[cfg(feature = "legacy")]
         {
-            use anyhow::Context as _;
-            let worktree_dir = repo
-                .workdir()
-                .context("Bare repositories aren't yet supported.")?;
-            let legacy_project = LegacyProject::find_by_worktree_dir(worktree_dir)
-                .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
+            let legacy_project = legacy_project_for_unclassified_repo(&repo)?;
             let cache_mode = CacheMode::Disk;
             Ok(Context {
                 settings,
@@ -420,12 +415,7 @@ impl Context {
             but_project_handle::gitbutler_storage_path_for_channel(&repo, channel)?;
         #[cfg(feature = "legacy")]
         {
-            use anyhow::Context as _;
-            let worktree_dir = repo
-                .workdir()
-                .context("Bare repositories aren't yet supported.")?;
-            let legacy_project = LegacyProject::find_by_worktree_dir(worktree_dir)
-                .unwrap_or_else(|_| default_legacy_project_at_repo(&repo));
+            let legacy_project = legacy_project_for_unclassified_repo(&repo)?;
             let gitdir = repo.git_dir().to_owned();
             let cache_mode = CacheMode::Disk;
             Ok(Context {
@@ -1044,6 +1034,22 @@ fn app_settings(config_dir: impl AsRef<Path>) -> anyhow::Result<AppSettings> {
         &AppSettings::default_settings_path(config_dir.as_ref()),
         None,
     )
+}
+
+#[cfg(feature = "legacy")]
+fn legacy_project_for_unclassified_repo(repo: &gix::Repository) -> anyhow::Result<LegacyProject> {
+    if repo.git_dir() != repo.common_dir() {
+        anyhow::bail!(
+            "unclassified linked worktree context is unsupported; resolve the registered project explicitly"
+        );
+    }
+    let worktree_dir = repo
+        .workdir()
+        .ok_or_else(|| anyhow!("Bare repositories aren't yet supported."))?;
+    match LegacyProject::find_by_worktree_dir(worktree_dir) {
+        Ok(project) => Ok(project),
+        Err(_) => Ok(default_legacy_project_at_repo(repo)),
+    }
 }
 
 #[cfg(feature = "legacy")]

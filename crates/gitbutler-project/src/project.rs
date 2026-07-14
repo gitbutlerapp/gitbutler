@@ -260,8 +260,10 @@ impl Project {
             .context("No project found with the given path")
     }
 
-    /// Finds an existing project by its path or return `None` if there was none. Errors out if not found.
-    // TODO: find by git-dir instead!
+    /// Finds an existing project by path containment or returns `None` if there was no match.
+    ///
+    /// This deliberately does not match sibling linked worktrees. Callers that have explicitly
+    /// classified linked-worktree access can use [`Self::find_by_repository()`] instead.
     pub fn find_by_worktree_dir_opt(worktree_dir: &Path) -> anyhow::Result<Option<Project>> {
         let mut projects = crate::dangerously_list_projects_without_migration()?;
         // Sort projects by longest pathname to shortest.
@@ -290,6 +292,46 @@ impl Project {
             return Ok(None);
         };
         project.migrated().map(Some)
+    }
+
+    /// Find the registered project sharing `repo`'s common Git directory and bind the returned
+    /// metadata to this repository's worktree.
+    ///
+    /// This is an explicit linked-worktree routing boundary. Callers must classify the requested
+    /// operation before using it; general repository discovery should use
+    /// [`Self::find_by_worktree_dir()`] and retain its path-only behavior.
+    pub fn find_by_repository(repo: &gix::Repository) -> anyhow::Result<Project> {
+        Self::find_by_repository_opt(repo)?.context("No project found for the given repository")
+    }
+
+    /// Like [`Self::find_by_repository()`], but returns `None` when there is no common-directory
+    /// match.
+    pub fn find_by_repository_opt(repo: &gix::Repository) -> anyhow::Result<Option<Project>> {
+        let common_git_dir = gix::path::realpath(repo.common_dir())?;
+        for project in crate::dangerously_list_projects_without_migration()? {
+            let Ok(project) = project.migrated() else {
+                continue;
+            };
+            let Ok(project_repo) = project.open_isolated_repo() else {
+                continue;
+            };
+            let Ok(project_common_git_dir) = gix::path::realpath(project_repo.common_dir()) else {
+                continue;
+            };
+            if project_common_git_dir == common_git_dir {
+                return project.with_repository(repo).map(Some);
+            }
+        }
+        Ok(None)
+    }
+
+    pub(crate) fn with_repository(mut self, repo: &gix::Repository) -> anyhow::Result<Self> {
+        self.worktree_dir = repo
+            .workdir()
+            .context("Bare repositories aren't supported")?
+            .to_owned();
+        self.git_dir = repo.git_dir().to_owned();
+        Ok(self)
     }
 }
 

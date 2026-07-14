@@ -2,7 +2,9 @@ use but_core::{RefMetadata as _, WORKSPACE_REF_NAME, ref_metadata::ProjectMeta};
 use but_ctx::{Context, ProjectHandle};
 use but_meta::VirtualBranchesTomlMetadata;
 use but_path::AppChannel;
-use but_testsupport::{CommandExt as _, git, gix_testtools::tempfile::TempDir, open_repo};
+use but_testsupport::{
+    CommandExt as _, git, git_at_dir, gix_testtools::tempfile::TempDir, open_repo,
+};
 use snapbox::ToDebug;
 
 #[test]
@@ -130,6 +132,90 @@ fn discover_with_app_channel_uses_requested_project_data_dir() -> anyhow::Result
         assert_eq!(
             dev_ctx.project_data_dir(),
             dev_ctx.gitdir.join("gitbutler-dev")
+        );
+        Ok(())
+    })
+}
+
+#[test]
+fn linked_worktree_discovery_rejects_unclassified_context() -> anyhow::Result<()> {
+    but_testsupport::isolated_app_data_dir(|| {
+        let tmp = TempDir::new()?;
+        let main_worktree_dir = tmp.path().join("main");
+        let linked_worktree_dir = main_worktree_dir.join(".worktrees/linked");
+
+        git_at_dir(tmp.path())
+            .args(["init"])
+            .arg(&main_worktree_dir)
+            .run();
+        git_at_dir(&main_worktree_dir)
+            .args(["commit", "--allow-empty", "-m", "initial commit"])
+            .run();
+        git_at_dir(&main_worktree_dir)
+            .args(["worktree", "add", "-b", "feature"])
+            .arg(&linked_worktree_dir)
+            .run();
+
+        let registered = gitbutler_project::add(&main_worktree_dir)?.unwrap_project();
+        let err = Context::discover(&linked_worktree_dir)
+            .expect_err("unclassified linked-worktree context must be rejected");
+        assert!(
+            err.to_string().contains("linked worktree"),
+            "the rejection should identify linked-worktree routing: {err:#}"
+        );
+        assert_eq!(
+            gitbutler_project::dangerously_list_projects_without_migration()?.len(),
+            1,
+            "rejected discovery must not register another project"
+        );
+        assert_eq!(
+            registered
+                .open_isolated_repo()?
+                .workdir()
+                .expect("registered repository is non-bare")
+                .canonicalize()?,
+            main_worktree_dir.canonicalize()?,
+            "rejected discovery must not retarget the registered project"
+        );
+        Ok(())
+    })
+}
+
+#[test]
+fn linked_worktree_legacy_context_uses_invocation_checkout() -> anyhow::Result<()> {
+    but_testsupport::isolated_app_data_dir(|| {
+        let tmp = TempDir::new()?;
+        let main_worktree_dir = tmp.path().join("main");
+        let linked_worktree_dir = tmp.path().join("linked");
+
+        git_at_dir(tmp.path())
+            .args(["init"])
+            .arg(&main_worktree_dir)
+            .run();
+        git_at_dir(&main_worktree_dir)
+            .args(["commit", "--allow-empty", "-m", "initial commit"])
+            .run();
+        git_at_dir(&main_worktree_dir)
+            .args(["worktree", "add", "-b", "feature"])
+            .arg(&linked_worktree_dir)
+            .run();
+
+        gitbutler_project::add(&main_worktree_dir)?.unwrap_project();
+        let invocation_repo = gix::discover(&linked_worktree_dir)?;
+        let invocation_project = gitbutler_project::Project::find_by_repository(&invocation_repo)?;
+        let ctx = Context::new_from_legacy_project_and_settings(
+            &invocation_project,
+            but_settings::AppSettings::default(),
+        )?;
+
+        assert_eq!(
+            ctx.repo
+                .get()?
+                .workdir()
+                .expect("linked repository is non-bare")
+                .canonicalize()?,
+            linked_worktree_dir.canonicalize()?,
+            "legacy initialization must retain the invocation checkout"
         );
         Ok(())
     })

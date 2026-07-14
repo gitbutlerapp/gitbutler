@@ -39,6 +39,71 @@ fn set_storage_path_config(
     Ok(repo)
 }
 
+#[test]
+fn linked_worktree_resolves_registered_project() -> anyhow::Result<()> {
+    let data_dir = support::data_dir();
+    let tmp = tempfile::tempdir()?;
+    let main_worktree_dir = tmp.path().join("main");
+    let linked_worktree_dir = tmp.path().join("linked");
+
+    git_at_dir(tmp.path())
+        .args(["init"])
+        .arg(&main_worktree_dir)
+        .run();
+    git_at_dir(&main_worktree_dir)
+        .args(["commit", "--allow-empty", "-m", "initial commit"])
+        .run();
+    git_at_dir(&main_worktree_dir)
+        .args(["worktree", "add", "-b", "feature"])
+        .arg(&linked_worktree_dir)
+        .run();
+
+    let registered = gitbutler_project::add_at_app_data_dir(data_dir.path(), &main_worktree_dir)?
+        .unwrap_project();
+    assert!(
+        gitbutler_project::Project::find_by_worktree_dir_opt(&linked_worktree_dir)?.is_none(),
+        "path-only lookup must not route unsupported linked-worktree mutations"
+    );
+    let resolved = match gitbutler_project::add_with_best_effort_at_app_data_dir(
+        data_dir.path(),
+        &linked_worktree_dir,
+    )? {
+        gitbutler_project::AddProjectOutcome::AlreadyExists(project) => project,
+        other => panic!("expected the registered project, got {other:?}"),
+    };
+
+    assert_eq!(
+        resolved.id, registered.id,
+        "main and linked worktrees have one registered project identity"
+    );
+    assert_eq!(
+        resolved
+            .open_isolated_repo()?
+            .workdir()
+            .expect("linked repository is non-bare")
+            .canonicalize()?,
+        linked_worktree_dir.canonicalize()?,
+        "the resolved metadata stays bound to the invocation worktree"
+    );
+    assert_eq!(
+        gix::open(&linked_worktree_dir)?
+            .common_dir()
+            .canonicalize()?,
+        registered
+            .open_isolated_repo()?
+            .common_dir()
+            .canonicalize()?,
+        "the registered identity is the repository's common Git directory"
+    );
+    assert_eq!(
+        gitbutler_project::dangerously_list_projects_without_migration_with_path(data_dir.path())?
+            .len(),
+        1,
+        "resolving the linked worktree must not register a second project"
+    );
+    Ok(())
+}
+
 mod add {
     use super::*;
 
