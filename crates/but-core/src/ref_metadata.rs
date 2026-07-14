@@ -855,6 +855,7 @@ pub struct WorkspaceStackBranch {
     /// to archived segments, which simply shouldn't disappear from PRs just yet.
     /// However, they must disappear once the whole stack has been integrated and the workspace has moved past it.
     /// Note that this flag must be stored with the workspace as it must survive the deletion of a reference.
+    /// It must not affect graph traversal or workspace projection; those are defined by reachability.
     pub archived: bool,
 }
 

@@ -1328,18 +1328,14 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
         project_meta.clone(),
         but_graph::init::Options::limited(),
     )?;
-    // It looks very empty without reconciliation, as if it had not found any metadata (even though it's there).
-    // The problem is that StackId {1} refers to stack that is also marked as outside the workspace, so it's not really
-    // picked up. But… it also listed as stack (which shouldn't happen), which gets it the stack-id association.
-    // Finally, we end up with nothing as that one segment is also marked archived, which leads to it being truncated
-    // and fully empty stacks are removed. OMG.
-    // AND: all of the above was before the `name` field was removed which served to help with ordering, so maybe the whole
-    // test was tuned for a certain outcome and now this becomes more obvious. But whatever, it's legacy and
-    // it doesn't fail anymore.
+    // The matching `main` segment remains visible even though it has no commits: workspace
+    // projection is intentionally independent of the legacy `archived` flag.
     snapbox::assert_data_eq!(
         but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:4:main[🌳] <> origin/main →:1: on bce0c5e {1}
+    └── 📙:4:main[🌳] <> origin/main →:1:
 
 "#]]
     );
@@ -1361,13 +1357,15 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
         but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
+└── ≡📙:4:main[🌳] <> origin/main →:1: on bce0c5e {1}
+    └── 📙:4:main[🌳] <> origin/main →:1:
 
 "#]]
     );
 
     let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
-    // Reconciliation now preserves the explicitly-written stack layout instead of allowing the
-    // drop-time write path to collapse it again.
+    // Reconciliation retains the projected archived branch instead of dropping its stack;
+    // duplicate branch ownership is still normalized.
     snapbox::assert_data_eq!(
         actual,
         snapbox::str![[r#"
@@ -1381,6 +1379,16 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
             },
             WorkspaceStackBranch {
                 ref_name: "refs/heads/confidence",
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Merged,
+    },
+    WorkspaceStack {
+        id: 2,
+        branches: [
+            WorkspaceStackBranch {
+                ref_name: "refs/heads/main",
                 archived: false,
             },
         ],

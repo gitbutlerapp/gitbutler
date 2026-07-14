@@ -19,9 +19,7 @@ use crate::{
     utils::SeenTable,
     workspace::{
         Stack, StackCommit, StackCommitFlags, StackSegment, TargetCommit, TargetRef, WorkspaceKind,
-        workspace::{
-            WorkspaceReconciliationInput, WorkspaceState, find_segment_owner_indexes_by_refname,
-        },
+        workspace::{WorkspaceReconciliationInput, WorkspaceState},
     },
 };
 
@@ -117,7 +115,6 @@ impl Graph {
             metadata: frame.metadata,
         };
 
-        ws.prune_archived_segments();
         ws.prune_integrated_segments(self);
         ws.mark_remote_reachability(self)?;
         ws.add_commits_on_remote(self);
@@ -1044,56 +1041,6 @@ impl Graph {
 
 /// More processing
 impl WorkspaceState {
-    /// Match the archived flag from our workspace metadata by name with actual segments and prune them,
-    /// top to bottom, but only if they are empty all the way down for safety.
-    /// Doing so naturally shows segments that we have to show, independently of the archived flag.
-    ///
-    /// Match the archived flag by name, that's all we have.
-    /// Note that we chose to not make `archived` intrusive and a member of the respective segment data
-    /// despite other portions of the code possibly being in a good position to do that. Ultimately, they
-    /// all match by name, and we just keep the 'archived' handling localised
-    /// (possibly allowing it to be turned off, etc).
-    ///
-    /// Remove the whole stack if everything is archived.
-    fn prune_archived_segments(&mut self) {
-        let Some(md) = &self.metadata else {
-            return;
-        };
-        let archived_stack_branches = md.stacks(Applied).flat_map(|s| {
-            s.branches
-                .iter()
-                .filter_map(|s| s.archived.then_some(s.ref_name.as_ref()))
-        });
-        let mut empty_stacks_to_remove = Vec::new();
-        for archived_ref_name in archived_stack_branches {
-            let Some((stack_idx, segment_idx)) =
-                find_segment_owner_indexes_by_refname(&self.stacks, archived_ref_name)
-            else {
-                continue;
-            };
-            let stack = &mut self.stacks[stack_idx];
-            let all_downwards_are_empty = stack.segments[segment_idx..]
-                .iter()
-                .all(|s| s.commits.is_empty());
-            if !all_downwards_are_empty {
-                continue;
-            }
-            stack.segments.truncate(segment_idx);
-            if stack.segments.is_empty() {
-                empty_stacks_to_remove.push(stack_idx);
-            }
-        }
-
-        empty_stacks_to_remove.sort();
-        for stack_idx_to_remove in empty_stacks_to_remove.into_iter().rev() {
-            let stack = self.stacks.remove(stack_idx_to_remove);
-            tracing::warn!(
-                "Pruned stack {stack_id:?} from workspace as all its segments were archived",
-                stack_id = stack.id
-            )
-        }
-    }
-
     /// Remove integrated commits and empty branches at the bottom of each
     /// stack, but only those at or below the workspace's target commit.
     /// Integrated commits above the target commit are kept until the user advances
@@ -1475,15 +1422,7 @@ fn remove_empty_branches(
             || own_metadata_stack.is_some_and(|ms| {
                 seg.ref_info
                     .as_ref()
-                    // NOTE: `!b.archived` compensates for `prune_archived_segments`
-                    // running *before* integrated-commit pruning — archived segments
-                    // that still had commits are skipped there, then emptied here.
-                    // Once metadata is kept trimmed and up-to-date we can drop this.
-                    .is_some_and(|ri| {
-                        ms.branches
-                            .iter()
-                            .any(|b| b.ref_name == ri.ref_name && !b.archived)
-                    })
+                    .is_some_and(|ri| ms.branches.iter().any(|b| b.ref_name == ri.ref_name))
             })
     });
 }

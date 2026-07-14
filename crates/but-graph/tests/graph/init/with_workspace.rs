@@ -913,7 +913,7 @@ fn single_stack() -> anyhow::Result<()> {
 }
 
 #[test]
-fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
+fn single_merge_into_main_base_ignores_archived_metadata() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/single-merge-into-main")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -937,8 +937,9 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
 
     // By default, everything with metadata on the branch will show up, even if on the base.
     let ws = graph.into_workspace()?;
+    let expected_workspace = graph_workspace(&ws).to_string();
     snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
+        &expected_workspace,
         snapbox::str![[r#"
 📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 0cc5a6f
 └── ≡📙:3:C on 0cc5a6f {0}
@@ -949,7 +950,7 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
 "#]]
     );
 
-    // But even if everything is marked as archived, only the ones that matter are hidden.
+    // Archiving is legacy metadata and must not change workspace projection.
     for head in &mut meta
         .data_mut()
         .branches
@@ -963,15 +964,10 @@ fn single_merge_into_main_base_archived() -> anyhow::Result<()> {
     let graph = ws
         .graph
         .redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
-    snapbox::assert_data_eq!(
+    assert_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
-        snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 0cc5a6f
-└── ≡📙:3:C {0}
-    └── 📙:3:C
-        └── ·c6d714c (🏘️)
-
-"#]]
+        expected_workspace,
+        "archived metadata must not change workspace projection"
     );
 
     // Finally, when the 'merge' branch is independent, it still works as it should.
@@ -1976,7 +1972,7 @@ fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::
 }
 
 #[test]
-fn just_init_with_archived_branches() -> anyhow::Result<()> {
+fn workspace_projection_ignores_archived_branches() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
     // Note the dedicated workspace branch without a workspace commit.
     snapbox::assert_data_eq!(
@@ -2001,8 +1997,9 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
 
     // By default, we see both stacks as they are configured, which disambiguates them.
     let ws = graph.into_workspace()?;
+    let expected_workspace = graph_workspace(&ws).to_string();
     snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
+        &expected_workspace,
         snapbox::str![[r#"
 📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
 └── ≡📙:3:C on fafd9d0 {0}
@@ -2020,39 +2017,30 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
         .heads[1]
         .archived = true;
 
-    // The first archived segment causes everything else to be hidden.
+    // Archiving any middle segment must not change workspace projection.
     let graph = ws
         .graph
         .redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
     let ws = graph.into_workspace()?;
-    snapbox::assert_data_eq!(
+    assert_eq!(
         graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:3:C {0}
-    └── 📙:3:C
-
-"#]]
+        expected_workspace,
+        "archiving a middle segment must not change workspace projection"
     );
 
     let heads = &mut meta.data_mut().branches.get_mut(&stack_id).unwrap().heads;
     heads[0].archived = true;
     heads[1].archived = false;
 
-    // Now only the first one is archived.
+    // Archiving the stack tip must not change workspace projection.
     let graph = ws
         .graph
         .redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
     let ws = graph.into_workspace()?;
-    snapbox::assert_data_eq!(
+    assert_eq!(
         graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-└── ≡📙:3:C {0}
-    ├── 📙:3:C
-    └── 📙:4:B
-
-"#]]
+        expected_workspace,
+        "archiving the stack tip must not change workspace projection"
     );
 
     let heads = &mut meta.data_mut().branches.get_mut(&stack_id).unwrap().heads;
@@ -2060,16 +2048,14 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
     heads[1].archived = true;
     heads[2].archived = true;
 
-    // Archiving everything removes the stack entirely.
+    // Archiving the entire stack must not change workspace projection.
     let graph = ws
         .graph
         .redo_traversal_with_overlay(&repo, &*meta, Default::default())?;
-    snapbox::assert_data_eq!(
+    assert_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
-        snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
-
-"#]]
+        expected_workspace,
+        "archiving every segment must not change workspace projection"
     );
     Ok(())
 }
