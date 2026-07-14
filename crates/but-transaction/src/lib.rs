@@ -1142,8 +1142,13 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     pending_created_independent_refs: Vec<PendingCreatedIndependentRef>,
     dry_run: DryRun,
 ) -> anyhow::Result<WorkspaceState> {
+    // The forge PR association is a projection concern. Every consumer of this
+    // crate's `WorkspaceState` (the `but` CLI) discards it, so we skip the
+    // enrichment here and pass an empty map rather than pull a forge/db
+    // dependency into this transaction layer.
+    let prs_by_head = std::collections::HashMap::new();
     if dry_run.into() {
-        return WorkspaceState::from_successful_rebase(rebase, repo, dry_run);
+        return WorkspaceState::from_successful_rebase(rebase, repo, dry_run, &prs_by_head);
     }
 
     let materialized = rebase.materialize()?;
@@ -1185,7 +1190,7 @@ fn workspace_state_from_rebase<M: RefMetadata>(
         materialized.meta.remove(ref_name.as_ref())?;
     }
 
-    WorkspaceState::from_materialized_rebase(materialized, repo)
+    WorkspaceState::from_materialized_rebase(materialized, repo, &prs_by_head)
 }
 
 /// Intermediate outcome after creating a commit.

@@ -83,10 +83,14 @@ pub fn list_branches(
             gerrit_mode,
         },
     )?;
+    // Resolve each segment's PR association from the forge review cache (keyed by
+    // the segment's remote/pushed short name) rather than from stored metadata.
+    let review_cache = ctx.db.get_cache()?;
+    let reviews_by_head = but_forge::reviews_by_head(&review_cache)?;
     let stacks = info
         .stacks
         .into_iter()
-        .filter_map(|s| GitButlerStack::try_new(s, &remote_names).transpose())
+        .filter_map(|s| GitButlerStack::try_new(s, &remote_names, &reviews_by_head).transpose())
         .collect::<Result<Vec<_>, _>>()?;
     let workspace_target_ref_name = info.target_ref.map(|r| r.ref_name);
 
@@ -407,6 +411,7 @@ impl GitButlerStack {
     fn try_new(
         stack: but_workspace::branch::Stack,
         names: &gix::remote::Names,
+        reviews_by_head: &HashMap<String, but_forge::ForgeReview>,
     ) -> anyhow::Result<Option<Self>> {
         let Some(id) = stack.id else { return Ok(None) };
         let first_segment = stack.segments.first();
@@ -446,7 +451,12 @@ impl GitButlerStack {
                         )
                         .expect("known to be valid statically")
                     }),
-                    pr_or_mr: s.metadata.as_ref().and_then(|md| md.review.pull_request),
+                    pr_or_mr: s
+                        .remote_tracking_ref_name
+                        .as_ref()
+                        .and_then(|rn| extract_remote_name_and_short_name(rn.as_ref(), names))
+                        .and_then(|(_, short)| reviews_by_head.get(&short.to_string()))
+                        .and_then(|review| usize::try_from(review.number).ok()),
                 })
                 .collect(),
         }))

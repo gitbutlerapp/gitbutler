@@ -790,6 +790,7 @@ pub fn branch_create_with_perm(
         DryRun::No,
     );
 
+    let prs_by_head = crate::workspace_state::forge_prs_by_head(ctx)?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let checkout_after_create = checkout_anchor_ref.as_ref().is_some_and(|anchor_ref| {
@@ -812,7 +813,8 @@ pub fn branch_create_with_perm(
         snapshot.commit(ctx, perm).ok();
     }
 
-    let workspace = WorkspaceState::from_workspace(&new_ws, &mut meta, &repo, BTreeMap::new())?;
+    let workspace =
+        WorkspaceState::from_workspace(&new_ws, &mut meta, &repo, BTreeMap::new(), &prs_by_head)?;
     *ws = new_ws.into_owned();
     drop(ws);
     drop(repo);
@@ -966,9 +968,11 @@ pub fn branch_remove_with_perm(
         snapshot.commit(ctx, perm).ok();
     }
 
+    let prs_by_head = crate::workspace_state::forge_prs_by_head(ctx)?;
     let mut meta = ctx.meta()?;
     let (repo, ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace(&ws, &mut meta, &repo, BTreeMap::new())?;
+    let workspace =
+        WorkspaceState::from_workspace(&ws, &mut meta, &repo, BTreeMap::new(), &prs_by_head)?;
     Ok(BranchRemoveResult { workspace })
 }
 
@@ -1022,11 +1026,13 @@ pub fn branch_rename_with_perm(
 
     // Renaming onto the same name is a no-op that still returns the current view.
     if ref_name.as_ref() == new_ref.as_ref() {
+        let prs_by_head = crate::workspace_state::forge_prs_by_head(ctx)?;
         let mut meta = ctx.meta()?;
         let (repo, ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
         repo.find_reference(ref_name.as_ref())
             .with_context(|| format!("Branch '{}' does not exist", ref_name.shorten()))?;
-        let workspace = WorkspaceState::from_workspace(&ws, &mut meta, &repo, BTreeMap::new())?;
+        let workspace =
+            WorkspaceState::from_workspace(&ws, &mut meta, &repo, BTreeMap::new(), &prs_by_head)?;
         return Ok(BranchRenameResult { workspace, new_ref });
     }
 
@@ -1248,9 +1254,11 @@ pub fn branch_rename_with_perm(
         snapshot.commit(ctx, perm).ok();
     }
 
+    let prs_by_head = crate::workspace_state::forge_prs_by_head(ctx)?;
     let mut meta = ctx.meta()?;
     let (repo, ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace(&ws, &mut meta, &repo, BTreeMap::new())?;
+    let workspace =
+        WorkspaceState::from_workspace(&ws, &mut meta, &repo, BTreeMap::new(), &prs_by_head)?;
     Ok(BranchRenameResult { workspace, new_ref })
 }
 
@@ -1423,9 +1431,11 @@ fn checkout_ref_with_perm(
     }
 
     ctx.reload_repo_and_invalidate_workspace(perm)?;
+    let prs_by_head = crate::workspace_state::forge_prs_by_head(ctx)?;
     let mut meta = ctx.meta()?;
     let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let workspace = WorkspaceState::from_workspace(&ws, &mut meta, &repo, BTreeMap::new())?;
+    let workspace =
+        WorkspaceState::from_workspace(&ws, &mut meta, &repo, BTreeMap::new(), &prs_by_head)?;
     Ok(BranchCheckoutResult { workspace })
 }
 
@@ -1500,6 +1510,7 @@ pub fn apply_branch_integration_with_perm(
         OperationKind::GenericBranchUpdate,
         dry_run,
         |ctx, perm| {
+            let prs_by_head = crate::workspace_state::forge_prs_by_head(ctx)?;
             let mut meta = ctx.meta()?;
             let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
             let rebase = but_workspace::branch::integrate_branch_with_steps(
@@ -1511,7 +1522,12 @@ pub fn apply_branch_integration_with_perm(
             )?;
 
             Ok(IntegrateBranchResult {
-                workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,
+                workspace: WorkspaceState::from_successful_rebase(
+                    rebase,
+                    &repo,
+                    dry_run,
+                    &prs_by_head,
+                )?,
             })
         },
     )
@@ -1564,6 +1580,7 @@ pub fn move_branch_with_perm(
         OperationKind::MoveBranch,
         dry_run,
         |ctx, perm| {
+            let prs_by_head = crate::workspace_state::forge_prs_by_head(ctx)?;
             let mut meta = ctx.meta()?;
             let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
             let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -1583,7 +1600,13 @@ pub fn move_branch_with_perm(
             }
 
             let result = MoveBranchResult {
-                workspace: branch_workspace_from_rebase(rebase, ws_meta, &repo, dry_run)?,
+                workspace: branch_workspace_from_rebase(
+                    rebase,
+                    ws_meta,
+                    &repo,
+                    dry_run,
+                    &prs_by_head,
+                )?,
             };
             Ok((result, new_tip))
         },
@@ -1644,6 +1667,7 @@ pub fn tear_off_branch_with_perm(
         OperationKind::TearOffBranch,
         dry_run,
         |ctx, perm| {
+            let prs_by_head = crate::workspace_state::forge_prs_by_head(ctx)?;
             let mut meta = ctx.meta()?;
             let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
             let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -1652,7 +1676,13 @@ pub fn tear_off_branch_with_perm(
             } = but_workspace::branch::tear_off_branch(editor, subject_branch, None)?;
 
             Ok(MoveBranchResult {
-                workspace: branch_workspace_from_rebase(rebase, ws_meta, &repo, dry_run)?,
+                workspace: branch_workspace_from_rebase(
+                    rebase,
+                    ws_meta,
+                    &repo,
+                    dry_run,
+                    &prs_by_head,
+                )?,
             })
         },
     )
@@ -1690,9 +1720,10 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
     ws_meta: Option<but_core::ref_metadata::Workspace>,
     repo: &gix::Repository,
     dry_run: DryRun,
+    prs_by_head: &std::collections::HashMap<String, usize>,
 ) -> anyhow::Result<WorkspaceState> {
     if dry_run.into() {
-        return WorkspaceState::from_successful_rebase(rebase, repo, dry_run);
+        return WorkspaceState::from_successful_rebase(rebase, repo, dry_run, prs_by_head);
     }
 
     let materialized = rebase.materialize()?;
@@ -1708,5 +1739,6 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
         materialized.meta,
         repo,
         materialized.history.commit_mappings(),
+        prs_by_head,
     )
 }
