@@ -14,7 +14,7 @@ import {
 import { projectSlice } from "#ui/projects/state.ts";
 import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
 import { DialogContext } from "#ui/DialogContext.ts";
-import { FilesVisibleContext } from "#ui/FilesVisibleContext.ts";
+import { FilesVisibleContext, FilesVisibleRegistryContext } from "#ui/FilesVisibleContext.ts";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
@@ -451,17 +451,21 @@ const WorkspacePage: FC = () => {
 export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
+	const filesVisibleContext = use(FilesVisibleRegistryContext)(projectId);
+
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const project = projects.find((project) => project.id === projectId);
 	if (!project) return <p className={styles.notFound}>Project not found.</p>;
 
 	return (
-		<QueryErrorResetBoundary>
-			{({ reset }) => (
-				<WorkspacePageErrorBoundary onReset={reset}>
-					<WorkspacePage />
-				</WorkspacePageErrorBoundary>
-			)}
-		</QueryErrorResetBoundary>
+		<FilesVisibleContext value={filesVisibleContext}>
+			<QueryErrorResetBoundary>
+				{({ reset }) => (
+					<WorkspacePageErrorBoundary onReset={reset}>
+						<WorkspacePage />
+					</WorkspacePageErrorBoundary>
+				)}
+			</QueryErrorResetBoundary>
+		</FilesVisibleContext>
 	);
 };

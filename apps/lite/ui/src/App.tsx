@@ -9,7 +9,7 @@ import { store } from "#ui/store.ts";
 import { Toasts } from "#ui/components/Toasts.tsx";
 import { DetailsFullWindowContext } from "#ui/DetailsFullWindowContext.ts";
 import { DialogContext } from "#ui/DialogContext.ts";
-import { FilesVisibleContext } from "#ui/FilesVisibleContext.ts";
+import { FilesVisibleRegistryContext } from "#ui/FilesVisibleContext.ts";
 import type { Dialog } from "#ui/projects/project.ts";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
 import { getGUISettingsQueryOptions } from "./api/queries.ts";
@@ -46,16 +46,26 @@ export const App: FC<{
 	router: RegisteredRouter;
 }> = ({ queryClient, toastManager, router }) => {
 	const [detailsFullWindow, setDetailsFullWindow] = useState(false);
-	const [filesVisible, setFilesVisible] = useState(false);
-	const [dialog, setDialog] = useState<Dialog>({ _tag: "None" });
-
 	const toggleDetailsFullWindow = () => setDetailsFullWindow((fullWindow) => !fullWindow);
-	const toggleFiles = () => setFilesVisible((visible) => !visible);
+
+	const [filesVisibleByProjectId, setFilesVisibleByProjectId] = useState(() => new Set<string>());
+	const filesVisibleContext = (projectId: string) => ({
+		filesVisible: filesVisibleByProjectId.has(projectId),
+		toggleFiles: () =>
+			setFilesVisibleByProjectId((curr) => {
+				const next = new Set(curr);
+				if (next.has(projectId)) next.delete(projectId);
+				else next.add(projectId);
+				return next;
+			}),
+	});
+
+	const [dialog, setDialog] = useState<Dialog>({ _tag: "None" });
 	const openDialog = (nextDialog: Dialog) => setDialog(nextDialog);
 	const closeDialog = () => setDialog({ _tag: "None" });
 
 	return (
-		<FilesVisibleContext value={{ filesVisible, toggleFiles }}>
+		<FilesVisibleRegistryContext value={filesVisibleContext}>
 			<DetailsFullWindowContext
 				value={{ detailsFullWindow, setDetailsFullWindow, toggleDetailsFullWindow }}
 			>
@@ -80,6 +90,6 @@ export const App: FC<{
 					</Provider>
 				</DialogContext>
 			</DetailsFullWindowContext>
-		</FilesVisibleContext>
+		</FilesVisibleRegistryContext>
 	);
 };
