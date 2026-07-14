@@ -64,7 +64,7 @@ import {
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
-const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(null);
+const AbsorptionTargetCommitIdsContext = createContext<ReadonlySet<string> | null>(null);
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -102,7 +102,7 @@ const OperandC: FC<
 		outline: TransferOperationTargetOutline;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, operand, outline, render, ...props }) => {
-	const absorptionTargetKeys = assert(use(AbsorptionTargetKeysContext));
+	const absorptionTargetCommitIds = assert(use(AbsorptionTargetCommitIdsContext));
 	const navigationIndex = assert(use(NavigationIndexContext));
 
 	const activeOperation = useAppSelector((state) => {
@@ -111,7 +111,8 @@ const OperandC: FC<
 		return Match.value(outlineMode).pipe(
 			Match.tags({
 				Absorb: (): ActiveOperation | null => {
-					const isActive = absorptionTargetKeys.has(operandIdentityKey(operand));
+					const isActive =
+						operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId);
 					if (!isActive) return null;
 
 					return { position: "into", tooltip: "Absorb target" };
@@ -564,13 +565,13 @@ export const OutlineTree: FC<
 		projectId: string;
 		commitTarget: RelativeTo | null;
 		navigationIndex: NavigationIndex<Operand>;
-		absorptionTargetKeys: ReadonlySet<string>;
+		absorptionTargetCommitIds: ReadonlySet<string>;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
 	commitTarget,
 	navigationIndex,
-	absorptionTargetKeys,
+	absorptionTargetCommitIds,
 	ref: refProp,
 	...props
 }) => {
@@ -596,7 +597,7 @@ export const OutlineTree: FC<
 
 	return (
 		<NavigationIndexContext value={navigationIndex}>
-			<AbsorptionTargetKeysContext value={absorptionTargetKeys}>
+			<AbsorptionTargetCommitIdsContext value={absorptionTargetCommitIds}>
 				<Group
 					{...props}
 					id={layoutId}
@@ -635,7 +636,7 @@ export const OutlineTree: FC<
 						<Stacks projectId={projectId} commitTarget={commitTarget} />
 					</Panel>
 				</Group>
-			</AbsorptionTargetKeysContext>
+			</AbsorptionTargetCommitIdsContext>
 		</NavigationIndexContext>
 	);
 };

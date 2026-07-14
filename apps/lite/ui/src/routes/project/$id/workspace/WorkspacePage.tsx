@@ -181,10 +181,10 @@ const hasAnyOperation = (source: Operand, target: Operand) => {
 
 const useOutlineNavigationIndex = ({
 	projectId,
-	absorptionTargetKeys,
+	absorptionTargetCommitIds,
 }: {
 	projectId: string;
-	absorptionTargetKeys: ReadonlySet<string>;
+	absorptionTargetCommitIds: ReadonlySet<string>;
 }): NavigationIndex<Operand> => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
@@ -204,7 +204,7 @@ const useOutlineNavigationIndex = ({
 				items.filter(
 					(operand) =>
 						operandContains(operand, activeMode.source) ||
-						absorptionTargetKeys.has(operandIdentityKey(operand)),
+						(operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId)),
 				),
 			Transfer: (activeMode) =>
 				items.filter(
@@ -367,24 +367,19 @@ const WorkspacePage: FC = () => {
 		Match.tags({ Absorb: ({ sourceTarget }) => sourceTarget }),
 		Match.orElse(() => null),
 	);
-	const [_absorptionTargetKeys] = useQueries({
+	const [_absorptionTargetCommitIds] = useQueries({
 		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
 			queryOptions({
 				...absorptionPlanQueryOptions({ projectId, target }),
-				select: (data) =>
-					new Set(
-						data.map(({ stackId, commitId }) =>
-							operandIdentityKey(commitOperand({ stackId, commitId })),
-						),
-					),
+				select: (data) => new Set(data.map(({ commitId }) => commitId)),
 			}),
 		),
 	});
-	const absorptionTargetKeys = _absorptionTargetKeys?.data ?? new Set<string>();
+	const absorptionTargetCommitIds = _absorptionTargetCommitIds?.data ?? new Set<string>();
 
 	const outlineNavigationIndex = useOutlineNavigationIndex({
 		projectId,
-		absorptionTargetKeys,
+		absorptionTargetCommitIds,
 	});
 
 	const outlineSelection = useAppSelector((state) =>
@@ -435,7 +430,7 @@ const WorkspacePage: FC = () => {
 							projectId={projectId}
 							project={selectedProject}
 							navigationIndex={outlineNavigationIndex}
-							absorptionTargetKeys={absorptionTargetKeys}
+							absorptionTargetCommitIds={absorptionTargetCommitIds}
 						/>
 					</Panel>
 					<Separator className={styles.resizeHandle} />

@@ -47,12 +47,12 @@ const ActivitySpinner: FC = () => {
 
 export const Outline: FC<
 	{
-		absorptionTargetKeys: ReadonlySet<string>;
+		absorptionTargetCommitIds: ReadonlySet<string>;
 		navigationIndex: NavigationIndex<Operand>;
 		project: ProjectForFrontend;
 		projectId: string;
 	} & ComponentProps<"div">
-> = ({ absorptionTargetKeys, navigationIndex, project, projectId, ...restProps }) => {
+> = ({ absorptionTargetCommitIds, navigationIndex, project, projectId, ...restProps }) => {
 	const dispatch = useAppDispatch();
 	const outlineMode = useAppSelector((state) =>
 		projectSlice.selectors.selectOutlineModeState(state, projectId),
@@ -313,7 +313,7 @@ export const Outline: FC<
 				className={styles.outlineTree}
 				data-selection-scope={"outline" satisfies SelectionScope}
 				navigationIndex={navigationIndex}
-				absorptionTargetKeys={absorptionTargetKeys}
+				absorptionTargetCommitIds={absorptionTargetCommitIds}
 				projectId={projectId}
 				commitTarget={commitTarget?.relativeTo ?? null}
 				// Focus on page load.
