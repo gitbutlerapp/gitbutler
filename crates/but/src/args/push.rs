@@ -11,6 +11,9 @@ pub struct Command {
     /// Bypass pre-push hooks
     #[clap(long = "no-hooks", visible_alias = "no-verify")]
     pub no_hooks: bool,
+    /// Sign commits before pushing
+    #[clap(long, default_value_t = false, hide = true)]
+    pub sign_commits: bool,
     /// Mark change as work-in-progress (Gerrit). Mutually exclusive with --ready.
     #[clap(long, short = 'w', conflicts_with = "ready", hide = true)]
     pub wip: bool,
