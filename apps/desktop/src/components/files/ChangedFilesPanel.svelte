@@ -25,6 +25,7 @@
 		autoselect?: boolean;
 		ancestorMostConflictedCommitId?: string;
 		onFileClick?: (index: number) => void;
+		onConflictedFileClick?: (path: string) => void;
 		allowUnselect?: boolean;
 		persistId?: string;
 		foldedByDefault?: boolean;
@@ -43,6 +44,7 @@
 		autoselect,
 		ancestorMostConflictedCommitId,
 		onFileClick,
+		onConflictedFileClick,
 		allowUnselect = true,
 		persistId = "default",
 		foldedByDefault = false,
@@ -126,6 +128,7 @@
 						{conflictEntries}
 						{ancestorMostConflictedCommitId}
 						draggable={draggableFiles}
+						onFileClick={onConflictedFileClick}
 					/>
 					<FileListItems
 						{projectId}

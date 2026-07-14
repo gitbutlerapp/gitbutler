@@ -1257,6 +1257,14 @@ export type CommitAbsorption = {
   reason: AbsorptionReason;
 };
 
+/** JSON transport type for the conflicts of a conflicted commit. */
+export type CommitConflicts = {
+  /** The conflicted commit. */
+  commitId: string;
+  /** The conflicted files, sorted by path. */
+  files: Array<ConflictedFile>;
+};
+
 /** JSON transport type for creating a commit in the rebase graph. */
 export type CommitCreateResult = {
   /** The new commit if one was created. */
@@ -1341,6 +1349,48 @@ export type ConflictEntryPresence = {
   ours: boolean;
   theirs: boolean;
   ancestor: boolean;
+};
+
+/**
+ * One conflicted region of a file, with the content of each side and a few
+ * lines of surrounding context.
+ */
+export type ConflictHunk = {
+  /**
+   * The 1-based line in the commit's auto-resolved content of this file
+   * where the conflicted region starts. Anchors the conflict within diffs
+   * of the commit, which are computed against the auto-resolution.
+   */
+  line: number;
+  /** Unconflicted lines directly before the conflict, clamped to the previous conflict. */
+  contextBefore: string;
+  /** The content of the *ours* side, i.e. the new base the commit is rebased onto. */
+  ours: string;
+  /** The content of the common ancestor, if the merge produced diff3-style markers. */
+  base: string | null;
+  /** The content of the *theirs* side, i.e. the conflicted commit's own version. */
+  theirs: string;
+  /** Unconflicted lines directly after the conflict, clamped to the next conflict. */
+  contextAfter: string;
+};
+
+/** One conflicted file and its conflicts, in file order. */
+export type ConflictedFile = {
+  /** The repo-relative path of the file. */
+  path: string;
+  /**
+   * The file's change from the current base's version (*ours*) to the
+   * commit's own version (*theirs*). Regular commit diffs are computed
+   * against the auto-resolution, which keeps the base's version wherever
+   * there is a conflict — so this is the change to diff to actually see
+   * the conflicted content.
+   */
+  change: TreeChange;
+  /**
+   * The conflicts of the file; hunks are addressed by their 1-based
+   * position in this list.
+   */
+  hunks: Array<ConflictHunk>;
 };
 
 /** A stack that conflicted while applying a branch. */
@@ -1978,6 +2028,37 @@ export type HunkLockTarget = {
   type: "unidentified";
 };
 
+/** How to resolve a single conflict hunk. */
+export type HunkResolution = {
+  type: "ours";
+} | {
+  type: "theirs";
+} | {
+  type: "content";
+  subject: string;
+} | {
+  type: "ai";
+};
+
+/** JSON transport type for the outcome of applying per-hunk resolutions. */
+export type HunkResolutionResult = {
+  /** The conflicted commit the resolutions were applied to. */
+  commitId: string;
+  /** The rewritten commit. Still conflicted when `remaining` is non-empty. */
+  newCommit: string;
+  /** How many conflicts were resolved. */
+  resolved: number;
+  /**
+   * Whether the fully resolved commit ended up with the same tree as
+   * its parent — the resolutions dropped all of its changes.
+   */
+  commitEmptied: boolean;
+  /** The conflicts that remain, per file. */
+  remaining: Array<RemainingConflicts>;
+  /** Workspace state after the apply. */
+  workspace: WorkspaceState;
+};
+
 /** A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with. */
 export type IgnoredWorktreeChange = {
   /** The worktree-relative path to the change. */
@@ -2195,7 +2276,7 @@ export type OperatingMode = {
   subject: EditModeMetadata;
 };
 
-export type OperationKind = "CreateCommit" | "CreateBranch" | "StashIntoBranch" | "SetBaseBranch" | "MergeUpstream" | "UpdateWorkspaceBase" | "MoveHunk" | "UpdateBranchName" | "UpdateBranchNotes" | "ReorderBranches" | "UpdateBranchRemoteName" | "GenericBranchUpdate" | "DeleteBranch" | "ApplyBranch" | "DiscardLines" | "DiscardHunk" | "DiscardFile" | "DiscardChanges" | "Discard" | "AmendCommit" | "Absorb" | "AutoCommit" | "UndoCommit" | "DiscardCommit" | "UnapplyBranch" | "CherryPick" | "SquashCommit" | "UpdateCommitMessage" | "MoveCommit" | "MoveBranch" | "TearOffBranch" | "ReorderCommit" | "InsertBlankCommit" | "MoveCommitFile" | "FileChanges" | "EnterEditMode" | "ResolveConflictsAi" | "SyncWorkspace" | "CreateDependentBranch" | "RemoveDependentBranch" | "UpdateDependentBranchName" | "UpdateDependentBranchDescription" | "UpdateDependentBranchPrNumber" | "AutoHandleChangesBefore" | "AutoHandleChangesAfter" | "SplitBranch" | "CleanWorkspace" | "OnDemandSnapshot" | "Unknown" | "RestoreFromSnapshotViaUndo" | "RestoreFromSnapshotViaRedo" | "RestoreFromSnapshot";
+export type OperationKind = "CreateCommit" | "CreateBranch" | "StashIntoBranch" | "SetBaseBranch" | "MergeUpstream" | "UpdateWorkspaceBase" | "MoveHunk" | "UpdateBranchName" | "UpdateBranchNotes" | "ReorderBranches" | "UpdateBranchRemoteName" | "GenericBranchUpdate" | "DeleteBranch" | "ApplyBranch" | "DiscardLines" | "DiscardHunk" | "DiscardFile" | "DiscardChanges" | "Discard" | "AmendCommit" | "Absorb" | "AutoCommit" | "UndoCommit" | "DiscardCommit" | "UnapplyBranch" | "CherryPick" | "SquashCommit" | "UpdateCommitMessage" | "MoveCommit" | "MoveBranch" | "TearOffBranch" | "ReorderCommit" | "InsertBlankCommit" | "MoveCommitFile" | "FileChanges" | "EnterEditMode" | "ResolveConflicts" | "ResolveConflictsAi" | "SyncWorkspace" | "CreateDependentBranch" | "RemoveDependentBranch" | "UpdateDependentBranchName" | "UpdateDependentBranchDescription" | "UpdateDependentBranchPrNumber" | "AutoHandleChangesBefore" | "AutoHandleChangesAfter" | "SplitBranch" | "CleanWorkspace" | "OnDemandSnapshot" | "Unknown" | "RestoreFromSnapshotViaUndo" | "RestoreFromSnapshotViaRedo" | "RestoreFromSnapshot";
 
 /** What kind of apply operation completed. */
 export type OutcomeStatus = "alreadyApplied" | "applied" | "conflictAborted";
@@ -2362,6 +2443,14 @@ export type RelativeTo = {
   subject: Array<number>;
 };
 
+/** Conflicts still unresolved in a file after an apply. */
+export type RemainingConflicts = {
+  /** The repo-relative path of the file. */
+  path: string;
+  /** How many conflicts remain in it. */
+  hunks: number;
+};
+
 export type RemoteCommit = {
   id: string;
   description: string;
@@ -2416,6 +2505,19 @@ export type ResolutionApproach = {
   type: "unapply";
 } | {
   type: "delete";
+};
+
+/**
+ * One conflict to resolve, addressed by path and 1-based hunk index as
+ * returned by `commit_conflicts()`.
+ */
+export type ResolutionSpec = {
+  /** The repo-relative path of the conflicted file. */
+  path: string;
+  /** The 1-based index of the conflict within the file. */
+  hunk: number;
+  /** How to resolve it. */
+  resolution: HunkResolution;
 };
 
 /** How one conflicted file was resolved, for display to the user. */

@@ -24,18 +24,27 @@ EOF
 # inputs are kept as trees, the commit tree is auto-resolved favoring "ours",
 # and the conflict is recorded in the message trailer plus the legacy header.
 #
-# The content conflict: base, ours (the new base), and theirs (the commit's own
-# version) each have a different middle line in "conflict".
+# The content conflicts: base, ours (the new base), and theirs (the commit's
+# own version) each differ at "line two" and at "line six" of "conflict",
+# far enough apart to form two separate conflict hunks.
 unrelated_blob=$(git rev-parse HEAD:file)
-base_blob=$(printf "line one\nline two\nline three\n" | git hash-object -wt blob --stdin)
-ours_blob=$(printf "line one\nline two changed by the new base\nline three\n" | git hash-object -wt blob --stdin)
-theirs_blob=$(printf "line one\nline two changed by this commit\nline three\n" | git hash-object -wt blob --stdin)
+base_blob=$(printf "line one\nline two\nline three\nline four\nline five\nline six\nline seven\n" | git hash-object -wt blob --stdin)
+ours_blob=$(printf "line one\nline two changed by the new base\nline three\nline four\nline five\nline six changed by the new base\nline seven\n" | git hash-object -wt blob --stdin)
+theirs_blob=$(printf "line one\nline two changed by this commit\nline three\nline four\nline five\nline six changed by this commit\nline seven\n" | git hash-object -wt blob --stdin)
 conflict_files_blob=$(git hash-object -wt blob --stdin <<EOF
 ancestorEntries = [ "conflict" ]
 ourEntries = [ "conflict" ]
 theirEntries = [ "conflict" ]
 EOF
 )
+
+# The commit the conflicted one was rebased onto: its tree is the "ours" side,
+# exactly like the rebase engine leaves it.
+git read-tree --empty
+git update-index --add --cacheinfo 100644 "$unrelated_blob" "file"
+git update-index --add --cacheinfo 100644 "$ours_blob" "conflict"
+new_base_tree=$(git write-tree)
+new_base_commit=$(git commit-tree "$new_base_tree" -p "$(git rev-parse HEAD)" -m "new base")
 
 git read-tree --empty
 git update-index --add --cacheinfo 100644 "$unrelated_blob" ".auto-resolution/file"
@@ -51,7 +60,7 @@ conflict_tree=$(git write-tree)
 
 conflict_commit=$(git hash-object -wt commit --stdin <<EOF
 tree $conflict_tree
-parent $(git rev-parse HEAD)
+parent $new_base_commit
 author GitButler <gitbutler@example.com> 1730625617 +0100
 committer GitButler <gitbutler@example.com> 1730625617 +0100
 gitbutler-headers-version 2

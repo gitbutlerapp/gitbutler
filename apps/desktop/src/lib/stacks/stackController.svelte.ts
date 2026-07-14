@@ -38,6 +38,11 @@ export function getStackContext(): StackController {
 	return ctx;
 }
 
+/** Like [getStackContext], for components that also render outside a StackView. */
+export function maybeGetStackContext(): StackController | undefined {
+	return getContext<StackController>(STACK_CTX);
+}
+
 export class StackController {
 	private uiState;
 	private fileSelection: FileSelectionManager;
@@ -49,6 +54,7 @@ export class StackController {
 	visibleRange = $state<{ start: number; end: number } | undefined>();
 
 	private diffJumpHandler?: (index: number) => void;
+	private diffJumpPathHandler?: (path: string) => void;
 	private diffPopoutHandler?: () => void;
 
 	private _focusedFile = $state<SelectedFile | undefined>();
@@ -251,18 +257,28 @@ export class StackController {
 		});
 	}
 
-	registerDiffView(handlers: { jump: (index: number) => void; popout: () => void }): void {
+	registerDiffView(handlers: {
+		jump: (index: number) => void;
+		jumpToPath: (path: string) => void;
+		popout: () => void;
+	}): void {
 		this.diffJumpHandler = handlers.jump;
+		this.diffJumpPathHandler = handlers.jumpToPath;
 		this.diffPopoutHandler = handlers.popout;
 	}
 
 	unregisterDiffView(): void {
 		this.diffJumpHandler = undefined;
+		this.diffJumpPathHandler = undefined;
 		this.diffPopoutHandler = undefined;
 	}
 
 	jumpToIndex(index: number): void {
 		this.diffJumpHandler?.(index);
+	}
+
+	jumpToPath(path: string): void {
+		this.diffJumpPathHandler?.(path);
 	}
 
 	openFloatingDiff(): void {

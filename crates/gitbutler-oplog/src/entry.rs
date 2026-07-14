@@ -177,6 +177,7 @@ pub enum OperationKind {
     MoveCommitFile,
     FileChanges,
     EnterEditMode,
+    ResolveConflicts,
     ResolveConflictsAi,
     SyncWorkspace,
     CreateDependentBranch,
@@ -238,6 +239,7 @@ impl OperationKind {
             | OperationKind::UpdateDependentBranchDescription
             | OperationKind::UpdateDependentBranchPrNumber => "UPDATE_BRANCH",
             OperationKind::SplitBranch => "SPLIT_BRANCH",
+            OperationKind::ResolveConflicts => "RESOLVE",
             OperationKind::ResolveConflictsAi => "AI_RESOLVE",
             OperationKind::StashIntoBranch
             | OperationKind::SetBaseBranch
@@ -293,6 +295,7 @@ impl OperationKind {
             OperationKind::MoveCommitFile => "Moved file",
             OperationKind::FileChanges => "Updated file changes",
             OperationKind::EnterEditMode => "Entered edit mode",
+            OperationKind::ResolveConflicts => "Resolved conflicts",
             OperationKind::ResolveConflictsAi => "Resolved conflicts with AI",
             OperationKind::SyncWorkspace => "Synced workspace",
             OperationKind::CreateDependentBranch => "Created branch",
@@ -350,6 +353,7 @@ impl OperationKind {
             OperationKind::MoveCommitFile => "MoveCommitFile",
             OperationKind::FileChanges => "FileChanges",
             OperationKind::EnterEditMode => "EnterEditMode",
+            OperationKind::ResolveConflicts => "ResolveConflicts",
             OperationKind::ResolveConflictsAi => "ResolveConflictsAi",
             OperationKind::SyncWorkspace => "SyncWorkspace",
             OperationKind::CreateDependentBranch => "CreateDependentBranch",
@@ -407,6 +411,7 @@ impl OperationKind {
             "MoveCommitFile" => Self::MoveCommitFile,
             "FileChanges" => Self::FileChanges,
             "EnterEditMode" => Self::EnterEditMode,
+            "ResolveConflicts" => Self::ResolveConflicts,
             "ResolveConflictsAi" => Self::ResolveConflictsAi,
             "SyncWorkspace" => Self::SyncWorkspace,
             "CreateDependentBranch" => Self::CreateDependentBranch,

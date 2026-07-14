@@ -218,18 +218,23 @@ A **dependency lock** occurs when a file was originally committed on branch A, b
 
 ### Resolve conflicts after reorder/move
 
-**NEVER use `git add`, `git commit`, `git checkout --theirs`, `git checkout --ours`, or any git write commands during resolution.** Only use `but resolve` commands and edit files directly with the Edit tool.
+**NEVER use `git add`, `git commit`, `git checkout --theirs`, `git checkout --ours`, or any git write commands during resolution.** Only use `but resolve` commands.
 
-If `but move` causes conflicts (conflicted commits in status):
+Conflicts do not interrupt operations in GitButler: a rebase always completes, and commits that conflicted are marked `{conflicted}` in `but status`. Resolve them one conflict at a time, without entering any mode. Work through one branch at a time, oldest commit first — the loop is:
 
-1. `but status -fv` — find commits marked as conflicted.
-2. `but resolve <commit-id>` — enter resolution mode. This puts conflict markers in the files.
-3. **Read the conflicted files** to see the `<<<<<<<` / `=======` / `>>>>>>>` markers.
-4. **Edit the files** to resolve conflicts by choosing the correct content and removing markers.
-5. `but resolve finish` — finalize. Do NOT run this without editing the files first.
-6. Repeat for any remaining conflicted commits.
+1. `but resolve conflicts <branch>` — shows the conflicts of that branch's oldest conflicted commit, numbered per file. Each conflict has three sections: `ours` (the new base the commit was rebased onto), `base` (common ancestor), and `theirs` (the commit's own version). Without a branch it picks the first conflicted branch and tells you which; the output also says when other conflicted commits exist.
+2. Apply one resolution per command:
+   - Merged/mixed content (the common case — combine the intent of both sides): pipe it to `but resolve apply <path>:<N>` via stdin (heredoc) or pass `--file <f>`. The content replaces the whole conflicted region; never include conflict markers.
+   - Take a side entirely: `but resolve apply <path>:<N> --ours` or `--theirs` (bare `<path>` applies the side to all conflicts in that file).
+   - Delegate one conflict to the configured AI model: `but resolve apply <path>:<N> --ai` — prefer your own merged content when you have the context.
+   - `apply` targets the same default commit as `conflicts`; when more than one branch is conflicted, pin it with `--commit <branch>`.
+3. Go back to step 1 until it reports no conflicts. Commit ids are not stable here — every apply rewrites the commit — but branch names are, so address everything by branch and never bookkeep commit ids. Partial progress is fine: a commit with unresolved conflicts left stays `{conflicted}` with exactly those conflicts.
 
-**Common mistakes:** Do NOT use `but amend` on conflicted commits (it won't work). Do NOT skip step 4 — you must actually edit the files to remove conflict markers before finishing.
+A wrong resolution is reverted with `but undo`.
+
+`but resolve <commit-id> --ai` resolves a whole commit with the configured AI model in one shot, and `but resolve --ai` without a commit resolves every conflicted commit, oldest first — acceptable as a fallback, but you usually have better context than that model does, so prefer resolving the conflicts yourself with `apply`.
+
+**Use edit mode only when you must run code against the resolution** (build/tests at that commit): `but resolve <commit-id>` checks the conflicted commit out with markers in the files, then edit the files, then `but resolve finish` (or `cancel`). Do NOT use `but amend` on conflicted commits (it won't work), and never run `finish` while markers remain in the files.
 
 ### Conflicts in uncommitted files
 

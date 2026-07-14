@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConflictHunkCard from "$components/diff/ConflictHunkCard.svelte";
 	import HiddenDiffNotice from "$components/diff/HiddenDiffNotice.svelte";
 	import HunkContextMenu from "$components/diff/HunkContextMenu.svelte";
 	import ImageDiff from "$components/diff/ImageDiff.svelte";
@@ -19,14 +20,14 @@
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { isImageFile } from "@gitbutler/shared/utils/file";
-	import { EmptyStatePlaceholder, generateHunkId, HunkDiff, TestId } from "@gitbutler/ui";
+	import { Button, EmptyStatePlaceholder, generateHunkId, HunkDiff, TestId } from "@gitbutler/ui";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { parseHunk } from "@gitbutler/ui/utils/diffParsing";
 	import { untrack } from "svelte";
 	import type { FileDependencies } from "$lib/hunks/dependencies";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
 	import type { Reaction } from "$lib/irc/ircEndpoints";
-	import type { DiffHunk } from "@gitbutler/but-sdk";
+	import type { ConflictHunk, DiffHunk } from "@gitbutler/but-sdk";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
@@ -44,6 +45,9 @@
 		commitId?: string;
 		draggable?: boolean;
 		topPadding?: boolean;
+		/// The selected commit's unresolved conflicts in this file, offered
+		/// inline alongside the regular diff.
+		conflictHunks?: ConflictHunk[];
 	};
 
 	const {
@@ -56,6 +60,7 @@
 		commitId,
 		draggable,
 		topPadding,
+		conflictHunks,
 	}: Props = $props();
 
 	const uiState = inject(UI_STATE);
@@ -131,6 +136,36 @@
 
 	const filteredHunks = $derived(diff?.type === "Patch" ? filter(diff.subject.hunks) : []);
 	let renderedHunkCount = $state(INITIAL_HUNKS);
+
+	// Conflicts show on demand, except when the regular diff is empty (a fully
+	// conflicted file's auto-resolution equals the parent) — then they are the
+	// only content and show right away.
+	let conflictsToggled = $state<boolean>();
+	const showConflicts = $derived(
+		(conflictHunks?.length ?? 0) > 0 &&
+			(conflictsToggled ?? (diff?.type === "Patch" && diff.subject.hunks.length === 0)),
+	);
+	/// Conflict cards bucketed by the diff hunk they render before; the last
+	/// bucket renders after all hunks. Buckets carry the conflict's overall
+	/// index for the "N of M" title.
+	const conflictBuckets = $derived.by(() => {
+		const buckets: { hunk: ConflictHunk; index: number }[][] = Array.from(
+			{ length: filteredHunks.length + 1 },
+			() => [],
+		);
+		if (!showConflicts || !conflictHunks) return buckets;
+		conflictHunks.forEach((hunk, index) => {
+			// Before the first diff hunk that reaches past the conflict's line,
+			// i.e. the hunk containing the conflicted region or the first one
+			// after it.
+			let bucket = filteredHunks.findIndex(
+				(diffHunk) => diffHunk.newStart + diffHunk.newLines > hunk.line,
+			);
+			if (bucket === -1) bucket = filteredHunks.length;
+			buckets[bucket]!.push({ hunk, index });
+		});
+		return buckets;
+	});
 
 	$effect(() => {
 		// Reset and stream hunks progressively whenever file/diff/showAnyways changes.
@@ -217,6 +252,20 @@
 	}
 </script>
 
+{#snippet conflictCards(bucket: { hunk: ConflictHunk; index: number }[])}
+	{#each bucket as conflict (conflict.index)}
+		<ConflictHunkCard
+			hunk={conflict.hunk}
+			index={conflict.index}
+			total={conflictHunks?.length ?? 0}
+			{projectId}
+			{stackId}
+			{commitId}
+			path={change.path}
+		/>
+	{/each}
+{/snippet}
+
 {#if fileDependenciesQuery}
 	<ReduxResult {projectId} result={fileDependenciesQuery.result} children={unifiedDiff} />
 {:else}
@@ -242,7 +291,27 @@
 			</div>
 		{:else if diff.type === "Patch"}
 			{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
+			{#if (conflictHunks?.length ?? 0) > 0}
+				<div class="conflicts-notice">
+					<span class="text-12">
+						{conflictHunks!.length} unresolved conflict{conflictHunks!.length === 1 ? "" : "s"} in this
+						file
+					</span>
+					<Button
+						kind="outline"
+						size="tag"
+						onclick={() => {
+							conflictsToggled = !showConflicts;
+						}}
+					>
+						{showConflicts ? "Hide conflicts" : "Show conflicts"}
+					</Button>
+				</div>
+			{/if}
 			{#if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
+				{#if showConflicts && conflictHunks}
+					{@render conflictCards(conflictHunks.map((hunk, index) => ({ hunk, index })))}
+				{/if}
 				<HiddenDiffNotice
 					handleShow={() => {
 						showAnyways = true;
@@ -254,6 +323,7 @@
 					{@const [_, lineLocks] = getLineLocks(hunk, fileDependencies?.dependencies ?? [])}
 					{@const hunkId = generateHunkId(change.path, hunkIndex)}
 					{@const reactions = fileReactions[hunkKey(hunk)] ?? []}
+					{@render conflictCards(conflictBuckets[hunkIndex] ?? [])}
 					<div
 						class="hunk-content"
 						use:draggableChips={{
@@ -363,7 +433,9 @@
 						{/if}
 					</div>
 				{:else}
-					{#if diff.subject.hunks.length === 0}
+					{#if showConflicts}
+						{@render conflictCards(conflictBuckets[0] ?? [])}
+					{:else if diff.subject.hunks.length === 0}
 						<div class="hunk-placehoder">
 							<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
 								{#snippet caption()}
@@ -381,6 +453,9 @@
 						</div>
 					{/if}
 				{/each}
+				{#if filteredHunks.length > 0 && renderedHunkCount >= filteredHunks.length}
+					{@render conflictCards(conflictBuckets[filteredHunks.length] ?? [])}
+				{/if}
 			{/if}
 		{:else if diff.type === "TooLarge"}
 			<div class="hunk-placehoder">
@@ -436,6 +511,18 @@
 	.hunk-placehoder {
 		border: 1px solid var(--border-3);
 		border-radius: var(--radius-m);
+	}
+
+	.conflicts-notice {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 6px 6px 6px 10px;
+		gap: 8px;
+		border: 1px solid var(--border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--bg-warn);
+		color: var(--text-warn);
 	}
 
 	.hunk-content {

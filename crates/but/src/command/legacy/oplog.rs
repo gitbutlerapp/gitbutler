@@ -165,6 +165,7 @@ pub(crate) fn show_oplog(
                     | OperationKind::MoveCommitFile
                     | OperationKind::FileChanges
                     | OperationKind::EnterEditMode
+                    | OperationKind::ResolveConflicts
                     | OperationKind::ResolveConflictsAi
                     | OperationKind::SyncWorkspace
                     | OperationKind::CreateDependentBranch
@@ -189,6 +190,7 @@ pub(crate) fn show_oplog(
                 OperationKind::CreateCommit => t.success.paint(operation_type.kind_str()),
                 OperationKind::UpdateCommitMessage
                 | OperationKind::AmendCommit
+                | OperationKind::ResolveConflicts
                 | OperationKind::ResolveConflictsAi => t.attention.paint(operation_type.kind_str()),
                 OperationKind::UndoCommit
                 | OperationKind::RestoreFromSnapshot
