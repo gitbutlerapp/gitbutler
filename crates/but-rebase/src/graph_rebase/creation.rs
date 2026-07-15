@@ -114,21 +114,27 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         let mut references = vec![];
         // One selector per worktree name - the reference step of the branch its `HEAD` is on.
         let mut worktree_selectors = BTreeMap::<gix::bstr::BString, Selector>::new();
+        // Refs checked out in another worktree must never be deleted, independently
+        // of whether their worktree participates in checkouts.
+        let mut worktree_checked_out_refs = std::collections::BTreeSet::new();
         struct NodeSegment {
             nodes: Vec<StepGraphIndex>,
         }
 
         let record_worktree_checkout =
             |worktree_selectors: &mut BTreeMap<gix::bstr::BString, Selector>,
+             worktree_checked_out_refs: &mut std::collections::BTreeSet<gix::refs::FullName>,
              ref_info: &but_graph::RefInfo,
              ix: StepGraphIndex| {
                 let Some(worktree) = &ref_info.worktree else {
                     return;
                 };
-                // The repo's own worktree is covered by `Checkout::Head`.
+                // The repo's own worktree is covered by `Checkout::Head`, and its
+                // checked-out ref moves are already handled explicitly.
                 if worktree.owned_by_repo {
                     return;
                 }
+                worktree_checked_out_refs.insert(ref_info.ref_name.clone());
                 let but_graph::WorktreeKind::LinkedId(name) = &worktree.kind else {
                     return;
                 };
@@ -166,7 +172,12 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                         revision: 0,
                     });
                 }
-                record_worktree_checkout(&mut worktree_selectors, ref_info, ix);
+                record_worktree_checkout(
+                    &mut worktree_selectors,
+                    &mut worktree_checked_out_refs,
+                    ref_info,
+                    ix,
+                );
                 nodes.push(ix);
             }
 
@@ -183,7 +194,12 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                         refname: reference.clone(),
                         mutable,
                     });
-                    record_worktree_checkout(&mut worktree_selectors, &ref_info, ix);
+                    record_worktree_checkout(
+                        &mut worktree_selectors,
+                        &mut worktree_checked_out_refs,
+                        &ref_info,
+                        ix,
+                    );
                     if let Some(previous_ix) = nodes.last() {
                         graph.add_edge(*previous_ix, ix, Edge { order: 0 });
                     }
@@ -355,6 +371,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         Ok(Self {
             graph,
             initial_references: references,
+            worktree_checked_out_refs,
             checkouts,
             repo: repo.clone().with_object_memory(),
             history: RevisionHistory::new(),
@@ -374,6 +391,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         Editor {
             graph: self.graph,
             initial_references: self.initial_references,
+            worktree_checked_out_refs: self.worktree_checked_out_refs,
             checkouts: self.checkouts,
             repo: self.repo,
             history: self.history,

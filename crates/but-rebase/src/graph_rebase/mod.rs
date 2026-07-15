@@ -276,6 +276,10 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
     /// Initial references. This is used to track any references that might need
     /// deleted.
     initial_references: Vec<gix::refs::FullName>,
+    /// References checked out in another worktree - deleting them would leave
+    /// that worktree's `HEAD` dangling, so they are never deleted (like
+    /// `git branch -d` refuses to).
+    worktree_checked_out_refs: std::collections::BTreeSet<gix::refs::FullName>,
     /// Worktrees that we might need to perform `safe_checkout` on.
     checkouts: Vec<Checkout>,
     /// The in-memory repository that the rebase engine works with.
@@ -293,6 +297,8 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
 pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     pub(crate) repo: gix::Repository,
     pub(crate) initial_references: Vec<gix::refs::FullName>,
+    /// See [`Editor::worktree_checked_out_refs`].
+    pub(crate) worktree_checked_out_refs: std::collections::BTreeSet<gix::refs::FullName>,
     /// Any reference edits that need to be committed as a result of the history
     /// rewrite
     pub(crate) ref_edits: Vec<RefEdit>,

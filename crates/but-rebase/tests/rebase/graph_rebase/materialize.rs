@@ -559,3 +559,38 @@ fn materialize_leaves_linked_worktrees_alone_without_worktree_tips() -> Result<(
 
     Ok(())
 }
+
+#[test]
+fn rebase_never_deletes_refs_checked_out_in_worktrees() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    // A sibling branch on the same commit as 'middle' that no worktree checks out.
+    repo.reference(
+        "refs/heads/doomed",
+        repo.rev_parse_single("middle")?.detach(),
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "test setup",
+    )?;
+
+    // No worktree tips: the deletion guard is independent of the feature flag.
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    for refname in ["refs/heads/middle", "refs/heads/doomed"] {
+        let selector = editor.select_reference(refname.try_into()?)?;
+        editor.replace(selector, Step::None)?;
+    }
+    editor.rebase()?.materialize()?;
+
+    assert!(
+        repo.try_find_reference("doomed")?.is_none(),
+        "an unchecked-out branch removed from the step graph is deleted"
+    );
+    assert!(
+        repo.try_find_reference("middle")?.is_some(),
+        "a branch checked out in a linked worktree survives - deleting it would dangle that worktree's HEAD"
+    );
+
+    Ok(())
+}

@@ -213,6 +213,15 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                     .iter()
                     .any(|e| e.as_ref() == reference.as_ref())
             {
+                // Deleting a ref that is `HEAD` of another worktree would leave
+                // that worktree dangling - keep it, like `git branch -d` would.
+                if self.worktree_checked_out_refs.contains(reference) {
+                    tracing::info!(
+                        reference = %reference.as_bstr(),
+                        "not deleting reference checked out in a worktree"
+                    );
+                    continue;
+                }
                 ref_edits.push(RefEdit {
                     name: reference.clone(),
                     change: Change::Delete {
@@ -229,6 +238,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
         Ok(SuccessfulRebase {
             repo: self.repo,
             initial_references: self.initial_references,
+            worktree_checked_out_refs: self.worktree_checked_out_refs.clone(),
             ref_edits,
             graph: output_graph,
             checkouts: self.checkouts.to_owned(),

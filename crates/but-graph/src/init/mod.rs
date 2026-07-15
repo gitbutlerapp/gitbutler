@@ -488,8 +488,9 @@ pub struct Options {
     /// Extra reachable tips resolved by the caller from linked-worktree `HEAD`s.
     ///
     /// Tips with a ref name are re-resolved through the (possibly overlaid) ref store on
-    /// every traversal so redone traversals see moved refs; the recorded commit id is only
-    /// a fallback for detached worktrees or refs that no longer resolve.
+    /// every traversal so redone traversals see moved refs; named tips whose ref no longer
+    /// resolves are dropped rather than resurrected from their recorded id. The recorded
+    /// commit id seeds only tips without a ref name (detached worktree `HEAD`s).
     /// These tips queue after all other initial work and are skipped if another tip
     /// already seeds their commit.
     pub worktree_tips: Vec<WorktreeTip>,
@@ -1333,15 +1334,20 @@ fn append_worktree_tips(
 ) -> Vec<Tip> {
     let mut seen_ids: BTreeSet<_> = tips.iter().map(|tip| tip.id).collect();
     for worktree_tip in worktree_tips {
-        let resolved = worktree_tip.ref_name.as_ref().and_then(|name| {
-            let mut reference = repo.try_find_reference(name.as_ref()).ok()??;
-            Some(reference.peel_to_id().ok()?.detach())
-        });
-        let id = match (resolved, worktree_tip.ref_name.is_some()) {
-            (Some(id), _) => id,
-            // The ref was dropped by an overlay or vanished - don't resurrect its old tip.
-            (None, true) => continue,
-            (None, false) => worktree_tip.id,
+        let id = match &worktree_tip.ref_name {
+            Some(name) => {
+                let resolved = repo.try_find_reference(name.as_ref()).ok().flatten().and_then(
+                    |mut reference| Some(reference.peel_to_id().ok()?.detach()),
+                );
+                match resolved {
+                    Some(id) => id,
+                    // The ref was dropped by an overlay or vanished - don't
+                    // resurrect its old tip from the recorded id.
+                    None => continue,
+                }
+            }
+            // Detached worktree `HEAD` - the recorded commit is all there is.
+            None => worktree_tip.id,
         };
         if seen_ids.insert(id) {
             tips.push(Tip::new(id));
