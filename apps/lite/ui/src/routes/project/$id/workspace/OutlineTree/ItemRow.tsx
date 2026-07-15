@@ -1,7 +1,6 @@
 import { NavigationIndexContext } from "../OutlineNavigationIndexContext.ts";
 import { Row } from "../Row.tsx";
-import { OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
-import { isOutlineSelected } from "#ui/workspace.ts";
+import { OutlineSelectionActionsContext } from "#ui/WorkspaceContext.ts";
 import { operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { navigationIndexIncludes } from "#ui/workspace/navigation-index.ts";
 import { Tooltip } from "@base-ui/react";
@@ -9,6 +8,7 @@ import { ComponentProps, FC, use } from "react";
 import { assert } from "#ui/assert.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import styles from "./ItemRow.module.css";
+import { TreeItemSelectionContext } from "./TreeItemSelectionContext.ts";
 
 const CommitTargetIndicator: FC = () => (
 	<Tooltip.Root>
@@ -37,16 +37,18 @@ const CommitTargetIndicator: FC = () => (
 	</Tooltip.Root>
 );
 
-export const ItemRow: FC<
-	{
-		operand: Operand;
-		projectId: string;
-		isCommitTarget?: boolean;
-	} & Omit<ComponentProps<typeof Row>, "inert" | "isSelected" | "onSelect">
-> = ({ operand, projectId, isCommitTarget, ...props }) => {
+type ItemRowProps = {
+	operand: Operand;
+	projectId: string;
+	isCommitTarget?: boolean;
+} & Omit<ComponentProps<typeof Row>, "inert" | "isSelected" | "onSelect">;
+
+const ItemRowContent: FC<{
+	rowProps: ItemRowProps;
+	isSelected: boolean;
+}> = ({ rowProps: { operand, projectId, isCommitTarget, ...props }, isSelected }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const { outlineSelection, selectOutline } = use(OutlineSelectionContext);
-	const isSelected = isOutlineSelected(outlineSelection, navigationIndex, operand);
+	const { selectOutline } = use(OutlineSelectionActionsContext);
 	const selectItem = () => {
 		selectOutline(projectId, operand);
 	};
@@ -62,4 +64,10 @@ export const ItemRow: FC<
 			{isCommitTarget && <CommitTargetIndicator />}
 		</div>
 	);
+};
+
+export const ItemRow: FC<ItemRowProps> = (p) => {
+	const isSelected = use(TreeItemSelectionContext);
+
+	return <ItemRowContent rowProps={p} isSelected={isSelected} />;
 };

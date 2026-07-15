@@ -8,6 +8,12 @@ import { createContext } from "react";
 
 export type OutlineSelectionContext = {
 	outlineSelection: Operand | null;
+};
+
+export const OutlineSelectionContext = createContext({} as OutlineSelectionContext);
+OutlineSelectionContext.displayName = "OutlineSelectionContext";
+
+export type OutlineSelectionActionsContext = {
 	selectOutline: (projectId: string, selection: Operand | null) => void;
 	updateRewrittenCommitReferences: (
 		projectId: string,
@@ -21,8 +27,8 @@ export type OutlineSelectionContext = {
 	) => void;
 };
 
-export const OutlineSelectionContext = createContext({} as OutlineSelectionContext);
-OutlineSelectionContext.displayName = "OutlineSelectionContext";
+export const OutlineSelectionActionsContext = createContext({} as OutlineSelectionActionsContext);
+OutlineSelectionActionsContext.displayName = "OutlineSelectionActionsContext";
 
 export type FilesSelectionContext = {
 	filesSelection: string | null;

@@ -12,7 +12,6 @@ import {
 import { uncommittedChangesOperand } from "#ui/operands.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { OutlineModeContext } from "#ui/WorkspaceContext.ts";
-import { Toolbar } from "@base-ui/react/toolbar";
 import { TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { FC, use } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
@@ -112,17 +111,18 @@ export const UncommittedChangesRow: FC<{
 			</RowLabelContainer>
 
 			{isDefaultMode && (
-				<Toolbar.Root aria-label="Uncommitted changes actions" render={<RowToolbar forceVisible />}>
-					<Toolbar.Button
+				<RowToolbar aria-label="Uncommitted changes actions" forceVisible role="toolbar">
+					<button
 						aria-label="Uncommitted changes menu"
+						type="button"
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
 						className={getRowButtonClassName({ iconOnly: true })}
 					>
 						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
+					</button>
+				</RowToolbar>
 			)}
 		</ItemRow>
 	);

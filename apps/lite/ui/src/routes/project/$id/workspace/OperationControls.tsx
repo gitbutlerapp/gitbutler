@@ -6,7 +6,6 @@ import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { operationHotkeys } from "#ui/hotkeys.ts";
 import { Operand } from "#ui/operands.ts";
 import {
@@ -19,7 +18,7 @@ import { operandLabel } from "#ui/routes/project/$id/workspace/operandLabel.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { OutlineModeContext, OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
 import { resolveOutlineSelection } from "#ui/workspace.ts";
-import { Button, Tooltip } from "@base-ui/react";
+import { Button } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
@@ -84,49 +83,30 @@ const Controls: FC<{
 	return (
 		<div className={styles.controls}>
 			{confirm && (
-				<Tooltip.Root>
-					<Tooltip.Trigger
-						className={getButtonClassName({ variant: "gray" })}
-						onMouseDown={(event) => {
-							// Prevent stealing focus from the tree.
-							if (!event.defaultPrevented) event.preventDefault();
-						}}
-						onClick={confirm.onRun}
-						// We pass `disabled` here because we want to disable the button, not
-						// the tooltip. Other props should be passed above.
-						render={<Button focusableWhenDisabled disabled={!confirm.canRun} />}
-					>
-						Confirm
-					</Tooltip.Trigger>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.confirm.hotkey} />}>
-								Confirm
-							</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
-			)}
-
-			<Tooltip.Root>
-				<Tooltip.Trigger
-					className={getButtonClassName({})}
+				<Button
+					focusableWhenDisabled
+					disabled={!confirm.canRun}
+					className={getButtonClassName({ variant: "gray" })}
 					onMouseDown={(event) => {
 						// Prevent stealing focus from the tree.
 						if (!event.defaultPrevented) event.preventDefault();
 					}}
-					onClick={onCancel}
+					onClick={confirm.onRun}
 				>
-					Cancel
-				</Tooltip.Trigger>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.cancel.hotkey} />}>
-							Cancel
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+					Confirm
+				</Button>
+			)}
+
+			<Button
+				className={getButtonClassName({})}
+				onMouseDown={(event) => {
+					// Prevent stealing focus from the tree.
+					if (!event.defaultPrevented) event.preventDefault();
+				}}
+				onClick={onCancel}
+			>
+				Cancel
+			</Button>
 		</div>
 	);
 };

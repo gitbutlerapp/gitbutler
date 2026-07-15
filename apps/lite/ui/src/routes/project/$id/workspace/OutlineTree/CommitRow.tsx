@@ -12,7 +12,6 @@ import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { classes } from "#ui/components/classes.ts";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
 import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
 import { HighlightedCommitIdsContext } from "#ui/HighlightedCommitIdsContext.ts";
@@ -35,10 +34,9 @@ import {
 } from "#ui/native-menu.ts";
 import { branchOperand, commitOperand, operandEquals, type CommitOperand } from "#ui/operands.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { OutlineModeContext, OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
+import { OutlineModeContext, OutlineSelectionActionsContext } from "#ui/WorkspaceContext.ts";
 import { RelativeTo, type Commit } from "@gitbutler/but-sdk";
-import { Toast, Tooltip } from "@base-ui/react";
-import { Toolbar } from "@base-ui/react/toolbar";
+import { Toast } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { ComponentProps, FC, use, useOptimistic, useTransition } from "react";
 import { RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
@@ -79,7 +77,7 @@ export const CommitRow: FC<
 		enterKeyboardTransferMode,
 		exitMode,
 	} = use(OutlineModeContext);
-	const { selectOutline } = use(OutlineSelectionContext);
+	const { selectOutline } = use(OutlineSelectionActionsContext);
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const commitOperandV: CommitOperand = {
 		stackId,
@@ -96,21 +94,19 @@ export const CommitRow: FC<
 	);
 	const [isCommitMessagePending, startCommitMessageTransition] = useTransition();
 
-	const commitWithOptimisticMessage: Commit = {
-		...commit,
-		message: optimisticMessage,
-	};
-	const { hasConflicts } = dryRunCommit ? dryRunCommit : commitWithOptimisticMessage;
+	const hasConflicts = dryRunCommit?.hasConflicts ?? commit.hasConflicts;
 
-	const commitInsertBlankMutation = useCommitInsertBlank();
-	const commitDiscardMutation = useCommitDiscard();
-	const commitUncommitMutation = useCommitUncommit();
-	const commitRewordMutation = useCommitReword();
-	const commitAmendMutation = useCommitAmend({ projectId });
-	const branchCreateMutation = useBranchCreate();
+	const { mutate: mutateCommitInsertBlank } = useCommitInsertBlank();
+	const { mutate: mutateCommitDiscard, isPending: isCommitDiscardPending } = useCommitDiscard();
+	const { mutate: mutateCommitUncommit, isPending: isCommitUncommitPending } = useCommitUncommit();
+	const { mutateAsync: mutateCommitRewordAsync } = useCommitReword();
+	const { mutate: mutateCommitAmend, isPending: isCommitAmendPending } = useCommitAmend({
+		projectId,
+	});
+	const { mutate: mutateBranchCreate } = useBranchCreate();
 
 	const insertBlankCommit = (side: "above" | "below") => {
-		commitInsertBlankMutation.mutate({
+		mutateCommitInsertBlank({
 			projectId,
 			relativeTo: { type: "commit", subject: commit.id },
 			side,
@@ -119,7 +115,7 @@ export const CommitRow: FC<
 	};
 
 	const createDependentBranch = (side: "above" | "below") => {
-		branchCreateMutation.mutate(
+		mutateBranchCreate(
 			{
 				projectId,
 				newRef: null,
@@ -157,7 +153,7 @@ export const CommitRow: FC<
 			commit: commitOperandV,
 		});
 
-		commitDiscardMutation.mutate(
+		mutateCommitDiscard(
 			{
 				projectId,
 				subjectCommitId: commit.id,
@@ -201,7 +197,7 @@ export const CommitRow: FC<
 		startCommitMessageTransition(async () => {
 			setOptimisticMessage(trimmed);
 			try {
-				await commitRewordMutation.mutateAsync({
+				await mutateCommitRewordAsync({
 					projectId,
 					commitId: commit.id,
 					message: trimmed,
@@ -224,7 +220,7 @@ export const CommitRow: FC<
 	const relativeTo: RelativeTo = { type: "commit", subject: commit.id };
 
 	const amendCommit = () => {
-		commitAmendMutation.mutate({ commitId: commit.id });
+		mutateCommitAmend({ commitId: commit.id });
 	};
 
 	const setCommitTarget = () => {
@@ -242,104 +238,106 @@ export const CommitRow: FC<
 		await window.lite.openInWebBrowser(mforgeUrl.url);
 	};
 
-	const title = commitTitle(commitWithOptimisticMessage.message);
-	const body = commitBody(commitWithOptimisticMessage.message);
+	const title = commitTitle(optimisticMessage);
+	const createMenuItems = (): Array<NativeMenuItem> => {
+		const body = commitBody(optimisticMessage);
 
-	const menuItems: Array<NativeMenuItem> = [
-		nativeMenuItem({
-			label: "Reword Commit",
-			enabled: !isCommitMessagePending,
-			accelerator: toElectronAccelerator(outlineHotkeys.rewordCommit.hotkey),
-			onSelect: startEditing,
-		}),
-		nativeMenuItem({
-			label: "Amend Commit",
-			accelerator: toElectronAccelerator(outlineHotkeys.amendCommit.hotkey),
-			enabled: isDefaultMode && !commitAmendMutation.isPending,
-			onSelect: amendCommit,
-		}),
-		nativeMenuItem({
-			label: "Cut Commit",
-			onSelect: cutCommit,
-			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Compose Commit Here",
-			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
-			onSelect: composeCommitHere,
-			enabled: isDefaultMode,
-		}),
-		nativeMenuItem({
-			label: "Set Commit Target",
-			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
-			onSelect: setCommitTarget,
-			enabled: isDefaultMode,
-		}),
-		nativeMenuItem({
-			label: "Copy",
-			submenu: [
-				nativeMenuItem({
-					label: "Change ID",
-					onSelect: () => window.lite.clipboardWriteText(commit.changeId),
-				}),
-				nativeMenuItem({
-					label: "Commit ID",
-					onSelect: () => window.lite.clipboardWriteText(commit.id),
-				}),
-				nativeMenuItem({
-					label: "Commit Title",
-					enabled: title !== undefined,
-					onSelect: () => window.lite.clipboardWriteText(title ?? ""),
-				}),
-				nativeMenuItem({
-					label: "Commit Body",
-					enabled: body !== undefined,
-					onSelect: () => window.lite.clipboardWriteText(body ?? ""),
-				}),
-			],
-		}),
-		nativeMenuItem({
-			label: mforgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
-			enabled: mforgeUrl != null,
-			accelerator: toElectronAccelerator(outlineHotkeys.openCommitInBrowser.hotkey),
-			onSelect: openCommitInBrowser,
-		}),
-		insertBlankCommitMenuItem(insertBlankCommit, "above"),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Create Branch",
-			submenu: [
-				nativeMenuItem({
-					label: "Above",
-					accelerator: toElectronAccelerator(outlineHotkeys.createDependentBranchAbove.hotkey),
-					onSelect: () => createDependentBranch("above"),
-				}),
-				nativeMenuItem({
-					label: "Below",
-					onSelect: () => createDependentBranch("below"),
-				}),
-			],
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Delete Commit",
-			enabled: !commitDiscardMutation.isPending,
-			accelerator: toElectronAccelerator(outlineHotkeys.deleteCommit.hotkey),
-			onSelect: deleteCommit,
-		}),
-		nativeMenuItem({
-			label: "Uncommit",
-			enabled: !commitUncommitMutation.isPending,
-			onSelect: () =>
-				commitUncommitMutation.mutate({
-					projectId,
-					assignTo: null,
-					subjectCommitIds: [commit.id],
-					dryRun: false,
-				}),
-		}),
-	];
+		return [
+			nativeMenuItem({
+				label: "Reword Commit",
+				enabled: !isCommitMessagePending,
+				accelerator: toElectronAccelerator(outlineHotkeys.rewordCommit.hotkey),
+				onSelect: startEditing,
+			}),
+			nativeMenuItem({
+				label: "Amend Commit",
+				accelerator: toElectronAccelerator(outlineHotkeys.amendCommit.hotkey),
+				enabled: isDefaultMode && !isCommitAmendPending,
+				onSelect: amendCommit,
+			}),
+			nativeMenuItem({
+				label: "Cut Commit",
+				onSelect: cutCommit,
+				accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
+			}),
+			nativeMenuSeparator,
+			nativeMenuItem({
+				label: "Compose Commit Here",
+				accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
+				onSelect: composeCommitHere,
+				enabled: isDefaultMode,
+			}),
+			nativeMenuItem({
+				label: "Set Commit Target",
+				accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
+				onSelect: setCommitTarget,
+				enabled: isDefaultMode,
+			}),
+			nativeMenuItem({
+				label: "Copy",
+				submenu: [
+					nativeMenuItem({
+						label: "Change ID",
+						onSelect: () => window.lite.clipboardWriteText(commit.changeId),
+					}),
+					nativeMenuItem({
+						label: "Commit ID",
+						onSelect: () => window.lite.clipboardWriteText(commit.id),
+					}),
+					nativeMenuItem({
+						label: "Commit Title",
+						enabled: title !== undefined,
+						onSelect: () => window.lite.clipboardWriteText(title ?? ""),
+					}),
+					nativeMenuItem({
+						label: "Commit Body",
+						enabled: body !== undefined,
+						onSelect: () => window.lite.clipboardWriteText(body ?? ""),
+					}),
+				],
+			}),
+			nativeMenuItem({
+				label: mforgeUrl?.freshness === "stale" ? "Open In Browser (stale)" : "Open In Browser",
+				enabled: mforgeUrl != null,
+				accelerator: toElectronAccelerator(outlineHotkeys.openCommitInBrowser.hotkey),
+				onSelect: openCommitInBrowser,
+			}),
+			insertBlankCommitMenuItem(insertBlankCommit, "above"),
+			nativeMenuSeparator,
+			nativeMenuItem({
+				label: "Create Branch",
+				submenu: [
+					nativeMenuItem({
+						label: "Above",
+						accelerator: toElectronAccelerator(outlineHotkeys.createDependentBranchAbove.hotkey),
+						onSelect: () => createDependentBranch("above"),
+					}),
+					nativeMenuItem({
+						label: "Below",
+						onSelect: () => createDependentBranch("below"),
+					}),
+				],
+			}),
+			nativeMenuSeparator,
+			nativeMenuItem({
+				label: "Delete Commit",
+				enabled: !isCommitDiscardPending,
+				accelerator: toElectronAccelerator(outlineHotkeys.deleteCommit.hotkey),
+				onSelect: deleteCommit,
+			}),
+			nativeMenuItem({
+				label: "Uncommit",
+				enabled: !isCommitUncommitPending,
+				onSelect: () =>
+					mutateCommitUncommit({
+						projectId,
+						assignTo: null,
+						subjectCommitIds: [commit.id],
+						dryRun: false,
+					}),
+			}),
+		];
+	};
 
 	return (
 		<ItemRow
@@ -348,7 +346,7 @@ export const CommitRow: FC<
 			operand={operand}
 			isHighlighted={isHighlighted}
 			onContextMenu={(event) => {
-				void showNativeContextMenu(event, menuItems);
+				void showNativeContextMenu(event, createMenuItems());
 			}}
 			className={classes(restProps.className, styles.row)}
 			isCommitTarget={isCommitTarget}
@@ -358,30 +356,16 @@ export const CommitRow: FC<
 					glyph="commit"
 					status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
 				/>
-				<Tooltip.Root
-					// This gets in the way when the user tries to move their hover to a
-					// sibling row.
-					disableHoverablePopup
-				>
-					<RowCheckbox
-						disabled={!isDefaultMode}
-						aria-label={`Check commit ${title ?? "(no message)"}`}
-						checked={isChecked}
-						className={styles.checkbox}
-						nativeButton
-						render={<Tooltip.Trigger />}
-						onCheckedChange={(checked) => {
-							setCommitsChecked(projectId, [commit.id], checked);
-						}}
-					/>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.checkCommit.hotkey} />}>
-								{outlineHotkeys.checkCommit.meta.name}
-							</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
+				<RowCheckbox
+					disabled={!isDefaultMode}
+					aria-label={`Check commit ${title ?? "(no message)"}`}
+					checked={isChecked}
+					className={styles.checkbox}
+					nativeButton
+					onCheckedChange={(checked) => {
+						setCommitsChecked(projectId, [commit.id], checked);
+					}}
+				/>
 			</div>
 
 			{isRewording ? (
@@ -411,17 +395,18 @@ export const CommitRow: FC<
 			)}
 
 			{isDefaultMode && (
-				<Toolbar.Root aria-label="Commit actions" render={<RowToolbar />}>
-					<Toolbar.Button
+				<RowToolbar aria-label="Commit actions" role="toolbar">
+					<button
 						aria-label="Commit menu"
+						type="button"
 						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+							void showNativeMenuFromTrigger(event.currentTarget, createMenuItems());
 						}}
 						className={getRowButtonClassName({ iconOnly: true })}
 					>
 						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
+					</button>
+				</RowToolbar>
 			)}
 		</ItemRow>
 	);

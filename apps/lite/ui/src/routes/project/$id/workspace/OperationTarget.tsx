@@ -14,10 +14,9 @@ import {
 	attachInstruction,
 	extractInstruction,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
-import { Tooltip, useRender } from "@base-ui/react";
+import { useRender } from "@base-ui/react";
 import { Match } from "effect";
 import { FC, use, useEffect, useEffectEvent, useRef } from "react";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 
 type DropTargetParams = Parameters<typeof dropTargetForElements>[0];
 type GetDataArgs = Parameters<NonNullable<DropTargetParams["getData"]>>[0];
@@ -139,17 +138,14 @@ export const OperationTarget: FC<
 > = ({ enabled, projectId, target, activeOperation, outline, render, ...props }) => {
 	const { dropRef } = useOperationDropTarget({ enabled, projectId, target });
 
-	const targetEl = useRender({
+	return useRender({
 		render,
 		ref: dropRef,
-		props,
-	});
-
-	return (
-		<Tooltip.Root open={activeOperation?.tooltip !== undefined} disableHoverablePopup>
-			<Tooltip.Trigger
-				render={targetEl}
-				className={Match.value(activeOperation?.operationType).pipe(
+		props: {
+			...props,
+			className: classes(
+				props.className,
+				Match.value(activeOperation?.operationType).pipe(
 					Match.when("above", () => classes(styles.insertionTarget, styles.insertionTargetAbove)),
 					Match.when("below", () => classes(styles.insertionTarget, styles.insertionTargetBelow)),
 					Match.when("into", () =>
@@ -164,13 +160,8 @@ export const OperationTarget: FC<
 					),
 					Match.when(undefined, () => undefined),
 					Match.exhaustive,
-				)}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8} side="right">
-					<Tooltip.Popup render={<TooltipPopup />}>{activeOperation?.tooltip}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
+				),
+			),
+		},
+	});
 };

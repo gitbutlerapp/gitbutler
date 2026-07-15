@@ -10,7 +10,6 @@ import {
 } from "#ui/native-menu.ts";
 import { OutlineModeContext } from "#ui/WorkspaceContext.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
-import { Toolbar } from "@base-ui/react/toolbar";
 import { BottomUpdate, Stack } from "@gitbutler/but-sdk";
 import { ComponentProps, FC, use } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
@@ -74,17 +73,18 @@ export const StackRow: FC<
 			<RowLabelContainer />
 
 			{isDefaultMode && (
-				<Toolbar.Root aria-label="Stack actions" render={<RowToolbar forceVisible />}>
-					<Toolbar.Button
+				<RowToolbar aria-label="Stack actions" forceVisible role="toolbar">
+					<button
 						aria-label="Stack menu"
+						type="button"
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
 						className={getRowButtonClassName({ iconOnly: true })}
 					>
 						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
+					</button>
+				</RowToolbar>
 			)}
 		</Row>
 	);

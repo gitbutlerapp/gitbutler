@@ -10,8 +10,7 @@ import {
 import { forgeInfoOptions, listCIChecksQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { Button, Toast, Tooltip } from "@base-ui/react";
-import { Toolbar } from "@base-ui/react/toolbar";
+import { Button, Toast } from "@base-ui/react";
 import { BranchReference, InsertSide, PushStatus, RelativeTo } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -27,7 +26,6 @@ import { classes } from "#ui/components/classes.ts";
 import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { outlineHotkeys, selectionOperationHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import {
@@ -39,7 +37,7 @@ import {
 } from "#ui/native-menu.ts";
 import { branchOperand, operandEquals, type BranchOperand } from "#ui/operands.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { OutlineModeContext, OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
+import { OutlineModeContext, OutlineSelectionActionsContext } from "#ui/WorkspaceContext.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import {
 	RowBubble,
@@ -161,7 +159,7 @@ export const BranchRow: FC<
 		enterKeyboardTransferMode,
 		exitMode,
 	} = use(OutlineModeContext);
-	const { selectOutline } = use(OutlineSelectionContext);
+	const { selectOutline } = use(OutlineSelectionActionsContext);
 	const branchOperandV: BranchOperand = {
 		stackId,
 		branchRef: refName.fullNameBytes,
@@ -490,43 +488,22 @@ export const BranchRow: FC<
 								}${workspaceBranchAndAncestorsPushDisabledReason !== null ? ` (${workspaceBranchAndAncestorsPushDisabledReason})` : ""}`;
 
 								return (
-									<Tooltip.Root>
-										<Tooltip.Trigger
-											aria-label={pushButtonLabel}
-											onClick={workspaceBranchAndAncestorsPush}
-											className={getRowButtonClassName({ variant: "outline" })}
-											// We pass `disabled` here because we want to disable the button, not
-											// the tooltip. Other props should be passed above.
-											render={
-												<Button
-													focusableWhenDisabled
-													disabled={workspaceBranchAndAncestorsPushDisabled}
-												/>
-											}
-										>
-											Push
-											{workspaceBranchAndAncestorsPushMutation.isPending ? (
-												<Icon name="spinner" />
-											) : pushesMultipleBranches ? (
-												<Icon size={12} name="arrow-double-up" />
-											) : (
-												<Icon size={12} name="arrow-up" />
-											)}
-										</Tooltip.Trigger>
-										<Tooltip.Portal>
-											<Tooltip.Positioner sideOffset={4}>
-												<Tooltip.Popup
-													render={
-														<TooltipPopup
-															kbd={outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey}
-														/>
-													}
-												>
-													{pushButtonLabel}
-												</Tooltip.Popup>
-											</Tooltip.Positioner>
-										</Tooltip.Portal>
-									</Tooltip.Root>
+									<Button
+										focusableWhenDisabled
+										disabled={workspaceBranchAndAncestorsPushDisabled}
+										aria-label={pushButtonLabel}
+										onClick={workspaceBranchAndAncestorsPush}
+										className={getRowButtonClassName({ variant: "outline" })}
+									>
+										Push
+										{workspaceBranchAndAncestorsPushMutation.isPending ? (
+											<Icon name="spinner" />
+										) : pushesMultipleBranches ? (
+											<Icon size={12} name="arrow-double-up" />
+										) : (
+											<Icon size={12} name="arrow-up" />
+										)}
+									</Button>
 								);
 							})()}
 					</RowLabelFooter>
@@ -534,17 +511,18 @@ export const BranchRow: FC<
 			)}
 
 			{isDefaultMode && (
-				<Toolbar.Root aria-label="Branch actions" render={<RowToolbar />}>
-					<Toolbar.Button
+				<RowToolbar aria-label="Branch actions" role="toolbar">
+					<button
 						aria-label="Branch menu"
+						type="button"
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
 						className={getRowButtonClassName({ iconOnly: true })}
 					>
 						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
+					</button>
+				</RowToolbar>
 			)}
 		</ItemRow>
 	);

@@ -23,7 +23,11 @@ import { DialogContext } from "#ui/DialogContext.ts";
 import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
 import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
 import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
-import { OutlineModeContext, OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
+import {
+	OutlineModeContext,
+	OutlineSelectionActionsContext,
+	OutlineSelectionContext,
+} from "#ui/WorkspaceContext.ts";
 import { resolveOutlineSelection } from "#ui/workspace.ts";
 import { type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { prForgeUrl } from "#ui/pr.ts";
@@ -76,7 +80,8 @@ export const useOutlineTreeHotkeys = ({
 	const { checkedCommitIds, setCommitsChecked } = use(CheckedCommitIdsContext);
 	const { setCommitTarget: updateCommitTarget } = use(CommitTargetContext);
 	const { openDialog } = use(DialogContext);
-	const { outlineSelection, selectOutline } = use(OutlineSelectionContext);
+	const { outlineSelection } = use(OutlineSelectionContext);
+	const { selectOutline } = use(OutlineSelectionActionsContext);
 	const { outlineMode, enterAbsorbMode, startRewordCommit, startRenameBranch } =
 		use(OutlineModeContext);
 	const { data: headInfoIndex } = useQuery({

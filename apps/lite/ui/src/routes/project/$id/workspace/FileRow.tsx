@@ -6,15 +6,12 @@ import { FileParent } from "#ui/operands.ts";
 import { OutlineModeContext } from "#ui/WorkspaceContext.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
-import { Tooltip } from "@base-ui/react";
-import { Toolbar } from "@base-ui/react/toolbar";
 import { Match } from "effect";
 import { ComponentProps, FC, use } from "react";
 import styles from "./FileRow.module.css";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "./Row.tsx";
 import { getRowButtonClassName } from "./Row-utils.ts";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
 
@@ -44,119 +41,81 @@ export const FileRow: FC<
 	const fileName = lastSepIdx !== -1 ? relativePath.slice(lastSepIdx + 1) : relativePath;
 
 	return (
-		<Tooltip.Root disableHoverablePopup>
-			<Tooltip.Trigger
-				// We pass the ID here instead of including it with the other props as a
-				// workaround for Base UI issue:
-				// https://github.com/mui/base-ui/issues/5108
-				id={id}
-				render={
-					<Row
-						{...restProps}
-						className={classes(restProps.className, styles.row)}
-						onContextMenu={(event) => {
-							void showNativeContextMenu(event, menuItems);
-						}}
-					/>
-				}
-			>
-				<div className={styles.iconWithCheckbox}>
-					<FileIcon fileName={fileName} className={styles.icon} />
-					<Tooltip.Root
-						// This gets in the way when the user tries to move their hover to a
-						// sibling row.
-						disableHoverablePopup
-					>
-						<RowCheckbox
-							disabled={hasCheckedCommits || outlineMode._tag !== "Default"}
-							aria-label={`Check file ${relativePath}`}
-							className={styles.checkbox}
-							nativeButton
-							render={<Tooltip.Trigger />}
-						/>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup render={<TooltipPopup />}>Check file</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
-				</div>
+		<Row
+			{...restProps}
+			id={id}
+			className={classes(restProps.className, styles.row)}
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
+		>
+			<div className={styles.iconWithCheckbox}>
+				<FileIcon fileName={fileName} className={styles.icon} />
+				<RowCheckbox
+					disabled={hasCheckedCommits || outlineMode._tag !== "Default"}
+					aria-label={`Check file ${relativePath}`}
+					className={styles.checkbox}
+					nativeButton
+				/>
+			</div>
 
-				<RowLabelContainer>
-					{item._tag === "Conflict" && "⚠️"}
-					<RowLabel singleLine>
-						{fileName}
-						{directoryPath !== null && (
-							<span className={classes(styles.pathInit, rowStyles.fadedText)}>{directoryPath}</span>
-						)}
-					</RowLabel>
-				</RowLabelContainer>
-
-				{outlineMode._tag === "Default" && (
-					<Toolbar.Root aria-label="File actions" render={<RowToolbar />}>
-						<Toolbar.Button
-							aria-label="File menu"
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-							}}
-							className={getRowButtonClassName({ iconOnly: true })}
-						>
-							<Icon name="kebab" />
-						</Toolbar.Button>
-					</Toolbar.Root>
-				)}
-
-				{outlineMode._tag === "Default" &&
-					item._tag === "Change" &&
-					fileParent._tag === "UncommittedChanges" &&
-					item.dependencyCommitIds.length > 0 && (
-						<Toolbar.Root aria-label="File actions" render={<RowToolbar forceVisible />}>
-							<Toolbar.Button
-								render={
-									<DependencyIndicator
-										projectId={projectId}
-										commitIds={item.dependencyCommitIds}
-										branchNameByCommitId={branchNameByCommitId}
-										className={getRowButtonClassName({ iconOnly: true })}
-									/>
-								}
-							>
-								<Icon name="link" />
-							</Toolbar.Button>
-						</Toolbar.Root>
+			<RowLabelContainer>
+				{item._tag === "Conflict" && "⚠️"}
+				<RowLabel singleLine>
+					{fileName}
+					{directoryPath !== null && (
+						<span className={classes(styles.pathInit, rowStyles.fadedText)}>{directoryPath}</span>
 					)}
+				</RowLabel>
+			</RowLabelContainer>
 
-				{item._tag === "Change" && (
-					<Tooltip.Root disableHoverablePopup>
-						<Tooltip.Trigger
-							className={styles.statusBadge}
-							aria-label={item.change.status.type}
-							data-status-type={item.change.status.type}
-							// By default it's a button, but we don't want this to be
-							// interactive.
-							render={<span />}
+			{outlineMode._tag === "Default" && (
+				<RowToolbar aria-label="File actions" role="toolbar">
+					<button
+						aria-label="File menu"
+						type="button"
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+						className={getRowButtonClassName({ iconOnly: true })}
+					>
+						<Icon name="kebab" />
+					</button>
+				</RowToolbar>
+			)}
+
+			{outlineMode._tag === "Default" &&
+				item._tag === "Change" &&
+				fileParent._tag === "UncommittedChanges" &&
+				item.dependencyCommitIds.length > 0 && (
+					<RowToolbar aria-label="File actions" forceVisible role="toolbar">
+						<DependencyIndicator
+							projectId={projectId}
+							commitIds={item.dependencyCommitIds}
+							branchNameByCommitId={branchNameByCommitId}
+							className={getRowButtonClassName({ iconOnly: true })}
+							type="button"
 						>
-							{Match.value(item.change.status).pipe(
-								Match.when({ type: "Addition" }, () => "A"),
-								Match.when({ type: "Deletion" }, () => "D"),
-								Match.when({ type: "Modification" }, () => "M"),
-								Match.when({ type: "Rename" }, () => "R"),
-								Match.exhaustive,
-							)}
-						</Tooltip.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup render={<TooltipPopup />}>{item.change.status.type}</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
+							<Icon name="link" />
+						</DependencyIndicator>
+					</RowToolbar>
 				)}
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup />}>{relativePath}</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+
+			{item._tag === "Change" && (
+				<span
+					className={styles.statusBadge}
+					aria-label={item.change.status.type}
+					data-status-type={item.change.status.type}
+				>
+					{Match.value(item.change.status).pipe(
+						Match.when({ type: "Addition" }, () => "A"),
+						Match.when({ type: "Deletion" }, () => "D"),
+						Match.when({ type: "Modification" }, () => "M"),
+						Match.when({ type: "Rename" }, () => "R"),
+						Match.exhaustive,
+					)}
+				</span>
+			)}
+		</Row>
 	);
 };

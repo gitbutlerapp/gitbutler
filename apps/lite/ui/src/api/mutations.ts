@@ -18,7 +18,7 @@ import {
 import { commitOperand, type BranchOperand } from "#ui/operands.ts";
 import { CheckedCommitIdsContext } from "#ui/CheckedCommitIdsContext.ts";
 import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
-import { OutlineModeContext, OutlineSelectionContext } from "#ui/WorkspaceContext.ts";
+import { OutlineModeContext, OutlineSelectionActionsContext } from "#ui/WorkspaceContext.ts";
 import { Toast } from "@base-ui/react";
 import {
 	type CommitAbsorption,
@@ -38,7 +38,9 @@ type PromiseReturnType<T> = T extends (...args: Array<any>) => Promise<infer U> 
 type AnyResponse = PromiseReturnType<(typeof window.lite)[keyof typeof window.lite]>;
 
 export const useSyncCoreCaches = () => {
-	const { updateRewrittenCommitReferences: updateOutlineReferences } = use(OutlineSelectionContext);
+	const { updateRewrittenCommitReferences: updateOutlineReferences } = use(
+		OutlineSelectionActionsContext,
+	);
 	const { updateRewrittenCommitReferences: updateCheckedCommitReferences } =
 		use(CheckedCommitIdsContext);
 	const { updateRewrittenCommitReferences: updateCommitTargetReferences } =
@@ -513,7 +515,7 @@ export const useDiscardWorktreeChanges = () => {
 
 export const useCommitInsertBlank = () => {
 	const syncCoreCaches = useSyncCoreCaches();
-	const { selectOutline } = use(OutlineSelectionContext);
+	const { selectOutline } = use(OutlineSelectionActionsContext);
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
@@ -524,9 +526,8 @@ export const useCommitInsertBlank = () => {
 			const stackId = getHeadInfoIndex(response.workspace.headInfo).commitContextById(
 				response.newCommit,
 			)?.stack.id;
-			if (stackId != null) {
+			if (stackId != null)
 				selectOutline(input.projectId, commitOperand({ stackId, commitId: response.newCommit }));
-			}
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -816,7 +817,9 @@ export const useUpdateBranchName = ({
 }) => {
 	const { updateRewrittenBranchReferences: updateCommitTargetReferences } =
 		use(CommitTargetContext);
-	const { updateRewrittenBranchReferences: updateOutlineReferences } = use(OutlineSelectionContext);
+	const { updateRewrittenBranchReferences: updateOutlineReferences } = use(
+		OutlineSelectionActionsContext,
+	);
 	const { exitMode } = use(OutlineModeContext);
 	const toastManager = Toast.useToastManager();
 

@@ -6,7 +6,6 @@ import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { CommitTargetContext } from "#ui/CommitTargetContext.ts";
 import {
 	changesHotkeys,
@@ -17,7 +16,7 @@ import {
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { OutlineModeContext } from "#ui/WorkspaceContext.ts";
-import { Button, Tooltip } from "@base-ui/react";
+import { Button } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import type { RelativeTo } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
@@ -207,29 +206,16 @@ export const CommitForm: FC<{
 					autoHighlight
 					disabled={!isDefaultMode || isCommitOrAmendPending}
 				>
-					<Tooltip.Root>
-						<Combobox.Trigger
-							className={classes("text-13 text-semibold", styles.targetTrigger)}
-							aria-label="Select commit target"
-							// We pass `disabled` here because we want to disable the button, not
-							// the tooltip. Other props should be passed above.
-							render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
-						>
-							<Icon name="bullseye" size={14} />
-							<span className={styles.targetTriggerLabel}>
-								<Combobox.Value placeholder="Select commit target" />
-							</span>
-						</Combobox.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup
-									render={<TooltipPopup kbd={changesHotkeys.selectCommitTarget.hotkey} />}
-								>
-									Select commit target
-								</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
+					<Combobox.Trigger
+						className={classes("text-13 text-semibold", styles.targetTrigger)}
+						aria-label="Select commit target"
+						render={<Button focusableWhenDisabled />}
+					>
+						<Icon name="bullseye" size={14} />
+						<span className={styles.targetTriggerLabel}>
+							<Combobox.Value placeholder="Select commit target" />
+						</span>
+					</Combobox.Trigger>
 					<Combobox.Portal>
 						<Combobox.Positioner align="start" sideOffset={4}>
 							<CommitTargetComboboxPopup />
@@ -238,23 +224,14 @@ export const CommitForm: FC<{
 				</Combobox.Root>
 
 				<div className={styles.dropdownButton}>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							className={getButtonClassName({ variant: "pop" })}
-							// We pass `disabled` here because we want to disable the button, not
-							// the tooltip. Other props should be passed above.
-							render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
-						>
-							Commit
-						</Tooltip.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup render={<TooltipPopup kbd={changesHotkeys.commit.hotkey} />}>
-									{changesHotkeys.commit.meta.name}
-								</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
+					<Button
+						focusableWhenDisabled
+						type="submit"
+						disabled={!canCommit}
+						className={getButtonClassName({ variant: "pop" })}
+					>
+						Commit
+					</Button>
 					<div aria-hidden className={styles.dropdownButtonSeparator} />
 					<Button
 						focusableWhenDisabled

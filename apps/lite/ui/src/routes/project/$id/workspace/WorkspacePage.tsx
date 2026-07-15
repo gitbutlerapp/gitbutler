@@ -28,6 +28,7 @@ import {
 	DiffSelectionContext,
 	FilesSelectionContext,
 	OutlineModeContext,
+	OutlineSelectionActionsContext,
 	OutlineSelectionContext,
 	WorkspaceRegistryContext,
 } from "#ui/WorkspaceContext.ts";
@@ -267,14 +268,25 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 	);
 };
 
-const WorkspacePage: FC = () => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+type WorkspacePageContentProps = {
+	absorptionTargetCommitIds: ReadonlySet<string>;
+	outlineNavigationIndex: NavigationIndex<Operand>;
+	projectId: string;
+};
 
+// Keep outline selection out of the component that builds the navigation index.
+// This lets React Compiler retain the index across selection-only updates.
+const WorkspacePageContent: FC<WorkspacePageContentProps> = ({
+	absorptionTargetCommitIds,
+	outlineNavigationIndex,
+	projectId,
+}) => {
 	const { detailsFullWindow, toggleDetailsFullWindow: toggleDetailsFullWindowState } =
 		use(DetailsFullWindowContext);
 	const { dialog, openDialog, closeDialog } = use(DialogContext);
 	const { outlineMode } = use(OutlineModeContext);
-	const { outlineSelection, selectOutline } = use(OutlineSelectionContext);
+	const { outlineSelection } = use(OutlineSelectionContext);
+	const { selectOutline } = use(OutlineSelectionActionsContext);
 
 	useWorkspaceHotkeys(projectId);
 
@@ -344,24 +356,6 @@ const WorkspacePage: FC = () => {
 			callback: () => setSettingsOpen(dialog._tag !== "Settings"),
 		},
 	]);
-
-	const absorptionPlanTarget = Match.value(outlineMode).pipe(
-		Match.tags({ Absorb: ({ sourceTarget }) => sourceTarget }),
-		Match.orElse(() => null),
-	);
-	const [absorptionPlanQuery] = useQueries({
-		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
-			absorptionPlanQueryOptions({ projectId, target }),
-		),
-	});
-	const absorptionTargetCommitIds = new Set(
-		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
-	);
-
-	const outlineNavigationIndex = useOutlineNavigationIndex({
-		projectId,
-		absorptionTargetCommitIds,
-	});
 
 	const resolvedOutlineSelection = resolveOutlineSelection(
 		outlineSelection,
@@ -453,11 +447,42 @@ const WorkspacePage: FC = () => {
 	);
 };
 
+const WorkspacePage: FC = () => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const { outlineMode } = use(OutlineModeContext);
+	const absorptionPlanTarget = Match.value(outlineMode).pipe(
+		Match.tags({ Absorb: ({ sourceTarget }) => sourceTarget }),
+		Match.orElse(() => null),
+	);
+	const [absorptionPlanQuery] = useQueries({
+		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
+			absorptionPlanQueryOptions({ projectId, target }),
+		),
+	});
+	const absorptionTargetCommitIds = new Set(
+		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
+	);
+	const outlineNavigationIndex = useOutlineNavigationIndex({
+		projectId,
+		absorptionTargetCommitIds,
+	});
+
+	return (
+		<WorkspacePageContent
+			absorptionTargetCommitIds={absorptionTargetCommitIds}
+			outlineNavigationIndex={outlineNavigationIndex}
+			projectId={projectId}
+		/>
+	);
+};
+
 export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const [workspace, updateWorkspace] = use(WorkspaceRegistryContext)(projectId);
 	const outlineSelectionContext: OutlineSelectionContext = {
 		outlineSelection: workspace.selection.outline,
+	};
+	const outlineSelectionActionsContext: OutlineSelectionActionsContext = {
 		selectOutline: (projectId, selection) =>
 			updateWorkspace(projectId, (workspace) =>
 				workspaceTransitions.selectOutline(workspace, selection),
@@ -575,7 +600,7 @@ export const Route: FC = () => {
 					const newId = replacedCommits[id];
 					if (newId === undefined || newId === id) continue;
 
-					next ??= new Set(current);
+					if (next === undefined) next = new Set(current);
 					next.delete(id);
 					next.add(newId);
 				}
@@ -589,27 +614,29 @@ export const Route: FC = () => {
 
 	return (
 		<OutlineModeContext value={outlineModeContext}>
-			<OutlineSelectionContext value={outlineSelectionContext}>
-				<FilesSelectionContext value={filesSelectionContext}>
-					<DiffSelectionContext value={diffSelectionContext}>
-						<CommitTargetContext value={commitTargetContext}>
-							<HighlightedCommitIdsContext value={highlightedCommitIdsContext}>
-								<CheckedCommitIdsContext value={checkedCommitIdsContext}>
-									<FilesVisibleContext value={filesVisibleContext}>
-										<QueryErrorResetBoundary>
-											{({ reset }) => (
-												<WorkspacePageErrorBoundary onReset={reset}>
-													<WorkspacePage />
-												</WorkspacePageErrorBoundary>
-											)}
-										</QueryErrorResetBoundary>
-									</FilesVisibleContext>
-								</CheckedCommitIdsContext>
-							</HighlightedCommitIdsContext>
-						</CommitTargetContext>
-					</DiffSelectionContext>
-				</FilesSelectionContext>
-			</OutlineSelectionContext>
+			<OutlineSelectionActionsContext value={outlineSelectionActionsContext}>
+				<OutlineSelectionContext value={outlineSelectionContext}>
+					<FilesSelectionContext value={filesSelectionContext}>
+						<DiffSelectionContext value={diffSelectionContext}>
+							<CommitTargetContext value={commitTargetContext}>
+								<HighlightedCommitIdsContext value={highlightedCommitIdsContext}>
+									<CheckedCommitIdsContext value={checkedCommitIdsContext}>
+										<FilesVisibleContext value={filesVisibleContext}>
+											<QueryErrorResetBoundary>
+												{({ reset }) => (
+													<WorkspacePageErrorBoundary onReset={reset}>
+														<WorkspacePage />
+													</WorkspacePageErrorBoundary>
+												)}
+											</QueryErrorResetBoundary>
+										</FilesVisibleContext>
+									</CheckedCommitIdsContext>
+								</HighlightedCommitIdsContext>
+							</CommitTargetContext>
+						</DiffSelectionContext>
+					</FilesSelectionContext>
+				</OutlineSelectionContext>
+			</OutlineSelectionActionsContext>
 		</OutlineModeContext>
 	);
 };
