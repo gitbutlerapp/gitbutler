@@ -409,7 +409,6 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
             | StatusOutputLineData::Worktree { .. }
-            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => {
                 current_stack_id = None;
                 None
@@ -1171,7 +1170,6 @@ pub fn commit_operation_display(
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
         | StatusOutputLineData::Worktree { .. }
-        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => None,
     }
 }
@@ -1191,6 +1189,10 @@ pub fn move_operation_display(
                 InsertSide::Below => Some("move commit below"),
             },
             StatusOutputLineData::Branch { .. } => Some("move commit to branch"),
+            StatusOutputLineData::Worktree {
+                ref_name: Some(_), ..
+            } => Some("move commit to worktree"),
+            StatusOutputLineData::Worktree { ref_name: None, .. } => None,
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
             | StatusOutputLineData::BetweenStacks
@@ -1205,8 +1207,6 @@ pub fn move_operation_display(
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
-            | StatusOutputLineData::Worktree { .. }
-            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         },
         MoveSource::Marks(marks) => match data {
@@ -1223,6 +1223,16 @@ pub fn move_operation_display(
                     Some("move commits to branch")
                 }
             }
+            StatusOutputLineData::Worktree {
+                ref_name: Some(_), ..
+            } => {
+                if marks.len() == 1 {
+                    Some("move commit to worktree")
+                } else {
+                    Some("move commits to worktree")
+                }
+            }
+            StatusOutputLineData::Worktree { ref_name: None, .. } => None,
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
             | StatusOutputLineData::BetweenStacks
@@ -1237,8 +1247,6 @@ pub fn move_operation_display(
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
-            | StatusOutputLineData::Worktree { .. }
-            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         },
         MoveSource::Branch { .. } => match data {
@@ -1259,7 +1267,6 @@ pub fn move_operation_display(
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
             | StatusOutputLineData::Worktree { .. }
-            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         },
     }
@@ -1287,7 +1294,6 @@ pub fn reorder_operation_display(
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
         | StatusOutputLineData::Worktree { .. }
-        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => None,
     }
 }
@@ -1324,7 +1330,6 @@ pub fn stack_operation_display(
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
         | StatusOutputLineData::Worktree { .. }
-        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => None,
     }
 }

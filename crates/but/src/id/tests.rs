@@ -124,6 +124,21 @@ fn commit_id_appearing_multiple_times() -> anyhow::Result<()> {
 }
 
 #[test]
+fn commits_with_colliding_short_ids_are_not_equal() {
+    let commit = |commit_id| CliId::Commit {
+        commit_id,
+        id: "same".into(),
+        change_id: None,
+    };
+
+    assert_ne!(
+        commit(id(1)),
+        commit(id(2)),
+        "commit equality uses object identity, not the display ID"
+    );
+}
+
+#[test]
 fn commit_ids_become_longer_if_ambiguous() -> anyhow::Result<()> {
     let id1 = hex_to_id("21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     let id2 = hex_to_id("21bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");

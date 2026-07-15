@@ -94,6 +94,8 @@ pub(crate) struct Worktree {
     branch: Option<String>,
     /// The absolute path to the worktree checkout directory
     path: String,
+    /// The uncommitted changes in the linked worktree
+    uncommitted_changes: Vec<FileChange>,
     /// The commits in the worktree that aren't reachable from the target, newest first
     commits: Vec<Commit>,
 }
@@ -652,6 +654,14 @@ pub(super) fn build_workspace_status_json(
                     .as_ref()
                     .map(|ref_name| ref_name.shorten().to_string()),
                 path: worktree.path.display().to_string(),
+                uncommitted_changes: status_ctx
+                    .linked_worktree_changes
+                    .get(&worktree.name)
+                    .into_iter()
+                    .flat_map(|changes| &changes.changes)
+                    .cloned()
+                    .map(|change| FileChange::from_tree_change(String::new(), change))
+                    .collect(),
                 commits: worktree
                     .commits
                     .iter()

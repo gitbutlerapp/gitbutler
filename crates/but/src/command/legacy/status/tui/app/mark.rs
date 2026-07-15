@@ -781,7 +781,6 @@ where
         | StatusOutputLineData::UncommittedChanges { .. }
         | StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::Worktree { .. }
-        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::Commit { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage

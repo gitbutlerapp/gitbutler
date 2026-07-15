@@ -24,6 +24,7 @@ mod move_tests;
 mod rub_tests;
 mod stack_tests;
 mod utils;
+mod worktree_tests;
 
 #[test]
 fn git_activity_only_reloads_for_a_new_head() {

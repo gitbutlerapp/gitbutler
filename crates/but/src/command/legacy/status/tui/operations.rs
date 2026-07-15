@@ -5,7 +5,7 @@
 //! All functions that use legacy APIs must be postfixed with `_legacy`.
 
 use anyhow::Context as _;
-use bstr::BString;
+use bstr::{BStr, BString};
 use but_api::{
     commit::types::{CommitDiscardResult, CommitInsertBlankResult, CommitRewordResult},
     diff::ComputeLineStats,
@@ -190,6 +190,36 @@ pub fn move_commit_to_branch(
         ctx,
         subject_commit_ids,
         RelativeTo::Reference(target_branch_name),
+        InsertSide::Below,
+        DryRun::No,
+    )
+    .context("failed to move commit")
+}
+
+pub fn move_commit_to_worktree(
+    ctx: &mut Context,
+    subject_commit_ids: Vec<gix::ObjectId>,
+    worktree_name: &BStr,
+    target_ref_name: &gix::refs::FullNameRef,
+) -> anyhow::Result<but_api::commit::types::CommitMoveResult> {
+    let current_ref_name = ctx
+        .worktrees_with_state()?
+        .into_iter()
+        .find(|worktree| worktree.tip.name == worktree_name)
+        .with_context(|| format!("failed to find worktree {worktree_name}"))?
+        .tip
+        .ref_name
+        .with_context(|| format!("worktree {worktree_name} has a detached HEAD"))?;
+    anyhow::ensure!(
+        current_ref_name.as_ref() == target_ref_name,
+        "worktree {worktree_name} changed branches from {} to {}",
+        target_ref_name.shorten(),
+        current_ref_name.shorten()
+    );
+    but_api::commit::move_commit::commit_move(
+        ctx,
+        subject_commit_ids,
+        RelativeTo::Reference(target_ref_name.to_owned()),
         InsertSide::Below,
         DryRun::No,
     )

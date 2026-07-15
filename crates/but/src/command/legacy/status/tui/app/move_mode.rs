@@ -44,8 +44,16 @@ pub enum MoveSource {
 }
 
 enum MoveTarget<'a> {
-    Branch { name: &'a str },
-    Commit { commit_id: gix::ObjectId },
+    Branch {
+        name: &'a str,
+    },
+    Worktree {
+        name: &'a bstr::BStr,
+        ref_name: &'a gix::refs::FullNameRef,
+    },
+    Commit {
+        commit_id: gix::ObjectId,
+    },
     MergeBase,
 }
 
@@ -60,6 +68,13 @@ impl ModeRender for MoveMode {
             .cli_id()
             .is_some_and(|target| self.source.contains(target))
             || matches!(data, StatusOutputLineData::MergeBase)
+            || matches!(
+                data,
+                StatusOutputLineData::Worktree {
+                    ref_name: Some(_),
+                    ..
+                }
+            )
         {
             render_move_operation_target_marker(app, data, self, line);
         }
@@ -219,7 +234,6 @@ impl App {
                 | StatusOutputLineData::Warning
                 | StatusOutputLineData::Hint
                 | StatusOutputLineData::Worktree { .. }
-                | StatusOutputLineData::WorktreeCommit
                 | StatusOutputLineData::NoAssignmentsUnstaged => return,
             }
         };
@@ -286,6 +300,19 @@ impl App {
                     return Ok(());
                 }
             }
+            StatusOutputLineData::Worktree {
+                cli_id,
+                ref_name: Some(ref_name),
+            } => {
+                if let CliId::Worktree { name, .. } = &**cli_id {
+                    MoveTarget::Worktree {
+                        name: name.as_ref(),
+                        ref_name: ref_name.as_ref(),
+                    }
+                } else {
+                    return Ok(());
+                }
+            }
             StatusOutputLineData::MergeBase => MoveTarget::MergeBase,
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
@@ -300,8 +327,7 @@ impl App {
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
-            | StatusOutputLineData::Worktree { .. }
-            | StatusOutputLineData::WorktreeCommit
+            | StatusOutputLineData::Worktree { ref_name: None, .. }
             | StatusOutputLineData::NoAssignmentsUnstaged => {
                 return Ok(());
             }
@@ -317,6 +343,12 @@ impl App {
                         ctx,
                         Vec::from([*source_commit_id]),
                         name,
+                    )?,
+                    MoveTarget::Worktree { name, ref_name } => operations::move_commit_to_worktree(
+                        ctx,
+                        Vec::from([*source_commit_id]),
+                        name,
+                        ref_name,
                     )?,
                     MoveTarget::Commit {
                         commit_id: target_commit_id,
@@ -345,6 +377,9 @@ impl App {
                 let commit_move_result = match target {
                     MoveTarget::Branch { name } => {
                         operations::move_commit_to_branch(ctx, sources.clone(), name)?
+                    }
+                    MoveTarget::Worktree { name, ref_name } => {
+                        operations::move_commit_to_worktree(ctx, sources.clone(), name, ref_name)?
                     }
                     MoveTarget::Commit {
                         commit_id: target_commit_id,
@@ -386,7 +421,7 @@ impl App {
                     operations::tear_off_branch(ctx, source_branch_name)?;
                     Some(SelectAfterReload::Branch(source_branch_name.to_owned()))
                 }
-                MoveTarget::Commit { .. } => return Ok(()),
+                MoveTarget::Commit { .. } | MoveTarget::Worktree { .. } => return Ok(()),
             },
         };
 

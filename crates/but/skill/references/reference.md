@@ -226,6 +226,7 @@ but rub <commit> <commit>    # Squash commits together
 but rub <commit> <branch>    # Move commit to branch
 but rub <commit> zz          # Undo commit to uncommitted
 but rub zz <commit>          # Amend all uncommitted changes into commit
+but rub <worktree> <commit>  # Amend all linked-worktree changes into commit (experimental)
 but rub <file-in-commit> zz  # Uncommit specific file from its commit
 but rub <file-in-commit> <commit>  # Move file from one commit to another
 ```

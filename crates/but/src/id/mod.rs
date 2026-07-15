@@ -1596,7 +1596,14 @@ impl PartialEq for CliId {
                 },
             ) => l_id == r_id && l_path == r_path,
             (Self::Branch { id: l_id, .. }, Self::Branch { id: r_id, .. }) => l_id == r_id,
-            (Self::Commit { id: l_id, .. }, Self::Commit { id: r_id, .. }) => l_id == r_id,
+            (
+                Self::Commit {
+                    commit_id: l_id, ..
+                },
+                Self::Commit {
+                    commit_id: r_id, ..
+                },
+            ) => l_id == r_id,
             (Self::Stack { id: l_id, .. }, Self::Stack { id: r_id, .. }) => l_id == r_id,
             (Self::Uncommitted { .. }, Self::Uncommitted { .. }) => true,
             (Self::Worktree { name: l_name, .. }, Self::Worktree { name: r_name, .. }) => {

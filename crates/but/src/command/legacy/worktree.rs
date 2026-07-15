@@ -319,44 +319,7 @@ fn amend(
         )
     };
 
-    // Build whole-file specs strictly from the worktree's actual changes - a
-    // spec for an unchanged path would commit the worktree's `HEAD` rendition
-    // of that file instead of failing.
-    let all_specs: Vec<but_core::DiffSpec> =
-        but_api::worktrees::linked_worktree_changes(ctx, name.to_string())?
-            .changes
-            .into_iter()
-            .map(|change| but_core::DiffSpec::from(but_core::TreeChange::from(change)))
-            .collect();
-    let specs = if changes.is_empty() {
-        all_specs
-    } else {
-        let mut seen = std::collections::BTreeSet::new();
-        changes
-            .iter()
-            .filter(|path| seen.insert(path.as_str()))
-            .map(|path| {
-                all_specs
-                    .iter()
-                    .find(|spec| spec.path == path.as_str())
-                    .cloned()
-                    .with_context(|| {
-                        format!("Worktree {name} has no uncommitted change at path '{path}'")
-                    })
-            })
-            .collect::<Result<Vec<_>>>()?
-    };
-    if specs.is_empty() {
-        bail!("Worktree {name} has no uncommitted changes");
-    }
-
-    let result = but_api::worktrees::worktree_commit_amend(
-        ctx,
-        name.to_string(),
-        commit_id,
-        specs,
-        but_core::DryRun::No,
-    )?;
+    let result = amend_changes(ctx, name.as_ref(), commit_id, &changes)?;
 
     let rejected_paths: Vec<String> = result
         .rejected_specs
@@ -390,4 +353,51 @@ fn amend(
         }
     }
     Ok(())
+}
+
+/// Amend whole-file changes from `name` into `commit_id`.
+pub(crate) fn amend_changes(
+    ctx: &mut Context,
+    name: &gix::bstr::BStr,
+    commit_id: gix::ObjectId,
+    changes: &[String],
+) -> Result<but_api::commit::types::CommitCreateResult> {
+    // Build whole-file specs strictly from the worktree's actual changes - a
+    // spec for an unchanged path would commit the worktree's `HEAD` rendition
+    // of that file instead of failing.
+    let all_specs: Vec<but_core::DiffSpec> =
+        but_api::worktrees::linked_worktree_changes(ctx, name.to_string())?
+            .changes
+            .into_iter()
+            .map(|change| but_core::DiffSpec::from(but_core::TreeChange::from(change)))
+            .collect();
+    let specs = if changes.is_empty() {
+        all_specs
+    } else {
+        let mut seen = std::collections::BTreeSet::new();
+        changes
+            .iter()
+            .filter(|path| seen.insert(path.as_str()))
+            .map(|path| {
+                all_specs
+                    .iter()
+                    .find(|spec| spec.path == path.as_str())
+                    .cloned()
+                    .with_context(|| {
+                        format!("Worktree {name} has no uncommitted change at path '{path}'")
+                    })
+            })
+            .collect::<Result<Vec<_>>>()?
+    };
+    if specs.is_empty() {
+        bail!("Worktree {name} has no uncommitted changes");
+    }
+
+    but_api::worktrees::worktree_commit_amend(
+        ctx,
+        name.to_string(),
+        commit_id,
+        specs,
+        but_core::DryRun::No,
+    )
 }

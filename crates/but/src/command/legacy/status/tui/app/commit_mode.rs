@@ -299,7 +299,6 @@ impl App {
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
             | StatusOutputLineData::Worktree { .. }
-            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => return Ok(()),
         };
 

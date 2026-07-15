@@ -320,6 +320,16 @@ impl Sandbox {
             .expect("BUG: must not call this in an empty or partially initialised sandbox")
     }
 
+    /// Enable or disable experimental linked-worktree manipulation in contexts created by this sandbox.
+    #[cfg(feature = "sandbox-but-api")]
+    pub fn set_worktree_manipulation(&mut self, enabled: bool) {
+        self.app_settings
+            .as_mut()
+            .expect("BUG: must not call this in an empty or partially initialised sandbox")
+            .feature_flags
+            .worktree_manipulation = enabled;
+    }
+
     /// Write `data` to `path` in our projects root, creating a new file.
     pub fn file(&self, path: impl AsRef<Path>, data: impl AsRef<[u8]>) -> &Self {
         let path = self.projects_root().join(path);

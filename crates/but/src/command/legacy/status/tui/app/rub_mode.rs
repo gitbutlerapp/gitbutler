@@ -198,6 +198,12 @@ impl App {
         let Some(cli_id) = selected_line.data.cli_id() else {
             return;
         };
+        if matches!(
+            selected_line.data,
+            StatusOutputLineData::Worktree { ref_name: None, .. }
+        ) {
+            return;
+        }
         match &normal_mode.marks {
             Marks::Empty => {
                 self.handle_rub_start_with_source(RubSource::CliId(Arc::clone(cli_id)));
@@ -463,6 +469,7 @@ pub fn route_operation<'a>(
             op @ RubOperation::UnassignUncommitted(..) => op,
             op @ RubOperation::UncommittedToCommit(..) => op,
             op @ RubOperation::UncommittedAreaToCommit(..) => op,
+            op @ RubOperation::WorktreeToCommit(..) => op,
             op @ RubOperation::CommitToUncommittedArea(..) => op,
             op @ RubOperation::CommitToStack(..) => op,
             op @ RubOperation::SquashCommits(..) => op,
@@ -490,13 +497,14 @@ pub fn route_operation<'a>(
 
 pub fn supports_rubbing(id: &CliId) -> bool {
     match id {
-        CliId::Branch { .. } | CliId::Worktree { .. } => false,
+        CliId::Branch { .. } => false,
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::CommittedFile { .. }
         | CliId::Commit { .. }
         | CliId::Uncommitted { .. }
-        | CliId::Stack { .. } => true,
+        | CliId::Stack { .. }
+        | CliId::Worktree { .. } => true,
     }
 }
 
@@ -520,6 +528,7 @@ pub fn rub_operation_display(
         RubOperation::StackToStack(..) => "reassign hunks",
         RubOperation::StackToBranch(..) => "reassign hunks",
         RubOperation::UncommittedAreaToCommit(..) => "amend",
+        RubOperation::WorktreeToCommit(..) => "amend",
         RubOperation::UncommittedAreaToBranch(..) => "assign hunks",
         RubOperation::UncommittedAreaToStack(..) => "assign hunks",
         RubOperation::CommitToUncommittedArea(CommitToUncommittedAreaOperation { commits }) => {
@@ -602,6 +611,10 @@ pub fn perform_operation(
             SelectAfterReload::Branch(operation.to.to_string())
         }
         RubOperation::UncommittedAreaToCommit(operation) => {
+            let result = operation.execute_inner(ctx)?;
+            SelectAfterReload::Commit(result.new_commit.unwrap_or(operation.oid))
+        }
+        RubOperation::WorktreeToCommit(operation) => {
             let result = operation.execute_inner(ctx)?;
             SelectAfterReload::Commit(result.new_commit.unwrap_or(operation.oid))
         }

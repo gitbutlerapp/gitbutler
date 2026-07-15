@@ -444,7 +444,6 @@ impl Cursor {
                 | StatusOutputLineData::Warning
                 | StatusOutputLineData::Hint
                 | StatusOutputLineData::Worktree { .. }
-                | StatusOutputLineData::WorktreeCommit
                 | StatusOutputLineData::NoAssignmentsUnstaged => None,
             })
     }
@@ -746,7 +745,6 @@ fn is_discard_commit_boundary(line: &StatusOutputLine) -> bool {
         | StatusOutputLineData::UpstreamChanges
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
-        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => false,
     }
 }

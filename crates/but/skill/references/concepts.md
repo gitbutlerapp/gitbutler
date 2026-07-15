@@ -130,6 +130,7 @@ The operation performed depends on what you combine:
 | Commit | Commit | Squash commits         | `but rub c2 c3` |
 | Commit | Branch | Move commit to branch  | `but rub c2 bu` |
 | Commit | `zz`   | Undo commit            | `but rub c2 zz` |
+| Worktree | Commit | Amend all linked-worktree changes into commit | `but rub wt c3` |
 
 `zz` is a special target meaning "uncommitted" (no branch).
 

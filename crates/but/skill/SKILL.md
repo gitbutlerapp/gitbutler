@@ -82,6 +82,7 @@ but <mutation> ...
 - Commit + create branch: `but commit <branch> -c -m "<msg>" --changes <id>`
 - Commit at a specific history position: `but commit <branch> -m "<msg>" --changes <id>,<id> --before <commit-or-branch-id>` or `--after <commit-or-branch-id>`
 - Amend: `but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>`
+- Amend all changes from an active linked worktree: `but rub <worktree-id> <commit-id>` (experimental)
 - Uncommit and show resulting dirty diff: `but uncommit <commit-id> --diff`
 - Insert empty commit: `but commit empty [-m "<msg>"] [<target>]`
 - Squash commits: `but squash <source-commit-id> [<source-commit-id>...] <target-commit-id> [-m "<msg>"]`

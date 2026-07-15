@@ -222,6 +222,7 @@ Unarchived worktree: A
 
     // The active worktree is listed as a branch-style group after the stacks,
     // with its own CLI id chip and the path relative to the main worktree.
+    std::fs::write(worktrees_dir(&env).join("A/a1"), "dirty\n")?;
     env.but("status")
         .env("NO_BG_TASKS", "1")
         .assert()
@@ -243,6 +244,7 @@ Unarchived worktree: A
 ├╯
 ┊
 ┊╭┄p11 [A] (.git/gitbutler/worktrees/A)
+┊    A a1
 ┊●   4c4624e A
 ├╯
 ┊
@@ -255,6 +257,11 @@ Hint: run `but help` for all commands
 
     // The JSON output lists it, too.
     assert_eq!(active_worktree_names(&env)?, ["A"]);
+    assert_eq!(
+        active_worktree_change_paths(&env, "A")?,
+        ["a1"],
+        "status JSON includes the linked worktree's uncommitted changes"
+    );
 
     // Archiving works with the CLI id chip from the listing and hides the
     // worktree again.
@@ -517,13 +524,7 @@ fn enable_worktree_manipulation(env: &Sandbox) -> anyhow::Result<()> {
 
 /// The names of all active worktrees according to `but status --format json`.
 fn active_worktree_names(env: &Sandbox) -> anyhow::Result<Vec<String>> {
-    let output = env
-        .but("--format json status")
-        .env_remove("BUT_OUTPUT_FORMAT")
-        .env("NO_BG_TASKS", "1")
-        .output()?;
-    anyhow::ensure!(output.status.success(), "status --format json failed");
-    let status: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    let status = status_json(env)?;
     Ok(status["worktrees"]
         .as_array()
         .map(|worktrees| {
@@ -533,6 +534,30 @@ fn active_worktree_names(env: &Sandbox) -> anyhow::Result<Vec<String>> {
                 .collect()
         })
         .unwrap_or_default())
+}
+
+fn active_worktree_change_paths(env: &Sandbox, name: &str) -> anyhow::Result<Vec<String>> {
+    let status = status_json(env)?;
+    Ok(status["worktrees"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|worktree| worktree["name"] == name)
+        .and_then(|worktree| worktree["uncommittedChanges"].as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|change| change["filePath"].as_str().map(ToOwned::to_owned))
+        .collect())
+}
+
+fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
+    let output = env
+        .but("--format json status")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .env("NO_BG_TASKS", "1")
+        .output()?;
+    anyhow::ensure!(output.status.success(), "status --format json failed");
+    Ok(serde_json::from_slice(&output.stdout)?)
 }
 
 fn worktrees_dir(env: &Sandbox) -> std::path::PathBuf {

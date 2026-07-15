@@ -186,7 +186,6 @@ fn line_uses_top_stack_for_stack_mode(line: &StatusOutputLine) -> bool {
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
         | StatusOutputLineData::Worktree { .. }
-        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => false,
     }
 }
@@ -229,7 +228,6 @@ fn stack_id_for_line(
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
         | StatusOutputLineData::Worktree { .. }
-        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => None,
     }
 }
@@ -274,7 +272,6 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                 | StatusOutputLineData::Warning
                 | StatusOutputLineData::Hint
                 | StatusOutputLineData::Worktree { .. }
-                | StatusOutputLineData::WorktreeCommit
                 | StatusOutputLineData::NoAssignmentsUnstaged => None,
             })
         }

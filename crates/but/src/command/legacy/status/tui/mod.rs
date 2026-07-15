@@ -1,6 +1,8 @@
 #![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
 use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
     sync::mpsc::{Receiver, Sender},
     time::Duration,
 };
@@ -123,10 +125,11 @@ pub fn render_tui(
             ctx,
             out,
             mode,
+            None,
         )?
     } else {
-        let _watcher_handle =
-            start_watcher(ctx, watcher_tx).context("failed to start filesystem watcher")?;
+        let mut watchers =
+            start_watchers(ctx, watcher_tx).context("failed to start filesystem watchers")?;
 
         let mut terminal_guard = CrosstermTerminalGuard::alt_screen(true)?;
         let mut event_polling = CrosstermEventPolling::default();
@@ -140,6 +143,7 @@ pub fn render_tui(
             ctx,
             out,
             mode,
+            Some(&mut watchers),
         )?
     };
 
@@ -155,6 +159,7 @@ fn render_loop<T, E>(
     ctx: &mut Context,
     out: &mut dyn TuiInputOutputChannel,
     mode: &OperatingMode,
+    mut watchers: Option<&mut Watchers>,
 ) -> anyhow::Result<TuiOutcome>
 where
     T: TerminalGuard,
@@ -174,7 +179,7 @@ where
             break Ok(TuiOutcome::None);
         }
 
-        render_loop_once(
+        let did_reload = render_loop_once(
             app,
             terminal_guard,
             &mut *event_polling,
@@ -185,6 +190,9 @@ where
             out,
             mode,
         )?;
+        if did_reload && let Some(watchers) = &mut watchers {
+            watchers.refresh(ctx)?;
+        }
 
         if let Some(outcome) = app.outcome.take() {
             break Ok(outcome);
@@ -203,13 +211,13 @@ fn render_loop_once<T, E>(
     ctx: &mut Context,
     out: &mut dyn TuiInputOutputChannel,
     mode: &OperatingMode,
-) -> anyhow::Result<()>
+) -> anyhow::Result<bool>
 where
     T: TerminalGuard,
     anyhow::Error: From<<T::Backend as Backend>::Error>,
     E: EventPolling,
 {
-    count_allocations("update", || {
+    let did_reload = count_allocations("update", || {
         update(
             app,
             terminal_guard,
@@ -227,7 +235,7 @@ where
 
     app.fps.frame_finished();
 
-    Ok(())
+    Ok(did_reload)
 }
 
 #[expect(clippy::too_many_arguments)]
@@ -241,7 +249,7 @@ fn update<T, E>(
     ctx: &mut Context,
     out: &mut dyn TuiInputOutputChannel,
     mode: &OperatingMode,
-) -> anyhow::Result<()>
+) -> anyhow::Result<bool>
 where
     T: TerminalGuard,
     anyhow::Error: From<<T::Backend as Backend>::Error>,
@@ -339,7 +347,7 @@ where
         app.should_render = true;
     }
 
-    Ok(())
+    Ok(did_reload)
 }
 
 fn render<T>(app: &mut App, terminal_guard: &mut T) -> anyhow::Result<()>
@@ -479,32 +487,76 @@ fn nonempty_from_refs<'a, T>(head: &'a T, tail: impl Iterator<Item = &'a T>) -> 
     nonempty
 }
 
-fn start_watcher(
-    ctx: &mut Context,
+fn start_watchers(ctx: &Context, tx: Sender<Message>) -> anyhow::Result<Watchers> {
+    let mut watchers = Watchers {
+        tx,
+        handles: Vec::new(),
+    };
+    watchers.refresh(ctx)?;
+    Ok(watchers)
+}
+
+struct Watchers {
     tx: Sender<Message>,
-) -> anyhow::Result<gitbutler_watcher::WatcherHandle> {
-    let app_settings = app_settings_sync()?;
-    let watch_mode = gitbutler_watcher::WatchMode::from_env_or_settings(
-        &app_settings.get()?.feature_flags.watch_mode,
-        |key| std::env::var(key).ok(),
-    );
+    handles: Vec<(PathBuf, gitbutler_watcher::WatcherHandle)>,
+}
 
-    let handler = gitbutler_watcher::Handler::new(move |change| {
-        _ = tx.send(Message::WatcherEvent(change));
+impl Watchers {
+    fn refresh(&mut self, ctx: &Context) -> anyhow::Result<()> {
+        let workdirs = unwatched_workdirs(
+            ctx,
+            self.handles.iter().map(|(path, _handle)| path.as_path()),
+        )?;
+        if workdirs.is_empty() {
+            return Ok(());
+        }
+
+        let app_settings = app_settings_sync()?;
+        let watch_mode = gitbutler_watcher::WatchMode::from_env_or_settings(
+            &app_settings.get()?.feature_flags.watch_mode,
+            |key| std::env::var(key).ok(),
+        );
+        let project_id = ctx.legacy_project.id.clone();
+        for workdir in workdirs {
+            let tx = self.tx.clone();
+            let handler = gitbutler_watcher::Handler::new(move |change| {
+                _ = tx.send(Message::WatcherEvent(change));
+                Ok(())
+            });
+            let handle = gitbutler_watcher::watch_in_background(
+                handler,
+                &workdir,
+                project_id.clone(),
+                app_settings.clone(),
+                watch_mode,
+            )?;
+            self.handles.push((workdir, handle));
+        }
         Ok(())
-    });
+    }
+}
 
-    let project_id = ctx.legacy_project.id.clone();
+pub(super) fn workdirs_to_watch(ctx: &Context) -> anyhow::Result<Vec<std::path::PathBuf>> {
+    let mut workdirs = Vec::from([ctx.workdir_or_fail()?.to_owned()]);
+    if ctx.settings.feature_flags.worktree_manipulation {
+        workdirs.extend(
+            ctx.active_worktrees()?
+                .into_iter()
+                .map(|worktree| worktree.path),
+        );
+    }
+    Ok(workdirs)
+}
 
-    let watcher = gitbutler_watcher::watch_in_background(
-        handler,
-        ctx.workdir_or_fail()?,
-        project_id,
-        app_settings,
-        watch_mode,
-    )?;
-
-    Ok(watcher)
+pub(super) fn unwatched_workdirs<'a>(
+    ctx: &Context,
+    watched: impl IntoIterator<Item = &'a Path>,
+) -> anyhow::Result<Vec<PathBuf>> {
+    let watched: HashSet<_> = watched.into_iter().collect();
+    Ok(workdirs_to_watch(ctx)?
+        .into_iter()
+        .filter(|workdir| !watched.contains(workdir.as_path()))
+        .collect())
 }
 
 fn app_settings_sync() -> anyhow::Result<AppSettingsWithDiskSync> {

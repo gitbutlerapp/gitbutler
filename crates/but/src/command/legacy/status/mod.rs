@@ -203,6 +203,8 @@ struct StatusContext<'a> {
     id_map: IdMap,
     /// Linked git worktrees, `None` unless the `worktreeManipulation` feature flag is enabled.
     worktrees: Option<but_workspace::worktrees::WorktreeListing>,
+    /// Uncommitted changes keyed by the stable name of each active linked worktree.
+    linked_worktree_changes: BTreeMap<BString, ui::WorktreeChanges>,
     push_statuses_by_segment_id: HashMap<SegmentIndex, but_workspace::ui::PushStatus>,
     local_commits_by_id: HashMap<gix::ObjectId, LocalCommit>,
     remote_commits_by_id: HashMap<gix::ObjectId, Commit>,
@@ -569,15 +571,36 @@ fn build_status_context<'a>(
         .map(|base_branch| base_branch.current_sha)
         .unwrap_or(common_merge_base_data.commit_id);
 
-    let worktrees = if ctx.settings.feature_flags.worktree_manipulation {
+    let (worktrees, linked_worktree_changes) = if ctx.settings.feature_flags.worktree_manipulation {
         let repo = ctx.repo.get()?;
-        Some(but_workspace::worktrees::list_worktrees(
+        let listing = but_workspace::worktrees::list_worktrees(
             &repo,
             linked_worktree_sources,
             Some(target_tip_id),
-        )?)
+        )?;
+        let changes = listing
+            .active
+            .iter()
+            .filter_map(|worktree| {
+                match but_workspace::worktrees::worktree_changes_by_name(
+                    &repo,
+                    worktree.name.as_bstr(),
+                ) {
+                    Ok(changes) => Some((worktree.name.clone(), changes)),
+                    Err(err) => {
+                        tracing::warn!(
+                            worktree = %worktree.name,
+                            ?err,
+                            "Failed to read uncommitted changes from linked worktree"
+                        );
+                        None
+                    }
+                }
+            })
+            .collect();
+        (Some(listing), changes)
     } else {
-        None
+        (None, BTreeMap::new())
     };
 
     let is_paged = out.is_paged();
@@ -602,6 +625,7 @@ fn build_status_context<'a>(
         should_truncate_for_terminal,
         id_map,
         worktrees,
+        linked_worktree_changes,
         push_statuses_by_segment_id,
         local_commits_by_id,
         remote_commits_by_id,
@@ -1110,7 +1134,32 @@ fn print_worktrees(
                 suffix,
             },
             cli_id,
+            worktree.ref_name.clone(),
         )?;
+        if let Some(changes) = status_ctx.linked_worktree_changes.get(&worktree.name) {
+            for change in &changes.changes {
+                output.no_assignments_unstaged(
+                    Vec::from([Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
+                    Vec::from([
+                        Span::raw(" "),
+                        Span::raw(status_letter_ui(&change.status).to_string()),
+                        Span::raw(" "),
+                        path_with_color_ui(&change.status, change.path.to_string()),
+                    ]),
+                )?;
+            }
+            for change in &changes.ignored_changes {
+                output.no_assignments_unstaged(
+                    Vec::from([Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
+                    Vec::from([
+                        Span::raw(" "),
+                        Span::raw(change.path.to_string()),
+                        Span::raw(" "),
+                        Span::styled(format!("{{{:?}}}", change.status), t.error),
+                    ]),
+                )?;
+            }
+        }
         for commit in &worktree.commits {
             let commit_short = shorten_object_id(&repo, commit.id);
             let (message, _is_empty_message) =
@@ -1119,10 +1168,15 @@ fn print_worktrees(
                 Vec::from([Span::raw("┊"), Span::raw("●"), Span::raw("   ")]),
                 CommitLineContent {
                     change_id: Vec::new(),
-                    sha: Vec::from([Span::styled(commit_short, t.commit_id)]),
+                    sha: Vec::from([Span::styled(commit_short.clone(), t.commit_id)]),
                     author: Vec::new(),
                     message: Vec::from([Span::raw(" "), message]),
                     suffix: Vec::new(),
+                },
+                CliId::Commit {
+                    commit_id: commit.id,
+                    id: commit_short,
+                    change_id: None,
                 },
             )?;
         }

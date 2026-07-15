@@ -116,6 +116,15 @@ pub(crate) struct UncommittedAreaToCommitOperation {
     pub(crate) oid: gix::ObjectId,
 }
 
+/// Represents amending all linked-worktree changes into a commit.
+#[derive(Debug)]
+pub(crate) struct WorktreeToCommitOperation<'a> {
+    /// The linked worktree providing the changes.
+    pub(crate) name: &'a BStr,
+    /// The destination commit id.
+    pub(crate) oid: gix::ObjectId,
+}
+
 /// Represents assigning all uncommitted hunks to a branch.
 #[derive(Debug)]
 pub(crate) struct UncommittedAreaToBranchOperation<'a> {
@@ -245,6 +254,7 @@ pub(crate) enum RubOperation<'a> {
     StackToBranch(StackToBranchOperation<'a>),
     StackToCommit(StackToCommitOperation),
     UncommittedAreaToCommit(UncommittedAreaToCommitOperation),
+    WorktreeToCommit(WorktreeToCommitOperation<'a>),
     UncommittedAreaToBranch(UncommittedAreaToBranchOperation<'a>),
     UncommittedAreaToStack(UncommittedAreaToStackOperation),
     CommitToUncommittedArea(CommitToUncommittedAreaOperation),
@@ -529,6 +539,34 @@ impl UncommittedAreaToCommitOperation {
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<CommitCreateResult> {
         let changes = changes_for_stack_assignment(ctx, None)?;
         but_api::commit::amend::commit_amend(ctx, self.oid, changes, DryRun::No)
+    }
+}
+
+impl WorktreeToCommitOperation<'_> {
+    /// Executes this operation.
+    pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+        let result = self.execute_inner(ctx)?;
+        if let Some(out) = out.for_human() {
+            let repo = ctx.repo.get()?;
+            let amended = result.new_commit.unwrap_or(self.oid);
+            writeln!(
+                out,
+                "Amended changes from worktree {} → {}",
+                self.name,
+                shorten_object_id(&repo, amended)
+            )?;
+        } else if let Some(out) = out.for_json() {
+            out.write_value(serde_json::json!({
+                "ok": true,
+                "new_commit_id": result.new_commit.map(|id| id.to_string()),
+            }))?;
+        }
+        Ok(())
+    }
+
+    /// Amend all current changes from this linked worktree into the destination.
+    pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<CommitCreateResult> {
+        super::worktree::amend_changes(ctx, self.name, self.oid, &[])
     }
 }
 
@@ -938,6 +976,7 @@ impl<'a> RubOperation<'a> {
             RubOperation::StackToStack(operation) => operation.execute(ctx, out),
             RubOperation::StackToBranch(operation) => operation.execute(ctx, out),
             RubOperation::UncommittedAreaToCommit(operation) => operation.execute(ctx, out),
+            RubOperation::WorktreeToCommit(operation) => operation.execute(ctx, out),
             RubOperation::UncommittedAreaToBranch(operation) => operation.execute(ctx, out),
             RubOperation::UncommittedAreaToStack(operation) => operation.execute(ctx, out),
             RubOperation::CommitToUncommittedArea(operation) => operation.execute(ctx, out),
@@ -1149,6 +1188,12 @@ pub(crate) fn route_operation<'a>(
                 Some(RubOperation::UncommittedAreaToStack(
                     UncommittedAreaToStackOperation { to: *stack_id },
                 ))
+            }
+            (Worktree { name, .. }, Commit { commit_id, .. }) => {
+                Some(RubOperation::WorktreeToCommit(WorktreeToCommitOperation {
+                    name: name.as_ref(),
+                    oid: *commit_id,
+                }))
             }
             // Commit -> *
             (Commit { commit_id, .. }, Uncommitted { .. }) => Some(
@@ -2203,6 +2248,13 @@ mod tests {
         }
     }
 
+    fn worktree_id() -> CliId {
+        CliId::Worktree {
+            id: "wt".to_string(),
+            name: "linked-worktree".into(),
+        }
+    }
+
     #[test]
     fn test_route_operation_uncommitted_hunk_to_targets() {
         let uncommitted = uncommitted_id();
@@ -2603,6 +2655,7 @@ mod tests {
         let commit = commit_id();
         let uncommitted_area = uncommitted_area_id();
         let stack = stack_id();
+        let worktree = worktree_id();
 
         // Test a representative sample of operations to verify correct variant matching
         // We use match with wildcard to verify the variant type without destructuring all fields
@@ -2705,6 +2758,15 @@ mod tests {
         ) {
             Some(RubOperation::UncommittedAreaToStack(..)) => {}
             _ => panic!("Expected UncommittedAreaToStack variant"),
+        }
+
+        match route_operation(
+            NonEmpty::new(&worktree),
+            &commit,
+            MessageCombinationStrategy::KeepBoth,
+        ) {
+            Some(RubOperation::WorktreeToCommit(..)) => {}
+            _ => panic!("Expected WorktreeToCommit variant"),
         }
     }
 
