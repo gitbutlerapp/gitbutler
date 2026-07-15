@@ -1,10 +1,9 @@
 import { encodeBytes } from "#ui/api/bytes.ts";
 import { useApply } from "#ui/api/mutations.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
-import { headInfoQueryOptions, listBranchesQueryOptions } from "#ui/api/queries.ts";
+import { useHeadInfoQuery, useListBranchesQuery } from "#ui/api/queries.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import { BranchListing } from "@gitbutler/but-sdk";
-import { useQuery } from "@tanstack/react-query";
 import { type FC, useState } from "react";
 
 type ApplyBranchPickerOption = {
@@ -82,24 +81,20 @@ const groupApplyBranchPickerOptions = (
 	});
 
 export const ApplyBranchPicker: FC<Props> = ({ open, onOpenChange, projectId }) => {
-	const { data: headInfoIndex } = useQuery({
-		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
-	});
-	const branchesQuery = useQuery({
-		...listBranchesQueryOptions({ projectId, filter: null }),
-		select: (branches) =>
-			branches
-				.flatMap(branchListingToApplyBranchPickerOptions)
-				// Filter out branches that are applied in the *current* workspace.
-				.filter((option) => !headInfoIndex?.branchContextByRefBytes(encodeBytes(option.branchRef))),
-	});
+	const { data: headInfo } = useHeadInfoQuery(projectId);
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
+	const branchesQuery = useListBranchesQuery({ projectId, filter: null });
 	const [now] = useState(() => Date.now());
-	const items = branchesQuery.data ?? [];
+	const items =
+		branchesQuery.data
+			?.flatMap(branchListingToApplyBranchPickerOptions)
+			// Filter out branches that are applied in the *current* workspace.
+			.filter((option) => !headInfoIndex?.branchContextByRefBytes(encodeBytes(option.branchRef))) ??
+		[];
 	const apply = useApply();
 	const statusLabel =
 		items.length === 0
-			? branchesQuery.isPending
+			? branchesQuery.isLoading
 				? "Loading branches…"
 				: branchesQuery.isError
 					? "Unable to load branches."

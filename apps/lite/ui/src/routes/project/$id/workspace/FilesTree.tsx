@@ -1,9 +1,9 @@
 import rowStyles from "./Row.module.css";
 import {
-	changesInWorktreeQueryOptions,
-	getGUISettingsQueryOptions,
-	headInfoQueryOptions,
-	listEditorsQueryOptions,
+	useChangesInWorktreeQuery,
+	useGetGUISettingsQuery,
+	useHeadInfoQuery,
+	useListEditorsQuery,
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { uncommittedChangesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
@@ -11,7 +11,6 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, useRender } from "@base-ui/react";
-import { useQuery } from "@tanstack/react-query";
 import { ComponentProps, FC, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import { Row, RowLabel, RowLabelContainer } from "./Row.tsx";
@@ -43,12 +42,10 @@ const useFilesTreeHotkeys = ({
 	const outlineMode = useAppSelector((state) =>
 		projectSlice.selectors.selectOutlineModeState(state, projectId),
 	);
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
-	const { data: editors } = useQuery(listEditorsQueryOptions);
-	const { data: preferredEditor } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
-	});
+	const { data: worktreeChanges } = useChangesInWorktreeQuery(projectId);
+	const { data: editors } = useListEditorsQuery();
+	const { data: settings } = useGetGUISettingsQuery();
+	const preferredEditor = editors?.find((editor) => editor.id === settings?.editorId);
 	const openInEditor = useOpenInEditor();
 
 	const dispatch = useAppDispatch();
@@ -140,10 +137,8 @@ export const FilesTree: FC<
 	ref: refProp,
 	...props
 }) => {
-	const { data: headInfoIndex } = useQuery({
-		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
-	});
+	const { data: headInfo } = useHeadInfoQuery(projectId);
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 
 	const ref = useRef<HTMLDivElement>(null);
 

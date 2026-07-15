@@ -10,201 +10,258 @@ import type {
 	TreeChangeDiffParams,
 } from "#electron/ipc.ts";
 import { aggregateCIChecks } from "#ui/ci.ts";
-import type { ForgeReview } from "@gitbutler/but-sdk";
-import { queryOptions } from "@tanstack/react-query";
+import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
+import type { ForgeReview, TreeChange } from "@gitbutler/but-sdk";
 
-export type QueryKey =
-	| "branchDetails"
-	| "branchDiff"
-	| "changesInWorktree"
-	| "ciChecks"
-	| "commitDetailsWithLineStats"
-	| "forgeInfo"
-	| "headInfo"
-	| "review"
-	| "reviewMergeStatus"
-	| "reviews"
-	| "branches"
-	| "editors"
-	| "projects"
-	| "treeChangeDiffs"
-	| "absorptionPlan"
-	| "dryRun"
-	| "gui-settings";
+export type QueryTag =
+	| "AbsorptionPlan"
+	| "BranchDetails"
+	| "BranchDiff"
+	| "Branches"
+	| "ChangesInWorktree"
+	| "CIChecks"
+	| "CommitDetailsWithLineStats"
+	| "DraftPR"
+	| "DryRun"
+	| "Editors"
+	| "ForgeInfo"
+	| "GUISettings"
+	| "HeadInfo"
+	| "Projects"
+	| "Review"
+	| "ReviewMergeStatus"
+	| "Reviews"
+	| "TreeChangeDiffs";
 
-export const branchDetailsQueryOptions = ({ projectId, ...params }: BranchDetailsParams) =>
-	queryOptions({
-		queryKey: ["branchDetails" satisfies QueryKey, projectId, params],
-		queryFn: () => window.lite.branchDetails({ projectId, ...params }),
-	});
+export const queryResult = async <T>(request: () => Promise<T>) => {
+	try {
+		return { data: await request() };
+	} catch (error) {
+		return { error };
+	}
+};
 
-export const branchDiffQueryOptions = ({ projectId, ...params }: BranchDiffParams) =>
-	queryOptions({
-		queryKey: ["branchDiff" satisfies QueryKey, projectId, params],
-		queryFn: () => window.lite.branchDiff({ projectId, ...params }),
-	});
+const reviewId = ({ projectId, reviewId }: GetReviewParams): string => `${projectId}:${reviewId}`;
 
-export const changesInWorktreeQueryOptions = (projectId: string) =>
-	queryOptions({
-		queryKey: ["changesInWorktree" satisfies QueryKey, projectId],
-		queryFn: () => window.lite.changesInWorktree(projectId),
-	});
-
-export const commitDetailsWithLineStatsQueryOptions = ({
-	projectId,
-	...params
-}: CommitDetailsWithLineStatsParams) =>
-	queryOptions({
-		queryKey: ["commitDetailsWithLineStats" satisfies QueryKey, projectId, params],
-		queryFn: () => window.lite.commitDetailsWithLineStats({ projectId, ...params }),
-	});
-
-export const forgeInfoOptions = (projectId: string) =>
-	queryOptions({
-		queryKey: ["forgeInfo" satisfies QueryKey, projectId],
-		queryFn: () => window.lite.forgeInfo(projectId),
-	});
-
-export const headInfoQueryOptions = (projectId: string) =>
-	queryOptions({
-		queryKey: ["headInfo" satisfies QueryKey, projectId],
-		queryFn: () => window.lite.headInfo(projectId),
-	});
-
-export const getReviewQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
-	queryOptions({
-		queryKey: ["review" satisfies QueryKey, projectId, reviewId],
-		queryFn: () => window.lite.getReview({ projectId, reviewId }),
-	});
-
-export const getReviewMergeStatusQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
-	queryOptions({
-		queryKey: ["reviewMergeStatus" satisfies QueryKey, projectId, reviewId],
-		queryFn: () => window.lite.getReviewMergeStatus({ projectId, reviewId }),
-		staleTime: ({ state: { data } }) => (data?.isMergeable ? 30_000 : 10_000),
-	});
-
-export const listReviewsQueryOptions = ({ projectId, ...params }: ListReviewsParams) =>
-	queryOptions({
-		queryKey: ["reviews" satisfies QueryKey, projectId, params],
-		// listReviews will throw if forge can't be determined.
-		queryFn: async () => {
-			try {
-				return await window.lite.listReviews({ projectId, ...params });
-			} catch (e) {
-				// oxlint-disable-next-line no-console
-				console.warn(e);
-				return null;
-			}
-		},
-		select: (reviews) => {
-			if (!reviews) return null;
-
-			const reviewsBySourceBranch = new Map<string, ForgeReview>();
-			for (const review of reviews) reviewsBySourceBranch.set(review.sourceBranch, review);
-			return {
-				reviews,
-				reviewsBySourceBranch,
-			};
-		},
-		staleTime: 60_000,
-	});
-
-/** @public */
-export const listBranchesQueryOptions = ({ projectId, ...params }: ListBranchesParams) =>
-	queryOptions({
-		queryKey: ["branches" satisfies QueryKey, projectId, params],
-		queryFn: () => window.lite.listBranches(projectId, params.filter),
-	});
-
-export const listProjectsQueryOptions = queryOptions({
-	queryKey: ["projects" satisfies QueryKey],
-	queryFn: () => window.lite.listProjectsStateless(),
+export const liteApi = createApi({
+	reducerPath: "liteApi",
+	baseQuery: fakeBaseQuery<unknown>(),
+	tagTypes: [
+		"AbsorptionPlan",
+		"BranchDetails",
+		"BranchDiff",
+		"Branches",
+		"ChangesInWorktree",
+		"CIChecks",
+		"CommitDetailsWithLineStats",
+		"DraftPR",
+		"DryRun",
+		"Editors",
+		"ForgeInfo",
+		"GUISettings",
+		"HeadInfo",
+		"Projects",
+		"Review",
+		"ReviewMergeStatus",
+		"Reviews",
+		"TreeChangeDiffs",
+	],
+	keepUnusedDataFor: 300,
+	endpoints: (builder) => ({
+		branchDetails: builder.query<
+			Awaited<ReturnType<typeof window.lite.branchDetails>>,
+			BranchDetailsParams
+		>({
+			queryFn: (params) => queryResult(() => window.lite.branchDetails(params)),
+			providesTags: (_data, _error, { projectId }) => [{ type: "BranchDetails", id: projectId }],
+		}),
+		branchDiff: builder.query<Awaited<ReturnType<typeof window.lite.branchDiff>>, BranchDiffParams>(
+			{
+				queryFn: (params) => queryResult(() => window.lite.branchDiff(params)),
+				providesTags: (_data, _error, { projectId }) => [{ type: "BranchDiff", id: projectId }],
+			},
+		),
+		changesInWorktree: builder.query<
+			Awaited<ReturnType<typeof window.lite.changesInWorktree>>,
+			string
+		>({
+			queryFn: (projectId) => queryResult(() => window.lite.changesInWorktree(projectId)),
+			providesTags: (_data, _error, projectId) => [{ type: "ChangesInWorktree", id: projectId }],
+		}),
+		commitDetailsWithLineStats: builder.query<
+			Awaited<ReturnType<typeof window.lite.commitDetailsWithLineStats>>,
+			CommitDetailsWithLineStatsParams
+		>({
+			queryFn: (params) => queryResult(() => window.lite.commitDetailsWithLineStats(params)),
+			providesTags: (_data, _error, { projectId }) => [
+				{ type: "CommitDetailsWithLineStats", id: projectId },
+			],
+		}),
+		forgeInfo: builder.query<Awaited<ReturnType<typeof window.lite.forgeInfo>>, string>({
+			queryFn: (projectId) => queryResult(() => window.lite.forgeInfo(projectId)),
+			providesTags: (_data, _error, projectId) => [{ type: "ForgeInfo", id: projectId }],
+		}),
+		headInfo: builder.query<Awaited<ReturnType<typeof window.lite.headInfo>>, string>({
+			queryFn: (projectId) => queryResult(() => window.lite.headInfo(projectId)),
+			providesTags: (_data, _error, projectId) => [{ type: "HeadInfo", id: projectId }],
+		}),
+		getReview: builder.query<Awaited<ReturnType<typeof window.lite.getReview>>, GetReviewParams>({
+			queryFn: (params) => queryResult(() => window.lite.getReview(params)),
+			providesTags: (_data, _error, params) => [{ type: "Review", id: reviewId(params) }],
+		}),
+		getReviewMergeStatus: builder.query<
+			Awaited<ReturnType<typeof window.lite.getReviewMergeStatus>>,
+			GetReviewParams
+		>({
+			queryFn: (params) => queryResult(() => window.lite.getReviewMergeStatus(params)),
+			providesTags: (_data, _error, params) => [
+				{ type: "ReviewMergeStatus", id: reviewId(params) },
+			],
+		}),
+		listReviews: builder.query<
+			{
+				reviews: Awaited<ReturnType<typeof window.lite.listReviews>>;
+				reviewsBySourceBranch: Record<string, ForgeReview>;
+			} | null,
+			ListReviewsParams
+		>({
+			queryFn: async (params) => {
+				try {
+					const reviews = await window.lite.listReviews(params);
+					return {
+						data: {
+							reviews,
+							reviewsBySourceBranch: Object.fromEntries(
+								reviews.map((review) => [review.sourceBranch, review]),
+							),
+						},
+					};
+				} catch (error) {
+					// listReviews throws when a forge cannot be determined.
+					// oxlint-disable-next-line no-console
+					console.warn(error);
+					return { data: null };
+				}
+			},
+			providesTags: (_data, _error, { projectId }) => [{ type: "Reviews", id: projectId }],
+		}),
+		listBranches: builder.query<
+			Awaited<ReturnType<typeof window.lite.listBranches>>,
+			ListBranchesParams
+		>({
+			queryFn: ({ projectId, filter }) =>
+				queryResult(() => window.lite.listBranches(projectId, filter)),
+			providesTags: (_data, _error, { projectId }) => [{ type: "Branches", id: projectId }],
+		}),
+		listProjects: builder.query<
+			Awaited<ReturnType<typeof window.lite.listProjectsStateless>>,
+			void
+		>({
+			queryFn: () => queryResult(() => window.lite.listProjectsStateless()),
+			providesTags: ["Projects"],
+		}),
+		listEditors: builder.query<Awaited<ReturnType<typeof window.lite.listEditors>>, void>({
+			queryFn: () => queryResult(() => window.lite.listEditors()),
+			providesTags: ["Editors"],
+		}),
+		listCIChecks: builder.query<
+			{
+				data: Awaited<ReturnType<typeof window.lite.listCiChecks>>;
+				aggregate: ReturnType<typeof aggregateCIChecks>;
+			},
+			Omit<ListCiChecksParams, "cacheConfig">
+		>({
+			queryFn: async ({ projectId, reference }) => {
+				try {
+					const data = await window.lite.listCiChecks({
+						projectId,
+						reference,
+						cacheConfig: "noCache",
+					});
+					return { data: { data, aggregate: aggregateCIChecks(data) } };
+				} catch {
+					return { data: { data: [], aggregate: null } };
+				}
+			},
+			providesTags: (_data, _error, { projectId }) => [{ type: "CIChecks", id: projectId }],
+		}),
+		treeChangeDiffs: builder.query<
+			Awaited<ReturnType<typeof window.lite.treeChangeDiffs>>,
+			TreeChangeDiffParams
+		>({
+			queryFn: (params) => queryResult(() => window.lite.treeChangeDiffs(params)),
+			providesTags: (_data, _error, { projectId }) => [{ type: "TreeChangeDiffs", id: projectId }],
+		}),
+		treeChangeDiffsBatch: builder.query<
+			Array<Awaited<ReturnType<typeof window.lite.treeChangeDiffs>>>,
+			{ projectId: string; changes: Array<TreeChange> }
+		>({
+			queryFn: ({ projectId, changes }) =>
+				queryResult(() =>
+					Promise.all(changes.map((change) => window.lite.treeChangeDiffs({ projectId, change }))),
+				),
+			providesTags: (_data, _error, { projectId }) => [{ type: "TreeChangeDiffs", id: projectId }],
+		}),
+		absorptionPlan: builder.query<
+			Awaited<ReturnType<typeof window.lite.absorptionPlan>>,
+			AbsorptionPlanParams
+		>({
+			queryFn: (params) => queryResult(() => window.lite.absorptionPlan(params)),
+			providesTags: (_data, _error, { projectId }) => [{ type: "AbsorptionPlan", id: projectId }],
+		}),
+		getGUISettings: builder.query<Awaited<ReturnType<typeof window.lite.readGUISettings>>, void>({
+			queryFn: () => queryResult(() => window.lite.readGUISettings()),
+			providesTags: ["GUISettings"],
+		}),
+	}),
 });
 
-export const listEditorsQueryOptions = queryOptions({
-	queryKey: ["editors" satisfies QueryKey],
-	queryFn: () => window.lite.listEditors(),
-});
+export const {
+	useAbsorptionPlanQuery,
+	useBranchDetailsQuery,
+	useBranchDiffQuery,
+	useChangesInWorktreeQuery,
+	useCommitDetailsWithLineStatsQuery,
+	useForgeInfoQuery,
+	useGetGUISettingsQuery,
+	useGetReviewMergeStatusQuery,
+	useHeadInfoQuery,
+	useListBranchesQuery,
+	useListEditorsQuery,
+	useListProjectsQuery,
+	useListReviewsQuery,
+	useTreeChangeDiffsBatchQuery,
+} = liteApi;
 
-// There is no watcher event that could invalidate this query.
-export const listCIChecksQueryOptions = ({
-	projectId,
-	reference,
+const checksPollingInterval = (
+	polling: "passive" | "priority",
+	status: NonNullable<ReturnType<typeof aggregateCIChecks>>["status"] | undefined,
+): number => {
+	const priority = polling === "priority";
+	switch (status) {
+		case "in_progress":
+			return priority ? 5_000 : 15_000;
+		case "action_required":
+			return priority ? 10_000 : 45_000;
+		default:
+			return priority ? 20_000 : 120_000;
+	}
+};
+
+export const useListCIChecksQuery = ({
 	polling,
+	skip = false,
+	...params
 }: Omit<ListCiChecksParams, "cacheConfig"> & {
 	polling: "passive" | "priority";
-}) =>
-	queryOptions({
-		queryKey: ["ciChecks" satisfies QueryKey, projectId, reference],
-		queryFn: async () => {
-			// Aggregated data is needed in queryFn to adjust refetching behaviour. Aggregating here, for
-			// use as mentioned and also at call sites, is more efficient.
-			//
-			// listCiChecks will reject with a message citing HTTP 422 once the branch is merged.
-			try {
-				const data = await window.lite.listCiChecks({
-					projectId,
-					reference,
-					cacheConfig: "noCache",
-				});
-				return { data, aggregate: aggregateCIChecks(data) };
-			} catch {
-				return { data: [], aggregate: null };
-			}
-		},
-		// Refetch periodically, being mindful of rate limiting. Similarly tweak stale time for
-		// prioritised queries so that fresh data is likely fetched when the user would see/expect it
-		// e.g. window refocus.
-		refetchInterval: ({ state: { data: checks } }): number => {
-			const prio = polling === "priority";
-
-			switch (checks?.aggregate?.status) {
-				case "in_progress":
-					return prio ? 5_000 : 15_000;
-				case "action_required":
-					return prio ? 10_000 : 45_000;
-				case "success":
-				case "cancelled":
-				case "failure":
-				case "unknown":
-				case undefined:
-					return prio ? 20_000 : 120_000;
-			}
-		},
-		staleTime: ({ state: { data: checks } }): number => {
-			// Our global default.
-			if (polling === "passive") return Number.POSITIVE_INFINITY;
-
-			switch (checks?.aggregate?.status) {
-				case "in_progress":
-					return 5_000;
-				case "action_required":
-					return 10_000;
-				case "success":
-				case "cancelled":
-				case "failure":
-				case "unknown":
-				case undefined:
-					return 30_000;
-			}
-		},
+	skip?: boolean;
+}) => {
+	const state = liteApi.endpoints.listCIChecks.useQueryState(params, { skip });
+	const subscription = liteApi.endpoints.listCIChecks.useQuerySubscription(params, {
+		pollingInterval: checksPollingInterval(polling, state.data?.aggregate?.status),
+		refetchOnFocus: polling === "priority",
+		skip,
 	});
 
-export const treeChangeDiffsQueryOptions = ({ projectId, change }: TreeChangeDiffParams) =>
-	queryOptions({
-		queryKey: ["treeChangeDiffs" satisfies QueryKey, projectId, change],
-		queryFn: () => window.lite.treeChangeDiffs({ projectId, change }),
-	});
-
-export const absorptionPlanQueryOptions = ({ projectId, target }: AbsorptionPlanParams) =>
-	queryOptions({
-		queryKey: ["absorptionPlan" satisfies QueryKey, projectId, target],
-		queryFn: () => window.lite.absorptionPlan({ projectId, target }),
-	});
-
-export const getGUISettingsQueryOptions = () =>
-	queryOptions({
-		queryKey: ["gui-settings" satisfies QueryKey],
-		queryFn: () => window.lite.readGUISettings(),
-	});
+	return { ...state, ...subscription };
+};

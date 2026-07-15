@@ -1,8 +1,9 @@
 import {
-	absorptionPlanQueryOptions,
-	changesInWorktreeQueryOptions,
-	headInfoQueryOptions,
-	listProjectsQueryOptions,
+	liteApi,
+	useAbsorptionPlanQuery,
+	useChangesInWorktreeQuery,
+	useHeadInfoQuery,
+	useListProjectsQuery,
 } from "#ui/api/queries.ts";
 import { useRestoreSnapshot } from "#ui/api/mutations.ts";
 import {
@@ -18,12 +19,7 @@ import { writeLastOpenedProject } from "#ui/project.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { ProjectForFrontend, RefInfo, Segment } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
-import {
-	QueryErrorResetBoundary,
-	useQueries,
-	useQuery,
-	useSuspenseQuery,
-} from "@tanstack/react-query";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { type FC, Activity, useDeferredValue } from "react";
@@ -185,8 +181,8 @@ const useOutlineNavigationIndex = ({
 	projectId: string;
 	absorptionTargetCommitIds: ReadonlySet<string>;
 }): NavigationIndex<Operand> => {
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
+	const { data: headInfo } = useHeadInfoQuery(projectId);
+	const { data: worktreeChanges } = useChangesInWorktreeQuery(projectId);
 
 	const outlineMode = useAppSelector((state) =>
 		projectSlice.selectors.selectOutlineModeState(state, projectId),
@@ -366,13 +362,11 @@ const WorkspacePage: FC = () => {
 		Match.tags({ Absorb: ({ sourceTarget }) => sourceTarget }),
 		Match.orElse(() => null),
 	);
-	const [absorptionPlanQuery] = useQueries({
-		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
-			absorptionPlanQueryOptions({ projectId, target }),
-		),
-	});
+	const absorptionPlanQuery = useAbsorptionPlanQuery(
+		absorptionPlanTarget ? { projectId, target: absorptionPlanTarget } : skipToken,
+	);
 	const absorptionTargetCommitIds = new Set(
-		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
+		absorptionPlanQuery.data?.map(({ commitId }) => commitId),
 	);
 
 	const outlineNavigationIndex = useOutlineNavigationIndex({
@@ -386,7 +380,7 @@ const WorkspacePage: FC = () => {
 
 	const deferredOutlineSelection = useDeferredValue(outlineSelection);
 
-	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+	const { data: projects = [] } = useListProjectsQuery();
 
 	useHotkey(globalHotkeys.selectProject.hotkey, openProjectPicker, {
 		enabled: projects.length > 0,
@@ -472,17 +466,15 @@ const WorkspacePage: FC = () => {
 export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
-	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+	const dispatch = useAppDispatch();
+	const { data: projects = [], isLoading } = useListProjectsQuery();
+	if (isLoading) return null;
 	const project = projects.find((project) => project.id === projectId);
 	if (!project) return <p className={styles.notFound}>Project not found.</p>;
 
 	return (
-		<QueryErrorResetBoundary>
-			{({ reset }) => (
-				<WorkspacePageErrorBoundary onReset={reset}>
-					<WorkspacePage />
-				</WorkspacePageErrorBoundary>
-			)}
-		</QueryErrorResetBoundary>
+		<WorkspacePageErrorBoundary onReset={() => dispatch(liteApi.util.resetApiState())}>
+			<WorkspacePage />
+		</WorkspacePageErrorBoundary>
 	);
 };

@@ -1,4 +1,3 @@
-import reactQueryPlugin from "@tanstack/eslint-plugin-query";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import reactYouMightNotNeedAnEffectPlugin from "eslint-plugin-react-you-might-not-need-an-effect";
 import { defineConfig } from "oxlint";
@@ -23,7 +22,6 @@ export default defineConfig({
 			name: "react-you-might-not-need-an-effect",
 			specifier: "eslint-plugin-react-you-might-not-need-an-effect",
 		},
-		{ name: "@tanstack/query", specifier: "@tanstack/eslint-plugin-query" },
 	],
 	plugins: ["eslint", "jsx-a11y", "oxc", "react", "typescript", "unicorn"],
 	rules: {
@@ -102,6 +100,5 @@ export default defineConfig({
 			"react-hooks-js",
 		),
 		...reactYouMightNotNeedAnEffectPlugin.configs.recommended.rules,
-		...reactQueryPlugin.configs.recommended.rules,
 	},
 });

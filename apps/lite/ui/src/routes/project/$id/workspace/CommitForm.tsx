@@ -1,6 +1,6 @@
 import uiStyles from "#ui/components/ui.module.css";
 import { useCommitAmend, useCommitCreate } from "#ui/api/mutations.ts";
-import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import { useChangesInWorktreeQuery, useHeadInfoQuery } from "#ui/api/queries.ts";
 import { relativeToEquals, relativeToKey } from "#ui/api/relative-to.ts";
 import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -21,7 +21,6 @@ import { Button, Tooltip } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import type { RelativeTo } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
-import { useQuery } from "@tanstack/react-query";
 import { type FC, type SubmitEventHandler, useRef, useState } from "react";
 import styles from "./CommitForm.module.css";
 
@@ -66,7 +65,7 @@ export const CommitForm: FC<{
 	const commitCreateMutation = useCommitCreate({ projectId });
 	const commitAmendMutation = useCommitAmend({ projectId });
 
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
+	const { data: worktreeChanges } = useChangesInWorktreeQuery(projectId);
 
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -74,10 +73,8 @@ export const CommitForm: FC<{
 		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
 	);
 
-	const { data: headInfoIndex } = useQuery({
-		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
-	});
+	const { data: headInfo } = useHeadInfoQuery(projectId);
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 	const isCommitOrAmendPending = commitCreateMutation.isPending || commitAmendMutation.isPending;
 	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;

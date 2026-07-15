@@ -1,5 +1,5 @@
 import { useBranchCreate, useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
-import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { liteApi, useHeadInfoQuery } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -14,7 +14,6 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
-import { useIsFetching, useIsMutating, useQuery } from "@tanstack/react-query";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Match } from "effect";
 import { type ComponentProps, type FC } from "react";
@@ -29,8 +28,18 @@ import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControl
 import { CommitForm } from "#ui/routes/project/$id/workspace/CommitForm.tsx";
 
 const ActivitySpinner: FC = () => {
-	const fetchingCount = useIsFetching();
-	const mutatingCount = useIsMutating();
+	const fetchingCount = useAppSelector(
+		(state) =>
+			Object.values(state[liteApi.reducerPath].queries).filter(
+				(query) => query?.status === "pending",
+			).length,
+	);
+	const mutatingCount = useAppSelector(
+		(state) =>
+			Object.values(state[liteApi.reducerPath].mutations).filter(
+				(mutation) => mutation?.status === "pending",
+			).length,
+	);
 
 	const isFetching = fetchingCount > 0;
 	const isMutating = mutatingCount > 0;
@@ -101,7 +110,7 @@ export const Outline: FC<
 		);
 	};
 
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: headInfo } = useHeadInfoQuery(projectId);
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 	const commitTargetState = useAppSelector((state) =>
 		projectSlice.selectors.selectCommitTarget(state, projectId),

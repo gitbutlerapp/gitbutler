@@ -1,5 +1,5 @@
 import rowStyles from "../Row.module.css";
-import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import { useChangesInWorktreeQuery, useHeadInfoQuery } from "#ui/api/queries.ts";
 import { relativeToEquals } from "#ui/api/relative-to.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
@@ -34,7 +34,6 @@ import {
 	PushStatus,
 	WorkspaceState,
 } from "@gitbutler/but-sdk";
-import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { ComponentProps, createContext, FC, Fragment, use, useRef } from "react";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
@@ -167,12 +166,12 @@ const OperandC: FC<
 const UncommittedChanges: FC<{
 	projectId: string;
 }> = ({ projectId }) => {
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
+	const { data: worktreeChanges } = useChangesInWorktreeQuery(projectId);
 	const fileRowItems = worktreeChanges ? getChangesFileRowItems(worktreeChanges) : [];
 
 	const operand = uncommittedChangesOperand;
 
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: headInfo } = useHeadInfoQuery(projectId);
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
 
 	return (
@@ -520,7 +519,7 @@ const Stacks: FC<{
 	commitTarget: RelativeTo | null;
 }> = ({ projectId, commitTarget }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: headInfo } = useHeadInfoQuery(projectId);
 	const dryRunOperation = useAppSelector((state) => {
 		const selection = projectSlice.selectors.selectSelectionOutline(
 			state,

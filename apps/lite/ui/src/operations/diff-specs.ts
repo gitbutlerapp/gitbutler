@@ -1,9 +1,10 @@
 import {
-	changesInWorktreeQueryOptions,
-	commitDetailsWithLineStatsQueryOptions,
+	liteApi,
+	useChangesInWorktreeQuery,
+	useCommitDetailsWithLineStatsQuery,
 } from "#ui/api/queries.ts";
 import { FileParent, Operand, operandFileParent } from "#ui/operands.ts";
-import { type QueryClient, useQueries, useQuery } from "@tanstack/react-query";
+import { skipToken } from "@reduxjs/toolkit/query";
 import {
 	CommitDetails,
 	DiffSpec,
@@ -13,6 +14,7 @@ import {
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { diffSpecHunkHeadersForLineSelection } from "#ui/hunk.ts";
+import type { AppDispatch } from "#ui/store.ts";
 
 export const createDiffSpec = (change: TreeChange, hunkHeaders: Array<HunkHeader>): DiffSpec => ({
 	pathBytes: change.pathBytes,
@@ -97,18 +99,25 @@ const commitIdFromParent = (parent: FileParent) =>
 export const resolveDiffSpecs = async ({
 	source,
 	projectId,
-	queryClient,
+	dispatch,
 }: {
 	source: Operand;
 	projectId: string;
-	queryClient: QueryClient;
+	dispatch: AppDispatch;
 }) => {
 	const fileParent = operandFileParent(source);
 	const commitId = fileParent ? commitIdFromParent(fileParent) : null;
 	const [worktreeChanges, commitDetails] = await Promise.all([
-		queryClient.fetchQuery(changesInWorktreeQueryOptions(projectId)),
+		dispatch(
+			liteApi.endpoints.changesInWorktree.initiate(projectId, { subscribe: false }),
+		).unwrap(),
 		commitId !== null
-			? queryClient.fetchQuery(commitDetailsWithLineStatsQueryOptions({ projectId, commitId }))
+			? dispatch(
+					liteApi.endpoints.commitDetailsWithLineStats.initiate(
+						{ projectId, commitId },
+						{ subscribe: false },
+					),
+				).unwrap()
 			: Promise.resolve(undefined),
 	]);
 
@@ -126,16 +135,13 @@ export const useResolveDiffSpecs = ({
 	operand?: Operand;
 	projectId: string;
 }) => {
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
+	const { data: worktreeChanges } = useChangesInWorktreeQuery(projectId);
 
 	const fileParent = operand ? operandFileParent(operand) : null;
 	const commitId = fileParent ? commitIdFromParent(fileParent) : null;
-	const conditionalQueries = useQueries({
-		queries: (commitId !== null ? [commitId] : []).map((commitId) =>
-			commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-		),
-	});
-	const commitDetails = conditionalQueries[0]?.data;
+	const { data: commitDetails } = useCommitDetailsWithLineStatsQuery(
+		commitId === null ? skipToken : { projectId, commitId },
+	);
 
 	if (!operand) return null;
 

@@ -1,5 +1,5 @@
 import { useAbsorb } from "#ui/api/mutations.ts";
-import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import { useAbsorptionPlanQuery, useHeadInfoQuery } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -22,7 +22,6 @@ import { Button, Tooltip } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
-import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { FC, type ReactNode } from "react";
@@ -161,14 +160,13 @@ const AbsorbOperationControls: FC<{
 	mode: AbsorbMode;
 }> = ({ headInfoIndex, projectId, mode }) => {
 	const dispatch = useAppDispatch();
-	const absorptionPlan = useQuery(
-		absorptionPlanQueryOptions({ projectId, target: mode.sourceTarget }),
-	);
+	const absorptionPlan = useAbsorptionPlanQuery({ projectId, target: mode.sourceTarget });
 	const canAbsorb =
-		!absorptionPlan.isPending && !!absorptionPlan.data && absorptionPlan.data.length > 0;
+		!absorptionPlan.isLoading && !!absorptionPlan.data && absorptionPlan.data.length > 0;
 	const absorbMutation = useAbsorb({ projectId });
 
 	const run = () => {
+		if (!absorptionPlan.data) return;
 		dispatch(projectSlice.actions.exitMode({ projectId }));
 		focusSelectionScope("outline");
 
@@ -183,14 +181,14 @@ const AbsorbOperationControls: FC<{
 	return (
 		<Container>
 			<ControlsRow>
-				{absorptionPlan.isPending ? (
+				{absorptionPlan.isLoading ? (
 					<Icon name="spinner" aria-label="Loading absorb plan" />
 				) : absorptionPlan.isError ? (
 					<Label>Failed to load absorb plan</Label>
 				) : (
 					<Label>
 						Absorb {operandLabel({ headInfoIndex, operand: mode.source })} into{" "}
-						{absorptionPlan.data.length} commits
+						{absorptionPlan.data?.length ?? 0} commits
 					</Label>
 				)}
 				<Controls onCancel={cancel} confirm={{ canRun: canAbsorb, onRun: run }} />
@@ -353,10 +351,8 @@ export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Ope
 	const outlineMode = useAppSelector((state) =>
 		projectSlice.selectors.selectOutlineModeState(state, projectId),
 	);
-	const { data: headInfoIndex } = useQuery({
-		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
-	});
+	const { data: headInfo } = useHeadInfoQuery(projectId);
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 	const checkedCommitCount = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedCommitCount(state, projectId),
 	);

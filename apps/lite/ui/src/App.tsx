@@ -1,14 +1,12 @@
 import { Toast, ToastManager, Tooltip } from "@base-ui/react";
 import { useWorkerPool, WorkerPoolContextProvider } from "@pierre/diffs/react";
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RegisteredRouter, RouterProvider } from "@tanstack/react-router";
 import { type FC, StrictMode, useEffect } from "react";
 import { Provider } from "react-redux";
 import { store } from "#ui/store.ts";
 import { Toasts } from "#ui/components/Toasts.tsx";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
-import { getGUISettingsQueryOptions } from "./api/queries.ts";
+import { useGetGUISettingsQuery } from "./api/queries.ts";
 import { defaultSettings } from "./settings.ts";
 
 const workerFactory = (): Worker =>
@@ -19,10 +17,8 @@ const workerFactory = (): Worker =>
 // Must be mounted under the worker pool provider.
 const ThemeSync: FC = () => {
 	const workerPool = useWorkerPool();
-	const { data: theme } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => cfg.syntaxHighlighting,
-	});
+	const { data: settings } = useGetGUISettingsQuery();
+	const theme = settings?.syntaxHighlighting;
 
 	useEffect(() => {
 		void workerPool?.setRenderOptions({
@@ -37,28 +33,24 @@ const ThemeSync: FC = () => {
 };
 
 export const App: FC<{
-	queryClient: QueryClient;
 	toastManager: ToastManager;
 	router: RegisteredRouter;
-}> = ({ queryClient, toastManager, router }) => (
+}> = ({ toastManager, router }) => (
 	<StrictMode>
 		<Provider store={store}>
-			<QueryClientProvider client={queryClient}>
-				<Toast.Provider toastManager={toastManager}>
-					<Tooltip.Provider>
-						<WorkerPoolContextProvider
-							poolOptions={{ workerFactory }}
-							highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
-						>
-							<ThemeSync />
-							<RouterProvider router={router} />
-							<AskpassPromptDialog />
-							<Toasts />
-						</WorkerPoolContextProvider>
-					</Tooltip.Provider>
-				</Toast.Provider>
-				<ReactQueryDevtools />
-			</QueryClientProvider>
+			<Toast.Provider toastManager={toastManager}>
+				<Tooltip.Provider>
+					<WorkerPoolContextProvider
+						poolOptions={{ workerFactory }}
+						highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
+					>
+						<ThemeSync />
+						<RouterProvider router={router} />
+						<AskpassPromptDialog />
+						<Toasts />
+					</WorkerPoolContextProvider>
+				</Tooltip.Provider>
+			</Toast.Provider>
 		</Provider>
 	</StrictMode>
 );

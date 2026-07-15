@@ -19,8 +19,7 @@ import { FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { RowBubble, RowBubbleGroup, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { ItemRow } from "./ItemRow.tsx";
-import { useQueries } from "@tanstack/react-query";
-import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
+import { useTreeChangeDiffsBatchQuery } from "#ui/api/queries.ts";
 
 type LineStats = {
 	linesAdded: number;
@@ -41,10 +40,8 @@ export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
 	projectId: string;
 }> = ({ changes, projectId }) => {
-	const treeChangeDiffs = useQueries({
-		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-	});
-	const lineStats = getLineStats(treeChangeDiffs.map((result) => result.data));
+	const { data: treeChangeDiffs = [] } = useTreeChangeDiffsBatchQuery({ projectId, changes });
+	const lineStats = getLineStats(treeChangeDiffs);
 
 	const operand = uncommittedChangesOperand;
 	const isDefaultMode = useAppSelector(

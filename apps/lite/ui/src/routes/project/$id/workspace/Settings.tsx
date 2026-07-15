@@ -1,8 +1,7 @@
 import { Dialog } from "@base-ui/react";
 import type { FC } from "react";
 import styles from "./Settings.module.css";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { getGUISettingsQueryOptions, listEditorsQueryOptions } from "#ui/api/queries.ts";
+import { useGetGUISettingsQuery, useListEditorsQuery } from "#ui/api/queries.ts";
 import { useSaveGUISettings } from "#ui/api/mutations.ts";
 import type { ThemeCollectionFilter } from "@pierre/theming";
 import { themes } from "@pierre/theming/themes";
@@ -10,6 +9,7 @@ import type { ThemesType } from "@pierre/diffs/react";
 import { displayName } from "#ui/syntax-highlighting.ts";
 import { classes } from "#ui/components/classes.ts";
 import { defaultSettings } from "#ui/settings.ts";
+import type { GUISettings } from "#electron/settings.ts";
 
 const getRenderableThemes = (filter?: ThemeCollectionFilter) =>
 	themes
@@ -29,8 +29,17 @@ type Props = {
 };
 
 export const Settings: FC<Props> = ({ open, onOpenChange }) => {
-	const { data: editors } = useSuspenseQuery(listEditorsQueryOptions);
-	const { data: settings } = useSuspenseQuery(getGUISettingsQueryOptions());
+	const { data: editors = [] } = useListEditorsQuery();
+	const { data: loadedSettings } = useGetGUISettingsQuery();
+	const settings: GUISettings = {
+		version: 1,
+		...defaultSettings,
+		...loadedSettings,
+		syntaxHighlighting: {
+			...defaultSettings.syntaxHighlighting,
+			...loadedSettings?.syntaxHighlighting,
+		},
+	};
 	const saveGUISettings = useSaveGUISettings();
 
 	const setTheme = (variant: keyof ThemesType, themeName: string): void => {

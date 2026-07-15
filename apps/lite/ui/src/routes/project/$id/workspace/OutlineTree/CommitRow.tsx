@@ -7,7 +7,6 @@ import {
 	useCommitReword,
 	useCommitUncommit,
 } from "#ui/api/mutations.ts";
-import { forgeInfoOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { classes } from "#ui/components/classes.ts";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
@@ -37,7 +36,7 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { RelativeTo, type Commit } from "@gitbutler/but-sdk";
 import { Toast, Tooltip } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
-import { useQuery } from "@tanstack/react-query";
+import { useForgeInfoQuery } from "#ui/api/queries.ts";
 import { ComponentProps, FC, use, useOptimistic, useTransition } from "react";
 import { RowCheckbox, RowLabel, RowLabelContainer, RowToolbar } from "../Row.tsx";
 import { getRowButtonClassName } from "../Row-utils.ts";
@@ -62,7 +61,7 @@ export const CommitRow: FC<
 		dryRunCommit: Commit | null;
 	} & ComponentProps<"div">
 > = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
-	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const { data: forgeInfo } = useForgeInfoQuery(projectId);
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
 
 	const isHighlighted = useAppSelector((state) =>

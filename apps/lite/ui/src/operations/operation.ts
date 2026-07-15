@@ -1,5 +1,5 @@
 import { Toast } from "@base-ui/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { Match } from "effect";
 import {
 	type CommitAmendParams,
@@ -12,16 +12,17 @@ import {
 	CommitSquashParams,
 	CommitUncommitParams,
 } from "#electron/ipc.ts";
-import type { QueryKey } from "#ui/api/queries.ts";
+import { liteApi, queryResult } from "#ui/api/queries.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/toastOptions.tsx";
 import { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { Operand, operandEquals, operandFileParent } from "#ui/operands.ts";
 import { resolveDiffSpecs, useResolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import { useParams } from "@tanstack/react-router";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { syncCoreCaches } from "#ui/api/mutations.ts";
+import { mutationResult } from "#ui/api/mutation-result.ts";
 
 type CommitAmendOperation = Omit<CommitAmendParams, "dryRun" | "projectId" | "changes"> & {
 	source: Operand;
@@ -220,6 +221,42 @@ const runOperation = async ({
 		}),
 	);
 
+const operationApi = liteApi.injectEndpoints({
+	endpoints: (builder) => ({
+		dryRunOperation: builder.query<
+			Awaited<ReturnType<typeof runOperation>>,
+			{ projectId: string; operation: Operation; changes: Array<DiffSpec> | null }
+		>({
+			queryFn: ({ projectId, operation, changes }) =>
+				queryResult(() =>
+					runOperation({
+						projectId,
+						operation,
+						resolveChanges: async () => changes,
+						dryRun: true,
+					}),
+				),
+			providesTags: (_data, _error, { projectId }) => [{ type: "DryRun", id: projectId }],
+			keepUnusedDataFor: 10,
+		}),
+		runOperation: builder.mutation<
+			Awaited<ReturnType<typeof runOperation>>,
+			{ projectId: string; operation: Operation }
+		>({
+			queryFn: ({ projectId, operation }, api) =>
+				queryResult(() =>
+					runOperation({
+						projectId,
+						operation,
+						resolveChanges: (source) =>
+							resolveDiffSpecs({ projectId, dispatch: api.dispatch as AppDispatch, source }),
+						dryRun: false,
+					}),
+				),
+		}),
+	}),
+});
+
 export const useDryRunOperation = ({
 	projectId,
 	operation,
@@ -232,40 +269,21 @@ export const useDryRunOperation = ({
 		operand: operation && "source" in operation ? operation.source : undefined,
 	});
 
-	return useQuery({
-		enabled: !!operation,
-		queryKey: ["dryRun" satisfies QueryKey, projectId, operation, changes],
-		queryFn: () => {
-			if (!operation) return null;
-			return runOperation({
-				projectId,
-				operation,
-				resolveChanges: async () => changes,
-				dryRun: true,
-			});
-		},
-		// We may have a lot of different dry runs in a short amount of time.
-		gcTime: 10_000,
-	});
+	return operationApi.useDryRunOperationQuery(
+		operation ? { projectId, operation, changes } : skipToken,
+	);
 };
 
 export const useRunOperation = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
-	const queryClient = useQueryClient();
 	const toastManager = Toast.useToastManager();
+	const [trigger, state] = operationApi.useRunOperationMutation();
 
-	return useMutation({
-		mutationFn: (operation: Operation) =>
-			runOperation({
-				projectId,
-				operation,
-				resolveChanges: (source) => resolveDiffSpecs({ projectId, queryClient, source }),
-				dryRun: false,
-			}),
-		onSuccess: async (response, _input, _ctx, { client }) => {
+	return mutationResult((operation: Operation) => trigger({ projectId, operation }), state, {
+		onSuccess: async (response) => {
 			if (response) {
-				syncCoreCaches(client, dispatch, projectId, response);
+				syncCoreCaches(dispatch, projectId, response);
 
 				if ("rejectedChanges" in response && response.rejectedChanges.length > 0) {
 					toastManager.add(

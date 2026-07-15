@@ -2,7 +2,7 @@ import { Operand, operandEquals } from "#ui/operands.ts";
 import { getOperationSource, pointerTransferMode } from "#ui/outline/mode.ts";
 import styles from "./OperationSourceC.module.css";
 import { operandLabel } from "./operandLabel.ts";
-import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { useHeadInfoQuery } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { classes } from "#ui/components/classes.ts";
 import { projectSlice } from "#ui/projects/state.ts";
@@ -11,7 +11,6 @@ import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/center-under-pointer";
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
 import { mergeProps, useRender } from "@base-ui/react";
-import { useQuery } from "@tanstack/react-query";
 import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import type { DragData } from "./DragData.ts";
@@ -30,10 +29,8 @@ export const OperationSourceC: FC<
 		outline: OperationSourceOutline;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
 > = ({ projectId, source, outline, render, ...props }) => {
-	const { data: headInfoIndex } = useQuery({
-		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
-	});
+	const { data: headInfo } = useHeadInfoQuery(projectId);
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 	const outlineMode = useAppSelector((state) =>
 		projectSlice.selectors.selectOutlineModeState(state, projectId),
 	);

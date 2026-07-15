@@ -1,8 +1,7 @@
-import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { useHeadInfoQuery } from "#ui/api/queries.ts";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { type BranchOperand } from "#ui/operands.ts";
 import { Segment, Stack } from "@gitbutler/but-sdk";
-import { useQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { type FC } from "react";
 
@@ -46,7 +45,7 @@ const stackToBranchPickerOptions = (stack: Stack): Array<BranchPickerOption> => 
 
 export const BranchPicker: FC<Props> = ({ open, onOpenChange, onSelectBranch }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: headInfo } = useHeadInfoQuery(projectId);
 	const selectBranch = (option: BranchPickerOption) => {
 		onOpenChange(false);
 		onSelectBranch(option.branch);

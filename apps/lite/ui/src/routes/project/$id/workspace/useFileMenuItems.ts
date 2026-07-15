@@ -5,9 +5,9 @@ import {
 	useOpenInEditor,
 } from "#ui/api/mutations.ts";
 import {
-	getGUISettingsQueryOptions,
-	listEditorsQueryOptions,
-	listProjectsQueryOptions,
+	useGetGUISettingsQuery,
+	useListEditorsQuery,
+	useListProjectsQuery,
 } from "#ui/api/queries.ts";
 import {
 	changesFileHotkeys,
@@ -21,7 +21,6 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 
 export const useFileMenuItems = ({
@@ -36,12 +35,10 @@ export const useFileMenuItems = ({
 	change?: TreeChange;
 }): Array<NativeMenuItem> => {
 	const dispatch = useAppDispatch();
-	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
-	const { data: editors } = useQuery(listEditorsQueryOptions);
-	const { data: preferredEditor } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
-	});
+	const { data: projects = [] } = useListProjectsQuery();
+	const { data: editors } = useListEditorsQuery();
+	const { data: settings } = useGetGUISettingsQuery();
+	const preferredEditor = editors?.find((editor) => editor.id === settings?.editorId);
 
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");

@@ -7,13 +7,12 @@ import {
 	useUpdateBranchName,
 	useWorkspaceBranchAndAncestorsPush,
 } from "#ui/api/mutations.ts";
-import { forgeInfoOptions, listCIChecksQueryOptions } from "#ui/api/queries.ts";
+import { useForgeInfoQuery, useListCIChecksQuery } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { Button, Toast, Tooltip } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { BranchReference, InsertSide, PushStatus, RelativeTo } from "@gitbutler/but-sdk";
-import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { type ComponentProps, type FC, type MouseEvent, useOptimistic, useTransition } from "react";
 import { classes } from "#ui/components/classes.ts";
@@ -33,7 +32,6 @@ import { branchOperand, operandEquals, type BranchOperand } from "#ui/operands.t
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { prForgeUrl } from "#ui/pr.ts";
 import {
 	RowBubble,
 	RowBubbleVariant,
@@ -48,7 +46,7 @@ import { commitMessageInputId } from "../CommitForm.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import styles from "./BranchRow.module.css";
-import { ciChecksSummaryUrl, type AggregateCIChecks } from "#ui/ci.ts";
+import { ciChecksSummaryUrl, prForgeUrl, type AggregateCIChecks } from "#ui/ci.ts";
 import { type DownstackPushStatus, downstackPushStatusDisabled } from "#ui/segment.ts";
 
 const focusCommitMessageInput = () => {
@@ -133,16 +131,14 @@ export const BranchRow: FC<
 	isTopSegment,
 	...restProps
 }) => {
-	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const { data: forgeInfo } = useForgeInfoQuery(projectId);
 	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
 
-	const { data: ciChecks } = useQuery({
-		...listCIChecksQueryOptions({
-			projectId,
-			reference: refName.displayName,
-			polling: "passive",
-		}),
-		enabled: pullRequest !== null && forgeInfo?.capabilities.checks,
+	const { data: ciChecks } = useListCIChecksQuery({
+		projectId,
+		reference: refName.displayName,
+		polling: "passive",
+		skip: pullRequest === null || !forgeInfo?.capabilities.checks,
 	});
 	const ciURL =
 		pullRequest !== null ? forgeInfo && ciChecksSummaryUrl(pullRequest, forgeInfo) : null;

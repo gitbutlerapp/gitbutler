@@ -1,5 +1,7 @@
 import type { CiCheck, CiConclusion, CiStatus, ForgeInfo } from "@gitbutler/but-sdk";
-import { prForgeUrl } from "./pr.ts";
+
+export const prForgeUrl = (prNo: number, forge: ForgeInfo): string =>
+	`${forge.baseUrl}${forge.prUrlPath}${prNo}`;
 
 // TODO: We're missing equivalent to prUrlPath from SDK for forge-agnostic CI summary URL.
 export const ciChecksSummaryUrl = (prNo: number, forge: ForgeInfo): string | null =>

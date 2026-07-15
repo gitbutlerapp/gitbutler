@@ -1,5 +1,4 @@
 import uiStyles from "#ui/components/ui.module.css";
-import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	useMergeReview,
 	useOpenInEditor,
@@ -10,18 +9,18 @@ import {
 	useUpdateReview,
 } from "#ui/api/mutations.ts";
 import {
-	branchDetailsQueryOptions,
-	branchDiffQueryOptions,
-	changesInWorktreeQueryOptions,
-	commitDetailsWithLineStatsQueryOptions,
-	forgeInfoOptions,
-	getGUISettingsQueryOptions,
-	getReviewMergeStatusQueryOptions,
-	headInfoQueryOptions,
-	listCIChecksQueryOptions,
-	listEditorsQueryOptions,
-	listReviewsQueryOptions,
-	treeChangeDiffsQueryOptions,
+	useBranchDetailsQuery,
+	useBranchDiffQuery,
+	useChangesInWorktreeQuery,
+	useCommitDetailsWithLineStatsQuery,
+	useForgeInfoQuery,
+	useGetGUISettingsQuery,
+	useGetReviewMergeStatusQuery,
+	useHeadInfoQuery,
+	useListCIChecksQuery,
+	useListEditorsQuery,
+	useListReviewsQuery,
+	useTreeChangeDiffsBatchQuery,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
@@ -67,7 +66,7 @@ import {
 	parsePatchFiles,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { useQuery, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import {
@@ -76,7 +75,6 @@ import {
 	MouseEvent,
 	type RefObject,
 	SubmitEventHandler,
-	Suspense,
 	useId,
 	useLayoutEffect,
 	useRef,
@@ -110,7 +108,7 @@ import type { GUISettings } from "#electron/settings.ts";
 import { defaultSettings } from "#ui/settings.ts";
 import { AggregateCIChecks } from "#ui/ci.ts";
 import { IconName } from "#ui/components/iconNames.ts";
-import { draftPRQueryOptions, usePersistDraftPR } from "#ui/pr.ts";
+import { useDraftPRQuery, usePersistDraftPR } from "#ui/pr.ts";
 import { combineHashes, hash } from "#ui/hash.ts";
 
 type BranchTab = "diff" | "pr";
@@ -334,23 +332,12 @@ const DiffContents: FC<{
 }) => {
 	const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
 	const dispatch = useAppDispatch();
-	const { data: editors } = useQuery(listEditorsQueryOptions);
-	const { data: preferredEditor } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
-	});
-	const { data: preferredFontFamily } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => cfg.diffFontFamily,
-	});
-	const { data: preferredFontSize } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => cfg.diffFontSize,
-	});
-	const { data: preferredTabSize } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => cfg.diffTabSize,
-	});
+	const { data: editors } = useListEditorsQuery();
+	const { data: settings } = useGetGUISettingsQuery();
+	const preferredEditor = editors?.find((editor) => editor.id === settings?.editorId);
+	const preferredFontFamily = settings?.diffFontFamily;
+	const preferredFontSize = settings?.diffFontSize;
+	const preferredTabSize = settings?.diffTabSize;
 	const openInEditor = useOpenInEditor();
 
 	const diffSelection = useAppSelector((state) =>
@@ -684,25 +671,28 @@ const Title: FC<{
 	onBodyCollapsedChange: (collapsed: boolean) => void;
 	projectId: string;
 	selection: Operand;
-}> = ({ bodyCollapsed, bodyId, onBodyCollapsedChange, projectId, selection }) =>
-	Match.value(selection).pipe(
+}> = ({ bodyCollapsed, bodyId, onBodyCollapsedChange, projectId, selection }) => {
+	const { data: branchDetails } = useBranchDetailsQuery(
+		selection._tag === "Branch"
+			? {
+					projectId,
+					// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+					branchName: decodeBytes(selection.branchRef).replace(/^refs\/heads\//, ""),
+					remote: null,
+				}
+			: skipToken,
+	);
+	const { data: commitDetails } = useCommitDetailsWithLineStatsQuery(
+		selection._tag === "Commit" ? { projectId, commitId: selection.commitId } : skipToken,
+	);
+
+	return Match.value(selection).pipe(
 		Match.tags({
-			Branch: ({ branchRef }) => (
-				<SuspenseQuery
-					{...branchDetailsQueryOptions({
-						projectId,
-						// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-						branchName: decodeBytes(branchRef).replace(/^refs\/heads\//, ""),
-						remote: null,
-					})}
-				>
-					{({ data: branchDetails }) => (
-						<div className={styles.title}>
-							<Icon name="branch" />
-							<h3 className={classes("text-15", "text-semibold")}>{branchDetails.name}</h3>
-						</div>
-					)}
-				</SuspenseQuery>
+			Branch: () => (
+				<div className={styles.title}>
+					<Icon name="branch" />
+					<h3 className={classes("text-15", "text-semibold")}>{branchDetails?.name}</h3>
+				</div>
 			),
 			UncommittedChanges: () => (
 				<div className={styles.title}>
@@ -716,50 +706,48 @@ const Title: FC<{
 					<h3 className={classes("text-15", "text-semibold")}>{path}</h3>
 				</div>
 			),
-			Commit: ({ commitId }) => (
-				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-					{({ data: commitDetails }) => (
-						<div className={styles.title}>
-							<Icon name="commit" />
-							<h3 className={classes("text-15", "text-semibold")}>
-								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
-								{commitDetails.commit.hasConflicts && " ⚠️"}
-								{commitBody(commitDetails.commit.message) !== undefined && (
-									<Tooltip.Root>
-										<Tooltip.Trigger
-											aria-controls={bodyId}
-											aria-expanded={!bodyCollapsed}
-											aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-											aria-pressed={!bodyCollapsed}
-											className={classes(
-												getButtonClassName({
-													variant: bodyCollapsed ? "outline" : "gray",
-													iconOnly: true,
-													size: "small",
-												}),
-												styles.commitBodyToggle,
-											)}
-											onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
-										>
-											<Icon name="kebab" />
-										</Tooltip.Trigger>
-										<Tooltip.Portal>
-											<Tooltip.Positioner sideOffset={4}>
-												<Tooltip.Popup render={<TooltipPopup />}>
-													{bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-												</Tooltip.Popup>
-											</Tooltip.Positioner>
-										</Tooltip.Portal>
-									</Tooltip.Root>
-								)}
-							</h3>
-						</div>
-					)}
-				</SuspenseQuery>
-			),
+			Commit: () =>
+				commitDetails && (
+					<div className={styles.title}>
+						<Icon name="commit" />
+						<h3 className={classes("text-15", "text-semibold")}>
+							{commitTitle(commitDetails.commit.message) ?? "(no message)"}
+							{commitDetails.commit.hasConflicts && " ⚠️"}
+							{commitBody(commitDetails.commit.message) !== undefined && (
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										aria-controls={bodyId}
+										aria-expanded={!bodyCollapsed}
+										aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+										aria-pressed={!bodyCollapsed}
+										className={classes(
+											getButtonClassName({
+												variant: bodyCollapsed ? "outline" : "gray",
+												iconOnly: true,
+												size: "small",
+											}),
+											styles.commitBodyToggle,
+										)}
+										onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
+									>
+										<Icon name="kebab" />
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup render={<TooltipPopup />}>
+												{bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+											</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
+							)}
+						</h3>
+					</div>
+				),
 		}),
 		Match.orElseAbsurd,
 	);
+};
 
 const FilesToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
@@ -796,10 +784,8 @@ const FilesToggle: FC<
 const DiffOverflowToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
 > = (toggleProps) => {
-	const { data: diffOverflow } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => cfg.diffOverflow,
-	});
+	const { data: settings } = useGetGUISettingsQuery();
+	const diffOverflow = settings?.diffOverflow;
 	const saveGUISettings = useSaveGUISettings();
 
 	return (
@@ -828,10 +814,8 @@ const DiffOverflowToggle: FC<
 const DiffBackgroundsToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
 > = (toggleProps) => {
-	const { data: diffBackgrounds } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => cfg.diffBackground,
-	});
+	const { data: settings } = useGetGUISettingsQuery();
+	const diffBackgrounds = settings?.diffBackground;
 	const saveGUISettings = useSaveGUISettings();
 
 	return (
@@ -861,10 +845,8 @@ const DiffStyleToggleGroup: FC<
 		"aria-label" | "value" | "onValueChange"
 	>
 > = (toggleGroupProps) => {
-	const { data: diffStyle } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => cfg.diffStyle,
-	});
+	const { data: settings } = useGetGUISettingsQuery();
+	const diffStyle = settings?.diffStyle;
 	const saveGUISettings = useSaveGUISettings();
 
 	return (
@@ -901,9 +883,8 @@ const CommitDetailsContent: FC<{
 	projectId: string;
 	commitId: string;
 }> = ({ bodyCollapsed, bodyId, projectId, commitId }) => {
-	const { data: commitDetails } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-	);
+	const { data: commitDetails } = useCommitDetailsWithLineStatsQuery({ projectId, commitId });
+	if (!commitDetails) return null;
 
 	const fmtDate = new Intl.DateTimeFormat(undefined, {
 		day: "2-digit",
@@ -991,14 +972,12 @@ const Diff: FC<{
 		Match.orElseAbsurd,
 	);
 
-	const treeChangeDiffs = useSuspenseQueries({
-		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-	}).map((result) => result.data);
+	const { data: treeChangeDiffs } = useTreeChangeDiffsBatchQuery({ projectId, changes });
 
 	const diffView = getDiffView({
 		fileParent,
 		changes,
-		treeChangeDiffs,
+		treeChangeDiffs: treeChangeDiffs ?? changes.map(() => null),
 		changesetKey,
 	});
 
@@ -1019,14 +998,7 @@ const Diff: FC<{
 		});
 	};
 
-	const { data: diffSettings } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => ({
-			diffBackground: cfg.diffBackground,
-			diffOverflow: cfg.diffOverflow,
-			diffStyle: cfg.diffStyle,
-		}),
-	});
+	const { data: diffSettings } = useGetGUISettingsQuery();
 
 	const saveGUISettings = useSaveGUISettings();
 
@@ -1171,14 +1143,20 @@ const Diff: FC<{
 	);
 };
 
-const PullRequestForm: FC<{
+type PullRequestFormProps = {
 	projectId: string;
 	sourceBranch: string;
 	targetBranch: string;
 	reviewId: number | null;
 	title: string | null;
 	body: string | null;
-}> = ({ projectId, sourceBranch, targetBranch, reviewId, title, body }) => {
+};
+
+const PullRequestFormContent: FC<
+	PullRequestFormProps & {
+		persistedDocument: { title?: string; body?: string; isDraft?: boolean } | null;
+	}
+> = ({ projectId, sourceBranch, targetBranch, reviewId, title, body, persistedDocument }) => {
 	const publishReview = usePublishReview();
 	const updateReview = useUpdateReview();
 	const formRef = useRef<HTMLFormElement | null>(null);
@@ -1187,9 +1165,6 @@ const PullRequestForm: FC<{
 		title: title ?? "",
 		body: body ?? "",
 	};
-	const { data: persistedDocument } = useSuspenseQuery(
-		draftPRQueryOptions({ projectId, branchName: sourceBranch }),
-	);
 	const [localDocument, setLocalDocument] = useState({
 		title: persistedDocument?.title ?? title ?? "",
 		body: persistedDocument?.body ?? body ?? "",
@@ -1317,16 +1292,25 @@ const PullRequestForm: FC<{
 	);
 };
 
+const PullRequestForm: FC<PullRequestFormProps> = (props) => {
+	const { data: persistedDocument } = useDraftPRQuery({
+		projectId: props.projectId,
+		branchName: props.sourceBranch,
+	});
+	if (persistedDocument === undefined) return null;
+
+	return <PullRequestFormContent {...props} persistedDocument={persistedDocument} />;
+};
+
 const PullRequestPrimaryAction: FC<{
 	projectId: string;
 	reviewId: number;
 	isDraft: boolean;
 }> = ({ projectId, reviewId, isDraft }) => {
-	const { data: mergeStatus } = useQuery({
-		...getReviewMergeStatusQueryOptions({ projectId, reviewId }),
-		// Minimise API calls.
-		enabled: !isDraft,
-	});
+	const { data: mergeStatus } = useGetReviewMergeStatusQuery(
+		{ projectId, reviewId },
+		{ skip: isDraft },
+	);
 
 	const updateReview = useUpdateReview();
 	const mergeReview = useMergeReview();
@@ -1488,7 +1472,7 @@ export const Details: FC<
 	} & ComponentProps<"div">
 > = ({ outlineSelection, ...restProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const { data: headInfo } = useHeadInfoQuery(projectId);
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
 	const dispatch = useAppDispatch();
 	const detailsFullWindow = useAppSelector((state) =>
@@ -1500,6 +1484,44 @@ export const Details: FC<
 	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
 	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
 	const commitBodyId = useId();
+	const commitId = outlineSelection?._tag === "Commit" ? outlineSelection.commitId : null;
+	const branchRef = outlineSelection?._tag === "Branch" ? outlineSelection.branchRef : null;
+	const { data: commitDetails } = useCommitDetailsWithLineStatsQuery(
+		commitId !== null ? { projectId, commitId } : skipToken,
+	);
+	const { data: worktreeChanges } = useChangesInWorktreeQuery(projectId);
+	const { data: branchDiff } = useBranchDiffQuery(
+		branchRef !== null ? { projectId, branch: decodeBytes(branchRef) } : skipToken,
+	);
+	const { data: reviewsData } = useListReviewsQuery(
+		{ projectId, cacheConfig: "noCache" },
+		{ skip: branchRef === null },
+	);
+	const { data: forgeInfo } = useForgeInfoQuery(projectId, {
+		skip: branchRef === null || branchTab !== "pr",
+	});
+	const branchCtx =
+		branchRef !== null ? headInfoIndex?.branchContextByRefBytes(branchRef) : undefined;
+	const sourceBranch = branchCtx?.segment.refName?.displayName;
+	const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
+	const targetBranch =
+		!parentSegment || parentSegment.pushStatus === "integrated"
+			? headInfo?.target?.remoteTrackingRef.displayName
+			: parentSegment.pushStatus === "completelyUnpushed"
+				? undefined
+				: parentSegment.refName?.displayName;
+	const review =
+		sourceBranch !== undefined ? reviewsData?.reviewsBySourceBranch[sourceBranch] : undefined;
+	const { data: ciChecks } = useListCIChecksQuery({
+		projectId,
+		reference: sourceBranch ?? "",
+		polling: "priority",
+		skip:
+			branchTab !== "pr" ||
+			sourceBranch === undefined ||
+			review === undefined ||
+			!forgeInfo?.capabilities.checks,
+	});
 
 	const selectFile = (selection: string) => {
 		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
@@ -1542,32 +1564,15 @@ export const Details: FC<
 							</Toggle>
 						</ToggleGroup>
 
-						<Suspense>
-							<SuspenseQuery
-								{...listReviewsQueryOptions({
-									projectId,
-									cacheConfig: "noCache",
-								})}
-							>
-								{({ data }) => {
-									const review = data?.reviewsBySourceBranch.get(
-										// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-										decodeBytes(outlineSelection.branchRef).replace(/^refs\/heads\//, ""),
-									);
-									if (!review) return null;
-
-									return (
-										<div className={styles.tabsRowRight}>
-											<PullRequestPrimaryAction
-												projectId={projectId}
-												reviewId={review.number}
-												isDraft={review.draft}
-											/>
-										</div>
-									);
-								}}
-							</SuspenseQuery>
-						</Suspense>
+						{review && (
+							<div className={styles.tabsRowRight}>
+								<PullRequestPrimaryAction
+									projectId={projectId}
+									reviewId={review.number}
+									isDraft={review.draft}
+								/>
+							</div>
+						)}
 					</div>
 				)}
 
@@ -1581,173 +1586,97 @@ export const Details: FC<
 				)}
 			</div>
 
-			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
-				{(() => {
-					const renderDiff = ({
-						changes,
-						filesItems,
-					}: {
-						changes: Array<TreeChange>;
-						filesItems: Array<FileRowItem>;
-						outlineSelection?: Operand;
-					}) => (
-						<Diff
-							changes={changes}
-							filesVisible={filesVisible}
-							filesItems={filesItems}
-							onFileSelection={selectFile}
-							outlineSelection={outlineSelection}
-							projectId={projectId}
-						/>
-					);
-					return Match.value(outlineSelection).pipe(
-						Match.tags({
-							Commit: (commit) => (
-								<SuspenseQuery
-									{...commitDetailsWithLineStatsQueryOptions({
-										projectId,
-										commitId: commit.commitId,
-									})}
-								>
-									{({ data: commitDetails }) =>
-										renderDiff({
-											changes: commitDetails.changes,
-											filesItems: getCommitFileRowItems({ commitDetails }),
-										})
-									}
-								</SuspenseQuery>
-							),
-							UncommittedChanges: () => (
-								<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-									{({ data: worktreeChanges }) =>
-										renderDiff({
-											changes: worktreeChanges.changes,
-											filesItems: getChangesFileRowItems(worktreeChanges),
-										})
-									}
-								</SuspenseQuery>
-							),
-							File: (file) => {
-								if (file.parent._tag !== "UncommittedChanges") return null;
+			{(() => {
+				const renderDiff = ({
+					changes,
+					filesItems,
+				}: {
+					changes: Array<TreeChange>;
+					filesItems: Array<FileRowItem>;
+					outlineSelection?: Operand;
+				}) => (
+					<Diff
+						changes={changes}
+						filesVisible={filesVisible}
+						filesItems={filesItems}
+						onFileSelection={selectFile}
+						outlineSelection={outlineSelection}
+						projectId={projectId}
+					/>
+				);
+				return Match.value(outlineSelection).pipe(
+					Match.tags({
+						Commit: () =>
+							commitDetails
+								? renderDiff({
+										changes: commitDetails.changes,
+										filesItems: getCommitFileRowItems({ commitDetails }),
+									})
+								: null,
+						UncommittedChanges: () =>
+							worktreeChanges
+								? renderDiff({
+										changes: worktreeChanges.changes,
+										filesItems: getChangesFileRowItems(worktreeChanges),
+									})
+								: null,
+						File: (file) => {
+							if (file.parent._tag !== "UncommittedChanges" || !worktreeChanges) return null;
+							const filesItems = getChangesFileRowItems(worktreeChanges).filter(
+								(item) => item.path === file.path,
+							);
+							const changes = filesItems.flatMap((item) =>
+								item._tag === "Change" ? [item.change] : [],
+							);
+							return changes.length > 0 ? renderDiff({ changes, filesItems }) : null;
+						},
+						Branch: () =>
+							branchTab === "pr" ? (
+								<div className={styles.prTab}>
+									{targetBranch === undefined ? (
+										<p className="text-13">No remote target branch.</p>
+									) : sourceBranch === undefined ? (
+										<p className="text-13">No source branch.</p>
+									) : branchCtx?.segment.pushStatus === "completelyUnpushed" ? (
+										<p className="text-13">Branch must be pushed to create PR.</p>
+									) : review === undefined ? (
+										<PullRequestForm
+											key={sourceBranch}
+											body={null}
+											projectId={projectId}
+											reviewId={null}
+											sourceBranch={sourceBranch}
+											targetBranch={targetBranch}
+											title={null}
+										/>
+									) : (
+										<>
+											<PullRequestForm
+												key={review.number}
+												body={review.body}
+												projectId={projectId}
+												reviewId={review.number}
+												sourceBranch={sourceBranch}
+												targetBranch={targetBranch}
+												title={review.title}
+											/>
 
-								return (
-									<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-										{({ data: worktreeChanges }) => {
-											const filesItems = getChangesFileRowItems(worktreeChanges).filter(
-												(item) => item.path === file.path,
-											);
-											const changes = filesItems.flatMap((item) =>
-												item._tag === "Change" ? [item.change] : [],
-											);
-
-											if (changes.length === 0) return null;
-
-											return renderDiff({
-												changes,
-												filesItems,
-											});
-										}}
-									</SuspenseQuery>
-								);
-							},
-							Branch: ({ branchRef }) =>
-								branchTab === "pr" ? (
-									<SuspenseQuery
-										{...listReviewsQueryOptions({
-											projectId,
-											cacheConfig: "noCache",
-										})}
-									>
-										{({ data }) => {
-											// Use push status of segment, not branch details; something about remote
-											// tracking refs.
-											const branchCtx = headInfoIndex?.branchContextByRefBytes(branchRef);
-											const sourceBranch = branchCtx?.segment.refName?.displayName;
-											const parentSegment = branchCtx?.stack.segments[branchCtx.segmentIndex + 1];
-											const targetBranch =
-												!parentSegment || parentSegment.pushStatus === "integrated"
-													? headInfo?.target?.remoteTrackingRef.displayName
-													: parentSegment.pushStatus === "completelyUnpushed"
-														? undefined
-														: parentSegment.refName?.displayName;
-
-											const review =
-												sourceBranch !== undefined
-													? data?.reviewsBySourceBranch.get(sourceBranch)
-													: undefined;
-
-											return (
-												<div className={styles.prTab}>
-													{targetBranch === undefined ? (
-														<p className="text-13">No remote target branch.</p>
-													) : sourceBranch === undefined ? (
-														<p className="text-13">No source branch.</p>
-													) : branchCtx?.segment.pushStatus === "completelyUnpushed" ? (
-														<p className="text-13">Branch must be pushed to create PR.</p>
-													) : review === undefined ? (
-														<PullRequestForm
-															key={sourceBranch}
-															body={null}
-															projectId={projectId}
-															reviewId={null}
-															sourceBranch={sourceBranch}
-															targetBranch={targetBranch}
-															title={null}
-														/>
-													) : (
-														<>
-															<PullRequestForm
-																key={review.number}
-																body={review.body}
-																projectId={projectId}
-																reviewId={review.number}
-																sourceBranch={sourceBranch}
-																targetBranch={targetBranch}
-																title={review.title}
-															/>
-
-															<SuspenseQuery {...forgeInfoOptions(projectId)}>
-																{({ data: forgeInfo }) =>
-																	forgeInfo?.capabilities.checks && (
-																		<SuspenseQuery
-																			{...listCIChecksQueryOptions({
-																				projectId,
-																				reference: sourceBranch,
-																				polling: "priority",
-																			})}
-																		>
-																			{({ data: { data: checks, aggregate } }) =>
-																				aggregate && (
-																					<Checks checks={checks} aggregate={aggregate} />
-																				)
-																			}
-																		</SuspenseQuery>
-																	)
-																}
-															</SuspenseQuery>
-														</>
-													)}
-												</div>
-											);
-										}}
-									</SuspenseQuery>
-								) : (
-									<SuspenseQuery
-										{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branchRef) })}
-									>
-										{({ data: branchDiff }) =>
-											renderDiff({
-												changes: branchDiff.changes,
-												filesItems: getBranchFileRowItems({ branchDiff }),
-											})
-										}
-									</SuspenseQuery>
-								),
-						}),
-						Match.orElse(() => null),
-					);
-				})()}
-			</Suspense>
+											{ciChecks?.aggregate && (
+												<Checks checks={ciChecks.data} aggregate={ciChecks.aggregate} />
+											)}
+										</>
+									)}
+								</div>
+							) : branchDiff ? (
+								renderDiff({
+									changes: branchDiff.changes,
+									filesItems: getBranchFileRowItems({ branchDiff }),
+								})
+							) : null,
+					}),
+					Match.orElse(() => null),
+				);
+			})()}
 		</div>
 	);
 };

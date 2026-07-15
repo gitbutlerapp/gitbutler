@@ -425,18 +425,9 @@ importers:
       '@reduxjs/toolkit':
         specifier: catalog:redux
         version: 2.11.2(react-redux@9.2.0(@types/react@19.2.14)(react@19.2.4)(redux@5.0.1))(react@19.2.4)
-      '@suspensive/react-query':
-        specifier: npm:@suspensive/react-query-5@^3.21.2
-        version: '@suspensive/react-query-5@3.21.2(@tanstack/react-query@5.90.21(react@19.2.4))(react@19.2.4)'
       '@tanstack/react-hotkeys':
         specifier: ^0.10.0
         version: 0.10.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@tanstack/react-query':
-        specifier: ^5.90.21
-        version: 5.90.21(react@19.2.4)
-      '@tanstack/react-query-devtools':
-        specifier: ^5.91.3
-        version: 5.91.3(@tanstack/react-query@5.90.21(react@19.2.4))(react@19.2.4)
       '@tanstack/react-router':
         specifier: ^1.167.4
         version: 1.168.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -483,9 +474,6 @@ importers:
       '@storybook/react-vite':
         specifier: ^10.3.6
         version: 10.3.6(esbuild@0.27.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.60.3)(storybook@10.3.3(@testing-library/dom@10.4.1)(prettier@3.8.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(typescript@5.9.3)(vite@6.4.3(@types/node@22.19.15)(jiti@2.7.0)(sass-embedded@1.98.0)(sass@1.98.0)(tsx@4.21.0)(yaml@2.8.2))
-      '@tanstack/eslint-plugin-query':
-        specifier: ^5.91.4
-        version: 5.91.4(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       '@types/node':
         specifier: ^22.19.15
         version: 22.19.15
@@ -4188,12 +4176,6 @@ packages:
       svelte: ^5.0.0
       vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
 
-  '@suspensive/react-query-5@3.21.2':
-    resolution: {integrity: sha512-VjpVidHE+/QCVvWoPW034wrpLaaPKyX5GF14jcBLHtJIod7u7ijNakqL4vyHZePh1wLipQvH4sfc2GZvLi/Lyg==}
-    peerDependencies:
-      '@tanstack/react-query': '*'
-      react: ^18 || ^19
-
   '@sveltejs/acorn-typescript@1.0.8':
     resolution: {integrity: sha512-esgN+54+q0NjB0Y/4BomT9samII7jGwNy/2a3wNZbT2A2RpmXsXwUt24LvLhx6jUq2gVk4cWEvcRO6MFQbOfNA==}
     peerDependencies:
@@ -4267,15 +4249,6 @@ packages:
     resolution: {integrity: sha512-4BAffykYOgO+5nzBWYwE3W90sBgLJoUPRWWcL8wlyiM8IB8ipJz3UMJ9KXQd1RKQXpKp8Tutn80HZtWsu2u76w==}
     engines: {node: '>=10'}
 
-  '@tanstack/eslint-plugin-query@5.91.4':
-    resolution: {integrity: sha512-8a+GAeR7oxJ5laNyYBQ6miPK09Hi18o5Oie/jx8zioXODv/AUFLZQecKabPdpQSLmuDXEBPKFh+W5DKbWlahjQ==}
-    peerDependencies:
-      eslint: ^8.57.0 || ^9.0.0
-      typescript: ^5.0.0
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-
   '@tanstack/history@1.161.6':
     resolution: {integrity: sha512-NaOGLRrddszbQj9upGat6HG/4TKvXLvu+osAIgfxPYA+eIvYKv8GKDJOrY2D3/U9MRnKfMWD7bU4jeD4xmqyIg==}
     engines: {node: '>=20.19'}
@@ -4284,29 +4257,12 @@ packages:
     resolution: {integrity: sha512-vqH7X9nb0MTJ/O08++dB5bP9jgj4+BIPOUu/U+6myG86lDsirZSVSobpq5UQpE7nBuk62i8eIYeOhd+OMl/UrA==}
     engines: {node: '>=18'}
 
-  '@tanstack/query-core@5.90.20':
-    resolution: {integrity: sha512-OMD2HLpNouXEfZJWcKeVKUgQ5n+n3A2JFmBaScpNDUqSrQSjiveC7dKMe53uJUg1nDG16ttFPz2xfilz6i2uVg==}
-
-  '@tanstack/query-devtools@5.93.0':
-    resolution: {integrity: sha512-+kpsx1NQnOFTZsw6HAFCW3HkKg0+2cepGtAWXjiiSOJJ1CtQpt72EE2nyZb+AjAbLRPoeRmPJ8MtQd8r8gsPdg==}
-
   '@tanstack/react-hotkeys@0.10.0':
     resolution: {integrity: sha512-GwOSndI5j3qBVYTmgP1mYyRTnlxb2MS17cwGlsavSxMQPSnmDf+m3LzMIpRMs+3zzQMjg3cYhHsFYizYlFI2tw==}
     engines: {node: '>=18'}
     peerDependencies:
       react: '>=16.8'
       react-dom: '>=16.8'
-
-  '@tanstack/react-query-devtools@5.91.3':
-    resolution: {integrity: sha512-nlahjMtd/J1h7IzOOfqeyDh5LNfG0eULwlltPEonYy0QL+nqrBB+nyzJfULV+moL7sZyxc2sHdNJki+vLA9BSA==}
-    peerDependencies:
-      '@tanstack/react-query': ^5.90.20
-      react: ^18 || ^19
-
-  '@tanstack/react-query@5.90.21':
-    resolution: {integrity: sha512-0Lu6y5t+tvlTJMTO7oh5NSpJfpg/5D41LlThfepTixPYkJ0sE2Jj0m0f6yYqujBwIXlId87e234+MxG3D3g7kg==}
-    peerDependencies:
-      react: ^18 || ^19
 
   '@tanstack/react-router@1.168.3':
     resolution: {integrity: sha512-hMWXhckeaSvjepHT5x9tUYJVXMvT/kUjaVHOUDmCfyOBtjxJNYJKbEWClXoopGwWlHjRTAzhsndhnQQRbIiKmA==}
@@ -12897,11 +12853,6 @@ snapshots:
       - rollup
       - webpack
 
-  '@suspensive/react-query-5@3.21.2(@tanstack/react-query@5.90.21(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@tanstack/react-query': 5.90.21(react@19.2.4)
-      react: 19.2.4
-
   '@sveltejs/acorn-typescript@1.0.8(acorn@8.16.0)':
     dependencies:
       acorn: 8.16.0
@@ -13045,24 +12996,11 @@ snapshots:
     dependencies:
       defer-to-connect: 2.0.1
 
-  '@tanstack/eslint-plugin-query@5.91.4(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)':
-    dependencies:
-      '@typescript-eslint/utils': 8.57.2(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
-      eslint: 9.39.4(jiti@2.7.0)
-    optionalDependencies:
-      typescript: 5.9.3
-    transitivePeerDependencies:
-      - supports-color
-
   '@tanstack/history@1.161.6': {}
 
   '@tanstack/hotkeys@0.8.0':
     dependencies:
       '@tanstack/store': 0.11.0
-
-  '@tanstack/query-core@5.90.20': {}
-
-  '@tanstack/query-devtools@5.93.0': {}
 
   '@tanstack/react-hotkeys@0.10.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
@@ -13070,17 +13008,6 @@ snapshots:
       '@tanstack/react-store': 0.11.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
-
-  '@tanstack/react-query-devtools@5.91.3(@tanstack/react-query@5.90.21(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      '@tanstack/query-devtools': 5.93.0
-      '@tanstack/react-query': 5.90.21(react@19.2.4)
-      react: 19.2.4
-
-  '@tanstack/react-query@5.90.21(react@19.2.4)':
-    dependencies:
-      '@tanstack/query-core': 5.90.20
-      react: 19.2.4
 
   '@tanstack/react-router@1.168.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:

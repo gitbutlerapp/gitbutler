@@ -1,9 +1,7 @@
-import type { ForgeInfo } from "@gitbutler/but-sdk";
-import { type QueryClient, queryOptions, useMutation } from "@tanstack/react-query";
+import { mutationResult } from "#ui/api/mutation-result.ts";
+import { liteApi, queryResult } from "#ui/api/queries.ts";
+import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import * as idb from "idb-keyval";
-
-export const prForgeUrl = (prNo: number, forge: ForgeInfo): string =>
-	`${forge.baseUrl}${forge.prUrlPath}${prNo}`;
 
 type DraftPR = {
 	title?: string;
@@ -11,18 +9,43 @@ type DraftPR = {
 	isDraft?: boolean;
 };
 
+type DraftPRParams = { projectId: string; branchName: string };
+
 // Branch name isn't stable identity. Ideally in the future this'd be written to Git metadata.
-const draftPRKey = ({ projectId, branchName }: { projectId: string; branchName: string }): string =>
+const draftPRKey = ({ projectId, branchName }: DraftPRParams): string =>
 	`pr_draft:v1:${projectId}:${branchName}`;
+
+const draftPRApi = liteApi.injectEndpoints({
+	endpoints: (builder) => ({
+		draftPR: builder.query<DraftPR | null, DraftPRParams>({
+			queryFn: (params) =>
+				queryResult(async () => (await idb.get<DraftPR>(draftPRKey(params))) ?? null),
+			providesTags: (_data, _error, { projectId, branchName }) => [
+				{ type: "DraftPR", id: `${projectId}:${branchName}` },
+			],
+		}),
+		persistDraftPR: builder.mutation<
+			void,
+			DraftPRParams & {
+				draft: DraftPR;
+			}
+		>({
+			queryFn: ({ projectId, branchName, draft }) =>
+				queryResult(() => idb.set(draftPRKey({ projectId, branchName }), draft)),
+		}),
+	}),
+});
+
+export const useDraftPRQuery = draftPRApi.useDraftPRQuery;
 
 /** Move a draft PR, if any, from an old branch name to a new one following a rename. */
 export const moveDraftPR = async ({
-	queryClient,
+	dispatch,
 	projectId,
 	oldBranch,
 	newBranch,
 }: {
-	queryClient: QueryClient;
+	dispatch: AppDispatch;
 	projectId: string;
 	oldBranch: string;
 	newBranch: string;
@@ -31,45 +54,30 @@ export const moveDraftPR = async ({
 	const draft = await idb.get<DraftPR>(prevKey);
 	if (!draft) return;
 
-	const newKey = draftPRKey({ projectId, branchName: newBranch });
-	await idb.set(newKey, draft);
-	queryClient.setQueryData(
-		draftPRQueryOptions({ projectId, branchName: newBranch }).queryKey,
-		draft,
+	await idb.set(draftPRKey({ projectId, branchName: newBranch }), draft);
+	void dispatch(
+		draftPRApi.util.upsertQueryData("draftPR", { projectId, branchName: newBranch }, draft),
 	);
 
 	await idb.del(prevKey);
-	queryClient.removeQueries({
-		queryKey: draftPRQueryOptions({ projectId, branchName: oldBranch }).queryKey,
-	});
+	void dispatch(
+		draftPRApi.util.upsertQueryData("draftPR", { projectId, branchName: oldBranch }, null),
+	);
 };
 
-export const draftPRQueryOptions = ({
-	projectId,
-	branchName,
-}: {
-	projectId: string;
-	branchName: string;
-}) =>
-	queryOptions({
-		queryKey: ["pr-draft", projectId, branchName],
-		queryFn: async () => (await idb.get<DraftPR>(draftPRKey({ projectId, branchName }))) ?? null,
-	});
+export const usePersistDraftPR = () => {
+	const [trigger, state] = draftPRApi.usePersistDraftPRMutation();
+	const dispatch = useAppDispatch();
 
-export const usePersistDraftPR = () =>
-	useMutation({
-		mutationFn: ({
-			projectId,
-			branchName,
-			draft,
-		}: {
-			projectId: string;
-			branchName: string;
-			draft: DraftPR;
-		}) => idb.set(draftPRKey({ projectId, branchName }), draft),
-		onSuccess: (_data, input, _res, ctx) =>
-			ctx.client.setQueryData(
-				draftPRQueryOptions({ projectId: input.projectId, branchName: input.branchName }).queryKey,
-				input.draft,
-			),
+	return mutationResult(trigger, state, {
+		onSuccess: (_data, input) => {
+			void dispatch(
+				draftPRApi.util.upsertQueryData(
+					"draftPR",
+					{ projectId: input.projectId, branchName: input.branchName },
+					input.draft,
+				),
+			);
+		},
 	});
+};

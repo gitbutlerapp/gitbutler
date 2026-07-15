@@ -7,7 +7,7 @@ import {
 	useWorkspaceBranchAndAncestorsPush,
 	useWorkspaceIntegrateUpstream,
 } from "#ui/api/mutations.ts";
-import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import { useForgeInfoQuery, useHeadInfoQuery } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitForgeUrl, rewrittenCommitSelection } from "#ui/commit.ts";
@@ -23,7 +23,7 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { type NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import { prForgeUrl } from "#ui/pr.ts";
+import { prForgeUrl } from "#ui/ci.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import {
 	AbsorptionTarget,
@@ -34,7 +34,6 @@ import {
 	Segment,
 } from "@gitbutler/but-sdk";
 import { UseHotkeyDefinition, useHotkeys } from "@tanstack/react-hotkeys";
-import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { type RefObject } from "react";
 import { commitMessageInputId } from "../CommitForm.tsx";
@@ -77,11 +76,9 @@ export const useOutlineTreeHotkeys = ({
 	projectId: string;
 	ref: RefObject<HTMLElement | null>;
 }) => {
-	const { data: headInfoIndex } = useQuery({
-		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
-	});
-	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+	const { data: headInfo } = useHeadInfoQuery(projectId);
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
+	const { data: forgeInfo } = useForgeInfoQuery(projectId);
 	const selection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionOutline(state, projectId, navigationIndex),
 	);
