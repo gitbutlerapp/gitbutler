@@ -3,7 +3,7 @@
 use anyhow::bail;
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{
-    Editor, LookupStep as _, SuccessfulRebase, ToCommitSelector, ToSelector,
+    Editor, LookupStep as _, Selector, Step, SuccessfulRebase, ToCommitSelector, ToSelector,
     mutate::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet},
 };
 
@@ -52,17 +52,32 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
         .map(|selector| editor.lookup_pick(*selector))
         .collect::<anyhow::Result<Vec<_>>>()?;
 
-    let ordered_ids = if matches!(side, InsertSide::Above) {
+    if matches!(side, InsertSide::Above) {
         ordered_ids.reverse();
-        ordered_ids
-    } else {
-        ordered_ids
-    };
+    }
 
+    let destination_reference = if matches!(side, InsertSide::Below) {
+        match &relative_to {
+            RelativeTo::Reference(name) => {
+                let reference = editor.select_reference(name.as_ref())?;
+                Some((reference, editor.find_reference_target(reference)?.0))
+            }
+            RelativeTo::Commit(_) => None,
+        }
+    } else {
+        None
+    };
     let mut editor = editor;
     let mut detached = Vec::with_capacity(ordered_ids.len());
-    for subject_id in ordered_ids {
-        detached.push(disconnect_commit(&mut editor, subject_id)?);
+    for subject in ordered_ids {
+        detached.push(disconnect_commit(
+            &mut editor,
+            subject,
+            destination_reference.map(|(_, target)| target),
+        )?);
+    }
+    if let Some((reference, target)) = destination_reference {
+        detach_reference_children(&mut editor, reference, target)?;
     }
     for subject in detached {
         editor.insert_segment(
@@ -98,7 +113,7 @@ pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
     anchor: impl ToSelector,
     side: InsertSide,
 ) -> anyhow::Result<Editor<'ws, 'meta, M>> {
-    let subject_commit_selector = disconnect_commit(&mut editor, subject_commit)?;
+    let subject_commit_selector = disconnect_commit(&mut editor, subject_commit, None)?;
 
     let commit_delimiter = SegmentDelimiter {
         child: subject_commit_selector,
@@ -112,6 +127,7 @@ pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
 fn disconnect_commit<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     subject_commit: impl ToCommitSelector,
+    destination_reference_target: Option<Selector>,
 ) -> anyhow::Result<but_rebase::graph_rebase::Selector> {
     let (subject_commit_selector, _) = editor.find_selectable_commit(subject_commit)?;
 
@@ -122,6 +138,23 @@ fn disconnect_commit<M: RefMetadata>(
 
     // Step 1: Determine the parents to disconnect.
     let parent_to_disconnect = determine_parent_selector(editor, subject_commit_selector)?;
+    let reference_parent = match (destination_reference_target, &parent_to_disconnect) {
+        (Some(destination_target), SelectorSet::Some(parents)) if parents.as_slice().len() == 1 => {
+            let reference = parents.as_slice()[0].to_selector(editor)?;
+            if matches!(editor.lookup_step(reference)?, Step::Reference { .. }) {
+                let (reference_target, _) = editor.find_reference_target(reference)?;
+                (reference_target == destination_target).then_some((reference, reference_target))
+            } else {
+                None
+            }
+        }
+        (None, _) | (Some(_), SelectorSet::All | SelectorSet::None | SelectorSet::Some(_)) => None,
+    };
+    let children = reference_parent
+        .is_some()
+        .then(|| editor.direct_children(subject_commit_selector))
+        .transpose()?
+        .unwrap_or_default();
 
     // Step 2: Disconnect
     editor.disconnect_segment_from(
@@ -130,5 +163,45 @@ fn disconnect_commit<M: RefMetadata>(
         parent_to_disconnect,
         false,
     )?;
+    if let Some((reference, target)) = reference_parent {
+        for (child, desired_order) in children {
+            reconnect_child_to_reference_target(editor, child, reference, target, desired_order)?;
+        }
+    }
     Ok(subject_commit_selector)
+}
+
+fn detach_reference_children<M: RefMetadata>(
+    editor: &mut Editor<'_, '_, M>,
+    reference: Selector,
+    target: Selector,
+) -> anyhow::Result<()> {
+    for (child, desired_order) in editor.direct_children(reference)? {
+        if matches!(editor.lookup_step(child)?, Step::Reference { .. }) {
+            reconnect_child_to_reference_target(editor, child, reference, target, desired_order)?;
+        }
+    }
+    Ok(())
+}
+
+fn reconnect_child_to_reference_target<M: RefMetadata>(
+    editor: &mut Editor<'_, '_, M>,
+    child: Selector,
+    reference: Selector,
+    target: Selector,
+    desired_order: usize,
+) -> anyhow::Result<()> {
+    if editor.remove_edges(child, reference)?.is_empty() {
+        return Ok(());
+    }
+    let used_orders = editor
+        .direct_parents(child)?
+        .into_iter()
+        .map(|(_, order)| order)
+        .collect::<std::collections::HashSet<_>>();
+    let order = (desired_order..)
+        .find(|order| !used_orders.contains(order))
+        .expect("a free edge order always exists");
+    editor.add_edge(child, target, order)?;
+    Ok(())
 }

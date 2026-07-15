@@ -869,6 +869,114 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 }
 
 #[test]
+fn move_mixed_main_and_worktree_commits_to_another_worktree() -> anyhow::Result<()> {
+    use but_graph::Graph;
+    use but_meta::VirtualBranchesTomlMetadata;
+    use but_rebase::graph_rebase::{
+        LookupStep as _, Step,
+        mutate::{InsertSide, RelativeTo},
+    };
+    use but_testsupport::git_status_at_dir;
+
+    let (repo, _tmp) = crate::utils::writable_scenario_slow("worktree-move-mixed");
+    let mut meta = std::mem::ManuallyDrop::new(VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?);
+    let mut options = but_graph::init::Options::limited();
+    for (name, branch) in [("wt", "feat"), ("other", "other")] {
+        options.worktree_tips.push(but_graph::init::WorktreeTip {
+            name: name.into(),
+            ref_name: Some(format!("refs/heads/{branch}").try_into()?),
+            id: repo.find_reference(branch)?.peel_to_id()?.detach(),
+        });
+    }
+    let graph = Graph::from_head(&repo, &*meta, Default::default(), options)?.validated()?;
+
+    let main = repo.rev_parse_single("main")?.detach();
+    let base = repo.rev_parse_single("main^^")?.detach();
+    let feat = repo.rev_parse_single("feat")?.detach();
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let rebase = but_workspace::commit::move_commits(
+        editor,
+        [main, feat],
+        RelativeTo::Reference("refs/heads/other".try_into()?),
+        InsertSide::Below,
+    )?;
+    let editor = rebase.into_editor();
+    let main_ref = editor.select_reference("refs/heads/main".try_into()?)?;
+    let (main_parent, _) = editor
+        .direct_parents(main_ref)?
+        .into_iter()
+        .next()
+        .expect("main has a parent");
+    assert!(
+        matches!(
+            editor.lookup_step(main_parent)?,
+            Step::Reference { refname, .. }
+                if refname.as_bstr() == "refs/heads/stack-base"
+        ),
+        "the source remains stacked on its different parent reference"
+    );
+    editor.rebase()?.materialize()?;
+
+    assert_eq!(
+        repo.rev_parse_single("main")?.detach(),
+        repo.rev_parse_single("stack-base")?.detach(),
+        "the main source ref remains attached to its different parent reference"
+    );
+    assert_eq!(
+        repo.rev_parse_single("feat")?.detach(),
+        base,
+        "the linked-worktree source ref no longer retains its moved commit"
+    );
+    assert_eq!(
+        repo.rev_parse_single("stable")?.detach(),
+        base,
+        "a different ref co-located with the destination does not move"
+    );
+    assert_eq!(
+        repo.rev_parse_single("target")?.detach(),
+        base,
+        "a second ref co-located with the destination does not move"
+    );
+    assert!(
+        repo.rev_parse_single("other:ws-file").is_ok(),
+        "the destination worktree branch contains the main source"
+    );
+    assert!(
+        repo.rev_parse_single("other:wt-file").is_ok(),
+        "the destination worktree branch contains the worktree source"
+    );
+    let workdir = repo.workdir().expect("non-bare repo");
+    assert_eq!(
+        git_status_at_dir(workdir.join("wt"))?,
+        "",
+        "the source linked checkout follows its reset ref"
+    );
+    assert_eq!(
+        git_status_at_dir(workdir.join("other"))?,
+        "",
+        "the destination linked checkout follows its rewritten ref"
+    );
+    assert!(
+        !workdir.join("wt/wt-file").exists(),
+        "the moved source leaves the source linked checkout"
+    );
+    assert_eq!(
+        std::fs::read_to_string(workdir.join("other/ws-file"))?,
+        "workspace\n",
+        "the destination checkout contains the main source"
+    );
+    assert_eq!(
+        std::fs::read_to_string(workdir.join("other/wt-file"))?,
+        "worktree\n",
+        "the destination checkout contains the worktree source"
+    );
+    Ok(())
+}
+
+#[test]
 fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("gb-1525-reorder-merge-commit", |_| {})?;
