@@ -2,7 +2,7 @@
 use anyhow::{Context, Result, bail};
 use but_core::{
     ObjectStorageExt as _, RefMetadata,
-    worktree::{checkout::Options, safe_checkout_from_head},
+    worktree::{checkout::Options, preflight_safe_checkout_from_head, safe_checkout_from_head},
 };
 use gix::{
     bstr::BStr,
@@ -75,6 +75,58 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         })
     }
 
+    /// Validate every checkout before mutating the first one.
+    fn preflight_checkouts(&self, repo: &gix::Repository, include_head: bool) -> Result<()> {
+        for checkout in &self.checkouts {
+            match checkout {
+                Checkout::Worktree {
+                    selector,
+                    worktree_name,
+                    merge_base_override,
+                } => {
+                    let Some(new_tip) = self.resolve_worktree_checkout_tip(*selector)? else {
+                        continue;
+                    };
+                    let proxy = repo
+                        .worktrees()?
+                        .into_iter()
+                        .find(|proxy| proxy.id() == worktree_name)
+                        .with_context(|| format!("Worktree {worktree_name} no longer exists"))?;
+                    let wt_repo = proxy.into_repo()?;
+                    preflight_safe_checkout_from_head(
+                        new_tip,
+                        &wt_repo,
+                        Options {
+                            skip_head_update: true,
+                            merge_base_override: *merge_base_override,
+                            allow_conflicted_commit_checkout: false,
+                        },
+                    )
+                    .with_context(|| format!("Cannot update linked worktree {worktree_name}"))?;
+                }
+                Checkout::Head {
+                    selector,
+                    merge_base_override,
+                } if include_head => {
+                    let Some(new_head) = self.resolve_worktree_checkout_tip(*selector)? else {
+                        bail!("Checkout selector is pointing to none");
+                    };
+                    preflight_safe_checkout_from_head(
+                        new_head,
+                        repo,
+                        Options {
+                            skip_head_update: true,
+                            merge_base_override: *merge_base_override,
+                            allow_conflicted_commit_checkout: true,
+                        },
+                    )?;
+                }
+                Checkout::Head { .. } => {}
+            }
+        }
+        Ok(())
+    }
+
     /// The tip each linked-worktree checkout will point to once this rebase is
     /// materialized, as `(worktree_name, commit_id)` pairs.
     ///
@@ -102,9 +154,8 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     /// Run the checkout of every linked worktree whose branch this rebase moves.
     ///
     /// All objects must be persisted beforehand - the worktree repositories are
-    /// opened from disk. A broken linked worktree degrades to today's
-    /// stale-checkout behavior with a warning instead of failing the whole
-    /// operation.
+    /// opened from disk. Call [`Self::preflight_checkouts`] before this method so
+    /// ordinary checkout conflicts fail before any checkout or ref is changed.
     fn checkout_worktrees(&self, repo: &gix::Repository) -> Result<()> {
         for checkout in &self.checkouts {
             let Checkout::Worktree {
@@ -122,18 +173,8 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 );
                 continue;
             };
-            if let Err(err) = checkout_worktree(
-                repo,
-                worktree_name.as_ref(),
-                new_tip,
-                *merge_base_override,
-            ) {
-                tracing::warn!(
-                    worktree = %worktree_name,
-                    err = %err,
-                    "failed to check out linked worktree - its branch still moves"
-                );
-            }
+            checkout_worktree(repo, worktree_name.as_ref(), new_tip, *merge_base_override)
+                .with_context(|| format!("Cannot update linked worktree {worktree_name}"))?;
         }
         Ok(())
     }
@@ -145,6 +186,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             memory.persist(&self.repo)?;
         }
 
+        self.preflight_checkouts(&repo, true)?;
         self.checkout_worktrees(&repo)?;
 
         let mut head_reference_update = None;
@@ -252,6 +294,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             memory.persist(&self.repo)?;
         }
 
+        self.preflight_checkouts(&repo, false)?;
         self.checkout_worktrees(&repo)?;
 
         repo.edit_references(self.ref_edits.clone())?;

@@ -13,31 +13,40 @@ use crate::update_head_reference;
 
 use super::{Options, Outcome, utils::merge_worktree_changes_into_destination_or_keep_snapshot};
 
-/// Perform all file operations necessary to turn the *worktree* of `repo` into
-/// `new_head_id^{tree}`.
+/// Verify that [`safe_checkout_from_head()`] can preserve the current worktree
+/// while checking out `new_head_id`, without changing files, the index, or refs.
 ///
-/// If `new_head_id` is a *commit*, we will also set `HEAD` (or the ref it points to if symbolic) to the `new_head_id`.
-/// We will also update the `.git/index` to match the `new_head_id^{tree}`.
-/// GitButler-conflicted commits are rejected by default before any worktree, index, or ref update.
-///
-/// We will always handle changes in the worktree safely to avoid loss of uncommitted information. This also means that deletions
-/// never cause us to conflict. Conflicted files that would be checked out will cause an error.
-///
-/// #### Note: No rename tracking
-///
-/// To keep it simpler, we don't do rename tracking, so deletions and additions are always treated separately.
-/// If this changes, then the source sid of a rename could also cause conflicts, maybe? It's a bit unclear what it would mean
-/// in practice, but I guess that we bring deleted files back instead of conflicting.
-#[instrument(skip(repo), err(Debug))]
-pub fn safe_checkout_from_head(
+/// This is useful when several worktrees must be checked out as one logical
+/// operation: preflight all of them before the first checkout is applied.
+pub fn preflight_safe_checkout_from_head(
     new_head_id: gix::ObjectId,
     repo: &gix::Repository,
     Options {
-        skip_head_update,
+        skip_head_update: _,
         merge_base_override,
         allow_conflicted_commit_checkout,
     }: Options,
-) -> anyhow::Result<Outcome> {
+) -> anyhow::Result<()> {
+    prepare_checkout(
+        new_head_id,
+        repo,
+        merge_base_override,
+        allow_conflicted_commit_checkout,
+    )?;
+    Ok(())
+}
+
+fn prepare_checkout(
+    new_head_id: gix::ObjectId,
+    repo: &gix::Repository,
+    merge_base_override: Option<gix::ObjectId>,
+    allow_conflicted_commit_checkout: bool,
+) -> anyhow::Result<(
+    gix::Object<'_>,
+    gix::ObjectId,
+    Vec<(ChangeKind, bstr::BString)>,
+    git2::build::CheckoutBuilder<'static>,
+)> {
     let current_head_id = repo.head_tree_id_or_empty()?.detach();
     let source_tree = current_head_id.attach(repo).object()?.peel_to_tree()?;
     let new_object = new_head_id.attach(repo).object()?;
@@ -75,6 +84,41 @@ pub fn safe_checkout_from_head(
         snapshot_id
     });
 
+    Ok((new_object, destination_tree.id, changed_files, opts))
+}
+
+/// Perform all file operations necessary to turn the *worktree* of `repo` into
+/// `new_head_id^{tree}`.
+///
+/// If `new_head_id` is a *commit*, we will also set `HEAD` (or the ref it points to if symbolic) to the `new_head_id`.
+/// We will also update the `.git/index` to match the `new_head_id^{tree}`.
+/// GitButler-conflicted commits are rejected by default before any worktree, index, or ref update.
+///
+/// We will always handle changes in the worktree safely to avoid loss of uncommitted information. This also means that deletions
+/// never cause us to conflict. Conflicted files that would be checked out will cause an error.
+///
+/// #### Note: No rename tracking
+///
+/// To keep it simpler, we don't do rename tracking, so deletions and additions are always treated separately.
+/// If this changes, then the source sid of a rename could also cause conflicts, maybe? It's a bit unclear what it would mean
+/// in practice, but I guess that we bring deleted files back instead of conflicting.
+#[instrument(skip(repo), err(Debug))]
+pub fn safe_checkout_from_head(
+    new_head_id: gix::ObjectId,
+    repo: &gix::Repository,
+    Options {
+        skip_head_update,
+        merge_base_override,
+        allow_conflicted_commit_checkout,
+    }: Options,
+) -> anyhow::Result<Outcome> {
+    let (new_object, destination_tree, changed_files, mut opts) = prepare_checkout(
+        new_head_id,
+        repo,
+        merge_base_override,
+        allow_conflicted_commit_checkout,
+    )?;
+
     let num_deleted_files = changed_files
         .iter()
         .filter(|(kind, _)| matches!(kind, ChangeKind::Deletion))
@@ -86,7 +130,7 @@ pub fn safe_checkout_from_head(
     if !changed_files.is_empty() {
         let git2_repo = git2::Repository::open(repo.git_dir())?;
         let destination_tree = git2_repo
-            .find_tree(destination_tree.id.to_git2())?
+            .find_tree(destination_tree.to_git2())?
             .into_object();
         let mut dirs_we_tried_to_delete = BTreeSet::new();
         for (kind, path_to_alter) in &changed_files {

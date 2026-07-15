@@ -1,7 +1,10 @@
 //! Tests for `materialize` vs `materialize_without_checkout` behavior differences
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, Step};
+use but_rebase::graph_rebase::{
+    Editor, Step,
+    mutate::{SegmentDelimiter, SelectorSet},
+};
 use but_testsupport::{
     StackState, graph_tree, visualize_commit_graph_all, visualize_disk_tree_skip_dot_git,
 };
@@ -463,6 +466,210 @@ fn graph_options_with_worktree_tip(repo: &gix::Repository) -> Result<but_graph::
         id: repo.find_reference("middle")?.peel_to_id()?.detach(),
     }];
     Ok(options)
+}
+
+fn repoint_reference(
+    editor: &mut Editor<'_, '_, impl but_core::RefMetadata>,
+    refname: &str,
+    target: gix::ObjectId,
+) -> Result<()> {
+    let reference = editor.select_reference(refname.try_into()?)?;
+    let target = editor.select_commit(target)?;
+    editor.disconnect_segment_from(
+        SegmentDelimiter {
+            child: reference,
+            parent: reference,
+        },
+        SelectorSet::All,
+        SelectorSet::All,
+        false,
+    )?;
+    editor.add_edge(reference, target, 0)
+}
+
+fn repoint_middle(
+    editor: &mut Editor<'_, '_, impl but_core::RefMetadata>,
+    target: gix::ObjectId,
+) -> Result<()> {
+    repoint_reference(editor, "refs/heads/middle", target)
+}
+
+fn linked_worktree_index(worktree_dir: &std::path::Path) -> Result<std::path::PathBuf> {
+    Ok(gix::open(worktree_dir)?.path().join("index"))
+}
+
+#[test]
+fn linked_worktree_non_overlapping_dirt_survives_inbound_and_outbound_rewrites() -> Result<()> {
+    for target in ["main", "main~2"] {
+        let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout-dirt")?;
+        let worktree_dir = repo.workdir().unwrap().join("wt");
+        std::fs::write(worktree_dir.join("unrelated"), "dirty but unrelated\n")?;
+
+        let graph = Graph::from_head(
+            &repo,
+            &*meta,
+            project_meta(&*meta),
+            graph_options_with_worktree_tip(&repo)?,
+        )?
+        .validated()?;
+        let mut ws = graph.into_workspace()?;
+        let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let new_tip = repo.rev_parse_single(target)?.detach();
+        repoint_middle(&mut editor, new_tip)?;
+
+        editor.rebase()?.materialize()?;
+
+        assert_eq!(
+            repo.rev_parse_single("middle")?.detach(),
+            new_tip,
+            "the linked-worktree branch reaches the requested inbound/outbound tip"
+        );
+        assert_eq!(
+            std::fs::read(worktree_dir.join("unrelated"))?,
+            b"dirty but unrelated\n",
+            "unrelated linked-worktree dirt survives the history rewrite"
+        );
+        assert!(
+            but_testsupport::git_status_at_dir(&worktree_dir)?.contains("unrelated"),
+            "the preserved edit remains uncommitted"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn overlapping_linked_worktree_dirt_blocks_inbound_rewrite_before_ref_or_index_moves() -> Result<()>
+{
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout-dirt")?;
+    let worktree_dir = repo.workdir().unwrap().join("wt");
+    std::fs::write(worktree_dir.join("main-only"), "local collision\n")?;
+    let middle_before = repo.rev_parse_single("middle")?.detach();
+    let index_path = linked_worktree_index(&worktree_dir)?;
+    let index_before = std::fs::read(&index_path)?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        graph_options_with_worktree_tip(&repo)?,
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let main = repo.rev_parse_single("main")?.detach();
+    repoint_middle(&mut editor, main)?;
+
+    let err = editor
+        .rebase()?
+        .materialize()
+        .expect_err("overlapping dirt must block the linked-worktree checkout");
+    assert!(
+        format!("{err:#}").contains("Uncommitted files would be overwritten by checkout"),
+        "the checkout conflict is surfaced: {err:#}"
+    );
+    assert_eq!(repo.rev_parse_single("middle")?.detach(), middle_before);
+    assert_eq!(
+        std::fs::read(worktree_dir.join("main-only"))?,
+        b"local collision\n"
+    );
+    assert_eq!(std::fs::read(index_path)?, index_before);
+    Ok(())
+}
+
+#[test]
+fn overlapping_linked_worktree_dirt_blocks_outbound_rewrite_before_ref_or_index_moves() -> Result<()>
+{
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout-dirt")?;
+    let worktree_dir = repo.workdir().unwrap().join("wt");
+    std::fs::write(worktree_dir.join("shared"), "local collision\n")?;
+    let middle_before = repo.rev_parse_single("middle")?.detach();
+    let index_path = linked_worktree_index(&worktree_dir)?;
+    let index_before = std::fs::read(&index_path)?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        graph_options_with_worktree_tip(&repo)?,
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let base = repo.rev_parse_single("main~2")?.detach();
+    repoint_middle(&mut editor, base)?;
+
+    let err = editor
+        .rebase()?
+        .materialize()
+        .expect_err("overlapping dirt must block the linked-worktree checkout");
+    assert!(
+        format!("{err:#}").contains("Uncommitted files would be overwritten by checkout"),
+        "the checkout conflict is surfaced: {err:#}"
+    );
+    assert_eq!(repo.rev_parse_single("middle")?.detach(), middle_before);
+    assert_eq!(
+        std::fs::read(worktree_dir.join("shared"))?,
+        b"local collision\n"
+    );
+    assert_eq!(std::fs::read(index_path)?, index_before);
+    Ok(())
+}
+
+#[test]
+fn all_linked_worktrees_are_preflighted_before_the_first_checkout_changes() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout-dirt")?;
+    let worktree = repo.workdir().unwrap().join("wt");
+    let conflicting_worktree = repo.workdir().unwrap().join("wt2");
+    std::fs::write(conflicting_worktree.join("main-only"), "local collision\n")?;
+    let middle_before = repo.rev_parse_single("middle")?.detach();
+    let second_before = repo.rev_parse_single("second")?.detach();
+    let worktree_index = linked_worktree_index(&worktree)?;
+    let worktree_index_before = std::fs::read(&worktree_index)?;
+    let conflicting_index = linked_worktree_index(&conflicting_worktree)?;
+    let conflicting_index_before = std::fs::read(&conflicting_index)?;
+
+    let mut options = standard_options();
+    options.worktree_tips = [
+        (&worktree, "wt", "middle"),
+        (&conflicting_worktree, "wt2", "second"),
+    ]
+    .into_iter()
+    .map(|(_, name, branch)| {
+        Ok(but_graph::init::WorktreeTip {
+            name: name.into(),
+            ref_name: Some(format!("refs/heads/{branch}").try_into()?),
+            id: repo.find_reference(branch)?.peel_to_id()?.detach(),
+        })
+    })
+    .collect::<Result<Vec<_>>>()?;
+    let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), options)?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let base = repo.rev_parse_single("main~2")?.detach();
+    let main = repo.rev_parse_single("main")?.detach();
+    repoint_middle(&mut editor, base)?;
+    repoint_reference(&mut editor, "refs/heads/second", main)?;
+
+    editor
+        .rebase()?
+        .materialize()
+        .expect_err("the second linked-worktree conflict must abort every checkout");
+
+    assert_eq!(repo.rev_parse_single("middle")?.detach(), middle_before);
+    assert_eq!(repo.rev_parse_single("second")?.detach(), second_before);
+    assert_eq!(
+        std::fs::read(worktree.join("shared"))?,
+        b"middle\n",
+        "the first checkout was not changed before the later conflict was found"
+    );
+    assert!(worktree.join("middle-only").exists());
+    assert_eq!(std::fs::read(worktree_index)?, worktree_index_before);
+    assert_eq!(
+        std::fs::read(conflicting_worktree.join("main-only"))?,
+        b"local collision\n"
+    );
+    assert_eq!(std::fs::read(conflicting_index)?, conflicting_index_before);
+    Ok(())
 }
 
 #[test]
