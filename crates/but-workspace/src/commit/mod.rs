@@ -58,7 +58,8 @@ pub use move_changes::{MoveChangesOutcome, move_changes_between_commits};
 pub mod uncommit_changes;
 pub use uncommit_changes::{
     UncommitChangesFailure, UncommitChangesFromCommitsOutcome, UncommitChangesOutcome,
-    UncommitChangesSource, uncommit_changes, uncommit_changes_from_commits,
+    UncommitChangesSource, trees_for_changes_to_uncommit, uncommit_changes,
+    uncommit_changes_from_commits,
 };
 pub mod move_commit;
 pub use move_commit::{move_commit, move_commit_no_rebase, move_commits};

@@ -10,6 +10,7 @@ use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, LookupStep, Selector, Step, SuccessfulRebase, ToCommitSelector},
 };
+use gix::prelude::ObjectIdExt as _;
 
 use crate::tree_manipulation::{ChangesSource, create_tree_without_diff};
 
@@ -52,6 +53,35 @@ pub struct UncommitChangesFromCommitsOutcome<'ws, 'meta, M: RefMetadata> {
     pub rebase: Option<SuccessfulRebase<'ws, 'meta, M>>,
     /// Sources that could not be uncommitted.
     pub failures: Vec<UncommitChangesFailure>,
+}
+
+/// Return the commit tree with `changes` removed and the original commit tree.
+///
+/// This uses the same per-path normalization as [`uncommit_changes`] so callers
+/// can safely preflight materializing the extracted diff elsewhere before the
+/// history rewrite is persisted.
+pub fn trees_for_changes_to_uncommit(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+    changes: impl IntoIterator<Item = DiffSpec>,
+    context_lines: u32,
+) -> Result<(gix::ObjectId, gix::ObjectId)> {
+    let commit = but_core::Commit::from_id(commit_id.attach(repo))?;
+    if commit.is_conflicted() {
+        bail!("Cannot uncommit changes from a conflicted commit")
+    }
+    let original_tree = commit.tree;
+    let changes = merge_specs_by_path(changes.into_iter().collect());
+    let (tree_without_changes, dropped_diffs) = create_tree_without_diff(
+        repo,
+        ChangesSource::Commit { id: commit_id },
+        changes,
+        context_lines,
+    )?;
+    if !dropped_diffs.is_empty() {
+        bail!("Failed to remove specified changes from commit");
+    }
+    Ok((tree_without_changes, original_tree))
 }
 
 #[derive(Debug)]
@@ -205,20 +235,8 @@ fn uncommit_changes_no_rebase_inner<M: RefMetadata>(
 ) -> Result<Selector> {
     let (commit_selector, commit) = editor.find_selectable_commit(commit)?;
 
-    if commit.clone().attach(editor.repo()).is_conflicted() {
-        bail!("Cannot uncommit changes from a conflicted commit")
-    }
-
-    let (tree_without_changes, dropped_diffs) = create_tree_without_diff(
-        editor.repo(),
-        ChangesSource::Commit { id: commit.id },
-        changes,
-        context_lines,
-    )?;
-
-    if !dropped_diffs.is_empty() {
-        bail!("Failed to remove specified changes from commit");
-    }
+    let (tree_without_changes, _original_tree) =
+        trees_for_changes_to_uncommit(editor.repo(), commit.id, changes, context_lines)?;
 
     let new_commit_id = {
         let mut new_commit = commit.clone();

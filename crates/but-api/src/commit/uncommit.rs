@@ -1,18 +1,168 @@
 use std::collections::{BTreeMap, HashSet};
 
 use crate::WorkspaceState;
-use anyhow::Context as _;
+use anyhow::{Context as _, bail};
 use but_api_macros::but_api;
-use but_core::{DryRun, sync::RepoExclusive};
+use but_core::{DryRun, RepositoryExt, sync::RepoExclusive};
 use but_hunk_assignment::{HunkAssignmentRequest, HunkAssignmentTarget};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_rebase::graph_rebase::Editor;
+use gix::prelude::ObjectIdExt as _;
 use tracing::instrument;
 
 use super::types::{
     MoveChangesResult, UncommitChangesFailure, UncommitChangesFromCommitsResult,
     UncommitChangesSource, UncommitResult,
 };
+
+#[derive(Debug, Clone, Copy)]
+struct WorktreeMaterialization {
+    before: gix::ObjectId,
+    after: gix::ObjectId,
+}
+
+/// Prove that all removed changes can coexist with the current main worktree,
+/// and return the exact worktree tree to materialize before the history rewrite.
+///
+/// This must happen before refs move: a failed post-rewrite cherry-pick would
+/// otherwise remove the source changes without surfacing them anywhere.
+fn preflight_worktree_materialization(
+    repo: &gix::Repository,
+    removed_changes: impl IntoIterator<Item = (gix::ObjectId, gix::ObjectId)>,
+) -> anyhow::Result<WorktreeMaterialization> {
+    #[expect(
+        deprecated,
+        reason = "uncommit must preserve the complete main worktree while adding committed changes from another checkout"
+    )]
+    let before = repo.create_wd_tree(0)?;
+    let mut after = before;
+    let (merge_options, conflict_kind) = repo.merge_options_fail_fast()?;
+
+    for (change_base, change_tip) in removed_changes {
+        let mut merge = repo.merge_trees(
+            change_base,
+            change_tip,
+            after,
+            repo.default_merge_labels(),
+            merge_options.clone(),
+        )?;
+        if merge.has_unresolved_conflicts(conflict_kind) {
+            bail!(
+                "Cannot uncommit changes into the workspace because they conflict with existing uncommitted changes"
+            );
+        }
+        after = merge.tree.write()?.detach();
+    }
+
+    Ok(WorktreeMaterialization { before, after })
+}
+
+fn whole_commit_changes(
+    repo: &gix::Repository,
+    commit_ids: &[gix::ObjectId],
+) -> anyhow::Result<Vec<(gix::ObjectId, gix::ObjectId)>> {
+    let mut commits = commit_ids
+        .iter()
+        .filter(|commit_id| !commit_is_reachable_from_head(repo, **commit_id))
+        .map(|commit_id| {
+            let commit = but_core::Commit::from_id(commit_id.attach(repo))?;
+            let before = match commit.parents.first() {
+                Some(parent_id) => but_core::Commit::from_id(parent_id.attach(repo))?
+                    .tree_id_or_auto_resolution()?
+                    .detach(),
+                None => gix::ObjectId::empty_tree(repo.object_hash()),
+            };
+            let after = commit.tree_id_or_auto_resolution()?.detach();
+            Ok((*commit_id, before, after))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    commits.sort_by_key(|(commit_id, _, _)| commit_first_parent_depth(repo, *commit_id));
+    Ok(commits
+        .into_iter()
+        .map(|(_, before, after)| (before, after))
+        .collect())
+}
+
+fn selected_commit_changes(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+    changes: Vec<but_core::DiffSpec>,
+    context_lines: u32,
+) -> anyhow::Result<Option<(gix::ObjectId, gix::ObjectId)>> {
+    if commit_is_reachable_from_head(repo, commit_id) {
+        return Ok(None);
+    }
+    but_workspace::commit::trees_for_changes_to_uncommit(repo, commit_id, changes, context_lines)
+        .map(Some)
+}
+
+fn commit_is_reachable_from_head(repo: &gix::Repository, commit_id: gix::ObjectId) -> bool {
+    repo.head_id().ok().is_some_and(|head_id| {
+        repo.merge_base(head_id, commit_id)
+            .is_ok_and(|merge_base| merge_base.detach() == commit_id)
+    })
+}
+
+fn commit_first_parent_depth(repo: &gix::Repository, mut commit_id: gix::ObjectId) -> usize {
+    let mut depth = 0;
+    while let Ok(commit) = but_core::Commit::from_id(commit_id.attach(repo)) {
+        let Some(parent_id) = commit.parents.first() else {
+            break;
+        };
+        depth += 1;
+        commit_id = *parent_id;
+    }
+    depth
+}
+
+fn group_selected_commit_changes(
+    sources: &[UncommitChangesSource],
+) -> Vec<(gix::ObjectId, Vec<but_core::DiffSpec>)> {
+    let mut groups = Vec::<(gix::ObjectId, Vec<but_core::DiffSpec>)>::new();
+    for source in sources {
+        if let Some((_, changes)) = groups
+            .iter_mut()
+            .find(|(commit_id, _)| *commit_id == source.commit_id)
+        {
+            changes.extend(source.changes.clone());
+        } else {
+            groups.push((source.commit_id, source.changes.clone()));
+        }
+    }
+    groups
+}
+
+/// Put the preflighted tree in the main worktree before refs move. If the
+/// subsequent history rewrite fails, this deliberately leaves a duplicate of
+/// the source changes in the workspace rather than losing them.
+fn materialize_worktree(
+    repo: &gix::Repository,
+    materialization: WorktreeMaterialization,
+) -> anyhow::Result<()> {
+    but_core::worktree::safe_checkout_from_head(
+        materialization.after,
+        repo,
+        but_core::worktree::checkout::Options {
+            skip_head_update: true,
+            // The destination already contains the original worktree state.
+            // Treating it as the merge base prevents checkout from applying
+            // those same local changes a second time.
+            merge_base_override: Some(materialization.before),
+            allow_conflicted_commit_checkout: false,
+        },
+    )?;
+
+    sync_worktree_index(repo)
+}
+
+/// Leave the materialized content as ordinary workspace dirt relative to the
+/// current `HEAD`. This is called again after refs move because uncommitting a
+/// main-workspace commit can rewrite that `HEAD` without checking it out.
+fn sync_worktree_index(repo: &gix::Repository) -> anyhow::Result<()> {
+    repo.index_from_tree(&repo.head_tree_id_or_empty()?)?
+        .write(Default::default())?;
+    Ok(())
+}
 
 // ---------------------------------------------------------------------------
 // Uncommit entire commits (changes are kept in the workspace)
@@ -154,13 +304,20 @@ pub fn commit_uncommit_only_with_perm(
                 )
             })?;
 
+    let worktree_materialization = preflight_worktree_materialization(
+        &repo,
+        whole_commit_changes(&repo, &subject_commit_ids)?,
+    )?;
+
     let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
         let graph = rebase.overlayed_graph()?;
         let replaced_commits = rebase.history.commit_mappings();
         let (repo, meta) = rebase.repo_and_meta_mut();
         (&mut graph.into_workspace()?, replaced_commits, repo, meta)
     } else {
+        materialize_worktree(&repo, worktree_materialization)?;
         let materialized = rebase.materialize_without_checkout()?;
+        sync_worktree_index(&repo)?;
         (
             materialized.workspace,
             materialized.history.commit_mappings(),
@@ -279,9 +436,14 @@ pub fn commit_uncommit_changes_only_with_perm(
         None
     };
 
+    let selected_changes = changes.clone();
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let mut outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
+    let worktree_materialization = preflight_worktree_materialization(
+        &repo,
+        selected_commit_changes(&repo, commit_id, selected_changes, context_lines)?,
+    )?;
 
     let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
         let graph = outcome.rebase.overlayed_graph()?;
@@ -289,7 +451,9 @@ pub fn commit_uncommit_changes_only_with_perm(
         let (repo, meta) = outcome.rebase.repo_and_meta_mut();
         (&mut graph.into_workspace()?, replaced_commits, repo, meta)
     } else {
+        materialize_worktree(&repo, worktree_materialization)?;
         let materialized = outcome.rebase.materialize_without_checkout()?;
+        sync_worktree_index(&repo)?;
         (
             materialized.workspace,
             materialized.history.commit_mappings(),
@@ -459,6 +623,8 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         None
     };
 
+    let mut preflight_sources = group_selected_commit_changes(&sources);
+    preflight_sources.sort_by_key(|(commit_id, _)| commit_first_parent_depth(&repo, *commit_id));
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let workspace_sources = sources
         .into_iter()
@@ -472,6 +638,25 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         workspace_sources,
         context_lines,
     )?;
+    let failed_ids: HashSet<_> = outcome
+        .failures
+        .iter()
+        .map(|failure| failure.commit_id)
+        .collect();
+    let worktree_materialization = if outcome.rebase.is_some() {
+        let removed_changes = preflight_sources
+            .into_iter()
+            .filter(|(commit_id, _)| !failed_ids.contains(commit_id))
+            .map(|(commit_id, changes)| {
+                selected_commit_changes(&repo, commit_id, changes, context_lines)
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?
+            .into_iter()
+            .flatten();
+        Some(preflight_worktree_materialization(&repo, removed_changes)?)
+    } else {
+        None
+    };
     let failures = outcome
         .failures
         .into_iter()
@@ -493,7 +678,12 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
             (&mut *ws, BTreeMap::new(), &*repo, &mut meta)
         }
     } else if let Some(rebase) = rebase {
+        materialize_worktree(
+            &repo,
+            worktree_materialization.expect("a successful rebase has extracted changes"),
+        )?;
         let materialized = rebase.materialize_without_checkout()?;
+        sync_worktree_index(&repo)?;
         (
             materialized.workspace,
             materialized.history.commit_mappings(),
@@ -597,4 +787,43 @@ pub fn commit_uncommit_changes_from_commits_with_perm(
     }
 
     res
+}
+
+#[cfg(test)]
+mod tests {
+    use but_testsupport::{CommandExt as _, git_at_dir, open_repo};
+
+    use super::{preflight_worktree_materialization, whole_commit_changes};
+
+    #[test]
+    fn preflight_rejects_overlap_without_changing_head_or_worktree() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let git = || git_at_dir(tmp.path());
+        git().args(["init", "-b", "main"]).run();
+        git().args(["config", "user.name", "GitButler"]).run();
+        git()
+            .args(["config", "user.email", "gitbutler@example.com"])
+            .run();
+        std::fs::write(tmp.path().join("file.txt"), "base\n")?;
+        git().args(["add", "file.txt"]).run();
+        git().args(["commit", "-m", "base"]).run();
+        git().args(["checkout", "-b", "source"]).run();
+        std::fs::write(tmp.path().join("file.txt"), "from source commit\n")?;
+        git().args(["commit", "-am", "source"]).run();
+        git().args(["checkout", "main"]).run();
+        std::fs::write(tmp.path().join("file.txt"), "existing workspace dirt\n")?;
+
+        let repo = open_repo(tmp.path())?;
+        let source_id = repo.rev_parse_single("source")?.detach();
+        let head_before = repo.head_id()?.detach();
+        let contents_before = std::fs::read(tmp.path().join("file.txt"))?;
+
+        let err =
+            preflight_worktree_materialization(&repo, whole_commit_changes(&repo, &[source_id])?)
+                .expect_err("overlapping committed and workspace changes must be rejected");
+        assert!(err.to_string().contains("conflict"));
+        assert_eq!(repo.head_id()?.detach(), head_before);
+        assert_eq!(std::fs::read(tmp.path().join("file.txt"))?, contents_before);
+        Ok(())
+    }
 }
