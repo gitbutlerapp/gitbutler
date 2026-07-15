@@ -7,6 +7,7 @@ use but_core::{
     ref_metadata::{self, ProjectMeta},
 };
 use gix::{
+    bstr::BString,
     hashtable::hash_map::Entry,
     prelude::{ObjectIdExt, ReferenceExt},
     refs::Category,
@@ -498,6 +499,11 @@ pub struct Options {
 /// [`Options::worktree_tips`].
 #[derive(Debug, Clone)]
 pub struct WorktreeTip {
+    /// The worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+    ///
+    /// The traversal itself doesn't consume it, but it travels with the graph so
+    /// consumers like the rebase editor know which worktrees may be checked out.
+    pub name: BString,
     /// The branch the worktree has checked out, if its `HEAD` is symbolic.
     pub ref_name: Option<gix::refs::FullName>,
     /// The peeled `HEAD` commit at caller resolution time.

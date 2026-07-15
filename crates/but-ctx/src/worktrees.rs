@@ -10,12 +10,18 @@ use crate::Context;
 /// A non-archived linked worktree with its resolved `HEAD`.
 #[derive(Debug, Clone)]
 pub struct ActiveWorktree {
-    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
-    pub name: BString,
     /// The worktree checkout directory.
     pub path: PathBuf,
-    /// The worktree `HEAD` as a graph traversal tip.
+    /// The worktree `HEAD` as a graph traversal tip, which also carries the
+    /// stable worktree name.
     pub tip: but_graph::init::WorktreeTip,
+}
+
+impl ActiveWorktree {
+    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+    pub fn name(&self) -> &BString {
+        &self.tip.name
+    }
 }
 
 impl Context {
@@ -42,7 +48,7 @@ impl Context {
 
         Ok(worktrees
             .into_iter()
-            .filter(|wt| !archived.contains(&wt.name))
+            .filter(|wt| !archived.contains(wt.name()))
             .collect())
     }
 }
@@ -88,9 +94,9 @@ fn enumerate_worktrees(repo: &gix::Repository) -> Result<Vec<ActiveWorktree>> {
             continue;
         };
         out.push(ActiveWorktree {
-            name,
             path,
             tip: but_graph::init::WorktreeTip {
+                name,
                 ref_name,
                 id: commit.id,
             },
@@ -120,15 +126,15 @@ fn reconcile(
         .filter_map(|(name, archived)| archived.then(|| name.clone()))
         .collect();
     for wt in worktrees {
-        if known.contains_key(&wt.name) {
+        if known.contains_key(wt.name()) {
             continue;
         }
         db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
-            name: wt.name.to_vec(),
+            name: wt.name().to_vec(),
             archived: archive_unknown,
         })?;
         if archive_unknown {
-            archived.insert(wt.name.clone());
+            archived.insert(wt.name().clone());
         }
     }
     Ok(archived)

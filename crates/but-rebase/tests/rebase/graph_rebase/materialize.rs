@@ -9,7 +9,7 @@ use snapbox::IntoData;
 
 use crate::{
     graph_rebase::add_stack_with_segments,
-    utils::{fixture_writable, standard_options},
+    utils::{fixture_writable, fixture_writable_slow, standard_options},
 };
 
 fn project_meta(meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
@@ -448,6 +448,113 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
 
 "#]]
         .raw()
+    );
+
+    Ok(())
+}
+
+/// Build the graph over `repo` with `middle` (checked out in the linked worktree
+/// named `wt`) as a worktree tip, so the editor records a worktree checkout.
+fn graph_options_with_worktree_tip(repo: &gix::Repository) -> Result<but_graph::init::Options> {
+    let mut options = standard_options();
+    options.worktree_tips = vec![but_graph::init::WorktreeTip {
+        name: "wt".into(),
+        ref_name: Some("refs/heads/middle".try_into()?),
+        id: repo.find_reference("middle")?.peel_to_id()?.detach(),
+    }];
+    Ok(options)
+}
+
+#[test]
+fn materialize_checks_out_linked_worktrees_seeded_into_the_graph() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    let worktree_dir = repo.workdir().unwrap().join("wt");
+
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(&worktree_dir)?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:100644
+├── a:100644
+└── base:100644
+
+"#]]
+    );
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        graph_options_with_worktree_tip(&repo)?,
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    // Drop the 'a' commit that 'middle' (checked out in the worktree) points to.
+    let a = repo.rev_parse_single("middle")?;
+    let a_sel = editor.select_commit(a.detach())?;
+    editor.replace(a_sel, Step::None)?;
+
+    editor.rebase()?.materialize()?;
+
+    // The worktree's branch moved to 'base', and its checkout followed.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d862b68 (HEAD -> main) b
+* 35b8235 (middle) base
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(&worktree_dir)?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:100644
+└── base:100644
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn materialize_leaves_linked_worktrees_alone_without_worktree_tips() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    let worktree_dir = repo.workdir().unwrap().join("wt");
+
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let a = repo.rev_parse_single("middle")?;
+    let a_sel = editor.select_commit(a.detach())?;
+    editor.replace(a_sel, Step::None)?;
+
+    editor.rebase()?.materialize()?;
+
+    // The branch still moves, but the worktree checkout is left stale -
+    // today's behavior when the feature flag is off.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d862b68 (HEAD -> main) b
+* 35b8235 (middle) base
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(&worktree_dir)?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:100644
+├── a:100644
+└── base:100644
+
+"#]]
     );
 
     Ok(())

@@ -30,6 +30,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 } => {
                     *merge_base_override = Some(tree_id);
                 }
+                super::Checkout::Worktree { .. } => {}
             }
         }
     }

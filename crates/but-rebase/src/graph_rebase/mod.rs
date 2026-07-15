@@ -254,6 +254,18 @@ pub(crate) enum Checkout {
         /// and don't reappear as uncommitted changes.
         merge_base_override: Option<gix::ObjectId>,
     },
+    /// A linked worktree whose checked-out branch may be moved by the rebase.
+    ///
+    /// Only recorded for worktrees named in the graph's
+    /// [`worktree_tips`](but_graph::init::Options::worktree_tips), i.e. when the
+    /// `worktreeManipulation` feature flag enabled them for the graph the editor
+    /// was created over.
+    Worktree {
+        /// Points to the [`Step::Reference`] of the branch the worktree has checked out.
+        selector: Selector,
+        /// The worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+        worktree_name: gix::bstr::BString,
+    },
 }
 
 /// Used to manipulate a set of picks.
@@ -358,6 +370,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                         }
                     }
                 }
+                Checkout::Worktree { .. } => None,
             })
             .next()
         else {

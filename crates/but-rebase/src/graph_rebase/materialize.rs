@@ -4,14 +4,51 @@ use but_core::{
     ObjectStorageExt as _, RefMetadata,
     worktree::{checkout::Options, safe_checkout_from_head},
 };
-use gix::refs::{
-    Target,
-    transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+use gix::{
+    bstr::BStr,
+    refs::{
+        Target,
+        transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+    },
 };
 
 use crate::graph_rebase::{
     Checkout, MaterializeOutcome, Pick, Step, SuccessfulRebase, util::collect_ordered_parents,
 };
+
+/// Check out `new_tip` in the linked worktree named `worktree_name`, doing nothing
+/// when the worktree is already there.
+///
+/// The worktree repository is opened from disk, so all objects the rebase created
+/// must be persisted before calling this. The worktree's `HEAD` stays symbolic -
+/// the branch it points to is moved by the shared ref-store edits afterwards.
+fn checkout_worktree(
+    repo: &gix::Repository,
+    worktree_name: &BStr,
+    new_tip: gix::ObjectId,
+) -> Result<()> {
+    let proxy = repo
+        .worktrees()?
+        .into_iter()
+        .find(|proxy| proxy.id() == worktree_name)
+        .with_context(|| format!("Worktree {worktree_name} no longer exists"))?;
+    let wt_repo = proxy.into_repo()?;
+    if wt_repo.head_id().ok().map(|id| id.detach()) == Some(new_tip) {
+        return Ok(());
+    }
+    safe_checkout_from_head(
+        new_tip,
+        &wt_repo,
+        Options {
+            skip_head_update: true,
+            merge_base_override: None,
+            // Never write conflict-encoded trees into a plain linked worktree -
+            // a conflicted tip leaves the worktree stale instead.
+            allow_conflicted_commit_checkout: false,
+        },
+    )?;
+    Ok(())
+}
 
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     /// Materializes a history rewrite
@@ -24,6 +61,40 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         let mut head_reference_update = None;
         for checkout in self.checkouts {
             match checkout {
+                Checkout::Worktree {
+                    selector,
+                    worktree_name,
+                } => {
+                    let selector = self.history.normalize_selector(selector)?;
+                    let new_tip = match &self.graph[selector.id] {
+                        Step::None => {
+                            tracing::warn!(
+                                worktree = %worktree_name,
+                                "the branch this worktree checks out was removed - leaving its checkout as is"
+                            );
+                            continue;
+                        }
+                        Step::Pick(Pick { id, .. }) => *id,
+                        Step::Reference { .. } => {
+                            let parents = collect_ordered_parents(&self.graph, selector.id);
+                            let parent_step_id =
+                                parents.first().context("No first parent to reference")?;
+                            let Step::Pick(Pick { id, .. }) = self.graph[*parent_step_id] else {
+                                bail!("collect_ordered_parents should always return a commit pick");
+                            };
+                            id
+                        }
+                    };
+                    // A broken linked worktree degrades to today's stale-checkout
+                    // behavior instead of failing the whole operation.
+                    if let Err(err) = checkout_worktree(&repo, worktree_name.as_ref(), new_tip) {
+                        tracing::warn!(
+                            worktree = %worktree_name,
+                            err = %err,
+                            "failed to check out linked worktree - its branch still moves"
+                        );
+                    }
+                }
                 Checkout::Head {
                     selector,
                     merge_base_override,
