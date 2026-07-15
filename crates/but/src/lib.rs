@@ -1349,10 +1349,21 @@ async fn match_subcommand(
             };
             let mut ctx = but_ctx::Context::from_repo_with_settings(repo, app_settings.clone())?;
             let mut guard = ctx.exclusive_worktree_access();
-            command::legacy::setup::repo(&mut ctx, &args.current_dir, out, guard.write_permission())
-                .context("Failed to set up GitButler project.")
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+            let result = command::legacy::setup::repo(
+                &mut ctx,
+                &args.current_dir,
+                out,
+                guard.write_permission(),
+            )
+            .context("Failed to set up GitButler project.");
+            if result.is_ok()
+                && let Some(notice) = command::skill::agent_skill_update_notice()
+                && let Some(human) = out.for_human()
+            {
+                writeln!(human, "{notice}").ok();
+                writeln!(human).ok();
+            }
+            result.emit_metrics(metrics_ctx).map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Teardown { checkout_to } => {
@@ -1930,8 +1941,6 @@ async fn maybe_run_status_after<T, E>(
 /// In human mode, prints a blank line then full status.
 /// In JSON mode, combines the mutation's buffered JSON with status JSON into
 /// `{"result": <mutation_output>, "status": <workspace_status>}`.
-/// For JSON commands, reconciles stale skill installations and includes an
-/// update announcement or failure notice under `agent_skill_notice`.
 /// This function only runs when the CLI caller was detected as an agent.
 ///
 /// Status errors are handled gracefully: in JSON mode the mutation result is
@@ -1945,12 +1954,6 @@ async fn run_status_after(
 ) {
     use crate::command::legacy::status::StatusFlags;
 
-    let agent_skill_notice = out
-        .format()
-        .is_json()
-        .then(command::skill::agent_skill_update_notice)
-        .flatten();
-
     if out.is_json() {
         out.start_json_buffering();
         let status_result = command::legacy::status::worktree(
@@ -1962,7 +1965,7 @@ async fn run_status_after(
         .await;
         let status_json = out.take_json_buffer().unwrap_or(serde_json::Value::Null);
 
-        let mut combined = match status_result {
+        let combined = match status_result {
             Ok(()) => serde_json::json!({
                 "result": mutation_json.unwrap_or(serde_json::Value::Null),
                 "status": status_json,
@@ -1977,14 +1980,6 @@ async fn run_status_after(
                 })
             }
         };
-        if let Some(notice) = agent_skill_notice
-            && let Some(object) = combined.as_object_mut()
-        {
-            object.insert(
-                "agent_skill_notice".to_string(),
-                serde_json::Value::String(notice),
-            );
-        }
         if let Err(err) = out.write_value(combined) {
             eprintln!("warning: failed to write status after mutation: {err}");
         }

@@ -38,12 +38,7 @@ impl AgentSkillNotice {
 }
 
 pub(crate) fn agent_skill_notice(current_dir: &std::path::Path) -> Option<AgentSkillNotice> {
-    let update = agent_skill_freshness_check();
-    let hint = agent_skill_install_hint(current_dir);
-    match update {
-        Some(failed @ AgentSkillNotice::UpdateFailed(_)) => Some(failed),
-        update => hint.or(update),
-    }
+    agent_skill_install_hint(current_dir)
 }
 
 pub(crate) fn agent_skill_update_notice() -> Option<String> {

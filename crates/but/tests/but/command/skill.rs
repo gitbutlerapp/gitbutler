@@ -284,7 +284,7 @@ fn agent_skill_notice_reports_a_stale_local_skill_despite_a_current_global_copy(
 }
 
 #[test]
-fn agent_skill_notice_repairs_a_stale_global_skill() {
+fn agent_skill_notice_never_repairs_stale_global_skill_implicitly() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
     env.but("skill install")
@@ -305,10 +305,48 @@ fn agent_skill_notice_repairs_a_stale_global_skill() {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     assert!(
-        stdout.contains("was out of date and was updated")
-            && !stdout.contains("but skill check --update"),
-        "a stale global skill should be repaired before a read-only command, got: {stdout}"
+        stdout.contains("but skill check --update")
+            && !stdout.contains("was out of date and was updated"),
+        "an ordinary read-only command should only report the stale skill, got: {stdout}"
     );
+    let skill_path = env.home_dir().join(".codex/skills/gitbutler/SKILL.md");
+    assert!(
+        std::fs::read_to_string(&skill_path)
+            .unwrap()
+            .contains("version: old"),
+        "an ordinary read-only command must not rewrite the skill"
+    );
+
+    env.but("alias add inspect status")
+        .env("AI_AGENT", "codex")
+        .assert()
+        .success();
+    assert!(
+        std::fs::read_to_string(&skill_path)
+            .unwrap()
+            .contains("version: old"),
+        "an ordinary mutation must not rewrite the skill"
+    );
+
+    #[cfg(feature = "legacy")]
+    {
+        let setup = env
+            .but("setup")
+            .env("AI_AGENT", "codex")
+            .output()
+            .expect("setup runs");
+        assert!(setup.status.success());
+        assert!(
+            String::from_utf8_lossy(&setup.stdout).contains("was out of date and was updated"),
+            "successful setup should report the explicit update"
+        );
+        assert!(
+            !std::fs::read_to_string(skill_path)
+                .unwrap()
+                .contains("version: old"),
+            "successful setup should update the installed skill"
+        );
+    }
 }
 
 #[test]
