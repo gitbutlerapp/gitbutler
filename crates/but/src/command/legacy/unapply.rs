@@ -56,6 +56,9 @@ pub fn handle(
                     "Cannot unapply the uncommitted area. Please specify a branch or stack identifier."
                 );
             }
+            CliId::Worktree { .. } => {
+                bail!("Cannot unapply a worktree. Please specify a branch or stack identifier.");
+            }
         }
     } else {
         bail!(

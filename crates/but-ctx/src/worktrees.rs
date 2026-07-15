@@ -187,7 +187,8 @@ fn reconcile(
 
     let mut archived: std::collections::BTreeSet<BString> = known
         .iter()
-        .filter_map(|(name, archived)| archived.then(|| name.clone()))
+        .filter(|(_, archived)| **archived)
+        .map(|(name, _)| name.clone())
         .collect();
     for name in names {
         if known.contains_key(name) {

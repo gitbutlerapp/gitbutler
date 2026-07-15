@@ -387,7 +387,7 @@ impl Details {
                 }
                 Ok(true)
             }
-            CliId::PathPrefix { .. } => {
+            CliId::PathPrefix { .. } | CliId::Worktree { .. } => {
                 self.reset_line_reader();
                 self.clear_lines();
                 self.reset_scroll();
@@ -1174,7 +1174,8 @@ impl Details {
             | CliId::CommittedFile { .. }
             | CliId::Branch { .. }
             | CliId::Commit { .. }
-            | CliId::Stack { .. } => false,
+            | CliId::Stack { .. }
+            | CliId::Worktree { .. } => false,
         }
     }
 

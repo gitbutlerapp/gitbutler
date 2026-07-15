@@ -148,7 +148,8 @@ impl TryFrom<CliId> for MoveSource {
             CliId::PathPrefix { id, .. }
             | CliId::CommittedFile { id, .. }
             | CliId::Uncommitted { id }
-            | CliId::Stack { id, .. } => {
+            | CliId::Stack { id, .. }
+            | CliId::Worktree { id, .. } => {
                 anyhow::bail!("cannot move: {id:?}")
             }
         }
@@ -217,6 +218,8 @@ impl App {
                 | StatusOutputLineData::UpstreamChanges
                 | StatusOutputLineData::Warning
                 | StatusOutputLineData::Hint
+                | StatusOutputLineData::Worktree { .. }
+                | StatusOutputLineData::WorktreeCommit
                 | StatusOutputLineData::NoAssignmentsUnstaged => return,
             }
         };
@@ -297,6 +300,8 @@ impl App {
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => {
                 return Ok(());
             }

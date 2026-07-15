@@ -296,7 +296,7 @@ impl App {
                         },
                     )
                 }
-                CliId::PathPrefix { .. } => return Ok(()),
+                CliId::PathPrefix { .. } | CliId::Worktree { .. } => return Ok(()),
             },
         });
 

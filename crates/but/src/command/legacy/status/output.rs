@@ -146,6 +146,33 @@ impl StatusOutput<'_> {
         )
     }
 
+    pub(super) fn worktree(
+        &mut self,
+        connector: Vec<Span<'static>>,
+        line: BranchLineContent,
+        id: CliId,
+    ) -> anyhow::Result<()> {
+        self.push_line(
+            Some(connector),
+            StatusOutputContent::Branch(line),
+            StatusOutputLineData::Worktree {
+                cli_id: Arc::new(id),
+            },
+        )
+    }
+
+    pub(super) fn worktree_commit(
+        &mut self,
+        connector: Vec<Span<'static>>,
+        line: CommitLineContent,
+    ) -> anyhow::Result<()> {
+        self.push_line(
+            Some(connector),
+            StatusOutputContent::Commit(line),
+            StatusOutputLineData::WorktreeCommit,
+        )
+    }
+
     pub(super) fn file(
         &mut self,
         connector: Vec<Span<'static>>,
@@ -364,6 +391,7 @@ impl StatusOutputLine {
             | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::Worktree { .. }
             | StatusOutputLineData::File { .. } => true,
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::BetweenStacks
@@ -372,6 +400,7 @@ impl StatusOutputLine {
             | StatusOutputLineData::Hint
             | StatusOutputLineData::NoAssignmentsUnstaged
             | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::EmptyCommitMessage => false,
         }
     }
@@ -398,6 +427,12 @@ pub(super) enum StatusOutputLineData {
         cli_id: Arc<CliId>,
         is_merged_upstream: bool,
     },
+    /// A linked git worktree, rendered like a branch (experimental).
+    Worktree {
+        cli_id: Arc<CliId>,
+    },
+    /// A commit inside a linked git worktree; carries no CLI ID (experimental).
+    WorktreeCommit,
     Commit {
         cli_id: Arc<CliId>,
         stack_id: Option<StackId>,
@@ -421,6 +456,7 @@ impl StatusOutputLineData {
             StatusOutputLineData::UncommittedChanges { cli_id }
             | StatusOutputLineData::UncommittedFile { cli_id }
             | StatusOutputLineData::Branch { cli_id, .. }
+            | StatusOutputLineData::Worktree { cli_id }
             | StatusOutputLineData::StagedChanges { cli_id }
             | StatusOutputLineData::StagedFile { cli_id }
             | StatusOutputLineData::Commit { cli_id, .. }
@@ -434,6 +470,7 @@ impl StatusOutputLineData {
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
+            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         }
     }

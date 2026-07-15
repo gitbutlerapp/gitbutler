@@ -1534,6 +1534,18 @@ pub mod worktree {
             #[clap(long)]
             reference: bool,
         },
+        /// Archive a worktree, hiding it from the workspace (experimental, requires the
+        /// `worktreeManipulation` feature flag)
+        Archive {
+            /// The CLI id (see `but status`) or name of the worktree
+            id: String,
+        },
+        /// Unarchive a worktree, making it part of the workspace again (experimental,
+        /// requires the `worktreeManipulation` feature flag)
+        Unarchive {
+            /// The CLI id (see `but status`) or name of the worktree
+            id: String,
+        },
     }
 }
 

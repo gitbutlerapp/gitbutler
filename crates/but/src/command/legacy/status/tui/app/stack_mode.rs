@@ -107,7 +107,8 @@ impl ReorderStackSource {
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
-            | CliId::Uncommitted { .. } => false,
+            | CliId::Uncommitted { .. }
+            | CliId::Worktree { .. } => false,
         }
     }
 }
@@ -184,6 +185,8 @@ fn line_uses_top_stack_for_stack_mode(line: &StatusOutputLine) -> bool {
         | StatusOutputLineData::UpstreamChanges
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
+        | StatusOutputLineData::Worktree { .. }
+        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => false,
     }
 }
@@ -225,6 +228,8 @@ fn stack_id_for_line(
         | StatusOutputLineData::UpstreamChanges
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
+        | StatusOutputLineData::Worktree { .. }
+        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => None,
     }
 }
@@ -250,7 +255,8 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                     | CliId::Branch { .. }
                     | CliId::Commit { .. }
                     | CliId::Uncommitted { .. }
-                    | CliId::Stack { .. } => None,
+                    | CliId::Stack { .. }
+                    | CliId::Worktree { .. } => None,
                 },
                 StatusOutputLineData::UpdateNotice
                 | StatusOutputLineData::Connector
@@ -267,12 +273,14 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                 | StatusOutputLineData::UpstreamChanges
                 | StatusOutputLineData::Warning
                 | StatusOutputLineData::Hint
+                | StatusOutputLineData::Worktree { .. }
+                | StatusOutputLineData::WorktreeCommit
                 | StatusOutputLineData::NoAssignmentsUnstaged => None,
             })
         }
         CliId::Branch { stack_id, .. } => *stack_id,
         CliId::Stack { stack_id, .. } => Some(*stack_id),
-        CliId::Uncommitted { .. } => None,
+        CliId::Uncommitted { .. } | CliId::Worktree { .. } => None,
     }
 }
 
@@ -449,7 +457,8 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
             | CliId::Uncommitted { .. }
-            | CliId::Stack { .. } => return Ok(()),
+            | CliId::Stack { .. }
+            | CliId::Worktree { .. } => return Ok(()),
         };
 
         let next_stack_id = stack_ids_in_display_order(&self.status_lines)

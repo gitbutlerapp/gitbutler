@@ -88,6 +88,7 @@ impl CliIdArg {
             },
             CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
             CliId::Stack { .. } => ResolvedCliIdArg::Stack,
+            CliId::Worktree { .. } => ResolvedCliIdArg::Worktree,
         }))
     }
 
@@ -241,6 +242,7 @@ impl CliIdArg {
             CliId::CommittedFile { .. } => "a committed file",
             CliId::Uncommitted { .. } => "uncommitted changes",
             CliId::Stack { .. } => "a stack",
+            CliId::Worktree { .. } => "a worktree",
         };
         bad_input(format!("Invalid {expected}. '{self}' is {kind}")).into()
     }
@@ -299,7 +301,8 @@ fn try_resolve_cli_id(
                 CliId::PathPrefix { .. }
                 | CliId::CommittedFile { .. }
                 | CliId::Uncommitted { .. }
-                | CliId::Stack { .. } => {}
+                | CliId::Stack { .. }
+                | CliId::Worktree { .. } => {}
             }
         }
 
@@ -385,6 +388,7 @@ pub enum ResolvedCliIdArg {
     PathPrefix,
     Uncommitted,
     Stack,
+    Worktree,
 }
 
 impl ResolvedCliIdArg {
@@ -398,6 +402,7 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::PathPrefix => "a path",
             ResolvedCliIdArg::Uncommitted => "uncommitted changes",
             ResolvedCliIdArg::Stack => "a stack",
+            ResolvedCliIdArg::Worktree => "a worktree",
         };
         Err(bad_input(format!("Expected a commit or a branch, got {kind}")).into())
     }
@@ -413,6 +418,7 @@ impl std::fmt::Display for ResolvedCliIdArg {
             ResolvedCliIdArg::CommittedFile { .. } => f.write_str("committed file"),
             ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
             ResolvedCliIdArg::Stack => f.write_str("stack"),
+            ResolvedCliIdArg::Worktree => f.write_str("worktree"),
         }
     }
 }

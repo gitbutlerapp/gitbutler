@@ -162,7 +162,8 @@ impl App {
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Uncommitted { .. }
-            | CliId::Stack { .. } => return Ok(()),
+            | CliId::Stack { .. }
+            | CliId::Worktree { .. } => return Ok(()),
         };
 
         self.mode

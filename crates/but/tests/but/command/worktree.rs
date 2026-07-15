@@ -164,6 +164,143 @@ Status: Nothing to integrate - the worktree has no changes
 "#]]);
 }
 
+/// Experimental worktree listing in `but status` plus the archive/unarchive
+/// subcommands, all gated behind the `worktreeManipulation` feature flag.
+#[test]
+fn archive_unarchive_and_status_listing() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
+    env.setup_metadata(&["A", "B"]);
+
+    // The flag is off by default, so archive/unarchive refuse to run.
+    env.but("worktree unarchive A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: worktree manipulation is not enabled (featureFlags.worktreeManipulation)
+
+"#]]);
+
+    enable_worktree_manipulation(&env)?;
+
+    // The first flag-on run adopts the pre-existing worktrees as archived,
+    // so no worktree group shows up yet.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A 📁 gitbutler/worktrees/A]
+┊┊
+┊╭┄┄(upstream: on origin/A)
+┊●   197ddce A-remote (no changes)
+┊-
+┊●   4c4624e A (no changes)
+├╯
+┊
+┊╭┄h0 [B 📁 gitbutler/worktrees/B]
+┊●   3e01e28 B (no changes)
+├╯
+┊
+┊● 8dc508f (upstream) ⏫ 1 commit
+├╯ 8dc508f (common base) 2000-01-02 M-advanced
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("worktree unarchive A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Unarchived worktree: A
+
+"#]]);
+
+    // The active worktree is listed as a branch-style group after the stacks,
+    // with its own CLI id chip and the path relative to the main worktree.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A 📁 gitbutler/worktrees/A]
+┊┊
+┊╭┄┄(upstream: on origin/A)
+┊●   197ddce A-remote (no changes)
+┊-
+┊●   4c4624e A (no changes)
+├╯
+┊
+┊╭┄h0 [B 📁 gitbutler/worktrees/B]
+┊●   3e01e28 B (no changes)
+├╯
+┊
+┊╭┄k0 [A] (.git/gitbutler/worktrees/A)
+┊●   4c4624e A
+├╯
+┊
+┊● 8dc508f (upstream) ⏫ 1 commit
+├╯ 8dc508f (common base) 2000-01-02 M-advanced
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // The JSON output lists it, too.
+    assert_eq!(active_worktree_names(&env)?, ["A"]);
+
+    // Archiving works with the CLI id chip from the listing and hides the
+    // worktree again.
+    env.but("worktree archive k0")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Archived worktree: A
+
+"#]]);
+    assert_eq!(active_worktree_names(&env)?, Vec::<String>::new());
+
+    Ok(())
+}
+
+/// Turn on the `worktreeManipulation` feature flag in the sandbox settings.
+fn enable_worktree_manipulation(env: &Sandbox) -> anyhow::Result<()> {
+    let settings_path = env.app_data_dir().join("gitbutler/settings.json");
+    let mut settings: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&settings_path)?)?;
+    settings["featureFlags"]["worktreeManipulation"] = serde_json::Value::Bool(true);
+    std::fs::write(&settings_path, serde_json::to_string_pretty(&settings)?)?;
+    Ok(())
+}
+
+/// The names of all active worktrees according to `but status --format json`.
+fn active_worktree_names(env: &Sandbox) -> anyhow::Result<Vec<String>> {
+    let output = env
+        .but("--format json status")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .env("NO_BG_TASKS", "1")
+        .output()?;
+    anyhow::ensure!(output.status.success(), "status --format json failed");
+    let status: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    Ok(status["worktrees"]
+        .as_array()
+        .map(|worktrees| {
+            worktrees
+                .iter()
+                .map(|worktree| worktree["name"].as_str().unwrap_or_default().to_string())
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
 fn worktrees_dir(env: &Sandbox) -> std::path::PathBuf {
     env.projects_root().join(".git/gitbutler/worktrees")
 }

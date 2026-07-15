@@ -541,6 +541,37 @@ impl<'a> Node<'a> for &'a StackWithId {
     }
 }
 
+/// A linked git worktree with its short ID (experimental).
+#[derive(Debug, Clone)]
+pub struct WorktreeWithId {
+    /// The short ID.
+    pub short_id: ShortId,
+    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+    pub name: BString,
+}
+
+impl<'a> Node<'a> for &'a WorktreeWithId {
+    fn parse(
+        self: Box<Self>,
+        _element: &str,
+        _id_map: &'a IdMap,
+        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        Ok(Vec::new())
+    }
+
+    fn to_cli_id(
+        self: Box<Self>,
+        _short_id: &str,
+        _id_map: &IdMap,
+    ) -> anyhow::Result<Option<CliId>> {
+        Ok(Some(CliId::Worktree {
+            id: self.short_id.clone(),
+            name: self.name.clone(),
+        }))
+    }
+}
+
 struct StacksIndexes<'a> {
     // This is left here in case we need indexes in the future. (If we don't, we
     // can delete this.)
@@ -560,6 +591,8 @@ pub struct IdMap {
     indexed_stacks: IndexedStacks,
     /// Mapping from stack IDs to their corresponding stack CLI IDs.
     stack_ids: BTreeMap<StackId, CliId>,
+    /// Linked git worktrees with their short IDs, sorted by name (experimental).
+    worktrees: Vec<WorktreeWithId>,
     /// The ID representing the uncommitted area, i.e. uncommitted files that aren't assigned to a stack.
     uncommitted: CliId,
 
@@ -576,12 +609,17 @@ fn common_prefix_len(a: &[u8], b: &[u8]) -> usize {
 
 /// Lifecycle methods for creating and initializing `IdMap` instances.
 impl IdMap {
-    /// Initializes CLI IDs for branches, commits, and uncommitted
-    /// files/hunks.
+    /// Initializes CLI IDs for branches, commits, uncommitted
+    /// files/hunks, and linked git worktrees.
+    ///
+    /// `worktree_names` are the stable names of linked git worktrees, empty unless the
+    /// `worktreeManipulation` feature flag is enabled. They are sorted before short IDs
+    /// are minted so that the assignment is deterministic.
     pub fn new(
         stacks: Vec<Stack>,
         hunk_assignments: Vec<HunkAssignment>,
         commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
+        worktree_names: Vec<BString>,
     ) -> anyhow::Result<Self> {
         let UncommittedInfo {
             partitioned_hunks,
@@ -693,11 +731,25 @@ impl IdMap {
             }
         }
 
+        // Worktree IDs are minted after ALL other allocations so that enabling the
+        // worktree feature flag never shifts pre-existing IDs.
+        let mut worktree_names = worktree_names;
+        worktree_names.sort();
+        worktree_names.dedup();
+        let mut worktrees = Vec::with_capacity(worktree_names.len());
+        for name in worktree_names {
+            worktrees.push(WorktreeWithId {
+                short_id: id_usage.next_available()?.to_short_id(),
+                name,
+            });
+        }
+
         let indexed_stacks = IndexedStacks::new(stacks, |stacks| StacksIndexes { _dummy: stacks });
 
         Ok(Self {
             indexed_stacks,
             stack_ids,
+            worktrees,
             uncommitted: CliId::Uncommitted {
                 id: UNCOMMITTED.to_string(),
             },
@@ -816,6 +868,16 @@ impl IdMap {
         perm: &RepoShared,
     ) -> anyhow::Result<Self> {
         let context_lines = ctx.settings.context_lines;
+        // Must run before any database handle is borrowed below - it briefly claims
+        // a mutable one itself for archived-state reconciliation.
+        let worktree_names: Vec<BString> = if ctx.settings.feature_flags.worktree_manipulation {
+            ctx.worktrees_with_state()?
+                .into_iter()
+                .map(|worktree| worktree.tip.name)
+                .collect()
+        } else {
+            Vec::new()
+        };
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
 
         let hunk_assignments = match assignments {
@@ -867,7 +929,12 @@ impl IdMap {
             })
             .collect();
 
-        Self::new(ws.stacks.clone(), hunk_assignments, commit_id_to_change_id)
+        Self::new(
+            ws.stacks.clone(),
+            hunk_assignments,
+            commit_id_to_change_id,
+            worktree_names,
+        )
     }
 }
 
@@ -959,6 +1026,14 @@ impl IdMap {
                 }
             }
         }
+        // Worktrees match by their exact name as well, next to branches - a worktree
+        // typically has a branch of the same name checked out, and consumers filter
+        // by the CLI ID kind they need.
+        for worktree_with_id in &self.worktrees {
+            if worktree_with_id.name == element.as_bytes() {
+                matches.push(Box::new(worktree_with_id));
+            }
+        }
         matches.extend(self.parse_uncommitted_filename(None, element));
 
         // The following match only if there have been no matches so far.
@@ -1043,6 +1118,11 @@ impl IdMap {
                 if segment_with_id.short_id == element {
                     matches.push(Box::new(segment_with_id));
                 }
+            }
+        }
+        for worktree_with_id in &self.worktrees {
+            if worktree_with_id.short_id == element {
+                matches.push(Box::new(worktree_with_id));
             }
         }
         if element == UNCOMMITTED {
@@ -1189,6 +1269,17 @@ impl IdMap {
     pub fn stacks(&self) -> &Vec<StackWithId> {
         self.indexed_stacks.borrow_owner()
     }
+
+    /// Returns the [`CliId::Worktree`] for the linked worktree named `name`, if it exists.
+    pub fn resolve_worktree(&self, name: &BStr) -> Option<CliId> {
+        self.worktrees
+            .iter()
+            .find(|worktree| worktree.name == name)
+            .map(|worktree| CliId::Worktree {
+                id: worktree.short_id.clone(),
+                name: worktree.name.clone(),
+            })
+    }
 }
 
 fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
@@ -1248,6 +1339,9 @@ fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
             },
         ) => lhs_stack_id == rhs_stack_id,
         (CliId::Uncommitted { .. }, CliId::Uncommitted { .. }) => true,
+        (CliId::Worktree { name: lhs_name, .. }, CliId::Worktree { name: rhs_name, .. }) => {
+            lhs_name == rhs_name
+        }
         _ => false,
     }
 }
@@ -1354,6 +1448,13 @@ pub enum CliId {
         /// The stack ID.
         stack_id: StackId,
     },
+    /// A linked git worktree (experimental).
+    Worktree {
+        /// The short CLI ID for this worktree (typically 2 characters)
+        id: ShortId,
+        /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+        name: BString,
+    },
 }
 
 impl PartialEq for CliId {
@@ -1379,6 +1480,9 @@ impl PartialEq for CliId {
             (Self::Commit { id: l_id, .. }, Self::Commit { id: r_id, .. }) => l_id == r_id,
             (Self::Stack { id: l_id, .. }, Self::Stack { id: r_id, .. }) => l_id == r_id,
             (Self::Uncommitted { .. }, Self::Uncommitted { .. }) => true,
+            (Self::Worktree { name: l_name, .. }, Self::Worktree { name: r_name, .. }) => {
+                l_name == r_name
+            }
             _ => false,
         }
     }
@@ -1398,6 +1502,7 @@ impl CliId {
             CliId::Commit { .. } => "a commit",
             CliId::Uncommitted { .. } => "the uncommitted area",
             CliId::Stack { .. } => "a stack",
+            CliId::Worktree { .. } => "a worktree",
         }
     }
 
@@ -1410,6 +1515,7 @@ impl CliId {
             | CliId::Branch { id, .. }
             | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
+            | CliId::Worktree { id, .. }
             | CliId::Uncommitted { id, .. } => id.clone(),
         }
     }
@@ -1425,7 +1531,8 @@ impl CliId {
             CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
-            | CliId::Uncommitted { .. } => None,
+            | CliId::Uncommitted { .. }
+            | CliId::Worktree { .. } => None,
         }
     }
 }

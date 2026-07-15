@@ -113,7 +113,8 @@ impl CommitSource {
             CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Branch { .. }
-            | CliId::Commit { .. } => None,
+            | CliId::Commit { .. }
+            | CliId::Worktree { .. } => None,
         }
     }
 
@@ -297,6 +298,8 @@ impl App {
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => return Ok(()),
         };
 
@@ -384,7 +387,8 @@ impl App {
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Uncommitted { .. }
-            | CliId::Stack { .. } => return Ok(()),
+            | CliId::Stack { .. }
+            | CliId::Worktree { .. } => return Ok(()),
         };
         let commit_op = commit2::CommitOperation::CommitAt(commit2::CommitAtOperation { target });
 
@@ -433,7 +437,8 @@ impl App {
             CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
-            | CliId::Stack { .. } => return Ok(()),
+            | CliId::Stack { .. }
+            | CliId::Worktree { .. } => return Ok(()),
         };
 
         commit_with(ctx, terminal_guard, messages, mode, commit_op)?;

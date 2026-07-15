@@ -41,6 +41,9 @@ pub fn handle_tui(ctx: &mut Context, target_str: Option<&str>) -> anyhow::Result
             } => DiffFileEntry::from_commit(ctx, commit_id, Some(path))?,
             CliId::Commit { commit_id, .. } => DiffFileEntry::from_commit(ctx, commit_id, None)?,
             CliId::Branch { name, .. } => DiffFileEntry::from_branch(ctx, name)?,
+            CliId::Worktree { .. } => {
+                anyhow::bail!("Cannot show a diff for a worktree.")
+            }
         }
     } else {
         DiffFileEntry::from_worktree(&id_map, None)
@@ -83,6 +86,9 @@ pub fn handle(
             CliId::Commit { commit_id: id, .. } => show::commit(ctx, out, id, None),
             CliId::Stack { id: _, stack_id } => {
                 show::worktree(id_map, out, Some(Filter::Stack(stack_id)))
+            }
+            CliId::Worktree { .. } => {
+                anyhow::bail!("Cannot show a diff for a worktree.")
             }
         }
     } else {

@@ -120,7 +120,8 @@ fn jump_id_has_prefix(id: &CliId, query: &str) -> bool {
         | CliId::CommittedFile { id, .. }
         | CliId::Branch { id, .. }
         | CliId::Uncommitted { id }
-        | CliId::Stack { id, .. } => id.starts_with(query),
+        | CliId::Stack { id, .. }
+        | CliId::Worktree { id, .. } => id.starts_with(query),
     }
 }
 

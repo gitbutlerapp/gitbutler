@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 use but_api::legacy::worktree::IntegrationStatus;
 use but_ctx::Context;
 use but_worktrees::WorktreeId;
 
-use crate::{args::worktree::Subcommands, utils::OutputChannel};
+use crate::{CliId, IdMap, args::worktree::Subcommands, utils::OutputChannel};
 /// Parse a worktree identifier which can be either:
 /// - A full path to the worktree
 /// - Just the worktree name
@@ -212,5 +212,47 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
 
             Ok(())
         }
+        Subcommands::Archive { id } => set_archived(ctx, out, &id, true),
+        Subcommands::Unarchive { id } => set_archived(ctx, out, &id, false),
     }
+}
+
+/// Resolve `id` - a worktree CLI id or a worktree name - and persist its archived state.
+fn set_archived(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    id: &str,
+    archived: bool,
+) -> Result<()> {
+    if !ctx.settings.feature_flags.worktree_manipulation {
+        bail!("worktree manipulation is not enabled (featureFlags.worktreeManipulation)");
+    }
+    let name = {
+        let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+        let mut matches: Vec<_> = id_map
+            .parse_using_context(id, ctx)?
+            .into_iter()
+            .filter_map(|cli_id| match cli_id {
+                CliId::Worktree { name, .. } => Some(name),
+                _ => None,
+            })
+            .collect();
+        match matches.len() {
+            1 => matches.remove(0),
+            0 => bail!("Could not find worktree: '{id}'. Run `but status` for applicable ids."),
+            _ => bail!("Ambiguous worktree id '{id}', matches multiple worktrees"),
+        }
+    };
+    but_api::worktrees::worktree_set_archived(ctx, name.to_string(), archived)?;
+
+    if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({ "name": name.to_string(), "archived": archived }))?;
+    } else if let Some(out) = out.for_human() {
+        if archived {
+            writeln!(out, "Archived worktree: {name}")?;
+        } else {
+            writeln!(out, "Unarchived worktree: {name}")?;
+        }
+    }
+    Ok(())
 }
