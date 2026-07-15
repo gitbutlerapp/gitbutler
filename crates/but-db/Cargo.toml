@@ -11,7 +11,7 @@ description = "A place for defining metadata stored in a sqlite file"
 doctest = false
 
 [dependencies]
-rusqlite = { workspace = true, features = ["chrono"] }
+rusqlite = { workspace = true, features = ["backup", "chrono"] }
 serde.workspace = true
 anyhow.workspace = true
 chrono = { workspace = true, features = ["serde"] }
@@ -19,10 +19,10 @@ but-utils.workspace = true
 # other things
 tracing.workspace = true
 backoff.workspace = true
+tempfile.workspace = true
 
 
 [dev-dependencies]
-tempfile = "3.24.0"
 snapbox.workspace = true
 
 # for multi-process migration testing.
