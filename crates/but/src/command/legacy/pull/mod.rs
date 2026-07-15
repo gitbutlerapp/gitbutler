@@ -2,9 +2,15 @@ mod json;
 
 use std::fmt::Write;
 
+use anyhow::Context as _;
 use bstr::ByteSlice;
 use but_core::{DryRun, RepositoryExt};
 use but_ctx::Context;
+use gitbutler_oplog::{
+    LocalTargetSnapshot, OplogExt,
+    entry::{OperationKind, SnapshotDetails},
+};
+use gix::refs::transaction::PreviousValue;
 use json::{BaseBranchInfo, BranchStatusInfo, PullCheckOutput, UpstreamCommit, UpstreamInfo};
 use serde::{Deserialize, Serialize};
 
@@ -22,12 +28,34 @@ struct PullResult {
     status: String,
     upstream_url: Option<String>,
     upstream_commits_found: usize,
+    local_target: Option<LocalTargetUpdateInfo>,
     recent_commits: Vec<CommitInfo>,
     branches_to_update: Vec<BranchUpdateInfo>,
     integrated_branches: Vec<String>,
     conflicts: Vec<ConflictInfo>,
     summary: PullSummary,
     undo_command: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalTargetUpdateInfo {
+    status: String,
+    branch: Option<String>,
+    previous_sha: Option<String>,
+    current_sha: String,
+}
+
+struct LocalTargetUpdatePlan {
+    info: LocalTargetUpdateInfo,
+    edit: Option<LocalTargetRefEdit>,
+}
+
+struct LocalTargetRefEdit {
+    ref_name: gix::refs::FullName,
+    tracking_ref: gix::refs::FullName,
+    previous_tip: gix::ObjectId,
+    current_tip: gix::ObjectId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -226,6 +254,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
         status: String::new(),
         upstream_url: None,
         upstream_commits_found: 0,
+        local_target: None,
         recent_commits: vec![],
         branches_to_update: vec![],
         integrated_branches: vec![],
@@ -320,6 +349,11 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
         true
     };
     if !should_check_integration {
+        pull_result.local_target = Some(update_local_target_with_snapshot(
+            ctx,
+            base_branch.current_sha,
+        )?);
+        write_local_target_update(out, pull_result.local_target.as_ref())?;
         pull_result.status = "up_to_date".to_string();
         if let Some(out) = out.for_human() {
             writeln!(out, "\n{}", t.success.paint("Everything is up to date"))?;
@@ -338,6 +372,11 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
     } = upstream::dry_run_integration(ctx)?;
 
     if base_branch.behind == 0 && !statuses_need_update(&statuses) {
+        pull_result.local_target = Some(update_local_target_with_snapshot(
+            ctx,
+            base_branch.current_sha,
+        )?);
+        write_local_target_update(out, pull_result.local_target.as_ref())?;
         pull_result.status = "up_to_date".to_string();
         if let Some(out) = out.for_human() {
             writeln!(out, "\n{}", t.success.paint("Everything is up to date"))?;
@@ -367,9 +406,6 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                 t.attention
                     .paint("Please commit or stash them and try again.")
             )?;
-        }
-        if let Some(out) = out.for_json() {
-            out.write_value(&pull_result)?;
         }
         None
     } else {
@@ -419,22 +455,28 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
         Some(statuses)
     };
 
+    if statuses_to_apply.is_none() {
+        pull_result.local_target = Some(update_local_target_with_snapshot(
+            ctx,
+            base_branch.current_sha,
+        )?);
+        write_local_target_update(out, pull_result.local_target.as_ref())?;
+        if let Some(out) = out.for_json() {
+            out.write_value(&pull_result)?;
+        }
+        return Ok(());
+    }
+
     // Step 3: Actually perform the integration
     if let Some(statuses) = statuses_to_apply {
-        let integration_result = {
-            let updates = but_api::workspace::rebase_stack_bottoms(&current_head_info);
-            let mut ctx = ctx.to_sync().into_thread_local();
-            let mut guard = ctx.exclusive_worktree_access();
-            but_api::workspace::workspace_integrate_upstream_with_perm(
-                &mut ctx,
-                updates,
-                DryRun::No,
-                guard.write_permission(),
-            )
-        };
+        let updates = but_api::workspace::rebase_stack_bottoms(&current_head_info);
+        let integration_result =
+            integrate_upstream_and_update_local_target(ctx, updates, base_branch.current_sha);
 
         match integration_result {
-            Ok(outcome) => {
+            Ok((outcome, local_target)) => {
+                pull_result.local_target = Some(local_target);
+                write_local_target_update(out, pull_result.local_target.as_ref())?;
                 let post_statuses =
                     upstream::classify(&current_head_info, &outcome.workspace_state);
                 // Report detailed results for each resolution
@@ -583,6 +625,254 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
         }
     }
 
+    Ok(())
+}
+
+fn plan_local_tracking_target_update(
+    ctx: &Context,
+    repo: &gix::Repository,
+    target_tip: gix::ObjectId,
+) -> anyhow::Result<LocalTargetUpdatePlan> {
+    let target_ref_name = ctx.project_meta()?.target_ref_or_err()?.clone();
+
+    let mut local_ref: Option<gix::Reference<'_>> = None;
+    for candidate in repo.references()?.local_branches()? {
+        let candidate = candidate.map_err(anyhow::Error::from_boxed)?;
+        let tracks_target = match repo
+            .branch_remote_tracking_ref_name(candidate.name(), gix::remote::Direction::Fetch)
+            .transpose()
+        {
+            Ok(Some(tracking_ref)) => tracking_ref.as_ref() == target_ref_name.as_ref(),
+            Ok(None) | Err(_) => false,
+        };
+        if !tracks_target {
+            continue;
+        }
+        if let Some(existing) = &local_ref {
+            anyhow::bail!(
+                "Cannot fast-forward a local target: both '{}' and '{}' are configured to track '{}'",
+                existing.name().shorten(),
+                candidate.name().shorten(),
+                target_ref_name.shorten()
+            );
+        }
+        local_ref = Some(candidate);
+    }
+    let Some(mut local_ref) = local_ref else {
+        return Ok(LocalTargetUpdatePlan {
+            info: LocalTargetUpdateInfo {
+                status: "not_configured".to_owned(),
+                branch: None,
+                previous_sha: None,
+                current_sha: target_tip.to_string(),
+            },
+            edit: None,
+        });
+    };
+    let local_ref_name = local_ref.name().to_owned();
+    let local_tip = local_ref.peel_to_id()?.detach();
+    if local_tip == target_tip {
+        return Ok(LocalTargetUpdatePlan {
+            info: LocalTargetUpdateInfo {
+                status: "already_current".to_owned(),
+                branch: Some(local_ref_name.shorten().to_string()),
+                previous_sha: Some(local_tip.to_string()),
+                current_sha: target_tip.to_string(),
+            },
+            edit: None,
+        });
+    }
+
+    let merge_base = match repo.merge_base(local_tip, target_tip) {
+        Ok(id) => Some(id.detach()),
+        Err(gix::repository::merge_base::Error::FindMergeBase(_))
+        | Err(gix::repository::merge_base::Error::NotFound { .. }) => None,
+        Err(err) => return Err(err.into()),
+    };
+    if merge_base != Some(local_tip) {
+        anyhow::bail!(
+            "Cannot fast-forward local target '{}' from {local_tip} to {target_tip}: it has diverged from '{}'",
+            local_ref_name.shorten(),
+            target_ref_name.shorten()
+        );
+    }
+
+    let checkout_probe = but_core::branch::SafeDelete::new(&repo)?;
+    if let Some(paths) = checkout_probe.worktree_dirs_with_ref(&local_ref) {
+        anyhow::bail!(
+            "Cannot fast-forward local target '{}' because it is checked out in: {paths:?}",
+            local_ref_name.shorten()
+        );
+    }
+
+    Ok(LocalTargetUpdatePlan {
+        info: LocalTargetUpdateInfo {
+            status: "fast_forwarded".to_owned(),
+            branch: Some(local_ref_name.shorten().to_string()),
+            previous_sha: Some(local_tip.to_string()),
+            current_sha: target_tip.to_string(),
+        },
+        edit: Some(LocalTargetRefEdit {
+            ref_name: local_ref_name,
+            tracking_ref: target_ref_name,
+            previous_tip: local_tip,
+            current_tip: target_tip,
+        }),
+    })
+}
+
+impl LocalTargetRefEdit {
+    fn snapshot(&self) -> LocalTargetSnapshot {
+        LocalTargetSnapshot {
+            ref_name: self.ref_name.clone(),
+            tracking_ref: self.tracking_ref.clone(),
+            snapshot_tip: self.previous_tip,
+            expected_tip: self.current_tip,
+        }
+    }
+
+    fn apply(&self, repo: &gix::Repository) -> anyhow::Result<()> {
+        repo.reference(
+            self.ref_name.as_ref(),
+            self.current_tip,
+            PreviousValue::ExistingMustMatch(self.previous_tip.into()),
+            "GitButler pull",
+        )?;
+        Ok(())
+    }
+}
+
+fn update_local_target_with_snapshot(
+    ctx: &Context,
+    target_tip: gix::ObjectId,
+) -> anyhow::Result<LocalTargetUpdateInfo> {
+    let mut thread_ctx = ctx.to_sync().into_thread_local();
+    let mut guard = thread_ctx.exclusive_worktree_access();
+    let plan = {
+        let repo = thread_ctx.repo.get()?;
+        plan_local_tracking_target_update(&thread_ctx, &repo, target_tip)?
+    };
+    let Some(edit) = &plan.edit else {
+        return Ok(plan.info.clone());
+    };
+    let snapshot_tree =
+        thread_ctx.prepare_snapshot_with_local_target(&edit.snapshot(), guard.read_permission())?;
+    let snapshot = thread_ctx.prepare_snapshot_commit(
+        snapshot_tree,
+        SnapshotDetails::new(OperationKind::MergeUpstream),
+        guard.read_permission(),
+    )?;
+    let snapshot_id = snapshot.commit_id();
+    fail_pull_before_local_target_effect()?;
+    {
+        let repo = thread_ctx.repo.get()?;
+        edit.apply(&repo)?;
+    }
+    if let Err(publication_err) = thread_ctx.publish_snapshot(snapshot, guard.write_permission()) {
+        thread_ctx
+            .restore_snapshot_state(snapshot_id, guard.write_permission())
+            .with_context(|| {
+                format!(
+                    "failed to roll back the pull after snapshot publication failed: {publication_err:#}"
+                )
+            })?;
+        return Err(publication_err);
+    }
+    Ok(plan.info.clone())
+}
+
+fn integrate_upstream_and_update_local_target(
+    ctx: &Context,
+    updates: Vec<but_workspace::BottomUpdate>,
+    target_tip: gix::ObjectId,
+) -> anyhow::Result<(
+    but_api::workspace::WorkspaceIntegrateUpstreamOutcome,
+    LocalTargetUpdateInfo,
+)> {
+    let mut thread_ctx = ctx.to_sync().into_thread_local();
+    let mut guard = thread_ctx.exclusive_worktree_access();
+    let plan = {
+        let repo = thread_ctx.repo.get()?;
+        plan_local_tracking_target_update(&thread_ctx, &repo, target_tip)?
+    };
+    let Some(edit) = &plan.edit else {
+        let outcome = but_api::workspace::workspace_integrate_upstream_with_perm(
+            &mut thread_ctx,
+            updates,
+            DryRun::No,
+            guard.write_permission(),
+        )?;
+        return Ok((outcome, plan.info));
+    };
+
+    let snapshot_tree =
+        thread_ctx.prepare_snapshot_with_local_target(&edit.snapshot(), guard.read_permission())?;
+    let snapshot = thread_ctx.prepare_snapshot_commit(
+        snapshot_tree,
+        SnapshotDetails::new(OperationKind::MergeUpstream),
+        guard.read_permission(),
+    )?;
+    let snapshot_id = snapshot.commit_id();
+    fail_pull_before_local_target_effect()?;
+    {
+        let repo = thread_ctx.repo.get()?;
+        edit.apply(&repo)?;
+    }
+    let integration_result = but_api::workspace::workspace_integrate_upstream_only_with_perm(
+        &mut thread_ctx,
+        updates,
+        DryRun::No,
+        guard.write_permission(),
+    );
+    let outcome = match integration_result {
+        Ok(outcome) => outcome,
+        Err(integration_err) => {
+            thread_ctx
+                .restore_snapshot_state(snapshot_id, guard.write_permission())
+                .with_context(|| {
+                    format!("failed to roll back pull integration: {integration_err:#}")
+                })?;
+            return Err(integration_err);
+        }
+    };
+    if let Err(publication_err) = thread_ctx.publish_snapshot(snapshot, guard.write_permission()) {
+        thread_ctx
+            .restore_snapshot_state(snapshot_id, guard.write_permission())
+            .with_context(|| {
+                format!(
+                    "failed to roll back pull integration after snapshot publication failed: {publication_err:#}"
+                )
+            })?;
+        return Err(publication_err);
+    }
+    Ok((outcome, plan.info))
+}
+
+fn fail_pull_before_local_target_effect() -> anyhow::Result<()> {
+    #[cfg(debug_assertions)]
+    if std::env::var_os("GITBUTLER_TEST_PULL_FAILURE").as_deref()
+        == Some(std::ffi::OsStr::new("before-local-target"))
+    {
+        anyhow::bail!("injected pull failure before applying the local target");
+    }
+    Ok(())
+}
+
+fn write_local_target_update(
+    out: &mut OutputChannel,
+    update: Option<&LocalTargetUpdateInfo>,
+) -> anyhow::Result<()> {
+    let Some(update) = update.filter(|update| update.status == "fast_forwarded") else {
+        return Ok(());
+    };
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "   Fast-forwarded local target {} to {}",
+            update.branch.as_deref().unwrap_or("<unknown>"),
+            update.current_sha
+        )?;
+    }
     Ok(())
 }
 

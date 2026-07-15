@@ -4,6 +4,7 @@ use but_core::{
     RefMetadata, WORKSPACE_REF_NAME,
     ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
 };
+use gitbutler_oplog::OplogExt;
 use snapbox::str;
 
 use crate::utils::{CommandExt, Sandbox};
@@ -387,6 +388,693 @@ Hint: run `but branch new` to create a new branch to work on
 }
 
 #[test]
+fn pull_local_target_fast_forwards_tracking_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+
+    assert_eq!(
+        env.invoke_git("rev-parse --symbolic-full-name trunk@{upstream}"),
+        "refs/remotes/origin/main",
+        "the differently named local branch should track the configured remote target"
+    );
+    let local_ref: gix::refs::FullName = "refs/heads/trunk".try_into()?;
+    let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+    assert_eq!(
+        env.open_repo()
+            .branch_remote_tracking_ref_name(local_ref.as_ref(), gix::remote::Direction::Fetch)
+            .transpose()?
+            .map(|name| name.to_string()),
+        Some(target_ref.to_string()),
+        "repository configuration should map trunk to the project target"
+    );
+
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.previous_main,
+        "the local tracking target should begin behind its remote target"
+    );
+
+    let output = env
+        .but("--format json pull")
+        .allow_json()
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let output: serde_json::Value = serde_json::from_slice(&output)?;
+    assert_eq!(output["localTarget"]["status"], "fast_forwarded");
+    assert_eq!(output["localTarget"]["branch"], "trunk");
+    assert_eq!(output["localTarget"]["previousSha"], remote.previous_main);
+    assert_eq!(output["localTarget"]["currentSha"], remote.advanced_target);
+
+    assert_eq!(
+        rev_parse(&env, "origin/main")?,
+        remote.advanced_target,
+        "pull should fetch the advanced remote target"
+    );
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.advanced_target,
+        "pull should fast-forward the existing local tracking target"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target,
+        "pull should also reparent the empty workspace to the advanced target"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_undo_redo_restores_tracking_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+
+    env.but("pull")
+        .env("GITBUTLER_TEST_OPLOG_PUBLICATION_FAILURE", "after-head")
+        .assert()
+        .success();
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.advanced_target,
+        "pull should fast-forward the local tracking target"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target,
+        "pull should reparent the workspace to the advanced target"
+    );
+
+    env.but("undo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.previous_main,
+        "undo should restore the local tracking target"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.previous_main,
+        "undo should restore the previous workspace base"
+    );
+
+    env.but("redo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.advanced_target,
+        "redo should advance the local tracking target again"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target,
+        "redo should advance the workspace base again"
+    );
+
+    env.but("undo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.previous_main,
+        "a second undo should restore the local tracking target again"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.previous_main,
+        "a second undo should restore the previous workspace base again"
+    );
+
+    env.but("redo").assert().success();
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.advanced_target,
+        "a second redo should advance the local tracking target again"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target,
+        "a second redo should advance the workspace base again"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_publication_failure_rolls_back_effect() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+    let workspace_tip = rev_parse(&env, "gitbutler/workspace")?;
+    let ctx = env.context();
+    let oplog_head = ctx.oplog_head()?;
+    let undo_target =
+        but_api::legacy::oplog::get_undo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id);
+
+    env.but("pull")
+        .env("GITBUTLER_TEST_OPLOG_PUBLICATION_FAILURE", "before-head")
+        .assert()
+        .failure();
+
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.previous_main,
+        "a prepublication failure must leave the local target unchanged"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace")?,
+        workspace_tip,
+        "a prepublication failure must leave the workspace unchanged"
+    );
+    assert_eq!(
+        ctx.oplog_head()?,
+        oplog_head,
+        "a failed publication must leave the oplog head unchanged"
+    );
+    assert_eq!(
+        but_api::legacy::oplog::get_undo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id),
+        undo_target,
+        "a failed publication must leave the next undo target unchanged"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_publication_and_restore_failure_roll_back_everything() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+    env.file("staged.txt", "staged before pull\n");
+    env.invoke_git("add staged.txt");
+
+    let workspace_tip = rev_parse(&env, "gitbutler/workspace")?;
+    let staged_blob = rev_parse(&env, ":staged.txt")?;
+    let ctx = env.context();
+    let legacy_path = ctx.project_data_dir().join("virtual_branches.toml");
+    let legacy_metadata = std::fs::read(&legacy_path)?;
+    let oplog_head = ctx.oplog_head()?;
+    let undo_target =
+        but_api::legacy::oplog::get_undo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id);
+    let redo_target =
+        but_api::legacy::oplog::get_redo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id);
+
+    env.but("pull")
+        .env("GITBUTLER_TEST_OPLOG_PUBLICATION_FAILURE", "before-head")
+        .env("GITBUTLER_TEST_OPLOG_RESTORE_FAILURE", "after-local-target")
+        .assert()
+        .failure();
+
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.previous_main,
+        "combined publication and restore failure must roll back the local target"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace")?,
+        workspace_tip,
+        "combined publication and restore failure must roll back the workspace"
+    );
+    assert_eq!(
+        rev_parse(&env, ":staged.txt")?,
+        staged_blob,
+        "combined publication and restore failure must preserve the index"
+    );
+    assert_eq!(
+        std::fs::read(&legacy_path)?,
+        legacy_metadata,
+        "combined publication and restore failure must preserve legacy metadata"
+    );
+    assert_eq!(
+        ctx.oplog_head()?,
+        oplog_head,
+        "combined publication and restore failure must leave the oplog head unchanged"
+    );
+    assert_eq!(
+        but_api::legacy::oplog::get_undo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id),
+        undo_target,
+        "combined failure must leave the next undo target unchanged"
+    );
+    assert_eq!(
+        but_api::legacy::oplog::get_redo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id),
+        redo_target,
+        "combined failure must leave the next redo target unchanged"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_failure_before_effect_does_not_publish() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+    let workspace_tip = rev_parse(&env, "gitbutler/workspace")?;
+    let ctx = env.context();
+    let oplog_head = ctx.oplog_head()?;
+    let undo_target =
+        but_api::legacy::oplog::get_undo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id);
+
+    env.but("pull")
+        .env("GITBUTLER_TEST_PULL_FAILURE", "before-local-target")
+        .assert()
+        .failure();
+
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.previous_main,
+        "failure before the guarded effect must leave the local target unchanged"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace")?,
+        workspace_tip,
+        "failure before the guarded effect must leave the workspace unchanged"
+    );
+    assert_eq!(
+        ctx.oplog_head()?,
+        oplog_head,
+        "failure before the guarded effect must not publish an oplog operation"
+    );
+    assert_eq!(
+        but_api::legacy::oplog::get_undo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id),
+        undo_target,
+        "failure before the guarded effect must leave the next undo target unchanged"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_snapshot_preparation_does_not_reconcile_stale_legacy_heads() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.invoke_git("branch A main");
+    env.setup_metadata_at_target(&["A"], "origin/main");
+    let _remote = setup_advanced_remote(&env)?;
+    let ctx = env.context();
+    let stale_head = env
+        .open_repo()
+        .rev_parse_single("gitbutler/workspace")?
+        .detach();
+    {
+        let mut legacy = ctx.legacy_meta()?;
+        let stack = legacy
+            .data_mut()
+            .branches
+            .values_mut()
+            .find(|stack| stack.heads.iter().any(|branch| branch.name == "A"))
+            .expect("fixture should contain stack A");
+        stack
+            .heads
+            .iter_mut()
+            .find(|branch| branch.name == "A")
+            .expect("fixture should contain branch A")
+            .head = stale_head;
+        legacy.set_changed_to_necessitate_write();
+        legacy.write_unreconciled()?;
+    }
+    let legacy_path = ctx.project_data_dir().join("virtual_branches.toml");
+    let stale_metadata = std::fs::read(&legacy_path)?;
+    let branch_tip = rev_parse(&env, "A")?;
+
+    env.but("pull")
+        .env("GITBUTLER_TEST_PULL_FAILURE", "before-local-target")
+        .assert()
+        .failure();
+
+    assert_eq!(
+        rev_parse(&env, "A")?,
+        branch_tip,
+        "snapshot preparation must not rewrite the branch ref"
+    );
+    assert_eq!(
+        std::fs::read(&legacy_path)?,
+        stale_metadata,
+        "snapshot preparation must not reconcile stale legacy metadata"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_undo_publication_failure_rolls_back_restore() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+
+    env.but("pull").assert().success();
+    let workspace_tip = rev_parse(&env, "gitbutler/workspace")?;
+
+    env.but("undo")
+        .env("GITBUTLER_TEST_OPLOG_PUBLICATION_FAILURE", "before-head")
+        .assert()
+        .failure();
+
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.advanced_target,
+        "an inverse-snapshot publication failure must leave the local target unchanged"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace")?,
+        workspace_tip,
+        "an inverse-snapshot publication failure must leave the workspace unchanged"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_undo_refuses_new_local_history() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+
+    env.but("pull").assert().success();
+    env.invoke_git("checkout trunk");
+    env.invoke_git("commit --allow-empty -m local-after-pull");
+    let local_tip = rev_parse(&env, "trunk")?;
+    env.invoke_git("checkout gitbutler/workspace");
+
+    let output = env.but("undo").output()?;
+    assert!(
+        !output.status.success(),
+        "undo must reject local target history created after pull"
+    );
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        error.contains("changed since the snapshot")
+            && error.contains(&local_tip)
+            && error.contains(&remote.advanced_target),
+        "the error should identify the unexpected and expected tips; stderr:\n{error}"
+    );
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        local_tip,
+        "a local target with new history must not move"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target,
+        "restore preflight must abort before changing the workspace"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_undo_refuses_checked_out_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+
+    env.but("pull").assert().success();
+    let linked_root = tempfile::tempdir()?;
+    let linked_worktree = linked_root.path().join("trunk-worktree");
+    env.invoke_git(&format!("worktree add {} trunk", linked_worktree.display()));
+
+    let output = env.but("undo").output()?;
+    assert!(
+        !output.status.success(),
+        "undo must reject a local target checked out in another worktree"
+    );
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        error.contains("checked out") && error.contains("trunk-worktree"),
+        "the error should identify the checked-out target worktree; stderr:\n{error}"
+    );
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.advanced_target,
+        "a checked-out local target must not move"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target,
+        "restore preflight must abort before changing the workspace"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_undo_rolls_back_ref_when_workspace_restore_fails() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+    env.invoke_git("config user.name GitButler");
+    env.invoke_git("config user.email gitbutler@example.com");
+
+    env.but("pull").assert().success();
+    let mut ctx = env.context();
+    let undo_target = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)?
+        .expect("pull should create an undo target");
+    let oplog_head = ctx.oplog_head()?;
+    let redo_target =
+        but_api::legacy::oplog::get_redo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id);
+    env.invoke_git("checkout --detach gitbutler/workspace");
+
+    let error = but_api::legacy::oplog::restore_snapshot_with_kind(
+        &mut ctx,
+        but_api::legacy::oplog::RestoreKind::RestoreFromSnapshotViaUndo,
+        undo_target.commit_id,
+    )
+    .expect_err("undo must fail when the workspace is detached");
+    let error = format!("{error:#}");
+    assert!(
+        error.contains("detached HEAD state"),
+        "the restore failure should identify detached HEAD; error:\n{error}"
+    );
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.advanced_target,
+        "a failed workspace restore must roll back its attempted local-target restore"
+    );
+    assert_eq!(
+        ctx.oplog_head()?,
+        oplog_head,
+        "a failed restore must leave the oplog head unchanged"
+    );
+    assert_eq!(
+        but_api::legacy::oplog::get_undo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id),
+        Some(undo_target.commit_id),
+        "a failed restore must leave the next undo target unchanged"
+    );
+    assert_eq!(
+        but_api::legacy::oplog::get_redo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id),
+        redo_target,
+        "a failed restore must not create a redo target"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_restore_failure_does_not_publish() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+
+    env.but("pull").assert().success();
+    let workspace_tip = rev_parse(&env, "gitbutler/workspace")?;
+    let ctx = env.context();
+    let oplog_head = ctx.oplog_head()?;
+    let undo_target = but_api::legacy::oplog::get_undo_target_snapshot(&ctx)?
+        .expect("pull should create an undo target")
+        .commit_id;
+    let redo_target =
+        but_api::legacy::oplog::get_redo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id);
+
+    env.but("undo")
+        .env("GITBUTLER_TEST_OPLOG_RESTORE_FAILURE", "after-local-target")
+        .assert()
+        .failure();
+
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.advanced_target,
+        "a failed restore must roll back the local target"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace")?,
+        workspace_tip,
+        "a failed restore must roll back the workspace"
+    );
+    assert_eq!(
+        ctx.oplog_head()?,
+        oplog_head,
+        "a failed restore must leave the oplog head unchanged"
+    );
+    assert_eq!(
+        but_api::legacy::oplog::get_undo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id),
+        Some(undo_target),
+        "a failed restore must leave the next undo target unchanged"
+    );
+    assert_eq!(
+        but_api::legacy::oplog::get_redo_target_snapshot(&ctx)?.map(|snapshot| snapshot.commit_id),
+        redo_target,
+        "a failed restore must leave the next redo target unchanged"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_leaves_unconfigured_branch_unchanged() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch --unset-upstream main");
+
+    let output = env
+        .but("--format json pull")
+        .allow_json()
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let output: serde_json::Value = serde_json::from_slice(&output)?;
+    assert_eq!(output["localTarget"]["status"], "not_configured");
+    assert!(output["localTarget"]["branch"].is_null());
+    assert!(output["localTarget"]["previousSha"].is_null());
+    assert_eq!(output["localTarget"]["currentSha"], remote.advanced_target);
+
+    assert_eq!(
+        rev_parse(&env, "main")?,
+        remote.previous_main,
+        "an unconfigured local branch must not be inferred from its short name"
+    );
+    assert_eq!(
+        rev_parse(&env, "origin/main")?,
+        remote.advanced_target,
+        "pull should still fetch the configured remote target"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target,
+        "workspace integration should continue without a local tracking branch"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_refuses_ambiguous_tracking_branches() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch trunk main");
+    env.invoke_git("branch --set-upstream-to origin/main trunk");
+
+    let output = env.but("pull").output()?;
+    assert!(
+        !output.status.success(),
+        "pull must reject multiple local branches tracking the configured target"
+    );
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        error.contains("both 'main' and 'trunk' are configured to track 'origin/main'"),
+        "the error should identify both ambiguous local branches and their target; stderr:\n{error}"
+    );
+    assert_eq!(
+        rev_parse(&env, "main")?,
+        remote.previous_main,
+        "an ambiguous local target must not move the original tracking branch"
+    );
+    assert_eq!(
+        rev_parse(&env, "trunk")?,
+        remote.previous_main,
+        "an ambiguous local target must not move the alternate tracking branch"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.previous_main,
+        "workspace integration must not start after ambiguous local-target preflight"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_refuses_divergence() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("checkout main");
+    env.invoke_git("commit --allow-empty -m local-divergence");
+    let diverged_main = rev_parse(&env, "main")?;
+    env.invoke_git("checkout gitbutler/workspace");
+
+    let output = env.but("pull").output()?;
+    assert!(
+        !output.status.success(),
+        "pull must reject a diverged local target"
+    );
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        error.contains("has diverged")
+            && error.contains(&diverged_main)
+            && error.contains(&remote.advanced_target),
+        "the error should identify both diverged tips; stderr:\n{error}"
+    );
+    assert_eq!(
+        rev_parse(&env, "main")?,
+        diverged_main,
+        "a diverged local target must not move"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.previous_main,
+        "workspace integration must not start after unsafe local-target preflight"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_refuses_checked_out_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    let linked_root = tempfile::tempdir()?;
+    let linked_worktree = linked_root.path().join("main-worktree");
+    env.invoke_git(&format!("worktree add {} main", linked_worktree.display()));
+
+    let output = env.but("pull").output()?;
+    assert!(
+        !output.status.success(),
+        "pull must reject a local target checked out in another worktree"
+    );
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        error.contains("checked out") && error.contains("main-worktree"),
+        "the error should identify the checked-out target worktree; stderr:\n{error}"
+    );
+    assert_eq!(
+        rev_parse(&env, "main")?,
+        remote.previous_main,
+        "a checked-out local target must not move behind its worktree"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.previous_main,
+        "workspace integration must not start after unsafe local-target preflight"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn pull_does_not_report_branch_rebase_conflicts_as_worktree_conflicts() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-branch-and-dirty-worktree-conflict",
@@ -739,6 +1427,46 @@ fn rev_parse(env: &Sandbox, spec: &str) -> anyhow::Result<String> {
         anyhow::bail!("expected exactly one rev for {spec}, got {values:?}");
     };
     Ok(value.clone())
+}
+
+struct AdvancedRemote {
+    _root: tempfile::TempDir,
+    previous_main: String,
+    advanced_target: String,
+}
+
+fn setup_advanced_remote(env: &Sandbox) -> anyhow::Result<AdvancedRemote> {
+    let previous_main = rev_parse(env, "main")?;
+    let root = tempfile::tempdir()?;
+    let upstream_git = root.path().join("upstream.git");
+    let upstream_work = root.path().join("upstream-work");
+    env.invoke_git(&format!("init --bare {}", upstream_git.display()));
+    env.invoke_git(&format!("remote set-url origin {}", upstream_git.display()));
+    env.invoke_git("push --set-upstream origin main");
+    env.invoke_git(&format!(
+        "--git-dir={} symbolic-ref HEAD refs/heads/main",
+        upstream_git.display()
+    ));
+    env.invoke_git(&format!(
+        "clone {} {}",
+        upstream_git.display(),
+        upstream_work.display()
+    ));
+    env.invoke_git(&format!(
+        "-C {} -c user.name=Test -c user.email=test@example.com \
+         commit --allow-empty -m upstream-change",
+        upstream_work.display()
+    ));
+    env.invoke_git(&format!("-C {} push origin main", upstream_work.display()));
+    let advanced_target = env.invoke_git(&format!(
+        "--git-dir={} rev-parse main",
+        upstream_git.display()
+    ));
+    Ok(AdvancedRemote {
+        _root: root,
+        previous_main,
+        advanced_target,
+    })
 }
 
 fn rev_parse_all(env: &Sandbox, spec: &str) -> anyhow::Result<Vec<String>> {
