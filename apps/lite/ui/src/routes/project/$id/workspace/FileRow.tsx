@@ -2,8 +2,7 @@ import { FileIcon } from "#ui/components/FileIcon.tsx";
 import rowStyles from "./Row.module.css";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { FileParent } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Tooltip } from "@base-ui/react";
@@ -17,6 +16,7 @@ import { DependencyIndicator } from "#ui/routes/project/$id/workspace/Dependency
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import type { FileRowItem } from "./file-row.ts";
+import { observer } from "mobx-react-lite";
 
 export const FileRow: FC<
 	{
@@ -25,12 +25,11 @@ export const FileRow: FC<
 		fileParent: FileParent;
 		branchNameByCommitId: (commitId: string) => string | undefined;
 	} & Omit<ComponentProps<typeof Row>, "projectId">
-> = ({ item, projectId, fileParent, branchNameByCommitId, id, ...restProps }) => {
+> = observer(({ item, projectId, fileParent, branchNameByCommitId, id, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+	const projectStore = useProjectStore(projectId);
+	const outlineMode = projectStore.outlineMode;
 	const menuItems = useFileMenuItems({
 		projectId,
 		operand: { parent: fileParent, path: relativePath },
@@ -38,9 +37,7 @@ export const FileRow: FC<
 		change: item._tag === "Change" ? item.change : undefined,
 	});
 
-	const hasCheckedCommits = useAppSelector((state) =>
-		projectSlice.selectors.selectHasCheckedCommits(state, projectId),
-	);
+	const hasCheckedCommits = projectStore.hasCheckedCommits;
 
 	const lastSepIdx = relativePath.lastIndexOf("/");
 	const directoryPath = lastSepIdx !== -1 ? relativePath.slice(0, lastSepIdx) : null;
@@ -162,4 +159,4 @@ export const FileRow: FC<
 			</Tooltip.Portal>
 		</Tooltip.Root>
 	);
-};
+});

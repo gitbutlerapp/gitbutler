@@ -1,5 +1,4 @@
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Tooltip } from "@base-ui/react";
 import { ComponentProps, FC } from "react";
@@ -11,7 +10,7 @@ export const DependencyIndicator: FC<
 		branchNameByCommitId: (commitId: string) => string | undefined;
 	} & ComponentProps<"button">
 > = ({ projectId, commitIds, branchNameByCommitId, ...restProps }) => {
-	const dispatch = useAppDispatch();
+	const projectStore = useProjectStore(projectId);
 	const branchNames = new Set(
 		commitIds.flatMap((commitId) => branchNameByCommitId(commitId) ?? []),
 	);
@@ -20,15 +19,10 @@ export const DependencyIndicator: FC<
 			? `Depends on ${branchNames.values().toArray().join(", ")}`
 			: "Unknown dependencies";
 	const highlightCommitIds = () => {
-		dispatch(
-			projectSlice.actions.setHighlightedCommitIds({
-				projectId,
-				commitIds,
-			}),
-		);
+		projectStore.setHighlightedCommitIds(commitIds);
 	};
 	const clearHighlightedCommitIds = () => {
-		dispatch(projectSlice.actions.setHighlightedCommitIds({ projectId, commitIds: null }));
+		projectStore.setHighlightedCommitIds(null);
 	};
 
 	return (

@@ -30,9 +30,8 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import { branchOperand, operandEquals, type BranchOperand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { prForgeUrl } from "#ui/pr.ts";
 import {
 	RowBubble,
@@ -48,6 +47,7 @@ import { commitMessageInputId } from "../CommitForm.tsx";
 import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import styles from "./BranchRow.module.css";
+import { observer } from "mobx-react-lite";
 import { ciChecksSummaryUrl, type AggregateCIChecks } from "#ui/ci.ts";
 import { type DownstackPushStatus, downstackPushStatusDisabled } from "#ui/segment.ts";
 
@@ -118,436 +118,428 @@ export const BranchRow: FC<
 		bottomRelativeTo: RelativeTo | null;
 		isTopSegment: boolean;
 	} & ComponentProps<"div">
-> = ({
-	projectId,
-	refName,
-	stackId,
-	isCommitTarget,
-	canTearOffBranch,
-	canRemoveBranch,
-	downstackPushStatus,
-	pushStatus,
-	graphStatus,
-	pullRequest,
-	bottomRelativeTo,
-	isTopSegment,
-	...restProps
-}) => {
-	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
-	const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
-
-	const { data: ciChecks } = useQuery({
-		...listCIChecksQueryOptions({
-			projectId,
-			reference: refName.displayName,
-			polling: "passive",
-		}),
-		enabled: pullRequest !== null && forgeInfo?.capabilities.checks,
-	});
-	const ciURL =
-		pullRequest !== null ? forgeInfo && ciChecksSummaryUrl(pullRequest, forgeInfo) : null;
-
-	const dispatch = useAppDispatch();
-	const branchOperandV: BranchOperand = {
-		stackId,
-		branchRef: refName.fullNameBytes,
-	};
-	const operand = branchOperand(branchOperandV);
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
-	);
-	const isRenaming = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
-		return (
-			outlineMode._tag === "RenameBranch" &&
-			operandEquals(operand, branchOperand(outlineMode.operand))
-		);
-	});
-	const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
-		refName.displayName,
-		(_currentBranchName, nextBranchName: string) => nextBranchName,
-	);
-	const [isRenamePending, startRenameTransition] = useTransition();
-
-	const { mutateAsync: updateBranchName } = useUpdateBranchName({
+> = observer(
+	({
 		projectId,
+		refName,
 		stackId,
-		branchRef: refName.fullNameBytes,
-		oldBranch: branchOperandV,
-	});
+		isCommitTarget,
+		canTearOffBranch,
+		canRemoveBranch,
+		downstackPushStatus,
+		pushStatus,
+		graphStatus,
+		pullRequest,
+		bottomRelativeTo,
+		isTopSegment,
+		...restProps
+	}) => {
+		const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
+		const mforgeUrl = pullRequest !== null ? forgeInfo && prForgeUrl(pullRequest, forgeInfo) : null;
 
-	const startEditing = () => {
-		dispatch(projectSlice.actions.startRenameBranch({ projectId, branch: branchOperandV }));
-	};
-
-	const endEditing = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
-		dispatch(projectSlice.actions.selectOutline({ projectId, selection: operand }));
-		focusSelectionScope("outline");
-	};
-
-	const toastManager = Toast.useToastManager();
-
-	const {
-		isPending: isWorkspaceBranchAndAncestorsPushPending,
-		mutate: workspaceBranchAndAncestorsPush,
-	} = useWorkspaceBranchAndAncestorsPush();
-	const { mutate: commitInsertBlank } = useCommitInsertBlank();
-	const { isPending: isTearOffBranchPending, mutate: tearOffBranch } = useTearOffBranch();
-	const { mutate: removeBranch } = useRemoveBranch();
-	const { mutate: branchCreate } = useBranchCreate();
-
-	const pushesMultipleBranches = downstackPushStatus.downstackBranches > 1;
-
-	const saveBranchName = (newBranchName: string) => {
-		const trimmed = newBranchName.trim();
-		if (trimmed === "" || trimmed === refName.displayName) return;
-		startRenameTransition(async () => {
-			setOptimisticBranchDisplayName(trimmed);
-			try {
-				await updateBranchName({
-					projectId,
-					stackId,
-					branchName: refName.displayName,
-					newName: trimmed,
-				});
-			} catch (error) {
-				// oxlint-disable-next-line no-console
-				console.error(error);
-
-				toastManager.add({
-					type: "error",
-					title: "Failed to rename branch",
-					description: errorMessageForToast(error),
-					priority: "high",
-				});
-			}
-		});
-	};
-
-	const relativeTo: RelativeTo = { type: "referenceBytes", subject: refName.fullNameBytes };
-	const bucketRelativeTo = (side: InsertSide): RelativeTo =>
-		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
-
-	const setCommitTarget = () => {
-		dispatch(projectSlice.actions.setCommitTarget({ projectId, commitTarget: relativeTo }));
-	};
-
-	const composeCommitHere = () => {
-		setCommitTarget();
-		focusCommitMessageInput();
-	};
-
-	const cutBranch = () => {
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
+		const { data: ciChecks } = useQuery({
+			...listCIChecksQueryOptions({
 				projectId,
-				source: operand,
+				reference: refName.displayName,
+				polling: "passive",
 			}),
-		);
-		focusSelectionScope("outline");
-	};
-
-	const insertBlankCommit = (side: "above" | "below") => {
-		commitInsertBlank({
-			projectId,
-			relativeTo,
-			side,
-			dryRun: false,
+			enabled: pullRequest !== null && forgeInfo?.capabilities.checks,
 		});
-	};
+		const ciURL =
+			pullRequest !== null ? forgeInfo && ciChecksSummaryUrl(pullRequest, forgeInfo) : null;
 
-	const createDependentBranch = (side: "above" | "below") => {
-		branchCreate(
-			{
+		const projectStore = useProjectStore(projectId);
+		const branchOperandV: BranchOperand = {
+			stackId,
+			branchRef: refName.fullNameBytes,
+		};
+		const operand = branchOperand(branchOperandV);
+		const isDefaultMode = projectStore.outlineMode._tag === "Default";
+		const isRenaming = (() => {
+			const outlineMode = projectStore.outlineMode;
+			return (
+				outlineMode._tag === "RenameBranch" &&
+				operandEquals(operand, branchOperand(outlineMode.operand))
+			);
+		})();
+		const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
+			refName.displayName,
+			(_currentBranchName, nextBranchName: string) => nextBranchName,
+		);
+		const [isRenamePending, startRenameTransition] = useTransition();
+
+		const { mutateAsync: updateBranchName } = useUpdateBranchName({
+			projectId,
+			stackId,
+			branchRef: refName.fullNameBytes,
+			oldBranch: branchOperandV,
+		});
+
+		const startEditing = () => {
+			projectStore.startRenameBranch(branchOperandV);
+		};
+
+		const endEditing = () => {
+			projectStore.exitMode();
+			projectStore.selectOutline(operand);
+			focusSelectionScope("outline");
+		};
+
+		const toastManager = Toast.useToastManager();
+
+		const {
+			isPending: isWorkspaceBranchAndAncestorsPushPending,
+			mutate: workspaceBranchAndAncestorsPush,
+		} = useWorkspaceBranchAndAncestorsPush();
+		const { mutate: commitInsertBlank } = useCommitInsertBlank();
+		const { isPending: isTearOffBranchPending, mutate: tearOffBranch } = useTearOffBranch();
+		const { mutate: removeBranch } = useRemoveBranch();
+		const { mutate: branchCreate } = useBranchCreate();
+
+		const pushesMultipleBranches = downstackPushStatus.downstackBranches > 1;
+
+		const saveBranchName = (newBranchName: string) => {
+			const trimmed = newBranchName.trim();
+			if (trimmed === "" || trimmed === refName.displayName) return;
+			startRenameTransition(async () => {
+				setOptimisticBranchDisplayName(trimmed);
+				try {
+					await updateBranchName({
+						projectId,
+						stackId,
+						branchName: refName.displayName,
+						newName: trimmed,
+					});
+				} catch (error) {
+					// oxlint-disable-next-line no-console
+					console.error(error);
+
+					toastManager.add({
+						type: "error",
+						title: "Failed to rename branch",
+						description: errorMessageForToast(error),
+						priority: "high",
+					});
+				}
+			});
+		};
+
+		const relativeTo: RelativeTo = { type: "referenceBytes", subject: refName.fullNameBytes };
+		const bucketRelativeTo = (side: InsertSide): RelativeTo =>
+			side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
+
+		const setCommitTarget = () => {
+			projectStore.setCommitTarget(relativeTo);
+		};
+
+		const composeCommitHere = () => {
+			setCommitTarget();
+			focusCommitMessageInput();
+		};
+
+		const cutBranch = () => {
+			projectStore.enterKeyboardTransferMode(operand);
+			focusSelectionScope("outline");
+		};
+
+		const insertBlankCommit = (side: "above" | "below") => {
+			commitInsertBlank({
 				projectId,
-				newRef: null,
-				placement: {
-					type: "dependent",
-					subject: {
-						relativeTo: bucketRelativeTo(side),
-						side,
+				relativeTo,
+				side,
+				dryRun: false,
+			});
+		};
+
+		const createDependentBranch = (side: "above" | "below") => {
+			branchCreate(
+				{
+					projectId,
+					newRef: null,
+					placement: {
+						type: "dependent",
+						subject: {
+							relativeTo: bucketRelativeTo(side),
+							side,
+						},
 					},
 				},
-			},
-			{
-				onSuccess: (response) => {
-					const newBranchStack = getHeadInfoIndex(
-						response.workspace.headInfo,
-					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
+				{
+					onSuccess: (response) => {
+						const newBranchStack = getHeadInfoIndex(
+							response.workspace.headInfo,
+						).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
 
-					if (newBranchStack && newBranchStack.id !== null) {
-						dispatch(
-							projectSlice.actions.selectOutline({
-								projectId,
-								selection: branchOperand({
+						if (newBranchStack && newBranchStack.id !== null) {
+							projectStore.selectOutline(
+								branchOperand({
 									stackId: newBranchStack.id,
 									branchRef: response.newRef.fullNameBytes,
 								}),
-							}),
-						);
-					}
+							);
+						}
+					},
 				},
-			},
-		);
-	};
+			);
+		};
 
-	const tearOff = () => {
-		tearOffBranch({
-			projectId,
-			subjectBranch: decodeBytes(refName.fullNameBytes),
-			dryRun: false,
-		});
-	};
+		const tearOff = () => {
+			tearOffBranch({
+				projectId,
+				subjectBranch: decodeBytes(refName.fullNameBytes),
+				dryRun: false,
+			});
+		};
 
-	const pushBranch = () => {
-		workspaceBranchAndAncestorsPush({
-			projectId,
-			branch: decodeBytes(refName.fullNameBytes),
-			withForce: downstackPushStatus.anyPushRequiresForce,
-			skipForcePushProtection: false,
-			runHooks: true,
-			pushOpts: [],
-		});
-	};
+		const pushBranch = () => {
+			workspaceBranchAndAncestorsPush({
+				projectId,
+				branch: decodeBytes(refName.fullNameBytes),
+				withForce: downstackPushStatus.anyPushRequiresForce,
+				skipForcePushProtection: false,
+				runHooks: true,
+				pushOpts: [],
+			});
+		};
 
-	const openPRInBrowser = async (evt?: MouseEvent<HTMLAnchorElement>): Promise<void> => {
-		evt?.preventDefault();
+		const openPRInBrowser = async (evt?: MouseEvent<HTMLAnchorElement>): Promise<void> => {
+			evt?.preventDefault();
 
-		if (mforgeUrl != null) await window.lite.openInWebBrowser(mforgeUrl);
-	};
+			if (mforgeUrl != null) await window.lite.openInWebBrowser(mforgeUrl);
+		};
 
-	const openCIChecksInBrowser = async (evt?: MouseEvent<HTMLAnchorElement>): Promise<void> => {
-		evt?.preventDefault();
+		const openCIChecksInBrowser = async (evt?: MouseEvent<HTMLAnchorElement>): Promise<void> => {
+			evt?.preventDefault();
 
-		if (ciURL != null) await window.lite.openInWebBrowser(ciURL);
-	};
+			if (ciURL != null) await window.lite.openInWebBrowser(ciURL);
+		};
 
-	const workspaceBranchAndAncestorsPushDisabled =
-		isWorkspaceBranchAndAncestorsPushPending || downstackPushStatusDisabled(downstackPushStatus);
+		const workspaceBranchAndAncestorsPushDisabled =
+			isWorkspaceBranchAndAncestorsPushPending || downstackPushStatusDisabled(downstackPushStatus);
 
-	const pushMenuLabel = pushesMultipleBranches
-		? downstackPushStatus.anyPushRequiresForce
-			? "Force Push With Branches Below"
-			: "Push With Branches Below"
-		: downstackPushStatus.anyPushRequiresForce
-			? "Force Push Branch"
-			: "Push Branch";
+		const pushMenuLabel = pushesMultipleBranches
+			? downstackPushStatus.anyPushRequiresForce
+				? "Force Push With Branches Below"
+				: "Push With Branches Below"
+			: downstackPushStatus.anyPushRequiresForce
+				? "Force Push Branch"
+				: "Push Branch";
 
-	const menuItems: Array<NativeMenuItem> = [
-		nativeMenuItem({
-			label: pushMenuLabel,
-			enabled: !workspaceBranchAndAncestorsPushDisabled,
-			accelerator: toElectronAccelerator(outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey),
-			onSelect: pushBranch,
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Rename Branch",
-			enabled: !isRenamePending,
-			accelerator: toElectronAccelerator(outlineHotkeys.renameBranch.hotkey),
-			onSelect: startEditing,
-		}),
-		nativeMenuItem({
-			label: "Cut Branch",
-			onSelect: cutBranch,
-			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
-		}),
-		nativeMenuItem({
-			label: "Copy Branch Name",
-			onSelect: () => window.lite.clipboardWriteText(optimisticBranchDisplayName),
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Compose Commit Here",
-			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
-			onSelect: composeCommitHere,
-			enabled: isDefaultMode,
-		}),
-		nativeMenuItem({
-			label: "Set Commit Target",
-			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
-			onSelect: setCommitTarget,
-			enabled: isDefaultMode,
-		}),
-		nativeMenuItem({
-			label: "Open In Browser",
-			enabled: mforgeUrl != null,
-			accelerator: toElectronAccelerator(outlineHotkeys.openPRInBrowser.hotkey),
-			onSelect: openPRInBrowser,
-		}),
-		insertBlankCommitMenuItem(insertBlankCommit, "below"),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Create Branch",
-			submenu: [
-				nativeMenuItem({
-					label: "Above",
-					accelerator: toElectronAccelerator(outlineHotkeys.createDependentBranchAbove.hotkey),
-					onSelect: () => createDependentBranch("above"),
-				}),
-				nativeMenuItem({
-					label: "Below",
-					onSelect: () => createDependentBranch("below"),
-				}),
-			],
-		}),
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Tear Off Branch",
-			enabled: canTearOffBranch && !isTearOffBranchPending,
-			onSelect: tearOff,
-		}),
-		nativeMenuItem({
-			label: "Delete Branch Reference",
-			enabled: canRemoveBranch,
-			onSelect: () =>
-				removeBranch({
-					projectId,
-					stackId,
-					branchName: decodeBytes(refName.fullNameBytes),
-				}),
-		}),
-	];
+		const menuItems: Array<NativeMenuItem> = [
+			nativeMenuItem({
+				label: pushMenuLabel,
+				enabled: !workspaceBranchAndAncestorsPushDisabled,
+				accelerator: toElectronAccelerator(outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey),
+				onSelect: pushBranch,
+			}),
+			nativeMenuSeparator,
+			nativeMenuItem({
+				label: "Rename Branch",
+				enabled: !isRenamePending,
+				accelerator: toElectronAccelerator(outlineHotkeys.renameBranch.hotkey),
+				onSelect: startEditing,
+			}),
+			nativeMenuItem({
+				label: "Cut Branch",
+				onSelect: cutBranch,
+				accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
+			}),
+			nativeMenuItem({
+				label: "Copy Branch Name",
+				onSelect: () => window.lite.clipboardWriteText(optimisticBranchDisplayName),
+			}),
+			nativeMenuSeparator,
+			nativeMenuItem({
+				label: "Compose Commit Here",
+				accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
+				onSelect: composeCommitHere,
+				enabled: isDefaultMode,
+			}),
+			nativeMenuItem({
+				label: "Set Commit Target",
+				accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
+				onSelect: setCommitTarget,
+				enabled: isDefaultMode,
+			}),
+			nativeMenuItem({
+				label: "Open In Browser",
+				enabled: mforgeUrl != null,
+				accelerator: toElectronAccelerator(outlineHotkeys.openPRInBrowser.hotkey),
+				onSelect: openPRInBrowser,
+			}),
+			insertBlankCommitMenuItem(insertBlankCommit, "below"),
+			nativeMenuSeparator,
+			nativeMenuItem({
+				label: "Create Branch",
+				submenu: [
+					nativeMenuItem({
+						label: "Above",
+						accelerator: toElectronAccelerator(outlineHotkeys.createDependentBranchAbove.hotkey),
+						onSelect: () => createDependentBranch("above"),
+					}),
+					nativeMenuItem({
+						label: "Below",
+						onSelect: () => createDependentBranch("below"),
+					}),
+				],
+			}),
+			nativeMenuSeparator,
+			nativeMenuItem({
+				label: "Tear Off Branch",
+				enabled: canTearOffBranch && !isTearOffBranchPending,
+				onSelect: tearOff,
+			}),
+			nativeMenuItem({
+				label: "Delete Branch Reference",
+				enabled: canRemoveBranch,
+				onSelect: () =>
+					removeBranch({
+						projectId,
+						stackId,
+						branchName: decodeBytes(refName.fullNameBytes),
+					}),
+			}),
+		];
 
-	return (
-		<ItemRow
-			{...restProps}
-			projectId={projectId}
-			operand={operand}
-			onContextMenu={(event) => {
-				void showNativeContextMenu(event, menuItems);
-			}}
-			isCommitTarget={isCommitTarget}
-		>
-			<GraphSegment glyph={isTopSegment ? "forkRight" : "joinRight"} status={graphStatus} />
+		return (
+			<ItemRow
+				{...restProps}
+				projectId={projectId}
+				operand={operand}
+				onContextMenu={(event) => {
+					void showNativeContextMenu(event, menuItems);
+				}}
+				isCommitTarget={isCommitTarget}
+			>
+				<GraphSegment glyph={isTopSegment ? "forkRight" : "joinRight"} status={graphStatus} />
 
-			{isRenaming ? (
-				<InlineEditor
-					multiline={false}
-					heading
-					value={optimisticBranchDisplayName}
-					label="Branch name"
-					onMount={(el) => {
-						el.select();
-					}}
-					onSubmit={saveBranchName}
-					onExit={endEditing}
-				/>
-			) : (
-				<div className={styles.label}>
-					<RowLabelContainer>
-						<RowLabel heading>{optimisticBranchDisplayName}</RowLabel>
-					</RowLabelContainer>
-
-					<RowLabelFooter className={classes("text-13", styles.labelMeta)}>
-						<span className={classes(rowStyles.fadedText, styles.labelMetaItem)}>
-							{Match.value(pushStatus).pipe(
-								Match.when("nothingToPush", () => "Nothing to push"),
-								Match.when("unpushedCommits", () => "Some unpushed"),
-								Match.when("completelyUnpushed", () => "Unpushed branch"),
-								Match.when("unpushedCommitsRequiringForce", () => "Some unpushed"),
-								Match.when("integrated", () => "Integrated"),
-								Match.exhaustive,
-							)}
-						</span>
-
-						{mforgeUrl != null && (
-							<a
-								href={mforgeUrl}
-								onClick={(evt) => void openPRInBrowser(evt)}
-								className={classes(rowStyles.fadedText, styles.labelMetaItem)}
-							>
-								<Icon name="pr" />
-								PR
-							</a>
-						)}
-
-						{ciChecks?.aggregate &&
-							(ciURL != null ? (
-								<a href={ciURL} onClick={(evt) => void openCIChecksInBrowser(evt)}>
-									<CIBubble checks={ciChecks.aggregate} />
-								</a>
-							) : (
-								<CIBubble checks={ciChecks.aggregate} />
-							))}
-
-						{downstackPushStatus.anyRequiresPush &&
-							(() => {
-								const workspaceBranchAndAncestorsPushDisabledReason =
-									isWorkspaceBranchAndAncestorsPushPending
-										? "pushing"
-										: downstackPushStatus.anyHasConflicts
-											? "disabled due to conflicts"
-											: null;
-
-								const pushButtonLabel = `${
-									pushesMultipleBranches
-										? downstackPushStatus.anyPushRequiresForce
-											? "Force push this and all branches below"
-											: "Push this and all branches below"
-										: downstackPushStatus.anyPushRequiresForce
-											? "Force push branch"
-											: "Push branch"
-								}${workspaceBranchAndAncestorsPushDisabledReason !== null ? ` (${workspaceBranchAndAncestorsPushDisabledReason})` : ""}`;
-
-								return (
-									<Tooltip.Root>
-										<Tooltip.Trigger
-											aria-label={pushButtonLabel}
-											onClick={pushBranch}
-											className={getRowButtonClassName({ variant: "outline" })}
-											// We pass `disabled` here because we want to disable the button, not
-											// the tooltip. Other props should be passed above.
-											render={
-												<Button
-													focusableWhenDisabled
-													disabled={workspaceBranchAndAncestorsPushDisabled}
-												/>
-											}
-										>
-											Push
-											{isWorkspaceBranchAndAncestorsPushPending ? (
-												<Icon name="spinner" />
-											) : pushesMultipleBranches ? (
-												<Icon size={12} name="arrow-double-up" />
-											) : (
-												<Icon size={12} name="arrow-up" />
-											)}
-										</Tooltip.Trigger>
-										<Tooltip.Portal>
-											<Tooltip.Positioner sideOffset={4}>
-												<Tooltip.Popup
-													render={
-														<TooltipPopup
-															kbd={outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey}
-														/>
-													}
-												>
-													{pushButtonLabel}
-												</Tooltip.Popup>
-											</Tooltip.Positioner>
-										</Tooltip.Portal>
-									</Tooltip.Root>
-								);
-							})()}
-					</RowLabelFooter>
-				</div>
-			)}
-
-			{isDefaultMode && (
-				<Toolbar.Root aria-label="Branch actions" render={<RowToolbar />}>
-					<Toolbar.Button
-						aria-label="Branch menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+				{isRenaming ? (
+					<InlineEditor
+						multiline={false}
+						heading
+						value={optimisticBranchDisplayName}
+						label="Branch name"
+						onMount={(el) => {
+							el.select();
 						}}
-						className={getRowButtonClassName({ iconOnly: true })}
-					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
-			)}
-		</ItemRow>
-	);
-};
+						onSubmit={saveBranchName}
+						onExit={endEditing}
+					/>
+				) : (
+					<div className={styles.label}>
+						<RowLabelContainer>
+							<RowLabel heading>{optimisticBranchDisplayName}</RowLabel>
+						</RowLabelContainer>
+
+						<RowLabelFooter className={classes("text-13", styles.labelMeta)}>
+							<span className={classes(rowStyles.fadedText, styles.labelMetaItem)}>
+								{Match.value(pushStatus).pipe(
+									Match.when("nothingToPush", () => "Nothing to push"),
+									Match.when("unpushedCommits", () => "Some unpushed"),
+									Match.when("completelyUnpushed", () => "Unpushed branch"),
+									Match.when("unpushedCommitsRequiringForce", () => "Some unpushed"),
+									Match.when("integrated", () => "Integrated"),
+									Match.exhaustive,
+								)}
+							</span>
+
+							{mforgeUrl != null && (
+								<a
+									href={mforgeUrl}
+									onClick={(evt) => void openPRInBrowser(evt)}
+									className={classes(rowStyles.fadedText, styles.labelMetaItem)}
+								>
+									<Icon name="pr" />
+									PR
+								</a>
+							)}
+
+							{ciChecks?.aggregate &&
+								(ciURL != null ? (
+									<a href={ciURL} onClick={(evt) => void openCIChecksInBrowser(evt)}>
+										<CIBubble checks={ciChecks.aggregate} />
+									</a>
+								) : (
+									<CIBubble checks={ciChecks.aggregate} />
+								))}
+
+							{downstackPushStatus.anyRequiresPush &&
+								(() => {
+									const workspaceBranchAndAncestorsPushDisabledReason =
+										isWorkspaceBranchAndAncestorsPushPending
+											? "pushing"
+											: downstackPushStatus.anyHasConflicts
+												? "disabled due to conflicts"
+												: null;
+
+									const pushButtonLabel = `${
+										pushesMultipleBranches
+											? downstackPushStatus.anyPushRequiresForce
+												? "Force push this and all branches below"
+												: "Push this and all branches below"
+											: downstackPushStatus.anyPushRequiresForce
+												? "Force push branch"
+												: "Push branch"
+									}${workspaceBranchAndAncestorsPushDisabledReason !== null ? ` (${workspaceBranchAndAncestorsPushDisabledReason})` : ""}`;
+
+									return (
+										<Tooltip.Root>
+											<Tooltip.Trigger
+												aria-label={pushButtonLabel}
+												onClick={pushBranch}
+												className={getRowButtonClassName({ variant: "outline" })}
+												// We pass `disabled` here because we want to disable the button, not
+												// the tooltip. Other props should be passed above.
+												render={
+													<Button
+														focusableWhenDisabled
+														disabled={workspaceBranchAndAncestorsPushDisabled}
+													/>
+												}
+											>
+												Push
+												{isWorkspaceBranchAndAncestorsPushPending ? (
+													<Icon name="spinner" />
+												) : pushesMultipleBranches ? (
+													<Icon size={12} name="arrow-double-up" />
+												) : (
+													<Icon size={12} name="arrow-up" />
+												)}
+											</Tooltip.Trigger>
+											<Tooltip.Portal>
+												<Tooltip.Positioner sideOffset={4}>
+													<Tooltip.Popup
+														render={
+															<TooltipPopup
+																kbd={outlineHotkeys.workspaceBranchAndAncestorsPush.hotkey}
+															/>
+														}
+													>
+														{pushButtonLabel}
+													</Tooltip.Popup>
+												</Tooltip.Positioner>
+											</Tooltip.Portal>
+										</Tooltip.Root>
+									);
+								})()}
+						</RowLabelFooter>
+					</div>
+				)}
+
+				{isDefaultMode && (
+					<Toolbar.Root aria-label="Branch actions" render={<RowToolbar />}>
+						<Toolbar.Button
+							aria-label="Branch menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+							}}
+							className={getRowButtonClassName({ iconOnly: true })}
+						>
+							<Icon name="kebab" />
+						</Toolbar.Button>
+					</Toolbar.Root>
+				)}
+			</ItemRow>
+		);
+	},
+);

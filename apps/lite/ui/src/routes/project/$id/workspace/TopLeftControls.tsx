@@ -1,22 +1,20 @@
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { Toggle, Tooltip } from "@base-ui/react";
 import { useParams } from "@tanstack/react-router";
 import { type ComponentProps, type FC } from "react";
 import styles from "./TopLeftControls.module.css";
+import { observer } from "mobx-react-lite";
 
 const FullWindowToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
-> = (toggleProps) => {
+> = observer((toggleProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
-	const fullWindow = useAppSelector((state) =>
-		projectSlice.selectors.selectDetailsFullWindow(state, projectId),
-	);
+	const projectStore = useProjectStore(projectId);
+	const fullWindow = projectStore.detailsFullWindow;
 
 	return (
 		<Tooltip.Root>
@@ -26,9 +24,7 @@ const FullWindowToggle: FC<
 						{...toggleProps}
 						aria-label={workspaceHotkeys.toggleOutline.meta.name}
 						pressed={fullWindow}
-						onPressedChange={(fullWindow) =>
-							dispatch(projectSlice.actions.setDetailsFullWindow({ projectId, fullWindow }))
-						}
+						onPressedChange={(fullWindow) => projectStore.setDetailsFullWindow(fullWindow)}
 					/>
 				}
 			/>
@@ -41,15 +37,13 @@ const FullWindowToggle: FC<
 			</Tooltip.Portal>
 		</Tooltip.Root>
 	);
-};
+});
 
 const isMac = window.lite.platform === "darwin";
 
-export const TopLeftControls: FC = () => {
+export const TopLeftControls: FC = observer(() => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const fullWindow = useAppSelector((state) =>
-		projectSlice.selectors.selectDetailsFullWindow(state, projectId),
-	);
+	const fullWindow = useProjectStore(projectId).detailsFullWindow;
 	return (
 		<div className={styles.container}>
 			{isMac && <div className={styles.macSpacer} />}
@@ -58,4 +52,4 @@ export const TopLeftControls: FC = () => {
 			</FullWindowToggle>
 		</div>
 	);
-};
+});

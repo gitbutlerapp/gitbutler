@@ -17,8 +17,7 @@ import {
 import { type NativeMenuItem, nativeMenuItem, nativeMenuItemsFromGroups } from "#ui/native-menu.ts";
 import { fileOperand, type FileOperand } from "#ui/operands.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
@@ -35,7 +34,7 @@ export const useFileMenuItems = ({
 	path: string;
 	change?: TreeChange;
 }): Array<NativeMenuItem> => {
-	const dispatch = useAppDispatch();
+	const projectStore = useProjectStore(projectId);
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
@@ -54,12 +53,7 @@ export const useFileMenuItems = ({
 		useDiscardWorktreeChanges();
 	const { isPending: isOpenInEditorPending, mutate: openInEditor } = useOpenInEditor();
 	const cutFile = () => {
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				source: fileOperand(operand),
-			}),
-		);
+		projectStore.enterKeyboardTransferMode(fileOperand(operand));
 		focusSelectionScope("outline");
 	};
 
@@ -160,19 +154,13 @@ export const useFileMenuItems = ({
 					}),
 					Match.when({ parent: { _tag: "UncommittedChanges" } }, (operand) => {
 						const absorb = () => {
-							dispatch(
-								projectSlice.actions.enterAbsorbMode({
-									projectId,
-									source: fileOperand(operand),
-									sourceTarget: {
-										type: "treeChanges",
-										subject: {
-											changes: [change],
-											assignedStackId: null,
-										},
-									},
-								}),
-							);
+							projectStore.enterAbsorbMode(fileOperand(operand), {
+								type: "treeChanges",
+								subject: {
+									changes: [change],
+									assignedStackId: null,
+								},
+							});
 							focusSelectionScope("outline");
 						};
 						const discard = () =>

@@ -8,28 +8,26 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { BottomUpdate, Stack } from "@gitbutler/but-sdk";
 import { ComponentProps, FC } from "react";
 import { getRowButtonClassName } from "../Row-utils.ts";
 import { Row, RowLabelContainer, RowToolbar } from "../Row.tsx";
+import { observer } from "mobx-react-lite";
 
 export const StackRow: FC<
 	{
 		projectId: string;
 		stack: Stack;
 	} & Omit<ComponentProps<"div">, "onSelect">
-> = ({ projectId, stack, ...restProps }) => {
+> = observer(({ projectId, stack, ...restProps }) => {
 	const relativeTo = stackBottomRelativeTo(stack);
 	const rebaseUpdate: BottomUpdate | null = relativeTo
 		? { kind: "rebase", selector: relativeTo }
 		: null;
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
-	);
+	const isDefaultMode = useProjectStore(projectId).outlineMode._tag === "Default";
 
 	const { isPending: isUnapplyStackPending, mutate: unapplyStack } = useUnapplyStack();
 	const unapply = () => {
@@ -90,4 +88,4 @@ export const StackRow: FC<
 			)}
 		</Row>
 	);
-};
+});

@@ -10,9 +10,8 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import { uncommittedChangesOperand, type Operand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { AbsorptionTarget, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { FC } from "react";
@@ -21,6 +20,7 @@ import { RowBubble, RowBubbleGroup, RowLabel, RowLabelContainer, RowToolbar } fr
 import { ItemRow } from "./ItemRow.tsx";
 import { useQueries } from "@tanstack/react-query";
 import { treeChangeDiffsQueryOptions } from "#ui/api/queries.ts";
+import { observer } from "mobx-react-lite";
 
 type LineStats = {
 	linesAdded: number;
@@ -40,22 +40,20 @@ const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats 
 export const UncommittedChangesRow: FC<{
 	changes: Array<TreeChange>;
 	projectId: string;
-}> = ({ changes, projectId }) => {
+}> = observer(({ changes, projectId }) => {
 	const lineStats = useQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 		combine: (results) => getLineStats(results.map((result) => result.data)),
 	});
 
 	const operand = uncommittedChangesOperand;
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
-	);
+	const projectStore = useProjectStore(projectId);
+	const isDefaultMode = projectStore.outlineMode._tag === "Default";
 	const { isPending: isDiscardWorktreeChangesPending, mutate: discardWorktreeChanges } =
 		useDiscardWorktreeChanges();
 
-	const dispatch = useAppDispatch();
 	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {
-		dispatch(projectSlice.actions.enterAbsorbMode({ projectId, source, sourceTarget }));
+		projectStore.enterAbsorbMode(source, sourceTarget);
 	};
 
 	const absorb = () => {
@@ -63,12 +61,7 @@ export const UncommittedChangesRow: FC<{
 	};
 
 	const cutChanges = () => {
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				source: operand,
-			}),
-		);
+		projectStore.enterKeyboardTransferMode(operand);
 		focusSelectionScope("outline");
 	};
 
@@ -139,4 +132,4 @@ export const UncommittedChangesRow: FC<{
 			)}
 		</ItemRow>
 	);
-};
+});

@@ -14,9 +14,8 @@ import {
 	toElectronAccelerator,
 } from "#ui/hotkeys.ts";
 import { nativeMenuItem, showNativeMenuFromTrigger, type NativeMenuItem } from "#ui/native-menu.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { Button, Tooltip } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import type { RelativeTo } from "@gitbutler/but-sdk";
@@ -24,6 +23,7 @@ import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type SubmitEventHandler, useRef, useState } from "react";
 import styles from "./CommitForm.module.css";
+import { observer } from "mobx-react-lite";
 
 export type CommitTargetComboboxItem = {
 	label: string;
@@ -61,8 +61,8 @@ export const CommitForm: FC<{
 	projectId: string;
 	commitTarget: CommitTargetComboboxItem | null;
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
-}> = ({ projectId, commitTarget, targetComboboxItems }) => {
-	const dispatch = useAppDispatch();
+}> = observer(({ projectId, commitTarget, targetComboboxItems }) => {
+	const projectStore = useProjectStore(projectId);
 	const { isPending: isCommitCreatePending, mutate: commitCreate } = useCommitCreate({
 		projectId,
 	});
@@ -74,9 +74,7 @@ export const CommitForm: FC<{
 
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
-	);
+	const isDefaultMode = projectStore.outlineMode._tag === "Default";
 
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
@@ -95,12 +93,7 @@ export const CommitForm: FC<{
 	const [open, setOpen] = useState(false);
 
 	const selectBranch = (option: CommitTargetComboboxItem | null) => {
-		dispatch(
-			projectSlice.actions.setCommitTarget({
-				projectId,
-				commitTarget: option?.relativeTo ?? null,
-			}),
-		);
+		projectStore.setCommitTarget(option?.relativeTo ?? null);
 		setOpen(false);
 	};
 
@@ -138,7 +131,6 @@ export const CommitForm: FC<{
 		createCommit();
 	};
 	const commitMenuItems: Array<NativeMenuItem> = [
-		// oxlint-disable-next-line react-hooks-js/refs -- False positive. Ref is only accessed in `onSelect` event handler.
 		nativeMenuItem({
 			label: "Commit",
 			enabled: canCommit,
@@ -281,4 +273,4 @@ export const CommitForm: FC<{
 			</div>
 		</form>
 	);
-};
+});

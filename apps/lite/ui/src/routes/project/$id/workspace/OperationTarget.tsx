@@ -8,8 +8,7 @@ import {
 	useRunOperation,
 } from "#ui/operations/operation.ts";
 import { classes } from "#ui/components/classes.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import {
 	attachInstruction,
@@ -48,7 +47,7 @@ const useOperationDropTarget = ({
 	target: Operand;
 	projectId: string;
 }) => {
-	const dispatch = useAppDispatch();
+	const projectStore = useProjectStore(projectId);
 	const { mutate: runOperation } = useRunOperation();
 	const dropRef = useRef<HTMLElement>(null);
 
@@ -89,22 +88,10 @@ const useOperationDropTarget = ({
 
 				const operationType = getOperationTypeFromData(args.self.data);
 
-				dispatch(
-					projectSlice.actions.updatePointerTransfer({
-						projectId,
-						target,
-						operationType,
-					}),
-				);
+				projectStore.updatePointerTransfer(target, operationType);
 			},
 			onDragLeave: () => {
-				dispatch(
-					projectSlice.actions.updatePointerTransfer({
-						projectId,
-						target: null,
-						operationType: null,
-					}),
-				);
+				projectStore.updatePointerTransfer(null, null);
 			},
 			onDrop: (args) => {
 				const [innerMost] = args.location.current.dropTargets;
@@ -124,15 +111,15 @@ const useOperationDropTarget = ({
 						: null;
 
 				if (!operation) {
-					dispatch(projectSlice.actions.cancelMode({ projectId }));
+					projectStore.cancelMode();
 					return;
 				}
 
-				dispatch(projectSlice.actions.exitMode({ projectId }));
+				projectStore.exitMode();
 				runOperation(operation.operation);
 			},
 		});
-	}, [dispatch, projectId, runOperation, target]);
+	}, [projectStore, runOperation, target]);
 
 	return { dropRef };
 };

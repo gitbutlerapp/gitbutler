@@ -8,9 +8,8 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { branchOperand, type BranchOperand, type Operand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope, type SelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import type { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
@@ -27,6 +26,7 @@ import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree/Outlin
 import styles from "./Outline.module.css";
 import { TopLeftControls } from "#ui/routes/project/$id/workspace/TopLeftControls.tsx";
 import { CommitForm } from "#ui/routes/project/$id/workspace/CommitForm.tsx";
+import { observer } from "mobx-react-lite";
 
 const ActivitySpinner: FC = () => {
 	const fetchingCount = useIsFetching();
@@ -52,32 +52,25 @@ export const Outline: FC<
 		project: ProjectForFrontend;
 		projectId: string;
 	} & ComponentProps<"div">
-> = ({ absorptionTargetCommitIds, navigationIndex, project, projectId, ...restProps }) => {
-	const dispatch = useAppDispatch();
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+> = observer(({ absorptionTargetCommitIds, navigationIndex, project, projectId, ...restProps }) => {
+	const projectStore = useProjectStore(projectId);
+	const outlineMode = projectStore.outlineMode;
 
 	const selectBranch = (branch: BranchOperand) => {
-		dispatch(
-			projectSlice.actions.selectOutline({
-				projectId,
-				selection: branchOperand(branch),
-			}),
-		);
+		projectStore.selectOutline(branchOperand(branch));
 		focusSelectionScope("outline");
 	};
 
 	const openApplyBranchPicker = () => {
-		dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "ApplyBranchPicker" } }));
+		projectStore.openDialog({ _tag: "ApplyBranchPicker" });
 	};
 
 	const openProjectPicker = () => {
-		dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "ProjectPicker" } }));
+		projectStore.openDialog({ _tag: "ProjectPicker" });
 	};
 
 	const openSettings = () => {
-		dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "Settings" } }));
+		projectStore.openDialog({ _tag: "Settings" });
 	};
 
 	const { isPending: isBranchCreatePending, mutate: branchCreate } = useBranchCreate();
@@ -103,9 +96,7 @@ export const Outline: FC<
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
-	const commitTargetState = useAppSelector((state) =>
-		projectSlice.selectors.selectCommitTarget(state, projectId),
-	);
+	const commitTargetState = projectStore.commitTarget;
 	const targetComboboxItems = buildCommitTargetComboboxItems({
 		headInfo,
 		headInfoIndex,
@@ -326,4 +317,4 @@ export const Outline: FC<
 			/>
 		</div>
 	);
-};
+});

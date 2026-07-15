@@ -37,13 +37,12 @@ import {
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import {
 	FieldControlStyles,
@@ -112,6 +111,7 @@ import { AggregateCIChecks } from "#ui/ci.ts";
 import { IconName } from "#ui/components/iconNames.ts";
 import { draftPRQueryOptions, usePersistDraftPR } from "#ui/pr.ts";
 import { combineHashes, hash } from "#ui/hash.ts";
+import { observer } from "mobx-react-lite";
 
 type BranchTab = "diff" | "pr";
 
@@ -319,248 +319,242 @@ const DiffContents: FC<{
 	diffStyle?: GUISettings["diffStyle"];
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
 	didScrollToViaFileRef: RefObject<boolean>;
-}> = ({
-	selectionScopeRef,
-	onViewerFileSelection,
-	fileParent,
-	changesetKey,
-	projectId,
-	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
-	diffBackgrounds,
-	diffOverflow,
-	diffStyle,
-	viewerRef,
-	didScrollToViaFileRef,
-}) => {
-	const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
-	const dispatch = useAppDispatch();
-	const { data: editors } = useQuery(listEditorsQueryOptions);
-	const { data: preferredEditor } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
-	});
-	const { data: preferredFontFamily } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => cfg.diffFontFamily,
-	});
-	const { data: preferredFontSize } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => cfg.diffFontSize,
-	});
-	const { data: preferredTabSize } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => cfg.diffTabSize,
-	});
-	const { mutate: openInEditor } = useOpenInEditor();
-
-	const diffSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionDiff(state, projectId, navigationIndex),
-	);
-	const diffSelectionFile =
-		diffSelection !== null ? fileByHunkKey.get(hunkOperandIdentityKey(diffSelection)) : null;
-	const selectedRange = diffSelection
-		? (hunkByKey.get(hunkOperandIdentityKey(diffSelection))?.selectedLines ?? null)
-		: null;
-
-	const selectDiff = (selection: HunkOperand) => {
-		dispatch(projectSlice.actions.selectDiff({ projectId, selection }));
-
-		const selectedRange = hunkByKey.get(hunkOperandIdentityKey(selection))?.selectedLines;
-		if (!selectedRange) return;
-
-		viewerRef.current?.scrollTo({
-			type: "range",
-			id: selectedRange.id,
-			range: selectedRange.range,
-			align: "nearest",
-		});
-	};
-
-	useNavigationIndexHotkeys({
-		navigationIndex,
+}> = observer(
+	({
+		selectionScopeRef,
+		onViewerFileSelection,
+		fileParent,
+		changesetKey,
 		projectId,
-		group: "Diff",
-		select: selectDiff,
-		selection: diffSelection,
-		selectSectionPredicate: (hunk) => {
-			const k = hunkOperandIdentityKey(hunk);
-			// oxlint-disable-next-line typescript/no-non-null-assertion -- Absurd.
-			return hunkOperandIdentityKey(fileByHunkKey.get(k)!.hunks[0]!.operand) === k;
-		},
-		ref: selectionScopeRef,
-		getKey: hunkOperandIdentityKey,
-		operationSourceForItem: hunkOperand,
-	});
-
-	useHotkeys([
-		{
-			hotkey: diffHotkeys.foldFile.hotkey,
-			callback: () => !!diffSelectionFile && handleSetCollapsed(diffSelectionFile.item.id)(true),
-			options: {
-				enabled: !!diffSelectionFile && !collapsedItems.has(diffSelectionFile.item.id),
-				conflictBehavior: "allow",
-				target: selectionScopeRef,
-				meta: diffHotkeys.foldFile.meta,
-			},
-		},
-		{
-			hotkey: diffHotkeys.unfoldFile.hotkey,
-			callback: () => !!diffSelectionFile && handleSetCollapsed(diffSelectionFile.item.id)(false),
-			options: {
-				enabled: !!diffSelectionFile && collapsedItems.has(diffSelectionFile.item.id),
-				conflictBehavior: "allow",
-				target: selectionScopeRef,
-				meta: diffHotkeys.unfoldFile.meta,
-			},
-		},
-		{
-			hotkey: diffHotkeys.openInEditor.hotkey,
-			callback: () =>
-				diffSelectionFile &&
-				preferredEditor &&
-				openInEditor({
-					projectId,
-					editorId: preferredEditor.id,
-					path: diffSelectionFile.change.path,
-					lineNr: selectedRange?.range.start ?? null,
-				}),
-			options: {
-				enabled: !!diffSelectionFile && !!preferredEditor,
-				conflictBehavior: "allow",
-				target: selectionScopeRef,
-				meta: diffHotkeys.openInEditor.meta,
-			},
-		},
-	]);
-
-	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>): void => {
-		if (didScrollToViaFileRef.current) {
-			didScrollToViaFileRef.current = false;
-			return;
-		}
-
-		const activeItem = viewer
-			.getRenderedItems()
-			// oxlint-disable-next-line typescript/no-non-null-assertion -- It can only be undefined if the item ID is invalid.
-			.findLast((item) => viewer.getTopForItem(item.id)! <= scrollTop);
-
-		// This can happen on very fast scroll.
-		if (activeItem === undefined) return;
-
-		onViewerFileSelection(codeViewItemIdPath({ changesetKey, id: activeItem.id }));
-	};
-
-	// We currently only support selecting contiguous blocks.
-	const handleLinesSelected = (sel: CodeViewLineSelection | null): void => {
-		if (!sel) return void dispatch(projectSlice.actions.selectDiff({ projectId, selection: null }));
-
-		const file = fileByItemId.get(sel.id);
-		if (!file) throw new Error("Could not get file by item ID");
-		if (file.patch?.type !== "Patch") throw new Error("File has no patch");
-
-		const side = sel.range.endSide ?? sel.range.side;
-		if (side === undefined) return;
-
-		const selection = contiguousSelectionByLine({
-			hunks: file.item.fileDiff.hunks,
-			// The end range is more reliable in shift+click with preexisting selection scenarios.
-			line: sel.range.end,
-			side,
+		diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
+		diffBackgrounds,
+		diffOverflow,
+		diffStyle,
+		viewerRef,
+		didScrollToViaFileRef,
+	}) => {
+		const [collapsedItems, setCollapsedItems] = useState<Set<string>>(new Set());
+		const projectStore = useProjectStore(projectId);
+		const { data: editors } = useQuery(listEditorsQueryOptions);
+		const { data: preferredEditor } = useQuery({
+			...getGUISettingsQueryOptions(),
+			select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 		});
-		if (!selection) return;
+		const { data: preferredFontFamily } = useQuery({
+			...getGUISettingsQueryOptions(),
+			select: (cfg) => cfg.diffFontFamily,
+		});
+		const { data: preferredFontSize } = useQuery({
+			...getGUISettingsQueryOptions(),
+			select: (cfg) => cfg.diffFontSize,
+		});
+		const { data: preferredTabSize } = useQuery({
+			...getGUISettingsQueryOptions(),
+			select: (cfg) => cfg.diffTabSize,
+		});
+		const { mutate: openInEditor } = useOpenInEditor();
 
-		dispatch(
-			projectSlice.actions.selectDiff({
-				projectId,
-				selection: {
-					parent: {
-						parent: fileParent,
-						path: file.change.path,
-					},
-					...selection,
-					isResultOfBinaryToTextConversion: file.patch.subject.isResultOfBinaryToTextConversion,
+		const diffSelection = projectStore.selectedDiff(navigationIndex);
+		const diffSelectionFile =
+			diffSelection !== null ? fileByHunkKey.get(hunkOperandIdentityKey(diffSelection)) : null;
+		const selectedRange = diffSelection
+			? (hunkByKey.get(hunkOperandIdentityKey(diffSelection))?.selectedLines ?? null)
+			: null;
+
+		const selectDiff = (selection: HunkOperand) => {
+			projectStore.selectDiff(selection);
+
+			const selectedRange = hunkByKey.get(hunkOperandIdentityKey(selection))?.selectedLines;
+			if (!selectedRange) return;
+
+			viewerRef.current?.scrollTo({
+				type: "range",
+				id: selectedRange.id,
+				range: selectedRange.range,
+				align: "nearest",
+			});
+		};
+
+		useNavigationIndexHotkeys({
+			navigationIndex,
+			projectId,
+			group: "Diff",
+			select: selectDiff,
+			selection: diffSelection,
+			selectSectionPredicate: (hunk) => {
+				const k = hunkOperandIdentityKey(hunk);
+				// oxlint-disable-next-line typescript/no-non-null-assertion -- Absurd.
+				return hunkOperandIdentityKey(fileByHunkKey.get(k)!.hunks[0]!.operand) === k;
+			},
+			ref: selectionScopeRef,
+			getKey: hunkOperandIdentityKey,
+			operationSourceForItem: hunkOperand,
+		});
+
+		useHotkeys([
+			{
+				hotkey: diffHotkeys.foldFile.hotkey,
+				callback: () => !!diffSelectionFile && handleSetCollapsed(diffSelectionFile.item.id)(true),
+				options: {
+					enabled: !!diffSelectionFile && !collapsedItems.has(diffSelectionFile.item.id),
+					conflictBehavior: "allow",
+					target: selectionScopeRef,
+					meta: diffHotkeys.foldFile.meta,
 				},
-			}),
-		);
-	};
+			},
+			{
+				hotkey: diffHotkeys.unfoldFile.hotkey,
+				callback: () => !!diffSelectionFile && handleSetCollapsed(diffSelectionFile.item.id)(false),
+				options: {
+					enabled: !!diffSelectionFile && collapsedItems.has(diffSelectionFile.item.id),
+					conflictBehavior: "allow",
+					target: selectionScopeRef,
+					meta: diffHotkeys.unfoldFile.meta,
+				},
+			},
+			{
+				hotkey: diffHotkeys.openInEditor.hotkey,
+				callback: () =>
+					diffSelectionFile &&
+					preferredEditor &&
+					openInEditor({
+						projectId,
+						editorId: preferredEditor.id,
+						path: diffSelectionFile.change.path,
+						lineNr: selectedRange?.range.start ?? null,
+					}),
+				options: {
+					enabled: !!diffSelectionFile && !!preferredEditor,
+					conflictBehavior: "allow",
+					target: selectionScopeRef,
+					meta: diffHotkeys.openInEditor.meta,
+				},
+			},
+		]);
 
-	const handleSetCollapsed = (itemId: string) => (collapsed: boolean) => {
-		const s = new Set(collapsedItems);
-
-		if (collapsed) s.add(itemId);
-		else s.delete(itemId);
-
-		setCollapsedItems(s);
-	};
-
-	// We must change the version for updates to the collapsed property to be respected. The versions
-	// should be as stable as possible, collapsed or not, for performance.
-	const enhanceCollapsed = (item: CodeViewDiffItem): CodeViewDiffItem => ({
-		...item,
-		collapsed: true,
-		// oxlint-disable-next-line typescript/no-non-null-assertion -- We always use versions.
-		version: combineHashes(item.version!, 1),
-	});
-
-	return items.length === 0 ? (
-		<p className="text-13">No changes.</p>
-	) : (
-		<CodeView
-			ref={viewerRef}
-			renderCustomHeader={(item) => {
-				if (item.type === "file") throw new Error("Only diff items may be rendered");
-
-				const file = fileByItemId.get(item.id);
-
-				// CodeView may briefly hold onto stale snapshots of our data.
-				if (!file) return <div style={{ height: 38 }} />;
-
-				return (
-					<DiffFileHeader
-						projectId={projectId}
-						item={item}
-						operand={file.operand}
-						change={file.change}
-						hasDiff={item.fileDiff.hunks.length !== 0}
-						collapsed={item.collapsed ?? false}
-						setCollapsed={handleSetCollapsed(item.id)}
-					/>
-				);
-			}}
-			onScroll={selectFileAtViewportTop}
-			className={styles.diffContents}
-			items={
-				collapsedItems.size === 0
-					? items
-					: items.map((item) => (collapsedItems.has(item.id) ? enhanceCollapsed(item) : item))
+		const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>): void => {
+			if (didScrollToViaFileRef.current) {
+				didScrollToViaFileRef.current = false;
+				return;
 			}
-			selectedLines={selectedRange}
-			onSelectedLinesChange={handleLinesSelected}
-			options={{
-				diffStyle: diffStyle ?? diffDefaults.diffStyle,
-				disableBackground: !(diffBackgrounds ?? diffDefaults.diffBackground),
-				overflow: diffOverflow ?? diffDefaults.diffOverflow,
-				themeType: "system",
-				stickyHeaders: true,
-				enableLineSelection: true,
-				layout: {
-					paddingTop: 0,
-					// Match --panel-padding-block.
-					paddingBottom: 12,
-					gap: 10,
+
+			const activeItem = viewer
+				.getRenderedItems()
+				// oxlint-disable-next-line typescript/no-non-null-assertion -- It can only be undefined if the item ID is invalid.
+				.findLast((item) => viewer.getTopForItem(item.id)! <= scrollTop);
+
+			// This can happen on very fast scroll.
+			if (activeItem === undefined) return;
+
+			onViewerFileSelection(codeViewItemIdPath({ changesetKey, id: activeItem.id }));
+		};
+
+		// We currently only support selecting contiguous blocks.
+		const handleLinesSelected = (sel: CodeViewLineSelection | null): void => {
+			if (!sel) return projectStore.selectDiff(null);
+
+			const file = fileByItemId.get(sel.id);
+			if (!file) throw new Error("Could not get file by item ID");
+			if (file.patch?.type !== "Patch") throw new Error("File has no patch");
+
+			const side = sel.range.endSide ?? sel.range.side;
+			if (side === undefined) return;
+
+			const selection = contiguousSelectionByLine({
+				hunks: file.item.fileDiff.hunks,
+				// The end range is more reliable in shift+click with preexisting selection scenarios.
+				line: sel.range.end,
+				side,
+			});
+			if (!selection) return;
+
+			projectStore.selectDiff({
+				parent: {
+					parent: fileParent,
+					path: file.change.path,
 				},
-				// This appears to validate before our custom header has been slotted, in which case - if
-				// our metrics are correct - we should see deltas in multiples of our custom header height
-				// as defined in the metrics. We'll see an additional set of logs if there are other issues
-				// with our metrics.
-				__devOnlyValidateItemHeights: false,
-				itemMetrics: {
-					// Computed custom header height.
-					diffHeaderHeight: 38,
-					// Default spacing plus our 1px border.
-					paddingBottom: 9,
-				},
-				unsafeCSS: `
+				...selection,
+				isResultOfBinaryToTextConversion: file.patch.subject.isResultOfBinaryToTextConversion,
+			});
+		};
+
+		const handleSetCollapsed = (itemId: string) => (collapsed: boolean) => {
+			const s = new Set(collapsedItems);
+
+			if (collapsed) s.add(itemId);
+			else s.delete(itemId);
+
+			setCollapsedItems(s);
+		};
+
+		// We must change the version for updates to the collapsed property to be respected. The versions
+		// should be as stable as possible, collapsed or not, for performance.
+		const enhanceCollapsed = (item: CodeViewDiffItem): CodeViewDiffItem => ({
+			...item,
+			collapsed: true,
+			// oxlint-disable-next-line typescript/no-non-null-assertion -- We always use versions.
+			version: combineHashes(item.version!, 1),
+		});
+
+		return items.length === 0 ? (
+			<p className="text-13">No changes.</p>
+		) : (
+			<CodeView
+				ref={viewerRef}
+				renderCustomHeader={(item) => {
+					if (item.type === "file") throw new Error("Only diff items may be rendered");
+
+					const file = fileByItemId.get(item.id);
+
+					// CodeView may briefly hold onto stale snapshots of our data.
+					if (!file) return <div style={{ height: 38 }} />;
+
+					return (
+						<DiffFileHeader
+							projectId={projectId}
+							item={item}
+							operand={file.operand}
+							change={file.change}
+							hasDiff={item.fileDiff.hunks.length !== 0}
+							collapsed={item.collapsed ?? false}
+							setCollapsed={handleSetCollapsed(item.id)}
+						/>
+					);
+				}}
+				onScroll={selectFileAtViewportTop}
+				className={styles.diffContents}
+				items={
+					collapsedItems.size === 0
+						? items
+						: items.map((item) => (collapsedItems.has(item.id) ? enhanceCollapsed(item) : item))
+				}
+				selectedLines={selectedRange}
+				onSelectedLinesChange={handleLinesSelected}
+				options={{
+					diffStyle: diffStyle ?? diffDefaults.diffStyle,
+					disableBackground: !(diffBackgrounds ?? diffDefaults.diffBackground),
+					overflow: diffOverflow ?? diffDefaults.diffOverflow,
+					themeType: "system",
+					stickyHeaders: true,
+					enableLineSelection: true,
+					layout: {
+						paddingTop: 0,
+						// Match --panel-padding-block.
+						paddingBottom: 12,
+						gap: 10,
+					},
+					// This appears to validate before our custom header has been slotted, in which case - if
+					// our metrics are correct - we should see deltas in multiples of our custom header height
+					// as defined in the metrics. We'll see an additional set of logs if there are other issues
+					// with our metrics.
+					__devOnlyValidateItemHeights: false,
+					itemMetrics: {
+						// Computed custom header height.
+						diffHeaderHeight: 38,
+						// Default spacing plus our 1px border.
+						paddingBottom: 9,
+					},
+					unsafeCSS: `
           :host {
             background-color: transparent;
           }
@@ -585,15 +579,16 @@ const DiffContents: FC<{
             --mix-selection-dark: 0%;
           }
         `,
-			}}
-			style={{
-				"--diffs-font-family": preferredFontFamily ?? defaultSettings.diffFontFamily,
-				"--diffs-font-size": `${preferredFontSize ?? defaultSettings.diffFontSize}px`,
-				"--diffs-tab-size": `${preferredTabSize ?? defaultSettings.diffTabSize}`,
-			}}
-		/>
-	);
-};
+				}}
+				style={{
+					"--diffs-font-family": preferredFontFamily ?? defaultSettings.diffFontFamily,
+					"--diffs-font-size": `${preferredFontSize ?? defaultSettings.diffFontSize}px`,
+					"--diffs-tab-size": `${preferredTabSize ?? defaultSettings.diffTabSize}`,
+				}}
+			/>
+		);
+	},
+);
 
 type DiffFileHeaderProps = {
 	projectId: string;
@@ -763,12 +758,10 @@ const Title: FC<{
 
 const FilesToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
-> = (toggleProps) => {
+> = observer((toggleProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
-	const filesVisible = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
+	const projectStore = useProjectStore(projectId);
+	const filesVisible = projectStore.filesVisible;
 
 	return (
 		<Tooltip.Root>
@@ -778,7 +771,7 @@ const FilesToggle: FC<
 						{...toggleProps}
 						aria-label="Toggle files"
 						pressed={filesVisible}
-						onPressedChange={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
+						onPressedChange={() => projectStore.toggleFiles()}
 					/>
 				}
 			/>
@@ -791,7 +784,7 @@ const FilesToggle: FC<
 			</Tooltip.Portal>
 		</Tooltip.Root>
 	);
-};
+});
 
 const DiffOverflowToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
@@ -948,229 +941,224 @@ const Diff: FC<{
 	onFileSelection: (selection: string) => void;
 	outlineSelection: Operand;
 	projectId: string;
-}> = ({ changes, filesVisible, filesItems, onFileSelection, outlineSelection, projectId }) => {
-	const selectionScopeRef = useRef<HTMLDivElement>(null);
-	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
+}> = observer(
+	({ changes, filesVisible, filesItems, onFileSelection, outlineSelection, projectId }) => {
+		const selectionScopeRef = useRef<HTMLDivElement>(null);
+		const viewerRef = useRef<CodeViewHandle<undefined>>(null);
 
-	// On file selection we select the first hunk/block in that file and scroll to it, which triggers
-	// CodeView's scroll handler, which in turn updates file selection again (as per usual scrolling
-	// scenario). That latter file selection is based upon the first file visible in the viewport,
-	// which may exclude trailing files collectively shorter than the scroll container.
-	//
-	// The callback doesn't provide any way of knowing what triggered the scroll, so we use this ref
-	// to bypass that latter file selection. We could alternatively attempt to pad the scroll
-	// container, but that comes with other complexities and tradeoffs.
-	const didScrollToViaFileRef = useRef(false);
+		// On file selection we select the first hunk/block in that file and scroll to it, which triggers
+		// CodeView's scroll handler, which in turn updates file selection again (as per usual scrolling
+		// scenario). That latter file selection is based upon the first file visible in the viewport,
+		// which may exclude trailing files collectively shorter than the scroll container.
+		//
+		// The callback doesn't provide any way of knowing what triggered the scroll, so we use this ref
+		// to bypass that latter file selection. We could alternatively attempt to pad the scroll
+		// container, but that comes with other complexities and tradeoffs.
+		const didScrollToViaFileRef = useRef(false);
 
-	const dispatch = useAppDispatch();
-	const files = filesItems.map((item) => item.path);
-	const filesNavigationIndex: NavigationIndex<string> = {
-		items: files,
-		indexByKey: buildIndexByKey(files, (path) => path),
-	};
-	const filesSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionFiles(state, projectId, filesNavigationIndex),
-	);
+		const projectStore = useProjectStore(projectId);
+		const files = filesItems.map((item) => item.path);
+		const filesNavigationIndex: NavigationIndex<string> = {
+			items: files,
+			indexByKey: buildIndexByKey(files, (path) => path),
+		};
+		const filesSelection = projectStore.selectedFiles(filesNavigationIndex);
 
-	const changesetKey = Match.value(outlineSelection).pipe(
-		Match.tags({
-			Branch: ({ branchRef }) => decodeBytes(branchRef),
-			UncommittedChanges: () => "uncommittedChanges",
-			File: ({ path }) => path,
-			Commit: ({ commitId }) => commitId,
-		}),
-		Match.orElseAbsurd,
-	);
-	const fileParent = Match.value(outlineSelection).pipe(
-		Match.tags({
-			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
-			UncommittedChanges: () => uncommittedChangesFileParent,
-			File: ({ parent }) => parent,
-			Commit: ({ commitId, stackId }) => commitFileParent({ commitId, stackId }),
-		}),
-		Match.orElseAbsurd,
-	);
-
-	const treeChangeDiffs = useSuspenseQueries({
-		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-		combine: (results) => results.map((result) => result.data),
-	});
-
-	const diffView = getDiffView({
-		fileParent,
-		changes,
-		treeChangeDiffs,
-		changesetKey,
-	});
-
-	const selectFileAndNavigateDiff = (selection: string) => {
-		onFileSelection(selection);
-
-		dispatch(
-			projectSlice.actions.selectDiff({
-				projectId,
-				selection: diffView.fileByPath.get(selection)?.hunks[0]?.operand ?? null,
+		const changesetKey = Match.value(outlineSelection).pipe(
+			Match.tags({
+				Branch: ({ branchRef }) => decodeBytes(branchRef),
+				UncommittedChanges: () => "uncommittedChanges",
+				File: ({ path }) => path,
+				Commit: ({ commitId }) => commitId,
 			}),
+			Match.orElseAbsurd,
+		);
+		const fileParent = Match.value(outlineSelection).pipe(
+			Match.tags({
+				Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
+				UncommittedChanges: () => uncommittedChangesFileParent,
+				File: ({ parent }) => parent,
+				Commit: ({ commitId, stackId }) => commitFileParent({ commitId, stackId }),
+			}),
+			Match.orElseAbsurd,
 		);
 
-		didScrollToViaFileRef.current = true;
-		viewerRef.current?.scrollTo({
-			type: "item",
-			id: codeViewItemId({ changesetKey, path: selection }),
+		const treeChangeDiffs = useSuspenseQueries({
+			queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
+			combine: (results) => results.map((result) => result.data),
 		});
-	};
 
-	const { data: diffSettings } = useQuery({
-		...getGUISettingsQueryOptions(),
-		select: (cfg) => ({
-			diffBackground: cfg.diffBackground,
-			diffOverflow: cfg.diffOverflow,
-			diffStyle: cfg.diffStyle,
-		}),
-	});
+		const diffView = getDiffView({
+			fileParent,
+			changes,
+			treeChangeDiffs,
+			changesetKey,
+		});
 
-	const { mutate: saveGUISettings } = useSaveGUISettings();
+		const selectFileAndNavigateDiff = (selection: string) => {
+			onFileSelection(selection);
 
-	const diffContentsEl = useRef<HTMLElement | null>(null);
-	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
+			projectStore.selectDiff(diffView.fileByPath.get(selection)?.hunks[0]?.operand ?? null);
 
-	useHotkeys([
-		{
-			hotkey: diffHotkeys.toggleDiffStyle.hotkey,
-			callback: () =>
-				saveGUISettings({
-					diffStyle:
-						(diffSettings?.diffStyle ?? diffDefaults.diffStyle) === "split" ? "unified" : "split",
-				}),
-			options: {
-				conflictBehavior: "allow",
-				enabled: canUseSplitDiff,
-				meta: diffHotkeys.toggleDiffStyle.meta,
+			didScrollToViaFileRef.current = true;
+			viewerRef.current?.scrollTo({
+				type: "item",
+				id: codeViewItemId({ changesetKey, path: selection }),
+			});
+		};
+
+		const { data: diffSettings } = useQuery({
+			...getGUISettingsQueryOptions(),
+			select: (cfg) => ({
+				diffBackground: cfg.diffBackground,
+				diffOverflow: cfg.diffOverflow,
+				diffStyle: cfg.diffStyle,
+			}),
+		});
+
+		const { mutate: saveGUISettings } = useSaveGUISettings();
+
+		const diffContentsEl = useRef<HTMLElement | null>(null);
+		const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
+
+		useHotkeys([
+			{
+				hotkey: diffHotkeys.toggleDiffStyle.hotkey,
+				callback: () =>
+					saveGUISettings({
+						diffStyle:
+							(diffSettings?.diffStyle ?? diffDefaults.diffStyle) === "split" ? "unified" : "split",
+					}),
+				options: {
+					conflictBehavior: "allow",
+					enabled: canUseSplitDiff,
+					meta: diffHotkeys.toggleDiffStyle.meta,
+				},
 			},
-		},
-	]);
+		]);
 
-	useLayoutEffect(() => {
-		const el = diffContentsEl.current;
-		if (!el) return;
+		useLayoutEffect(() => {
+			const el = diffContentsEl.current;
+			if (!el) return;
 
-		const measureCanUseSplitDiff = () => el.getBoundingClientRect().width >= 700;
+			const measureCanUseSplitDiff = () => el.getBoundingClientRect().width >= 700;
 
-		setCanUseSplitDiff(measureCanUseSplitDiff());
-
-		const resizeObserver = new ResizeObserver(() => {
 			setCanUseSplitDiff(measureCanUseSplitDiff());
+
+			const resizeObserver = new ResizeObserver(() => {
+				setCanUseSplitDiff(measureCanUseSplitDiff());
+			});
+			resizeObserver.observe(el);
+
+			return () => resizeObserver.disconnect();
+		}, [diffContentsEl]);
+
+		const layoutId = `project=${projectId}:details`;
+		const panelIds: Array<PanelId> = filesVisible ? ["files-panel", "diff-panel"] : ["diff-panel"];
+		const diffLayout = useDefaultLayout({
+			id: layoutId,
+			panelIds,
 		});
-		resizeObserver.observe(el);
 
-		return () => resizeObserver.disconnect();
-	}, [diffContentsEl]);
+		return (
+			<div className={styles.diffTab}>
+				<div className={styles.actions}>
+					<FilesToggle className={getButtonClassName({})}>Toggle files</FilesToggle>
 
-	const layoutId = `project=${projectId}:details`;
-	const panelIds: Array<PanelId> = filesVisible ? ["files-panel", "diff-panel"] : ["diff-panel"];
-	const diffLayout = useDefaultLayout({
-		id: layoutId,
-		panelIds,
-	});
-
-	return (
-		<div className={styles.diffTab}>
-			<div className={styles.actions}>
-				<FilesToggle className={getButtonClassName({})}>Toggle files</FilesToggle>
-
-				<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
-					<ToggleGroupStyles>
-						<Toolbar.Button
-							render={
-								<DiffOverflowToggle render={<ToggleStyles iconOnly />}>
-									<Icon name="text-wrap" />
-								</DiffOverflowToggle>
-							}
-						/>
-						<Toolbar.Button
-							render={
-								<DiffBackgroundsToggle render={<ToggleStyles iconOnly />}>
-									<Icon name="text-block" />
-								</DiffBackgroundsToggle>
-							}
-						/>
-					</ToggleGroupStyles>
-					{canUseSplitDiff && (
-						<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
+					<Toolbar.Root aria-label="Diff controls" className={styles.diffControls}>
+						<ToggleGroupStyles>
 							<Toolbar.Button
-								render={<Toggle render={<ToggleStyles />} />}
-								value={"split" satisfies GUISettings["diffStyle"]}
-							>
-								Split
-							</Toolbar.Button>
-							<Toolbar.Button
-								render={<Toggle render={<ToggleStyles />} />}
-								value={"unified" satisfies GUISettings["diffStyle"]}
-							>
-								Unified
-							</Toolbar.Button>
-						</DiffStyleToggleGroup>
-					)}
-				</Toolbar.Root>
-			</div>
-
-			<Group
-				id={layoutId}
-				className={styles.panels}
-				defaultLayout={diffLayout.defaultLayout}
-				onLayoutChanged={diffLayout.onLayoutChanged}
-			>
-				{filesVisible && (
-					<>
-						<Panel
-							id={"files-panel" satisfies PanelId}
-							className={styles.panel}
-							defaultSize={250}
-							minSize={180}
-							groupResizeBehavior="preserve-pixel-size"
-						>
-							<FilesTree
-								data-selection-scope={"files" satisfies SelectionScope}
-								className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
-								onFileSelection={selectFileAndNavigateDiff}
-								projectId={projectId}
-								items={filesItems}
-								selection={filesSelection}
-								navigationIndex={filesNavigationIndex}
-								fileParent={fileParent}
+								render={
+									<DiffOverflowToggle render={<ToggleStyles iconOnly />}>
+										<Icon name="text-wrap" />
+									</DiffOverflowToggle>
+								}
 							/>
-						</Panel>
-						<Separator className={styles.resizeHandle} />
-					</>
-				)}
+							<Toolbar.Button
+								render={
+									<DiffBackgroundsToggle render={<ToggleStyles iconOnly />}>
+										<Icon name="text-block" />
+									</DiffBackgroundsToggle>
+								}
+							/>
+						</ToggleGroupStyles>
+						{canUseSplitDiff && (
+							<DiffStyleToggleGroup render={<ToggleGroupStyles />}>
+								<Toolbar.Button
+									render={<Toggle render={<ToggleStyles />} />}
+									value={"split" satisfies GUISettings["diffStyle"]}
+								>
+									Split
+								</Toolbar.Button>
+								<Toolbar.Button
+									render={<Toggle render={<ToggleStyles />} />}
+									value={"unified" satisfies GUISettings["diffStyle"]}
+								>
+									Unified
+								</Toolbar.Button>
+							</DiffStyleToggleGroup>
+						)}
+					</Toolbar.Root>
+				</div>
 
-				<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
-					<div
-						data-selection-scope={"diff" satisfies SelectionScope}
-						// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
-						tabIndex={0}
-						className={styles.diffContentsContainer}
-						ref={useMergedRefs(selectionScopeRef, diffContentsEl)}
-					>
-						<DiffContents
-							onViewerFileSelection={onFileSelection}
-							fileParent={fileParent}
-							changesetKey={changesetKey}
-							projectId={projectId}
-							diffView={diffView}
-							diffBackgrounds={diffSettings?.diffBackground}
-							diffOverflow={diffSettings?.diffOverflow}
-							diffStyle={canUseSplitDiff ? diffSettings?.diffStyle : "unified"}
-							selectionScopeRef={selectionScopeRef}
-							viewerRef={viewerRef}
-							didScrollToViaFileRef={didScrollToViaFileRef}
-						/>
-					</div>
-				</Panel>
-			</Group>
-		</div>
-	);
-};
+				<Group
+					id={layoutId}
+					className={styles.panels}
+					defaultLayout={diffLayout.defaultLayout}
+					onLayoutChanged={diffLayout.onLayoutChanged}
+				>
+					{filesVisible && (
+						<>
+							<Panel
+								id={"files-panel" satisfies PanelId}
+								className={styles.panel}
+								defaultSize={250}
+								minSize={180}
+								groupResizeBehavior="preserve-pixel-size"
+							>
+								<FilesTree
+									data-selection-scope={"files" satisfies SelectionScope}
+									className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
+									onFileSelection={selectFileAndNavigateDiff}
+									projectId={projectId}
+									items={filesItems}
+									selection={filesSelection}
+									navigationIndex={filesNavigationIndex}
+									fileParent={fileParent}
+								/>
+							</Panel>
+							<Separator className={styles.resizeHandle} />
+						</>
+					)}
+
+					<Panel id={"diff-panel" satisfies PanelId} minSize={300} className={styles.panel}>
+						<div
+							data-selection-scope={"diff" satisfies SelectionScope}
+							// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
+							tabIndex={0}
+							className={styles.diffContentsContainer}
+							ref={useMergedRefs(selectionScopeRef, diffContentsEl)}
+						>
+							<DiffContents
+								onViewerFileSelection={onFileSelection}
+								fileParent={fileParent}
+								changesetKey={changesetKey}
+								projectId={projectId}
+								diffView={diffView}
+								diffBackgrounds={diffSettings?.diffBackground}
+								diffOverflow={diffSettings?.diffOverflow}
+								diffStyle={canUseSplitDiff ? diffSettings?.diffStyle : "unified"}
+								selectionScopeRef={selectionScopeRef}
+								viewerRef={viewerRef}
+								didScrollToViaFileRef={didScrollToViaFileRef}
+							/>
+						</div>
+					</Panel>
+				</Group>
+			</div>
+		);
+	},
+);
 
 const PullRequestForm: FC<{
 	projectId: string;
@@ -1489,23 +1477,19 @@ export const Details: FC<
 	{
 		outlineSelection: Operand | null;
 	} & ComponentProps<"div">
-> = ({ outlineSelection, ...restProps }) => {
+> = observer(({ outlineSelection, ...restProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : null;
-	const dispatch = useAppDispatch();
-	const detailsFullWindow = useAppSelector((state) =>
-		projectSlice.selectors.selectDetailsFullWindow(state, projectId),
-	);
-	const filesVisible = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
+	const projectStore = useProjectStore(projectId);
+	const detailsFullWindow = projectStore.detailsFullWindow;
+	const filesVisible = projectStore.filesVisible;
 	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
 	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
 	const commitBodyId = useId();
 
 	const selectFile = (selection: string) => {
-		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
+		projectStore.selectFiles(selection);
 	};
 
 	if (!outlineSelection) return;
@@ -1753,4 +1737,4 @@ export const Details: FC<
 			</Suspense>
 		</div>
 	);
-};
+});

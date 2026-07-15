@@ -1,15 +1,16 @@
-import { configureStore } from "@reduxjs/toolkit";
-import { useDispatch, useSelector } from "react-redux";
-import { projectSlice } from "#ui/projects/state.ts";
+import { ProjectsStore } from "#ui/projects/ProjectsStore.ts";
+import { configure } from "mobx";
+import { createContext, useContext } from "react";
 
-export const store = configureStore({
-	reducer: {
-		project: projectSlice.reducer,
-	},
-});
+configure({ enforceActions: "always" });
 
-type RootState = ReturnType<typeof store.getState>;
-export type AppDispatch = typeof store.dispatch;
+export const projectsStore = new ProjectsStore();
+export const StoreContext = createContext<ProjectsStore | null>(null);
 
-export const useAppDispatch = useDispatch.withTypes<AppDispatch>();
-export const useAppSelector = useSelector.withTypes<RootState>();
+export const useProjectsStore = () => {
+	const store = useContext(StoreContext);
+	if (!store) throw new Error("Store hooks must be used within StoreContext");
+	return store;
+};
+
+export const useProjectStore = (projectId: string) => useProjectsStore().getProject(projectId);

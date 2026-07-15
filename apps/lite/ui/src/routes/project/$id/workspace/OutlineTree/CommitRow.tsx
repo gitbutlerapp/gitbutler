@@ -31,9 +31,8 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import { branchOperand, commitOperand, operandEquals, type CommitOperand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { RelativeTo, type Commit } from "@gitbutler/but-sdk";
 import { Toast, Tooltip } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
@@ -48,6 +47,7 @@ import { insertBlankCommitMenuItem } from "./insertBlankCommitMenuItem.ts";
 import { ItemRow } from "./ItemRow.tsx";
 import { selectAfterDiscardedCommit } from "./selectAfterDiscardedCommit.ts";
 import styles from "./CommitRow.module.css";
+import { observer } from "mobx-react-lite";
 
 const focusCommitMessageInput = () => {
 	document.getElementById(commitMessageInputId)?.focus();
@@ -61,34 +61,27 @@ export const CommitRow: FC<
 		isCommitTarget: boolean;
 		dryRunCommit: Commit | null;
 	} & ComponentProps<"div">
-> = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
+> = observer(({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
 
-	const isHighlighted = useAppSelector((state) =>
-		projectSlice.selectors.selectHighlightedCommitIds(state, projectId).includes(commit.id),
-	);
-	const isChecked = useAppSelector((state) =>
-		projectSlice.selectors.selectCommitChecked(state, projectId, commit.id),
-	);
-
-	const dispatch = useAppDispatch();
+	const projectStore = useProjectStore(projectId);
+	const isHighlighted = projectStore.highlightedCommitIds.includes(commit.id);
+	const isChecked = projectStore.isCommitChecked(commit.id);
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const commitOperandV: CommitOperand = {
 		stackId,
 		commitId: commit.id,
 	};
 	const operand = commitOperand(commitOperandV);
-	const isDefaultMode = useAppSelector(
-		(state) => projectSlice.selectors.selectOutlineModeState(state, projectId)._tag === "Default",
-	);
-	const isRewording = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
+	const isDefaultMode = projectStore.outlineMode._tag === "Default";
+	const isRewording = (() => {
+		const outlineMode = projectStore.outlineMode;
 		return (
 			outlineMode._tag === "RewordCommit" &&
 			operandEquals(operand, commitOperand(outlineMode.operand))
 		);
-	});
+	})();
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -137,13 +130,10 @@ export const CommitRow: FC<
 					).branchContextByRefBytes(response.newRef.fullNameBytes)?.stack;
 
 					if (newBranchStack && newBranchStack.id !== null) {
-						dispatch(
-							projectSlice.actions.selectOutline({
-								projectId,
-								selection: branchOperand({
-									stackId: newBranchStack.id,
-									branchRef: response.newRef.fullNameBytes,
-								}),
+						projectStore.selectOutline(
+							branchOperand({
+								stackId: newBranchStack.id,
+								branchRef: response.newRef.fullNameBytes,
 							}),
 						);
 					}
@@ -166,14 +156,11 @@ export const CommitRow: FC<
 			},
 			{
 				onSuccess: (response) => {
-					dispatch(
-						projectSlice.actions.selectOutline({
-							projectId,
-							selection: rewrittenCommitSelection({
-								selection: selectionAfterDiscard,
-								replacedCommits: response.workspace.replacedCommits,
-								headInfo: response.workspace.headInfo,
-							}),
+					projectStore.selectOutline(
+						rewrittenCommitSelection({
+							selection: selectionAfterDiscard,
+							replacedCommits: response.workspace.replacedCommits,
+							headInfo: response.workspace.headInfo,
 						}),
 					);
 				},
@@ -182,22 +169,17 @@ export const CommitRow: FC<
 	};
 
 	const cutCommit = () => {
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				source: operand,
-			}),
-		);
+		projectStore.enterKeyboardTransferMode(operand);
 		focusSelectionScope("outline");
 	};
 
 	const startEditing = () => {
-		dispatch(projectSlice.actions.startRewordCommit({ projectId, commit: commitOperandV }));
+		projectStore.startRewordCommit(commitOperandV);
 	};
 
 	const endEditing = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
-		dispatch(projectSlice.actions.selectOutline({ projectId, selection: operand }));
+		projectStore.exitMode();
+		projectStore.selectOutline(operand);
 		focusSelectionScope("outline");
 	};
 
@@ -237,7 +219,7 @@ export const CommitRow: FC<
 	};
 
 	const setCommitTarget = () => {
-		dispatch(projectSlice.actions.setCommitTarget({ projectId, commitTarget: relativeTo }));
+		projectStore.setCommitTarget(relativeTo);
 	};
 
 	const composeCommitHere = () => {
@@ -379,11 +361,7 @@ export const CommitRow: FC<
 						className={styles.checkbox}
 						nativeButton
 						render={<Tooltip.Trigger />}
-						onCheckedChange={(checked) => {
-							dispatch(
-								projectSlice.actions.setCommitChecked({ projectId, commitId: commit.id, checked }),
-							);
-						}}
+						onCheckedChange={(checked) => projectStore.setCommitChecked(commit.id, checked)}
 					/>
 					<Tooltip.Portal>
 						<Tooltip.Positioner sideOffset={4}>
@@ -436,4 +414,4 @@ export const CommitRow: FC<
 			)}
 		</ItemRow>
 	);
-};
+});

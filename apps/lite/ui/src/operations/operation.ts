@@ -18,7 +18,7 @@ import { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { Operand, operandEquals, operandFileParent } from "#ui/operands.ts";
 import { resolveDiffSpecs, useResolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { useParams } from "@tanstack/react-router";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { syncCoreCaches } from "#ui/api/mutations.ts";
@@ -251,7 +251,7 @@ export const useDryRunOperation = ({
 
 export const useRunOperation = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
+	const projectStore = useProjectStore(projectId);
 	const queryClient = useQueryClient();
 	const toastManager = Toast.useToastManager();
 
@@ -265,7 +265,7 @@ export const useRunOperation = () => {
 			}),
 		onSuccess: async (response, _input, _ctx, { client }) => {
 			if (response) {
-				syncCoreCaches(client, dispatch, projectId, response);
+				syncCoreCaches(client, projectStore, projectId, response);
 
 				if ("rejectedChanges" in response && response.rejectedChanges.length > 0) {
 					toastManager.add(

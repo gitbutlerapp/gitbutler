@@ -11,11 +11,10 @@ import {
 	getFocusedSelectionScope,
 	SelectionScope,
 } from "#ui/selection-scopes.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { ProjectForFrontend, RefInfo, Segment } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
@@ -52,27 +51,20 @@ import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 import { WorkspacePageErrorBoundary } from "./WorkspacePageErrorBoundary.tsx";
 import { Settings } from "./Settings.tsx";
+import { observer } from "mobx-react-lite";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
 type PanelId = "outline-panel" | "details-panel";
 
 const useWorkspaceHotkeys = (projectId: string) => {
-	const dispatch = useAppDispatch();
-	const detailsFullWindow = useAppSelector((state) =>
-		projectSlice.selectors.selectDetailsFullWindow(state, projectId),
-	);
-	const dialog = useAppSelector((state) =>
-		projectSlice.selectors.selectDialogState(state, projectId),
-	);
-	const filesVisible = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
+	const projectStore = useProjectStore(projectId);
+	const detailsFullWindow = projectStore.detailsFullWindow;
+	const dialog = projectStore.dialog;
+	const filesVisible = projectStore.filesVisible;
 	const activeElement = useActiveElement();
 	const focusedSelectionScope = getFocusedSelectionScope(activeElement);
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+	const outlineMode = projectStore.outlineMode;
 	const outlineVisible = !detailsFullWindow;
 
 	const { isPending: isRestoreSnapshotPending, mutate: restoreSnapshot } = useRestoreSnapshot({
@@ -101,13 +93,8 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: globalHotkeys.commandPalette.hotkey,
 			callback: () => {
-				if (dialog._tag === "CommandPalette") {
-					dispatch(projectSlice.actions.closeDialog({ projectId }));
-				} else {
-					dispatch(
-						projectSlice.actions.openDialog({ projectId, dialog: { _tag: "CommandPalette" } }),
-					);
-				}
+				if (dialog._tag === "CommandPalette") projectStore.closeDialog();
+				else projectStore.openDialog({ _tag: "CommandPalette" });
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -119,7 +106,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 				if (focusedSelectionScope === "files" && filesVisible)
 					focusSelectionScope(outlineVisible ? "outline" : "diff");
 
-				dispatch(projectSlice.actions.toggleFiles({ projectId }));
+				projectStore.toggleFiles();
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -190,9 +177,7 @@ const useOutlineNavigationIndex = ({
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+	const outlineMode = useProjectStore(projectId).outlineMode;
 
 	const items = outlineNavigationItems({
 		headInfo,
@@ -266,69 +251,47 @@ const ProjectPicker: FC<ProjectPickerProps> = (p) => {
 	);
 };
 
-const WorkspacePage: FC = () => {
-	const dispatch = useAppDispatch();
-
+const WorkspacePage: FC = observer(() => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-
-	const detailsFullWindow = useAppSelector((state) =>
-		projectSlice.selectors.selectDetailsFullWindow(state, projectId),
-	);
-	const dialog = useAppSelector((state) =>
-		projectSlice.selectors.selectDialogState(state, projectId),
-	);
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+	const projectStore = useProjectStore(projectId);
+	const detailsFullWindow = projectStore.detailsFullWindow;
+	const dialog = projectStore.dialog;
+	const outlineMode = projectStore.outlineMode;
 
 	useWorkspaceHotkeys(projectId);
 
 	const selectBranch = (branch: BranchOperand) => {
-		dispatch(
-			projectSlice.actions.selectOutline({
-				projectId,
-				selection: branchOperand(branch),
-			}),
-		);
+		projectStore.selectOutline(branchOperand(branch));
 		focusSelectionScope("outline");
 	};
 
 	const setBranchPickerOpen = (open: boolean) => {
-		if (open)
-			dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "BranchPicker" } }));
-		else dispatch(projectSlice.actions.closeDialog({ projectId }));
+		if (open) projectStore.openDialog({ _tag: "BranchPicker" });
+		else projectStore.closeDialog();
 	};
 
 	const setApplyBranchPickerOpen = (open: boolean) => {
-		if (open) {
-			dispatch(
-				projectSlice.actions.openDialog({ projectId, dialog: { _tag: "ApplyBranchPicker" } }),
-			);
-		} else {
-			dispatch(projectSlice.actions.closeDialog({ projectId }));
-		}
+		if (open) projectStore.openDialog({ _tag: "ApplyBranchPicker" });
+		else projectStore.closeDialog();
 	};
 
 	const setCommandPaletteOpen = (open: boolean) => {
-		if (open)
-			dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "CommandPalette" } }));
-		else dispatch(projectSlice.actions.closeDialog({ projectId }));
+		if (open) projectStore.openDialog({ _tag: "CommandPalette" });
+		else projectStore.closeDialog();
 	};
 
 	const setProjectPickerOpen = (open: boolean) => {
-		if (open)
-			dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "ProjectPicker" } }));
-		else dispatch(projectSlice.actions.closeDialog({ projectId }));
+		if (open) projectStore.openDialog({ _tag: "ProjectPicker" });
+		else projectStore.closeDialog();
 	};
 
 	const setSettingsOpen = (open: boolean) => {
-		if (open)
-			dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "Settings" } }));
-		else dispatch(projectSlice.actions.closeDialog({ projectId }));
+		if (open) projectStore.openDialog({ _tag: "Settings" });
+		else projectStore.closeDialog();
 	};
 
 	const openProjectPicker = () => {
-		dispatch(projectSlice.actions.openDialog({ projectId, dialog: { _tag: "ProjectPicker" } }));
+		projectStore.openDialog({ _tag: "ProjectPicker" });
 	};
 
 	const toggleDetailsFullWindow = () => {
@@ -338,7 +301,7 @@ const WorkspacePage: FC = () => {
 		)
 			requestAnimationFrame(() => focusSelectionScope("diff"));
 
-		dispatch(projectSlice.actions.toggleDetailsFullWindow({ projectId }));
+		projectStore.toggleDetailsFullWindow();
 	};
 
 	useHotkeys([
@@ -382,9 +345,7 @@ const WorkspacePage: FC = () => {
 		absorptionTargetCommitIds,
 	});
 
-	const outlineSelection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionOutline(state, projectId, outlineNavigationIndex),
-	);
+	const outlineSelection = projectStore.selectedOutline(outlineNavigationIndex);
 
 	const deferredOutlineSelection = useDeferredValue(outlineSelection);
 
@@ -469,7 +430,7 @@ const WorkspacePage: FC = () => {
 			)}
 		</>
 	);
-};
+});
 
 export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });

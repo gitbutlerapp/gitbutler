@@ -14,10 +14,9 @@ import {
 	type OperationType,
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { operandLabel } from "#ui/routes/project/$id/workspace/operandLabel.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { Button, Tooltip } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
@@ -29,6 +28,7 @@ import { FC, type ReactNode } from "react";
 import styles from "./OperationControls.module.css";
 import { AbsorbMode, KeyboardTransferMode } from "#ui/outline/mode.ts";
 import { NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { observer } from "mobx-react-lite";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes("text-14", styles.container)}>{children}</div>
@@ -134,10 +134,10 @@ const CheckedCommitOperationControls: FC<{ checkedCommitCount: number; projectId
 	checkedCommitCount,
 	projectId,
 }) => {
-	const dispatch = useAppDispatch();
+	const projectStore = useProjectStore(projectId);
 
 	const cancel = () => {
-		dispatch(projectSlice.actions.clearCheckedCommits({ projectId }));
+		projectStore.clearCheckedCommits();
 		focusSelectionScope("outline");
 	};
 
@@ -160,7 +160,7 @@ const AbsorbOperationControls: FC<{
 	projectId: string;
 	mode: AbsorbMode;
 }> = ({ headInfoIndex, projectId, mode }) => {
-	const dispatch = useAppDispatch();
+	const projectStore = useProjectStore(projectId);
 	const {
 		data: absorptionPlan,
 		isError: isAbsorptionPlanError,
@@ -170,14 +170,14 @@ const AbsorbOperationControls: FC<{
 	const { mutate: absorb } = useAbsorb({ projectId });
 
 	const run = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
+		projectStore.exitMode();
 		focusSelectionScope("outline");
 
 		absorb(absorptionPlan);
 	};
 
 	const cancel = () => {
-		dispatch(projectSlice.actions.cancelMode({ projectId }));
+		projectStore.cancelMode();
 		focusSelectionScope("outline");
 	};
 
@@ -205,10 +205,10 @@ const TransferTypeToggleGroup: FC<{
 	operations: OperationsByType;
 	operationType: OperationType;
 }> = ({ projectId, operations, operationType }) => {
-	const dispatch = useAppDispatch();
+	const projectStore = useProjectStore(projectId);
 
 	const setOperationType = (operationType: OperationType) =>
-		dispatch(projectSlice.actions.updateTransferOperationType({ projectId, operationType }));
+		projectStore.updateTransferOperationType(operationType);
 
 	useHotkeys([
 		{
@@ -288,12 +288,9 @@ const TransferKeyboardOperationControls: FC<{
 	projectId: string;
 	mode: KeyboardTransferMode;
 	outlineNavigationIndex: NavigationIndex<Operand>;
-}> = ({ headInfoIndex, projectId, mode, outlineNavigationIndex }) => {
-	const selection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionOutline(state, projectId, outlineNavigationIndex),
-	);
-
-	const dispatch = useAppDispatch();
+}> = observer(({ headInfoIndex, projectId, mode, outlineNavigationIndex }) => {
+	const projectStore = useProjectStore(projectId);
+	const selection = projectStore.selectedOutline(outlineNavigationIndex);
 	const { mutate: runOperation } = useRunOperation();
 
 	if (!selection) return null;
@@ -304,7 +301,7 @@ const TransferKeyboardOperationControls: FC<{
 	const operation = operations[mode.operationType];
 
 	const run = () => {
-		dispatch(projectSlice.actions.exitMode({ projectId }));
+		projectStore.exitMode();
 		focusSelectionScope("outline");
 
 		if (!operation) return;
@@ -313,7 +310,7 @@ const TransferKeyboardOperationControls: FC<{
 	};
 
 	const cancel = () => {
-		dispatch(projectSlice.actions.cancelMode({ projectId }));
+		projectStore.cancelMode();
 		focusSelectionScope("outline");
 	};
 
@@ -345,57 +342,54 @@ const TransferKeyboardOperationControls: FC<{
 			</ControlsRow>
 		</Container>
 	);
-};
+});
 
-export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Operand> }> = ({
-	outlineNavigationIndex,
-}) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
-	const { data: headInfoIndex } = useQuery({
-		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
-	});
-	const checkedCommitCount = useAppSelector((state) =>
-		projectSlice.selectors.selectCheckedCommitCount(state, projectId),
-	);
+export const OperationControls: FC<{ outlineNavigationIndex: NavigationIndex<Operand> }> = observer(
+	({ outlineNavigationIndex }) => {
+		const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+		const projectStore = useProjectStore(projectId);
+		const outlineMode = projectStore.outlineMode;
+		const { data: headInfoIndex } = useQuery({
+			...headInfoQueryOptions(projectId),
+			select: getHeadInfoIndex,
+		});
+		const checkedCommitCount = projectStore.checkedCommitCount;
 
-	return Match.value(outlineMode).pipe(
-		Match.tagsExhaustive({
-			Default: () =>
-				checkedCommitCount > 0 && (
-					<CheckedCommitOperationControls
-						checkedCommitCount={checkedCommitCount}
-						projectId={projectId}
-					/>
-				),
-			Absorb: (mode) =>
-				headInfoIndex && (
-					<AbsorbOperationControls
-						headInfoIndex={headInfoIndex}
-						projectId={projectId}
-						mode={mode}
-					/>
-				),
-			Transfer: ({ value: mode }) =>
-				Match.value(mode).pipe(
-					Match.tags({
-						Keyboard: (mode) =>
-							headInfoIndex && (
-								<TransferKeyboardOperationControls
-									headInfoIndex={headInfoIndex}
-									projectId={projectId}
-									mode={mode}
-									outlineNavigationIndex={outlineNavigationIndex}
-								/>
-							),
-					}),
-					Match.orElse(() => null),
-				),
-			RenameBranch: () => null,
-			RewordCommit: () => null,
-		}),
-	);
-};
+		return Match.value(outlineMode).pipe(
+			Match.tagsExhaustive({
+				Default: () =>
+					checkedCommitCount > 0 && (
+						<CheckedCommitOperationControls
+							checkedCommitCount={checkedCommitCount}
+							projectId={projectId}
+						/>
+					),
+				Absorb: (mode) =>
+					headInfoIndex && (
+						<AbsorbOperationControls
+							headInfoIndex={headInfoIndex}
+							projectId={projectId}
+							mode={mode}
+						/>
+					),
+				Transfer: ({ value: mode }) =>
+					Match.value(mode).pipe(
+						Match.tags({
+							Keyboard: (mode) =>
+								headInfoIndex && (
+									<TransferKeyboardOperationControls
+										headInfoIndex={headInfoIndex}
+										projectId={projectId}
+										mode={mode}
+										outlineNavigationIndex={outlineNavigationIndex}
+									/>
+								),
+						}),
+						Match.orElse(() => null),
+					),
+				RenameBranch: () => null,
+				RewordCommit: () => null,
+			}),
+		);
+	},
+);

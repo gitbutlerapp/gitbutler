@@ -4,8 +4,7 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RegisteredRouter, RouterProvider } from "@tanstack/react-router";
 import { type FC, StrictMode, useEffect } from "react";
-import { Provider } from "react-redux";
-import { store } from "#ui/store.ts";
+import { projectsStore, StoreContext } from "#ui/store.ts";
 import { Toasts } from "#ui/components/Toasts.tsx";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
 import { getGUISettingsQueryOptions } from "./api/queries.ts";
@@ -42,7 +41,7 @@ export const App: FC<{
 	router: RegisteredRouter;
 }> = ({ queryClient, toastManager, router }) => (
 	<StrictMode>
-		<Provider store={store}>
+		<StoreContext value={projectsStore}>
 			<QueryClientProvider client={queryClient}>
 				<Toast.Provider toastManager={toastManager}>
 					<Tooltip.Provider>
@@ -59,6 +58,6 @@ export const App: FC<{
 				</Toast.Provider>
 				<ReactQueryDevtools />
 			</QueryClientProvider>
-		</Provider>
+		</StoreContext>
 	</StrictMode>
 );

@@ -1,8 +1,7 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { type Operand } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 
@@ -80,7 +79,7 @@ export const useNavigationIndexHotkeys = <T>({
 	operationSourceForItem: (item: T) => Operand;
 	getKey: (item: T) => string;
 }) => {
-	const dispatch = useAppDispatch();
+	const projectStore = useProjectStore(projectId);
 
 	const moveSelection = (offset: -1 | 1) => {
 		const newItem =
@@ -264,13 +263,7 @@ export const useNavigationIndexHotkeys = <T>({
 
 		const source = operationSourceForItem(selection);
 
-		dispatch(
-			projectSlice.actions.enterKeyboardTransferMode({
-				projectId,
-				source,
-				operationType,
-			}),
-		);
+		projectStore.enterKeyboardTransferMode(source, operationType);
 		focusSelectionScope("outline");
 	};
 

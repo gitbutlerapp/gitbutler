@@ -5,11 +5,17 @@ import {
 	CommitOperand,
 	commitOperand,
 	operandEquals,
+	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
 import { OperationType } from "#ui/operations/operation.ts";
-import type { SelectionState } from "#ui/projects/project.ts";
 import { AbsorptionTarget } from "@gitbutler/but-sdk";
+
+export type SelectionState = {
+	outline: Operand | null;
+	files: string | null;
+	diff: HunkOperand | null;
+};
 
 /** @public */
 export type AbsorbMode = {

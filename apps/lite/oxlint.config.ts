@@ -16,6 +16,7 @@ const renameRulePrefixes = (
 	);
 
 export default defineConfig({
+	ignorePatterns: ["scripts/**"],
 	jsPlugins: [
 		// The builtin plugin isn't 1:1 at time of writing.
 		{ name: "react-hooks-js", specifier: "eslint-plugin-react-hooks" },
@@ -45,7 +46,7 @@ export default defineConfig({
 		"react/jsx-no-useless-fragment": "warn",
 		"react/no-array-index-key": "warn",
 		"react/no-danger": "error",
-		"react/only-export-components": "warn",
+		"react/only-export-components": ["warn", { customHOCs: ["observer"] }],
 		"react/self-closing-comp": "warn",
 		"typescript/array-type": ["warn", { default: "generic" }],
 		"typescript/await-thenable": "error",

@@ -5,8 +5,7 @@ import { operandLabel } from "./operandLabel.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { classes } from "#ui/components/classes.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/center-under-pointer";
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
@@ -16,6 +15,7 @@ import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import type { DragData } from "./DragData.ts";
 import { Match } from "effect";
+import { observer } from "mobx-react-lite";
 
 const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes(styles.dragPreview, "text-13")}>{children}</div>
@@ -29,16 +29,13 @@ export const OperationSourceC: FC<
 		source: Operand;
 		outline: OperationSourceOutline;
 	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
-> = ({ projectId, source, outline, render, ...props }) => {
+> = observer(({ projectId, source, outline, render, ...props }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
 		select: getHeadInfoIndex,
 	});
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
-
-	const dispatch = useAppDispatch();
+	const projectStore = useProjectStore(projectId);
+	const outlineMode = projectStore.outlineMode;
 	const dragRef = useRef<HTMLElement>(null);
 	const onGenerateDragPreview: Parameters<typeof draggable>[0]["onGenerateDragPreview"] =
 		useEffectEvent(({ nativeSetDragImage }) => {
@@ -61,14 +58,11 @@ export const OperationSourceC: FC<
 		() => outlineMode._tag !== "RenameBranch" && outlineMode._tag !== "RewordCommit",
 	);
 	const onDragStart = useEffectEvent(() => {
-		dispatch(
-			projectSlice.actions.enterTransferMode({
-				projectId,
-				mode: pointerTransferMode({
-					source,
-					target: null,
-					operationType: null,
-				}),
+		projectStore.enterTransferMode(
+			pointerTransferMode({
+				source,
+				target: null,
+				operationType: null,
 			}),
 		);
 	});
@@ -88,10 +82,10 @@ export const OperationSourceC: FC<
 			onDrop: ({ location }) => {
 				if (location.current.dropTargets.length > 0) return;
 
-				dispatch(projectSlice.actions.cancelMode({ projectId }));
+				projectStore.cancelMode();
 			},
 		});
-	}, [dispatch, projectId]);
+	}, [projectStore]);
 
 	const operationSource = getOperationSource(outlineMode);
 	const isActiveSource = operationSource ? operandEquals(operationSource, source) : false;
@@ -113,4 +107,4 @@ export const OperationSourceC: FC<
 			),
 		}),
 	});
-};
+});

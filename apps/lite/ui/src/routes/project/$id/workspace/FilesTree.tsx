@@ -7,8 +7,7 @@ import {
 } from "#ui/api/queries.ts";
 import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { uncommittedChangesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
@@ -24,6 +23,7 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { FileRow } from "./FileRow.tsx";
 import type { FileRowItem } from "./file-row.ts";
 import { useOpenInEditor } from "#ui/api/mutations.ts";
+import { observer } from "mobx-react-lite";
 
 const useFilesTreeHotkeys = ({
 	navigationIndex,
@@ -40,9 +40,8 @@ const useFilesTreeHotkeys = ({
 	fileParent: FileParent;
 	selection: string | null;
 }) => {
-	const outlineMode = useAppSelector((state) =>
-		projectSlice.selectors.selectOutlineModeState(state, projectId),
-	);
+	const projectStore = useProjectStore(projectId);
+	const outlineMode = projectStore.outlineMode;
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
@@ -50,8 +49,6 @@ const useFilesTreeHotkeys = ({
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
 	const { mutate: openInEditor } = useOpenInEditor();
-
-	const dispatch = useAppDispatch();
 
 	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
 
@@ -61,18 +58,15 @@ const useFilesTreeHotkeys = ({
 		const change = worktreeChanges?.changes.find((change) => change.path === selectedChangesFile);
 		if (!change) return;
 
-		dispatch(
-			projectSlice.actions.enterAbsorbMode({
-				projectId,
-				source: fileOperand({ parent: uncommittedChangesFileParent, path: selectedChangesFile }),
-				sourceTarget: {
-					type: "treeChanges",
-					subject: {
-						changes: [change],
-						assignedStackId: null,
-					},
+		projectStore.enterAbsorbMode(
+			fileOperand({ parent: uncommittedChangesFileParent, path: selectedChangesFile }),
+			{
+				type: "treeChanges",
+				subject: {
+					changes: [change],
+					assignedStackId: null,
 				},
-			}),
+			},
 		);
 		focusSelectionScope("outline");
 	};
@@ -130,89 +124,93 @@ export const FilesTree: FC<
 		navigationIndex: NavigationIndex<string>;
 		fileParent: FileParent;
 	} & ComponentProps<"div">
-> = ({
-	items,
-	selection,
-	onFileSelection,
-	projectId,
-	navigationIndex,
-	fileParent,
-	ref: refProp,
-	...props
-}) => {
-	const { data: headInfoIndex } = useQuery({
-		...headInfoQueryOptions(projectId),
-		select: getHeadInfoIndex,
-	});
-
-	const ref = useRef<HTMLDivElement>(null);
-
-	useFilesTreeHotkeys({
-		navigationIndex,
+> = observer(
+	({
+		items,
+		selection,
 		onFileSelection,
 		projectId,
-		ref,
+		navigationIndex,
 		fileParent,
-		selection,
-	});
+		ref: refProp,
+		...props
+	}) => {
+		const { data: headInfoIndex } = useQuery({
+			...headInfoQueryOptions(projectId),
+			select: getHeadInfoIndex,
+		});
 
-	return (
-		<div
-			{...props}
-			tabIndex={0}
-			role="tree"
-			aria-activedescendant={selection !== null ? treeItemId(selection) : undefined}
-			className={classes(props.className, styles.tree)}
-			ref={useMergedRefs(refProp, ref)}
-		>
-			<div className={styles.section}>
-				{items.length === 0 ? (
-					<Row interactive={false}>
-						<RowLabelContainer>
-							<RowLabel className={rowStyles.fadedText}>No changes.</RowLabel>
-						</RowLabelContainer>
-					</Row>
-				) : (
-					// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics.
-					<div role="group">
-						{items.map((item) => (
-							<TreeItem
-								key={item.path}
-								isSelected={selection !== null && selection === item.path}
-								aria-label={
-									item._tag === "Change"
-										? `${item.change.status.type} ${item.change.path}`
-										: `Conflict ${item.path}`
-								}
-								path={item.path}
-								render={
-									<OperationSourceC
-										projectId={projectId}
-										source={fileOperand({ parent: fileParent, path: item.path })}
-										outline="outside"
-										render={
-											<FileRow
-												item={item}
-												inert={!navigationIndexIncludes(navigationIndex, item.path, (path) => path)}
-												isSelected={selection !== null && selection === item.path}
-												onSelect={() => onFileSelection(item.path)}
-												projectId={projectId}
-												fileParent={fileParent}
-												branchNameByCommitId={(cid) =>
-													headInfoIndex?.commitContextById(cid)?.segment.refName?.displayName
-												}
-											/>
-										}
-									/>
-								}
-							/>
-						))}
-					</div>
-				)}
+		const ref = useRef<HTMLDivElement>(null);
+
+		useFilesTreeHotkeys({
+			navigationIndex,
+			onFileSelection,
+			projectId,
+			ref,
+			fileParent,
+			selection,
+		});
+
+		return (
+			<div
+				{...props}
+				tabIndex={0}
+				role="tree"
+				aria-activedescendant={selection !== null ? treeItemId(selection) : undefined}
+				className={classes(props.className, styles.tree)}
+				ref={useMergedRefs(refProp, ref)}
+			>
+				<div className={styles.section}>
+					{items.length === 0 ? (
+						<Row interactive={false}>
+							<RowLabelContainer>
+								<RowLabel className={rowStyles.fadedText}>No changes.</RowLabel>
+							</RowLabelContainer>
+						</Row>
+					) : (
+						// oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- Tree items need ARIA group semantics.
+						<div role="group">
+							{items.map((item) => (
+								<TreeItem
+									key={item.path}
+									isSelected={selection !== null && selection === item.path}
+									aria-label={
+										item._tag === "Change"
+											? `${item.change.status.type} ${item.change.path}`
+											: `Conflict ${item.path}`
+									}
+									path={item.path}
+									render={
+										<OperationSourceC
+											projectId={projectId}
+											source={fileOperand({ parent: fileParent, path: item.path })}
+											outline="outside"
+											render={
+												<FileRow
+													item={item}
+													inert={
+														!navigationIndexIncludes(navigationIndex, item.path, (path) => path)
+													}
+													isSelected={selection !== null && selection === item.path}
+													onSelect={() => onFileSelection(item.path)}
+													projectId={projectId}
+													fileParent={fileParent}
+													branchNameByCommitId={(cid) =>
+														headInfoIndex?.commitContextById(cid)?.segment.refName?.displayName
+													}
+												/>
+											}
+										/>
+									}
+								/>
+							))}
+						</div>
+					)}
+				</div>
 			</div>
-		</div>
-	);
-};
+		);
+	},
+);
 
 const treeItemId = (path: string): string => `files-treeitem-${encodeURIComponent(path)}`;
 

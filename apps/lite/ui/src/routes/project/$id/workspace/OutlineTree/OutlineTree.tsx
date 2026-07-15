@@ -14,7 +14,6 @@ import {
 	type Operand,
 	operandEquals,
 } from "#ui/operands.ts";
-import { projectSlice } from "#ui/projects/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import {
 	ActiveOperation,
@@ -22,7 +21,7 @@ import {
 	OperationTargetOutline,
 } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { useProjectStore } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { mergeProps, useRender } from "@base-ui/react";
@@ -57,6 +56,7 @@ import {
 	downstackPushStatusesFromSegments,
 	type DownstackPushStatus,
 } from "#ui/segment.ts";
+import { observer } from "mobx-react-lite";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -74,11 +74,9 @@ const TreeItem: FC<
 		projectId: string;
 		operand: Operand;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, operand, render, ...props }) => {
+> = observer(({ projectId, operand, render, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useAppSelector((state) =>
-		projectSlice.selectors.selectIsSelectedOutline(state, projectId, navigationIndex, operand),
-	);
+	const isSelected = useProjectStore(projectId).isOutlineSelected(navigationIndex, operand);
 
 	return useRender({
 		render,
@@ -89,7 +87,7 @@ const TreeItem: FC<
 			"aria-selected": isSelected,
 		}),
 	});
-};
+});
 
 const OperandC: FC<
 	{
@@ -97,15 +95,14 @@ const OperandC: FC<
 		operand: Operand;
 		outline: OperationTargetOutline;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, operand, outline, render, ...props }) => {
+> = observer(({ projectId, operand, outline, render, ...props }) => {
 	const absorptionTargetCommitIds = assert(use(AbsorptionTargetCommitIdsContext));
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useAppSelector((state) =>
-		projectSlice.selectors.selectIsSelectedOutline(state, projectId, navigationIndex, operand),
-	);
+	const projectStore = useProjectStore(projectId);
+	const isSelected = projectStore.isOutlineSelected(navigationIndex, operand);
 
-	const activeOperation = useAppSelector((state) => {
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
+	const activeOperation = (() => {
+		const outlineMode = projectStore.outlineMode;
 
 		return Match.value(outlineMode).pipe(
 			Match.tags({
@@ -139,7 +136,7 @@ const OperandC: FC<
 			}),
 			Match.orElse(() => null),
 		);
-	});
+	})();
 
 	return useRender({
 		render: (
@@ -162,7 +159,7 @@ const OperandC: FC<
 		defaultTagName: "div",
 		props,
 	});
-};
+});
 
 const UncommittedChanges: FC<{
 	projectId: string;
@@ -213,16 +210,14 @@ const UncommittedFileRow: FC<{
 	item: FileRowItem;
 	projectId: string;
 	branchNameByCommitId: (commitId: string) => string | undefined;
-}> = ({ item, projectId, branchNameByCommitId }) => {
+}> = observer(({ item, projectId, branchNameByCommitId }) => {
 	const operand = fileOperand({
 		parent: uncommittedChangesFileParent,
 		path: item.path,
 	});
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useAppSelector((state) =>
-		projectSlice.selectors.selectIsSelectedOutline(state, projectId, navigationIndex, operand),
-	);
-	const dispatch = useAppDispatch();
+	const projectStore = useProjectStore(projectId);
+	const isSelected = projectStore.isOutlineSelected(navigationIndex, operand);
 
 	return (
 		<TreeItem
@@ -242,16 +237,14 @@ const UncommittedFileRow: FC<{
 							branchNameByCommitId={branchNameByCommitId}
 							inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 							isSelected={isSelected}
-							onSelect={() => {
-								dispatch(projectSlice.actions.selectOutline({ projectId, selection: operand }));
-							}}
+							onSelect={() => projectStore.selectOutline(operand)}
 						/>
 					}
 				/>
 			}
 		/>
 	);
-};
+});
 
 const segmentPushStatusToGraphSegmentStatus = (pushStatus: PushStatus): GraphSegmentStatus => {
 	switch (pushStatus) {
@@ -518,16 +511,13 @@ const StackC: FC<{
 const Stacks: FC<{
 	projectId: string;
 	commitTarget: RelativeTo | null;
-}> = ({ projectId, commitTarget }) => {
+}> = observer(({ projectId, commitTarget }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const dryRunOperation = useAppSelector((state) => {
-		const selection = projectSlice.selectors.selectSelectionOutline(
-			state,
-			projectId,
-			navigationIndex,
-		);
-		const outlineMode = projectSlice.selectors.selectOutlineModeState(state, projectId);
+	const projectStore = useProjectStore(projectId);
+	const dryRunOperation = (() => {
+		const selection = projectStore.selectedOutline(navigationIndex);
+		const outlineMode = projectStore.outlineMode;
 
 		return Match.value(outlineMode).pipe(
 			Match.tags({
@@ -551,7 +541,7 @@ const Stacks: FC<{
 			}),
 			Match.orElse(() => undefined),
 		);
-	});
+	})();
 
 	// TODO: debounce?
 	const { data: dryRunOperationResult } = useDryRunOperation({
@@ -569,7 +559,7 @@ const Stacks: FC<{
 			</div>
 		</DryRunWorkspaceContext>
 	);
-};
+});
 
 export const OutlineTree: FC<
 	{
@@ -578,76 +568,75 @@ export const OutlineTree: FC<
 		navigationIndex: NavigationIndex<Operand>;
 		absorptionTargetCommitIds: ReadonlySet<string>;
 	} & ComponentProps<"div">
-> = ({
-	projectId,
-	commitTarget,
-	navigationIndex,
-	absorptionTargetCommitIds,
-	ref: refProp,
-	...props
-}) => {
-	const selection = useAppSelector((state) =>
-		projectSlice.selectors.selectSelectionOutline(state, projectId, navigationIndex),
-	);
-	const hasCheckedCommits = useAppSelector((state) =>
-		projectSlice.selectors.selectHasCheckedCommits(state, projectId),
-	);
-
-	const layoutId = `project=${projectId}:outline-tree`;
-	const outlineLayout = useDefaultLayout({
-		id: layoutId,
-		panelIds: ["uncommitted-changes-panel", "stacks-panel"] satisfies Array<PanelId>,
-	});
-
-	const hotkeysRef = useRef<HTMLDivElement>(null);
-	useOutlineTreeHotkeys({
-		navigationIndex,
+> = observer(
+	({
 		projectId,
-		ref: hotkeysRef,
-	});
+		commitTarget,
+		navigationIndex,
+		absorptionTargetCommitIds,
+		ref: refProp,
+		...props
+	}) => {
+		const projectStore = useProjectStore(projectId);
+		const selection = projectStore.selectedOutline(navigationIndex);
+		const hasCheckedCommits = projectStore.hasCheckedCommits;
 
-	return (
-		<NavigationIndexContext value={navigationIndex}>
-			<AbsorptionTargetCommitIdsContext value={absorptionTargetCommitIds}>
-				<Group
-					{...props}
-					id={layoutId}
-					orientation="vertical"
-					tabIndex={0}
-					role="tree"
-					aria-activedescendant={selection ? treeItemId(selection) : undefined}
-					data-has-checked-commits={hasCheckedCommits || undefined}
-					className={classes(props.className, styles.tree)}
-					defaultLayout={outlineLayout.defaultLayout}
-					onLayoutChanged={outlineLayout.onLayoutChanged}
-					elementRef={useMergedRefs(refProp, hotkeysRef)}
-				>
-					<Panel
-						id={"uncommitted-changes-panel" satisfies PanelId}
-						className={styles.uncommittedChangesOuterPanel}
-						defaultSize={200}
-						minSize={120}
-						groupResizeBehavior="preserve-pixel-size"
+		const layoutId = `project=${projectId}:outline-tree`;
+		const outlineLayout = useDefaultLayout({
+			id: layoutId,
+			panelIds: ["uncommitted-changes-panel", "stacks-panel"] satisfies Array<PanelId>,
+		});
+
+		const hotkeysRef = useRef<HTMLDivElement>(null);
+		useOutlineTreeHotkeys({
+			navigationIndex,
+			projectId,
+			ref: hotkeysRef,
+		});
+
+		return (
+			<NavigationIndexContext value={navigationIndex}>
+				<AbsorptionTargetCommitIdsContext value={absorptionTargetCommitIds}>
+					<Group
+						{...props}
+						id={layoutId}
+						orientation="vertical"
+						tabIndex={0}
+						role="tree"
+						aria-activedescendant={selection ? treeItemId(selection) : undefined}
+						data-has-checked-commits={hasCheckedCommits || undefined}
+						className={classes(props.className, styles.tree)}
+						defaultLayout={outlineLayout.defaultLayout}
+						onLayoutChanged={outlineLayout.onLayoutChanged}
+						elementRef={useMergedRefs(refProp, hotkeysRef)}
 					>
-						<OperandC
-							projectId={projectId}
-							operand={uncommittedChangesOperand}
-							outline="inside"
-							render={
-								<div className={styles.panel}>
-									<UncommittedChanges projectId={projectId} />
-								</div>
-							}
-						/>
-					</Panel>
+						<Panel
+							id={"uncommitted-changes-panel" satisfies PanelId}
+							className={styles.uncommittedChangesOuterPanel}
+							defaultSize={200}
+							minSize={120}
+							groupResizeBehavior="preserve-pixel-size"
+						>
+							<OperandC
+								projectId={projectId}
+								operand={uncommittedChangesOperand}
+								outline="inside"
+								render={
+									<div className={styles.panel}>
+										<UncommittedChanges projectId={projectId} />
+									</div>
+								}
+							/>
+						</Panel>
 
-					<Separator className={styles.resizeHandle} />
+						<Separator className={styles.resizeHandle} />
 
-					<Panel id={"stacks-panel" satisfies PanelId} className={styles.panel} minSize={120}>
-						<Stacks projectId={projectId} commitTarget={commitTarget} />
-					</Panel>
-				</Group>
-			</AbsorptionTargetCommitIdsContext>
-		</NavigationIndexContext>
-	);
-};
+						<Panel id={"stacks-panel" satisfies PanelId} className={styles.panel} minSize={120}>
+							<Stacks projectId={projectId} commitTarget={commitTarget} />
+						</Panel>
+					</Group>
+				</AbsorptionTargetCommitIdsContext>
+			</NavigationIndexContext>
+		);
+	},
+);
