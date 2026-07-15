@@ -23,7 +23,8 @@ pub fn handle(
     let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
-    let parsed_ids = id_map.parse_using_context(identifier, ctx)?;
+    let parsed_ids =
+        crate::id::without_ambiguating_worktrees(id_map.parse_using_context(identifier, ctx)?);
 
     // Try to find the stack to unapply
     let (stack_id, branches) = if parsed_ids.is_empty() {

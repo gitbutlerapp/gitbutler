@@ -6,7 +6,7 @@
 
 #![forbid(missing_docs)]
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::str::{self, FromStr as _};
 
 use bstr::{BStr, BString, ByteSlice};
@@ -20,7 +20,9 @@ use nonempty::NonEmpty;
 use self_cell::self_cell;
 
 use crate::id::{
-    file_info::FileInfo, id_usage::UintId, stacks_info::StacksInfo,
+    file_info::FileInfo,
+    id_usage::{IdUsage, UintId},
+    stacks_info::StacksInfo,
     uncommitted_info::UncommittedInfo,
 };
 
@@ -613,14 +615,18 @@ impl IdMap {
     /// files/hunks, and linked git worktrees.
     ///
     /// `worktree_names` are the stable names of linked git worktrees, empty unless the
-    /// `worktreeManipulation` feature flag is enabled. They are sorted before short IDs
-    /// are minted so that the assignment is deterministic.
+    /// `worktreeManipulation` feature flag is enabled. Their short IDs are derived from
+    /// the names where possible, and the names are sorted before short IDs are minted
+    /// so that the assignment is deterministic.
     pub fn new(
         stacks: Vec<Stack>,
         hunk_assignments: Vec<HunkAssignment>,
         commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
         worktree_names: Vec<BString>,
     ) -> anyhow::Result<Self> {
+        let mut worktree_names = worktree_names;
+        worktree_names.sort();
+        worktree_names.dedup();
         let UncommittedInfo {
             partitioned_hunks,
             uncommitted_short_filenames,
@@ -628,11 +634,12 @@ impl IdMap {
         let StacksInfo {
             mut stacks,
             mut id_usage,
-            non_hex_used_short_ids,
+            mut non_hex_used_short_ids,
         } = StacksInfo::new(
             stacks,
             &uncommitted_short_filenames,
             &commit_id_to_change_id,
+            &worktree_names,
         )?;
 
         let mut uncommitted_files: BTreeMap<ChangeId, UncommittedFile> = BTreeMap::new();
@@ -674,7 +681,7 @@ impl IdMap {
         // that a file that is its own reverse hex ID collides with itself and forces an unnecessary
         // extension. E.g. the file "out" gets the short ID "outk", which seems pretty redundant as
         // there is no ambiguity if both IDs point to the same thing.
-        for short_id in non_hex_used_short_ids {
+        for short_id in &non_hex_used_short_ids {
             reverse_hex_short_ids.push((ChangeId::from(BString::from(short_id.as_str())), None));
         }
 
@@ -732,15 +739,75 @@ impl IdMap {
         }
 
         // Worktree IDs are minted after ALL other allocations so that enabling the
-        // worktree feature flag never shifts pre-existing IDs.
-        let mut worktree_names = worktree_names;
-        worktree_names.sort();
-        worktree_names.dedup();
+        // worktree feature flag never shifts pre-existing IDs. Like branch short IDs
+        // (see `populate_branch_short_ids`), they are derived from the stable worktree
+        // name where possible, so that they don't shift whenever the uncommitted file
+        // set or the workspace shape changes between invocations.
+        //
+        // This is analogous to `maybe_mark_used` for branch short IDs, with two extra
+        // rules because worktree IDs come after everything else: a candidate the
+        // sequential allocator already handed out must be rejected rather than merely
+        // marked, and a candidate that is a prefix of an uncommitted file's reverse
+        // hex ID would shadow that file's ID (worktree IDs match before uncommitted
+        // files do), so it is rejected as well. Branch short IDs avoid the latter by
+        // informing the reverse hex assignment above instead.
+        let acquire_candidate = |candidate: &[u8],
+                                 id_usage: &mut IdUsage,
+                                 non_hex_used_short_ids: &mut HashSet<ShortId>|
+         -> Option<ShortId> {
+            let uint_id = UintId::from_name(candidate);
+            let short_id = match uint_id {
+                Some(uint_id) => {
+                    if id_usage.is_used(uint_id) {
+                        return None;
+                    }
+                    uint_id.to_short_id()
+                }
+                None => {
+                    // If it's not a valid UintId, it's still acceptable if it
+                    // cannot be confused for a commit ID (and is valid UTF-8).
+                    if candidate.iter().all(|c| c.is_ascii_alphanumeric())
+                        && !candidate.iter().all(|c| c.is_ascii_hexdigit())
+                    {
+                        String::from_utf8(candidate.to_vec()).ok()?
+                    } else {
+                        return None;
+                    }
+                }
+            };
+            if uncommitted_files
+                .keys()
+                .any(|reverse_hex| reverse_hex.as_bytes().starts_with(candidate))
+            {
+                return None;
+            }
+            if !non_hex_used_short_ids.insert(short_id.clone()) {
+                return None;
+            }
+            if let Some(uint_id) = uint_id {
+                id_usage.mark_used(uint_id);
+            }
+            Some(short_id)
+        };
         let mut worktrees = Vec::with_capacity(worktree_names.len());
-        for name in worktree_names {
+        for name in &worktree_names {
+            let short_id = 'short_id: {
+                // Find the first non-conflicting pair or triple of the name and use it.
+                for candidate in name.windows(2).chain(name.windows(3)) {
+                    if let Some(short_id) =
+                        acquire_candidate(candidate, &mut id_usage, &mut non_hex_used_short_ids)
+                    {
+                        break 'short_id short_id;
+                    }
+                }
+                // If none is available, use the next available ID. Unlike the
+                // name-derived IDs above, this fallback is not stable across
+                // invocations.
+                id_usage.next_available()?.to_short_id()
+            };
             worktrees.push(WorktreeWithId {
-                short_id: id_usage.next_available()?.to_short_id(),
-                name,
+                short_id,
+                name: name.clone(),
             });
         }
 
@@ -1280,6 +1347,19 @@ impl IdMap {
                 name: worktree.name.clone(),
             })
     }
+}
+
+/// Drop worktree matches when non-worktree matches exist.
+///
+/// A worktree is normally named after the branch it checks out, so its
+/// exact-name match would make every shared name ambiguous. Consumers that can
+/// never target a worktree call this before their ambiguity checks; a *sole*
+/// worktree match is kept so they can still produce their kind-specific error.
+pub fn without_ambiguating_worktrees(mut ids: Vec<CliId>) -> Vec<CliId> {
+    if ids.len() > 1 && ids.iter().any(|id| !matches!(id, CliId::Worktree { .. })) {
+        ids.retain(|id| !matches!(id, CliId::Worktree { .. }));
+    }
+    ids
 }
 
 fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {

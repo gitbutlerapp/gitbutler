@@ -98,6 +98,12 @@ impl IdUsage {
         }
     }
 
+    /// Whether `uint_id` was already handed out by [`Self::next_available`] or
+    /// reserved via [`Self::mark_used`].
+    pub(crate) fn is_used(&self, uint_id: UintId) -> bool {
+        uint_id.0 < self.next_uint_id.0 || self.uint_ids_used.contains(&uint_id)
+    }
+
     pub(crate) fn next_available(&mut self) -> anyhow::Result<UintId> {
         self.forward_next_uint_id_to_not_conflict_with_marked();
         if self.next_uint_id.0 >= UintId::LIMIT {

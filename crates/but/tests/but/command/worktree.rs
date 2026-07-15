@@ -271,6 +271,28 @@ Archived worktree: A
     Ok(())
 }
 
+/// A linked worktree is canonically named after the branch it checks out. That
+/// shared name must not make branch-name arguments ambiguous for commands that
+/// never accept a worktree - here the worktrees are even archived (the state
+/// after the first flag-on reconciliation) and thus invisible in `but status`,
+/// yet their names used to poison the resolution of `--before A`.
+#[test]
+fn worktree_sharing_branch_name_does_not_make_branch_args_ambiguous() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env)?;
+
+    env.but("commit empty --before A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Created blank commit at the tip of branch 'A'
+
+"#]]);
+    Ok(())
+}
+
 /// Amend uncommitted changes from a linked worktree into its own branch's head
 /// commit (the worktree checkout follows the rebase) and into another branch's
 /// commit (the worktree tip stays, the duplicate is discarded afterwards).

@@ -2807,14 +2807,95 @@ fn worktree_ids_are_minted_deterministically_sorted_by_name() -> anyhow::Result<
         .expect("wt-b is known")
         .to_short_string();
     assert_ne!(short_id_a, short_id_b, "each worktree gets a distinct ID");
-    assert!(
-        short_id_a < short_id_b,
-        "IDs are handed out in name order: {short_id_a} < {short_id_b}"
+    assert_eq!(
+        short_id_a, "wt",
+        "the ID is derived from the worktree name where possible"
+    );
+    assert_eq!(
+        short_id_b, "h0",
+        "with every pair and triple of the name taken or invalid, the next available ID is used"
     );
     assert_eq!(
         id_map.resolve_worktree(b"unknown".as_bstr()),
         None,
         "unknown names resolve to nothing"
+    );
+    Ok(())
+}
+
+#[test]
+fn worktree_ids_do_not_shift_when_uncommitted_files_change() -> anyhow::Result<()> {
+    use bstr::ByteSlice as _;
+    let make = |files: &[&str]| -> anyhow::Result<IdMap> {
+        let stacks = vec![stack([segment("A", [id(1)], None, [])])];
+        let hunk_assignments = files
+            .iter()
+            .map(|path| hunk_assignment(path, None))
+            .collect();
+        IdMap::new(
+            stacks,
+            hunk_assignments,
+            gix::hashtable::HashMap::default(),
+            vec!["wt-a".into()],
+        )
+    };
+    let chip = |id_map: &IdMap| {
+        id_map
+            .resolve_worktree(b"wt-a".as_bstr())
+            .expect("wt-a is known")
+            .to_short_string()
+    };
+
+    let baseline = chip(&make(&[])?);
+    assert_eq!(baseline, "wt", "the ID is derived from the name");
+    assert_eq!(
+        chip(&make(&["one.txt"])?),
+        baseline,
+        "an additional uncommitted file does not shift the worktree ID"
+    );
+    assert_eq!(
+        chip(&make(&["one.txt", "two.txt", "three.txt"])?),
+        baseline,
+        "the worktree ID does not depend on the number of uncommitted files"
+    );
+    Ok(())
+}
+
+#[test]
+fn worktree_names_are_reserved_and_cannot_shadow_allocated_ids() -> anyhow::Result<()> {
+    // "h0" is exactly what the sequential allocator would hand out to branch "B"
+    // right after "g0" - without the reservation, the worktree named "h0" would
+    // shadow that branch's ID.
+    let stacks = vec![
+        stack([segment("A", [id(1)], None, [])]),
+        stack([segment("B", [id(2)], None, [])]),
+    ];
+    let id_map = IdMap::new(
+        stacks,
+        Vec::new(),
+        gix::hashtable::HashMap::default(),
+        vec!["h0".into()],
+    )?;
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        bail!("unexpected IDs {commit_id} {parent_id:?}");
+    };
+
+    assert!(
+        id_map.branch_ids().iter().all(|id| id != "h0"),
+        "no branch is allocated an ID equal to a worktree name: {:?}",
+        id_map.branch_ids()
+    );
+    let matches = id_map.parse("h0", Box::new(changed_paths_fn))?;
+    assert_eq!(
+        matches.len(),
+        1,
+        "the reserved name matches exactly one entity"
+    );
+    assert!(
+        matches!(matches[0], CliId::Worktree { .. }),
+        "and that is the worktree itself"
     );
     Ok(())
 }
@@ -2877,6 +2958,19 @@ fn worktree_name_shared_with_branch_yields_both_matches() -> anyhow::Result<()> 
     assert!(
         matches.iter().any(|m| matches!(m, CliId::Worktree { .. })),
         "one match is the worktree"
+    );
+
+    // Consumers that can never target a worktree resolve the shared name
+    // unambiguously to the branch...
+    let filtered = crate::id::without_ambiguating_worktrees(matches);
+    assert_eq!(filtered.len(), 1);
+    assert!(matches!(filtered[0], CliId::Branch { .. }));
+
+    // ...while a sole worktree match survives for kind-specific errors.
+    let only_worktree = vec![id_map.resolve_worktree("A".into()).expect("worktree exists")];
+    assert_eq!(
+        crate::id::without_ambiguating_worktrees(only_worktree).len(),
+        1
     );
     Ok(())
 }

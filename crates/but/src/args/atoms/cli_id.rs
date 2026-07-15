@@ -280,7 +280,20 @@ fn try_resolve_cli_id(
     purpose: Purpose,
     priority: Option<Priority>,
 ) -> CliResult<Option<CliId>> {
-    let mut target_ids = arg.parse(repo, id_map)?.into_iter().peekable();
+    let (mut target_ids, worktree_ids): (Vec<_>, Vec<_>) = arg
+        .parse(repo, id_map)?
+        .into_iter()
+        .partition(|id| !matches!(id, CliId::Worktree { .. }));
+    // There is no worktree-accepting `Priority` - the `but worktree` subcommands
+    // resolve their arguments with kind-filtered parsing instead. Since a linked
+    // worktree is canonically named after the branch it has checked out, its
+    // exact-name match must never render that branch ambiguous here. Worktree
+    // matches only remain when nothing else matched, so that purely-worktree
+    // input still reports the kind of entity it hit.
+    if target_ids.is_empty() {
+        target_ids = worktree_ids;
+    }
+    let mut target_ids = target_ids.into_iter().peekable();
     let Some(target) = target_ids.next() else {
         return Ok(None);
     };

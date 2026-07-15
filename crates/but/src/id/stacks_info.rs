@@ -60,6 +60,7 @@ fn populate_branch_short_ids(
     id_usage: &mut IdUsage,
     non_hex_used_short_ids: &mut HashSet<ShortId>,
     uncommitted_short_filenames: &HashSet<BString>,
+    worktree_names: &[BString],
 ) -> anyhow::Result<()> {
     // Fill the `non_hex_used_short_ids` and `id_usage` data structures.
     //
@@ -89,6 +90,13 @@ fn populate_branch_short_ids(
     maybe_mark_used(UNCOMMITTED.as_bytes(), id_usage);
     for uncommitted_short_filename in uncommitted_short_filenames.iter() {
         maybe_mark_used(uncommitted_short_filename, id_usage);
+    }
+    // Worktree names participate in exact-name matching just like uncommitted
+    // filenames, so reserve them as well - a worktree literally named like a
+    // mintable ID (e.g. "k0") must not shadow whatever would otherwise be
+    // allocated that ID.
+    for worktree_name in worktree_names {
+        maybe_mark_used(worktree_name.as_slice(), id_usage);
     }
 
     // Populate branch short IDs in `stacks`.
@@ -196,6 +204,7 @@ impl StacksInfo {
         stacks: Vec<Stack>,
         uncommitted_short_filenames: &HashSet<BString>,
         commit_id_to_change_id: &gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
+        worktree_names: &[BString],
     ) -> anyhow::Result<Self> {
         let mut stacks_info = stacks_info_without_short_ids(stacks, commit_id_to_change_id);
         populate_branch_short_ids(
@@ -203,6 +212,7 @@ impl StacksInfo {
             &mut stacks_info.id_usage,
             &mut stacks_info.non_hex_used_short_ids,
             uncommitted_short_filenames,
+            worktree_names,
         )?;
         populate_commit_short_ids(&mut stacks_info.stacks);
         Ok(stacks_info)

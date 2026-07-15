@@ -108,10 +108,22 @@ pub struct WorktreeSource {
     pub tip: but_graph::init::WorktreeTip,
 }
 
+/// The maximum number of commits listed per worktree.
+///
+/// A worktree's commits come from a plain first-parent walk of its `HEAD` with the
+/// target as the only stopping point. If the target hides nothing - e.g. a worktree
+/// checked out on a branch whose history is disjoint from the workspace target - that
+/// walk would visit every commit down to the root of history. Workspace stacks are
+/// bounded by their graph traversal; this cap gives worktrees a similar bound while
+/// still showing about a screenful of commits.
+pub const MAX_COMMITS_PER_WORKTREE: usize = 25;
+
 /// Produce a listing of all worktrees in `sources`, splitting them by archived state.
 ///
 /// Active worktrees get their commits computed as a first-parent walk of their `HEAD`,
-/// hidden behind `target_id`, plus the merge base with the target.
+/// hidden behind `target_id`, plus the merge base with the target. The walk is capped
+/// at [`MAX_COMMITS_PER_WORKTREE`] commits, and a commit that cannot be read or decoded
+/// ends that worktree's commit list with a warning instead of failing the listing.
 /// Without a `target_id` there is no lower bound to stop that walk at - it could run
 /// to the root of history - so the commit list degrades to empty and the base to `None`.
 /// Merge-base failures (e.g. disjoint histories) also degrade the base to `None`.
@@ -143,7 +155,7 @@ pub fn list_worktrees(
                     .merge_base(head, target_id)
                     .ok()
                     .map(|base| base.detach());
-                let commits = crate::local_commits_for_branch(head.attach(repo), target_id)?;
+                let commits = worktree_commits(repo, tip.name.as_ref(), head, target_id);
                 (base, commits)
             }
             None => (None, Vec::new()),
@@ -158,6 +170,51 @@ pub fn list_worktrees(
         });
     }
     Ok(WorktreeListing { active, archived })
+}
+
+/// The first-parent commits of `head` that are not reachable from `target_id`, capped
+/// at [`MAX_COMMITS_PER_WORKTREE`].
+///
+/// The listing is informational, so any commit that cannot be read or decoded ends the
+/// walk with a warning instead of failing the entire listing.
+fn worktree_commits(
+    repo: &gix::Repository,
+    name: &BStr,
+    head: gix::ObjectId,
+    target_id: gix::ObjectId,
+) -> Vec<crate::ui::Commit> {
+    let mut commits = Vec::new();
+    let traversal = match head
+        .attach(repo)
+        .ancestors()
+        .with_hidden(Some(target_id))
+        .first_parent_only()
+        .all()
+    {
+        Ok(traversal) => traversal,
+        Err(err) => {
+            tracing::warn!(%name, ?err, "Failed to start the commit walk of a linked worktree");
+            return commits;
+        }
+    };
+    let mut authors = std::collections::HashSet::new();
+    for info in traversal.take(MAX_COMMITS_PER_WORKTREE) {
+        let commit = info
+            .map_err(anyhow::Error::from)
+            .and_then(|info| crate::branch_details::local_ui_commit(info.id(), &mut authors));
+        match commit {
+            Ok(commit) => commits.push(commit),
+            Err(err) => {
+                tracing::warn!(
+                    %name,
+                    ?err,
+                    "Failed to decode a commit of a linked worktree - truncating its commit list"
+                );
+                break;
+            }
+        }
+    }
+    commits
 }
 
 /// Persist the archived state of the worktree named `name`.

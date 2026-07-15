@@ -42,7 +42,8 @@ pub(crate) fn handle(
         let entity_str = &commits[0];
 
         // First try to resolve as a single entity (branch name or commit)
-        let matches = id_map.parse_using_context(entity_str, ctx)?;
+        let matches =
+            crate::id::without_ambiguating_worktrees(id_map.parse_using_context(entity_str, ctx)?);
 
         // If we get exactly one match, handle it
         if matches.len() == 1 {
@@ -121,7 +122,8 @@ pub(crate) fn handle(
     // Multiple separate commit arguments - resolve each one
     let mut sources = Vec::new();
     for commit_str in commits {
-        let matches = id_map.parse_using_context(commit_str, ctx)?;
+        let matches =
+            crate::id::without_ambiguating_worktrees(id_map.parse_using_context(commit_str, ctx)?);
         if matches.is_empty() {
             bail!("No matching commit found for '{commit_str}'");
         }
@@ -446,8 +448,10 @@ fn parse_commit_range(
     let end_str = parts[1];
 
     // Resolve start and end to commit IDs
-    let start_matches = id_map.parse_using_context(start_str, ctx)?;
-    let end_matches = id_map.parse_using_context(end_str, ctx)?;
+    let start_matches =
+        crate::id::without_ambiguating_worktrees(id_map.parse_using_context(start_str, ctx)?);
+    let end_matches =
+        crate::id::without_ambiguating_worktrees(id_map.parse_using_context(end_str, ctx)?);
 
     if start_matches.len() != 1 {
         bail!("Start of range '{start_str}' must match exactly one commit");
@@ -549,7 +553,8 @@ fn parse_commit_list(
             continue;
         }
 
-        let matches = id_map.parse_using_context(part, ctx)?;
+        let matches =
+            crate::id::without_ambiguating_worktrees(id_map.parse_using_context(part, ctx)?);
         if matches.is_empty() {
             bail!("Commit '{part}' not found");
         }

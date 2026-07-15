@@ -1,7 +1,8 @@
 use anyhow::Result;
 use bstr::BString;
 use but_workspace::worktrees::{
-    WorktreeSource, list_worktrees, set_worktree_archived, worktree_changes_by_name,
+    MAX_COMMITS_PER_WORKTREE, WorktreeSource, list_worktrees, set_worktree_archived,
+    worktree_changes_by_name,
 };
 
 use crate::utils::writable_scenario_slow;
@@ -114,6 +115,70 @@ fn list_worktrees_splits_by_archived_state_and_computes_commits() -> Result<()> 
         "without a target there is no lower bound, so the commit list degrades to empty"
     );
     assert_eq!(wt_a.base, None, "no target, no merge base");
+    Ok(())
+}
+
+#[test]
+fn list_worktrees_caps_commits_and_tolerates_undecodable_commits() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    // 'wt-orphan' checks out a history disjoint from the target, so the target
+    // hides nothing and only the cap stops the walk. 'wt-broken' sits on top of
+    // an undecodable commit object.
+    but_testsupport::invoke_bash(
+        r#"
+tree=$(git hash-object -w -t tree /dev/null)
+parent_arg=()
+for i in $(seq 30); do
+  commit=$(git commit-tree "$tree" "${parent_arg[@]}" -m "orphan $i")
+  parent_arg=(-p "$commit")
+done
+git branch orphan "$commit"
+git worktree add wt-orphan orphan >/dev/null 2>&1
+
+bogus=$(printf 'not a commit' | git hash-object -w -t commit --stdin --literally)
+broken=$(git commit-tree "$tree" -p "$bogus" -m "on top of bogus")
+git branch broken "$broken"
+git worktree add wt-broken broken >/dev/null 2>&1
+"#,
+        &repo,
+    );
+
+    let db = but_db::DbHandle::new_at_path(":memory:")?;
+    let sources = worktree_sources(&repo, &db)?;
+    let target_id = repo.head_id()?.detach();
+    let listing = list_worktrees(&repo, sources, Some(target_id))?;
+
+    let orphan = listing
+        .active
+        .iter()
+        .find(|wt| wt.name == "wt-orphan")
+        .expect("the orphan worktree is listed");
+    assert_eq!(
+        orphan.commits.len(),
+        MAX_COMMITS_PER_WORKTREE,
+        "the walk of a disjoint history is capped instead of running to the root"
+    );
+    assert_eq!(
+        orphan.commits[0].message.to_string(),
+        "orphan 30\n",
+        "the walk starts at the worktree head"
+    );
+    assert_eq!(orphan.base, None, "a disjoint history has no merge base");
+
+    // That `list_worktrees()` succeeded is the main point here: an undecodable
+    // commit ends the affected worktree's commit list with a warning instead of
+    // failing the entire listing.
+    let broken = listing
+        .active
+        .iter()
+        .find(|wt| wt.name == "wt-broken")
+        .expect("the broken worktree is listed");
+    assert_eq!(
+        broken.commits.len(),
+        0,
+        "the walk ends at the first commit whose parent cannot be decoded - the \
+         date-ordered traversal reads parents when yielding a commit"
+    );
     Ok(())
 }
 

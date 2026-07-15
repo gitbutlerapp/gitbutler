@@ -706,6 +706,9 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
                 stack_id: current, ..
             },
         ) => previous == current,
+        (CliId::Worktree { name: previous, .. }, CliId::Worktree { name: current, .. }) => {
+            previous == current
+        }
         _ => false,
     }
 }
