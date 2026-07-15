@@ -8,7 +8,7 @@ use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use nonempty::NonEmpty;
 use ratatui_textarea::TextArea;
 
-use super::{Cursor, is_selectable_in_mode};
+use super::{Cursor, is_selectable_in_mode, same_entity_for_reload};
 use crate::{
     CliId,
     command::legacy::status::{
@@ -63,7 +63,22 @@ fn committed_file_cli_id(hex: &str, path: &str, id: &str) -> Arc<CliId> {
         commit_id: commit_id(hex),
         path: path.into(),
         id: id.into(),
+        hunk_header: None,
     })
+}
+
+fn worktree_change_cli_id(name: &str, path: &str, id: &str, old_start: u32) -> Arc<CliId> {
+    Arc::new(CliId::WorktreeChange(crate::id::WorktreeChange {
+        id: id.into(),
+        name: name.into(),
+        path: path.into(),
+        hunk_header: Some(HunkHeader {
+            old_start,
+            old_lines: 1,
+            new_start: old_start,
+            new_lines: 1,
+        }),
+    }))
 }
 
 fn branch_cli_id(name: &str, id: &str, stack_id: Option<StackId>) -> Arc<CliId> {
@@ -139,6 +154,7 @@ fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
             | CliId::Branch { .. }
             | CliId::Stack { .. }
             | CliId::Worktree { .. }
+            | CliId::WorktreeChange(..)
             | CliId::Commit { .. } => panic!("test cli ID should be uncommitted"),
         }
     } else {
@@ -332,6 +348,26 @@ fn restore_returns_matching_uncommitted_file_after_its_hunks_change() {
         Cursor::restore(&selected_cli_id, &lines),
         Some(Cursor(0)),
         "the file path and assignment should identify a whole file as its hunks change"
+    );
+}
+
+#[test]
+fn worktree_change_reload_identity_ignores_contextual_short_id() {
+    let previous = worktree_change_cli_id("wt", "file.txt", "ab:file.txt:#0", 1);
+    let renumbered = worktree_change_cli_id("wt", "file.txt", "xy:file.txt:#4", 1);
+    let other_worktree = worktree_change_cli_id("other", "file.txt", "xy:file.txt:#0", 1);
+    let other_path = worktree_change_cli_id("wt", "other.txt", "xy:other.txt:#0", 1);
+    let other_hunk = worktree_change_cli_id("wt", "file.txt", "xy:file.txt:#0", 2);
+
+    assert!(
+        same_entity_for_reload(&previous, &renumbered),
+        "stable worktree, path, and hunk identity should survive short-ID changes"
+    );
+    assert!(
+        !same_entity_for_reload(&previous, &other_worktree)
+            && !same_entity_for_reload(&previous, &other_path)
+            && !same_entity_for_reload(&previous, &other_hunk),
+        "every stable worktree-change identity field must match"
     );
 }
 

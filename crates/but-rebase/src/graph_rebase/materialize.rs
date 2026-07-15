@@ -179,6 +179,20 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         Ok(())
     }
 
+    /// Persist newly created objects and prove that every linked-worktree checkout can be
+    /// updated, without changing a checkout or reference.
+    ///
+    /// Call this before an operation performs its own filesystem mutation ahead of
+    /// [`Self::materialize_without_checkout`]. The materialization repeats the preflight to
+    /// protect against changes made between the two calls.
+    pub fn preflight_materialize_without_checkout(&mut self) -> Result<()> {
+        let repo = self.repo.clone();
+        if let Some(memory) = self.repo.objects.take_object_memory() {
+            memory.persist(&self.repo)?;
+        }
+        self.preflight_checkouts(&repo, false)
+    }
+
     /// Materializes a history rewrite
     pub fn materialize(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         let repo = self.repo.clone();
@@ -290,11 +304,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     /// behind their moved branches.
     pub fn materialize_without_checkout(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         let repo = self.repo.clone();
-        if let Some(memory) = self.repo.objects.take_object_memory() {
-            memory.persist(&self.repo)?;
-        }
-
-        self.preflight_checkouts(&repo, false)?;
+        self.preflight_materialize_without_checkout()?;
         self.checkout_worktrees(&repo)?;
 
         repo.edit_references(self.ref_edits.clone())?;

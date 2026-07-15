@@ -41,21 +41,34 @@ impl RewordCommitOperation {
         new_commit: gix::ObjectId,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
     ) -> anyhow::Result<gix::ObjectId> {
+        let message = self.resolve_message(tx.repo(), tx.context_lines(), new_commit)?;
+
+        let reworded_commit = tx.reword_commit(new_commit, BString::from(message).as_ref())?;
+
+        Ok(reworded_commit)
+    }
+
+    /// Resolve the requested message before a history rewrite is materialized.
+    pub fn resolve_message(
+        self,
+        repo: &gix::Repository,
+        context_lines: u32,
+        commit: gix::ObjectId,
+    ) -> anyhow::Result<String> {
         let message = match self {
             RewordCommitOperation::NoMessage => String::new(),
             RewordCommitOperation::Message(message) => message,
             RewordCommitOperation::UseEditor => {
-                let repo = tx.repo();
                 let commit_details = CommitDetails::from_commit_id(
-                    new_commit.attach(repo),
+                    commit.attach(repo),
                     ComputeLineStats::No.into(),
                 )?;
 
                 let current_message = commit_details.commit.inner.message.to_string();
 
                 match get_commit_message_from_editor(
-                    tx.repo(),
-                    tx.context_lines(),
+                    repo,
+                    context_lines,
                     commit_details,
                     current_message,
                     "",
@@ -76,9 +89,6 @@ impl RewordCommitOperation {
                 }
             }
         };
-
-        let reworded_commit = tx.reword_commit(new_commit, BString::from(message).as_ref())?;
-
-        Ok(reworded_commit)
+        Ok(message)
     }
 }

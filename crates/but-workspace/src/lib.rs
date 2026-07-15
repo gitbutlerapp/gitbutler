@@ -188,23 +188,21 @@ pub struct WorkspaceCommit<'repo> {
 /// currently very sensitive to ordering, such as when discarding file renamings, additions and
 /// deletions of intersecting paths.
 pub fn flatten_diff_specs(input: impl IntoIterator<Item = DiffSpec>) -> Vec<DiffSpec> {
-    let mut output: IndexMap<String, DiffSpec> = IndexMap::new();
+    let mut output: IndexMap<(gix::bstr::BString, Option<gix::bstr::BString>), DiffSpec> =
+        IndexMap::new();
     for spec in input {
-        let key = format!(
-            "{}:{}",
-            spec.path,
-            spec.previous_path
-                .clone()
-                .map(|p| p.to_string())
-                .unwrap_or_default()
-        );
+        let key = (spec.path.clone(), spec.previous_path.clone());
         output
             .entry(key)
             .and_modify(|existing| {
                 if existing.hunk_headers.is_empty() || spec.hunk_headers.is_empty() {
                     existing.hunk_headers.clear();
                 } else {
-                    existing.hunk_headers.extend(spec.hunk_headers.clone());
+                    for header in &spec.hunk_headers {
+                        if !existing.hunk_headers.contains(header) {
+                            existing.hunk_headers.push(*header);
+                        }
+                    }
                 }
             })
             .or_insert(spec);

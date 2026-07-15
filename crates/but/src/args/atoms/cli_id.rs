@@ -81,14 +81,17 @@ impl CliIdArg {
                 commit_id,
                 path,
                 id,
+                hunk_header,
             } => ResolvedCliIdArg::CommittedFile {
                 commit_id,
                 path,
                 id,
+                hunk_header,
             },
             CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
             CliId::Stack { .. } => ResolvedCliIdArg::Stack,
             CliId::Worktree { .. } => ResolvedCliIdArg::Worktree,
+            CliId::WorktreeChange(change) => ResolvedCliIdArg::WorktreeChange(change),
         }))
     }
 
@@ -243,6 +246,7 @@ impl CliIdArg {
             CliId::Uncommitted { .. } => "uncommitted changes",
             CliId::Stack { .. } => "a stack",
             CliId::Worktree { .. } => "a worktree",
+            CliId::WorktreeChange(..) => "a linked-worktree change",
         };
         bad_input(format!("Invalid {expected}. '{self}' is {kind}")).into()
     }
@@ -315,7 +319,8 @@ fn try_resolve_cli_id(
                 | CliId::CommittedFile { .. }
                 | CliId::Uncommitted { .. }
                 | CliId::Stack { .. }
-                | CliId::Worktree { .. } => {}
+                | CliId::Worktree { .. }
+                | CliId::WorktreeChange(..) => {}
             }
         }
 
@@ -395,6 +400,7 @@ pub enum ResolvedCliIdArg {
         commit_id: gix::ObjectId,
         path: BString,
         id: ShortId,
+        hunk_header: Option<but_core::HunkHeader>,
     },
     // These have no data because we don't have any commands that use them. So just add data if you
     // have a use case
@@ -402,6 +408,7 @@ pub enum ResolvedCliIdArg {
     Uncommitted,
     Stack,
     Worktree,
+    WorktreeChange(crate::id::WorktreeChange),
 }
 
 impl ResolvedCliIdArg {
@@ -416,6 +423,7 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::Uncommitted => "uncommitted changes",
             ResolvedCliIdArg::Stack => "a stack",
             ResolvedCliIdArg::Worktree => "a worktree",
+            ResolvedCliIdArg::WorktreeChange(..) => "a linked-worktree change",
         };
         Err(bad_input(format!("Expected a commit or a branch, got {kind}")).into())
     }
@@ -432,6 +440,7 @@ impl std::fmt::Display for ResolvedCliIdArg {
             ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
             ResolvedCliIdArg::Stack => f.write_str("stack"),
             ResolvedCliIdArg::Worktree => f.write_str("worktree"),
+            ResolvedCliIdArg::WorktreeChange(..) => f.write_str("linked-worktree change"),
         }
     }
 }

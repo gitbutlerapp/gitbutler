@@ -53,9 +53,13 @@ but diff                # Diff for entire workspace; best first command for sele
 but diff <file-id>      # Diff for specific file
 but diff <branch-id>    # Diff for all changes in branch
 but diff <commit-id>    # Diff for specific commit
+but diff <worktree>:<path> # Diff a dirty file in a linked worktree and show its hunk IDs
 ```
 
 **Hunk IDs:** For uncommitted changes, `but diff` shows each hunk with an ID (e.g., `e8`, `j0`). Pass these IDs to `but commit --changes` for fine-grained, hunk-level commits.
+
+Committed hunks use `<commit>:<file>:#N`. With the experimental `featureFlags.worktreeManipulation` feature enabled, linked-worktree dirty files use `<worktree>:<path>` and their hunks use `<worktree>:<path>:#N`.
+Emitted linked-worktree IDs percent-encode reserved or non-UTF-8 path bytes; copy the ID from `but status` or `but diff`.
 
 ## Branching
 
@@ -164,6 +168,7 @@ but commit <branch> -m "message" --changes <id>,<id> --after <target>   # Insert
 but commit <branch> --message-file msg.txt  # Read commit message from file
 but commit <branch> -c -m "message"      # Create new branch (or use existing) and commit
 but commit <branch> -n -m "message"      # Bypass git commit hooks (pre-commit, commit-msg, post-commit)
+but commit -m "message" --changes <worktree>:<path>:#N # From that linked checkout, commit one selected hunk
 but commit empty                         # Insert empty commit at top of first branch
 but commit empty -m "message"            # Insert empty commit with message
 but commit empty <target>                # Insert empty commit before target
@@ -172,6 +177,8 @@ but commit empty --after <target>        # Insert empty commit after target
 ```
 
 **Important:** Plain `but commit <branch> -m` commits ALL uncommitted changes to the branch. Use `--changes` to commit only specific files or hunks.
+
+When invoked from a linked checkout, omit the branch argument. Selective linked-worktree commits are experimental and accept `<worktree>:<path>` or `<worktree>:<path>:#N` through `--changes`; use `but diff <worktree>:<path>` to discover hunk IDs.
 
 **Committing specific files or hunks:** Start with `but diff` for selective dirty commits, then use `--changes` (or `-p`) with comma-separated CLI IDs to commit only those files or hunks:
 - **File IDs** from `but diff` or `but status -fv`: commits entire files
@@ -227,11 +234,17 @@ but rub <commit> <branch>    # Move commit to branch
 but rub <commit> zz          # Undo commit to uncommitted
 but rub zz <commit>          # Amend all uncommitted changes into commit
 but rub <worktree> <commit>  # Amend all linked-worktree changes into commit (experimental)
+but rub <worktree>:<path> <commit>  # Amend one linked-worktree file (experimental)
+but rub <worktree>:<path>:#N <commit>  # Amend one linked-worktree hunk (experimental)
 but rub <file-in-commit> zz  # Uncommit specific file from its commit
 but rub <file-in-commit> <commit>  # Move file from one commit to another
+but rub <commit>:<file>:#N zz  # Uncommit one hunk from a commit
+but rub <commit>:<file>:#N <commit>  # Move one committed hunk into another commit
 ```
 
 The core "rub two things together" operation. `zz` is a special target meaning "uncommitted" (no branch).
+
+Linked-worktree manipulation is experimental and requires `featureFlags.worktreeManipulation`. The modern selective squash form is `but _squash2 <source-id> --target <commit-id>`; `<source-id>` may be a linked-worktree file/hunk or a committed file/hunk, and the normal message options apply.
 
 ### `but squash <commits>`
 
@@ -278,7 +291,9 @@ but move <commit>,<commit> <target-commit>   # Move multiple commits before targ
 but move <commit> <target-commit> --after    # Move after target commit
 but move <commit>,<commit> <target-commit> --after # Move multiple commits after target commit
 but move <commit> <branch>                   # Move commit to top of branch
+but move <commit> <worktree>                 # Move commit to linked worktree branch tip (experimental)
 but move <commit>,<commit> <branch>          # Move multiple commits to top of branch
+but move <commit>:<file>:#N <target-commit>  # Move one committed hunk
 but move <branch> <target-branch>            # Stack branch on top of target branch
 but move <branch> zz                          # Tear off (unstack) branch
 ```

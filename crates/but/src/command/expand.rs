@@ -41,6 +41,14 @@ enum Resource {
     Stack {
         stack_id: String,
     },
+    Worktree {
+        name: String,
+    },
+    WorktreeChange {
+        name: String,
+        path: String,
+        hunk_header: Option<String>,
+    },
 }
 
 impl std::fmt::Display for Resource {
@@ -67,6 +75,18 @@ impl std::fmt::Display for Resource {
             Resource::PathPrefix { path } => write!(f, "path prefix: {path}"),
             Resource::Uncommitted => f.write_str("uncommitted area"),
             Resource::Stack { stack_id } => write!(f, "stack: {stack_id}"),
+            Resource::Worktree { name } => write!(f, "worktree: {name}"),
+            Resource::WorktreeChange {
+                name,
+                path,
+                hunk_header,
+            } => {
+                write!(f, "worktree change: {name} {path}")?;
+                if let Some(hunk_header) = hunk_header {
+                    write!(f, " {hunk_header}")?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -159,6 +179,14 @@ fn resources_from_cli_id(cli_id: CliId) -> Vec<Resource> {
         CliId::Uncommitted { .. } => vec![Resource::Uncommitted],
         CliId::Stack { stack_id, .. } => vec![Resource::Stack {
             stack_id: stack_id.to_string(),
+        }],
+        CliId::Worktree { name, .. } => vec![Resource::Worktree {
+            name: name.to_string(),
+        }],
+        CliId::WorktreeChange(change) => vec![Resource::WorktreeChange {
+            name: change.name.to_string(),
+            path: change.path.to_string(),
+            hunk_header: change.hunk_header.map(format_hunk_header),
         }],
     }
 }

@@ -69,6 +69,8 @@ pub fn default_key_binds() -> KeyBinds {
 
                 builder.details_mark().register();
                 builder.details_discard().register();
+                builder.rub().register();
+                builder.commit().register();
 
                 builder.details_jump_up().register();
                 builder.details_jump_down().register();

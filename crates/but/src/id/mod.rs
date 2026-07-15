@@ -215,12 +215,20 @@ type ChangesInCommitFn<'a> = Box<
     dyn FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>
         + 'a,
 >;
+
+#[derive(Clone, Copy)]
+struct RepoContext<'a> {
+    repo: &'a gix::Repository,
+    context_lines: u32,
+}
+
 trait Node<'a>: std::fmt::Debug {
     fn parse(
         self: Box<Self>,
         element: &str,
         id_map: &'a IdMap,
         changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        repo_context: Option<RepoContext<'a>>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>>;
 
     fn to_cli_id(self: Box<Self>, short_id: &str, id_map: &IdMap) -> anyhow::Result<Option<CliId>>;
@@ -236,6 +244,7 @@ impl<'a> Node<'a> for Leaf {
         _element: &str,
         _id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _repo_context: Option<RepoContext<'a>>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         Ok(Vec::new())
     }
@@ -246,6 +255,81 @@ impl<'a> Node<'a> for Leaf {
         _id_map: &IdMap,
     ) -> anyhow::Result<Option<CliId>> {
         Ok(Some(self.cli_id.clone()))
+    }
+}
+
+#[derive(Debug)]
+struct CommittedFileNode {
+    cli_id: CliId,
+    changes: NonEmpty<but_core::TreeChange>,
+}
+
+impl<'a> Node<'a> for CommittedFileNode {
+    fn parse(
+        self: Box<Self>,
+        element: &str,
+        _id_map: &'a IdMap,
+        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        repo_context: Option<RepoContext<'a>>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        let Some(index) = element
+            .strip_prefix(INDEX_SEPARATOR)
+            .and_then(|index| usize::from_str(index).ok())
+        else {
+            return Ok(Vec::new());
+        };
+        let Some(repo_context) = repo_context else {
+            return Ok(Vec::new());
+        };
+
+        let mut current_index = 0;
+        for change in &self.changes {
+            if !matches!(
+                change.status,
+                but_core::TreeStatus::Modification { .. } | but_core::TreeStatus::Rename { .. }
+            ) {
+                continue;
+            }
+            let Some(but_core::UnifiedPatch::Patch {
+                hunks,
+                is_result_of_binary_to_text_conversion: false,
+                ..
+            }) = change.unified_patch(repo_context.repo, repo_context.context_lines)?
+            else {
+                continue;
+            };
+            for hunk in hunks {
+                if current_index == index {
+                    let CliId::CommittedFile {
+                        commit_id,
+                        path,
+                        id,
+                        hunk_header: None,
+                    } = self.cli_id
+                    else {
+                        unreachable!("committed-file nodes always contain whole-file IDs")
+                    };
+                    return Ok(vec![Box::new(Leaf {
+                        cli_id: CliId::CommittedFile {
+                            commit_id,
+                            path,
+                            id: format!("{id}:{element}"),
+                            hunk_header: Some((&hunk).into()),
+                        },
+                    })]);
+                }
+                current_index += 1;
+            }
+        }
+        Ok(Vec::new())
+    }
+
+    fn to_cli_id(
+        self: Box<Self>,
+        _short_id: &str,
+        _id_map: &IdMap,
+    ) -> anyhow::Result<Option<CliId>> {
+        Ok(Some(self.cli_id))
     }
 }
 
@@ -345,6 +429,7 @@ impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
         element: &str,
         _id_map: &'a IdMap,
         changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _repo_context: Option<RepoContext<'a>>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
         let rhs_indexes = short_ids_from_tree_changes(changes_in_commit_fn(
@@ -355,7 +440,7 @@ impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
             let is_match = change_id.starts_with(element.as_bytes())
                 || tree_changes.first().path == BStr::new(element);
             if is_match {
-                matches.push(Box::new(Leaf {
+                matches.push(Box::new(CommittedFileNode {
                     cli_id: CliId::CommittedFile {
                         commit_id: self.commit_id(),
                         path: tree_changes.first().path.clone(),
@@ -367,7 +452,9 @@ impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
                                 .unwrap_or(&self.short_id),
                             short_id
                         ),
+                        hunk_header: None,
                     },
+                    changes: tree_changes,
                 }));
             }
         }
@@ -407,6 +494,7 @@ impl<'a> Node<'a> for &'a RemoteCommitWithId {
         _element: &str,
         _id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _repo_context: Option<RepoContext<'a>>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         Ok(Vec::new())
     }
@@ -475,6 +563,7 @@ impl<'a> Node<'a> for &'a SegmentWithId {
         _element: &str,
         _id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _repo_context: Option<RepoContext<'a>>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         // TODO: it may be confusing for the user if `branch_id:something`
         // silently does not match instead of an error message being printed.
@@ -508,6 +597,7 @@ impl<'a> Node<'a> for &'a StackWithId {
         element: &str,
         id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _repo_context: Option<RepoContext<'a>>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         // Parse known suffixes.
         if element.ends_with('/') {
@@ -552,14 +642,110 @@ pub struct WorktreeWithId {
     pub name: BString,
 }
 
+#[derive(Debug)]
+struct WorktreeChangeNode {
+    cli_id: CliId,
+    change: but_core::TreeChange,
+    worktree_name: BString,
+}
+
+impl<'a> Node<'a> for WorktreeChangeNode {
+    fn parse(
+        self: Box<Self>,
+        element: &str,
+        _id_map: &'a IdMap,
+        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        repo_context: Option<RepoContext<'a>>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        let Some(index) = element
+            .strip_prefix(INDEX_SEPARATOR)
+            .and_then(|index| usize::from_str(index).ok())
+        else {
+            return Ok(Vec::new());
+        };
+        let Some(repo_context) = repo_context else {
+            return Ok(Vec::new());
+        };
+        if !matches!(
+            self.change.status,
+            but_core::TreeStatus::Modification { .. } | but_core::TreeStatus::Rename { .. }
+        ) {
+            return Ok(Vec::new());
+        }
+        let wt_repo = but_workspace::worktrees::open_worktree_repo(
+            repo_context.repo,
+            self.worktree_name.as_bstr(),
+        )?;
+        let Some(but_core::UnifiedPatch::Patch {
+            hunks,
+            is_result_of_binary_to_text_conversion: false,
+            ..
+        }) = self
+            .change
+            .unified_patch(&wt_repo, repo_context.context_lines)?
+        else {
+            return Ok(Vec::new());
+        };
+        let Some(hunk) = hunks.get(index) else {
+            return Ok(Vec::new());
+        };
+        let CliId::WorktreeChange(mut change) = self.cli_id else {
+            unreachable!("worktree-change nodes always contain worktree-change IDs")
+        };
+        change.id = format!("{}:{element}", change.id);
+        change.hunk_header = Some(hunk.into());
+        Ok(vec![Box::new(Leaf {
+            cli_id: CliId::WorktreeChange(change),
+        })])
+    }
+
+    fn to_cli_id(
+        self: Box<Self>,
+        _short_id: &str,
+        _id_map: &IdMap,
+    ) -> anyhow::Result<Option<CliId>> {
+        Ok(Some(self.cli_id))
+    }
+}
+
 impl<'a> Node<'a> for &'a WorktreeWithId {
     fn parse(
         self: Box<Self>,
-        _element: &str,
+        element: &str,
         _id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        repo_context: Option<RepoContext<'a>>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
-        Ok(Vec::new())
+        let Some(repo_context) = repo_context else {
+            return Ok(Vec::new());
+        };
+        let Some(path) = decode_worktree_path(element) else {
+            return Ok(Vec::new());
+        };
+        let wt_repo =
+            but_workspace::worktrees::open_worktree_repo(repo_context.repo, self.name.as_bstr())?;
+        let Some(change) = but_core::diff::worktree_changes(&wt_repo)?
+            .changes
+            .into_iter()
+            .find(|change| change.path == path)
+        else {
+            return Ok(Vec::new());
+        };
+        let cli_id = CliId::WorktreeChange(WorktreeChange {
+            id: format!(
+                "{}:{}",
+                self.short_id,
+                encode_worktree_path(change.path.as_bstr())
+            ),
+            name: self.name.clone(),
+            path: change.path.clone(),
+            hunk_header: None,
+        });
+        Ok(vec![Box::new(WorktreeChangeNode {
+            cli_id,
+            change,
+            worktree_name: self.name.clone(),
+        })])
     }
 
     fn to_cli_id(
@@ -597,6 +783,8 @@ pub struct IdMap {
     worktrees: Vec<WorktreeWithId>,
     /// Commits reachable only from active linked worktrees.
     worktree_commits: Vec<WorkspaceCommitWithId>,
+    context_lines: u32,
+    committed_hunks_enabled: bool,
     /// The ID representing the uncommitted area, i.e. uncommitted files that aren't assigned to a stack.
     uncommitted: CliId,
 
@@ -625,6 +813,25 @@ impl IdMap {
         hunk_assignments: Vec<HunkAssignment>,
         commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
         worktree_names: Vec<BString>,
+    ) -> anyhow::Result<Self> {
+        Self::new_with_context_lines(
+            stacks,
+            hunk_assignments,
+            commit_id_to_change_id,
+            worktree_names,
+            but_settings::AppSettings::default().context_lines,
+            false,
+        )
+    }
+
+    /// Like [`Self::new()`], using the context-line count that created selectable hunk IDs.
+    pub fn new_with_context_lines(
+        stacks: Vec<Stack>,
+        hunk_assignments: Vec<HunkAssignment>,
+        commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
+        worktree_names: Vec<BString>,
+        context_lines: u32,
+        committed_hunks_enabled: bool,
     ) -> anyhow::Result<Self> {
         let mut worktree_names = worktree_names;
         worktree_names.sort();
@@ -859,6 +1066,8 @@ impl IdMap {
             stack_ids,
             worktrees,
             worktree_commits: Vec::new(),
+            context_lines,
+            committed_hunks_enabled,
             uncommitted: CliId::Uncommitted {
                 id: UNCOMMITTED.to_string(),
             },
@@ -1039,11 +1248,13 @@ impl IdMap {
             })
             .collect();
 
-        let mut id_map = Self::new(
+        let mut id_map = Self::new_with_context_lines(
             ws.stacks.clone(),
             hunk_assignments,
             commit_id_to_change_id,
             worktree_names,
+            context_lines,
+            ctx.settings.feature_flags.worktree_manipulation,
         )?;
         if !worktrees.is_empty() {
             let known_commits: HashSet<_> = id_map
@@ -1299,6 +1510,7 @@ impl IdMap {
                     element: &str,
                     id_map: &'a IdMap,
                     _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+                    _repo_context: Option<RepoContext<'a>>,
                 ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
                     Ok(id_map.parse_uncommitted_filename(None, element))
                 }
@@ -1350,7 +1562,16 @@ impl IdMap {
     pub fn parse<'a>(
         &'a self,
         entity: &str,
+        changes_in_commit_fn: ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<CliId>> {
+        self.parse_with_repo_context(entity, changes_in_commit_fn, None)
+    }
+
+    fn parse_with_repo_context<'a>(
+        &'a self,
+        entity: &str,
         mut changes_in_commit_fn: ChangesInCommitFn<'a>,
+        repo_context: Option<RepoContext<'a>>,
     ) -> anyhow::Result<Vec<CliId>> {
         let mut cli_ids = Vec::new();
         if let Some((lhs, rhs)) = entity.split_once(':') {
@@ -1360,8 +1581,10 @@ impl IdMap {
                 // `a:filename:with:colon:b` will parse to `a`,
                 // `filename:with:colon`, `b`).
                 for node in self.parse_element(lhs)? {
-                    for node in node.parse(mhs, self, &mut changes_in_commit_fn)? {
-                        for node in node.parse(rhs, self, &mut changes_in_commit_fn)? {
+                    for node in node.parse(mhs, self, &mut changes_in_commit_fn, repo_context)? {
+                        for node in
+                            node.parse(rhs, self, &mut changes_in_commit_fn, repo_context)?
+                        {
                             if let Some(cli_id) = node.to_cli_id(entity, self)? {
                                 cli_ids.push(cli_id);
                             }
@@ -1370,7 +1593,7 @@ impl IdMap {
                 }
             } else {
                 for node in self.parse_element(lhs)? {
-                    for node in node.parse(rhs, self, &mut changes_in_commit_fn)? {
+                    for node in node.parse(rhs, self, &mut changes_in_commit_fn, repo_context)? {
                         if let Some(cli_id) = node.to_cli_id(entity, self)? {
                             cli_ids.push(cli_id);
                         }
@@ -1403,18 +1626,35 @@ impl IdMap {
         entity: &str,
         repo: &'a gix::Repository,
     ) -> anyhow::Result<Vec<CliId>> {
-        self.parse(
+        let repo_context = self.committed_hunks_enabled.then_some(RepoContext {
+            repo,
+            context_lines: self.context_lines,
+        });
+        self.parse_with_repo_context(
             entity,
             Box::new(move |commit_id, parent_id| {
                 but_core::diff::tree_changes(repo, parent_id, commit_id)
             }),
+            repo_context,
         )
     }
 
     /// Convenience for [IdMap::parse] if a [Context] is available.
     pub fn parse_using_context(&self, entity: &str, ctx: &Context) -> anyhow::Result<Vec<CliId>> {
         let repo = &*ctx.repo.get()?;
-        self.parse_using_repo(entity, repo)
+        let repo_context = (self.committed_hunks_enabled
+            && ctx.settings.feature_flags.worktree_manipulation)
+            .then_some(RepoContext {
+                repo,
+                context_lines: self.context_lines,
+            });
+        self.parse_with_repo_context(
+            entity,
+            Box::new(move |commit_id, parent_id| {
+                but_core::diff::tree_changes(repo, parent_id, commit_id)
+            }),
+            repo_context,
+        )
     }
 
     /// Returns the [`CliId::Stack`] for a given `stack_id`, if it exists.
@@ -1445,6 +1685,55 @@ impl IdMap {
                 name: worktree.name.clone(),
             })
     }
+
+    /// Returns a whole-file ID for `path` in the linked worktree named `name`.
+    pub fn resolve_worktree_change(&self, name: &BStr, path: &BStr) -> Option<CliId> {
+        let worktree = self
+            .worktrees
+            .iter()
+            .find(|worktree| worktree.name == name)?;
+        Some(CliId::WorktreeChange(WorktreeChange {
+            id: format!("{}:{}", worktree.short_id, encode_worktree_path(path)),
+            name: worktree.name.clone(),
+            path: path.to_owned(),
+            hunk_header: None,
+        }))
+    }
+}
+
+/// Encode arbitrary Git path bytes into the colon-delimited CLI-ID grammar.
+///
+/// Slashes and URI-unreserved ASCII stay readable. Everything else is percent-encoded, which
+/// keeps colons, percent signs, and non-UTF-8 bytes unambiguous.
+fn encode_worktree_path(path: &BStr) -> String {
+    let mut encoded = String::with_capacity(path.len());
+    for &byte in path.iter() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~' | b'/') {
+            encoded.push(byte as char);
+        } else {
+            use std::fmt::Write as _;
+            write!(encoded, "%{byte:02X}").expect("writing to a String cannot fail");
+        }
+    }
+    encoded
+}
+
+fn decode_worktree_path(encoded: &str) -> Option<BString> {
+    let bytes = encoded.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            let hex = bytes.get(index + 1..index + 3)?;
+            let hex = std::str::from_utf8(hex).ok()?;
+            decoded.push(u8::from_str_radix(hex, 16).ok()?);
+            index += 3;
+        } else {
+            decoded.push(bytes[index]);
+            index += 1;
+        }
+    }
+    Some(decoded.into())
 }
 
 /// Drop worktree matches when non-worktree matches exist.
@@ -1477,14 +1766,20 @@ fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
             CliId::CommittedFile {
                 commit_id: lhs_commit_id,
                 path: lhs_path,
+                hunk_header: lhs_hunk_header,
                 ..
             },
             CliId::CommittedFile {
                 commit_id: rhs_commit_id,
                 path: rhs_path,
+                hunk_header: rhs_hunk_header,
                 ..
             },
-        ) => lhs_commit_id == rhs_commit_id && lhs_path == rhs_path,
+        ) => {
+            lhs_commit_id == rhs_commit_id
+                && lhs_path == rhs_path
+                && lhs_hunk_header == rhs_hunk_header
+        }
         (
             CliId::Branch {
                 name: lhs_name,
@@ -1520,6 +1815,7 @@ fn cli_ids_refer_to_same_entity(lhs: &CliId, rhs: &CliId) -> bool {
         (CliId::Worktree { name: lhs_name, .. }, CliId::Worktree { name: rhs_name, .. }) => {
             lhs_name == rhs_name
         }
+        (CliId::WorktreeChange(lhs), CliId::WorktreeChange(rhs)) => lhs == rhs,
         _ => false,
     }
 }
@@ -1534,6 +1830,20 @@ pub struct UncommittedHunkOrFile {
     /// `true` if self represents all hunks in a stack-assignment or file pair.
     /// Note that this file may have hunks with other stack assignments.
     pub is_entire_file: bool,
+}
+
+/// A selectable uncommitted file or hunk in a linked worktree.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorktreeChange {
+    /// The qualified CLI ID, such as `wt:path` or `wt:path:#0`. Unsafe path bytes are
+    /// percent-encoded.
+    pub id: ShortId,
+    /// The stable linked-worktree name.
+    pub name: BString,
+    /// The repository-relative path.
+    pub path: BString,
+    /// The selected hunk, or `None` for the whole file.
+    pub hunk_header: Option<but_core::HunkHeader>,
 }
 
 impl PartialEq for UncommittedHunkOrFile {
@@ -1593,6 +1903,8 @@ pub enum CliId {
         path: BString,
         /// The short CLI ID for this file (typically 2 characters)
         id: ShortId,
+        /// The selected hunk, or `None` for the entire file.
+        hunk_header: Option<but_core::HunkHeader>,
     },
     /// A branch.
     Branch {
@@ -1633,6 +1945,8 @@ pub enum CliId {
         /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
         name: BString,
     },
+    /// An uncommitted file or hunk in a linked worktree.
+    WorktreeChange(WorktreeChange),
 }
 
 impl PartialEq for CliId {
@@ -1646,14 +1960,16 @@ impl PartialEq for CliId {
                 Self::CommittedFile {
                     id: l_id,
                     path: l_path,
+                    hunk_header: l_hunk_header,
                     ..
                 },
                 Self::CommittedFile {
                     id: r_id,
                     path: r_path,
+                    hunk_header: r_hunk_header,
                     ..
                 },
-            ) => l_id == r_id && l_path == r_path,
+            ) => l_id == r_id && l_path == r_path && l_hunk_header == r_hunk_header,
             (Self::Branch { id: l_id, .. }, Self::Branch { id: r_id, .. }) => l_id == r_id,
             (
                 Self::Commit {
@@ -1668,6 +1984,7 @@ impl PartialEq for CliId {
             (Self::Worktree { name: l_name, .. }, Self::Worktree { name: r_name, .. }) => {
                 l_name == r_name
             }
+            (Self::WorktreeChange(lhs), Self::WorktreeChange(rhs)) => lhs == rhs,
             _ => false,
         }
     }
@@ -1688,6 +2005,7 @@ impl CliId {
             CliId::Uncommitted { .. } => "the uncommitted area",
             CliId::Stack { .. } => "a stack",
             CliId::Worktree { .. } => "a worktree",
+            CliId::WorktreeChange(..) => "a linked-worktree file or hunk",
         }
     }
 
@@ -1701,6 +2019,7 @@ impl CliId {
             | CliId::Commit { id, .. }
             | CliId::Stack { id, .. }
             | CliId::Worktree { id, .. }
+            | CliId::WorktreeChange(WorktreeChange { id, .. })
             | CliId::Uncommitted { id, .. } => id.clone(),
         }
     }
@@ -1718,6 +2037,7 @@ impl CliId {
             | CliId::Commit { .. }
             | CliId::Uncommitted { .. }
             | CliId::Worktree { .. } => None,
+            CliId::WorktreeChange(..) => None,
         }
     }
 }
@@ -1765,6 +2085,7 @@ impl<'a> Node<'a> for &'a UncommittedFile {
         element: &str,
         _id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _repo_context: Option<RepoContext<'a>>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         match element.strip_prefix(INDEX_SEPARATOR) {
             Some(maybe_index) if let Ok(index) = usize::from_str(maybe_index) => {
@@ -1827,6 +2148,7 @@ impl<'a> Node<'a> for &'a UncommittedHunk {
         _element: &str,
         _id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+        _repo_context: Option<RepoContext<'a>>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         Ok(Vec::new())
     }

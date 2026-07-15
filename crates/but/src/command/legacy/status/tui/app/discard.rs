@@ -239,10 +239,12 @@ impl App {
                 CliId::CommittedFile {
                     commit_id,
                     path,
+                    hunk_header,
                     id: _,
                 } => {
                     let commit_id = *commit_id;
                     let path = path.to_owned();
+                    let hunk_header = *hunk_header;
 
                     self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
                     let drop_to_be_discarded =
@@ -262,8 +264,11 @@ impl App {
                                     ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
                                 let mut builder =
                                     DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-                                builder
-                                    .push_changes_from_committed_file(commit_id, path.as_ref())?;
+                                builder.push_changes_from_committed_file(
+                                    commit_id,
+                                    path.as_ref(),
+                                    hunk_header,
+                                )?;
                                 builder.into_diff_specs()
                             };
 
@@ -296,7 +301,9 @@ impl App {
                         },
                     )
                 }
-                CliId::PathPrefix { .. } | CliId::Worktree { .. } => return Ok(()),
+                CliId::PathPrefix { .. } | CliId::Worktree { .. } | CliId::WorktreeChange(..) => {
+                    return Ok(());
+                }
             },
         });
 
@@ -354,8 +361,11 @@ impl App {
                             "BUG: it should not be possible to mark commits from multiple sources"
                         );
 
-                        builder
-                            .push_changes_from_committed_file(file.commit_id, file.path.as_ref())?;
+                        builder.push_changes_from_committed_file(
+                            file.commit_id,
+                            file.path.as_ref(),
+                            None,
+                        )?;
                     }
                     Some(ChangesToDiscard::CommittedFiles(
                         commit,

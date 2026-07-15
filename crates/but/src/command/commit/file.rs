@@ -2,12 +2,13 @@ use crate::utils::{OutputChannel, diff_specs::DiffSpecBuilder};
 use anyhow::Result;
 use bstr::BStr;
 use bstr::ByteSlice;
-use but_core::{DryRun, sync::RepoExclusive};
+use but_core::{DryRun, HunkHeader, sync::RepoExclusive};
 use but_ctx::Context;
 
 pub fn commited_file_to_another_commit_with_perm(
     ctx: &mut Context,
     path: &BStr,
+    hunk_header: Option<HunkHeader>,
     source_id: gix::ObjectId,
     target_id: gix::ObjectId,
     out: &mut OutputChannel,
@@ -17,7 +18,7 @@ pub fn commited_file_to_another_commit_with_perm(
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
         let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-        builder.push_changes_from_path_in_commit(path, source_id, "First parent")?;
+        builder.push_changes_from_committed_file(source_id, path, hunk_header)?;
         builder.into_diff_specs()
     };
 
@@ -44,6 +45,7 @@ pub fn commited_file_to_another_commit_with_perm(
 pub fn uncommit_file_and_discard(
     ctx: &mut Context,
     path: &BStr,
+    hunk_header: Option<HunkHeader>,
     source_id: gix::ObjectId,
     out: &mut OutputChannel,
     emit_output: bool,
@@ -52,6 +54,7 @@ pub fn uncommit_file_and_discard(
     uncommit_file_and_discard_with_perm(
         ctx,
         path,
+        hunk_header,
         source_id,
         out,
         emit_output,
@@ -62,6 +65,7 @@ pub fn uncommit_file_and_discard(
 pub fn uncommit_file_and_discard_with_perm(
     ctx: &mut Context,
     path: &BStr,
+    hunk_header: Option<HunkHeader>,
     source_id: gix::ObjectId,
     out: &mut OutputChannel,
     emit_output: bool,
@@ -71,7 +75,7 @@ pub fn uncommit_file_and_discard_with_perm(
     let relevant_changes = {
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
         let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-        builder.push_changes_from_path_in_commit(path, source_id, "First parent")?;
+        builder.push_changes_from_committed_file(source_id, path, hunk_header)?;
         builder.into_diff_specs()
     };
 

@@ -212,6 +212,7 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
         ResolvedCliIdArg::CommittedFile {
             commit_id,
             path,
+            hunk_header: _,
             id,
         } => Ok(DiffOperation::CommittedFile {
             commit_id,
@@ -224,6 +225,9 @@ fn resolve(ctx: &Context, id_map: &IdMap, args: Platform) -> CliResult<DiffOpera
         ResolvedCliIdArg::PathPrefix => {
             // TODO(david)
             Err(anyhow::anyhow!("path prefix targets are not yet implemented").into())
+        }
+        ResolvedCliIdArg::Worktree | ResolvedCliIdArg::WorktreeChange(..) => {
+            Err(bad_input("viewing linked-worktree diffs is not supported here").into())
         }
     }
 }

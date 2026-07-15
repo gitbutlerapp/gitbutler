@@ -41,8 +41,8 @@ pub fn handle_tui(ctx: &mut Context, target_str: Option<&str>) -> anyhow::Result
             } => DiffFileEntry::from_commit(ctx, commit_id, Some(path))?,
             CliId::Commit { commit_id, .. } => DiffFileEntry::from_commit(ctx, commit_id, None)?,
             CliId::Branch { name, .. } => DiffFileEntry::from_branch(ctx, name)?,
-            CliId::Worktree { .. } => {
-                anyhow::bail!("Cannot show a diff for a worktree.")
+            CliId::Worktree { .. } | CliId::WorktreeChange(..) => {
+                anyhow::bail!("Cannot show a diff for a linked worktree.")
             }
         }
     } else {
@@ -80,15 +80,25 @@ pub fn handle(
             } => show::hunk_assignments(&hunk_assignments, out),
             CliId::Uncommitted { .. } => show::worktree(id_map, out, Some(Filter::UncommittedArea)),
             CliId::CommittedFile {
-                commit_id, path, ..
-            } => show::commit(ctx, out, commit_id, Some(path)),
+                commit_id,
+                path,
+                id,
+                hunk_header,
+            } => {
+                if ctx.settings.feature_flags.worktree_manipulation {
+                    show::committed_file(ctx, out, commit_id, path, id, hunk_header)
+                } else {
+                    show::commit(ctx, out, commit_id, Some(path))
+                }
+            }
             CliId::Branch { name, .. } => show::branch(ctx, out, name),
             CliId::Commit { commit_id: id, .. } => show::commit(ctx, out, id, None),
             CliId::Stack { id: _, stack_id } => {
                 show::worktree(id_map, out, Some(Filter::Stack(stack_id)))
             }
+            CliId::WorktreeChange(change) => show::worktree_change(ctx, out, change),
             CliId::Worktree { .. } => {
-                anyhow::bail!("Cannot show a diff for a worktree.")
+                anyhow::bail!("Cannot show a diff for a linked worktree.")
             }
         }
     } else {

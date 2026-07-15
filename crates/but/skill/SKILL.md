@@ -35,6 +35,9 @@ but commit <branch> -c -m "<msg>" --changes <id>,<id>
 
 `--changes` (or `-p`) takes comma-separated file or hunk IDs from `but diff` / `but status -fv`. A hunk ID is written `<file-id>:<hunk-id>` (e.g. `qs:5`, copied from `but diff`) — the part after the colon is the hunk's ID, **not** a line range (`qs:16-40` is invalid). Do not invent flags like `--hunk` / `--hunks` / `--ids`, pass a line range, or pass change IDs as positional arguments.
 
+With the experimental `featureFlags.worktreeManipulation` feature enabled, linked-worktree changes use `<worktree>:<path>` for a file and `<worktree>:<path>:#N` for one hunk. Run `but diff <worktree>:<path>` to discover its hunk IDs. Committed hunks use `<commit>:<file>:#N`.
+Git path bytes that conflict with the ID grammar are percent-encoded in emitted linked-worktree IDs; copy the ID shown by `but status` or `but diff` rather than reconstructing it.
+
 CLI IDs may be a single character when unambiguous; copy them exactly from command output. Longer unambiguous prefixes also work.
 
 ## Non-Negotiable Rules
@@ -82,13 +85,17 @@ but <mutation> ...
 - Commit + create branch: `but commit <branch> -c -m "<msg>" --changes <id>`
 - Commit at a specific history position: `but commit <branch> -m "<msg>" --changes <id>,<id> --before <commit-or-branch-id>` or `--after <commit-or-branch-id>`
 - Amend: `but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>`
-- Amend all changes from an active linked worktree: `but rub <worktree-id> <commit-id>` (experimental)
+- Amend all linked-worktree changes: `but rub <worktree> <commit-id>` (experimental; requires `featureFlags.worktreeManipulation`)
+- Amend one linked-worktree file or hunk: `but rub <worktree>:<path>[:#N] <commit-id>`
+- Move one committed hunk: `but move <commit>:<file>:#N <target-commit>`
+- Selective modern squash: `but _squash2 <source-id> --target <commit-id> --use-target-message`
 - Uncommit and show resulting dirty diff: `but uncommit <commit-id> --diff`
 - Insert empty commit: `but commit empty [-m "<msg>"] [<target>]`
 - Squash commits: `but squash <source-commit-id> [<source-commit-id>...] <target-commit-id> [-m "<msg>"]`
 - Reorder commits: `but move <source-commit-id> <target-commit-id>` (**commit IDs**, not branch names)
 - Reorder multiple commits as a group: `but move <source-commit-id>,<source-commit-id> <target-commit-id>` (comma-separated commit IDs)
 - Move commit to branch top: `but move <commit-id> <branch-name-or-id>` (puts that commit at the top/newest position of the branch)
+- Move commit to linked worktree: `but move <commit-id> <worktree-id>` (experimental; moves it to that worktree's branch tip)
 - Move multiple commits to branch top: `but move <commit-id>,<commit-id> <branch-name-or-id>` (commit IDs only; not branches)
 - Stack branches: `but move <branch-name-or-id> <target-branch-name-or-id>` (**branch names or branch CLI IDs**)
 - Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = uncommitted; branch name or branch CLI ID)
@@ -128,6 +135,14 @@ Edge case: if wanted and unwanted edits are in the same diff hunk, GitButler can
 1. `but status -fv` (or `but show <branch-id>`)
 2. Locate file/hunk IDs and target commit ID.
 3. `but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>`; use one command for multiple files/hunks that belong in the same commit. To amend into several different commits, run one `but amend` at a time and take fresh commit IDs from the returned status before the next — amending a commit rewrites the IDs of the commits stacked above it.
+
+For experimental linked-worktree changes, run `but diff <worktree>:<path>` to get `<worktree>:<path>:#N` IDs, then use `but rub <change-id> <commit-id>`. The modern equivalent is `but _squash2 <change-id> --target <commit-id> --use-target-message`.
+
+To make a selective commit on the branch checked out in a linked worktree, run this from that linked checkout (no branch argument):
+
+```bash
+but commit -m "<message>" --changes <worktree>:<path>:#N
+```
 
 ### Split an existing commit
 

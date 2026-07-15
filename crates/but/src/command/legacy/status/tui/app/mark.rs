@@ -176,12 +176,16 @@ impl<'a> MarksRef<'a> {
                     commit_id,
                     path,
                     id,
+                    hunk_header,
                 } = cli_id
                 else {
                     return false;
                 };
                 std::iter::once(head).chain(tail).any(|file| {
-                    file.commit_id == *commit_id && &file.path == path && &file.id == id
+                    file.commit_id == *commit_id
+                        && &file.path == path
+                        && &file.id == id
+                        && &file.hunk_header == hunk_header
                 })
             }
         }
@@ -397,10 +401,12 @@ impl Markable {
                 commit_id,
                 path,
                 id,
+                hunk_header,
             }) => CliId::CommittedFile {
                 commit_id,
                 path,
                 id,
+                hunk_header,
             },
         }
     }
@@ -474,12 +480,14 @@ impl<'a> MarkableRef<'a> {
                         commit_id,
                         path,
                         id,
+                        hunk_header,
                     } = cli_id
                     {
                         return Some(Self::CommittedFile(MarkedCommittedFileRef {
                             commit_id: *commit_id,
                             path: path.as_ref(),
                             id,
+                            hunk_header: *hunk_header,
                         }));
                     }
                 }
@@ -536,6 +544,7 @@ pub struct MarkedCommittedFile {
     pub commit_id: gix::ObjectId,
     pub path: BString,
     pub id: ShortId,
+    pub hunk_header: Option<but_core::HunkHeader>,
 }
 
 impl MarkedCommittedFile {
@@ -544,6 +553,7 @@ impl MarkedCommittedFile {
             commit_id: self.commit_id,
             path: self.path.as_ref(),
             id: &self.id,
+            hunk_header: self.hunk_header,
         }
     }
 }
@@ -553,6 +563,7 @@ pub struct MarkedCommittedFileRef<'a> {
     pub commit_id: gix::ObjectId,
     pub path: &'a BStr,
     pub id: &'a str,
+    pub hunk_header: Option<but_core::HunkHeader>,
 }
 
 impl MarkedCommittedFileRef<'_> {
@@ -561,6 +572,7 @@ impl MarkedCommittedFileRef<'_> {
             commit_id: self.commit_id,
             path: self.path.to_owned(),
             id: self.id.to_owned(),
+            hunk_header: self.hunk_header,
         }
     }
 }
@@ -641,7 +653,10 @@ impl App {
                     | Mode::Stack(..) => {}
                 }
             }
-            CliId::PathPrefix { .. } | CliId::Stack { .. } | CliId::Worktree { .. } => {}
+            CliId::PathPrefix { .. }
+            | CliId::Stack { .. }
+            | CliId::Worktree { .. }
+            | CliId::WorktreeChange(..) => {}
         }
 
         if self.marks_ref().is_empty() {
@@ -862,4 +877,33 @@ pub fn commits_on_branch(
         .collect::<Vec<_>>();
 
     Ok(commits)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use but_core::HunkHeader;
+
+    #[test]
+    fn committed_hunk_mark_roundtrip_preserves_header() {
+        let cli_id = CliId::CommittedFile {
+            commit_id: gix::ObjectId::from_hex(b"1111111111111111111111111111111111111111")
+                .expect("valid object ID"),
+            path: BString::from("two-hunks.txt"),
+            id: "B:tw".to_owned(),
+            hunk_header: Some(HunkHeader {
+                old_start: 7,
+                old_lines: 4,
+                new_start: 7,
+                new_lines: 4,
+            }),
+        };
+
+        let roundtrip = MarkableRef::try_from_cli_id(&cli_id)
+            .expect("committed hunks are markable")
+            .to_owned()
+            .into_cli_id();
+
+        assert_eq!(roundtrip, cli_id);
+    }
 }

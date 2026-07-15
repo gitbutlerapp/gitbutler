@@ -201,6 +201,13 @@ impl Details {
         self.selection.as_ref()
     }
 
+    pub fn selected_section_cli_id(&self) -> Option<Arc<CliId>> {
+        let SelectedSection::Selected(index) = self.selected_section.get() else {
+            return None;
+        };
+        self.sections.get(index)?.cli_id.as_ref().map(Arc::clone)
+    }
+
     pub fn clear_selection_for_reload(
         &mut self,
         select_first_section_when_available: bool,
@@ -339,10 +346,29 @@ impl Details {
                     },
                 )
             }
+            CliId::WorktreeChange(change) => {
+                let change = change.clone();
+                self.poll_render_thread(
+                    ctx,
+                    None,
+                    selection_did_change,
+                    move |ctx, theme, id_gen, line_writer, options| {
+                        diff_rendering::render_worktree_change(
+                            change,
+                            ctx,
+                            theme,
+                            id_gen,
+                            options,
+                            line_writer,
+                        )
+                    },
+                )
+            }
             CliId::CommittedFile {
                 commit_id,
                 path,
                 id,
+                ..
             } => {
                 let commit = *commit_id;
                 let path = path.clone();
@@ -1176,6 +1202,7 @@ impl Details {
             | CliId::Commit { .. }
             | CliId::Stack { .. }
             | CliId::Worktree { .. } => false,
+            CliId::WorktreeChange(..) => false,
         }
     }
 
@@ -1188,9 +1215,6 @@ impl Details {
     }
 
     fn handle_discard_selection(&mut self, messages: &mut Vec<Message>) {
-        if !self.selected_uncommitted() {
-            return;
-        }
         let SelectedSection::Selected(selected_section_idx) = self.selected_section.get() else {
             return;
         };
@@ -1198,6 +1222,9 @@ impl Details {
         let Some(section_cli_id) = section.cli_id.as_ref().map(Arc::clone) else {
             return;
         };
+        if !self.selected_uncommitted() && !matches!(&*section_cli_id, CliId::WorktreeChange(..)) {
+            return;
+        }
         let select_after_discard = if self.sections.get(selected_section_idx + 1).is_some() {
             PendingSectionSelection::Section {
                 index: selected_section_idx,
@@ -1217,15 +1244,21 @@ impl Details {
             messages,
         );
 
-        let (formatted_cli_id, formatted_path) =
-            if let CliId::UncommittedHunkOrFile(hunk) = &*section_cli_id {
-                (
-                    Span::raw(section_cli_id.to_short_string()).style(self.theme.cli_id),
-                    Span::raw(hunk.hunk_assignments.head.path.clone()),
-                )
-            } else {
-                return;
-            };
+        let formatted_cli_id = Span::raw(section_cli_id.to_short_string()).style(self.theme.cli_id);
+        let formatted_path = match &*section_cli_id {
+            CliId::UncommittedHunkOrFile(hunk) => {
+                Span::raw(hunk.hunk_assignments.head.path.clone())
+            }
+            CliId::WorktreeChange(change) => Span::raw(change.path.to_string()),
+            CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Branch { .. }
+            | CliId::Commit { .. }
+            | CliId::Uncommitted { .. }
+            | CliId::Stack { .. }
+            | CliId::Worktree { .. } => return,
+        };
+        let status_selection = self.selection.clone();
 
         let confirm = Confirm::new(
             NonEmpty::new(Line::from_iter([
@@ -1237,28 +1270,49 @@ impl Details {
             ])),
             self.theme,
             move |ctx, messages| {
-                let changes = {
-                    let context_lines = ctx.settings.context_lines;
-                    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-                    let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-                    builder.push_changes_from_id(&section_cli_id)?;
-                    builder.into_diff_specs()
-                };
+                match &*section_cli_id {
+                    CliId::WorktreeChange(change) => {
+                        let _guard = ctx.exclusive_worktree_access();
+                        crate::command::legacy::discard::discard_linked_worktree_changes(
+                            ctx,
+                            &[change],
+                        )?;
+                    }
+                    CliId::UncommittedHunkOrFile(..) => {
+                        let changes = {
+                            let context_lines = ctx.settings.context_lines;
+                            let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+                            let mut builder =
+                                DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+                            builder.push_changes_from_id(&section_cli_id)?;
+                            builder.into_diff_specs()
+                        };
 
-                if changes.is_empty() {
-                    return Ok(());
+                        if changes.is_empty() {
+                            return Ok(());
+                        }
+                        but_api::legacy::workspace::discard_worktree_changes(ctx, changes)?;
+                    }
+                    CliId::PathPrefix { .. }
+                    | CliId::CommittedFile { .. }
+                    | CliId::Branch { .. }
+                    | CliId::Commit { .. }
+                    | CliId::Uncommitted { .. }
+                    | CliId::Stack { .. }
+                    | CliId::Worktree { .. } => return Ok(()),
                 }
-
-                but_api::legacy::workspace::discard_worktree_changes(ctx, changes)?;
 
                 let PendingSectionSelection::Section { index, direction } = select_after_discard
                 else {
                     unreachable!("discard selection is always a specific details section")
                 };
-                messages.push(Message::Reload(
-                    Some(SelectAfterReload::UncommittedDetailsSection { index, direction }),
-                    ReloadCause::Mutation,
-                ));
+                let select_after_reload = match status_selection {
+                    Some(CliId::WorktreeChange(change)) => Some(SelectAfterReload::CliId(
+                        Box::new(CliId::WorktreeChange(change)),
+                    )),
+                    _ => Some(SelectAfterReload::UncommittedDetailsSection { index, direction }),
+                };
+                messages.push(Message::Reload(select_after_reload, ReloadCause::Mutation));
 
                 drop(drop_to_be_discarded);
 
@@ -1334,6 +1388,7 @@ impl Details {
             Message::Details(DetailsMessage::DropToBeDiscarded),
             messages,
         );
+        let status_selection = self.selection.clone();
 
         let confirm = Confirm::new(
             NonEmpty::new(
@@ -1346,29 +1401,51 @@ impl Details {
             ),
             self.theme,
             move |ctx, messages| {
-                let changes = {
-                    let context_lines = ctx.settings.context_lines;
-                    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-                    let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-                    for id in marked_section_cli_ids {
-                        builder.push_changes_from_id(&id)?;
-                    }
-                    builder.reconcile_worktree_diff_specs()?;
-                    builder.into_diff_specs()
-                };
+                let is_linked_worktree = marked_section_cli_ids
+                    .iter()
+                    .all(|id| matches!(&**id, CliId::WorktreeChange(..)));
+                if is_linked_worktree {
+                    let changes = marked_section_cli_ids
+                        .iter()
+                        .filter_map(|id| match &**id {
+                            CliId::WorktreeChange(change) => Some(change),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>();
+                    let _guard = ctx.exclusive_worktree_access();
+                    crate::command::legacy::discard::discard_linked_worktree_changes(
+                        ctx, &changes,
+                    )?;
+                } else {
+                    let changes = {
+                        let context_lines = ctx.settings.context_lines;
+                        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+                        let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+                        for id in marked_section_cli_ids {
+                            builder.push_changes_from_id(&id)?;
+                        }
+                        builder.reconcile_worktree_diff_specs()?;
+                        builder.into_diff_specs()
+                    };
 
-                if changes.is_empty() {
-                    return Ok(());
+                    if changes.is_empty() {
+                        return Ok(());
+                    }
+                    but_api::legacy::workspace::discard_worktree_changes(ctx, changes)?;
                 }
 
-                but_api::legacy::workspace::discard_worktree_changes(ctx, changes)?;
-
-                let select_after_reload = select_after_discard.map(|selection| {
-                    let PendingSectionSelection::Section { index, direction } = selection else {
-                        unreachable!("discard marks can only select a specific details section")
-                    };
-                    SelectAfterReload::UncommittedDetailsSection { index, direction }
-                });
+                let select_after_reload = match status_selection {
+                    Some(CliId::WorktreeChange(change)) => Some(SelectAfterReload::CliId(
+                        Box::new(CliId::WorktreeChange(change)),
+                    )),
+                    _ => select_after_discard.map(|selection| {
+                        let PendingSectionSelection::Section { index, direction } = selection
+                        else {
+                            unreachable!("discard marks can only select a specific details section")
+                        };
+                        SelectAfterReload::UncommittedDetailsSection { index, direction }
+                    }),
+                };
                 messages.extend([
                     Message::Reload(select_after_reload, ReloadCause::Mutation),
                     Message::Details(DetailsMessage::ClearMarks),
@@ -1388,9 +1465,6 @@ impl Details {
         messages: &mut Vec<Message>,
         backstack: &mut Backstack,
     ) -> anyhow::Result<()> {
-        if !self.selected_uncommitted() {
-            return Ok(());
-        }
         let SelectedSection::Selected(selected_section_idx) = self.selected_section.get() else {
             return Ok(());
         };
@@ -1398,9 +1472,20 @@ impl Details {
         let Some(section_cli_id) = section.cli_id.as_ref().map(Arc::clone) else {
             return Ok(());
         };
-        let CliId::UncommittedHunkOrFile(_) = &*section_cli_id else {
-            return Ok(());
+        let markable = match &*section_cli_id {
+            CliId::UncommittedHunkOrFile(_) => self.selected_uncommitted(),
+            CliId::WorktreeChange(change) => change.hunk_header.is_some(),
+            CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Branch { .. }
+            | CliId::Commit { .. }
+            | CliId::Uncommitted { .. }
+            | CliId::Stack { .. }
+            | CliId::Worktree { .. } => false,
         };
+        if !markable {
+            return Ok(());
+        }
         toggle_markables(&mut self.marks, [section.id])?;
 
         if self.marks.is_empty() {

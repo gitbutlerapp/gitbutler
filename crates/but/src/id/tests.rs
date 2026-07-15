@@ -1,5 +1,5 @@
 use anyhow::bail;
-use bstr::BString;
+use bstr::{BString, ByteSlice};
 use but_core::{ChangeId, ref_metadata::StackId};
 use but_graph::workspace::Stack;
 use but_hunk_assignment::HunkAssignment;
@@ -7,6 +7,18 @@ use but_testsupport::{hex_to_id, hunk_header};
 use snapbox::{assert_data_eq, prelude::*};
 
 use crate::{CliId, IdMap, id::id_usage::UintId};
+
+use super::{decode_worktree_path, encode_worktree_path};
+
+#[test]
+fn worktree_path_ids_roundtrip_reserved_and_non_utf8_bytes() {
+    let path = BString::from(vec![b'd', b'i', b'r', b':', b'%', b'/', 0xff]);
+    let encoded = encode_worktree_path(path.as_bstr());
+
+    assert_eq!(encoded, "dir%3A%25/%FF");
+    assert_eq!(decode_worktree_path(&encoded), Some(path));
+    assert_eq!(decode_worktree_path("bad%2"), None);
+}
 
 #[test]
 fn uint_id_from_short_id() {
@@ -3136,7 +3148,11 @@ fn worktree_name_shared_with_branch_yields_both_matches() -> anyhow::Result<()> 
     assert!(matches!(filtered[0], CliId::Branch { .. }));
 
     // ...while a sole worktree match survives for kind-specific errors.
-    let only_worktree = vec![id_map.resolve_worktree("A".into()).expect("worktree exists")];
+    let only_worktree = vec![
+        id_map
+            .resolve_worktree("A".into())
+            .expect("worktree exists"),
+    ];
     assert_eq!(
         crate::id::without_ambiguating_worktrees(only_worktree).len(),
         1
@@ -3312,6 +3328,7 @@ mod util {
                 uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,
+                ..
             } = self;
             let changed_paths_fn = |commit_id: gix::ObjectId,
                                     parent_id: Option<gix::ObjectId>|
@@ -3353,6 +3370,7 @@ mod util {
                 uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,
+                ..
             } = self.inner;
             let commits_count = self.inner.commit_ids().len();
             writeln!(f, "workspace_and_remote_commits_count: {}", &commits_count)?;

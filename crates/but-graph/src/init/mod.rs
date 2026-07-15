@@ -1336,9 +1336,11 @@ fn append_worktree_tips(
     for worktree_tip in worktree_tips {
         let id = match &worktree_tip.ref_name {
             Some(name) => {
-                let resolved = repo.try_find_reference(name.as_ref()).ok().flatten().and_then(
-                    |mut reference| Some(reference.peel_to_id().ok()?.detach()),
-                );
+                let resolved = repo
+                    .try_find_reference(name.as_ref())
+                    .ok()
+                    .flatten()
+                    .and_then(|mut reference| Some(reference.peel_to_id().ok()?.detach()));
                 match resolved {
                     Some(id) => id,
                     // The ref was dropped by an overlay or vanished - don't

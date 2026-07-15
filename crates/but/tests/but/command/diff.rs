@@ -380,6 +380,42 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn committed_hunk_ids_are_disabled_without_worktree_manipulation() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.file("committed-hunk.txt", "before\n");
+    env.but("commit A -m hunk-base").assert().success();
+    env.file("committed-hunk.txt", "after\n");
+    env.but("commit A -m hunk-source").assert().success();
+
+    let repo = env.open_repo();
+    let source = repo.rev_parse_single("A").unwrap().detach();
+    let target = repo.rev_parse_single("B").unwrap().detach();
+    let hunk = format!("{source}:committed-hunk.txt:#0");
+
+    env.but(format!("rub {hunk} {target}"))
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Rubbed the wrong way. Source '[..]:committed-hunk.txt:#0' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.
+
+"#]]);
+
+    let repo = env.open_repo();
+    assert_eq!(
+        repo.rev_parse_single("A").unwrap().detach(),
+        source,
+        "a disabled committed-hunk action must not rewrite its source"
+    );
+    assert_eq!(
+        repo.rev_parse_single("B").unwrap().detach(),
+        target,
+        "a disabled committed-hunk action must not rewrite its target"
+    );
+}
+
+#[test]
 fn json_target_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);

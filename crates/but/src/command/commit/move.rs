@@ -138,6 +138,7 @@ enum MoveOperation<'a> {
     /// Move a committed file to another commit (delegates to rub)
     CommittedFileToCommit {
         path: &'a bstr::BStr,
+        hunk_header: Option<but_core::HunkHeader>,
         source_commit: gix::ObjectId,
         target_commit: gix::ObjectId,
     },
@@ -167,11 +168,13 @@ impl<'a> MoveOperation<'a> {
             } => move_commit_to_worktree_with_perm(ctx, vec![source], target_worktree, out, perm),
             MoveOperation::CommittedFileToCommit {
                 path,
+                hunk_header,
                 source_commit,
                 target_commit,
             } => super::file::commited_file_to_another_commit_with_perm(
                 ctx,
                 path,
+                hunk_header,
                 source_commit,
                 target_commit,
                 out,
@@ -378,6 +381,7 @@ fn route_move_operation<'a>(
         (
             CommittedFile {
                 path,
+                hunk_header,
                 commit_id: source_commit,
                 ..
             },
@@ -387,6 +391,7 @@ fn route_move_operation<'a>(
             },
         ) => Some(MoveOperation::CommittedFileToCommit {
             path: path.as_ref(),
+            hunk_header: *hunk_header,
             source_commit: *source_commit,
             target_commit: *target_commit,
         }),
@@ -448,6 +453,7 @@ mod tests {
             commit_id: gix::ObjectId::empty_tree(gix::hash::Kind::Sha1),
             path: BString::from(path),
             id: "cf".to_string(),
+            hunk_header: None,
         }
     }
 

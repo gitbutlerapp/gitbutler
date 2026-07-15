@@ -49,8 +49,12 @@ Branches:   fe, bu, ui     (unique 2–3 char substring of the branch name, e.g.
                              falls back to auto-generated ID if no unique substring exists)
 Files:      g, qs, uo      (derived from the file path, long enough to be unique)
 Hunks:      g:5, uo:d      (<file-id>:<hunk-id>; the hunk part is derived from the hunk's content)
+Committed:  c2:g:#0        (<commit>:<file>:#N; one hunk in a committed file)
+Worktrees:  wt:path:#0     (<worktree>:<path>:#N; one dirty linked-worktree hunk)
 Stacks:     m0, n0          (auto-generated, 2–3 chars)
 ```
+
+Linked-worktree IDs percent-encode path bytes that would conflict with the colon-delimited grammar.
 
 **Why?** Git commit SHAs are long (40 chars). CLI IDs are short, variable-length, and unique within your current workspace context. Commits, files, and hunks may use a single character when that is unambiguous.
 
@@ -63,6 +67,8 @@ but commit <branch-id> -m "message"      # Commit to branch
 but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>  # Amend file(s) or hunk(s) into commit
 but rub <commit-id> <commit-id>          # Squash commits
 ```
+
+Linked-worktree IDs and mutations are experimental and require `featureFlags.worktreeManipulation`. A whole dirty file is `<worktree>:<path>`; append `:#N` for one hunk and run `but diff <worktree>:<path>` to discover the available hunk IDs.
 
 ## Parallel vs Stacked Branches
 
@@ -131,6 +137,8 @@ The operation performed depends on what you combine:
 | Commit | Branch | Move commit to branch  | `but rub c2 bu` |
 | Commit | `zz`   | Undo commit            | `but rub c2 zz` |
 | Worktree | Commit | Amend all linked-worktree changes into commit | `but rub wt c3` |
+| Worktree file/hunk | Commit | Amend selected linked-worktree changes | `but rub wt:path:#0 c3` |
+| Committed hunk | Commit | Move one hunk between commits | `but rub c2:g:#0 c3` |
 
 `zz` is a special target meaning "uncommitted" (no branch).
 

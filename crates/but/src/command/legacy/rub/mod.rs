@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::theme::{self, Paint};
-use anyhow::bail;
-use bstr::BStr;
+use anyhow::{Context as _, bail};
+use bstr::{BStr, ByteSlice as _};
 use but_api::commit::types::{
     CommitCreateResult, CommitMoveResult, CommitSquashResult, MoveChangesResult,
     UncommitChangesSource, UncommitResult,
 };
-use but_core::{DiffSpec, DryRun, ref_metadata::StackId, sync::RepoExclusive};
+use but_core::{DiffSpec, DryRun, HunkHeader, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_assignment::{HunkAssignment, HunkAssignmentRequest, HunkAssignmentTarget};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
@@ -121,6 +121,8 @@ pub(crate) struct UncommittedAreaToCommitOperation {
 pub(crate) struct WorktreeToCommitOperation<'a> {
     /// The linked worktree providing the changes.
     pub(crate) name: &'a BStr,
+    /// A selected file/hunk, or `None` for every current worktree change.
+    pub(crate) changes: Option<NonEmpty<&'a crate::id::WorktreeChange>>,
     /// The destination commit id.
     pub(crate) oid: gix::ObjectId,
 }
@@ -213,6 +215,8 @@ pub(crate) struct BranchToBranchOperation<'a> {
 pub(crate) struct CommittedFileToBranchOperation<'a> {
     /// The file path.
     pub(crate) path: &'a BStr,
+    /// The selected hunk, or `None` for the entire file.
+    pub(crate) hunk_header: Option<HunkHeader>,
     /// The source commit id.
     pub(crate) commit_oid: gix::ObjectId,
     /// The destination branch name.
@@ -224,6 +228,8 @@ pub(crate) struct CommittedFileToBranchOperation<'a> {
 pub(crate) struct CommittedFileToCommitOperation<'a> {
     /// The file path.
     pub(crate) path: &'a BStr,
+    /// The selected hunk, or `None` for the entire file.
+    pub(crate) hunk_header: Option<HunkHeader>,
     /// The source commit id.
     pub(crate) commit_oid: gix::ObjectId,
     /// The destination commit id.
@@ -235,6 +241,8 @@ pub(crate) struct CommittedFileToCommitOperation<'a> {
 pub(crate) struct CommittedFileToUncommittedAreaOperation<'a> {
     /// The file path.
     pub(crate) path: &'a BStr,
+    /// The selected hunk, or `None` for the entire file.
+    pub(crate) hunk_header: Option<HunkHeader>,
     /// The source commit id.
     pub(crate) commit_oid: gix::ObjectId,
 }
@@ -548,7 +556,9 @@ impl WorktreeToCommitOperation<'_> {
         let result = self.execute_inner(ctx)?;
         if let Some(out) = out.for_human() {
             let repo = ctx.repo.get()?;
-            let amended = result.new_commit.unwrap_or(self.oid);
+            let amended = result
+                .new_commit
+                .context("No linked-worktree changes could be amended")?;
             writeln!(
                 out,
                 "Amended changes from worktree {} → {}",
@@ -566,7 +576,38 @@ impl WorktreeToCommitOperation<'_> {
 
     /// Amend all current changes from this linked worktree into the destination.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<CommitCreateResult> {
-        super::worktree::amend_changes(ctx, self.name, self.oid, &[])
+        let specs = if let Some(changes) = &self.changes {
+            {
+                let repo = ctx.repo.get()?;
+                changes
+                    .iter()
+                    .map(|change| super::worktree::diff_spec_for_change(&repo, change))
+                    .collect::<anyhow::Result<Vec<_>>>()?
+            }
+        } else {
+            but_api::worktrees::linked_worktree_changes(ctx, self.name.to_string())?
+                .changes
+                .into_iter()
+                .map(|change| DiffSpec::from(but_core::TreeChange::from(change)))
+                .collect()
+        };
+        let result = but_api::worktrees::worktree_commit_amend_all(
+            ctx,
+            self.name.to_string(),
+            self.oid,
+            specs,
+            None,
+            DryRun::No,
+        )?;
+        anyhow::ensure!(
+            result.rejected_specs.is_empty(),
+            "Couldn't amend all linked-worktree changes"
+        );
+        anyhow::ensure!(
+            result.new_commit.is_some(),
+            "No linked-worktree changes could be amended"
+        );
+        Ok(result)
     }
 }
 
@@ -903,7 +944,8 @@ impl<'a> CommittedFileToBranchOperation<'a> {
     /// changes into uncommitted to match legacy `but rub` behavior.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<MoveChangesResult> {
         let stack_id = stack_id_for_branch_name(ctx, self.name)?;
-        let relevant_changes = file_changes_from_commit(ctx, self.commit_oid, self.path)?;
+        let relevant_changes =
+            file_changes_from_commit(ctx, self.commit_oid, self.path, self.hunk_header)?;
         but_api::commit::uncommit::commit_uncommit_changes(
             ctx,
             self.commit_oid,
@@ -928,7 +970,8 @@ impl<'a> CommittedFileToCommitOperation<'a> {
 
     /// Executes `CommittedFileToCommit` and returns the exact move-changes API result.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<MoveChangesResult> {
-        let relevant_changes = file_changes_from_commit(ctx, self.commit_oid, self.path)?;
+        let relevant_changes =
+            file_changes_from_commit(ctx, self.commit_oid, self.path, self.hunk_header)?;
         but_api::commit::move_changes::commit_move_changes_between(
             ctx,
             self.commit_oid,
@@ -953,7 +996,8 @@ impl<'a> CommittedFileToUncommittedAreaOperation<'a> {
 
     /// Executes `CommittedFileToUncommittedArea` and returns the exact uncommit API result.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<MoveChangesResult> {
-        let relevant_changes = file_changes_from_commit(ctx, self.commit_oid, self.path)?;
+        let relevant_changes =
+            file_changes_from_commit(ctx, self.commit_oid, self.path, self.hunk_header)?;
         but_api::commit::uncommit::commit_uncommit_changes(
             ctx,
             self.commit_oid,
@@ -1020,6 +1064,24 @@ fn commits_from_sources(sources: &NonEmpty<&CliId>) -> Option<NonEmpty<gix::Obje
         })
         .collect::<Option<Vec<_>>>()?;
     NonEmpty::from_vec(commits)
+}
+
+fn worktree_changes_from_sources<'a>(
+    sources: &NonEmpty<&'a CliId>,
+) -> Option<(&'a BStr, NonEmpty<&'a crate::id::WorktreeChange>)> {
+    let changes = sources
+        .iter()
+        .map(|source| match source {
+            CliId::WorktreeChange(change) => Some(change),
+            _ => None,
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let changes = NonEmpty::from_vec(changes)?;
+    let name = changes.first().name.as_ref();
+    changes
+        .iter()
+        .all(|change| change.name.as_bstr() == name)
+        .then_some((name, changes))
 }
 
 /// Determines the operation to perform for a given source and target combination.
@@ -1192,6 +1254,14 @@ pub(crate) fn route_operation<'a>(
             (Worktree { name, .. }, Commit { commit_id, .. }) => {
                 Some(RubOperation::WorktreeToCommit(WorktreeToCommitOperation {
                     name: name.as_ref(),
+                    changes: None,
+                    oid: *commit_id,
+                }))
+            }
+            (WorktreeChange(change), Commit { commit_id, .. }) => {
+                Some(RubOperation::WorktreeToCommit(WorktreeToCommitOperation {
+                    name: change.name.as_ref(),
+                    changes: Some(NonEmpty::new(change)),
                     oid: *commit_id,
                 }))
             }
@@ -1253,12 +1323,16 @@ pub(crate) fn route_operation<'a>(
             // CommittedFile -> *
             (
                 CommittedFile {
-                    path, commit_id, ..
+                    path,
+                    commit_id,
+                    hunk_header,
+                    ..
                 },
                 Branch { name, .. },
             ) => Some(RubOperation::CommittedFileToBranch(
                 CommittedFileToBranchOperation {
                     path: path.as_ref(),
+                    hunk_header: *hunk_header,
                     commit_oid: *commit_id,
                     name,
                 },
@@ -1266,6 +1340,7 @@ pub(crate) fn route_operation<'a>(
             (
                 CommittedFile {
                     path,
+                    hunk_header,
                     commit_id: source,
                     ..
                 },
@@ -1275,18 +1350,23 @@ pub(crate) fn route_operation<'a>(
             ) => Some(RubOperation::CommittedFileToCommit(
                 CommittedFileToCommitOperation {
                     path: path.as_ref(),
+                    hunk_header: *hunk_header,
                     commit_oid: *source,
                     oid: *target,
                 },
             )),
             (
                 CommittedFile {
-                    path, commit_id, ..
+                    path,
+                    commit_id,
+                    hunk_header,
+                    ..
                 },
                 Uncommitted { .. },
             ) => Some(RubOperation::CommittedFileToUncommittedArea(
                 CommittedFileToUncommittedAreaOperation {
                     path: path.as_ref(),
+                    hunk_header: *hunk_header,
                     commit_oid: *commit_id,
                 },
             )),
@@ -1314,7 +1394,8 @@ pub(crate) fn route_operation<'a>(
                         | Branch { .. }
                         | Uncommitted { .. }
                         | Stack { .. }
-                        | Worktree { .. } => None,
+                        | Worktree { .. }
+                        | WorktreeChange(..) => None,
                     })
                     .collect::<Option<Vec<_>>>()
                     .and_then(NonEmpty::from_vec)
@@ -1325,13 +1406,23 @@ pub(crate) fn route_operation<'a>(
                         how_to_combine_messages,
                     }))
                 } else {
-                    hunk_assignments_from_uncommitted_sources(&sources).map(|hunk_assignments| {
-                        RubOperation::UncommittedToCommit(UncommittedToCommitOperation {
-                            hunk_assignments,
-                            description: "hunk(s)".to_string(),
-                            oid: *target_commit_id,
+                    hunk_assignments_from_uncommitted_sources(&sources)
+                        .map(|hunk_assignments| {
+                            RubOperation::UncommittedToCommit(UncommittedToCommitOperation {
+                                hunk_assignments,
+                                description: "hunk(s)".to_string(),
+                                oid: *target_commit_id,
+                            })
                         })
-                    })
+                        .or_else(|| {
+                            worktree_changes_from_sources(&sources).map(|(name, changes)| {
+                                RubOperation::WorktreeToCommit(WorktreeToCommitOperation {
+                                    name,
+                                    changes: Some(changes),
+                                    oid: *target_commit_id,
+                                })
+                            })
+                        })
                 }
             }
             Uncommitted { .. } => hunk_assignments_from_uncommitted_sources(&sources)
@@ -1361,7 +1452,8 @@ pub(crate) fn route_operation<'a>(
             | PathPrefix { .. }
             | CommittedFile { .. }
             | Branch { .. }
-            | Worktree { .. } => None,
+            | Worktree { .. }
+            | WorktreeChange(..) => None,
         }
     }
 }
@@ -1385,6 +1477,19 @@ fn handle_resolved(
     target: CliId,
     how_to_combine_messages: MessageCombinationStrategy,
 ) -> anyhow::Result<()> {
+    if sources.len() > 1
+        && sources
+            .iter()
+            .all(|source| matches!(source, CliId::WorktreeChange(..)))
+    {
+        let source_refs = NonEmpty::from_vec(sources.iter().collect())
+            .expect("sources has more than one element");
+        let Some(operation) = route_operation(source_refs, &target, how_to_combine_messages) else {
+            bail!("Cannot move changes from multiple linked worktrees at once")
+        };
+        return operation.execute(ctx, out);
+    }
+
     for source in sources {
         let Some(operation) =
             route_operation(NonEmpty::new(&source), &target, how_to_combine_messages)
@@ -1571,11 +1676,15 @@ pub(crate) fn handle_uncommit(
                     }
                 }
                 CliId::CommittedFile {
-                    path, commit_id, ..
+                    path,
+                    commit_id,
+                    hunk_header,
+                    ..
                 } => {
                     crate::command::commit::file::uncommit_file_and_discard(
                         ctx,
                         path.as_ref(),
+                        hunk_header,
                         commit_id,
                         out,
                         !json_mode,
@@ -1631,19 +1740,23 @@ fn uncommit_committed_files(
 ) -> anyhow::Result<()> {
     // Group the requested paths by commit, preserving first-seen commit order.
     let mut commit_order = Vec::new();
-    let mut paths_by_commit: HashMap<gix::ObjectId, Vec<&BStr>> = HashMap::new();
+    let mut changes_by_commit: HashMap<gix::ObjectId, Vec<(&BStr, Option<HunkHeader>)>> =
+        HashMap::new();
     for source in sources {
         let CliId::CommittedFile {
-            commit_id, path, ..
+            commit_id,
+            path,
+            hunk_header,
+            ..
         } = source
         else {
             unreachable!("uncommit_committed_files only handles committed files");
         };
-        match paths_by_commit.get_mut(commit_id) {
-            Some(paths) => paths.push(path.as_ref()),
+        match changes_by_commit.get_mut(commit_id) {
+            Some(changes) => changes.push((path.as_ref(), *hunk_header)),
             None => {
                 commit_order.push(*commit_id);
-                paths_by_commit.insert(*commit_id, vec![path.as_ref()]);
+                changes_by_commit.insert(*commit_id, vec![(path.as_ref(), *hunk_header)]);
             }
         }
     }
@@ -1651,13 +1764,19 @@ fn uncommit_committed_files(
     // One source per commit, with the changes for all of its paths combined.
     let mut uncommit_sources = Vec::with_capacity(commit_order.len());
     for commit_id in commit_order {
-        let paths = paths_by_commit
+        let changes = changes_by_commit
             .remove(&commit_id)
             .expect("commit id was just inserted");
-        uncommit_sources.push(UncommitChangesSource {
-            commit_id,
-            changes: file_changes_from_commit_paths(ctx, commit_id, &paths)?,
-        });
+        let changes = {
+            let context_lines = ctx.settings.context_lines;
+            let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            for (path, hunk_header) in changes {
+                builder.push_changes_from_committed_file(commit_id, path, hunk_header)?;
+            }
+            builder.into_diff_specs()
+        };
+        uncommit_sources.push(UncommitChangesSource { commit_id, changes });
     }
 
     // One source per commit, so this is the number of commits we attempted.
@@ -2163,8 +2282,15 @@ fn file_changes_from_commit(
     ctx: &Context,
     commit_oid: gix::ObjectId,
     path: &BStr,
+    hunk_header: Option<HunkHeader>,
 ) -> anyhow::Result<Vec<DiffSpec>> {
-    file_changes_from_commit_paths(ctx, commit_oid, std::slice::from_ref(&path))
+    let mut changes = file_changes_from_commit_paths(ctx, commit_oid, std::slice::from_ref(&path))?;
+    if let Some(hunk_header) = hunk_header {
+        for change in &mut changes {
+            change.hunk_headers = vec![hunk_header];
+        }
+    }
+    Ok(changes)
 }
 
 /// Compute the combined diff specs for several `paths` in a single commit, using
@@ -2216,6 +2342,7 @@ mod tests {
             commit_id: gix::ObjectId::empty_tree(gix::hash::Kind::Sha1),
             path: BString::from("test.txt"),
             id: "cd".to_string(),
+            hunk_header: None,
         }
     }
 

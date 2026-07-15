@@ -65,7 +65,14 @@ pub fn commit_amend<'ws, 'meta, M: RefMetadata>(
     changes: Vec<DiffSpec>,
     context_lines: u32,
 ) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
-    commit_amend_inner(editor, commit, changes, context_lines, ChangeSource::Head)
+    commit_amend_inner(
+        editor,
+        commit,
+        changes,
+        context_lines,
+        ChangeSource::Head,
+        None,
+    )
 }
 
 /// Like [`commit_amend()`], but `changes` are uncommitted changes of the linked
@@ -96,6 +103,28 @@ pub fn commit_amend_from_worktree<'ws, 'meta, M: RefMetadata>(
     worktree_repo: &gix::Repository,
     worktree_name: &BStr,
 ) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
+    commit_amend_from_worktree_with_message(
+        editor,
+        commit,
+        changes,
+        context_lines,
+        worktree_repo,
+        worktree_name,
+        None,
+    )
+}
+
+/// Like [`commit_amend_from_worktree()`], optionally replacing the amended
+/// commit's message as part of the same history rewrite.
+pub fn commit_amend_from_worktree_with_message<'ws, 'meta, M: RefMetadata>(
+    editor: Editor<'ws, 'meta, M>,
+    commit: impl ToCommitSelector,
+    changes: Vec<DiffSpec>,
+    context_lines: u32,
+    worktree_repo: &gix::Repository,
+    worktree_name: &BStr,
+    new_message: Option<String>,
+) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
     commit_amend_inner(
         editor,
         commit,
@@ -105,6 +134,7 @@ pub fn commit_amend_from_worktree<'ws, 'meta, M: RefMetadata>(
             repo: worktree_repo,
             name: worktree_name,
         },
+        new_message,
     )
 }
 
@@ -114,6 +144,7 @@ fn commit_amend_inner<'ws, 'meta, M: RefMetadata>(
     changes: Vec<DiffSpec>,
     context_lines: u32,
     source: ChangeSource<'_>,
+    new_message: Option<String>,
 ) -> Result<CommitAmendOutcome<'ws, 'meta, M>> {
     let (target_selector, target) = editor.find_selectable_commit(commit)?;
 
@@ -145,7 +176,7 @@ fn commit_amend_inner<'ws, 'meta, M: RefMetadata>(
         source_repo,
         Destination::AmendCommit {
             commit_id: target_id,
-            new_message: None,
+            new_message,
         },
         changes,
         context_lines,

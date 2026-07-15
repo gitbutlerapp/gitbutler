@@ -95,6 +95,23 @@ fn same_file_merge_hunks() {
 }
 
 #[test]
+fn duplicate_hunks_are_collapsed() {
+    let hunk = HunkHeader {
+        old_start: 1,
+        old_lines: 2,
+        new_start: 1,
+        new_lines: 3,
+    };
+    let spec = DiffSpec {
+        path: "file.txt".into(),
+        previous_path: None,
+        hunk_headers: vec![hunk],
+    };
+
+    assert_eq!(flatten_diff_specs([spec.clone(), spec.clone()]), vec![spec]);
+}
+
+#[test]
 fn whole_file_supersedes_hunks_for_the_same_path() {
     let hunk = DiffSpec {
         path: "file.txt".into(),
@@ -151,6 +168,30 @@ fn with_previous_path() {
     assert_eq!(result.len(), 2);
     assert!(result.contains(&spec1));
     assert!(result.contains(&spec2));
+}
+
+#[test]
+fn paths_containing_separators_do_not_collide() {
+    let path_with_separator = DiffSpec {
+        path: "a:b".into(),
+        previous_path: None,
+        hunk_headers: Vec::new(),
+    };
+    let rename = DiffSpec {
+        path: "a".into(),
+        previous_path: Some("b".into()),
+        hunk_headers: vec![HunkHeader {
+            old_start: 1,
+            old_lines: 1,
+            new_start: 1,
+            new_lines: 1,
+        }],
+    };
+
+    assert_eq!(
+        flatten_diff_specs([path_with_separator.clone(), rename.clone()]),
+        vec![path_with_separator, rename]
+    );
 }
 
 #[test]

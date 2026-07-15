@@ -305,6 +305,31 @@ pub struct TestTuiInputThenRenderResult<'a>(&'a mut TestTui);
 
 impl TestTuiInputThenRenderResult<'_> {
     #[track_caller]
+    pub fn assert_in_rub_mode(self) -> Self {
+        assert!(matches!(&*self.0.app.mode, Mode::Rub(..)));
+        self
+    }
+
+    #[track_caller]
+    pub fn assert_selected_details_cli_id(self, expected: &str) -> Self {
+        assert_eq!(
+            self.0
+                .app
+                .details
+                .selected_section_cli_id()
+                .map(|id| id.to_short_string()),
+            Some(expected.to_owned())
+        );
+        self
+    }
+
+    #[track_caller]
+    pub fn assert_selected_details_cli_id_none(self) -> Self {
+        assert_eq!(self.0.app.details.selected_section_cli_id(), None);
+        self
+    }
+
+    #[track_caller]
     pub fn assert_rendered_contains(self, expected: &str) -> Self {
         let output = self.rendered_output();
         assert!(

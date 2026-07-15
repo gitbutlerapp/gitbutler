@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use bstr::ByteSlice;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
@@ -22,9 +23,10 @@ use crate::{
                 stack_has_assigned_changes,
             },
         },
+        worktree,
     },
-    id::{ShortId, UNCOMMITTED, UncommittedHunkOrFile},
-    tui::TerminalGuard,
+    id::{ShortId, UNCOMMITTED, UncommittedHunkOrFile, WorktreeChange},
+    tui::{TerminalGuard, get_text},
     utils::targeting,
 };
 
@@ -114,7 +116,8 @@ impl CommitSource {
             | CliId::CommittedFile { .. }
             | CliId::Branch { .. }
             | CliId::Commit { .. }
-            | CliId::Worktree { .. } => None,
+            | CliId::Worktree { .. }
+            | CliId::WorktreeChange(..) => None,
         }
     }
 
@@ -182,7 +185,9 @@ impl App {
     {
         match message {
             CommitMessage::CreateEmpty => self.handle_commit_create_empty(ctx, messages)?,
-            CommitMessage::Start => self.handle_commit_start(ctx)?,
+            CommitMessage::Start => {
+                self.handle_commit_start(ctx, terminal_guard, messages)?;
+            }
             CommitMessage::Confirm => self.handle_commit_confirm(ctx, terminal_guard, messages)?,
             CommitMessage::ToggleMessageComposer(composer) => {
                 self.handle_commit_toggle_message_composer(composer);
@@ -198,13 +203,51 @@ impl App {
         Ok(())
     }
 
-    fn handle_commit_start(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
+    fn handle_commit_start<T>(
+        &mut self,
+        ctx: &mut Context,
+        terminal_guard: &mut T,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
+        if let Some(changes) = self.worktree_changes_to_commit() {
+            commit_worktree_changes(ctx, terminal_guard, messages, changes)?;
+            return Ok(());
+        }
         if self.marks_ref().is_empty() {
             self.handle_commit_start_selection(ctx)?;
         } else {
             self.handle_commit_start_marks();
         }
         Ok(())
+    }
+
+    fn worktree_changes_to_commit(&self) -> Option<NonEmpty<WorktreeChange>> {
+        if matches!(&*self.mode, Mode::Details(..)) {
+            if let Some(ids) = self.details.to_marked_cli_ids()
+                && let Some(changes) = worktree_changes_from_cli_ids(ids)
+            {
+                return Some(changes);
+            }
+            if let Some(cli_id) = self.details.selected_section_cli_id()
+                && let CliId::WorktreeChange(change) = &*cli_id
+            {
+                return Some(NonEmpty::new(change.clone()));
+            }
+        }
+
+        let cli_id = self
+            .cursor
+            .selected_line(&self.status_lines)?
+            .data
+            .cli_id()?;
+        let CliId::WorktreeChange(change) = &**cli_id else {
+            return None;
+        };
+        Some(NonEmpty::new(change.clone()))
     }
 
     fn handle_commit_start_selection(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
@@ -387,7 +430,8 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::Uncommitted { .. }
             | CliId::Stack { .. }
-            | CliId::Worktree { .. } => return Ok(()),
+            | CliId::Worktree { .. }
+            | CliId::WorktreeChange(..) => return Ok(()),
         };
         let commit_op = commit2::CommitOperation::CommitAt(commit2::CommitAtOperation { target });
 
@@ -437,7 +481,8 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
             | CliId::Stack { .. }
-            | CliId::Worktree { .. } => return Ok(()),
+            | CliId::Worktree { .. }
+            | CliId::WorktreeChange(..) => return Ok(()),
         };
 
         commit_with(ctx, terminal_guard, messages, mode, commit_op)?;
@@ -486,6 +531,96 @@ impl App {
             }
         }
     }
+}
+
+fn worktree_changes_from_cli_ids(ids: NonEmpty<CliId>) -> Option<NonEmpty<WorktreeChange>> {
+    let expected_len = ids.len();
+    let changes = ids
+        .into_iter()
+        .filter_map(|id| match id {
+            CliId::WorktreeChange(change) => Some(change),
+            CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Branch { .. }
+            | CliId::Commit { .. }
+            | CliId::UncommittedHunkOrFile(..)
+            | CliId::Uncommitted { .. }
+            | CliId::Stack { .. }
+            | CliId::Worktree { .. } => None,
+        })
+        .collect::<Vec<_>>();
+    (changes.len() == expected_len)
+        .then(|| NonEmpty::from_vec(changes))
+        .flatten()
+}
+
+fn commit_worktree_changes<T>(
+    ctx: &mut Context,
+    terminal_guard: &mut T,
+    messages: &mut Vec<Message>,
+    changes: NonEmpty<WorktreeChange>,
+) -> anyhow::Result<()>
+where
+    T: TerminalGuard,
+    anyhow::Error: From<<T::Backend as Backend>::Error>,
+{
+    let name = changes.first().name.clone();
+    anyhow::ensure!(
+        changes.iter().all(|change| change.name == name),
+        "cannot commit changes from multiple linked worktrees"
+    );
+
+    let mut paths = changes
+        .iter()
+        .map(|change| change.path.to_str_lossy().into_owned())
+        .collect::<Vec<_>>();
+    paths.sort();
+    paths.dedup();
+    let mut template = String::from(
+        "\n# Please enter the commit message for your changes. Lines starting\n\
+         # with '#' will be ignored, and an empty message aborts the commit.\n#\n\
+         # Changes to be committed:\n",
+    );
+    for path in paths {
+        template.push_str(&format!("#\t{path}\n"));
+    }
+    template.push_str("#\n");
+
+    let message = {
+        let _suspend_guard = terminal_guard.suspend()?;
+        get_text::from_editor_no_comments("commit_msg", &template)?.to_string()
+    };
+    anyhow::ensure!(
+        !message.trim().is_empty(),
+        "Aborting commit due to empty commit message."
+    );
+
+    let specs = {
+        let repo = ctx.repo.get()?;
+        changes
+            .iter()
+            .map(|change| worktree::diff_spec_for_change(&repo, change))
+            .collect::<anyhow::Result<Vec<_>>>()?
+    };
+    let outcome = but_api::worktrees::worktree_commit_create(
+        ctx,
+        name.to_string(),
+        but_workspace::flatten_diff_specs(specs),
+        message,
+        but_core::DryRun::No,
+    )?;
+    let new_commit = outcome
+        .new_commit
+        .ok_or_else(|| anyhow::anyhow!("No linked-worktree changes were committed"))?;
+
+    messages.extend([
+        Message::EnterNormalModeAfterConfirmingOperation,
+        Message::Reload(
+            Some(SelectAfterReload::Commit(new_commit)),
+            ReloadCause::Mutation,
+        ),
+    ]);
+    Ok(())
 }
 
 fn commit_with<T>(

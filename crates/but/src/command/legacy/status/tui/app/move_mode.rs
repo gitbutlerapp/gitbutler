@@ -167,6 +167,7 @@ impl TryFrom<CliId> for MoveSource {
             | CliId::Worktree { id, .. } => {
                 anyhow::bail!("cannot move: {id:?}")
             }
+            CliId::WorktreeChange(change) => anyhow::bail!("cannot move: {:?}", change.id),
         }
     }
 }

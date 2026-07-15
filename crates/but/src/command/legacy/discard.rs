@@ -14,6 +14,7 @@ use gitbutler_oplog::{
 
 use crate::{
     CliId, IdMap,
+    id::WorktreeChange,
     id::parser::parse_sources,
     utils::{OutputChannel, diff_specs},
 };
@@ -33,6 +34,22 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
 
     if resolved_ids.is_empty() {
         bail!("No entity found for the given ID");
+    }
+
+    let linked_worktree_changes: Vec<_> = resolved_ids
+        .iter()
+        .filter_map(|id| match id {
+            CliId::WorktreeChange(change) => Some(change),
+            _ => None,
+        })
+        .collect();
+    if !linked_worktree_changes.is_empty() {
+        if linked_worktree_changes.len() != resolved_ids.len() {
+            bail!("Cannot discard linked-worktree and workspace changes together");
+        }
+        let discarded = discard_linked_worktree_changes(ctx, linked_worktree_changes.as_slice())?;
+        write_discard_result(out, discarded, 0)?;
+        return Ok(());
     }
 
     // Get worktree changes once for the Uncommitted case.
@@ -72,8 +89,8 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
                 CliId::Stack { .. } => {
                     bail!("Cannot discard a stack. Use a file or hunk ID instead.");
                 }
-                CliId::Worktree { .. } => {
-                    bail!("Cannot discard a worktree. Use a file or hunk ID instead.");
+                CliId::Worktree { .. } | CliId::WorktreeChange(..) => {
+                    bail!("Cannot discard linked-worktree changes here.");
                 }
             }
         }
@@ -126,7 +143,53 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
         }
     }
 
-    let discarded_count = diff_specs.len() - dropped.len();
+    write_discard_result(out, diff_specs.len() - dropped.len(), dropped.len())?;
+
+    Ok(())
+}
+
+/// Discard exact file/hunk selections from one linked worktree.
+///
+/// The caller must already hold exclusive repository access; this helper does
+/// not acquire another lock.
+pub(crate) fn discard_linked_worktree_changes(
+    ctx: &Context,
+    changes: &[&WorktreeChange],
+) -> Result<usize> {
+    let Some(first) = changes.first() else {
+        bail!("No linked-worktree changes to discard");
+    };
+    if changes.iter().any(|change| change.name != first.name) {
+        bail!("Cannot discard changes from multiple linked worktrees at once");
+    }
+
+    let repo = ctx.repo.get()?;
+    let specs = changes
+        .iter()
+        .map(|change| super::worktree::diff_spec_for_change(&repo, change))
+        .collect::<Result<Vec<_>>>()?;
+    let worktree_repo = but_workspace::worktrees::open_worktree_repo(&repo, first.name.as_bstr())?;
+    let specs = but_workspace::flatten_diff_specs(specs);
+    let discarded = specs.len();
+    let dropped = but_workspace::discard_workspace_changes(
+        &worktree_repo,
+        specs,
+        ctx.settings.context_lines,
+    )?;
+    if let Some(spec) = dropped.first() {
+        bail!(
+            "Linked-worktree change at '{}' changed before it could be discarded",
+            spec.path
+        );
+    }
+    Ok(discarded)
+}
+
+fn write_discard_result(
+    out: &mut OutputChannel,
+    discarded_count: usize,
+    failed_count: usize,
+) -> Result<()> {
     if discarded_count > 0 {
         if let Some(out) = out.for_human() {
             writeln!(
@@ -143,7 +206,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
         if let Some(out) = out.for_json() {
             out.write_value(serde_json::json!({
                 "discarded": discarded_count,
-                "failed": dropped.len(),
+                "failed": failed_count,
             }))?;
         }
     } else {
@@ -153,7 +216,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
         if let Some(out) = out.for_json() {
             out.write_value(serde_json::json!({
                 "discarded": 0,
-                "failed": dropped.len(),
+                "failed": failed_count,
             }))?;
         }
     }

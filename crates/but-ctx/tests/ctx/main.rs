@@ -847,10 +847,7 @@ fn worktree_manipulation_flag_gates_reconciliation_and_graph_seeding() -> anyhow
     }
 
     // A worktree created after adoption is seeded into the graph.
-    but_testsupport::invoke_bash(
-        "git worktree add -b feat-b ../wt-b",
-        &*ctx.repo.get()?,
-    );
+    but_testsupport::invoke_bash("git worktree add -b feat-b ../wt-b", &*ctx.repo.get()?);
     let mut ctx = Context::from_repo_for_testing(open_repo(&root.path().join("main"))?)?;
     ctx.settings.feature_flags.worktree_manipulation = true;
     let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;

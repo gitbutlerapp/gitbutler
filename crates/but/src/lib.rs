@@ -1103,10 +1103,9 @@ async fn match_subcommand(
                             || commit_args.after.is_some()
                             || commit_args.create
                             || commit_args.only
-                            || !commit_args.changes.is_empty()
                         {
                             return Err(bad_input(
-                                "branch, positioning, --create, --only, and --changes are not supported when committing from a linked worktree",
+                                "branch, positioning, --create, and --only are not supported when committing from a linked worktree",
                             )
                             .into());
                         }
@@ -1125,6 +1124,7 @@ async fn match_subcommand(
                             worktree_name,
                             message,
                             commit_args.no_hooks,
+                            &commit_args.changes,
                         )
                         .map_err(CliError::from)
                         .emit_metrics(metrics_ctx)

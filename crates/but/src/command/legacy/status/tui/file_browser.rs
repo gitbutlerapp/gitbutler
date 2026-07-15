@@ -65,7 +65,8 @@ impl FileBrowser {
             | CliId::Branch { .. }
             | CliId::Commit { .. }
             | CliId::Stack { .. }
-            | CliId::Worktree { .. } => return Ok(()),
+            | CliId::Worktree { .. }
+            | CliId::WorktreeChange(..) => return Ok(()),
         };
 
         for path in paths {

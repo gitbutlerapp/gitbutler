@@ -216,7 +216,10 @@ mod from_worktree {
     use but_meta::VirtualBranchesTomlMetadata;
     use but_rebase::graph_rebase::{Editor, GraphEditorOptions, LookupStep as _};
     use but_testsupport::git_status_at_dir;
-    use but_workspace::{commit::commit_amend_from_worktree, worktrees::open_worktree_repo};
+    use but_workspace::{
+        commit::{commit_amend_from_worktree, commit_amend_from_worktree_with_message},
+        worktrees::open_worktree_repo,
+    };
 
     use crate::utils::writable_scenario_slow;
 
@@ -309,6 +312,11 @@ mod from_worktree {
             "one\ntwo\nthree\nfour\n",
             "the amended commit contains the worktree's uncommitted content"
         );
+        assert_eq!(
+            repo.find_commit(new_id)?.message_raw()?,
+            repo.find_commit(f1_id)?.message_raw()?,
+            "the ordinary amend preserves the target message"
+        );
 
         let status = git_status_at_dir(&wt_dir)?;
         assert!(
@@ -318,6 +326,34 @@ mod from_worktree {
         assert!(
             status.contains("new-file"),
             "the dirty file that wasn't amended survives in the worktree: {status}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn amend_can_replace_the_message_in_the_same_rewrite() -> Result<()> {
+        let (repo, _tmp, mut meta) = scenario();
+        let graph = graph_with_worktree_tip(&repo, &*meta)?;
+        let mut ws = graph.into_workspace()?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let wt_repo = open_worktree_repo(&repo, "wt".into())?;
+
+        let outcome = commit_amend_from_worktree_with_message(
+            editor,
+            repo.rev_parse_single("feat")?.detach(),
+            whole_file_spec("a-file"),
+            0,
+            &wt_repo,
+            "wt".into(),
+            Some("replacement message".into()),
+        )?;
+        let selector = outcome.commit_selector.expect("a commit was amended");
+        let materialized = outcome.rebase.materialize()?;
+        let new_id = materialized.lookup_pick(selector)?;
+
+        assert_eq!(
+            repo.find_commit(new_id)?.message_raw()?,
+            "replacement message"
         );
         Ok(())
     }
@@ -469,10 +505,7 @@ mod from_worktree {
 
         let err = but_workspace::commit::commit_amend(editor, f1_id, whole_file_spec("a-file"), 0)
             .unwrap_err();
-        assert!(
-            err.to_string().contains("the commit is immutable"),
-            "{err}"
-        );
+        assert!(err.to_string().contains("the commit is immutable"), "{err}");
 
         assert_eq!(
             repo.rev_parse_single("feat")?.detach(),

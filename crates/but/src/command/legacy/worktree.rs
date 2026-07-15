@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, bail};
+use bstr::ByteSlice as _;
 use but_api::legacy::worktree::IntegrationStatus;
 use but_ctx::Context;
 use but_worktrees::WorktreeId;
@@ -34,13 +35,14 @@ pub(crate) fn active_worktree_name_at(ctx: &Context, workdir: &Path) -> Result<g
     Ok(worktree.tip.name)
 }
 
-/// Commit every current change in the active linked worktree `name`.
+/// Commit selected changes, or every current change, in the active linked worktree `name`.
 pub(crate) fn commit(
     ctx: &mut Context,
     out: &mut OutputChannel,
     name: gix::bstr::BString,
     message: &str,
     no_hooks: bool,
+    selected_changes: &[String],
 ) -> Result<()> {
     if message.trim().is_empty() {
         bail!("Aborting commit due to empty commit message.");
@@ -55,12 +57,35 @@ pub(crate) fn commit(
         .context("Cannot commit from a linked worktree with a detached HEAD")?
         .shorten()
         .to_string();
-    let changes: Vec<but_core::DiffSpec> =
+    let changes: Vec<but_core::DiffSpec> = if selected_changes.is_empty() {
         but_api::worktrees::linked_worktree_changes(ctx, name.to_string())?
             .changes
             .into_iter()
             .map(|change| but_core::DiffSpec::from(but_core::TreeChange::from(change)))
-            .collect();
+            .collect()
+    } else {
+        let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+        let mut changes = Vec::with_capacity(selected_changes.len());
+        for selected in selected_changes {
+            let mut matches = id_map.parse_using_context(selected, ctx)?;
+            if matches.len() != 1 {
+                bail!("Expected one linked-worktree change for '{selected}'");
+            }
+            let CliId::WorktreeChange(change) = matches.remove(0) else {
+                bail!("'{selected}' is not a linked-worktree file or hunk");
+            };
+            if change.name != name {
+                bail!(
+                    "'{selected}' belongs to worktree {}, not {name}",
+                    change.name
+                );
+            }
+            let repo = ctx.repo.get()?;
+            changes.push(diff_spec_for_change(&repo, &change)?);
+        }
+        changes
+    };
+    let changes = but_workspace::flatten_diff_specs(changes);
     if changes.is_empty() {
         bail!("No changes to commit.");
     }
@@ -523,4 +548,27 @@ pub(crate) fn amend_changes(
         specs,
         but_core::DryRun::No,
     )
+}
+
+/// Resolve a linked-worktree file or hunk ID against its current checkout.
+pub(crate) fn diff_spec_for_change(
+    repo: &gix::Repository,
+    change: &crate::id::WorktreeChange,
+) -> Result<but_core::DiffSpec> {
+    let wt_repo = but_workspace::worktrees::open_worktree_repo(&repo, change.name.as_bstr())?;
+    let tree_change = but_core::diff::worktree_changes(&wt_repo)?
+        .changes
+        .into_iter()
+        .find(|candidate| candidate.path == change.path)
+        .with_context(|| {
+            format!(
+                "Worktree {} has no uncommitted change at path '{}'",
+                change.name, change.path
+            )
+        })?;
+    let mut spec = but_core::DiffSpec::from(tree_change);
+    if let Some(header) = change.hunk_header {
+        spec.hunk_headers = vec![header];
+    }
+    Ok(spec)
 }

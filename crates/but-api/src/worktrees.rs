@@ -236,6 +236,63 @@ pub fn worktree_commit_amend_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> Result<CommitCreateResult> {
+    worktree_commit_amend_inner(ctx, name, commit_id, changes, None, dry_run, perm, false)
+}
+
+/// Amend only if every linked-worktree change can be consumed, optionally
+/// replacing the target message in the same rewrite.
+pub fn worktree_commit_amend_all(
+    ctx: &mut but_ctx::Context,
+    name: String,
+    commit_id: gix::ObjectId,
+    changes: Vec<DiffSpec>,
+    new_message: Option<String>,
+    dry_run: DryRun,
+) -> Result<CommitCreateResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    worktree_commit_amend_all_with_perm(
+        ctx,
+        name,
+        commit_id,
+        changes,
+        new_message,
+        dry_run,
+        guard.write_permission(),
+    )
+}
+
+/// Like [`worktree_commit_amend_all()`], under caller-held exclusive access.
+pub fn worktree_commit_amend_all_with_perm(
+    ctx: &mut but_ctx::Context,
+    name: String,
+    commit_id: gix::ObjectId,
+    changes: Vec<DiffSpec>,
+    new_message: Option<String>,
+    dry_run: DryRun,
+    perm: &mut RepoExclusive,
+) -> Result<CommitCreateResult> {
+    worktree_commit_amend_inner(
+        ctx,
+        name,
+        commit_id,
+        changes,
+        new_message,
+        dry_run,
+        perm,
+        true,
+    )
+}
+
+fn worktree_commit_amend_inner(
+    ctx: &mut but_ctx::Context,
+    name: String,
+    commit_id: gix::ObjectId,
+    changes: Vec<DiffSpec>,
+    new_message: Option<String>,
+    dry_run: DryRun,
+    perm: &mut RepoExclusive,
+    require_all: bool,
+) -> Result<CommitCreateResult> {
     ensure_worktree_manipulation_enabled(ctx)?;
     let changes = but_workspace::flatten_diff_specs(changes);
     let context_lines = ctx.settings.context_lines;
@@ -260,14 +317,24 @@ pub fn worktree_commit_amend_with_perm(
         commit_selector,
         rejected_specs,
         consumed_specs,
-    } = but_workspace::commit::commit_amend_from_worktree(
+    } = but_workspace::commit::commit_amend_from_worktree_with_message(
         editor,
         commit_id,
         changes,
         context_lines,
         &wt_repo,
         name,
+        new_message,
     )?;
+
+    if require_all {
+        if !rejected_specs.is_empty() {
+            bail!("Couldn't amend all linked-worktree changes");
+        }
+        if commit_selector.is_none() {
+            bail!("No linked-worktree changes could be amended");
+        }
+    }
 
     let new_commit = commit_selector
         .map(|commit_selector| rebase.lookup_pick(commit_selector))

@@ -589,7 +589,7 @@ fn resolve_sources(
     sources: impl IntoIterator<Item = CliIdArg>,
 ) -> CliResult<ResolvedSources> {
     let mut commit_sources: Vec<gix::ObjectId> = vec![];
-    let mut file_sources: Vec<(gix::ObjectId, BString)> = vec![];
+    let mut file_sources: Vec<(gix::ObjectId, BString, Option<but_core::HunkHeader>)> = vec![];
     let mut branch_sources: Vec<FullName> = vec![];
     let mut args: Vec<CliIdArg> = vec![];
 
@@ -602,9 +602,10 @@ fn resolve_sources(
             ResolvedCliIdArg::CommittedFile {
                 commit_id,
                 path,
+                hunk_header,
                 id: _,
             } => {
-                file_sources.push((commit_id, path));
+                file_sources.push((commit_id, path, hunk_header));
             }
             ResolvedCliIdArg::Branch(branch) => {
                 branch_sources.push(branch.resolve_local_branch_name()?);
@@ -637,7 +638,7 @@ fn resolve_sources(
         (None, Some(files), None) => {
             let mut builder = DiffSpecBuilder::new(db, repo, ws, context_lines);
             let source_commit_id = files.first().0;
-            for (commit_id, path) in files.into_iter() {
+            for (commit_id, path, hunk_header) in files.into_iter() {
                 if commit_id != source_commit_id {
                     return Err(
                         bad_input("Cannot move changes from multiple commits")
@@ -646,7 +647,7 @@ fn resolve_sources(
                     );
                 }
 
-                builder.push_changes_from_committed_file(commit_id, path.as_bstr())?;
+                builder.push_changes_from_committed_file(commit_id, path.as_bstr(), hunk_header)?;
             }
 
             // It doesn't appear as if we need to sort DiffSpecs when they're resolved on a file

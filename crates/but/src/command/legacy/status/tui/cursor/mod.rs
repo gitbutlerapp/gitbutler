@@ -409,7 +409,8 @@ impl Cursor {
                 | Some(CliId::Commit { .. })
                 | Some(CliId::Uncommitted { .. })
                 | Some(CliId::Stack { .. })
-                | Some(CliId::Worktree { .. }) => matches!(show_files, FilesStatusFlag::All),
+                | Some(CliId::Worktree { .. })
+                | Some(CliId::WorktreeChange(..)) => matches!(show_files, FilesStatusFlag::All),
                 None => false,
             };
 
@@ -708,6 +709,11 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
         (CliId::Worktree { name: previous, .. }, CliId::Worktree { name: current, .. }) => {
             previous == current
         }
+        (CliId::WorktreeChange(previous), CliId::WorktreeChange(current)) => {
+            previous.name == current.name
+                && previous.path == current.path
+                && previous.hunk_header == current.hunk_header
+        }
         _ => false,
     }
 }
@@ -721,7 +727,8 @@ fn select_after_reload_for_cli_id(cli_id: &Arc<CliId>) -> SelectAfterReload {
         | CliId::PathPrefix { .. }
         | CliId::Branch { .. }
         | CliId::Stack { .. }
-        | CliId::Worktree { .. } => SelectAfterReload::CliId(Box::new((**cli_id).clone())),
+        | CliId::Worktree { .. }
+        | CliId::WorktreeChange(..) => SelectAfterReload::CliId(Box::new((**cli_id).clone())),
     }
 }
 
@@ -970,7 +977,8 @@ pub fn is_selectable_in_mode(
                     | CliId::Branch { .. }
                     | CliId::Commit { .. }
                     | CliId::Stack { .. }
-                    | CliId::Worktree { .. } => false,
+                    | CliId::Worktree { .. }
+                    | CliId::WorktreeChange(..) => false,
                 }
             } else {
                 false

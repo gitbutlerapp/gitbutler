@@ -315,6 +315,7 @@ pub fn commit_uncommit_only_with_perm(
         let (repo, meta) = rebase.repo_and_meta_mut();
         (&mut graph.into_workspace()?, replaced_commits, repo, meta)
     } else {
+        rebase.preflight_materialize_without_checkout()?;
         materialize_worktree(&repo, worktree_materialization)?;
         let materialized = rebase.materialize_without_checkout()?;
         sync_worktree_index(&repo)?;
@@ -451,6 +452,7 @@ pub fn commit_uncommit_changes_only_with_perm(
         let (repo, meta) = outcome.rebase.repo_and_meta_mut();
         (&mut graph.into_workspace()?, replaced_commits, repo, meta)
     } else {
+        outcome.rebase.preflight_materialize_without_checkout()?;
         materialize_worktree(&repo, worktree_materialization)?;
         let materialized = outcome.rebase.materialize_without_checkout()?;
         sync_worktree_index(&repo)?;
@@ -677,7 +679,8 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         } else {
             (&mut *ws, BTreeMap::new(), &*repo, &mut meta)
         }
-    } else if let Some(rebase) = rebase {
+    } else if let Some(mut rebase) = rebase {
+        rebase.preflight_materialize_without_checkout()?;
         materialize_worktree(
             &repo,
             worktree_materialization.expect("a successful rebase has extracted changes"),

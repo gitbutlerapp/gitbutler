@@ -68,6 +68,8 @@ mod undo;
 #[cfg(feature = "legacy")]
 mod worktree;
 #[cfg(feature = "legacy")]
+mod worktree_hunks;
+#[cfg(feature = "legacy")]
 mod worktree_operations;
 
 #[cfg(feature = "legacy")]

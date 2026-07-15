@@ -138,6 +138,11 @@ pub enum HelpTopic {
     /// * **Uncommitted area:** Always `zz`
     /// * **Committed file:** `<commit_cli_id>:<file_cli_id>`
     ///     - Run `but status -f` to show committed files
+    /// * **Committed hunk:** `<commit_cli_id>:<file_cli_id>:#<index>`
+    ///     - Run `but diff <committed_file_cli_id>` to show committed hunks and their IDs
+    /// * **Linked-worktree file:** `<worktree_cli_id>:<path>`
+    /// * **Linked-worktree hunk:** `<worktree_cli_id>:<path>:#<index>`
+    ///     - Run `but diff <linked_worktree_file_cli_id>` to show its hunks and their IDs
     ///
     /// Many CLI IDs depend on the context and may change if the context changes, such as when new
     /// data is written to files, commits are made or rearranged and branches are created or

@@ -39,6 +39,19 @@ fn toggle_details_view_for_commit() {
 }
 
 #[test]
+fn committed_hunks_stay_unselectable_when_worktree_manipulation_is_disabled() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    let mut tui = test_tui(env);
+    tui.input([KeyCode::Down, KeyCode::Down]);
+    tui.input('d')
+        .assert_rendered_term_svg_eq(file!["snapshots/toggle_details_view_for_commit_002.svg"]);
+    tui.input('l');
+    tui.input('j').assert_selected_details_cli_id_none();
+}
+
+#[test]
 fn details_view_updates_with_selection_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);

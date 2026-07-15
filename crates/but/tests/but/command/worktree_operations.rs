@@ -768,6 +768,127 @@ Rubbed the wrong way. Cannot uncommit changes into the workspace because they co
     Ok(())
 }
 
+#[test]
+fn uncommit_worktree_commit_preflights_linked_checkout_before_workspace_changes()
+-> anyhow::Result<()> {
+    let env = worktree_env();
+    let worktree = worktree_dir(&env);
+    commit_file(
+        &worktree,
+        "uncommit-linked-conflict.txt",
+        "committed in worktree\n",
+        "worktree linked conflict source",
+    );
+    let source = revision(&env, "feat")?;
+    std::fs::write(
+        worktree.join("uncommit-linked-conflict.txt"),
+        "dirty in linked worktree\n",
+    )?;
+
+    env.but(format!("rub {source} zz"))
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Rubbed the wrong way. Uncommitted files would be overwritten by checkout: "uncommit-linked-conflict.txt"
+
+"#]]);
+
+    assert_eq!(
+        revision(&env, "feat")?,
+        source,
+        "the source ref does not move"
+    );
+    assert!(
+        !env.projects_root()
+            .join("uncommit-linked-conflict.txt")
+            .exists(),
+        "the main worktree is unchanged when a linked checkout cannot be updated"
+    );
+    assert_eq!(
+        std::fs::read(worktree.join("uncommit-linked-conflict.txt"))?,
+        b"dirty in linked worktree\n",
+        "the conflicting linked-worktree edit is preserved byte-for-byte"
+    );
+    assert_blob(
+        &env,
+        "feat:uncommit-linked-conflict.txt",
+        b"committed in worktree\n",
+    )?;
+    Ok(())
+}
+
+#[test]
+fn move_preflights_linked_checkout_before_refs_or_files_change() -> anyhow::Result<()> {
+    let env = worktree_env();
+    let worktree = worktree_dir(&env);
+    env.file("move-linked-conflict.txt", "committed in workspace\n");
+    env.but("commit B -m 'workspace linked conflict source'")
+        .assert()
+        .success();
+    let source = revision(&env, "B")?;
+    let target = revision(&env, "feat")?;
+    std::fs::write(
+        worktree.join("move-linked-conflict.txt"),
+        "dirty in linked worktree\n",
+    )?;
+
+    env.but(format!("move {source} {}", worktree_id(&env)?))
+        .assert()
+        .failure()
+        .stdout_eq(str![])
+        .stderr_eq(str![[r#"
+Failed to move commit. Uncommitted files would be overwritten by checkout: "move-linked-conflict.txt"
+
+"#]]);
+
+    assert_eq!(revision(&env, "B")?, source, "the source ref does not move");
+    assert_eq!(
+        revision(&env, "feat")?,
+        target,
+        "the target ref does not move"
+    );
+    assert_eq!(
+        std::fs::read(env.projects_root().join("move-linked-conflict.txt"))?,
+        b"committed in workspace\n",
+        "the main checkout remains unchanged"
+    );
+    assert_eq!(
+        std::fs::read(worktree.join("move-linked-conflict.txt"))?,
+        b"dirty in linked worktree\n",
+        "the linked checkout remains unchanged"
+    );
+    Ok(())
+}
+
+#[test]
+fn worktree_change_ids_encode_colons_in_paths() -> anyhow::Result<()> {
+    let env = worktree_env();
+    let worktree = worktree_dir(&env);
+    std::fs::write(worktree.join("colon:file.txt"), "colon path contents\n")?;
+    let change_id = format!("{}:colon%3Afile.txt", worktree_id(&env)?);
+
+    env.but(format!(
+        "commit -m 'commit encoded worktree path' --changes {change_id}"
+    ))
+    .current_dir(&worktree)
+    .assert()
+    .success()
+    .stdout_eq(str![[r#"
+✓ Created commit [..] on branch feat
+
+"#]])
+    .stderr_eq(str![]);
+
+    assert_blob(&env, "feat:colon:file.txt", b"colon path contents\n")?;
+    assert_eq!(
+        but_testsupport::git_status_at_dir(worktree)?,
+        "",
+        "the encoded whole-file ID consumes the linked-worktree change"
+    );
+    Ok(())
+}
+
 fn worktree_env() -> Sandbox {
     let mut env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
     env.setup_metadata(&["A", "B"]);

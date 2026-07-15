@@ -1,6 +1,6 @@
 use std::{
     cell::RefCell,
-    collections::HashSet,
+    collections::{BTreeMap, HashSet},
     fmt::Display,
     iter::{once, repeat_n},
     sync::Arc,
@@ -30,7 +30,7 @@ use unicode_width::UnicodeWidthStr as _;
 
 use crate::{
     CliId, IdMap,
-    id::{ShortId, UncommittedHunk, UncommittedHunkOrFile},
+    id::{ShortId, UncommittedHunk, UncommittedHunkOrFile, WorktreeChange},
     theme::Theme,
     utils::string_interning::{SharedStrings, Strings},
 };
@@ -502,7 +502,16 @@ pub fn render_commit(
         out.write_section_separator()?;
     }
 
-    render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
+    let committed_files = if ctx.settings.feature_flags.worktree_manipulation {
+        Some((
+            commit,
+            committed_file_ids(ctx, commit, &tree_changes)?,
+            false,
+        ))
+    } else {
+        None
+    };
+    render_tree_changes(tree_changes, committed_files, theme, &mut id_gen, out)?;
 
     Ok(())
 }
@@ -532,7 +541,7 @@ pub fn render_branch(
         out.write_section_separator()?;
     }
 
-    render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
+    render_tree_changes(tree_changes, None, theme, &mut id_gen, out)?;
 
     Ok(())
 }
@@ -633,6 +642,75 @@ pub fn render_uncommitted_hunk(
     Ok(())
 }
 
+pub fn render_worktree_change(
+    change: WorktreeChange,
+    ctx: &Context,
+    theme: &'static Theme,
+    id_gen: &mut IdGen<'_>,
+    options: Options,
+    out: &mut dyn DiffLineWriter,
+) -> anyhow::Result<()> {
+    let mut id_gen = id_gen.scoped("worktree_change");
+    let mut id_gen = id_gen.scoped(&change.id);
+    let repo = ctx.repo.get()?;
+    let wt_repo = but_workspace::worktrees::open_worktree_repo(&repo, change.name.as_bstr())?;
+    let tree_change = but_core::diff::worktree_changes(&wt_repo)?
+        .changes
+        .into_iter()
+        .find(|candidate| candidate.path == change.path)
+        .ok_or_else(|| {
+            anyhow::anyhow!("Worktree {} no longer changes {}", change.name, change.path)
+        })?;
+    let patch = tree_change.unified_patch(&wt_repo, ctx.settings.context_lines)?;
+    let assignments = HunkAssignment::from_tree_change(&tree_change, patch)
+        .into_iter()
+        .enumerate()
+        .filter(|(_, assignment)| {
+            change
+                .hunk_header
+                .is_none_or(|header| assignment.hunk_header == Some(header))
+        })
+        .collect::<Vec<_>>();
+
+    if !options.skip_line_stats {
+        let mut stats = LineStats::default();
+        stats.files_changed = usize::from(!assignments.is_empty()) as u64;
+        for (_, assignment) in &assignments {
+            stats.lines_added += assignment.line_nums_added.as_ref().map_or(0, Vec::len) as u64;
+            stats.lines_removed += assignment.line_nums_removed.as_ref().map_or(0, Vec::len) as u64;
+        }
+        out.write_selectable_text(id_gen.new_id("line_stats"), None, render_line_stats(stats))?;
+        out.write_section_separator()?;
+    }
+
+    for (pos, (index, assignment)) in assignments.into_iter().with_position() {
+        let id = id_gen.new_id(index);
+        let mut hunk_change = change.clone();
+        hunk_change.hunk_header = assignment.hunk_header;
+        if assignment.hunk_header.is_some() {
+            hunk_change.id = format!(
+                "{}:#{index}",
+                change.id.split(":#").next().unwrap_or(&change.id)
+            );
+        }
+        let cli_id = Arc::new(CliId::WorktreeChange(hunk_change));
+        let short_id = cli_id.to_short_string();
+        render_hunk_path_header(
+            id,
+            Some(Arc::clone(&cli_id)),
+            assignment.path_bytes.as_ref(),
+            Some(ShortIdOrTreeStatus::ShortId(&short_id)),
+            out,
+            theme,
+        )?;
+        render_hunk_assignment(id, Some(cli_id), &assignment, theme, out)?;
+        if pos.needs_padding_below() {
+            out.write_section_separator()?;
+        }
+    }
+    Ok(())
+}
+
 #[expect(clippy::too_many_arguments)]
 pub fn render_committed_file(
     commit: ObjectId,
@@ -646,7 +724,7 @@ pub fn render_committed_file(
 ) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("committed_file");
     let mut id_gen = id_gen.scoped(commit);
-    let mut id_gen = id_gen.scoped(id);
+    let mut id_gen = id_gen.scoped(&id);
 
     let commit_details =
         but_api::diff::commit_details(ctx, commit, but_api::diff::ComputeLineStats::No)?;
@@ -670,7 +748,12 @@ pub fn render_committed_file(
         out.write_section_separator()?;
     }
 
-    render_tree_changes(tree_changes, theme, &mut id_gen, out)?;
+    let committed_files = ctx
+        .settings
+        .feature_flags
+        .worktree_manipulation
+        .then(|| (commit, BTreeMap::from([(path, id)]), true));
+    render_tree_changes(tree_changes, committed_files, theme, &mut id_gen, out)?;
 
     Ok(())
 }
@@ -688,6 +771,34 @@ fn tree_changes_with_patches(
             Some((tree_change, patch))
         })
         .collect::<Vec<_>>()
+}
+
+fn committed_file_ids(
+    ctx: &Context,
+    commit: ObjectId,
+    tree_changes: &[(TreeChange, UnifiedPatch)],
+) -> anyhow::Result<BTreeMap<BString, ShortId>> {
+    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+    let mut ids = BTreeMap::new();
+    for (change, _) in tree_changes {
+        let entity = format!("{commit}:{}", change.path_bytes.to_str_lossy());
+        let id = id_map
+            .parse_using_context(&entity, ctx)?
+            .into_iter()
+            .find_map(|cli_id| match cli_id {
+                CliId::CommittedFile {
+                    commit_id,
+                    path,
+                    id,
+                    hunk_header: None,
+                } if commit_id == commit && path == change.path_bytes => Some(id),
+                _ => None,
+            });
+        if let Some(id) = id {
+            ids.insert(change.path_bytes.clone(), id);
+        }
+    }
+    Ok(ids)
 }
 
 fn render_hunk_assignment(
@@ -761,11 +872,13 @@ fn compute_line_stats_from_tree_changes(
 
 fn render_tree_changes(
     tree_changes: Vec<(TreeChange, UnifiedPatch)>,
+    committed_files: Option<(ObjectId, BTreeMap<BString, ShortId>, bool)>,
     theme: &'static Theme,
     id_gen: &mut IdGen<'_>,
     out: &mut dyn DiffLineWriter,
 ) -> anyhow::Result<()> {
     let mut id_gen = id_gen.scoped("tree_changes");
+    let mut committed_hunk_indices = BTreeMap::<ShortId, usize>::new();
 
     for (tree_change_pos, (i, (tree_change, patch))) in
         tree_changes.into_iter().enumerate().with_position()
@@ -783,13 +896,53 @@ fn render_tree_changes(
                 let mut id_gen = id_gen.scoped("hunks");
                 for (hunk_pos, (j, hunk)) in hunks.into_iter().enumerate().with_position() {
                     let hunk_id = id_gen.new_id(j);
+                    let selectable = !is_result_of_binary_to_text_conversion
+                        && matches!(
+                            tree_change.status,
+                            TreeStatus::Modification { .. } | TreeStatus::Rename { .. }
+                        );
+                    let committed_file =
+                        committed_files
+                            .as_ref()
+                            .and_then(|(commit_id, files, display_ids)| {
+                                files
+                                    .get(&tree_change.path_bytes)
+                                    .map(|file_id| (*commit_id, file_id, *display_ids))
+                            });
+                    let committed_cli_id = selectable
+                        .then(|| {
+                            committed_file.map(|(commit_id, file_id, _)| {
+                                let hunk_index =
+                                    committed_hunk_indices.entry(file_id.clone()).or_default();
+                                let cli_id = Arc::new(CliId::CommittedFile {
+                                    commit_id,
+                                    path: tree_change.path_bytes.clone(),
+                                    id: format!("{file_id}:#{hunk_index}"),
+                                    hunk_header: Some((&hunk).into()),
+                                });
+                                *hunk_index += 1;
+                                cli_id
+                            })
+                        })
+                        .flatten();
+                    let committed_display_id = committed_file
+                        .is_some_and(|(_, _, display_ids)| display_ids)
+                        .then(|| {
+                            committed_cli_id
+                                .as_ref()
+                                .map(|cli_id| cli_id.to_short_string())
+                        })
+                        .flatten();
 
-                    if std::mem::take(&mut first_hunk) {
+                    if committed_display_id.is_some() || std::mem::take(&mut first_hunk) {
                         render_hunk_path_header(
                             hunk_id,
-                            None,
+                            committed_cli_id.as_ref().map(Arc::clone),
                             tree_change.path.as_ref(),
-                            Some(ShortIdOrTreeStatus::TreeStatus(&tree_change.status)),
+                            Some(match committed_display_id.as_deref() {
+                                Some(id) => ShortIdOrTreeStatus::ShortId(id),
+                                None => ShortIdOrTreeStatus::TreeStatus(&tree_change.status),
+                            }),
                             out,
                             theme,
                         )?;
@@ -797,7 +950,7 @@ fn render_tree_changes(
 
                     render_unified_patch(
                         hunk_id,
-                        None,
+                        committed_cli_id,
                         &path,
                         hunk,
                         is_result_of_binary_to_text_conversion,

@@ -58,8 +58,9 @@ impl<'a> DiffSpecBuilder<'a> {
             CliId::CommittedFile {
                 commit_id,
                 path,
+                hunk_header,
                 id: _,
-            } => self.push_changes_from_committed_file(*commit_id, path.as_ref()),
+            } => self.push_changes_from_committed_file(*commit_id, path.as_ref(), *hunk_header),
             CliId::Branch { name, id, stack_id } => {
                 self.push_changes_from_branch(name, id, *stack_id)
             }
@@ -72,6 +73,9 @@ impl<'a> DiffSpecBuilder<'a> {
             CliId::Stack { id: _, stack_id } => self.push_changes_from_stack(*stack_id),
             CliId::Worktree { .. } => {
                 anyhow::bail!("Cannot get changes for a worktree.")
+            }
+            CliId::WorktreeChange(..) => {
+                anyhow::bail!("Linked-worktree changes require their linked repository.")
             }
         }
     }
@@ -105,8 +109,16 @@ impl<'a> DiffSpecBuilder<'a> {
         &mut self,
         commit_id: gix::ObjectId,
         path: &BStr,
+        hunk_header: Option<HunkHeader>,
     ) -> anyhow::Result<()> {
-        self.push_changes_from_path_in_commit(path, commit_id, "First parent")
+        let mut specs = self.diff_specs_for_path_in_commit(path, commit_id, "First parent")?;
+        if let Some(hunk_header) = hunk_header {
+            for spec in &mut specs {
+                spec.hunk_headers = vec![hunk_header];
+            }
+        }
+        self.diff_specs.extend(specs);
+        Ok(())
     }
 
     pub fn push_changes_from_path_in_commit(

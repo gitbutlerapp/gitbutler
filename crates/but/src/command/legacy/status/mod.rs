@@ -438,7 +438,7 @@ fn build_status_context<'a>(
             Vec::new()
         };
 
-    let id_map = IdMap::new(
+    let id_map = IdMap::new_with_context_lines(
         stacks,
         worktree_changes.assignments.clone(),
         commit_id_to_change_id,
@@ -446,6 +446,8 @@ fn build_status_context<'a>(
             .iter()
             .map(|source| source.tip.name.clone())
             .collect(),
+        ctx.settings.context_lines,
+        ctx.settings.feature_flags.worktree_manipulation,
     )?;
 
     let stacks = id_map.stacks();
@@ -1138,14 +1140,32 @@ fn print_worktrees(
         )?;
         if let Some(changes) = status_ctx.linked_worktree_changes.get(&worktree.name) {
             for change in &changes.changes {
-                output.no_assignments_unstaged(
+                let change_id = status_ctx
+                    .id_map
+                    .resolve_worktree_change(worktree.name.as_bstr(), change.path_bytes.as_bstr())
+                    .with_context(|| {
+                        format!(
+                            "Could not resolve linked-worktree change {}",
+                            change.path.to_str_lossy()
+                        )
+                    })?;
+                output.file(
                     Vec::from([Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
-                    Vec::from([
-                        Span::raw(" "),
-                        Span::raw(status_letter_ui(&change.status).to_string()),
-                        Span::raw(" "),
-                        path_with_color_ui(&change.status, change.path.to_string()),
-                    ]),
+                    FileLineContent {
+                        id: Vec::from([
+                            Span::styled(change_id.to_short_string(), t.cli_id),
+                            Span::raw(" "),
+                        ]),
+                        status: Vec::from([
+                            Span::raw(status_letter_ui(&change.status).to_string()),
+                            Span::raw(" "),
+                        ]),
+                        path: Vec::from([path_with_color_ui(
+                            &change.status,
+                            change.path.to_string(),
+                        )]),
+                    },
+                    change_id,
                 )?;
             }
             for change in &changes.ignored_changes {
@@ -1834,6 +1854,7 @@ fn print_commit(
                         commit_id: commit.id,
                         path: inner.path.clone(),
                         id: short_id.to_owned(),
+                        hunk_header: None,
                     };
 
                     let (status, path) = tree_change_display_cli(inner);

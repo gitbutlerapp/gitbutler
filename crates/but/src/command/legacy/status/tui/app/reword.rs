@@ -163,7 +163,8 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::Uncommitted { .. }
             | CliId::Stack { .. }
-            | CliId::Worktree { .. } => return Ok(()),
+            | CliId::Worktree { .. }
+            | CliId::WorktreeChange(..) => return Ok(()),
         };
 
         self.mode

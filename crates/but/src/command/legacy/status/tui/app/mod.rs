@@ -825,6 +825,18 @@ impl App {
                                 },
                             ));
                         }
+                        CliId::WorktreeChange(change) => {
+                            let details_selection_changed =
+                                changed_paths.iter().any(|changed_path| {
+                                    change.path.to_path().is_ok_and(|path| path == changed_path)
+                                });
+                            messages.push(Message::Reload(
+                                None,
+                                ReloadCause::Watcher {
+                                    details_selection_changed,
+                                },
+                            ));
+                        }
                         CliId::PathPrefix { .. }
                         | CliId::CommittedFile { .. }
                         | CliId::Branch { .. }
@@ -1168,6 +1180,7 @@ impl App {
                 Cow::Borrowed(&*uncommitted.hunk_assignments.first().path)
             }
             CliId::Worktree { name, .. } => Cow::Owned(name.to_string()),
+            CliId::WorktreeChange(change) => change.path.to_str_lossy(),
             CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
                 return Ok(());
             }
@@ -1206,6 +1219,7 @@ impl App {
                 path,
                 id,
                 commit_id: _,
+                ..
             } => copy_selection_picker::committed_file_picker(
                 path.to_owned(),
                 id.to_owned(),
@@ -1214,7 +1228,8 @@ impl App {
             CliId::PathPrefix { .. }
             | CliId::Uncommitted { .. }
             | CliId::Stack { .. }
-            | CliId::Worktree { .. } => {
+            | CliId::Worktree { .. }
+            | CliId::WorktreeChange(..) => {
                 return Ok(());
             }
         };

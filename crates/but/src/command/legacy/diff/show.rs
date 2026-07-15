@@ -8,7 +8,11 @@ use super::{
     JsonChange, JsonDiff, JsonDiffOutput, JsonHunk,
     display::{DiffDisplay, TreeChangeWithPatch},
 };
-use crate::{IdMap, id::UncommittedHunkOrFile, utils::OutputChannel};
+use crate::{
+    IdMap,
+    id::{UncommittedHunkOrFile, WorktreeChange},
+    utils::OutputChannel,
+};
 
 #[expect(clippy::large_enum_variant)]
 pub(crate) enum Filter {
@@ -54,6 +58,90 @@ pub(crate) fn hunk_assignments<'a>(
         .map(|(short_id, hunk_assignment)| (short_id.as_str(), hunk_assignment))
         .collect();
     print_short_id_assignment_pairs(short_id_assignment_pairs, out)
+}
+
+pub(crate) fn worktree_change(
+    ctx: &Context,
+    out: &mut OutputChannel,
+    change: WorktreeChange,
+) -> anyhow::Result<()> {
+    let repo = ctx.repo.get()?;
+    let wt_repo = but_workspace::worktrees::open_worktree_repo(&repo, change.name.as_ref())?;
+    let tree_change = but_core::diff::worktree_changes(&wt_repo)?
+        .changes
+        .into_iter()
+        .find(|candidate| candidate.path == change.path)
+        .ok_or_else(|| anyhow::anyhow!("The linked-worktree change no longer exists"))?;
+    let patch = tree_change.unified_patch(&wt_repo, ctx.settings.context_lines)?;
+    let base_id = change.id.split(":#").next().unwrap_or(&change.id);
+    let assignments = HunkAssignment::from_tree_change(&tree_change, patch)
+        .into_iter()
+        .enumerate()
+        .filter(|(_, assignment)| {
+            change
+                .hunk_header
+                .is_none_or(|header| assignment.hunk_header == Some(header))
+        })
+        .map(|(index, assignment)| {
+            let id = if assignment.hunk_header.is_some() {
+                format!("{base_id}:#{index}")
+            } else {
+                base_id.to_owned()
+            };
+            (id, assignment)
+        })
+        .collect::<Vec<_>>();
+    print_short_id_assignment_pairs(
+        assignments
+            .iter()
+            .map(|(id, assignment)| (id.as_str(), assignment))
+            .collect(),
+        out,
+    )
+}
+
+pub(crate) fn committed_file(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    commit_id: gix::ObjectId,
+    path: BString,
+    id: String,
+    selected_hunk: Option<but_core::HunkHeader>,
+) -> anyhow::Result<()> {
+    let result = but_api::diff::commit_details(ctx, commit_id, ComputeLineStats::No)?;
+    let mut indexed_assignments = Vec::new();
+    for change in result
+        .diff_with_first_parent
+        .into_iter()
+        .filter(|change| change.path == path)
+    {
+        let core_change = but_core::TreeChange::from(change.clone());
+        let patch = but_api::diff::tree_change_diffs(ctx, core_change.clone().into())?;
+        indexed_assignments.extend(HunkAssignment::from_tree_change(&core_change, patch));
+    }
+    let base_id = id.split(":#").next().unwrap_or(&id);
+    let assignments = indexed_assignments
+        .into_iter()
+        .enumerate()
+        .filter(|(_, assignment)| {
+            selected_hunk.is_none_or(|header| assignment.hunk_header == Some(header))
+        })
+        .map(|(index, assignment)| {
+            let id = if assignment.hunk_header.is_some() {
+                format!("{base_id}:#{index}")
+            } else {
+                base_id.to_owned()
+            };
+            (id, assignment)
+        })
+        .collect::<Vec<_>>();
+    print_short_id_assignment_pairs(
+        assignments
+            .iter()
+            .map(|(id, assignment)| (id.as_str(), assignment))
+            .collect(),
+        out,
+    )
 }
 
 fn print_short_id_assignment_pairs<'a>(

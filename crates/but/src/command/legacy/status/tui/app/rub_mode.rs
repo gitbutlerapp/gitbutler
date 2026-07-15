@@ -43,6 +43,7 @@ pub enum RubSource {
 pub enum RubMarks {
     Hunks(NonEmpty<UncommittedHunkOrFile>),
     Commits(NonEmpty<MarkedCommit>),
+    CliIds(NonEmpty<CliId>),
 }
 
 impl RubSource {
@@ -59,11 +60,23 @@ impl RubMarks {
         match self {
             Self::Hunks(hunks) => MarksRef::from_hunks(hunks),
             Self::Commits(commits) => MarksRef::from_commits(commits),
+            Self::CliIds(..) => MarksRef::Empty,
         }
     }
 
     fn contains_cli_id(&self, other: &CliId) -> bool {
-        self.as_ref().contains_cli_id(other)
+        match self {
+            Self::Hunks(hunks) => hunks
+                .iter()
+                .any(|hunk| CliId::UncommittedHunkOrFile(hunk.clone()) == *other),
+            Self::Commits(commits) => commits.iter().any(|commit| {
+                matches!(
+                    other,
+                    CliId::Commit { commit_id, .. } if *commit_id == commit.commit_id
+                )
+            }),
+            Self::CliIds(ids) => ids.iter().any(|id| id == other),
+        }
     }
 
     fn to_cli_ids(&self) -> Vec<CliId> {
@@ -87,6 +100,7 @@ impl RubMarks {
                     },
                 )
                 .collect(),
+            Self::CliIds(ids) => ids.iter().cloned().collect(),
         }
     }
 }
@@ -189,6 +203,20 @@ impl App {
     }
 
     fn handle_rub_start(&mut self) {
+        if self.is_details_visible
+            && let Some(cli_ids) = self.details.to_marked_cli_ids()
+            && cli_ids.iter().all(supports_rubbing)
+        {
+            self.handle_rub_start_with_source(RubSource::Marks(RubMarks::CliIds(cli_ids)));
+            return;
+        }
+        if self.is_details_visible
+            && let Some(cli_id) = self.details.selected_section_cli_id()
+            && supports_rubbing(&cli_id)
+        {
+            self.handle_rub_start_with_source(RubSource::CliId(cli_id));
+            return;
+        }
         let Mode::Normal(normal_mode) = &*self.mode else {
             return;
         };
@@ -505,6 +533,7 @@ pub fn supports_rubbing(id: &CliId) -> bool {
         | CliId::Uncommitted { .. }
         | CliId::Stack { .. }
         | CliId::Worktree { .. } => true,
+        CliId::WorktreeChange(..) => true,
     }
 }
 
