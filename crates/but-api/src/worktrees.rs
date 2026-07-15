@@ -10,6 +10,7 @@ use but_core::{DiffSpec, DryRun};
 use but_rebase::graph_rebase::{Editor, GraphEditorOptions, LookupStep as _};
 use but_workspace::worktrees::{WorktreeListing, WorktreeSource};
 use gix::bstr::BStr;
+use gix::prelude::ObjectIdExt as _;
 use tracing::instrument;
 
 use crate::{WorkspaceState, commit::types::CommitCreateResult};
@@ -92,12 +93,20 @@ pub fn linked_worktree_changes(
 /// the branch of any active worktree (including `name`'s own).
 ///
 /// The worktree's branch is rebased if the target is in its history, and its
-/// checkout follows with the consumed changes cancelled out. When the worktree's
-/// tip doesn't move (the target lives elsewhere), the consumed changes are
-/// discarded from the worktree after the commit and all ref edits are durable -
-/// so every failure window leaves a harmless duplicate of the changes, never a
-/// loss. Consumed changes that no longer match the worktree's live state at that
-/// point are left in place with a warning.
+/// checkout follows with the consumed changes cancelled out. When the rewrite
+/// would leave any linked worktree's branch on a conflict-encoded commit (the
+/// amend conflicts with later commits on that branch), this fails before
+/// anything is materialized - zero mutation.
+///
+/// When the worktree's tip doesn't move (the target lives elsewhere), the
+/// consumed changes are discarded from the worktree after the commit and all
+/// ref edits are durable, and each file is only discarded after re-verifying
+/// that its content still matches what was amended - so every failure window
+/// leaves a harmless duplicate of the changes, never a loss. Consumed changes
+/// whose file content changed in the meantime, or that no longer match the
+/// worktree's live state, are left in place with a `tracing` warning only;
+/// [`CommitCreateResult`] does not (yet) report which ones were left behind,
+/// so callers can merely tell users that this may happen.
 ///
 /// Note that unlike [`commit_amend`](crate::commit::amend::commit_amend), no
 /// oplog snapshot is recorded yet - oplog coverage of linked worktrees is
@@ -124,6 +133,19 @@ pub fn worktree_commit_amend(
     // Captured before any mutation: an unchanged tip afterwards means the
     // worktree's checkout didn't participate in the rewrite.
     let old_worktree_head = wt_repo.head_id()?.detach();
+    // Content identity of every requested file, captured before the amend so
+    // the discard fallback below can verify nothing wrote to them in between
+    // (editor autosave, formatters, watchers - the amend takes long enough for
+    // that race to be real).
+    let content_snapshots: std::collections::BTreeMap<_, _> = changes
+        .iter()
+        .map(|spec| {
+            (
+                spec.path.clone(),
+                snapshot_worktree_file(&wt_repo, spec.path.as_ref()),
+            )
+        })
+        .collect();
 
     // Worktree branches are seeded into the graph as extra tips but aren't
     // reachable from `HEAD`, which leaves them immutable by default - without
@@ -164,6 +186,30 @@ pub fn worktree_commit_amend(
     let new_commit = commit_selector
         .map(|commit_selector| rebase.lookup_pick(commit_selector))
         .transpose()?;
+
+    // Refuse to leave any linked worktree's branch on a conflict-encoded
+    // commit: its checkout would be skipped (conflicted trees are never
+    // written into plain worktrees) while the ref still moves, silently
+    // stranding a stale checkout on a GitButler-internal commit. Nothing has
+    // been materialized yet, so bailing here mutates nothing.
+    if new_commit.is_some() {
+        for (wt_name, tip) in rebase.worktree_checkout_tips()? {
+            if but_core::Commit::from_id(tip.attach(rebase.repo()))?.is_conflicted() {
+                bail!(
+                    "amending into {commit_id} would conflict with later commits on the branch \
+                     checked out in worktree {wt_name} - aborting without any changes"
+                );
+            }
+        }
+    }
+    if let Some(new_commit) = new_commit
+        && but_core::Commit::from_id(new_commit.attach(rebase.repo()))?.is_conflicted()
+    {
+        bail!(
+            "amending into {commit_id} would produce a conflicted commit - aborting without any changes"
+        );
+    }
+
     let is_dry_run: bool = dry_run.into();
     let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
 
@@ -173,14 +219,36 @@ pub fn worktree_commit_amend(
     if !is_dry_run && new_commit.is_some() && !consumed_specs.is_empty() {
         let wt_repo = but_workspace::worktrees::open_worktree_repo(&repo, name)?;
         if wt_repo.head_id()?.detach() == old_worktree_head {
-            let dropped =
-                but_workspace::discard_workspace_changes(&wt_repo, consumed_specs, context_lines)?;
-            if !dropped.is_empty() {
+            // Only discard files whose content still matches the pre-amend
+            // snapshot - anything written in between is in neither the amended
+            // commit nor the snapshot, so discarding it would destroy it.
+            let (verified_specs, changed_specs): (Vec<_>, Vec<_>) =
+                consumed_specs.into_iter().partition(|spec| {
+                    content_snapshots.get(&spec.path).is_some_and(|before| {
+                        before.is_verifiable()
+                            && *before == snapshot_worktree_file(&wt_repo, spec.path.as_ref())
+                    })
+                });
+            for spec in &changed_specs {
                 tracing::warn!(
                     worktree = %name,
-                    ?dropped,
-                    "some committed changes no longer matched the worktree state - leaving them in place"
+                    path = %spec.path,
+                    "file content changed while amending - leaving it in the worktree"
                 );
+            }
+            if !verified_specs.is_empty() {
+                let dropped = but_workspace::discard_workspace_changes(
+                    &wt_repo,
+                    verified_specs,
+                    context_lines,
+                )?;
+                if !dropped.is_empty() {
+                    tracing::warn!(
+                        worktree = %name,
+                        ?dropped,
+                        "some committed changes no longer matched the worktree state - leaving them in place"
+                    );
+                }
             }
         }
     }
@@ -190,4 +258,63 @@ pub fn worktree_commit_amend(
         rejected_specs,
         workspace,
     })
+}
+
+/// The content identity of a worktree file at one point in time, used to
+/// verify it didn't change between two reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FileSnapshot {
+    /// Nothing exists at the path.
+    Missing,
+    /// A regular file or symlink whose content hashes to this blob id
+    /// (symlinks hash their target path, like Git does).
+    Blob(gix::ObjectId),
+    /// The path exists but could not be read, or isn't a file/symlink.
+    /// Never treated as matching anything, not even another unreadable state.
+    Unreadable,
+}
+
+impl FileSnapshot {
+    /// Whether this snapshot pins down actual content that a later read can be
+    /// compared against.
+    fn is_verifiable(&self) -> bool {
+        !matches!(self, FileSnapshot::Unreadable)
+    }
+}
+
+/// Hash the file at worktree-relative `rela_path` in `wt_repo`'s working
+/// directory as a git blob, without writing any object.
+///
+/// The raw on-disk bytes are hashed (no filters applied) - the result is only
+/// meant to be compared against another snapshot taken the same way.
+fn snapshot_worktree_file(wt_repo: &gix::Repository, rela_path: &BStr) -> FileSnapshot {
+    let Some(workdir) = wt_repo.workdir() else {
+        return FileSnapshot::Unreadable;
+    };
+    let path = workdir.join(gix::path::from_bstr(rela_path));
+    let md = match std::fs::symlink_metadata(&path) {
+        Ok(md) => md,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return FileSnapshot::Missing,
+        Err(_) => return FileSnapshot::Unreadable,
+    };
+    let bytes = if md.is_symlink() {
+        match std::fs::read_link(&path)
+            .map_err(anyhow::Error::from)
+            .and_then(|target| Ok(gix::path::os_string_into_bstring(target.into())?))
+        {
+            Ok(target) => Vec::from(target),
+            Err(_) => return FileSnapshot::Unreadable,
+        }
+    } else if md.is_file() {
+        match std::fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(_) => return FileSnapshot::Unreadable,
+        }
+    } else {
+        return FileSnapshot::Unreadable;
+    };
+    match gix::objs::compute_hash(wt_repo.object_hash(), gix::object::Kind::Blob, &bytes) {
+        Ok(id) => FileSnapshot::Blob(id),
+        Err(_) => FileSnapshot::Unreadable,
+    }
 }

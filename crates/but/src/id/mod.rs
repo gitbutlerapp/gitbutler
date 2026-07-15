@@ -744,13 +744,23 @@ impl IdMap {
         // name where possible, so that they don't shift whenever the uncommitted file
         // set or the workspace shape changes between invocations.
         //
-        // This is analogous to `maybe_mark_used` for branch short IDs, with two extra
+        // This is analogous to `maybe_mark_used` for branch short IDs, with extra
         // rules because worktree IDs come after everything else: a candidate the
         // sequential allocator already handed out must be rejected rather than merely
         // marked, and a candidate that is a prefix of an uncommitted file's reverse
-        // hex ID would shadow that file's ID (worktree IDs match before uncommitted
-        // files do), so it is rejected as well. Branch short IDs avoid the latter by
-        // informing the reverse hex assignment above instead.
+        // hex ID or of a commit's change ID would shadow (or render identically to)
+        // that entity's ID (worktree IDs match next to both), so it is rejected as
+        // well. Branch short IDs avoid the former by informing the reverse hex
+        // assignment above instead.
+        // Remote commits are excluded: they are never matched by change ID (see
+        // `element_matches_commit`), so a worktree name cannot shadow them.
+        let commit_change_ids: Vec<&ChangeId> = stacks
+            .iter()
+            .flat_map(|stack| stack.segments.iter())
+            .flat_map(|segment| segment.workspace_commits.iter())
+            .filter_map(|c| c.change_id.as_ref())
+            .map(|change_id| &change_id.change_id)
+            .collect();
         let acquire_candidate = |candidate: &[u8],
                                  id_usage: &mut IdUsage,
                                  non_hex_used_short_ids: &mut HashSet<ShortId>|
@@ -781,6 +791,16 @@ impl IdMap {
             {
                 return None;
             }
+            // Change-id short IDs are prefixes of the full change ID and commits
+            // also parse by change-id prefix, so any candidate prefixing a change
+            // ID could show up twice in one `but status` (commit row and worktree
+            // row) and parse ambiguously.
+            if commit_change_ids
+                .iter()
+                .any(|change_id| change_id.as_bytes().starts_with(candidate))
+            {
+                return None;
+            }
             if !non_hex_used_short_ids.insert(short_id.clone()) {
                 return None;
             }
@@ -800,10 +820,29 @@ impl IdMap {
                         break 'short_id short_id;
                     }
                 }
-                // If none is available, use the next available ID. Unlike the
-                // name-derived IDs above, this fallback is not stable across
-                // invocations.
-                id_usage.next_available()?.to_short_id()
+                // If no window of the name is usable (too short, all-hex, all
+                // taken), derive a starting point from a hash of the stable name
+                // and probe from there. Unlike a sequential allocation, the
+                // resulting chip doesn't shift when unrelated allocations (most
+                // notably the uncommitted-file set) change between invocations.
+                let mut name_hasher = hasher(gix::hash::Kind::Sha1);
+                name_hasher.update(name);
+                let digest = name_hasher.try_finalize()?;
+                let seed = u16::from_be_bytes([digest.as_bytes()[0], digest.as_bytes()[1]])
+                    % UintId::LIMIT;
+                let mut probed = None;
+                for offset in 0..UintId::LIMIT {
+                    let candidate = UintId((seed + offset) % UintId::LIMIT).to_short_id();
+                    if let Some(short_id) = acquire_candidate(
+                        candidate.as_bytes(),
+                        &mut id_usage,
+                        &mut non_hex_used_short_ids,
+                    ) {
+                        probed = Some(short_id);
+                        break;
+                    }
+                }
+                probed.ok_or_else(|| anyhow::anyhow!("too many IDs"))?
             };
             worktrees.push(WorktreeWithId {
                 short_id,

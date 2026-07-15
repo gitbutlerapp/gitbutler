@@ -405,6 +405,37 @@ mod from_worktree {
     }
 
     #[test]
+    fn amend_into_an_immutable_commit_fails_fast() -> Result<()> {
+        let (repo, _tmp, mut meta) = scenario();
+
+        let graph = graph_with_worktree_tip(&repo, &*meta)?;
+        let mut ws = graph.into_workspace()?;
+        // Unlike every other test here, no extra_mutable_refs: the worktree
+        // branch commit is present in the graph but immutable. Amending into
+        // it used to silently no-op (the amended commit was written but no ref
+        // ever adopted it) - now it must fail fast, before anything is written.
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+        let f1_id = repo.rev_parse_single("feat")?.detach();
+        let m1_id = repo.head_id()?.detach();
+
+        let err = but_workspace::commit::commit_amend(editor, f1_id, whole_file_spec("a-file"), 0)
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("the commit is immutable"),
+            "{err}"
+        );
+
+        assert_eq!(
+            repo.rev_parse_single("feat")?.detach(),
+            f1_id,
+            "nothing moved"
+        );
+        assert_eq!(repo.head_id()?.detach(), m1_id, "nothing moved");
+        Ok(())
+    }
+
+    #[test]
     fn amend_from_an_unknown_worktree_fails_without_moving_refs() -> Result<()> {
         let (repo, _tmp, mut meta) = scenario();
 

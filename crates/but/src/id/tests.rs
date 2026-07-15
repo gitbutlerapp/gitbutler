@@ -2812,8 +2812,9 @@ fn worktree_ids_are_minted_deterministically_sorted_by_name() -> anyhow::Result<
         "the ID is derived from the worktree name where possible"
     );
     assert_eq!(
-        short_id_b, "h0",
-        "with every pair and triple of the name taken or invalid, the next available ID is used"
+        short_id_b, "xtz",
+        "with every pair and triple of the name taken or invalid, a deterministic \
+         name-seeded probe picks the ID"
     );
     assert_eq!(
         id_map.resolve_worktree(b"unknown".as_bstr()),
@@ -2857,6 +2858,112 @@ fn worktree_ids_do_not_shift_when_uncommitted_files_change() -> anyhow::Result<(
         chip(&make(&["one.txt", "two.txt", "three.txt"])?),
         baseline,
         "the worktree ID does not depend on the number of uncommitted files"
+    );
+    Ok(())
+}
+
+#[test]
+fn worktree_fallback_ids_do_not_shift_when_uncommitted_files_change() -> anyhow::Result<()> {
+    use bstr::ByteSlice as _;
+    // One-character names have no usable window, so they always take the
+    // name-seeded probe fallback - which must be just as stable as the
+    // name-derived path, or a chip read from an earlier `but status` could
+    // silently address a different worktree after a file was touched.
+    let make = |files: &[&str]| -> anyhow::Result<IdMap> {
+        let stacks = vec![
+            stack([segment("A", [id(1)], None, [])]),
+            stack([segment("B", [id(2)], None, [])]),
+        ];
+        let hunk_assignments = files
+            .iter()
+            .map(|path| hunk_assignment(path, None))
+            .collect();
+        IdMap::new(
+            stacks,
+            hunk_assignments,
+            gix::hashtable::HashMap::default(),
+            vec!["A".into(), "B".into()],
+        )
+    };
+    let chip = |id_map: &IdMap, name: &[u8]| {
+        id_map
+            .resolve_worktree(name.as_bstr())
+            .expect("worktree is known")
+            .to_short_string()
+    };
+
+    let clean = make(&[])?;
+    let (chip_a, chip_b) = (chip(&clean, b"A"), chip(&clean, b"B"));
+    assert_eq!(
+        (chip_a.as_str(), chip_b.as_str()),
+        ("p11", "jzn"),
+        "the fallback is a deterministic function of the worktree name"
+    );
+    for files in [
+        &["one.txt"] as &[&str],
+        &["one.txt", "two.txt", "three.txt"],
+    ] {
+        let dirty = make(files)?;
+        assert_eq!(
+            (chip(&dirty, b"A"), chip(&dirty, b"B")),
+            (chip_a.clone(), chip_b.clone()),
+            "fallback worktree IDs do not shift when uncommitted files are added: {files:?}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn worktree_ids_never_collide_with_commit_change_ids() -> anyhow::Result<()> {
+    use bstr::ByteSlice as _;
+    // Reproduces the duplicate-chip scenario: a commit whose change ID starts
+    // with "sr" (displayed short ID exactly "sr" thanks to a sibling sharing
+    // only the "s") next to a worktree whose name would mint the chip "sr".
+    let id1 = id(1);
+    let id2 = id(2);
+    let stacks = vec![stack([segment("not-important", [id1, id2], None, [])])];
+    let commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId> = [
+        (
+            id1,
+            ChangeId::from(BString::from("srzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")),
+        ),
+        (
+            id2,
+            ChangeId::from(BString::from("szzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")),
+        ),
+    ]
+    .into_iter()
+    .collect();
+    let id_map = IdMap::new(
+        stacks,
+        Vec::new(),
+        commit_id_to_change_id,
+        vec!["srv-tools".into()],
+    )?;
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        bail!("unexpected IDs {commit_id} {parent_id:?}");
+    };
+
+    let chip = id_map
+        .resolve_worktree(b"srv-tools".as_bstr())
+        .expect("srv-tools is known")
+        .to_short_string();
+    assert_eq!(
+        chip, "rv",
+        "the 'sr' window is rejected for prefixing a commit change ID, the next window is used"
+    );
+
+    let matches = id_map.parse("sr", Box::new(changed_paths_fn))?;
+    assert_eq!(
+        matches.len(),
+        1,
+        "the change-id short ID stays unambiguous: {matches:?}"
+    );
+    assert!(
+        matches!(matches[0], CliId::Commit { .. }),
+        "and resolves to the commit"
     );
     Ok(())
 }

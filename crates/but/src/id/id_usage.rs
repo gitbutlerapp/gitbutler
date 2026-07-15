@@ -17,7 +17,7 @@ impl UintId {
     /// Subsequent characters: 0-9,a-z (36 options)
     const SUBSEQUENT_CHARS: &'static [u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
     /// Must be less than this.
-    const LIMIT: u16 = 20 * 36 * 37;
+    pub(crate) const LIMIT: u16 = 20 * 36 * 37;
     /// String representation must be at most this long.
     pub(crate) const LENGTH_LIMIT: usize = 3;
 

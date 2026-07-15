@@ -2,7 +2,9 @@
 
 use anyhow::{Result, bail};
 use but_core::{DiffSpec, RefMetadata};
-use but_rebase::graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector};
+use but_rebase::graph_rebase::{
+    Editor, LookupStep as _, Selector, Step, SuccessfulRebase, ToCommitSelector,
+};
 use gix::bstr::BStr;
 
 use crate::commit_engine::{Destination, create_commit};
@@ -118,6 +120,18 @@ fn commit_amend_inner<'ws, 'meta, M: RefMetadata>(
     let target_id = target.id;
     if target.attach(editor.repo()).is_conflicted() {
         bail!("Cannot amend a conflicted commit")
+    }
+    // An immutable pick would be replaced in the step graph while the rebase
+    // copies its descendants verbatim and never moves the (immutable) refs
+    // pointing at it - the amended commit would be written but stay
+    // unreachable, with the API still reporting success. Fail fast instead.
+    let Step::Pick(target_pick) = editor.lookup_step(target_selector)? else {
+        bail!("BUG: Expected pick step from commit selector. This should never happen");
+    };
+    if !target_pick.mutable {
+        bail!(
+            "cannot amend into {target_id}: the commit is immutable (not part of a mutable branch)"
+        );
     }
 
     // Clone before `create_commit` consumes the vec — needed afterwards

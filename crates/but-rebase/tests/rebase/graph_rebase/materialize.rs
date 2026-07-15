@@ -521,6 +521,58 @@ fn materialize_checks_out_linked_worktrees_seeded_into_the_graph() -> Result<()>
 }
 
 #[test]
+fn materialize_without_checkout_still_checks_out_linked_worktrees() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    let worktree_dir = repo.workdir().unwrap().join("wt");
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        graph_options_with_worktree_tip(&repo)?,
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    // Drop the 'a' commit that 'middle' (checked out in the worktree) points to.
+    let a = repo.rev_parse_single("middle")?;
+    let a_sel = editor.select_commit(a.detach())?;
+    editor.replace(a_sel, Step::None)?;
+
+    editor.rebase()?.materialize_without_checkout()?;
+
+    // The refs moved just like with `materialize`...
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d862b68 (HEAD -> main) b
+* 35b8235 (middle) base
+
+"#]]
+    );
+    // ...the editor's own (HEAD) worktree was not checked out, so the dropped
+    // commit's file survives there as an uncommitted change...
+    assert!(
+        repo.workdir().unwrap().join("a").exists(),
+        "the HEAD checkout is skipped - that is this variant's contract"
+    );
+    // ...but the linked worktree still followed its moved branch, instead of
+    // being left stale on the old tree.
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(&worktree_dir)?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:100644
+└── base:100644
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn materialize_leaves_linked_worktrees_alone_without_worktree_tips() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
     let worktree_dir = repo.workdir().unwrap().join("wt");

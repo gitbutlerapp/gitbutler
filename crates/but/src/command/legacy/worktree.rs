@@ -253,7 +253,20 @@ fn resolve_commit_id(ctx: &Context, id_map: &IdMap, id: &str) -> Result<gix::Obj
         .collect();
     match matches.len() {
         1 => Ok(matches.remove(0)),
-        0 => bail!("Could not find commit: '{id}'. Run `but status` for applicable ids."),
+        0 => {
+            // Commits that live only on a worktree's branch aren't part of the
+            // workspace projection the id map is built from, yet they are valid
+            // amend targets - fall back to git revision parsing (full/short
+            // SHA, refs), like `but pick` does.
+            let repo = ctx.repo.get()?;
+            if let Ok(oid) = repo.rev_parse_single(id) {
+                let object_id = oid.detach();
+                if repo.find_commit(object_id).is_ok() {
+                    return Ok(object_id);
+                }
+            }
+            bail!("Could not find commit: '{id}'. Run `but status` for applicable ids.")
+        }
         _ => bail!("Ambiguous commit id '{id}', matches multiple commits"),
     }
 }
@@ -365,7 +378,10 @@ fn amend(
                     "Amended changes from worktree {name} into {}",
                     crate::utils::shorten_object_id(&repo, new_commit)
                 )?;
-                writeln!(out, "The amended changes were moved out of the worktree.")?;
+                writeln!(
+                    out,
+                    "The amended changes were moved out of the worktree (files whose content changed mid-operation are left in place)."
+                )?;
             }
             None => writeln!(out, "No changes could be amended.")?,
         }
