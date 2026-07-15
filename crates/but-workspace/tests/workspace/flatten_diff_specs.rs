@@ -95,6 +95,33 @@ fn same_file_merge_hunks() {
 }
 
 #[test]
+fn whole_file_supersedes_hunks_for_the_same_path() {
+    let hunk = DiffSpec {
+        path: "file.txt".into(),
+        previous_path: None,
+        hunk_headers: vec![HunkHeader {
+            old_start: 1,
+            old_lines: 1,
+            new_start: 1,
+            new_lines: 1,
+        }],
+    };
+    let whole_file = DiffSpec {
+        path: "file.txt".into(),
+        previous_path: None,
+        hunk_headers: Vec::new(),
+    };
+
+    for input in [
+        vec![hunk.clone(), whole_file.clone()],
+        vec![whole_file.clone(), hunk.clone()],
+    ] {
+        let result = flatten_diff_specs(input);
+        assert_eq!(result, vec![whole_file.clone()]);
+    }
+}
+
+#[test]
 fn with_previous_path() {
     let spec1 = DiffSpec {
         path: BString::from("new_file.txt"),

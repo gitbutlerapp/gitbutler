@@ -200,7 +200,13 @@ pub fn flatten_diff_specs(input: impl IntoIterator<Item = DiffSpec>) -> Vec<Diff
         );
         output
             .entry(key)
-            .and_modify(|e| e.hunk_headers.extend(spec.hunk_headers.clone()))
+            .and_modify(|existing| {
+                if existing.hunk_headers.is_empty() || spec.hunk_headers.is_empty() {
+                    existing.hunk_headers.clear();
+                } else {
+                    existing.hunk_headers.extend(spec.hunk_headers.clone());
+                }
+            })
             .or_insert(spec);
     }
     output.into_values().collect()

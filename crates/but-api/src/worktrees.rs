@@ -111,6 +111,7 @@ pub fn worktree_commit_create(
     dry_run: DryRun,
 ) -> Result<CommitCreateResult> {
     ensure_worktree_manipulation_enabled(ctx)?;
+    let changes = but_workspace::flatten_diff_specs(changes);
     let context_lines = ctx.settings.context_lines;
     let mut guard = ctx.exclusive_worktree_access();
     let worktree = ctx
@@ -236,6 +237,7 @@ pub fn worktree_commit_amend_with_perm(
     perm: &mut RepoExclusive,
 ) -> Result<CommitCreateResult> {
     ensure_worktree_manipulation_enabled(ctx)?;
+    let changes = but_workspace::flatten_diff_specs(changes);
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
