@@ -79,11 +79,17 @@
 		argTypes: {},
 	});
 
+	const hugeOptions = Array.from({ length: 25000 }, (_, i) => ({
+		value: `branch-${i}`,
+		label: `origin/feature/branch-${i}`,
+	}));
+
 	let selectedItem = $state<string>("1");
 	let selectedWithIcon = $state<string>("js");
 	let selectedWithEmoji = $state<string>("happy");
 	let selectedLongOption = $state<string>();
 	let selectedWithSeparators = $state<string>("new");
+	let selectedHugeOption = $state<string>();
 	let customBtnOpen = $state(false);
 </script>
 
@@ -103,6 +109,27 @@
 			>
 				{#snippet itemSnippet({ item, highlighted })}
 					<SelectItem selected={item.value === selectedItem} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		</div>
+	{/snippet}
+</Story>
+
+<Story name="Huge List">
+	{#snippet template(_args)}
+		<div class="wrap">
+			<Select
+				searchable
+				options={hugeOptions}
+				value={selectedHugeOption}
+				onselect={(value: string) => {
+					selectedHugeOption = value;
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === selectedHugeOption} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}
