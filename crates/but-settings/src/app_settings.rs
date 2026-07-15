@@ -52,6 +52,8 @@ pub struct FeatureFlags {
     pub write_commit_evolution: bool,
     /// Show the experimental file browser in the TUI.
     pub tui_file_browser: bool,
+    /// Enable experimental worktree manipulation support.
+    pub worktree_manipulation: bool,
 }
 but_schemars::register_sdk_type!(FeatureFlags);
 

@@ -10,6 +10,7 @@ pub(crate) mod gerrit_metadata;
 pub(crate) mod hunk_assignments;
 pub(crate) mod virtual_branches;
 pub(crate) mod workflows;
+pub(crate) mod worktree_meta;
 
 /// Move migrations that relate to tables that don't have their module anymore here.
 pub(crate) const M_FULLY_REMOVED: &[M<'static>] = &[

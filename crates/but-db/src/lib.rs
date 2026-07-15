@@ -80,6 +80,7 @@ pub use table::{
     forge_reviews::ForgeReview,
     ci_checks::CiCheck,
     virtual_branches::{VbBranchTarget, VbStack, VbStackHead, VbState, VirtualBranchesSnapshot, VirtualBranchesHandle, VirtualBranchesHandleMut},
+    worktree_meta::{WorktreeMeta, WorktreeMetaHandle, WorktreeMetaHandleMut},
 };
 
 /// The *retryable* error type used by [`backoff()`] for SQLite operations.
@@ -138,6 +139,7 @@ pub const MIGRATIONS: &[&[M<'static>]] = &[
     table::forge_reviews::M,
     table::ci_checks::M,
     table::virtual_branches::M,
+    table::worktree_meta::M,
 ];
 
 /// A migration and all the necessary data associated with it to perform it once.
