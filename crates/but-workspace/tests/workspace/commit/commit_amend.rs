@@ -323,6 +323,63 @@ mod from_worktree {
     }
 
     #[test]
+    fn amend_one_worktree_hunk_leaves_the_other_hunk_dirty() -> Result<()> {
+        let (repo, _tmp, mut meta) = scenario();
+        let wt_dir = repo.workdir().expect("non-bare").join("wt");
+        std::fs::write(wt_dir.join("a-file"), "ONE\ntwo\nthree\nfour\n")?;
+
+        let graph = graph_with_worktree_tip(&repo, &*meta)?;
+        let mut ws = graph.into_workspace()?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let wt_repo = open_worktree_repo(&repo, "wt".into())?;
+        let change = but_core::diff::worktree_changes(&wt_repo)?
+            .changes
+            .into_iter()
+            .find(|change| change.path == "a-file")
+            .expect("a-file is modified");
+        let but_core::UnifiedPatch::Patch { hunks, .. } = change
+            .unified_patch(&wt_repo, 0)?
+            .expect("text changes have a patch")
+        else {
+            panic!("text changes have a patch")
+        };
+        assert_eq!(hunks.len(), 2, "the fixture has two selectable hunks");
+        let selected = DiffSpec {
+            path: "a-file".into(),
+            hunk_headers: vec![(&hunks[0]).into()],
+            ..Default::default()
+        };
+
+        let outcome = commit_amend_from_worktree(
+            editor,
+            repo.rev_parse_single("feat")?.detach(),
+            vec![selected],
+            0,
+            &wt_repo,
+            "wt".into(),
+        )?;
+        let selector = outcome.commit_selector.expect("a commit was amended");
+        let materialized = outcome.rebase.materialize()?;
+        let new_id = materialized.lookup_pick(selector)?;
+
+        assert_eq!(
+            blob(&repo, &format!("{new_id}:a-file"))?,
+            "ONE\ntwo\nthree\n",
+            "only the selected hunk enters the commit"
+        );
+        assert_eq!(
+            std::fs::read_to_string(wt_dir.join("a-file"))?,
+            "ONE\ntwo\nthree\nfour\n",
+            "the unselected hunk remains in the checkout"
+        );
+        assert!(
+            git_status_at_dir(&wt_dir)?.contains("a-file"),
+            "the unselected hunk remains dirty"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn amend_into_another_branch_leaves_the_worktree_tip_alone() -> Result<()> {
         let (repo, _tmp, mut meta) = scenario();
         let wt_dir = repo.workdir().expect("non-bare").join("wt");
