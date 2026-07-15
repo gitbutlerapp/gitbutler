@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
@@ -96,15 +96,56 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             .managed_entrypoint_commit(repo)?
             .map(|c| c.id);
 
+        // Worktrees seeded into the graph (feature-flag gated, archived filtered)
+        // are the ones whose checkouts should follow rebases.
+        let checkout_worktree_names = workspace
+            .graph
+            .options
+            .worktree_tips
+            .iter()
+            .map(|tip| tip.name.clone())
+            .collect::<HashSet<_>>();
+
         let mut commits: Vec<Commit> = vec![];
         let mut commit_to_idx = HashMap::<gix::ObjectId, SegmentIndex>::new();
         let mut commit_to_pick_ix = HashMap::<gix::ObjectId, StepGraphIndex>::new();
         let mut graph = StepGraph::new();
         let mut head_selectors = vec![];
         let mut references = vec![];
+        // One selector per worktree name - the reference step of the branch its `HEAD` is on.
+        let mut worktree_selectors = BTreeMap::<gix::bstr::BString, Selector>::new();
+        // Refs checked out in another worktree must never be deleted, independently
+        // of whether their worktree participates in checkouts.
+        let mut worktree_checked_out_refs = std::collections::BTreeSet::new();
         struct NodeSegment {
             nodes: Vec<StepGraphIndex>,
         }
+
+        let record_worktree_checkout =
+            |worktree_selectors: &mut BTreeMap<gix::bstr::BString, Selector>,
+             worktree_checked_out_refs: &mut std::collections::BTreeSet<gix::refs::FullName>,
+             ref_info: &but_graph::RefInfo,
+             ix: StepGraphIndex| {
+                let Some(worktree) = &ref_info.worktree else {
+                    return;
+                };
+                // The repo's own worktree is covered by `Checkout::Head`, and its
+                // checked-out ref moves are already handled explicitly.
+                if worktree.owned_by_repo {
+                    return;
+                }
+                worktree_checked_out_refs.insert(ref_info.ref_name.clone());
+                let but_graph::WorktreeKind::LinkedId(name) = &worktree.kind else {
+                    return;
+                };
+                if !checkout_worktree_names.contains(name) {
+                    return;
+                }
+                worktree_selectors.entry(name.clone()).or_insert(Selector {
+                    id: ix,
+                    revision: 0,
+                });
+            };
 
         let mut segments = HashMap::<SegmentIndex, NodeSegment>::new();
 
@@ -113,8 +154,8 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             let mutable = mutable_segments.contains(&sid);
             let mut nodes = vec![];
 
-            if let Some(reference) = segment.ref_name() {
-                let refname = reference.to_owned();
+            if let Some(ref_info) = &segment.ref_info {
+                let refname = ref_info.ref_name.clone();
                 // Only mutable references are tracked for potential deletion.
                 if mutable {
                     references.push(refname.clone());
@@ -123,12 +164,18 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     refname: refname.clone(),
                     mutable,
                 });
-                if Some(reference) == entrypoint.segment.ref_name() {
+                if Some(refname.as_ref()) == entrypoint.segment.ref_name() {
                     head_selectors.push(Selector {
                         id: ix,
                         revision: 0,
                     });
                 }
+                record_worktree_checkout(
+                    &mut worktree_selectors,
+                    &mut worktree_checked_out_refs,
+                    ref_info,
+                    ix,
+                );
                 nodes.push(ix);
             }
 
@@ -136,13 +183,8 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 commits.push(commit.clone());
                 commit_to_idx.insert(commit.id, segment.id);
 
-                let refs = commit
-                    .refs
-                    .iter()
-                    .map(|r| r.ref_name.clone())
-                    .collect::<Vec<_>>();
-
-                for reference in refs {
+                for ref_info in commit.refs.clone() {
+                    let reference = ref_info.ref_name.clone();
                     if mutable {
                         references.push(reference.to_owned());
                     }
@@ -150,6 +192,12 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                         refname: reference.clone(),
                         mutable,
                     });
+                    record_worktree_checkout(
+                        &mut worktree_selectors,
+                        &mut worktree_checked_out_refs,
+                        &ref_info,
+                        ix,
+                    );
                     if let Some(previous_ix) = nodes.last() {
                         graph.add_edge(*previous_ix, ix, Edge { order: 0 });
                     }
@@ -304,18 +352,26 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             }
         }
 
+        // Worktree checkouts come first: their failures are skippable, and any
+        // hard failure aborts before the main worktree was touched.
+        let checkouts = worktree_selectors
+            .into_iter()
+            .map(|(worktree_name, selector)| Checkout::Worktree {
+                selector,
+                worktree_name,
+                merge_base_override: None,
+            })
+            .chain(head_selectors.into_iter().map(|selector| Checkout::Head {
+                selector,
+                merge_base_override: None,
+            }))
+            .collect();
+
         Ok(Self {
             graph,
             initial_references: references,
-            // TODO(CTO): We need to eventually list all worktrees that we own
-            // here so we can `safe_checkout` them too.
-            checkouts: head_selectors
-                .into_iter()
-                .map(|selector| Checkout::Head {
-                    selector,
-                    merge_base_override: None,
-                })
-                .collect(),
+            worktree_checked_out_refs,
+            checkouts,
             repo: repo.clone().with_object_memory(),
             history: RevisionHistory::new(),
             workspace,
@@ -334,6 +390,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         Editor {
             graph: self.graph,
             initial_references: self.initial_references,
+            worktree_checked_out_refs: self.worktree_checked_out_refs,
             checkouts: self.checkouts,
             repo: self.repo,
             history: self.history,

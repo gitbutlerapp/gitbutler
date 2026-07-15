@@ -7,6 +7,7 @@ use but_core::{
     ref_metadata::{self, ProjectMeta},
 };
 use gix::{
+    bstr::BString,
     hashtable::hash_map::Entry,
     prelude::{ObjectIdExt, ReferenceExt},
     refs::Category,
@@ -484,6 +485,30 @@ pub struct Options {
     ///
     /// This should only be used in case post-processing fails and one wants to preview the version before that.
     pub dangerously_skip_postprocessing_for_debugging: bool,
+    /// Extra reachable tips resolved by the caller from linked-worktree `HEAD`s.
+    ///
+    /// Tips with a ref name are re-resolved through the (possibly overlaid) ref store on
+    /// every traversal so redone traversals see moved refs; named tips whose ref no longer
+    /// resolves are dropped rather than resurrected from their recorded id. The recorded
+    /// commit id seeds only tips without a ref name (detached worktree `HEAD`s).
+    /// These tips queue after all other initial work and are skipped if another tip
+    /// already seeds their commit.
+    pub worktree_tips: Vec<WorktreeTip>,
+}
+
+/// A linked-worktree `HEAD` to include as an extra traversal tip, see
+/// [`Options::worktree_tips`].
+#[derive(Debug, Clone)]
+pub struct WorktreeTip {
+    /// The worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+    ///
+    /// The traversal itself doesn't consume it, but it travels with the graph so
+    /// consumers like the rebase editor know which worktrees may be checked out.
+    pub name: BString,
+    /// The branch the worktree has checked out, if its `HEAD` is symbolic.
+    pub ref_name: Option<gix::refs::FullName>,
+    /// The peeled `HEAD` commit at caller resolution time.
+    pub id: gix::ObjectId,
 }
 
 /// Presets
@@ -769,6 +794,7 @@ impl Graph {
             commits_limit_recharge_location: mut max_commits_recharge_location,
             hard_limit,
             dangerously_skip_postprocessing_for_debugging,
+            worktree_tips,
         } = options;
         let max_limit = Limit::new(limit);
         if ref_name
@@ -786,8 +812,13 @@ impl Graph {
 
         let configured_remote_tracking_branches =
             remotes::configured_remote_tracking_branches(repo)?;
-        let initial_tips =
-            initial_tips_from_tips(repo, tips, &graph.project_meta, extra_target_commit_id);
+        let initial_tips = initial_tips_from_tips(
+            repo,
+            tips,
+            &graph.project_meta,
+            extra_target_commit_id,
+            worktree_tips,
+        );
         graph.traversal_tips = initial_tips.tips.clone();
         let refs_by_id = repo.collect_ref_mapping_by_prefix(
             [
@@ -1242,6 +1273,7 @@ fn initial_tips_from_tips(
     mut tips: Vec<Tip>,
     project_meta: &ProjectMeta,
     extra_target_commit_id: Option<gix::ObjectId>,
+    worktree_tips: Vec<WorktreeTip>,
 ) -> InitialTips {
     let mut auxiliary_integrated_tip_ids = BTreeSet::new();
     if let Some(extra_target) = extra_target_commit_id {
@@ -1274,6 +1306,7 @@ fn initial_tips_from_tips(
     let symbolic_remote_names =
         symbolic_remote_names_from_tips(repo, &tips, project_meta, include_tip_refs);
     let target_local_links = target_local_links_from_tips(repo, &tips);
+    let tips = append_worktree_tips(repo, tips, worktree_tips);
 
     InitialTips {
         tips,
@@ -1285,6 +1318,42 @@ fn initial_tips_from_tips(
         target_local_links,
         auxiliary_integrated_tip_ids,
     }
+}
+
+/// Append caller-provided linked-worktree `HEAD` tips as plain reachable seeds.
+///
+/// They come last so they never claim a commit that other initial work seeds first —
+/// in workspace and ad-hoc priority modes alike — and they don't participate in any
+/// auxiliary tip computations (targets, workspace refs, remotes).
+/// Tips with a ref name are re-resolved through the overlay so redone traversals
+/// (e.g. rebase previews) see moved or dropped refs; the recorded id is the fallback.
+fn append_worktree_tips(
+    repo: &OverlayRepo<'_>,
+    mut tips: Vec<Tip>,
+    worktree_tips: Vec<WorktreeTip>,
+) -> Vec<Tip> {
+    let mut seen_ids: BTreeSet<_> = tips.iter().map(|tip| tip.id).collect();
+    for worktree_tip in worktree_tips {
+        let id = match &worktree_tip.ref_name {
+            Some(name) => {
+                let resolved = repo.try_find_reference(name.as_ref()).ok().flatten().and_then(
+                    |mut reference| Some(reference.peel_to_id().ok()?.detach()),
+                );
+                match resolved {
+                    Some(id) => id,
+                    // The ref was dropped by an overlay or vanished - don't
+                    // resurrect its old tip from the recorded id.
+                    None => continue,
+                }
+            }
+            // Detached worktree `HEAD` - the recorded commit is all there is.
+            None => worktree_tip.id,
+        };
+        if seen_ids.insert(id) {
+            tips.push(Tip::new(id));
+        }
+    }
+    tips
 }
 
 /// Remove anonymous integrated target tips that point to the same commit as a

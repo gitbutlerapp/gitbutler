@@ -1268,7 +1268,8 @@ pub(crate) fn route_operation<'a>(
                         | CommittedFile { .. }
                         | Branch { .. }
                         | Uncommitted { .. }
-                        | Stack { .. } => None,
+                        | Stack { .. }
+                        | Worktree { .. } => None,
                     })
                     .collect::<Option<Vec<_>>>()
                     .and_then(NonEmpty::from_vec)
@@ -1314,7 +1315,8 @@ pub(crate) fn route_operation<'a>(
             UncommittedHunkOrFile(..)
             | PathPrefix { .. }
             | CommittedFile { .. }
-            | Branch { .. } => None,
+            | Branch { .. }
+            | Worktree { .. } => None,
         }
     }
 }

@@ -12,6 +12,7 @@
 use std::collections::HashMap;
 
 use anyhow::Context as _;
+use bstr::ByteSlice as _;
 use but_graph::SegmentIndex;
 use but_workspace::ref_info::LocalCommit;
 use chrono::{DateTime, Utc};
@@ -36,6 +37,10 @@ pub(crate) struct WorkspaceStatus {
     conflicted_files: Vec<String>,
     /// The stacks that are applied in the current workspace
     stacks: Vec<Stack>,
+    /// Active linked git worktrees; only present when the `worktreeManipulation`
+    /// feature flag is enabled (experimental)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    worktrees: Option<Vec<Worktree>>,
     /// The most recent common merge base between all applied stacks and the target upstream branch
     merge_base: Commit,
     /// Information about how ahead the target upstream branch is compared to the merge base
@@ -62,6 +67,7 @@ impl WorkspaceStatus {
         uncommitted_changes: Vec<FileChange>,
         conflicted_files: Vec<String>,
         stacks: Vec<Stack>,
+        worktrees: Option<Vec<Worktree>>,
         merge_base: Commit,
         upstream_state: UpstreamState,
     ) -> Self {
@@ -69,10 +75,27 @@ impl WorkspaceStatus {
             uncommitted_changes,
             conflicted_files,
             stacks,
+            worktrees,
             merge_base,
             upstream_state,
         }
     }
+}
+
+/// A linked git worktree (experimental)
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Worktree {
+    /// A unique ID specific to the current state of the workspace, to be used by other CLI operations (e.g `but worktree archive`)
+    cli_id: String,
+    /// The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`
+    name: String,
+    /// The short name of the branch the worktree has checked out, or `null` for a detached `HEAD`
+    branch: Option<String>,
+    /// The absolute path to the worktree checkout directory
+    path: String,
+    /// The commits in the worktree that aren't reachable from the target, newest first
+    commits: Vec<Commit>,
 }
 
 /// Represents a stack of branches applied in the current workspace
@@ -436,6 +459,21 @@ impl Commit {
             changes,
         }))
     }
+    /// A commit inside a linked git worktree. `IdMap` does not know about
+    /// this commit, so it will not have a CLI ID.
+    pub fn from_worktree_commit(commit: &but_workspace::ui::Commit) -> Self {
+        Commit {
+            cli_id: String::new(),
+            commit_id: commit.id.to_string(),
+            created_at: i128_to_rfc3339(commit.authored_at),
+            message: commit.message.to_string(),
+            author_name: commit.author.name.clone(),
+            author_email: commit.author.email.clone(),
+            conflicted: Some(commit.has_conflicts),
+            review_id: None,
+            changes: None,
+        }
+    }
     /// A commit not obtained from a stack. `IdMap` does not know
     /// about this commit, so it will not have a CLI ID.
     pub fn from_upstream_commit(
@@ -598,6 +636,31 @@ pub(super) fn build_workspace_status_json(
         }
     }
 
+    let json_worktrees = status_ctx.worktrees.as_ref().map(|listing| {
+        listing
+            .active
+            .iter()
+            .map(|worktree| Worktree {
+                cli_id: status_ctx
+                    .id_map
+                    .resolve_worktree(worktree.name.as_bstr())
+                    .map(|cli_id| cli_id.to_short_string())
+                    .unwrap_or_default(),
+                name: worktree.name.to_string(),
+                branch: worktree
+                    .ref_name
+                    .as_ref()
+                    .map(|ref_name| ref_name.shorten().to_string()),
+                path: worktree.path.display().to_string(),
+                commits: worktree
+                    .commits
+                    .iter()
+                    .map(Commit::from_worktree_commit)
+                    .collect(),
+            })
+            .collect()
+    });
+
     // Create a Commit object for the merge base.
     let base_commit = repo.find_commit(status_ctx.common_merge_base_data.commit_id)?;
     let base_commit_decoded = base_commit.decode()?;
@@ -708,6 +771,7 @@ pub(super) fn build_workspace_status_json(
         json_uncommitted_changes,
         status_ctx.conflicted_paths.clone(),
         json_stacks,
+        json_worktrees,
         merge_base_commit,
         upstream_state_json,
     ))

@@ -1534,6 +1534,33 @@ pub mod worktree {
             #[clap(long)]
             reference: bool,
         },
+        /// Archive a worktree, hiding it from the workspace (experimental, requires the
+        /// `worktreeManipulation` feature flag)
+        Archive {
+            /// The CLI id (see `but status`) or name of the worktree
+            id: String,
+        },
+        /// Unarchive a worktree, making it part of the workspace again (experimental,
+        /// requires the `worktreeManipulation` feature flag)
+        Unarchive {
+            /// The CLI id (see `but status`) or name of the worktree
+            id: String,
+        },
+        /// Amend uncommitted changes from a worktree into any commit (experimental,
+        /// requires the `worktreeManipulation` feature flag)
+        ///
+        /// The amended changes are moved: once the commit is in place they no longer
+        /// show up as uncommitted changes in the worktree.
+        Amend {
+            /// The CLI id (see `but status`) or name of the worktree providing the changes
+            name: String,
+            /// The CLI id or (partial) hash of the commit to amend into
+            commit: String,
+            /// Comma-separated worktree-relative file paths to amend; all uncommitted
+            /// changes of the worktree when omitted
+            #[clap(long, value_delimiter = ',')]
+            changes: Vec<String>,
+        },
     }
 }
 

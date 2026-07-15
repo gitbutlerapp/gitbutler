@@ -17,7 +17,7 @@ impl UintId {
     /// Subsequent characters: 0-9,a-z (36 options)
     const SUBSEQUENT_CHARS: &'static [u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
     /// Must be less than this.
-    const LIMIT: u16 = 20 * 36 * 37;
+    pub(crate) const LIMIT: u16 = 20 * 36 * 37;
     /// String representation must be at most this long.
     pub(crate) const LENGTH_LIMIT: usize = 3;
 
@@ -96,6 +96,12 @@ impl IdUsage {
         if self.next_uint_id.0 <= uint_id.0 {
             self.uint_ids_used.insert(uint_id);
         }
+    }
+
+    /// Whether `uint_id` was already handed out by [`Self::next_available`] or
+    /// reserved via [`Self::mark_used`].
+    pub(crate) fn is_used(&self, uint_id: UintId) -> bool {
+        uint_id.0 < self.next_uint_id.0 || self.uint_ids_used.contains(&uint_id)
     }
 
     pub(crate) fn next_available(&mut self) -> anyhow::Result<UintId> {

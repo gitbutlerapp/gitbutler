@@ -164,6 +164,377 @@ Status: Nothing to integrate - the worktree has no changes
 "#]]);
 }
 
+/// Experimental worktree listing in `but status` plus the archive/unarchive
+/// subcommands, all gated behind the `worktreeManipulation` feature flag.
+#[test]
+fn archive_unarchive_and_status_listing() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
+    env.setup_metadata(&["A", "B"]);
+
+    // The flag is off by default, so archive/unarchive refuse to run.
+    env.but("worktree unarchive A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: worktree manipulation is not enabled (featureFlags.worktreeManipulation)
+
+"#]]);
+
+    enable_worktree_manipulation(&env)?;
+
+    // The first flag-on run adopts the pre-existing worktrees as archived,
+    // so no worktree group shows up yet.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A 📁 gitbutler/worktrees/A]
+┊┊
+┊╭┄┄(upstream: on origin/A)
+┊●   197ddce A-remote (no changes)
+┊-
+┊●   4c4624e A (no changes)
+├╯
+┊
+┊╭┄h0 [B 📁 gitbutler/worktrees/B]
+┊●   3e01e28 B (no changes)
+├╯
+┊
+┊● 8dc508f (upstream) ⏫ 1 commit
+├╯ 8dc508f (common base) 2000-01-02 M-advanced
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("worktree unarchive A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Unarchived worktree: A
+
+"#]]);
+
+    // The active worktree is listed as a branch-style group after the stacks,
+    // with its own CLI id chip and the path relative to the main worktree.
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+╭┄zz [uncommitted] (no changes)
+┊
+┊╭┄g0 [A 📁 gitbutler/worktrees/A]
+┊┊
+┊╭┄┄(upstream: on origin/A)
+┊●   197ddce A-remote (no changes)
+┊-
+┊●   4c4624e A (no changes)
+├╯
+┊
+┊╭┄h0 [B 📁 gitbutler/worktrees/B]
+┊●   3e01e28 B (no changes)
+├╯
+┊
+┊╭┄p11 [A] (.git/gitbutler/worktrees/A)
+┊●   4c4624e A
+├╯
+┊
+┊● 8dc508f (upstream) ⏫ 1 commit
+├╯ 8dc508f (common base) 2000-01-02 M-advanced
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // The JSON output lists it, too.
+    assert_eq!(active_worktree_names(&env)?, ["A"]);
+
+    // Archiving works with the CLI id chip from the listing and hides the
+    // worktree again.
+    env.but("worktree archive p11")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Archived worktree: A
+
+"#]]);
+    assert_eq!(active_worktree_names(&env)?, Vec::<String>::new());
+
+    Ok(())
+}
+
+/// A linked worktree is canonically named after the branch it checks out. That
+/// shared name must not make branch-name arguments ambiguous for commands that
+/// never accept a worktree - here the worktrees are even archived (the state
+/// after the first flag-on reconciliation) and thus invisible in `but status`,
+/// yet their names used to poison the resolution of `--before A`.
+#[test]
+fn worktree_sharing_branch_name_does_not_make_branch_args_ambiguous() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env)?;
+
+    env.but("commit empty --before A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Created blank commit at the tip of branch 'A'
+
+"#]]);
+    Ok(())
+}
+
+/// Amend uncommitted changes from a linked worktree into its own branch's head
+/// commit (the worktree checkout follows the rebase) and into another branch's
+/// commit (the worktree tip stays, the duplicate is discarded afterwards).
+#[test]
+fn amend_from_worktree() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
+    env.setup_metadata(&["A", "B"]);
+
+    // Gated on the feature flag like its siblings.
+    env.but("worktree amend A 12345678 --changes some.txt")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: worktree manipulation is not enabled (featureFlags.worktreeManipulation)
+
+"#]]);
+
+    enable_worktree_manipulation(&env)?;
+    env.but("worktree unarchive A").assert().success();
+    env.but("worktree unarchive B").assert().success();
+
+    let wt_a = worktrees_dir(&env).join("A");
+    std::fs::write(wt_a.join("own.txt"), "own\n")?;
+    std::fs::write(wt_a.join("cross.txt"), "cross\n")?;
+
+    // Paths that have no uncommitted change in the worktree are refused.
+    let repo = env.open_repo();
+    let a_head = repo.rev_parse_single("A")?.detach();
+    env.but(format!("worktree amend A {a_head} --changes missing.txt"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Worktree A has no uncommitted change at path 'missing.txt'
+
+"#]]);
+
+    // Amend one of two dirty files into the head commit of the worktree's own
+    // branch.
+    env.but(format!("worktree amend A {a_head} --changes own.txt"))
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Amended changes from worktree A into [..]
+The amended changes were moved out of the worktree (files whose content changed mid-operation are left in place).
+
+"#]]);
+
+    let repo = env.open_repo();
+    let new_a_head = repo.rev_parse_single("A")?.detach();
+    assert_ne!(new_a_head, a_head, "the worktree's branch moved");
+    assert_eq!(
+        repo.rev_parse_single("A:own.txt")?.object()?.data,
+        b"own\n",
+        "the amended commit contains the worktree's uncommitted content"
+    );
+    let status = but_testsupport::git_status_at_dir(&wt_a)?;
+    assert!(
+        !status.contains("own.txt"),
+        "the consumed change no longer shows up as uncommitted in the worktree: {status}"
+    );
+    assert!(
+        status.contains("cross.txt"),
+        "the dirty file that wasn't amended survives: {status}"
+    );
+
+    // Amend the remaining dirty file into a commit on another worktree's branch.
+    let b_commit = repo.rev_parse_single("B")?.detach();
+    env.but(format!("worktree amend A {b_commit} --changes cross.txt"))
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Amended changes from worktree A into [..]
+The amended changes were moved out of the worktree (files whose content changed mid-operation are left in place).
+
+"#]]);
+
+    let repo = env.open_repo();
+    assert_eq!(
+        repo.rev_parse_single("A")?.detach(),
+        new_a_head,
+        "the source worktree's branch is untouched when the target lives elsewhere"
+    );
+    assert_eq!(
+        repo.rev_parse_single("B:cross.txt")?.object()?.data,
+        b"cross\n",
+        "the change landed in the other branch's commit"
+    );
+    assert_eq!(
+        but_testsupport::git_status_at_dir(&wt_a)?,
+        "",
+        "the now-committed change was discarded from the source worktree"
+    );
+    assert!(
+        worktrees_dir(&env).join("B").join("cross.txt").exists(),
+        "the target worktree's checkout followed its rebased branch"
+    );
+
+    Ok(())
+}
+
+/// Amend into a commit that exists only on a worktree's branch (the branch is
+/// not a workspace stack, so the commit has no CLI id) - the SHA printed by
+/// `but status` must resolve via the git rev-parse fallback.
+#[test]
+fn amend_into_worktree_only_commit_resolves_by_sha() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env)?;
+    // The first flag-on reconciliation adopts the pre-existing worktrees as
+    // archived; worktrees created afterwards are recorded active.
+    env.but("worktree unarchive A").assert().success();
+    but_testsupport::invoke_bash_at_dir(
+        r#"git worktree add .git/gitbutler/worktrees/C -b feat main"#,
+        env.projects_root(),
+    );
+    let wt_c = worktrees_dir(&env).join("C");
+    but_testsupport::invoke_bash_at_dir(
+        r#"printf 'one\ntwo\n' > conflict.txt && git add . && git commit -qm wt-c1
+           printf 'one-c2\ntwo\n' > conflict.txt && git commit -qam wt-c2"#,
+        &wt_c,
+    );
+    std::fs::write(wt_c.join("c-new.txt"), "new\n")?;
+
+    // `feat` is not a workspace stack, so its commits are invisible to the id
+    // map - the lower commit is addressed by the SHA `but status` shows.
+    let repo = env.open_repo();
+    let lower = repo.rev_parse_single("feat~1")?.detach();
+    env.but(format!("worktree amend C {lower} --changes c-new.txt"))
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Amended changes from worktree C into [..]
+The amended changes were moved out of the worktree (files whose content changed mid-operation are left in place).
+
+"#]]);
+
+    let repo = env.open_repo();
+    assert_eq!(
+        repo.rev_parse_single("feat~1:c-new.txt")?.object()?.data,
+        b"new\n",
+        "the amended commit on the worktree-only branch contains the change"
+    );
+    let status = but_testsupport::git_status_at_dir(&wt_c)?;
+    assert!(
+        !status.contains("c-new.txt"),
+        "the consumed change was moved out of the worktree: {status}"
+    );
+    Ok(())
+}
+
+/// Amending into a commit below a worktree's tip is refused when a later
+/// commit on that branch conflicts with the amended content - materializing
+/// would move the branch onto a conflict-encoded commit that a plain worktree
+/// can never check out.
+#[test]
+fn amend_conflicting_with_later_worktree_commits_is_refused() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env)?;
+    // Triggers the first reconciliation (adopting A/B) and activates A, the
+    // worktree the amended changes come from.
+    env.but("worktree unarchive A").assert().success();
+    but_testsupport::invoke_bash_at_dir(
+        r#"git worktree add .git/gitbutler/worktrees/C -b feat main"#,
+        env.projects_root(),
+    );
+    let wt_c = worktrees_dir(&env).join("C");
+    but_testsupport::invoke_bash_at_dir(
+        r#"git commit -qm wt-c1 --allow-empty
+           printf 'one-c2\ntwo\n' > conflict.txt && git add . && git commit -qm wt-c2"#,
+        &wt_c,
+    );
+    // Worktree A holds an untracked file at the same path that feat's tip
+    // commit adds with different content: amending it into the lower commit
+    // wt-c1 applies cleanly, but replaying wt-c2 on top conflicts.
+    let wt_a = worktrees_dir(&env).join("A");
+    std::fs::write(wt_a.join("conflict.txt"), "one-dirty\ntwo\n")?;
+
+    let repo = env.open_repo();
+    let feat_before = repo.rev_parse_single("feat")?.detach();
+    let a_before = repo.rev_parse_single("A")?.detach();
+    let lower = repo.rev_parse_single("feat~1")?.detach();
+    env.but(format!("worktree amend A {lower} --changes conflict.txt"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: amending into [..] would conflict with later commits on the branch checked out in worktree C - aborting without any changes
+
+"#]]);
+
+    let repo = env.open_repo();
+    assert_eq!(
+        repo.rev_parse_single("feat")?.detach(),
+        feat_before,
+        "the refused amend left the target worktree's branch byte-identical"
+    );
+    assert_eq!(
+        repo.rev_parse_single("A")?.detach(),
+        a_before,
+        "the source worktree's branch is untouched as well"
+    );
+    assert_eq!(
+        std::fs::read(wt_a.join("conflict.txt"))?,
+        b"one-dirty\ntwo\n",
+        "the uncommitted change stays in the source worktree untouched"
+    );
+    Ok(())
+}
+
+/// Turn on the `worktreeManipulation` feature flag in the sandbox settings.
+fn enable_worktree_manipulation(env: &Sandbox) -> anyhow::Result<()> {
+    let settings_path = env.app_data_dir().join("gitbutler/settings.json");
+    let mut settings: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&settings_path)?)?;
+    settings["featureFlags"]["worktreeManipulation"] = serde_json::Value::Bool(true);
+    std::fs::write(&settings_path, serde_json::to_string_pretty(&settings)?)?;
+    Ok(())
+}
+
+/// The names of all active worktrees according to `but status --format json`.
+fn active_worktree_names(env: &Sandbox) -> anyhow::Result<Vec<String>> {
+    let output = env
+        .but("--format json status")
+        .env_remove("BUT_OUTPUT_FORMAT")
+        .env("NO_BG_TASKS", "1")
+        .output()?;
+    anyhow::ensure!(output.status.success(), "status --format json failed");
+    let status: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    Ok(status["worktrees"]
+        .as_array()
+        .map(|worktrees| {
+            worktrees
+                .iter()
+                .map(|worktree| worktree["name"].as_str().unwrap_or_default().to_string())
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
 fn worktrees_dir(env: &Sandbox) -> std::path::PathBuf {
     env.projects_root().join(".git/gitbutler/worktrees")
 }

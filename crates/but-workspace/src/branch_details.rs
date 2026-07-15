@@ -222,29 +222,38 @@ fn local_commits_gix(
     let mut out = Vec::new();
     for info in traversal {
         let info = info?;
-        let commit = but_core::Commit::from_id(info.id())?;
-
-        let mut buf = TimeBuf::default();
-        let author: ui::Author = commit.author.to_ref(&mut buf).into();
-        let committer: ui::Author = commit.committer.to_ref(&mut buf).into();
-        authors.insert(author.clone());
-        authors.insert(committer);
-        let is_conflicted = commit.is_conflicted();
-        let message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
-        out.push(ui::Commit {
-            id: info.id,
-            parent_ids: commit.parents.iter().cloned().collect(),
-            message,
-            has_conflicts: is_conflicted,
-            state: CommitState::LocalAndRemote(info.id),
-            authored_at: i128::from(commit.author.time.seconds) * 1000,
-            committed_at: i128::from(commit.committer.time.seconds) * 1000,
-            author,
-            change_id: commit.change_id().to_string(),
-            gerrit_review_url: None,
-        });
+        out.push(local_ui_commit(info.id(), authors)?);
     }
     Ok(out)
+}
+
+/// The UI form of the local commit at `id`, without remote-tracking information,
+/// storing its author and committer in `authors` while at it.
+pub(crate) fn local_ui_commit(
+    id: gix::Id<'_>,
+    authors: &mut HashSet<ui::Author>,
+) -> anyhow::Result<ui::Commit> {
+    let commit = but_core::Commit::from_id(id)?;
+
+    let mut buf = TimeBuf::default();
+    let author: ui::Author = commit.author.to_ref(&mut buf).into();
+    let committer: ui::Author = commit.committer.to_ref(&mut buf).into();
+    authors.insert(author.clone());
+    authors.insert(committer);
+    let is_conflicted = commit.is_conflicted();
+    let message = but_core::commit::strip_conflict_markers(commit.message.as_ref());
+    Ok(ui::Commit {
+        id: id.detach(),
+        parent_ids: commit.parents.iter().cloned().collect(),
+        message,
+        has_conflicts: is_conflicted,
+        state: CommitState::LocalAndRemote(id.detach()),
+        authored_at: i128::from(commit.author.time.seconds) * 1000,
+        committed_at: i128::from(commit.committer.time.seconds) * 1000,
+        author,
+        change_id: commit.change_id().to_string(),
+        gerrit_review_url: None,
+    })
 }
 
 /// Returns all local commits for the branch identified by `branch_id` that are not in `integration_branch_id`.

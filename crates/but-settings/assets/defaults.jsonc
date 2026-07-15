@@ -29,7 +29,9 @@
 		/// Possible values: "auto", "legacy", "modern".
 		"watchMode": "auto",
 		"writeCommitEvolution": false,
-        "tuiFileBrowser": false
+        "tuiFileBrowser": false,
+		/// Enable experimental worktree manipulation support.
+		"worktreeManipulation": false
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {

@@ -157,6 +157,7 @@ pub fn standard_options() -> but_graph::init::Options {
         hard_limit: None,
         extra_target_commit_id: None,
         dangerously_skip_postprocessing_for_debugging: false,
+        worktree_tips: vec![],
     }
 }
 

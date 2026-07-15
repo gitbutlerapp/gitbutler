@@ -490,7 +490,7 @@ pub fn route_operation<'a>(
 
 pub fn supports_rubbing(id: &CliId) -> bool {
     match id {
-        CliId::Branch { .. } => false,
+        CliId::Branch { .. } | CliId::Worktree { .. } => false,
         CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::CommittedFile { .. }

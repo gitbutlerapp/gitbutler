@@ -201,6 +201,8 @@ struct StatusContext<'a> {
     is_paged: bool,
     should_truncate_for_terminal: bool,
     id_map: IdMap,
+    /// Linked git worktrees, `None` unless the `worktreeManipulation` feature flag is enabled.
+    worktrees: Option<but_workspace::worktrees::WorktreeListing>,
     push_statuses_by_segment_id: HashMap<SegmentIndex, but_workspace::ui::PushStatus>,
     local_commits_by_id: HashMap<gix::ObjectId, LocalCommit>,
     remote_commits_by_id: HashMap<gix::ObjectId, Commit>,
@@ -418,10 +420,30 @@ fn build_status_context<'a>(
         .collect();
     conflicted_paths.sort();
 
+    // Enumerating linked worktrees briefly claims a mutable database handle for
+    // archived-state reconciliation, so it must run while no other one is borrowed.
+    let linked_worktree_sources: Vec<but_workspace::worktrees::WorktreeSource> =
+        if ctx.settings.feature_flags.worktree_manipulation {
+            ctx.worktrees_with_state()?
+                .into_iter()
+                .map(|worktree| but_workspace::worktrees::WorktreeSource {
+                    archived: worktree.archived,
+                    path: worktree.path,
+                    tip: worktree.tip,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
     let id_map = IdMap::new(
         stacks,
         worktree_changes.assignments.clone(),
         commit_id_to_change_id,
+        linked_worktree_sources
+            .iter()
+            .map(|source| source.tip.name.clone())
+            .collect(),
     )?;
 
     let stacks = id_map.stacks();
@@ -547,6 +569,17 @@ fn build_status_context<'a>(
         .map(|base_branch| base_branch.current_sha)
         .unwrap_or(common_merge_base_data.commit_id);
 
+    let worktrees = if ctx.settings.feature_flags.worktree_manipulation {
+        let repo = ctx.repo.get()?;
+        Some(but_workspace::worktrees::list_worktrees(
+            &repo,
+            linked_worktree_sources,
+            Some(target_tip_id),
+        )?)
+    } else {
+        None
+    };
+
     let is_paged = out.is_paged();
     let should_truncate_for_terminal = truncation_policy(format, render_mode, is_paged);
 
@@ -568,6 +601,7 @@ fn build_status_context<'a>(
         is_paged,
         should_truncate_for_terminal,
         id_map,
+        worktrees,
         push_statuses_by_segment_id,
         local_commits_by_id,
         remote_commits_by_id,
@@ -1019,7 +1053,112 @@ fn print_worktree_status(
             print_group(ctx, status_ctx, stack_with_id, assignments, i == 0, output)?;
     }
 
+    print_worktrees(ctx, status_ctx, output)?;
+
     Ok(has_merged_upstream_branch)
+}
+
+/// Print active linked git worktrees as branch-style groups after the stacks.
+///
+/// Only present when the `worktreeManipulation` feature flag is enabled.
+fn print_worktrees(
+    ctx: &Context,
+    status_ctx: &StatusContext<'_>,
+    output: &mut StatusOutput<'_>,
+) -> anyhow::Result<()> {
+    let Some(listing) = &status_ctx.worktrees else {
+        return Ok(());
+    };
+    let t = crate::theme::get();
+    let repo = ctx.repo.get()?;
+    let workdir = repo.workdir().map(|workdir| workdir.to_owned());
+    for worktree in &listing.active {
+        let cli_id = status_ctx
+            .id_map
+            .resolve_worktree(worktree.name.as_bstr())
+            .with_context(|| {
+                format!(
+                    "Could not resolve worktree CLI id in IdMap. worktree={}",
+                    worktree.name
+                )
+            })?;
+        let branch_name = worktree
+            .ref_name
+            .as_ref()
+            .map(|ref_name| ref_name.shorten().to_string())
+            .unwrap_or_else(|| worktree.name.to_string());
+        let display_path = workdir
+            .as_deref()
+            .map(|workdir| relativize_path(&worktree.path, workdir))
+            .unwrap_or_else(|| worktree.path.clone());
+
+        let mut suffix = Vec::from([
+            Span::raw(" "),
+            Span::styled(format!("({})", display_path.display()), t.hint),
+        ]);
+        if worktree.commits.is_empty() {
+            suffix.push(Span::raw(" "));
+            suffix.push(Span::styled("(no commits)", t.hint));
+        }
+        output.worktree(
+            Vec::from([Span::raw("┊╭┄")]),
+            BranchLineContent {
+                id: Vec::from([Span::styled(cli_id.to_short_string(), t.cli_id)]),
+                decoration_start: Vec::from([Span::raw(" [")]),
+                branch_name: Vec::from([Span::styled(branch_name, t.local_branch)]),
+                decoration_end: Vec::from([Span::raw("]")]),
+                suffix,
+            },
+            cli_id,
+        )?;
+        for commit in &worktree.commits {
+            let commit_short = shorten_object_id(&repo, commit.id);
+            let (message, _is_empty_message) =
+                commit_message_display_cli(&commit.message, false, status_ctx.is_paged, Span::raw);
+            output.worktree_commit(
+                Vec::from([Span::raw("┊"), Span::raw("●"), Span::raw("   ")]),
+                CommitLineContent {
+                    change_id: Vec::new(),
+                    sha: Vec::from([Span::styled(commit_short, t.commit_id)]),
+                    author: Vec::new(),
+                    message: Vec::from([Span::raw(" "), message]),
+                    suffix: Vec::new(),
+                },
+            )?;
+        }
+        output.connector(Vec::from([Span::raw("├╯")]))?;
+        output.between_stacks(Vec::from([Span::raw("┊")]))?;
+    }
+    Ok(())
+}
+
+/// Express `path` relative to `base` by stripping the longest common component
+/// prefix and ascending with `..` as needed. Returns `path` unchanged when the two
+/// share no common prefix (e.g. different drives on Windows).
+fn relativize_path(path: &std::path::Path, base: &std::path::Path) -> std::path::PathBuf {
+    let path = gix::path::realpath(path).unwrap_or_else(|_| path.to_owned());
+    let base = gix::path::realpath(base).unwrap_or_else(|_| base.to_owned());
+    let path_components: Vec<_> = path.components().collect();
+    let base_components: Vec<_> = base.components().collect();
+    let common_len = path_components
+        .iter()
+        .zip(base_components.iter())
+        .take_while(|(path_component, base_component)| path_component == base_component)
+        .count();
+    if common_len == 0 {
+        return path;
+    }
+    let mut relative = std::path::PathBuf::new();
+    for _ in common_len..base_components.len() {
+        relative.push("..");
+    }
+    for component in &path_components[common_len..] {
+        relative.push(component);
+    }
+    if relative.as_os_str().is_empty() {
+        relative.push(".");
+    }
+    relative
 }
 
 fn ci_map(

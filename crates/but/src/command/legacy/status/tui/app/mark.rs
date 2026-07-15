@@ -641,7 +641,7 @@ impl App {
                     | Mode::Stack(..) => {}
                 }
             }
-            CliId::PathPrefix { .. } | CliId::Stack { .. } => {}
+            CliId::PathPrefix { .. } | CliId::Stack { .. } | CliId::Worktree { .. } => {}
         }
 
         if self.marks_ref().is_empty() {
@@ -780,6 +780,8 @@ where
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UncommittedChanges { .. }
         | StatusOutputLineData::Branch { .. }
+        | StatusOutputLineData::Worktree { .. }
+        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::Commit { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage

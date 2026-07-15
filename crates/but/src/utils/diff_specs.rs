@@ -70,6 +70,9 @@ impl<'a> DiffSpecBuilder<'a> {
             } => self.push_changes_from_commit(*commit_id, id),
             CliId::Uncommitted { id: _ } => self.push_changes_from_uncommitted_area(),
             CliId::Stack { id: _, stack_id } => self.push_changes_from_stack(*stack_id),
+            CliId::Worktree { .. } => {
+                anyhow::bail!("Cannot get changes for a worktree.")
+            }
         }
     }
 

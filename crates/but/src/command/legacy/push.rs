@@ -1009,7 +1009,8 @@ fn resolve_branch_name(
     branch_id: &str,
 ) -> anyhow::Result<String> {
     // Try to resolve as CliId first
-    let cli_ids = id_map.parse_using_context(branch_id, ctx)?;
+    let cli_ids =
+        crate::id::without_ambiguating_worktrees(id_map.parse_using_context(branch_id, ctx)?);
 
     if cli_ids.is_empty() {
         // If no CliId matches, treat as literal branch name but validate it exists

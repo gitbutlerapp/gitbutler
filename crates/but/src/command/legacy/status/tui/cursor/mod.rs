@@ -408,7 +408,8 @@ impl Cursor {
                 | Some(CliId::Branch { .. })
                 | Some(CliId::Commit { .. })
                 | Some(CliId::Uncommitted { .. })
-                | Some(CliId::Stack { .. }) => matches!(show_files, FilesStatusFlag::All),
+                | Some(CliId::Stack { .. })
+                | Some(CliId::Worktree { .. }) => matches!(show_files, FilesStatusFlag::All),
                 None => false,
             };
 
@@ -442,6 +443,8 @@ impl Cursor {
                 | StatusOutputLineData::UpstreamChanges
                 | StatusOutputLineData::Warning
                 | StatusOutputLineData::Hint
+                | StatusOutputLineData::Worktree { .. }
+                | StatusOutputLineData::WorktreeCommit
                 | StatusOutputLineData::NoAssignmentsUnstaged => None,
             })
     }
@@ -703,6 +706,9 @@ pub(super) fn same_entity_for_reload(previous: &CliId, current: &CliId) -> bool 
                 stack_id: current, ..
             },
         ) => previous == current,
+        (CliId::Worktree { name: previous, .. }, CliId::Worktree { name: current, .. }) => {
+            previous == current
+        }
         _ => false,
     }
 }
@@ -715,7 +721,8 @@ fn select_after_reload_for_cli_id(cli_id: &Arc<CliId>) -> SelectAfterReload {
         | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::Branch { .. }
-        | CliId::Stack { .. } => SelectAfterReload::CliId(Box::new((**cli_id).clone())),
+        | CliId::Stack { .. }
+        | CliId::Worktree { .. } => SelectAfterReload::CliId(Box::new((**cli_id).clone())),
     }
 }
 
@@ -725,6 +732,7 @@ fn is_discard_commit_boundary(line: &StatusOutputLine) -> bool {
         StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::Worktree { .. }
         | StatusOutputLineData::MergeBase => true,
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
@@ -738,6 +746,7 @@ fn is_discard_commit_boundary(line: &StatusOutputLine) -> bool {
         | StatusOutputLineData::UpstreamChanges
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
+        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => false,
     }
 }
@@ -962,7 +971,8 @@ pub fn is_selectable_in_mode(
                     | CliId::CommittedFile { .. }
                     | CliId::Branch { .. }
                     | CliId::Commit { .. }
-                    | CliId::Stack { .. } => false,
+                    | CliId::Stack { .. }
+                    | CliId::Worktree { .. } => false,
                 }
             } else {
                 false

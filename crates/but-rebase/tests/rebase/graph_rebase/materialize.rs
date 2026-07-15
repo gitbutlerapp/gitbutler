@@ -9,7 +9,7 @@ use snapbox::IntoData;
 
 use crate::{
     graph_rebase::add_stack_with_segments,
-    utils::{fixture_writable, standard_options},
+    utils::{fixture_writable, fixture_writable_slow, standard_options},
 };
 
 fn project_meta(meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
@@ -448,6 +448,252 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
 
 "#]]
         .raw()
+    );
+
+    Ok(())
+}
+
+/// Build the graph over `repo` with `middle` (checked out in the linked worktree
+/// named `wt`) as a worktree tip, so the editor records a worktree checkout.
+fn graph_options_with_worktree_tip(repo: &gix::Repository) -> Result<but_graph::init::Options> {
+    let mut options = standard_options();
+    options.worktree_tips = vec![but_graph::init::WorktreeTip {
+        name: "wt".into(),
+        ref_name: Some("refs/heads/middle".try_into()?),
+        id: repo.find_reference("middle")?.peel_to_id()?.detach(),
+    }];
+    Ok(options)
+}
+
+#[test]
+fn materialize_checks_out_linked_worktrees_seeded_into_the_graph() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    let worktree_dir = repo.workdir().unwrap().join("wt");
+
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(&worktree_dir)?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:100644
+├── a:100644
+└── base:100644
+
+"#]]
+    );
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        graph_options_with_worktree_tip(&repo)?,
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    // Drop the 'a' commit that 'middle' (checked out in the worktree) points to.
+    let a = repo.rev_parse_single("middle")?;
+    let a_sel = editor.select_commit(a.detach())?;
+    editor.replace(a_sel, Step::None)?;
+
+    editor.rebase()?.materialize()?;
+
+    // The worktree's branch moved to 'base', and its checkout followed.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d862b68 (HEAD -> main) b
+* 35b8235 (middle) base
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(&worktree_dir)?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:100644
+└── base:100644
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn materialize_without_checkout_still_checks_out_linked_worktrees() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    let worktree_dir = repo.workdir().unwrap().join("wt");
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        graph_options_with_worktree_tip(&repo)?,
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    // Drop the 'a' commit that 'middle' (checked out in the worktree) points to.
+    let a = repo.rev_parse_single("middle")?;
+    let a_sel = editor.select_commit(a.detach())?;
+    editor.replace(a_sel, Step::None)?;
+
+    editor.rebase()?.materialize_without_checkout()?;
+
+    // The refs moved just like with `materialize`...
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d862b68 (HEAD -> main) b
+* 35b8235 (middle) base
+
+"#]]
+    );
+    // ...the editor's own (HEAD) worktree was not checked out, so the dropped
+    // commit's file survives there as an uncommitted change...
+    assert!(
+        repo.workdir().unwrap().join("a").exists(),
+        "the HEAD checkout is skipped - that is this variant's contract"
+    );
+    // ...but the linked worktree still followed its moved branch, instead of
+    // being left stale on the old tree.
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(&worktree_dir)?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:100644
+└── base:100644
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn materialize_leaves_linked_worktrees_alone_without_worktree_tips() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    let worktree_dir = repo.workdir().unwrap().join("wt");
+
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let a = repo.rev_parse_single("middle")?;
+    let a_sel = editor.select_commit(a.detach())?;
+    editor.replace(a_sel, Step::None)?;
+
+    editor.rebase()?.materialize()?;
+
+    // The branch still moves, but the worktree checkout is left stale -
+    // today's behavior when the feature flag is off.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* d862b68 (HEAD -> main) b
+* 35b8235 (middle) base
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        visualize_disk_tree_skip_dot_git(&worktree_dir)?.to_string(),
+        snapbox::str![[r#"
+.
+├── .git:100644
+├── a:100644
+└── base:100644
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn set_worktree_merge_base_override_needs_a_matching_worktree_checkout() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    let tree_id = repo.rev_parse_single("HEAD^{tree}")?.detach();
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        graph_options_with_worktree_tip(&repo)?,
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    editor
+        .set_worktree_merge_base_override("wt".into(), tree_id)
+        .expect("the worktree seeded into the graph has a checkout");
+    let err = editor
+        .set_worktree_merge_base_override("not-a-worktree".into(), tree_id)
+        .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("No checkout is recorded for a linked worktree named not-a-worktree"),
+        "unknown names fail fast: {err}"
+    );
+    Ok(())
+}
+
+#[test]
+fn set_worktree_merge_base_override_errors_without_worktree_tips() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    let tree_id = repo.rev_parse_single("HEAD^{tree}")?.detach();
+
+    // No worktree tips seeded (feature flag off): even the existing 'wt' has
+    // no checkout in the editor.
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let err = editor
+        .set_worktree_merge_base_override("wt".into(), tree_id)
+        .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("No checkout is recorded for a linked worktree named wt"),
+        "worktrees not seeded into the graph fail like unknown ones: {err}"
+    );
+    Ok(())
+}
+
+#[test]
+fn rebase_never_deletes_refs_checked_out_in_worktrees() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    // A sibling branch on the same commit as 'middle' that no worktree checks out.
+    repo.reference(
+        "refs/heads/doomed",
+        repo.rev_parse_single("middle")?.detach(),
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "test setup",
+    )?;
+
+    // No worktree tips: the deletion guard is independent of the feature flag.
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    for refname in ["refs/heads/middle", "refs/heads/doomed"] {
+        let selector = editor.select_reference(refname.try_into()?)?;
+        editor.replace(selector, Step::None)?;
+    }
+    editor.rebase()?.materialize()?;
+
+    assert!(
+        repo.try_find_reference("doomed")?.is_none(),
+        "an unchecked-out branch removed from the step graph is deleted"
+    );
+    assert!(
+        repo.try_find_reference("middle")?.is_some(),
+        "a branch checked out in a linked worktree survives - deleting it would dangle that worktree's HEAD"
     );
 
     Ok(())

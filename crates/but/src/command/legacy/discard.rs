@@ -72,6 +72,9 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
                 CliId::Stack { .. } => {
                     bail!("Cannot discard a stack. Use a file or hunk ID instead.");
                 }
+                CliId::Worktree { .. } => {
+                    bail!("Cannot discard a worktree. Use a file or hunk ID instead.");
+                }
             }
         }
 

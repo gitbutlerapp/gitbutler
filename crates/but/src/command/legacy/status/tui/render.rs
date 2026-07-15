@@ -398,7 +398,8 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
                 CliId::Branch { .. }
                 | CliId::Commit { .. }
                 | CliId::Uncommitted { .. }
-                | CliId::Stack { .. } => None,
+                | CliId::Stack { .. }
+                | CliId::Worktree { .. } => None,
             },
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::UncommittedChanges { .. }
@@ -407,6 +408,8 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => {
                 current_stack_id = None;
                 None
@@ -443,7 +446,8 @@ fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
         | CliId::PathPrefix { .. }
         | CliId::CommittedFile { .. }
         | CliId::Commit { .. }
-        | CliId::Uncommitted { .. } => None,
+        | CliId::Uncommitted { .. }
+        | CliId::Worktree { .. } => None,
     }
 }
 
@@ -1166,6 +1170,8 @@ pub fn commit_operation_display(
         | StatusOutputLineData::UpstreamChanges
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
+        | StatusOutputLineData::Worktree { .. }
+        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => None,
     }
 }
@@ -1199,6 +1205,8 @@ pub fn move_operation_display(
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         },
         MoveSource::Marks(marks) => match data {
@@ -1229,6 +1237,8 @@ pub fn move_operation_display(
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         },
         MoveSource::Branch { .. } => match data {
@@ -1248,6 +1258,8 @@ pub fn move_operation_display(
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         },
     }
@@ -1274,6 +1286,8 @@ pub fn reorder_operation_display(
         | StatusOutputLineData::UpstreamChanges
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
+        | StatusOutputLineData::Worktree { .. }
+        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => None,
     }
 }
@@ -1309,6 +1323,8 @@ pub fn stack_operation_display(
         | StatusOutputLineData::UpstreamChanges
         | StatusOutputLineData::Warning
         | StatusOutputLineData::Hint
+        | StatusOutputLineData::Worktree { .. }
+        | StatusOutputLineData::WorktreeCommit
         | StatusOutputLineData::NoAssignmentsUnstaged => None,
     }
 }

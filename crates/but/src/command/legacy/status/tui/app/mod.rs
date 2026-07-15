@@ -829,7 +829,8 @@ impl App {
                         | CliId::CommittedFile { .. }
                         | CliId::Branch { .. }
                         | CliId::Commit { .. }
-                        | CliId::Stack { .. } => {
+                        | CliId::Stack { .. }
+                        | CliId::Worktree { .. } => {
                             messages.push(Message::Reload(
                                 None,
                                 ReloadCause::Watcher {
@@ -1095,6 +1096,8 @@ impl App {
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => {}
         }
 
@@ -1134,6 +1137,8 @@ impl App {
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
+            | StatusOutputLineData::Worktree { .. }
+            | StatusOutputLineData::WorktreeCommit
             | StatusOutputLineData::NoAssignmentsUnstaged => return Ok(()),
         };
 
@@ -1164,6 +1169,7 @@ impl App {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 Cow::Borrowed(&*uncommitted.hunk_assignments.first().path)
             }
+            CliId::Worktree { name, .. } => Cow::Owned(name.to_string()),
             CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
                 return Ok(());
             }
@@ -1207,7 +1213,10 @@ impl App {
                 id.to_owned(),
                 self.theme,
             ),
-            CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
+            CliId::PathPrefix { .. }
+            | CliId::Uncommitted { .. }
+            | CliId::Stack { .. }
+            | CliId::Worktree { .. } => {
                 return Ok(());
             }
         };

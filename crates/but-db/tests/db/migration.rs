@@ -588,6 +588,12 @@ CREATE TABLE `workflows`(
 	`summary` TEXT
 );
 
+-- table worktree_meta
+CREATE TABLE `worktree_meta`(
+	`name` BLOB NOT NULL PRIMARY KEY,
+	`archived` BOOL NOT NULL DEFAULT FALSE
+);
+
 -- index idx_branch_order_parent_ref_name
 CREATE INDEX `idx_branch_order_parent_ref_name` ON `branch_order`(`parent_ref_name`);
 
@@ -656,6 +662,7 @@ Text("20260618093000")
 Text("20260624170000")
 Text("20260626120000")
 Text("20260626120100")
+Text("20260715161258")
 
 Table: hunk_assignments
 hunk_header | path | path_bytes | stack_id | id | branch_ref
@@ -701,6 +708,9 @@ stack_id | remote_name | branch_name | remote_url | sha | push_remote_name
 
 Table: branch_order
 branch_ref_name | parent_ref_name
+
+Table: worktree_meta
+name | archived
 
 
 "#]]

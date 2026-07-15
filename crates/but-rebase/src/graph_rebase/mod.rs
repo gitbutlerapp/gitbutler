@@ -254,6 +254,22 @@ pub(crate) enum Checkout {
         /// and don't reappear as uncommitted changes.
         merge_base_override: Option<gix::ObjectId>,
     },
+    /// A linked worktree whose checked-out branch may be moved by the rebase.
+    ///
+    /// Only recorded for worktrees named in the graph's
+    /// [`worktree_tips`](but_graph::init::Options::worktree_tips), i.e. when the
+    /// `worktreeManipulation` feature flag enabled them for the graph the editor
+    /// was created over.
+    Worktree {
+        /// Points to the [`Step::Reference`] of the branch the worktree has checked out.
+        selector: Selector,
+        /// The worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
+        worktree_name: gix::bstr::BString,
+        /// Like [`Checkout::Head`]'s `merge_base_override`, but computed against this
+        /// worktree's `HEAD^{tree}` (plus consumed changes, additive-only) so changes
+        /// consumed *from this worktree* cancel out during its checkout.
+        merge_base_override: Option<gix::ObjectId>,
+    },
 }
 
 /// Used to manipulate a set of picks.
@@ -264,6 +280,10 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
     /// Initial references. This is used to track any references that might need
     /// deleted.
     initial_references: Vec<gix::refs::FullName>,
+    /// References checked out in another worktree - deleting them would leave
+    /// that worktree's `HEAD` dangling, so they are never deleted (like
+    /// `git branch -d` refuses to).
+    worktree_checked_out_refs: std::collections::BTreeSet<gix::refs::FullName>,
     /// Worktrees that we might need to perform `safe_checkout` on.
     checkouts: Vec<Checkout>,
     /// The in-memory repository that the rebase engine works with.
@@ -281,6 +301,8 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
 pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     pub(crate) repo: gix::Repository,
     pub(crate) initial_references: Vec<gix::refs::FullName>,
+    /// See [`Editor::worktree_checked_out_refs`].
+    pub(crate) worktree_checked_out_refs: std::collections::BTreeSet<gix::refs::FullName>,
     /// Any reference edits that need to be committed as a result of the history
     /// rewrite
     pub(crate) ref_edits: Vec<RefEdit>,
@@ -358,6 +380,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                         }
                     }
                 }
+                Checkout::Worktree { .. } => None,
             })
             .next()
         else {

@@ -88,6 +88,7 @@ impl CliIdArg {
             },
             CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
             CliId::Stack { .. } => ResolvedCliIdArg::Stack,
+            CliId::Worktree { .. } => ResolvedCliIdArg::Worktree,
         }))
     }
 
@@ -241,6 +242,7 @@ impl CliIdArg {
             CliId::CommittedFile { .. } => "a committed file",
             CliId::Uncommitted { .. } => "uncommitted changes",
             CliId::Stack { .. } => "a stack",
+            CliId::Worktree { .. } => "a worktree",
         };
         bad_input(format!("Invalid {expected}. '{self}' is {kind}")).into()
     }
@@ -278,7 +280,20 @@ fn try_resolve_cli_id(
     purpose: Purpose,
     priority: Option<Priority>,
 ) -> CliResult<Option<CliId>> {
-    let mut target_ids = arg.parse(repo, id_map)?.into_iter().peekable();
+    let (mut target_ids, worktree_ids): (Vec<_>, Vec<_>) = arg
+        .parse(repo, id_map)?
+        .into_iter()
+        .partition(|id| !matches!(id, CliId::Worktree { .. }));
+    // There is no worktree-accepting `Priority` - the `but worktree` subcommands
+    // resolve their arguments with kind-filtered parsing instead. Since a linked
+    // worktree is canonically named after the branch it has checked out, its
+    // exact-name match must never render that branch ambiguous here. Worktree
+    // matches only remain when nothing else matched, so that purely-worktree
+    // input still reports the kind of entity it hit.
+    if target_ids.is_empty() {
+        target_ids = worktree_ids;
+    }
+    let mut target_ids = target_ids.into_iter().peekable();
     let Some(target) = target_ids.next() else {
         return Ok(None);
     };
@@ -299,7 +314,8 @@ fn try_resolve_cli_id(
                 CliId::PathPrefix { .. }
                 | CliId::CommittedFile { .. }
                 | CliId::Uncommitted { .. }
-                | CliId::Stack { .. } => {}
+                | CliId::Stack { .. }
+                | CliId::Worktree { .. } => {}
             }
         }
 
@@ -385,6 +401,7 @@ pub enum ResolvedCliIdArg {
     PathPrefix,
     Uncommitted,
     Stack,
+    Worktree,
 }
 
 impl ResolvedCliIdArg {
@@ -398,6 +415,7 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::PathPrefix => "a path",
             ResolvedCliIdArg::Uncommitted => "uncommitted changes",
             ResolvedCliIdArg::Stack => "a stack",
+            ResolvedCliIdArg::Worktree => "a worktree",
         };
         Err(bad_input(format!("Expected a commit or a branch, got {kind}")).into())
     }
@@ -413,6 +431,7 @@ impl std::fmt::Display for ResolvedCliIdArg {
             ResolvedCliIdArg::CommittedFile { .. } => f.write_str("committed file"),
             ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
             ResolvedCliIdArg::Stack => f.write_str("stack"),
+            ResolvedCliIdArg::Worktree => f.write_str("worktree"),
         }
     }
 }

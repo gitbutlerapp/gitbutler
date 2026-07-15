@@ -39,7 +39,8 @@ pub fn handle(
         }
 
         let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
-        let resolved_ids = id_map.parse_using_context(branch_id, ctx)?;
+        let resolved_ids =
+            crate::id::without_ambiguating_worktrees(id_map.parse_using_context(branch_id, ctx)?);
         if resolved_ids.is_empty() {
             bail!("Could not find branch: {branch_id}");
         }

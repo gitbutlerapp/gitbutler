@@ -68,6 +68,7 @@ Graph {
         hard_limit: None,
         extra_target_commit_id: None,
         dangerously_skip_postprocessing_for_debugging: false,
+        worktree_tips: [],
     },
     project_meta: ProjectMeta {
         target_ref: None,
@@ -211,6 +212,7 @@ Graph {
         hard_limit: None,
         extra_target_commit_id: None,
         dangerously_skip_postprocessing_for_debugging: false,
+        worktree_tips: [],
     },
     project_meta: ProjectMeta {
         target_ref: None,
@@ -1811,6 +1813,122 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 
 "#]]
     );
+    Ok(())
+}
+
+#[test]
+fn worktree_tips_as_extra_traversal_heads() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("worktree-ahead")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 9175ab3 (wt-feature) W
+* 85efbe4 (HEAD -> main) M
+
+"#]]
+    );
+
+    // Without worktree tips, the worktree branch head is unreachable and invisible.
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_tree(&graph).to_string(),
+        snapbox::str![[r#"
+
+└── 👉►:0[0]:main[🌳]
+    └── 🏁·85efbe4 (⌂|1)
+
+"#]]
+    );
+
+    // With the worktree head as extra tip, its commit and branch join the graph.
+    let wt_head_id = repo.find_reference("wt-feature")?.peel_to_id()?.detach();
+    let with_worktree_tip = |ref_name: Option<gix::refs::FullName>| but_graph::init::Options {
+        worktree_tips: vec![but_graph::init::WorktreeTip {
+            name: "worktree-ahead-feature".into(),
+            ref_name,
+            id: wt_head_id,
+        }],
+        ..standard_options()
+    };
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        with_worktree_tip(Some("refs/heads/wt-feature".try_into()?)),
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_tree(&graph).to_string(),
+        snapbox::str![[r#"
+
+└── ►:1[0]:wt-feature[📁worktree-ahead-feature]
+    └── ·9175ab3 (⌂)
+        └── 👉►:0[1]:main[🌳@repo]
+            └── 🏁·85efbe4 (⌂|1)
+
+"#]]
+    );
+
+    // A detached worktree tip (no ref name) is seeded by commit id alone.
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        with_worktree_tip(None),
+    )?
+    .validated()?;
+    snapbox::assert_data_eq!(
+        graph_tree(&graph).to_string(),
+        snapbox::str![[r#"
+
+└── ►:1[0]:wt-feature[📁worktree-ahead-feature]
+    └── ·9175ab3 (⌂)
+        └── 👉►:0[1]:main[🌳@repo]
+            └── 🏁·85efbe4 (⌂|1)
+
+"#]]
+    );
+
+    // A worktree tip pointing at an already-seeded commit is dropped, and a tip
+    // whose ref vanished is not resurrected from its recorded id - both leave
+    // the graph exactly as if no worktree tips were given.
+    for tip in [
+        but_graph::init::WorktreeTip {
+            name: "worktree-ahead-feature".into(),
+            ref_name: None,
+            id: repo.head_id()?.detach(),
+        },
+        but_graph::init::WorktreeTip {
+            name: "worktree-ahead-feature".into(),
+            ref_name: Some("refs/heads/does-not-exist".try_into()?),
+            id: wt_head_id,
+        },
+    ] {
+        let mut options = standard_options();
+        options.worktree_tips = vec![tip];
+        let graph = Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            options,
+        )?
+        .validated()?;
+        snapbox::assert_data_eq!(
+            graph_tree(&graph).to_string(),
+            snapbox::str![[r#"
+
+└── 👉►:0[0]:main[🌳]
+    └── 🏁·85efbe4 (⌂|1)
+
+"#]]
+        );
+    }
     Ok(())
 }
 
