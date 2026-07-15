@@ -265,6 +265,10 @@ pub(crate) enum Checkout {
         selector: Selector,
         /// The worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`.
         worktree_name: gix::bstr::BString,
+        /// Like [`Checkout::Head`]'s `merge_base_override`, but computed against this
+        /// worktree's `HEAD^{tree}` (plus consumed changes, additive-only) so changes
+        /// consumed *from this worktree* cancel out during its checkout.
+        merge_base_override: Option<gix::ObjectId>,
     },
 }
 

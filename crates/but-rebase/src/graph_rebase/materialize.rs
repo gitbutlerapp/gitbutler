@@ -22,10 +22,15 @@ use crate::graph_rebase::{
 /// The worktree repository is opened from disk, so all objects the rebase created
 /// must be persisted before calling this. The worktree's `HEAD` stays symbolic -
 /// the branch it points to is moved by the shared ref-store edits afterwards.
+///
+/// `merge_base_override` is passed through to the checkout's snapshot merge so
+/// changes consumed from this worktree cancel out instead of reappearing as
+/// uncommitted changes. See [`Checkout::Worktree`].
 fn checkout_worktree(
     repo: &gix::Repository,
     worktree_name: &BStr,
     new_tip: gix::ObjectId,
+    merge_base_override: Option<gix::ObjectId>,
 ) -> Result<()> {
     let proxy = repo
         .worktrees()?
@@ -41,7 +46,7 @@ fn checkout_worktree(
         &wt_repo,
         Options {
             skip_head_update: true,
-            merge_base_override: None,
+            merge_base_override,
             // Never write conflict-encoded trees into a plain linked worktree -
             // a conflicted tip leaves the worktree stale instead.
             allow_conflicted_commit_checkout: false,
@@ -64,6 +69,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 Checkout::Worktree {
                     selector,
                     worktree_name,
+                    merge_base_override,
                 } => {
                     let selector = self.history.normalize_selector(selector)?;
                     let new_tip = match &self.graph[selector.id] {
@@ -87,7 +93,12 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                     };
                     // A broken linked worktree degrades to today's stale-checkout
                     // behavior instead of failing the whole operation.
-                    if let Err(err) = checkout_worktree(&repo, worktree_name.as_ref(), new_tip) {
+                    if let Err(err) = checkout_worktree(
+                        &repo,
+                        worktree_name.as_ref(),
+                        new_tip,
+                        merge_base_override,
+                    ) {
                         tracing::warn!(
                             worktree = %worktree_name,
                             err = %err,

@@ -143,8 +143,7 @@ pub fn list_worktrees(
                     .merge_base(head, target_id)
                     .ok()
                     .map(|base| base.detach());
-                let commits =
-                    crate::local_commits_for_branch(head.attach(repo), target_id)?;
+                let commits = crate::local_commits_for_branch(head.attach(repo), target_id)?;
                 (base, commits)
             }
             None => (None, Vec::new()),
@@ -176,6 +175,23 @@ pub fn set_worktree_archived(
     Ok(())
 }
 
+/// Open the linked worktree named `name` as a from-disk repository sharing
+/// `repo`'s object database and ref store.
+///
+/// This fails early for unknown names and for pruned or inaccessible checkouts.
+/// Objects written through the returned repository land in the shared object
+/// database, so they are immediately visible to other repository handles.
+pub fn open_worktree_repo(repo: &gix::Repository, name: &BStr) -> anyhow::Result<gix::Repository> {
+    let proxy = repo
+        .worktrees()?
+        .into_iter()
+        .find(|proxy| proxy.id() == name)
+        .with_context(|| format!("Worktree {name} does not exist"))?;
+    proxy
+        .into_repo()
+        .with_context(|| format!("Worktree {name} is not accessible"))
+}
+
 /// Compute the uncommitted changes in the linked worktree named `name`.
 ///
 /// The worktree repository is opened from disk, which fails early for pruned or
@@ -185,13 +201,6 @@ pub fn worktree_changes_by_name(
     repo: &gix::Repository,
     name: &BStr,
 ) -> anyhow::Result<but_core::ui::WorktreeChanges> {
-    let proxy = repo
-        .worktrees()?
-        .into_iter()
-        .find(|proxy| proxy.id() == name)
-        .with_context(|| format!("Worktree {name} does not exist"))?;
-    let wt_repo = proxy
-        .into_repo()
-        .with_context(|| format!("Worktree {name} is not accessible"))?;
+    let wt_repo = open_worktree_repo(repo, name)?;
     Ok(but_core::diff::worktree_changes(&wt_repo)?.into())
 }

@@ -48,6 +48,7 @@ pub(crate) fn commit_amend_only_impl(
         rebase,
         commit_selector,
         rejected_specs,
+        consumed_specs: _,
     } = but_workspace::commit::commit_amend(editor, commit_id, changes, context_lines)?;
 
     let new_commit = commit_selector

@@ -35,6 +35,38 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
     }
 
+    /// Like [`Self::set_merge_base_override`], but for the checkout of the linked
+    /// worktree named `worktree_name`, so changes consumed *from that worktree*
+    /// cancel out during its checkout instead of reappearing as uncommitted changes.
+    ///
+    /// Errors when the editor has no checkout recorded for `worktree_name` - the
+    /// worktree is unknown, archived, on a detached `HEAD`, or worktree tips weren't
+    /// seeded into the graph (feature flag off). Callers should invoke this before
+    /// mutating the graph so bad input fails with zero mutation.
+    pub fn set_worktree_merge_base_override(
+        &mut self,
+        worktree_name: &gix::bstr::BStr,
+        tree_id: gix::ObjectId,
+    ) -> Result<()> {
+        for checkout in &mut self.checkouts {
+            match checkout {
+                super::Checkout::Worktree {
+                    worktree_name: name,
+                    merge_base_override,
+                    ..
+                } if name == worktree_name => {
+                    *merge_base_override = Some(tree_id);
+                    return Ok(());
+                }
+                super::Checkout::Head { .. } | super::Checkout::Worktree { .. } => {}
+            }
+        }
+        bail!(
+            "No checkout is recorded for a linked worktree named {worktree_name} - \
+             it is unknown, archived, on a detached HEAD, or worktree tips weren't seeded into the graph"
+        );
+    }
+
     /// Finds a commit from inside the editor's in memory repository.
     pub fn find_commit(&self, id: gix::ObjectId) -> Result<but_core::CommitOwned> {
         but_core::Commit::from_id(id.attach(&self.repo)).map(|c| c.detach())

@@ -214,6 +214,47 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
         }
         Subcommands::Archive { id } => set_archived(ctx, out, &id, true),
         Subcommands::Unarchive { id } => set_archived(ctx, out, &id, false),
+        Subcommands::Amend {
+            name,
+            commit,
+            changes,
+        } => amend(ctx, out, &name, &commit, changes),
+    }
+}
+
+/// Resolve `id` - a worktree CLI id or a worktree name - to the worktree name,
+/// using the given `id_map`.
+fn resolve_worktree_name(ctx: &Context, id_map: &IdMap, id: &str) -> Result<gix::bstr::BString> {
+    let mut matches: Vec<_> = id_map
+        .parse_using_context(id, ctx)?
+        .into_iter()
+        .filter_map(|cli_id| match cli_id {
+            CliId::Worktree { name, .. } => Some(name),
+            _ => None,
+        })
+        .collect();
+    match matches.len() {
+        1 => Ok(matches.remove(0)),
+        0 => bail!("Could not find worktree: '{id}'. Run `but status` for applicable ids."),
+        _ => bail!("Ambiguous worktree id '{id}', matches multiple worktrees"),
+    }
+}
+
+/// Resolve `id` - a commit CLI id or a (partial) commit hash - to an object id,
+/// using the given `id_map`.
+fn resolve_commit_id(ctx: &Context, id_map: &IdMap, id: &str) -> Result<gix::ObjectId> {
+    let mut matches: Vec<_> = id_map
+        .parse_using_context(id, ctx)?
+        .into_iter()
+        .filter_map(|cli_id| match cli_id {
+            CliId::Commit { commit_id, .. } => Some(commit_id),
+            _ => None,
+        })
+        .collect();
+    match matches.len() {
+        1 => Ok(matches.remove(0)),
+        0 => bail!("Could not find commit: '{id}'. Run `but status` for applicable ids."),
+        _ => bail!("Ambiguous commit id '{id}', matches multiple commits"),
     }
 }
 
@@ -229,19 +270,7 @@ fn set_archived(
     }
     let name = {
         let id_map = IdMap::legacy_new_from_context(ctx, None)?;
-        let mut matches: Vec<_> = id_map
-            .parse_using_context(id, ctx)?
-            .into_iter()
-            .filter_map(|cli_id| match cli_id {
-                CliId::Worktree { name, .. } => Some(name),
-                _ => None,
-            })
-            .collect();
-        match matches.len() {
-            1 => matches.remove(0),
-            0 => bail!("Could not find worktree: '{id}'. Run `but status` for applicable ids."),
-            _ => bail!("Ambiguous worktree id '{id}', matches multiple worktrees"),
-        }
+        resolve_worktree_name(ctx, &id_map, id)?
     };
     but_api::worktrees::worktree_set_archived(ctx, name.to_string(), archived)?;
 
@@ -252,6 +281,96 @@ fn set_archived(
             writeln!(out, "Archived worktree: {name}")?;
         } else {
             writeln!(out, "Unarchived worktree: {name}")?;
+        }
+    }
+    Ok(())
+}
+
+/// Amend uncommitted changes of the worktree `id` into the commit resolved from
+/// `commit`, moving them out of the worktree.
+fn amend(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    id: &str,
+    commit: &str,
+    changes: Vec<String>,
+) -> Result<()> {
+    if !ctx.settings.feature_flags.worktree_manipulation {
+        bail!("worktree manipulation is not enabled (featureFlags.worktreeManipulation)");
+    }
+    let (name, commit_id) = {
+        let id_map = IdMap::legacy_new_from_context(ctx, None)?;
+        (
+            resolve_worktree_name(ctx, &id_map, id)?,
+            resolve_commit_id(ctx, &id_map, commit)?,
+        )
+    };
+
+    // Build whole-file specs strictly from the worktree's actual changes - a
+    // spec for an unchanged path would commit the worktree's `HEAD` rendition
+    // of that file instead of failing.
+    let all_specs: Vec<but_core::DiffSpec> =
+        but_api::worktrees::linked_worktree_changes(ctx, name.to_string())?
+            .changes
+            .into_iter()
+            .map(|change| but_core::DiffSpec::from(but_core::TreeChange::from(change)))
+            .collect();
+    let specs = if changes.is_empty() {
+        all_specs
+    } else {
+        let mut seen = std::collections::BTreeSet::new();
+        changes
+            .iter()
+            .filter(|path| seen.insert(path.as_str()))
+            .map(|path| {
+                all_specs
+                    .iter()
+                    .find(|spec| spec.path == path.as_str())
+                    .cloned()
+                    .with_context(|| {
+                        format!("Worktree {name} has no uncommitted change at path '{path}'")
+                    })
+            })
+            .collect::<Result<Vec<_>>>()?
+    };
+    if specs.is_empty() {
+        bail!("Worktree {name} has no uncommitted changes");
+    }
+
+    let result = but_api::worktrees::worktree_commit_amend(
+        ctx,
+        name.to_string(),
+        commit_id,
+        specs,
+        but_core::DryRun::No,
+    )?;
+
+    let rejected_paths: Vec<String> = result
+        .rejected_specs
+        .iter()
+        .map(|(_, spec)| spec.path.to_string())
+        .collect();
+    if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({
+            "name": name.to_string(),
+            "newCommitId": result.new_commit.map(|id| id.to_string()),
+            "rejectedPaths": rejected_paths,
+        }))?;
+    } else if let Some(out) = out.for_human() {
+        match result.new_commit {
+            Some(new_commit) => {
+                let repo = ctx.repo.get()?;
+                writeln!(
+                    out,
+                    "Amended changes from worktree {name} into {}",
+                    crate::utils::shorten_object_id(&repo, new_commit)
+                )?;
+                writeln!(out, "The amended changes were moved out of the worktree.")?;
+            }
+            None => writeln!(out, "No changes could be amended.")?,
+        }
+        for path in &rejected_paths {
+            writeln!(out, "  rejected: {path}")?;
         }
     }
     Ok(())

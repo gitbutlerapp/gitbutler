@@ -561,6 +561,58 @@ fn materialize_leaves_linked_worktrees_alone_without_worktree_tips() -> Result<(
 }
 
 #[test]
+fn set_worktree_merge_base_override_needs_a_matching_worktree_checkout() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    let tree_id = repo.rev_parse_single("HEAD^{tree}")?.detach();
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        graph_options_with_worktree_tip(&repo)?,
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    editor
+        .set_worktree_merge_base_override("wt".into(), tree_id)
+        .expect("the worktree seeded into the graph has a checkout");
+    let err = editor
+        .set_worktree_merge_base_override("not-a-worktree".into(), tree_id)
+        .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("No checkout is recorded for a linked worktree named not-a-worktree"),
+        "unknown names fail fast: {err}"
+    );
+    Ok(())
+}
+
+#[test]
+fn set_worktree_merge_base_override_errors_without_worktree_tips() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
+    let tree_id = repo.rev_parse_single("HEAD^{tree}")?.detach();
+
+    // No worktree tips seeded (feature flag off): even the existing 'wt' has
+    // no checkout in the editor.
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let err = editor
+        .set_worktree_merge_base_override("wt".into(), tree_id)
+        .unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("No checkout is recorded for a linked worktree named wt"),
+        "worktrees not seeded into the graph fail like unknown ones: {err}"
+    );
+    Ok(())
+}
+
+#[test]
 fn rebase_never_deletes_refs_checked_out_in_worktrees() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable_slow("worktree-checkout")?;
     // A sibling branch on the same commit as 'middle' that no worktree checks out.

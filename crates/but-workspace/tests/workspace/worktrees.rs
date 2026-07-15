@@ -73,7 +73,9 @@ fn list_worktrees_splits_by_archived_state_and_computes_commits() -> Result<()> 
     let base_id = repo.rev_parse_single("@~1")?.detach();
     let wt_a = &listing.active[0];
     assert_eq!(
-        wt_a.ref_name.as_ref().map(|name| name.as_bstr().to_string()),
+        wt_a.ref_name
+            .as_ref()
+            .map(|name| name.as_bstr().to_string()),
         Some("refs/heads/feat-a".into())
     );
     assert_eq!(wt_a.head, repo.rev_parse_single("feat-a")?.detach());

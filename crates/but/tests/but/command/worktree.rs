@@ -271,6 +271,108 @@ Archived worktree: A
     Ok(())
 }
 
+/// Amend uncommitted changes from a linked worktree into its own branch's head
+/// commit (the worktree checkout follows the rebase) and into another branch's
+/// commit (the worktree tip stays, the duplicate is discarded afterwards).
+#[test]
+fn amend_from_worktree() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings_slow("two-worktrees");
+    env.setup_metadata(&["A", "B"]);
+
+    // Gated on the feature flag like its siblings.
+    env.but("worktree amend A 12345678 --changes some.txt")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: worktree manipulation is not enabled (featureFlags.worktreeManipulation)
+
+"#]]);
+
+    enable_worktree_manipulation(&env)?;
+    env.but("worktree unarchive A").assert().success();
+    env.but("worktree unarchive B").assert().success();
+
+    let wt_a = worktrees_dir(&env).join("A");
+    std::fs::write(wt_a.join("own.txt"), "own\n")?;
+    std::fs::write(wt_a.join("cross.txt"), "cross\n")?;
+
+    // Paths that have no uncommitted change in the worktree are refused.
+    let repo = env.open_repo();
+    let a_head = repo.rev_parse_single("A")?.detach();
+    env.but(format!("worktree amend A {a_head} --changes missing.txt"))
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Worktree A has no uncommitted change at path 'missing.txt'
+
+"#]]);
+
+    // Amend one of two dirty files into the head commit of the worktree's own
+    // branch.
+    env.but(format!("worktree amend A {a_head} --changes own.txt"))
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Amended changes from worktree A into [..]
+The amended changes were moved out of the worktree.
+
+"#]]);
+
+    let repo = env.open_repo();
+    let new_a_head = repo.rev_parse_single("A")?.detach();
+    assert_ne!(new_a_head, a_head, "the worktree's branch moved");
+    assert_eq!(
+        repo.rev_parse_single("A:own.txt")?.object()?.data,
+        b"own\n",
+        "the amended commit contains the worktree's uncommitted content"
+    );
+    let status = but_testsupport::git_status_at_dir(&wt_a)?;
+    assert!(
+        !status.contains("own.txt"),
+        "the consumed change no longer shows up as uncommitted in the worktree: {status}"
+    );
+    assert!(
+        status.contains("cross.txt"),
+        "the dirty file that wasn't amended survives: {status}"
+    );
+
+    // Amend the remaining dirty file into a commit on another worktree's branch.
+    let b_commit = repo.rev_parse_single("B")?.detach();
+    env.but(format!("worktree amend A {b_commit} --changes cross.txt"))
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Amended changes from worktree A into [..]
+The amended changes were moved out of the worktree.
+
+"#]]);
+
+    let repo = env.open_repo();
+    assert_eq!(
+        repo.rev_parse_single("A")?.detach(),
+        new_a_head,
+        "the source worktree's branch is untouched when the target lives elsewhere"
+    );
+    assert_eq!(
+        repo.rev_parse_single("B:cross.txt")?.object()?.data,
+        b"cross\n",
+        "the change landed in the other branch's commit"
+    );
+    assert_eq!(
+        but_testsupport::git_status_at_dir(&wt_a)?,
+        "",
+        "the now-committed change was discarded from the source worktree"
+    );
+    assert!(
+        worktrees_dir(&env).join("B").join("cross.txt").exists(),
+        "the target worktree's checkout followed its rebased branch"
+    );
+
+    Ok(())
+}
+
 /// Turn on the `worktreeManipulation` feature flag in the sandbox settings.
 fn enable_worktree_manipulation(env: &Sandbox) -> anyhow::Result<()> {
     let settings_path = env.app_data_dir().join("gitbutler/settings.json");

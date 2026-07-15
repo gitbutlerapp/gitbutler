@@ -141,12 +141,10 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 if !checkout_worktree_names.contains(name) {
                     return;
                 }
-                worktree_selectors
-                    .entry(name.clone())
-                    .or_insert(Selector {
-                        id: ix,
-                        revision: 0,
-                    });
+                worktree_selectors.entry(name.clone()).or_insert(Selector {
+                    id: ix,
+                    revision: 0,
+                });
             };
 
         let mut segments = HashMap::<SegmentIndex, NodeSegment>::new();
@@ -361,6 +359,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             .map(|(worktree_name, selector)| Checkout::Worktree {
                 selector,
                 worktree_name,
+                merge_base_override: None,
             })
             .chain(head_selectors.into_iter().map(|selector| Checkout::Head {
                 selector,

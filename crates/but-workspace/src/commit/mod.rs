@@ -50,7 +50,7 @@ pub use reword::reword;
 pub mod commit_create;
 pub use commit_create::{CommitCreateOutcome, commit_create};
 pub mod commit_amend;
-pub use commit_amend::{CommitAmendOutcome, commit_amend};
+pub use commit_amend::{CommitAmendOutcome, commit_amend, commit_amend_from_worktree};
 pub mod insert_blank_commit;
 pub use insert_blank_commit::insert_blank_commit;
 pub mod move_changes;
