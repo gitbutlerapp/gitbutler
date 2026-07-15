@@ -67,6 +67,8 @@ mod uncommit;
 mod undo;
 #[cfg(feature = "legacy")]
 mod worktree;
+#[cfg(feature = "legacy")]
+mod worktree_operations;
 
 #[cfg(feature = "legacy")]
 mod util {

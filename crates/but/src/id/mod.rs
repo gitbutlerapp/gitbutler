@@ -595,6 +595,8 @@ pub struct IdMap {
     stack_ids: BTreeMap<StackId, CliId>,
     /// Linked git worktrees with their short IDs, sorted by name (experimental).
     worktrees: Vec<WorktreeWithId>,
+    /// Commits reachable only from active linked worktrees.
+    worktree_commits: Vec<WorkspaceCommitWithId>,
     /// The ID representing the uncommitted area, i.e. uncommitted files that aren't assigned to a stack.
     uncommitted: CliId,
 
@@ -856,6 +858,7 @@ impl IdMap {
             indexed_stacks,
             stack_ids,
             worktrees,
+            worktree_commits: Vec::new(),
             uncommitted: CliId::Uncommitted {
                 id: UNCOMMITTED.to_string(),
             },
@@ -976,14 +979,15 @@ impl IdMap {
         let context_lines = ctx.settings.context_lines;
         // Must run before any database handle is borrowed below - it briefly claims
         // a mutable one itself for archived-state reconciliation.
-        let worktree_names: Vec<BString> = if ctx.settings.feature_flags.worktree_manipulation {
+        let worktrees = if ctx.settings.feature_flags.worktree_manipulation {
             ctx.worktrees_with_state()?
-                .into_iter()
-                .map(|worktree| worktree.tip.name)
-                .collect()
         } else {
             Vec::new()
         };
+        let worktree_names = worktrees
+            .iter()
+            .map(|worktree| worktree.tip.name.clone())
+            .collect();
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
 
         let hunk_assignments = match assignments {
@@ -1035,12 +1039,62 @@ impl IdMap {
             })
             .collect();
 
-        Self::new(
+        let mut id_map = Self::new(
             ws.stacks.clone(),
             hunk_assignments,
             commit_id_to_change_id,
             worktree_names,
-        )
+        )?;
+        if !worktrees.is_empty() {
+            let known_commits: HashSet<_> = id_map
+                .indexed_stacks
+                .borrow_owner()
+                .iter()
+                .flat_map(|stack| &stack.segments)
+                .flat_map(|segment| {
+                    segment
+                        .workspace_commits
+                        .iter()
+                        .map(WorkspaceCommitWithId::commit_id)
+                        .chain(
+                            segment
+                                .remote_commits
+                                .iter()
+                                .map(RemoteCommitWithId::commit_id),
+                        )
+                })
+                .collect();
+            let listing = but_workspace::worktrees::list_worktrees(
+                &repo,
+                worktrees
+                    .into_iter()
+                    .map(|worktree| but_workspace::worktrees::WorktreeSource {
+                        archived: worktree.archived,
+                        path: worktree.path,
+                        tip: worktree.tip,
+                    })
+                    .collect(),
+                ws.resolved_target_commit_id(),
+            )?;
+            let mut seen = known_commits;
+            id_map.worktree_commits = listing
+                .active
+                .into_iter()
+                .flat_map(|worktree| worktree.commits)
+                .filter(|commit| seen.insert(commit.id))
+                .map(|commit| WorkspaceCommitWithId {
+                    short_id: crate::utils::shorten_object_id(&repo, commit.id),
+                    change_id: None,
+                    inner: StackCommit {
+                        id: commit.id,
+                        parent_ids: commit.parent_ids,
+                        refs: Vec::new(),
+                        flags: Default::default(),
+                    },
+                })
+                .collect();
+        }
+        Ok(id_map)
     }
 }
 
@@ -1198,6 +1252,11 @@ impl IdMap {
                         matches.push(Box::new(remote_commit_with_id))
                     }
                 }
+            }
+        }
+        for commit in &self.worktree_commits {
+            if element_matches_commit(commit.commit_id(), None) {
+                matches.push(Box::new(commit));
             }
         }
 

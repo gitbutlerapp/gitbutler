@@ -28,6 +28,48 @@ use crate::{
 
 type TargetStack = (StackId, HeadInfoStack);
 
+pub(super) fn run_pre_commit_hook(
+    ctx: &but_ctx::Context,
+    diff_specs: &[but_core::DiffSpec],
+) -> Result<()> {
+    match repo::pre_commit_hook_diffspecs(ctx, diff_specs.to_vec())? {
+        hooks::HookResult::Success | hooks::HookResult::NotConfigured => Ok(()),
+        hooks::HookResult::Failure(error_data) => bail!(
+            "pre-commit hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
+            error_data.error
+        ),
+    }
+}
+
+pub(super) fn run_message_hook(ctx: &but_ctx::Context, message: String) -> Result<String> {
+    match repo::message_hook(ctx, message.clone())? {
+        hooks::MessageHookResult::Success | hooks::MessageHookResult::NotConfigured => Ok(message),
+        hooks::MessageHookResult::Message(message_data) => Ok(message_data.message),
+        hooks::MessageHookResult::Failure(error_data) => bail!(
+            "commit-msg hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
+            error_data.error
+        ),
+    }
+}
+
+pub(super) fn run_post_commit_hook(ctx: &but_ctx::Context, out: &mut OutputChannel) -> Result<()> {
+    match repo::post_commit_hook(ctx)? {
+        hooks::HookResult::Success | hooks::HookResult::NotConfigured => {}
+        hooks::HookResult::Failure(error_data) => {
+            if let Some(out) = out.for_human() {
+                let t = theme::get();
+                writeln!(
+                    out,
+                    "\n{} post-commit hook failed:",
+                    t.attention.paint("Warning:")
+                )?;
+                writeln!(out, "{}", error_data.error)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn insert_blank_commit(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
@@ -589,19 +631,7 @@ pub(crate) fn commit(
     // This runs BEFORE getting the commit message so the user doesn't waste time writing a message
     // for a commit that will fail the hook
     if !no_hooks {
-        let hook_result = repo::pre_commit_hook_diffspecs(ctx, diff_specs.clone())?;
-        match hook_result {
-            hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
-                // Hook passed or not configured, proceed with commit
-            }
-            hooks::HookResult::Failure(error_data) => {
-                return Err(anyhow::anyhow!(
-                    "pre-commit hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
-                    error_data.error
-                )
-                .into());
-            }
-        }
+        run_pre_commit_hook(ctx, &diff_specs)?;
     }
 
     // Get commit message
@@ -622,28 +652,7 @@ pub(crate) fn commit(
     // Run commit-msg hook unless --no-hooks was specified
     // This hook can validate and optionally modify the commit message
     let final_commit_message = if !no_hooks {
-        let hook_result = repo::message_hook(ctx, commit_message.clone())?;
-        match hook_result {
-            gitbutler_repo::hooks::MessageHookResult::Success => {
-                // Hook passed without modification
-                commit_message
-            }
-            gitbutler_repo::hooks::MessageHookResult::Message(message_data) => {
-                // Hook passed and modified the message, use the new message
-                message_data.message
-            }
-            gitbutler_repo::hooks::MessageHookResult::NotConfigured => {
-                // No hook configured
-                commit_message
-            }
-            gitbutler_repo::hooks::MessageHookResult::Failure(error_data) => {
-                return Err(anyhow::anyhow!(
-                    "commit-msg hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
-                    error_data.error
-                )
-                .into());
-            }
-        }
+        run_message_hook(ctx, commit_message)?
     } else {
         commit_message
     };
@@ -702,23 +711,7 @@ pub(crate) fn commit(
     // Run post-commit hook unless --no-hooks was specified
     // Note: post-commit hooks run after the commit is created, so failures don't prevent the commit
     if !no_hooks {
-        let hook_result = repo::post_commit_hook(ctx)?;
-        match hook_result {
-            hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
-                // Hook passed or not configured, nothing to do
-            }
-            hooks::HookResult::Failure(error_data) => {
-                // Warn the user but don't fail since the commit is already created
-                if let Some(out) = out.for_human() {
-                    writeln!(
-                        out,
-                        "\n{} post-commit hook failed:",
-                        t.attention.paint("Warning:")
-                    )?;
-                    writeln!(out, "{}", error_data.error)?;
-                }
-            }
-        }
+        run_post_commit_hook(ctx, out)?;
     }
 
     Ok(())

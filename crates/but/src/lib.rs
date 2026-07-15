@@ -976,6 +976,14 @@ async fn match_subcommand(
         #[cfg(feature = "legacy")]
         Subcommands::Commit(commit_args) => {
             let status_after = args.status_after;
+            let invocation_worktree = {
+                let repo = gix::discover(&args.current_dir)?;
+                (repo.git_dir() != repo.common_dir()).then(|| {
+                    repo.workdir()
+                        .expect("a linked worktree is non-bare")
+                        .to_owned()
+                })
+            };
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -984,7 +992,18 @@ async fn match_subcommand(
                 },
                 out,
             )?;
+            let invocation_worktree = invocation_worktree
+                .as_deref()
+                .map(|workdir| command::legacy::worktree::active_worktree_name_at(&ctx, workdir))
+                .transpose()?;
             out.begin_status_after(status_after);
+
+            if invocation_worktree.is_some() && commit_args.cmd.is_some() {
+                return Err(bad_input(
+                    "`but commit empty` is not supported from a linked worktree",
+                )
+                .into());
+            }
 
             let result = match &commit_args.cmd {
                 Some(crate::args::commit::Subcommands::Empty {
@@ -1078,23 +1097,56 @@ async fn match_subcommand(
                         })?),
                         None => commit_args.message.clone(),
                     };
-                    command::legacy::commit::commit(
-                        &mut ctx,
-                        out,
-                        commit_message.as_deref(),
-                        commit_args.branch.clone(),
-                        commit_args.before.clone(),
-                        commit_args.after.clone(),
-                        &commit_args.changes,
-                        commit_args.only,
-                        commit_args.all,
-                        commit_args.create,
-                        commit_args.no_hooks,
-                        commit_args.ai.clone(),
-                        ShowDiffInEditor::from_args(commit_args.diff, commit_args.no_diff)
-                            .unwrap_or(ShowDiffInEditor::Unspecified),
-                    )
-                    .emit_metrics(metrics_ctx)
+                    if let Some(worktree_name) = invocation_worktree {
+                        if commit_args.branch.is_some()
+                            || commit_args.before.is_some()
+                            || commit_args.after.is_some()
+                            || commit_args.create
+                            || commit_args.only
+                            || !commit_args.changes.is_empty()
+                        {
+                            return Err(bad_input(
+                                "branch, positioning, --create, --only, and --changes are not supported when committing from a linked worktree",
+                            )
+                            .into());
+                        }
+                        if commit_args.ai.is_some() || commit_args.diff || commit_args.no_diff {
+                            return Err(bad_input(
+                                "--ai and editor diff options are not supported when committing from a linked worktree",
+                            )
+                            .into());
+                        }
+                        let message = commit_message.as_deref().ok_or_else(|| {
+                            bad_input("linked-worktree commits require --message or --message-file")
+                        })?;
+                        command::legacy::worktree::commit(
+                            &mut ctx,
+                            out,
+                            worktree_name,
+                            message,
+                            commit_args.no_hooks,
+                        )
+                        .map_err(CliError::from)
+                        .emit_metrics(metrics_ctx)
+                    } else {
+                        command::legacy::commit::commit(
+                            &mut ctx,
+                            out,
+                            commit_message.as_deref(),
+                            commit_args.branch.clone(),
+                            commit_args.before.clone(),
+                            commit_args.after.clone(),
+                            &commit_args.changes,
+                            commit_args.only,
+                            commit_args.all,
+                            commit_args.create,
+                            commit_args.no_hooks,
+                            commit_args.ai.clone(),
+                            ShowDiffInEditor::from_args(commit_args.diff, commit_args.no_diff)
+                                .unwrap_or(ShowDiffInEditor::Unspecified),
+                        )
+                        .emit_metrics(metrics_ctx)
+                    }
                 }
             };
 

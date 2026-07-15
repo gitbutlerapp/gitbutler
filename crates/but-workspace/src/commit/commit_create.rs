@@ -5,6 +5,7 @@ use but_core::{DiffSpec, RefMetadata};
 use but_rebase::graph_rebase::{
     Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector, mutate::InsertSide,
 };
+use gix::bstr::BStr;
 
 use crate::commit_engine::{Destination, create_commit};
 
@@ -27,6 +28,14 @@ pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
     pub rejected_specs: Vec<(but_core::tree::create_tree::RejectionReason, DiffSpec)>,
 }
 
+enum ChangeSource<'a> {
+    Head,
+    Worktree {
+        repo: &'a gix::Repository,
+        name: &'a BStr,
+    },
+}
+
 /// Create a commit from `changes` and insert it relative to `relative_to` on `side`.
 ///
 /// Similar to other `editor` based functions, this consumes an editor and
@@ -46,12 +55,59 @@ pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
 /// with the `context_lines` value used to generate the `DiffSpec`s passed
 /// in the `changes` parameter.
 pub fn commit_create<'ws, 'meta, M: RefMetadata>(
+    editor: Editor<'ws, 'meta, M>,
+    changes: Vec<DiffSpec>,
+    relative_to: impl ToSelector,
+    side: InsertSide,
+    message: &str,
+    context_lines: u32,
+) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
+    commit_create_inner(
+        editor,
+        changes,
+        relative_to,
+        side,
+        message,
+        context_lines,
+        ChangeSource::Head,
+    )
+}
+
+/// Like [`commit_create()`], but reads `changes` from `worktree_repo` and
+/// cancels the consumed changes from that linked worktree's checkout.
+pub fn commit_create_from_worktree<'ws, 'meta, M: RefMetadata>(
+    editor: Editor<'ws, 'meta, M>,
+    changes: Vec<DiffSpec>,
+    relative_to: impl ToSelector,
+    side: InsertSide,
+    message: &str,
+    context_lines: u32,
+    worktree_repo: &gix::Repository,
+    worktree_name: &BStr,
+) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
+    commit_create_inner(
+        editor,
+        changes,
+        relative_to,
+        side,
+        message,
+        context_lines,
+        ChangeSource::Worktree {
+            repo: worktree_repo,
+            name: worktree_name,
+        },
+    )
+}
+
+#[expect(clippy::too_many_arguments)]
+fn commit_create_inner<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     changes: Vec<DiffSpec>,
     relative_to: impl ToSelector,
     side: InsertSide,
     message: &str,
     context_lines: u32,
+    source: ChangeSource<'_>,
 ) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
     let relative_to_selector = relative_to.to_selector(&editor)?;
     let parent_commit_id =
@@ -60,8 +116,12 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     // Clone before `create_commit` consumes the vec — needed afterwards
     // to determine which changes were consumed (not rejected).
     let all_changes = changes.clone();
+    let source_repo = match &source {
+        ChangeSource::Head => editor.repo(),
+        ChangeSource::Worktree { repo, .. } => *repo,
+    };
     let create_out = create_commit(
-        editor.repo(),
+        source_repo,
         Destination::NewCommit {
             parent_commit_id,
             stack_segment: None,
@@ -91,8 +151,13 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
         .filter(|spec| !rejected_paths.contains(&spec.path))
         .collect();
     if !consumed.is_empty() {
-        let merge_base = compute_merge_base_override(editor.repo(), consumed, context_lines)?;
-        editor.set_merge_base_override(merge_base);
+        let merge_base = compute_merge_base_override(source_repo, consumed, context_lines)?;
+        match source {
+            ChangeSource::Head => editor.set_merge_base_override(merge_base),
+            ChangeSource::Worktree { name, .. } => {
+                editor.set_worktree_merge_base_override(name, merge_base)?
+            }
+        }
     }
 
     let commit_selector = editor.insert(

@@ -3057,6 +3057,53 @@ fn worktree_ids_parse_by_short_id_and_by_name() -> anyhow::Result<()> {
 }
 
 #[test]
+fn worktree_commits_parse_by_sha_with_committed_files() -> anyhow::Result<()> {
+    let commit_id = id(9);
+    let parent_id = id(8);
+    let mut id_map = IdMap::new(
+        Vec::new(),
+        Vec::new(),
+        gix::hashtable::HashMap::default(),
+        vec!["wt-a".into()],
+    )?;
+    id_map.worktree_commits.push(super::WorkspaceCommitWithId {
+        short_id: commit_id.to_hex_with_len(7).to_string(),
+        change_id: None,
+        inner: but_graph::workspace::StackCommit {
+            id: commit_id,
+            parent_ids: vec![parent_id],
+            refs: Vec::new(),
+            flags: Default::default(),
+        },
+    });
+    let changes = move |actual_commit: gix::ObjectId, actual_parent: Option<gix::ObjectId>| {
+        assert_eq!(actual_commit, commit_id);
+        assert_eq!(actual_parent, Some(parent_id));
+        Ok(vec![tree_change_addition("wt.txt")])
+    };
+
+    assert!(matches!(
+        id_map.parse("09", Box::new(changes))?.as_slice(),
+        [CliId::Commit { commit_id: actual, .. }] if *actual == commit_id
+    ));
+    assert!(matches!(
+        id_map
+            .parse(
+                "09:wt.txt",
+                Box::new(move |actual_commit, actual_parent| {
+                    assert_eq!(actual_commit, commit_id);
+                    assert_eq!(actual_parent, Some(parent_id));
+                    Ok(vec![tree_change_addition("wt.txt")])
+                }),
+            )?
+            .as_slice(),
+        [CliId::CommittedFile { commit_id: actual, path, .. }]
+            if *actual == commit_id && path == "wt.txt"
+    ));
+    Ok(())
+}
+
+#[test]
 fn worktree_name_shared_with_branch_yields_both_matches() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("A", [id(1)], None, [])])];
     let id_map = IdMap::new(
@@ -3261,6 +3308,7 @@ mod util {
                 indexed_stacks: _,
                 stack_ids,
                 worktrees: _,
+                worktree_commits: _,
                 uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,
@@ -3301,6 +3349,7 @@ mod util {
                 indexed_stacks: _,
                 stack_ids,
                 worktrees: _,
+                worktree_commits: _,
                 uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,

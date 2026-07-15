@@ -19,13 +19,20 @@ pub(crate) fn handle_resolved_with_perm(
     let t = theme::get();
     // Validate --after flag usage
     if after {
-        // Check if target is a branch (--after only makes sense for commit-to-commit moves)
-        if matches!(target_id, CliId::Branch { .. }) {
-            bail!(
+        // Preserve the established branch error while validating worktrees in
+        // their own terms.
+        match target_id {
+            CliId::Branch { .. } => bail!(
                 "The {} flag only makes sense when moving a commit to another commit.\n\
                 When moving to a branch, the commit is placed at the top of the stack by default.",
                 "--after"
-            );
+            ),
+            CliId::Worktree { .. } => bail!(
+                "The {} flag only makes sense when moving a commit to another commit.\n\
+                When moving to a worktree, the commit is placed at the branch tip by default.",
+                "--after"
+            ),
+            _ => {}
         }
         // Check if source is a committed file (--after doesn't make sense for file moves)
         if matches!(source_id, CliId::CommittedFile { .. }) {
@@ -41,7 +48,7 @@ pub(crate) fn handle_resolved_with_perm(
     let Some(operation) = route_move_operation(source_id, target_id, after) else {
         bail!(
             "Cannot move {} ({}) to {} ({}).\n\
-            Valid moves: commit→commit, commit→branch, or committed-file→commit",
+            Valid moves: commit→commit, commit→branch, commit→worktree, or committed-file→commit",
             t.cli_id.paint(source_id.to_short_string()),
             t.attention.paint(source_id.kind_for_humans()),
             t.cli_id.paint(target_id.to_short_string()),
@@ -90,9 +97,19 @@ pub(crate) fn handle_multiple_resolved_with_perm(
             }
             move_commit_to_branch_with_perm(ctx, sources, name, out, perm)
         }
+        CliId::Worktree { name, .. } => {
+            if after {
+                bail!(
+                    "The {} flag only makes sense when moving a commit to another commit.\n\
+                    When moving to a worktree, the commit is placed at the branch tip by default.",
+                    "--after"
+                );
+            }
+            move_commit_to_worktree_with_perm(ctx, sources, name.as_ref(), out, perm)
+        }
         _ => bail!(
             "Cannot move multiple commits to {} ({}).\n\
-            Valid multi-commit moves: commit→commit or commit→branch",
+            Valid multi-commit moves: commit→commit, commit→branch, or commit→worktree",
             t.cli_id.paint(target_id.to_short_string()),
             t.attention.paint(target_id.kind_for_humans())
         ),
@@ -112,6 +129,11 @@ enum MoveOperation<'a> {
     CommitToBranch {
         source: gix::ObjectId,
         target_branch: &'a str,
+    },
+    /// Move a commit to the branch checked out in a linked worktree.
+    CommitToWorktree {
+        source: gix::ObjectId,
+        target_worktree: &'a bstr::BStr,
     },
     /// Move a committed file to another commit (delegates to rub)
     CommittedFileToCommit {
@@ -139,6 +161,10 @@ impl<'a> MoveOperation<'a> {
                 source,
                 target_branch,
             } => move_commit_to_branch_with_perm(ctx, vec![source], target_branch, out, perm),
+            MoveOperation::CommitToWorktree {
+                source,
+                target_worktree,
+            } => move_commit_to_worktree_with_perm(ctx, vec![source], target_worktree, out, perm),
             MoveOperation::CommittedFileToCommit {
                 path,
                 source_commit,
@@ -265,6 +291,47 @@ pub fn move_commit_to_branch_with_perm(
     Ok(())
 }
 
+fn move_commit_to_worktree_with_perm(
+    ctx: &mut Context,
+    sources: Vec<gix::ObjectId>,
+    worktree_name: &bstr::BStr,
+    out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
+) -> Result<(), anyhow::Error> {
+    let worktree = ctx
+        .worktrees_with_state()?
+        .into_iter()
+        .find(|worktree| worktree.tip.name == worktree_name)
+        .ok_or_else(|| anyhow::anyhow!("Worktree {worktree_name} was not found"))?;
+    if worktree.archived {
+        bail!("Worktree {worktree_name} is archived");
+    }
+    let ref_name = worktree
+        .tip
+        .ref_name
+        .ok_or_else(|| anyhow::anyhow!("Worktree {worktree_name} has a detached HEAD"))?;
+
+    ctx.invalidate_workspace_cache()?;
+    let repo = ctx.repo.get()?;
+    let wt_repo = but_workspace::worktrees::open_worktree_repo(&repo, worktree_name)?;
+    let head = wt_repo.head()?;
+    let current_ref = head
+        .referent_name()
+        .ok_or_else(|| anyhow::anyhow!("Worktree {worktree_name} has a detached HEAD"))?;
+    if current_ref != ref_name.as_ref() {
+        bail!(
+            "Worktree {worktree_name} changed branches from {} to {}",
+            ref_name.shorten(),
+            current_ref.shorten()
+        );
+    }
+    drop(head);
+    drop(wt_repo);
+    drop(repo);
+
+    move_commit_to_branch_with_perm(ctx, sources, &ref_name.shorten().to_string(), out, perm)
+}
+
 /// Determines the move operation to perform for a given source and target combination.
 /// Returns `Some(operation)` if the combination is valid, `None` otherwise.
 fn route_move_operation<'a>(
@@ -297,6 +364,15 @@ fn route_move_operation<'a>(
         ) => Some(MoveOperation::CommitToBranch {
             source: *source,
             target_branch: name,
+        }),
+        (
+            Commit {
+                commit_id: source, ..
+            },
+            Worktree { name, .. },
+        ) => Some(MoveOperation::CommitToWorktree {
+            source: *source,
+            target_worktree: name.as_ref(),
         }),
         // CommittedFile -> Commit: move a file from one commit to another
         (
@@ -339,6 +415,13 @@ mod tests {
             name: name.to_string(),
             id: "br".to_string(),
             stack_id: None,
+        }
+    }
+
+    fn worktree_id(name: &str) -> CliId {
+        CliId::Worktree {
+            name: name.into(),
+            id: "wt".to_string(),
         }
     }
 
@@ -390,6 +473,15 @@ mod tests {
         let target = branch_id("main");
         let result = route_move_operation(&source, &target, false);
         assert!(matches!(result, Some(MoveOperation::CommitToBranch { .. })));
+
+        // Commit -> Worktree: should route to the checked-out branch.
+        let source = commit_id("a");
+        let target = worktree_id("agent");
+        let result = route_move_operation(&source, &target, false);
+        assert!(matches!(
+            result,
+            Some(MoveOperation::CommitToWorktree { .. })
+        ));
 
         // CommittedFile -> Commit: should route to CommittedFileToCommit
         let source = committed_file_id("file.txt");

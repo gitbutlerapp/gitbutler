@@ -4,16 +4,25 @@
 //! and are currently CLI-only - they aren't registered with the Tauri or server
 //! command surfaces.
 
-use anyhow::{Result, bail};
+use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun};
-use but_rebase::graph_rebase::{Editor, LookupStep as _};
+use but_rebase::graph_rebase::{
+    Editor, LookupStep as _,
+    mutate::{InsertSide, RelativeTo},
+};
 use but_workspace::worktrees::{WorktreeListing, WorktreeSource};
 use gix::bstr::BStr;
 use gix::prelude::ObjectIdExt as _;
 use tracing::instrument;
 
-use crate::{WorkspaceState, commit::types::CommitCreateResult};
+use crate::{
+    WorkspaceState,
+    commit::{
+        amend::{discard_consumed_changes_if_unchanged, snapshot_worktree_files},
+        types::CommitCreateResult,
+    },
+};
 
 /// Fail unless the user opted into worktree manipulation.
 fn ensure_worktree_manipulation_enabled(ctx: &but_ctx::Context) -> Result<()> {
@@ -88,6 +97,90 @@ pub fn linked_worktree_changes(
     but_workspace::worktrees::worktree_changes_by_name(&repo, BStr::new(name.as_str()))
 }
 
+/// Create a commit from `changes` in the active linked worktree named `name`.
+///
+/// The worktree must have a symbolic `HEAD`. Its branch and checkout move
+/// together, while the consumed changes are cancelled from the checkout.
+#[but_api(try_from = crate::commit::json::CommitCreateResult)]
+#[instrument(err(Debug))]
+pub fn worktree_commit_create(
+    ctx: &mut but_ctx::Context,
+    name: String,
+    changes: Vec<DiffSpec>,
+    message: String,
+    dry_run: DryRun,
+) -> Result<CommitCreateResult> {
+    ensure_worktree_manipulation_enabled(ctx)?;
+    let context_lines = ctx.settings.context_lines;
+    let mut guard = ctx.exclusive_worktree_access();
+    let worktree = ctx
+        .worktrees_with_state()?
+        .into_iter()
+        .find(|worktree| worktree.tip.name == name.as_bytes())
+        .with_context(|| format!("Worktree {name} does not exist"))?;
+    if worktree.archived {
+        bail!("Worktree {name} is archived");
+    }
+    let ref_name = worktree
+        .tip
+        .ref_name
+        .with_context(|| format!("Worktree {name} has a detached HEAD"))?;
+
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let worktree_name = BStr::new(name.as_str());
+    let wt_repo = but_workspace::worktrees::open_worktree_repo(&repo, worktree_name)?;
+    let mut head = wt_repo.head()?;
+    let current_ref = head
+        .referent_name()
+        .with_context(|| format!("Worktree {name} has a detached HEAD"))?;
+    if current_ref != ref_name.as_ref() {
+        bail!(
+            "Worktree {name} changed branches from {} to {}",
+            ref_name.shorten(),
+            current_ref.shorten()
+        );
+    }
+    if head.peel_to_commit()?.id != worktree.tip.id {
+        bail!("Worktree {name} changed commits while preparing the commit");
+    }
+
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let but_workspace::commit::CommitCreateOutcome {
+        rebase,
+        commit_selector,
+        rejected_specs,
+    } = but_workspace::commit::commit_create_from_worktree(
+        editor,
+        changes,
+        RelativeTo::Reference(ref_name),
+        InsertSide::Below,
+        &message,
+        context_lines,
+        &wt_repo,
+        worktree_name,
+    )?;
+
+    let new_commit = commit_selector
+        .map(|selector| rebase.lookup_pick(selector))
+        .transpose()?;
+    if new_commit.is_some() {
+        for (name, tip) in rebase.worktree_checkout_tips()? {
+            if but_core::Commit::from_id(tip.attach(rebase.repo()))?.is_conflicted() {
+                bail!(
+                    "creating the commit would conflict on the branch checked out in worktree {name} - aborting without any changes"
+                );
+            }
+        }
+    }
+    let workspace = WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?;
+    Ok(CommitCreateResult {
+        new_commit,
+        rejected_specs,
+        workspace,
+    })
+}
+
 /// Amend `changes` - uncommitted changes of the linked worktree named `name` -
 /// into the commit at `commit_id`, which may live on any workspace stack or on
 /// the branch of any active worktree (including `name`'s own).
@@ -137,15 +230,7 @@ pub fn worktree_commit_amend(
     // the discard fallback below can verify nothing wrote to them in between
     // (editor autosave, formatters, watchers - the amend takes long enough for
     // that race to be real).
-    let content_snapshots: std::collections::BTreeMap<_, _> = changes
-        .iter()
-        .map(|spec| {
-            (
-                spec.path.clone(),
-                snapshot_worktree_file(&wt_repo, spec.path.as_ref()),
-            )
-        })
-        .collect();
+    let content_snapshots = snapshot_worktree_files(&wt_repo, &changes);
 
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
@@ -198,39 +283,13 @@ pub fn worktree_commit_amend(
     // after materialization made the commit and all ref edits durable.
     if !is_dry_run && new_commit.is_some() && !consumed_specs.is_empty() {
         let wt_repo = but_workspace::worktrees::open_worktree_repo(&repo, name)?;
-        if wt_repo.head_id()?.detach() == old_worktree_head {
-            // Only discard files whose content still matches the pre-amend
-            // snapshot - anything written in between is in neither the amended
-            // commit nor the snapshot, so discarding it would destroy it.
-            let (verified_specs, changed_specs): (Vec<_>, Vec<_>) =
-                consumed_specs.into_iter().partition(|spec| {
-                    content_snapshots.get(&spec.path).is_some_and(|before| {
-                        before.is_verifiable()
-                            && *before == snapshot_worktree_file(&wt_repo, spec.path.as_ref())
-                    })
-                });
-            for spec in &changed_specs {
-                tracing::warn!(
-                    worktree = %name,
-                    path = %spec.path,
-                    "file content changed while amending - leaving it in the worktree"
-                );
-            }
-            if !verified_specs.is_empty() {
-                let dropped = but_workspace::discard_workspace_changes(
-                    &wt_repo,
-                    verified_specs,
-                    context_lines,
-                )?;
-                if !dropped.is_empty() {
-                    tracing::warn!(
-                        worktree = %name,
-                        ?dropped,
-                        "some committed changes no longer matched the worktree state - leaving them in place"
-                    );
-                }
-            }
-        }
+        discard_consumed_changes_if_unchanged(
+            &wt_repo,
+            old_worktree_head,
+            &content_snapshots,
+            consumed_specs,
+            context_lines,
+        )?;
     }
 
     Ok(CommitCreateResult {
@@ -238,63 +297,4 @@ pub fn worktree_commit_amend(
         rejected_specs,
         workspace,
     })
-}
-
-/// The content identity of a worktree file at one point in time, used to
-/// verify it didn't change between two reads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum FileSnapshot {
-    /// Nothing exists at the path.
-    Missing,
-    /// A regular file or symlink whose content hashes to this blob id
-    /// (symlinks hash their target path, like Git does).
-    Blob(gix::ObjectId),
-    /// The path exists but could not be read, or isn't a file/symlink.
-    /// Never treated as matching anything, not even another unreadable state.
-    Unreadable,
-}
-
-impl FileSnapshot {
-    /// Whether this snapshot pins down actual content that a later read can be
-    /// compared against.
-    fn is_verifiable(&self) -> bool {
-        !matches!(self, FileSnapshot::Unreadable)
-    }
-}
-
-/// Hash the file at worktree-relative `rela_path` in `wt_repo`'s working
-/// directory as a git blob, without writing any object.
-///
-/// The raw on-disk bytes are hashed (no filters applied) - the result is only
-/// meant to be compared against another snapshot taken the same way.
-fn snapshot_worktree_file(wt_repo: &gix::Repository, rela_path: &BStr) -> FileSnapshot {
-    let Some(workdir) = wt_repo.workdir() else {
-        return FileSnapshot::Unreadable;
-    };
-    let path = workdir.join(gix::path::from_bstr(rela_path));
-    let md = match std::fs::symlink_metadata(&path) {
-        Ok(md) => md,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return FileSnapshot::Missing,
-        Err(_) => return FileSnapshot::Unreadable,
-    };
-    let bytes = if md.is_symlink() {
-        match std::fs::read_link(&path)
-            .map_err(anyhow::Error::from)
-            .and_then(|target| Ok(gix::path::os_string_into_bstring(target.into())?))
-        {
-            Ok(target) => Vec::from(target),
-            Err(_) => return FileSnapshot::Unreadable,
-        }
-    } else if md.is_file() {
-        match std::fs::read(&path) {
-            Ok(bytes) => bytes,
-            Err(_) => return FileSnapshot::Unreadable,
-        }
-    } else {
-        return FileSnapshot::Unreadable;
-    };
-    match gix::objs::compute_hash(wt_repo.object_hash(), gix::object::Kind::Blob, &bytes) {
-        Ok(id) => FileSnapshot::Blob(id),
-        Err(_) => FileSnapshot::Unreadable,
-    }
 }

@@ -1,11 +1,134 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, bail};
 use but_api::legacy::worktree::IntegrationStatus;
 use but_ctx::Context;
 use but_worktrees::WorktreeId;
 
-use crate::{CliId, IdMap, args::worktree::Subcommands, utils::OutputChannel};
+use crate::{
+    CliId, IdMap,
+    args::worktree::Subcommands,
+    theme::Paint as _,
+    utils::{OutputChannel, rejection},
+};
+
+/// Return the active linked worktree rooted at `workdir`.
+pub(crate) fn active_worktree_name_at(ctx: &Context, workdir: &Path) -> Result<gix::bstr::BString> {
+    let workdir = workdir.canonicalize()?;
+    let worktree = ctx
+        .worktrees_with_state()?
+        .into_iter()
+        .find(|worktree| {
+            worktree
+                .path
+                .canonicalize()
+                .is_ok_and(|path| path == workdir)
+        })
+        .context("The current linked worktree is not managed by this project")?;
+    if worktree.archived {
+        bail!(
+            "Worktree {} is archived; unarchive it before committing",
+            worktree.tip.name
+        );
+    }
+    Ok(worktree.tip.name)
+}
+
+/// Commit every current change in the active linked worktree `name`.
+pub(crate) fn commit(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    name: gix::bstr::BString,
+    message: &str,
+    no_hooks: bool,
+) -> Result<()> {
+    if message.trim().is_empty() {
+        bail!("Aborting commit due to empty commit message.");
+    }
+    let branch_name = ctx
+        .worktrees_with_state()?
+        .into_iter()
+        .find(|worktree| worktree.tip.name == name)
+        .context("The active linked worktree no longer exists")?
+        .tip
+        .ref_name
+        .context("Cannot commit from a linked worktree with a detached HEAD")?
+        .shorten()
+        .to_string();
+    let changes: Vec<but_core::DiffSpec> =
+        but_api::worktrees::linked_worktree_changes(ctx, name.to_string())?
+            .changes
+            .into_iter()
+            .map(|change| but_core::DiffSpec::from(but_core::TreeChange::from(change)))
+            .collect();
+    if changes.is_empty() {
+        bail!("No changes to commit.");
+    }
+    let hook_ctx = if no_hooks {
+        None
+    } else {
+        let repo = ctx.repo.get()?;
+        let worktree_repo = but_workspace::worktrees::open_worktree_repo(&repo, name.as_ref())?;
+        drop(repo);
+        let mut hook_ctx = Context::from_repo_with_settings(worktree_repo, ctx.settings.clone())?;
+        hook_ctx.legacy_project = ctx.legacy_project.clone();
+        Some(hook_ctx)
+    };
+    let message = if let Some(hook_ctx) = hook_ctx.as_ref() {
+        super::commit::run_pre_commit_hook(hook_ctx, &changes)?;
+        super::commit::run_message_hook(hook_ctx, message.to_owned())?
+    } else {
+        message.to_owned()
+    };
+    let result = but_api::worktrees::worktree_commit_create(
+        ctx,
+        name.to_string(),
+        changes,
+        message,
+        but_core::DryRun::No,
+    )?;
+    let rejected: Vec<_> = result
+        .rejected_specs
+        .iter()
+        .map(|(reason, spec)| rejection::RejectedChange {
+            path: spec.path.clone(),
+            reason: *reason,
+            dependencies: Vec::new(),
+        })
+        .collect();
+    if !rejected.is_empty() {
+        tracing::warn!(
+            rejected_specs = ?result.rejected_specs,
+            "Failed to commit at least one linked-worktree change"
+        );
+    }
+    let commit = result.new_commit.context("No changes could be committed")?;
+    if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({
+            "commit_id": commit.to_string(),
+            "branch": &branch_name,
+            "worktree": name.to_string(),
+            "rejected": serde_json::to_value(&rejected).unwrap_or_default(),
+        }))?;
+    } else if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?;
+        let t = crate::theme::get();
+        writeln!(
+            out,
+            "{} Created commit {} on branch {}",
+            t.sym().success,
+            t.commit_id
+                .paint(crate::utils::shorten_object_id(&repo, commit)),
+            t.local_branch.paint(&branch_name),
+        )?;
+        rejection::write_rejection_report(out, &rejected, Some(&branch_name))?;
+    }
+    if let Some(hook_ctx) = hook_ctx.as_ref() {
+        super::commit::run_post_commit_hook(hook_ctx, out)?;
+    }
+    Ok(())
+}
+
 /// Parse a worktree identifier which can be either:
 /// - A full path to the worktree
 /// - Just the worktree name

@@ -48,7 +48,7 @@ fn compute_merge_base_override(
 pub mod reword;
 pub use reword::reword;
 pub mod commit_create;
-pub use commit_create::{CommitCreateOutcome, commit_create};
+pub use commit_create::{CommitCreateOutcome, commit_create, commit_create_from_worktree};
 pub mod commit_amend;
 pub use commit_amend::{CommitAmendOutcome, commit_amend, commit_amend_from_worktree};
 pub mod insert_blank_commit;
