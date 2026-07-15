@@ -35,13 +35,29 @@ impl Default for GraphEditorOptions {
 
 /// Creates an editor out of the workspace graph.
 impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
-    /// Creates an editor out of the workspace graph with the default options.
+    /// Creates an editor out of the workspace graph, making graph-seeded linked-worktree refs
+    /// mutable in addition to refs reachable from `HEAD`.
     pub fn create(
         workspace: &'ws mut but_graph::Workspace,
         meta: &'meta mut M,
         repo: &gix::Repository,
     ) -> Result<Self> {
-        Self::create_with_opts(workspace, meta, repo, &GraphEditorOptions::default())
+        let extra_mutable_refs = workspace
+            .graph
+            .options
+            .worktree_tips
+            .iter()
+            .filter_map(|tip| tip.ref_name.clone())
+            .collect();
+        Self::create_with_opts(
+            workspace,
+            meta,
+            repo,
+            &GraphEditorOptions {
+                extra_mutable_refs,
+                ..Default::default()
+            },
+        )
     }
 
     /// Creates an editor out of the workspace graph with the specified options.

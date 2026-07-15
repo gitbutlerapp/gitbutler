@@ -250,16 +250,6 @@ mod from_worktree {
         Graph::from_head(repo, meta, Default::default(), options)?.validated()
     }
 
-    /// Force the worktree branch mutable, as the API layer does for all worktree
-    /// tips - it is not reachable from `HEAD`, so its ref would silently never
-    /// move otherwise.
-    fn editor_options() -> Result<GraphEditorOptions> {
-        Ok(GraphEditorOptions {
-            extra_mutable_refs: vec!["refs/heads/feat".try_into()?],
-            ..Default::default()
-        })
-    }
-
     fn whole_file_spec(path: &str) -> Vec<DiffSpec> {
         vec![DiffSpec {
             path: path.into(),
@@ -284,7 +274,7 @@ mod from_worktree {
 
         let graph = graph_with_worktree_tip(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create_with_opts(&mut ws, &mut *meta, &repo, &editor_options()?)?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
@@ -339,7 +329,7 @@ mod from_worktree {
 
         let graph = graph_with_worktree_tip(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create_with_opts(&mut ws, &mut *meta, &repo, &editor_options()?)?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();
@@ -414,7 +404,8 @@ mod from_worktree {
         // branch commit is present in the graph but immutable. Amending into
         // it used to silently no-op (the amended commit was written but no ref
         // ever adopted it) - now it must fail fast, before anything is written.
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let editor =
+            Editor::create_with_opts(&mut ws, &mut *meta, &repo, &GraphEditorOptions::default())?;
 
         let f1_id = repo.rev_parse_single("feat")?.detach();
         let m1_id = repo.head_id()?.detach();
@@ -441,7 +432,7 @@ mod from_worktree {
 
         let graph = graph_with_worktree_tip(&repo, &*meta)?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create_with_opts(&mut ws, &mut *meta, &repo, &editor_options()?)?;
+        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
         let wt_repo = open_worktree_repo(&repo, "wt".into())?;
         let f1_id = repo.rev_parse_single("feat")?.detach();

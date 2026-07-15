@@ -7,7 +7,7 @@
 use anyhow::{Result, bail};
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun};
-use but_rebase::graph_rebase::{Editor, GraphEditorOptions, LookupStep as _};
+use but_rebase::graph_rebase::{Editor, LookupStep as _};
 use but_workspace::worktrees::{WorktreeListing, WorktreeSource};
 use gix::bstr::BStr;
 use gix::prelude::ObjectIdExt as _;
@@ -147,27 +147,7 @@ pub fn worktree_commit_amend(
         })
         .collect();
 
-    // Worktree branches are seeded into the graph as extra tips but aren't
-    // reachable from `HEAD`, which leaves them immutable by default - without
-    // forcing them mutable, an amend into one would rewrite the step graph
-    // while the branch ref silently never moves. Untouched branches keep their
-    // commit ids, so the all-tips superset is safe.
-    let extra_mutable_refs = ws
-        .graph
-        .options
-        .worktree_tips
-        .iter()
-        .filter_map(|tip| tip.ref_name.clone())
-        .collect();
-    let editor = Editor::create_with_opts(
-        &mut ws,
-        &mut meta,
-        &repo,
-        &GraphEditorOptions {
-            extra_mutable_refs,
-            ..Default::default()
-        },
-    )?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let but_workspace::commit::CommitAmendOutcome {
         rebase,
