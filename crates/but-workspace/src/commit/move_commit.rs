@@ -59,15 +59,20 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
         ordered_ids
     };
 
-    let mut subjects = ordered_ids.into_iter();
-    let first_subject = subjects
-        .next()
-        .expect("non-empty commit list always has a first subject");
-
-    let mut editor = move_commit_no_rebase(editor, first_subject, relative_to.clone(), side)?;
-
-    for subject_id in subjects {
-        editor = move_commit_no_rebase(editor, subject_id, relative_to.clone(), side)?;
+    let mut editor = editor;
+    let mut detached = Vec::with_capacity(ordered_ids.len());
+    for subject_id in ordered_ids {
+        detached.push(disconnect_commit(&mut editor, subject_id)?);
+    }
+    for subject in detached {
+        editor.insert_segment(
+            relative_to.clone(),
+            SegmentDelimiter {
+                child: subject,
+                parent: subject,
+            },
+            side,
+        )?;
     }
 
     editor.rebase()
@@ -93,6 +98,21 @@ pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
     anchor: impl ToSelector,
     side: InsertSide,
 ) -> anyhow::Result<Editor<'ws, 'meta, M>> {
+    let subject_commit_selector = disconnect_commit(&mut editor, subject_commit)?;
+
+    let commit_delimiter = SegmentDelimiter {
+        child: subject_commit_selector,
+        parent: subject_commit_selector,
+    };
+
+    editor.insert_segment(anchor, commit_delimiter, side)?;
+    Ok(editor)
+}
+
+fn disconnect_commit<M: RefMetadata>(
+    editor: &mut Editor<'_, '_, M>,
+    subject_commit: impl ToCommitSelector,
+) -> anyhow::Result<but_rebase::graph_rebase::Selector> {
     let (subject_commit_selector, _) = editor.find_selectable_commit(subject_commit)?;
 
     let commit_delimiter = SegmentDelimiter {
@@ -101,7 +121,7 @@ pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
     };
 
     // Step 1: Determine the parents to disconnect.
-    let parent_to_disconnect = determine_parent_selector(&editor, subject_commit_selector)?;
+    let parent_to_disconnect = determine_parent_selector(editor, subject_commit_selector)?;
 
     // Step 2: Disconnect
     editor.disconnect_segment_from(
@@ -110,8 +130,5 @@ pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
         parent_to_disconnect,
         false,
     )?;
-
-    // Step 3: Insert
-    editor.insert_segment(anchor, commit_delimiter, side)?;
-    Ok(editor)
+    Ok(subject_commit_selector)
 }
