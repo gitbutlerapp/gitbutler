@@ -738,3 +738,70 @@ impl From<ProjectMeta> for ProjectMetaView {
         }
     }
 }
+
+#[test]
+fn active_worktrees_reconciles_archived_state() -> anyhow::Result<()> {
+    let root = TempDir::new()?;
+    gix::init(root.path().join("main"))?;
+    let repo = open_repo(&root.path().join("main"))?;
+    but_testsupport::invoke_bash(
+        "git commit --allow-empty -m M
+         git worktree add -b feat-a ../wt-a
+         git worktree add -b feat-b ../wt-b",
+        &repo,
+    );
+    let ctx = Context::from_repo_for_testing(repo)?;
+
+    assert_eq!(
+        active_names(&ctx)?,
+        Vec::<String>::new(),
+        "the first-ever read archives all pre-existing worktrees"
+    );
+
+    but_testsupport::invoke_bash("git worktree add -b feat-c ../wt-c", &*ctx.repo.get()?);
+    let active = ctx.active_worktrees()?;
+    assert_eq!(
+        active
+            .iter()
+            .map(|wt| wt.name.to_string())
+            .collect::<Vec<_>>(),
+        ["wt-c"],
+        "worktrees created after adoption are active by default"
+    );
+    assert_eq!(
+        active[0]
+            .tip
+            .ref_name
+            .as_ref()
+            .map(|name| name.as_bstr().to_string()),
+        Some("refs/heads/feat-c".into()),
+        "the checked-out branch is recorded for ref-first graph seeding"
+    );
+    assert_eq!(
+        active[0].path.file_name().and_then(|name| name.to_str()),
+        Some("wt-c"),
+        "the checkout path is reported"
+    );
+
+    {
+        let mut db = ctx.db.get_cache_mut()?;
+        db.worktree_meta_mut().upsert(but_db::WorktreeMeta {
+            name: b"wt-a".to_vec(),
+            archived: false,
+        })?;
+    }
+    assert_eq!(
+        active_names(&ctx)?,
+        ["wt-a", "wt-c"],
+        "unarchiving makes a pre-existing worktree visible again"
+    );
+    Ok(())
+}
+
+fn active_names(ctx: &Context) -> anyhow::Result<Vec<String>> {
+    Ok(ctx
+        .active_worktrees()?
+        .into_iter()
+        .map(|wt| wt.name.to_string())
+        .collect())
+}

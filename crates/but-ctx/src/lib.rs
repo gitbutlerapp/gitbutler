@@ -28,6 +28,9 @@ pub use legacy::types::{LegacyProject, LegacyProjectId};
 /// Utilities to control access to the project directory of the context.
 pub mod access;
 
+/// Enumeration of linked worktrees and their archived state.
+pub mod worktrees;
+
 /// Conversions from project identifier values into context types.
 mod project_handle;
 /// Project identifier types live in a temporary transition crate while legacy
@@ -764,17 +767,21 @@ impl Context {
     }
 
     fn workspace_from_head(&self) -> anyhow::Result<but_graph::Workspace> {
+        let mut options = but_graph::init::Options::limited();
+        if self.settings.feature_flags.worktree_manipulation {
+            options.worktree_tips = self
+                .active_worktrees()?
+                .into_iter()
+                .map(|worktree| worktree.tip)
+                .collect();
+        }
         let repo = self.repo.get()?;
         let meta = but_meta::BranchOrderMetadata::from_paths_read_only(
             self.project_data_dir().join("virtual_branches.toml"),
             self.project_data_dir(),
         )?;
-        let graph = but_graph::Graph::from_head(
-            &repo,
-            &meta,
-            self.project_meta()?,
-            but_graph::init::Options::limited(),
-        )?;
+        let graph =
+            but_graph::Graph::from_head(&repo, &meta, self.project_meta()?, options)?;
         graph.into_workspace()
     }
 

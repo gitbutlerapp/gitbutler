@@ -37,6 +37,7 @@ git2.workspace = true
 [dev-dependencies]
 # Enable `legacy` so tests can exercise the feature-gated legacy lifecycle.
 but-ctx = { path = ".", features = ["legacy"] }
+but-db.workspace = true
 but-testsupport.workspace = true
 serde_json.workspace = true
 snapbox.workspace = true

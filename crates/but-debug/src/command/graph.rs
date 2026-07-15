@@ -70,6 +70,7 @@ pub(crate) fn run(
             })
             .collect(),
         dangerously_skip_postprocessing_for_debugging: graph_args.no_post,
+        worktree_tips: vec![],
     };
 
     let graph = match graph_args.ref_name.as_deref() {
