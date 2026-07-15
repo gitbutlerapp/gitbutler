@@ -763,7 +763,7 @@ fn active_worktrees_reconciles_archived_state() -> anyhow::Result<()> {
     assert_eq!(
         active
             .iter()
-            .map(|wt| wt.name.to_string())
+            .map(|wt| wt.name().to_string())
             .collect::<Vec<_>>(),
         ["wt-c"],
         "worktrees created after adoption are active by default"
@@ -802,6 +802,107 @@ fn active_names(ctx: &Context) -> anyhow::Result<Vec<String>> {
     Ok(ctx
         .active_worktrees()?
         .into_iter()
-        .map(|wt| wt.name.to_string())
+        .map(|wt| wt.name().to_string())
         .collect())
+}
+
+#[test]
+fn worktree_manipulation_flag_gates_reconciliation_and_graph_seeding() -> anyhow::Result<()> {
+    let root = TempDir::new()?;
+    gix::init(root.path().join("main"))?;
+    let repo = open_repo(&root.path().join("main"))?;
+    but_testsupport::invoke_bash(
+        "git commit --allow-empty -m M
+         git worktree add -b feat-a ../wt-a",
+        &repo,
+    );
+
+    // Flag off: no worktree tips are seeded and no adoption side-effects happen.
+    let ctx = Context::from_repo_for_testing(repo.clone())?;
+    {
+        let (_guard, _repo, ws, db) = ctx.workspace_and_db()?;
+        assert_eq!(ws.graph.options.worktree_tips.len(), 0);
+        assert_eq!(
+            db.worktree_meta().list()?.len(),
+            0,
+            "flag off must not touch the worktree_meta table"
+        );
+    }
+
+    // Flag on: the first read adopts (archives) the pre-existing worktree.
+    let mut ctx = Context::from_repo_for_testing(repo)?;
+    ctx.settings.feature_flags.worktree_manipulation = true;
+    {
+        let (_guard, _repo, ws, db) = ctx.workspace_and_db()?;
+        assert_eq!(
+            ws.graph.options.worktree_tips.len(),
+            0,
+            "pre-existing worktrees are archived at adoption, so no tips yet"
+        );
+        assert_eq!(
+            db.worktree_meta().list()?.len(),
+            2,
+            "adoption records the sentinel and wt-a"
+        );
+    }
+
+    // A worktree created after adoption is seeded into the graph.
+    but_testsupport::invoke_bash(
+        "git worktree add -b feat-b ../wt-b",
+        &*ctx.repo.get()?,
+    );
+    let mut ctx = Context::from_repo_for_testing(open_repo(&root.path().join("main"))?)?;
+    ctx.settings.feature_flags.worktree_manipulation = true;
+    let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
+    let tip_names: Vec<_> = ws
+        .graph
+        .options
+        .worktree_tips
+        .iter()
+        .map(|tip| tip.name.to_string())
+        .collect();
+    assert_eq!(tip_names, ["wt-b"]);
+    Ok(())
+}
+
+#[test]
+fn worktree_adoption_with_zero_worktrees_is_persisted() -> anyhow::Result<()> {
+    let root = TempDir::new()?;
+    gix::init(root.path().join("main"))?;
+    let repo = open_repo(&root.path().join("main"))?;
+    but_testsupport::invoke_bash("git commit --allow-empty -m M", &repo);
+    let ctx = Context::from_repo_for_testing(repo)?;
+
+    assert_eq!(active_names(&ctx)?, Vec::<String>::new());
+
+    // The sentinel row keeps the adoption marker alive, so a worktree created
+    // later is active instead of being swept into a re-run of adoption.
+    but_testsupport::invoke_bash("git worktree add -b feat ../wt-new", &*ctx.repo.get()?);
+    assert_eq!(active_names(&ctx)?, ["wt-new"]);
+    Ok(())
+}
+
+#[test]
+fn pruned_worktrees_are_reconciled_but_not_active() -> anyhow::Result<()> {
+    let root = TempDir::new()?;
+    gix::init(root.path().join("main"))?;
+    let repo = open_repo(&root.path().join("main"))?;
+    but_testsupport::invoke_bash("git commit --allow-empty -m M", &repo);
+    let ctx = Context::from_repo_for_testing(repo)?;
+    assert_eq!(active_names(&ctx)?, Vec::<String>::new(), "adopt first");
+
+    but_testsupport::invoke_bash("git worktree add -b feat ../wt-gone", &*ctx.repo.get()?);
+    std::fs::remove_dir_all(root.path().join("wt-gone"))?;
+
+    assert_eq!(
+        active_names(&ctx)?,
+        Vec::<String>::new(),
+        "a deleted checkout directory makes the worktree prunable, not active"
+    );
+    let db = ctx.db.get_cache()?;
+    assert!(
+        db.worktree_meta().get(b"wt-gone")?.is_some(),
+        "the pruned worktree was still adopted into the table"
+    );
+    Ok(())
 }

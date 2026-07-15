@@ -48,6 +48,9 @@ pub mod resolve;
 /// Functions that show what changed in various Git entities, like trees, commits and the worktree.
 pub mod diff;
 
+/// Functions for listing and managing linked git worktrees (experimental).
+pub mod worktrees;
+
 /// Types meant to be serialised to JSON, without degenerating information despite the need to be UTF-8 encodable.
 /// EXPERIMENTAL
 pub mod json;
