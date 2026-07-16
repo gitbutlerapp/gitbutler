@@ -2,6 +2,7 @@
 	import { goto } from "$app/navigation";
 	import CreateBranchModal from "$components/branch/CreateBranchModal.svelte";
 	import SyncButton from "$components/forge/SyncButton.svelte";
+	import ProjectDirtyDot from "$components/shared/ProjectDirtyDot.svelte";
 	import IntegrateUpstreamModal from "$components/upstream/IntegrateUpstreamModal.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
@@ -195,7 +196,12 @@
 
 				{#snippet itemSnippet({ item, highlighted })}
 					<SelectItem selected={item.value === projectId} {highlighted}>
-						{item.label}
+						<div class="project-selector-item">
+							<span class="project-selector-item__label">{item.label}</span>
+							{#if item.value}
+								<ProjectDirtyDot projectId={item.value} />
+							{/if}
+						</div>
 					</SelectItem>
 				{/snippet}
 
@@ -376,5 +382,18 @@
 		padding: 0 4px;
 		gap: 4px;
 		color: var(--text-2);
+	}
+
+	.project-selector-item {
+		display: flex;
+		align-items: center;
+		overflow: hidden;
+		gap: 6px;
+	}
+
+	.project-selector-item__label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 </style>

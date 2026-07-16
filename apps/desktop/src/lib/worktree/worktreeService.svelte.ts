@@ -56,6 +56,15 @@ export class WorktreeService {
 	}
 
 	/**
+	 * A cheap check for whether a project's worktree has any uncommitted
+	 * changes. Unlike `worktreeChanges` this works for projects that are not
+	 * currently open, e.g. for the project selector.
+	 */
+	hasChanges(projectId: string) {
+		return this.backendApi.endpoints.worktreeHasChanges.useQuery({ projectId });
+	}
+
+	/**
 	 * Exposes the worktreeChanges endpoint. This is currently intended to be
 	 * consumed by just the `DependencyService`.
 	 */

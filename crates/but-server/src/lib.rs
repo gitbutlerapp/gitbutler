@@ -580,6 +580,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             "/changes_in_worktree",
             but_post(diff::changes_in_worktree_cmd),
         )
+        .route(
+            "/worktree_has_changes",
+            but_post(diff::worktree_has_changes_cmd),
+        )
         .route("/assign_hunk", but_post(diff::assign_hunk_cmd))
         .route(
             "/cherry_apply_status",

@@ -403,6 +403,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::absorb::tauri_absorb::absorb,
                 legacy::absorb::tauri_absorption_plan::absorption_plan,
                 diff::tauri_changes_in_worktree::changes_in_worktree,
+                diff::tauri_worktree_has_changes::worktree_has_changes,
                 diff::tauri_tree_change_diffs::tree_change_diffs,
                 diff::tauri_assign_hunk::assign_hunk,
                 #[cfg(unix)]

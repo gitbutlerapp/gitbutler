@@ -87,6 +87,12 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 			},
 		}),
 
+		// ── Worktree Dirty Check ────────────────────────────────────
+		worktreeHasChanges: build.query<boolean, { projectId: string }>({
+			extraOptions: { command: "worktree_has_changes" },
+			query: (args) => args,
+		}),
+
 		// ── Diff ────────────────────────────────────────────────────
 		getDiff: build.query<UnifiedDiff | null, { projectId: string; change: TreeChange }>({
 			extraOptions: { command: "tree_change_diffs" },

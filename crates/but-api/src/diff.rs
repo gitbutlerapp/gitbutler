@@ -103,6 +103,20 @@ pub fn tree_change_diffs(
     change.unified_patch(&repo, ctx.settings.context_lines)
 }
 
+/// Returns `true` if the project's worktree contains any uncommitted changes.
+///
+/// This is a cheap status check that doesn't compute hunk assignments or
+/// dependencies, suitable for indicators like the project selector.
+///
+/// For lower-level implementation details, see [`but_core::diff::worktree_changes()`].
+#[but_api]
+#[instrument(err(Debug))]
+pub fn worktree_has_changes(ctx: &Context) -> anyhow::Result<bool> {
+    let _guard = ctx.shared_worktree_access();
+    let repo = ctx.repo.get()?;
+    Ok(!but_core::diff::worktree_changes(&repo)?.changes.is_empty())
+}
+
 /// See [`changes_in_worktree_with_perm()`].
 #[but_api(napi)]
 #[instrument(err(Debug))]
