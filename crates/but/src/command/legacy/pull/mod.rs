@@ -22,6 +22,7 @@ struct PullResult {
     status: String,
     upstream_url: Option<String>,
     upstream_commits_found: usize,
+    local_target: Option<String>,
     recent_commits: Vec<CommitInfo>,
     branches_to_update: Vec<BranchUpdateInfo>,
     integrated_branches: Vec<String>,
@@ -226,6 +227,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
         status: String::new(),
         upstream_url: None,
         upstream_commits_found: 0,
+        local_target: None,
         recent_commits: vec![],
         branches_to_update: vec![],
         integrated_branches: vec![],
@@ -320,6 +322,12 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
         true
     };
     if !should_check_integration {
+        let outcome = integrate_upstream(ctx, vec![])?;
+        pull_result.local_target = outcome
+            .local_target
+            .as_ref()
+            .map(|target| target.branch.clone());
+        write_local_target_update(out, outcome.local_target.as_ref())?;
         pull_result.status = "up_to_date".to_string();
         if let Some(out) = out.for_human() {
             writeln!(out, "\n{}", t.success.paint("Everything is up to date"))?;
@@ -338,6 +346,12 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
     } = upstream::dry_run_integration(ctx)?;
 
     if base_branch.behind == 0 && !statuses_need_update(&statuses) {
+        let outcome = integrate_upstream(ctx, vec![])?;
+        pull_result.local_target = outcome
+            .local_target
+            .as_ref()
+            .map(|target| target.branch.clone());
+        write_local_target_update(out, outcome.local_target.as_ref())?;
         pull_result.status = "up_to_date".to_string();
         if let Some(out) = out.for_human() {
             writeln!(out, "\n{}", t.success.paint("Everything is up to date"))?;
@@ -421,20 +435,16 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
 
     // Step 3: Actually perform the integration
     if let Some(statuses) = statuses_to_apply {
-        let integration_result = {
-            let updates = but_api::workspace::rebase_stack_bottoms(&current_head_info);
-            let mut ctx = ctx.to_sync().into_thread_local();
-            let mut guard = ctx.exclusive_worktree_access();
-            but_api::workspace::workspace_integrate_upstream_with_perm(
-                &mut ctx,
-                updates,
-                DryRun::No,
-                guard.write_permission(),
-            )
-        };
+        let updates = but_api::workspace::rebase_stack_bottoms(&current_head_info);
+        let integration_result = integrate_upstream(ctx, updates);
 
         match integration_result {
             Ok(outcome) => {
+                pull_result.local_target = outcome
+                    .local_target
+                    .as_ref()
+                    .map(|target| target.branch.clone());
+                write_local_target_update(out, outcome.local_target.as_ref())?;
                 let post_statuses =
                     upstream::classify(&current_head_info, &outcome.workspace_state);
                 // Report detailed results for each resolution
@@ -583,6 +593,37 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
         }
     }
 
+    Ok(())
+}
+
+fn integrate_upstream(
+    ctx: &Context,
+    updates: Vec<but_workspace::BottomUpdate>,
+) -> anyhow::Result<but_api::workspace::WorkspaceIntegrateUpstreamOutcome> {
+    let mut thread_ctx = ctx.to_sync().into_thread_local();
+    let mut guard = thread_ctx.exclusive_worktree_access();
+    but_api::workspace::workspace_integrate_upstream_with_perm(
+        &mut thread_ctx,
+        updates,
+        DryRun::No,
+        guard.write_permission(),
+    )
+}
+
+fn write_local_target_update(
+    out: &mut OutputChannel,
+    target: Option<&but_api::workspace::LocalTargetUpdate>,
+) -> anyhow::Result<()> {
+    let Some(target) = target.filter(|target| target.updated) else {
+        return Ok(());
+    };
+    if let Some(out) = out.for_human() {
+        writeln!(
+            out,
+            "   Fast-forwarded local target {} to {}",
+            target.branch, target.target_id
+        )?;
+    }
     Ok(())
 }
 

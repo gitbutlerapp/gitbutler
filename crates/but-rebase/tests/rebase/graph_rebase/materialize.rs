@@ -452,3 +452,60 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
 
     Ok(())
 }
+
+#[test]
+fn guarded_reference_mismatch_fails_before_checkout() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+    let worktree = repo.workdir().expect("fixture has a worktree");
+    let head_before = repo.rev_parse_single("HEAD")?.detach();
+    let expected = repo.rev_parse_single("HEAD~2")?.detach();
+    let desired = repo.rev_parse_single("HEAD~1")?.detach();
+    let guarded_ref = gix::refs::FullName::try_from("refs/heads/local-target")?;
+    repo.reference(
+        guarded_ref.as_ref(),
+        expected,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "create guarded test ref",
+    )?;
+
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let head_selector = editor.select_commit(head_before)?;
+    editor.replace(head_selector, Step::None)?;
+    let mut rebase = editor.rebase()?;
+    rebase.queue_reference_update(guarded_ref.clone(), expected, desired)?;
+
+    repo.reference(
+        guarded_ref.as_ref(),
+        head_before,
+        gix::refs::transaction::PreviousValue::ExistingMustMatch(expected.into()),
+        "simulate concurrent guarded ref update",
+    )?;
+    let err = rebase
+        .materialize()
+        .expect_err("guarded ref moved after planning");
+
+    assert!(
+        err.to_string().contains("local-target"),
+        "error identifies the guarded ref: {err:#}"
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        head_before,
+        "failed materialization preserves HEAD"
+    );
+    assert!(
+        worktree.join("c").is_file(),
+        "failed materialization preserves the pre-call worktree"
+    );
+    assert_eq!(
+        repo.find_reference(guarded_ref.as_ref())?
+            .peel_to_id()?
+            .detach(),
+        head_before,
+        "failed materialization preserves the concurrent ref update"
+    );
+    Ok(())
+}

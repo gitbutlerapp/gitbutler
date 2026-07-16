@@ -230,6 +230,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             repo: self.repo,
             initial_references: self.initial_references,
             ref_edits,
+            prepare_ref_edits_before_checkout: false,
             graph: output_graph,
             checkouts: self.checkouts.to_owned(),
             history,

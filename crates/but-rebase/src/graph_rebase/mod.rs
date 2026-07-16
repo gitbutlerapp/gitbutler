@@ -13,7 +13,10 @@ use anyhow::{Context, Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
-use gix::refs::transaction::RefEdit;
+use gix::refs::{
+    Target,
+    transaction::{Change, LogChange, PreviousValue, RefEdit},
+};
 
 use crate::graph_rebase::util::collect_ordered_parents;
 
@@ -284,6 +287,8 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     /// Any reference edits that need to be committed as a result of the history
     /// rewrite
     pub(crate) ref_edits: Vec<RefEdit>,
+    /// Whether exact external ref edits must be prepared before checkout.
+    pub(crate) prepare_ref_edits_before_checkout: bool,
     /// The new step graph
     pub(crate) graph: StepGraph,
     pub(crate) checkouts: Vec<Checkout>,
@@ -296,6 +301,36 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
 }
 
 impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
+    /// Queue an exact object-reference update in the same transaction as the rebase edits.
+    ///
+    /// The update fails during materialization if the reference no longer points to
+    /// `expected`. A reference already managed by this rebase cannot be queued twice.
+    pub fn queue_reference_update(
+        &mut self,
+        ref_name: gix::refs::FullName,
+        expected: gix::ObjectId,
+        new: gix::ObjectId,
+    ) -> Result<()> {
+        if self
+            .ref_edits
+            .iter()
+            .any(|edit| edit.name.as_ref() == ref_name.as_ref())
+        {
+            bail!("Reference '{ref_name}' already has a pending rebase edit");
+        }
+        self.ref_edits.push(RefEdit {
+            name: ref_name,
+            change: Change::Update {
+                log: LogChange::default(),
+                expected: PreviousValue::MustExistAndMatch(Target::Object(expected)),
+                new: Target::Object(new),
+            },
+            deref: false,
+        });
+        self.prepare_ref_edits_before_checkout = true;
+        Ok(())
+    }
+
     /// Returns the in-memory repository that backs this rebase preview.
     ///
     /// This repository may contain objects that have not been persisted yet,

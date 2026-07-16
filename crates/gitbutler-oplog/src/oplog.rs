@@ -2,6 +2,7 @@ use std::{
     collections::{BTreeSet, HashMap, hash_map::Entry},
     fs,
     str::{FromStr, from_utf8},
+    time::Duration,
 };
 
 use anyhow::{Context as _, Result, anyhow, bail};
@@ -45,6 +46,11 @@ const AUTO_TRACK_LIMIT_BYTES: u64 = 0;
 /// ├── conflicts/…
 /// ├── index/
 /// ├── index-conflicts/…
+/// ├── local_target/
+/// │   ├── expected_tip
+/// │   ├── ref
+/// │   ├── tip
+/// │   └── tracking_ref
 /// ├── target_tree/…
 /// ├── virtual_branches
 /// │   └── [branch-id]
@@ -62,6 +68,12 @@ pub trait OplogExt {
     /// Returns a tree hash of the snapshot. The snapshot is not discoverable until it is committed with [`commit_snapshot`](Self::commit_snapshot())
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
     fn prepare_snapshot(&self, perm: &RepoShared) -> Result<gix::ObjectId>;
+    /// Prepares a snapshot which also records one local target ref transition.
+    fn prepare_snapshot_with_local_target(
+        &self,
+        local_target: &LocalTargetSnapshot,
+        perm: &RepoShared,
+    ) -> Result<gix::ObjectId>;
 
     /// Commits the snapshot tree that is created with the [`prepare_snapshot`](Self::prepare_snapshot) method,
     /// which yielded the `snapshot_tree_id` for the entire snapshot state.
@@ -150,6 +162,15 @@ impl OplogExt for Context {
         prepare_snapshot(self, perm)
     }
 
+    fn prepare_snapshot_with_local_target(
+        &self,
+        local_target: &LocalTargetSnapshot,
+        perm: &RepoShared,
+    ) -> Result<gix::ObjectId> {
+        prepare_snapshot_with_target(self, perm, Some(local_target))
+            .map(|prepared| prepared.tree_id)
+    }
+
     fn commit_snapshot(
         &self,
         snapshot_tree_id: gix::ObjectId,
@@ -170,7 +191,7 @@ impl OplogExt for Context {
         let PreparedSnapshot {
             tree_id,
             target_base_oid,
-        } = prepare_snapshot_with_target(self, perm.read_permission())?;
+        } = prepare_snapshot_with_target(self, perm.read_permission(), None)?;
         let repo = self.repo.get()?;
         commit_snapshot(self, &repo, tree_id, details, perm, target_base_oid)
     }
@@ -432,7 +453,7 @@ fn restore_index_conflicts(index: &mut gix::index::State, conflict_tree: gix::Id
 }
 
 pub fn prepare_snapshot(ctx: &Context, shared_access: &RepoShared) -> Result<gix::ObjectId> {
-    prepare_snapshot_with_target(ctx, shared_access).map(|prepared| prepared.tree_id)
+    prepare_snapshot_with_target(ctx, shared_access, None).map(|prepared| prepared.tree_id)
 }
 
 struct PreparedSnapshot {
@@ -543,6 +564,7 @@ mod legacy_virtual_branches {
 fn prepare_snapshot_with_target(
     ctx: &Context,
     _shared_access: &RepoShared,
+    local_target: Option<&LocalTargetSnapshot>,
 ) -> Result<PreparedSnapshot> {
     let repo = ctx.repo.get()?;
     let empty_tree_id = repo.empty_tree().id;
@@ -572,6 +594,20 @@ fn prepare_snapshot_with_target(
     snapshot_tree.upsert("target_tree", EntryKind::Tree, target_tree_id)?;
     snapshot_tree.upsert("conflicts", EntryKind::Tree, conflicts_tree_id)?;
     snapshot_tree.upsert("virtual_branches", EntryKind::Tree, empty_tree_id)?;
+    if let Some(local_target) = local_target {
+        for (name, value) in [
+            ("ref", local_target.ref_name.to_string()),
+            ("tracking_ref", local_target.tracking_ref.to_string()),
+            ("tip", local_target.snapshot_tip.to_string()),
+            ("expected_tip", local_target.expected_tip.to_string()),
+        ] {
+            snapshot_tree.upsert(
+                format!("local_target/{name}"),
+                EntryKind::Blob,
+                repo.write_blob(value)?,
+            )?;
+        }
+    }
 
     let legacy_meta_path = {
         let mut legacy_meta = ctx.legacy_meta()?;
@@ -708,6 +744,19 @@ fn commit_snapshot(
     Ok(snapshot_commit_id)
 }
 
+/// A local target ref transition owned by one snapshot.
+#[derive(Debug, Clone)]
+pub struct LocalTargetSnapshot {
+    /// The local branch ref moved by the operation.
+    pub ref_name: gix::refs::FullName,
+    /// The remote-tracking ref which identifies it as the configured local target.
+    pub tracking_ref: gix::refs::FullName,
+    /// The tip restored when this snapshot is selected.
+    pub snapshot_tip: gix::ObjectId,
+    /// The tip which must currently be present before restoring `snapshot_tip`.
+    pub expected_tip: gix::ObjectId,
+}
+
 /// The kind of restore to perform.
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -743,15 +792,29 @@ fn restore_snapshot(
 ) -> Result<gix::ObjectId> {
     // Use a separate repo without caching so we are sure the 'has commit' checks pick up all changes.
     let repo = ctx.repo.get()?;
-
-    let before_restore_snapshot_tree_id =
-        prepare_snapshot(ctx, exclusive_access.read_permission())?;
+    let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
+    let snapshot_tree = snapshot_commit.tree()?;
+    let local_target_restore = prepare_local_target_restore(&snapshot_tree, &repo)?;
+    let local_target_transaction = local_target_restore
+        .as_ref()
+        .filter(|restore| restore.current_tip != restore.desired_tip)
+        .map(|restore| {
+            let (files_timeout, packed_timeout) = reference_lock_timeouts(&repo);
+            repo.refs
+                .transaction()
+                .prepare([restore.ref_edit()], files_timeout, packed_timeout)
+        })
+        .transpose()?;
+    let before_restore_snapshot_tree_id = match local_target_restore.as_ref() {
+        Some(local_target) => ctx.prepare_snapshot_with_local_target(
+            &local_target.inverse_snapshot(),
+            exclusive_access.read_permission(),
+        )?,
+        None => prepare_snapshot(ctx, exclusive_access.read_permission())?,
+    };
     let before_restore_snapshot_workdir_tree_id =
         get_v3_workdir_tree(repo.find_tree(before_restore_snapshot_tree_id)?)?
             .context("Could not get workdir tree of snapshot created before the restore")?;
-    let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
-
-    let snapshot_tree = snapshot_commit.tree()?;
     let vb_toml_entry = snapshot_tree
         .lookup_entry_by_path("virtual_branches.toml")?
         .context("failed to get virtual_branches.toml blob")?;
@@ -880,6 +943,9 @@ fn restore_snapshot(
         .lookup_entry_by_path("index-conflicts")?
         .map(|entry| entry.id().detach());
     reset_index_to_tree(ctx, index_tree_entry.id().detach(), index_conflicts_tree_id)?;
+    if let Some(transaction) = local_target_transaction {
+        transaction.commit(repo.committer().transpose()?)?;
+    }
 
     let restored_operation = snapshot_commit
         .message_raw()?
@@ -917,6 +983,135 @@ fn restore_snapshot(
         exclusive_access,
         target,
     )
+}
+
+struct LocalTargetRestore {
+    ref_name: gix::refs::FullName,
+    tracking_ref: gix::refs::FullName,
+    current_tip: gix::ObjectId,
+    desired_tip: gix::ObjectId,
+}
+
+fn prepare_local_target_restore(
+    snapshot_tree: &gix::Tree,
+    repo: &gix::Repository,
+) -> Result<Option<LocalTargetRestore>> {
+    let Some(ref_name) = snapshot_blob(snapshot_tree, repo, "local_target/ref")? else {
+        return Ok(None);
+    };
+    let tracking_ref = snapshot_blob(snapshot_tree, repo, "local_target/tracking_ref")?
+        .context("snapshot local target is missing its tracking ref")?;
+    let desired_tip = snapshot_blob(snapshot_tree, repo, "local_target/tip")?
+        .context("snapshot local target is missing its tip")?;
+    let expected_tip = snapshot_blob(snapshot_tree, repo, "local_target/expected_tip")?
+        .context("snapshot local target is missing its expected tip")?;
+    let ref_name = gix::refs::FullName::try_from(gix::bstr::BString::from(ref_name))?;
+    let tracking_ref = gix::refs::FullName::try_from(gix::bstr::BString::from(tracking_ref))?;
+    let desired_tip = gix::ObjectId::from_hex(&desired_tip)?;
+    let expected_tip = gix::ObjectId::from_hex(&expected_tip)?;
+
+    let current_tip = validate_local_target(repo, ref_name.as_ref(), tracking_ref.as_ref())?;
+    if current_tip != desired_tip && current_tip != expected_tip {
+        bail!(
+            "local target '{}' changed since the snapshot: found {current_tip}, expected {expected_tip}",
+            ref_name.shorten()
+        );
+    }
+
+    Ok(Some(LocalTargetRestore {
+        ref_name,
+        tracking_ref,
+        current_tip,
+        desired_tip,
+    }))
+}
+
+impl LocalTargetRestore {
+    fn inverse_snapshot(&self) -> LocalTargetSnapshot {
+        LocalTargetSnapshot {
+            ref_name: self.ref_name.clone(),
+            tracking_ref: self.tracking_ref.clone(),
+            snapshot_tip: self.current_tip,
+            expected_tip: self.desired_tip,
+        }
+    }
+
+    fn ref_edit(&self) -> gix::refs::transaction::RefEdit {
+        gix::refs::transaction::RefEdit {
+            name: self.ref_name.clone(),
+            change: gix::refs::transaction::Change::Update {
+                log: gix::refs::transaction::LogChange::default(),
+                expected: gix::refs::transaction::PreviousValue::MustExistAndMatch(
+                    self.current_tip.into(),
+                ),
+                new: self.desired_tip.into(),
+            },
+            deref: false,
+        }
+    }
+}
+
+fn reference_lock_timeouts(
+    repo: &gix::Repository,
+) -> (gix::lock::acquire::Fail, gix::lock::acquire::Fail) {
+    fn read(
+        repo: &gix::Repository,
+        key: &'static gix::config::tree::keys::LockTimeout,
+        default_ms: u64,
+    ) -> gix::lock::acquire::Fail {
+        let mut trusted = gix::config::section::is_trusted;
+        repo.config_snapshot()
+            .plumbing()
+            .integer_filter(key, &mut trusted)
+            .and_then(|value| key.try_into_lock_timeout(value).ok())
+            .unwrap_or_else(|| Duration::from_millis(default_ms).into())
+    }
+
+    (
+        read(repo, &gix::config::tree::Core::FILES_REF_LOCK_TIMEOUT, 100),
+        read(repo, &gix::config::tree::Core::PACKED_REFS_TIMEOUT, 1000),
+    )
+}
+
+fn validate_local_target(
+    repo: &gix::Repository,
+    ref_name: &gix::refs::FullNameRef,
+    tracking_ref: &gix::refs::FullNameRef,
+) -> Result<gix::ObjectId> {
+    let mut reference = repo
+        .try_find_reference(ref_name)?
+        .with_context(|| format!("local target '{}' no longer exists", ref_name.shorten()))?;
+    let actual_tracking_ref = repo
+        .branch_remote_tracking_ref_name(ref_name, gix::remote::Direction::Fetch)
+        .transpose()?
+        .with_context(|| {
+            format!(
+                "local target '{}' no longer has an upstream",
+                ref_name.shorten()
+            )
+        })?;
+    if actual_tracking_ref.as_ref() != tracking_ref {
+        bail!(
+            "local target '{}' now tracks '{}' instead of '{}'",
+            ref_name.shorten(),
+            actual_tracking_ref.shorten(),
+            tracking_ref.shorten()
+        );
+    }
+    if let Some(paths) = but_core::branch::SafeDelete::new(repo)?.worktree_dirs_with_ref(&reference)
+    {
+        bail!(
+            "local target '{}' is checked out in: {paths:?}",
+            ref_name.shorten()
+        );
+    }
+    Ok(reference.peel_to_id()?.detach())
+}
+
+fn snapshot_blob(tree: &gix::Tree, repo: &gix::Repository, path: &str) -> Result<Option<Vec<u8>>> {
+    tree.lookup_entry_by_path(path)?
+        .map(|entry| Ok(repo.find_blob(entry.id())?.data.to_vec()))
+        .transpose()
 }
 
 /// Restore the state of .git/base_merge_parent and .git/conflicts from the snapshot

@@ -155,7 +155,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = ["s
 
 [dev-dependencies]
 but-api = { path = ".", features = ["legacy"] }
-but-testsupport.workspace = true
+but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
 gitbutler-oplog.workspace = true
 snapbox.workspace = true
 tempfile.workspace = true

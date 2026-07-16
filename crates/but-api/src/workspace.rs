@@ -7,6 +7,7 @@ use std::{
 };
 
 use crate::WorkspaceState;
+use anyhow::Context as _;
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
@@ -15,7 +16,7 @@ use but_core::{
 };
 use but_error::AnyhowContextExt as _;
 use but_forge::ForgeReview;
-use but_oplog::legacy::{OperationKind, SnapshotDetails};
+use but_oplog::legacy::{LocalTargetSnapshot, OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_serde::BStringForFrontend;
 use but_workspace::{
@@ -281,6 +282,31 @@ pub struct WorkspaceIntegrateUpstreamOutcome {
     pub workspace_state: WorkspaceState,
     /// Dirty worktree paths that would conflict when applied onto the resulting workspace head.
     pub worktree_conflicts: Vec<BStringForFrontend>,
+    /// The local branch configured to track the target, if exactly one exists.
+    pub local_target: Option<LocalTargetUpdate>,
+}
+
+/// Result of synchronizing the local branch that uniquely tracks the target.
+#[derive(Debug, Clone)]
+pub struct LocalTargetUpdate {
+    /// Short local branch name.
+    pub branch: String,
+    /// Whether this operation advanced the branch.
+    pub updated: bool,
+    /// Target commit the local branch is synchronized with.
+    pub target_id: gix::ObjectId,
+}
+
+struct LocalTargetUpdatePlan {
+    outcome: Option<LocalTargetUpdate>,
+    edit: Option<LocalTargetRefEdit>,
+}
+
+struct LocalTargetRefEdit {
+    ref_name: gix::refs::FullName,
+    tracking_ref: gix::refs::FullName,
+    previous_tip: gix::ObjectId,
+    current_tip: gix::ObjectId,
 }
 
 /// JSON transport types for workspace APIs.
@@ -359,6 +385,152 @@ pub mod json {
                 worktree_conflicts: value.worktree_conflicts,
             })
         }
+    }
+}
+
+fn plan_local_tracking_target_update(
+    ctx: &but_ctx::Context,
+    repo: &gix::Repository,
+) -> anyhow::Result<LocalTargetUpdatePlan> {
+    let target_ref_name = ctx.project_meta()?.target_ref_or_err()?.clone();
+    let target_tip = repo
+        .try_find_reference(target_ref_name.as_ref())?
+        .with_context(|| format!("target '{}' no longer exists", target_ref_name.shorten()))?
+        .peel_to_id()?
+        .detach();
+    let mut local_ref: Option<gix::Reference<'_>> = None;
+    for candidate in repo.references()?.local_branches()? {
+        let candidate = candidate.map_err(anyhow::Error::from_boxed)?;
+        let tracks_target = match repo
+            .branch_remote_tracking_ref_name(candidate.name(), gix::remote::Direction::Fetch)
+            .transpose()
+        {
+            Ok(Some(tracking_ref)) => tracking_ref.as_ref() == target_ref_name.as_ref(),
+            Ok(None) | Err(_) => false,
+        };
+        if !tracks_target {
+            continue;
+        }
+        if let Some(existing) = &local_ref {
+            anyhow::bail!(
+                "Cannot fast-forward a local target: both '{}' and '{}' are configured to track '{}'",
+                existing.name().shorten(),
+                candidate.name().shorten(),
+                target_ref_name.shorten()
+            );
+        }
+        local_ref = Some(candidate);
+    }
+    let Some(mut local_ref) = local_ref else {
+        return Ok(LocalTargetUpdatePlan {
+            outcome: None,
+            edit: None,
+        });
+    };
+
+    let local_ref_name = local_ref.name().to_owned();
+    let local_tip = local_ref.peel_to_id()?.detach();
+    if local_tip == target_tip {
+        return Ok(LocalTargetUpdatePlan {
+            outcome: Some(LocalTargetUpdate {
+                branch: local_ref_name.shorten().to_string(),
+                updated: false,
+                target_id: target_tip,
+            }),
+            edit: None,
+        });
+    }
+    let merge_base = match repo.merge_base(local_tip, target_tip) {
+        Ok(id) => Some(id.detach()),
+        Err(gix::repository::merge_base::Error::FindMergeBase(_))
+        | Err(gix::repository::merge_base::Error::NotFound { .. }) => None,
+        Err(err) => return Err(err.into()),
+    };
+    if merge_base != Some(local_tip) {
+        anyhow::bail!(
+            "Cannot fast-forward local target '{}' from {local_tip} to {target_tip}: it has diverged from '{}'",
+            local_ref_name.shorten(),
+            target_ref_name.shorten()
+        );
+    }
+    let checkout_probe = but_core::branch::SafeDelete::new(repo)?;
+    if let Some(paths) = checkout_probe.worktree_dirs_with_ref(&local_ref) {
+        anyhow::bail!(
+            "Cannot fast-forward local target '{}' because it is checked out in: {paths:?}",
+            local_ref_name.shorten()
+        );
+    }
+
+    Ok(LocalTargetUpdatePlan {
+        outcome: Some(LocalTargetUpdate {
+            branch: local_ref_name.shorten().to_string(),
+            updated: true,
+            target_id: target_tip,
+        }),
+        edit: Some(LocalTargetRefEdit {
+            ref_name: local_ref_name,
+            tracking_ref: target_ref_name,
+            previous_tip: local_tip,
+            current_tip: target_tip,
+        }),
+    })
+}
+
+impl LocalTargetRefEdit {
+    fn snapshot(&self) -> LocalTargetSnapshot {
+        LocalTargetSnapshot {
+            ref_name: self.ref_name.clone(),
+            tracking_ref: self.tracking_ref.clone(),
+            snapshot_tip: self.previous_tip,
+            expected_tip: self.current_tip,
+        }
+    }
+
+    fn validate(&self, repo: &gix::Repository) -> anyhow::Result<()> {
+        let reference = repo
+            .try_find_reference(self.ref_name.as_ref())?
+            .with_context(|| {
+                format!(
+                    "local target '{}' no longer exists",
+                    self.ref_name.shorten()
+                )
+            })?;
+        let current_tracking_ref = repo
+            .branch_remote_tracking_ref_name(self.ref_name.as_ref(), gix::remote::Direction::Fetch)
+            .transpose()?
+            .with_context(|| {
+                format!(
+                    "local target '{}' no longer has an upstream",
+                    self.ref_name.shorten()
+                )
+            })?;
+        if current_tracking_ref.as_ref() != self.tracking_ref.as_ref() {
+            anyhow::bail!(
+                "local target '{}' now tracks '{}' instead of '{}'",
+                self.ref_name.shorten(),
+                current_tracking_ref.shorten(),
+                self.tracking_ref.shorten()
+            );
+        }
+        let tracking_tip = repo
+            .find_reference(self.tracking_ref.as_ref())?
+            .peel_to_id()?
+            .detach();
+        if tracking_tip != self.current_tip {
+            anyhow::bail!(
+                "target '{}' moved from {} to {tracking_tip} during integration",
+                self.tracking_ref.shorten(),
+                self.current_tip
+            );
+        }
+        let checkout_probe = but_core::branch::SafeDelete::new(repo)?;
+        if let Some(paths) = checkout_probe.worktree_dirs_with_ref(&reference) {
+            anyhow::bail!(
+                "local target '{}' is checked out in: {paths:?}",
+                self.ref_name.shorten()
+            );
+        }
+        Ok(())
     }
 }
 
@@ -521,14 +693,31 @@ pub fn workspace_integrate_upstream_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-        ctx,
-        SnapshotDetails::new(OperationKind::MergeUpstream),
-        perm.read_permission(),
-        dry_run,
-    );
+    let local_target_plan = {
+        let repo = ctx.repo.get()?;
+        plan_local_tracking_target_update(ctx, &repo)?
+    };
+    let details = SnapshotDetails::new(OperationKind::MergeUpstream);
+    let maybe_oplog_entry = match local_target_plan.edit.as_ref() {
+        Some(edit) => {
+            but_oplog::UnmaterializedOplogSnapshot::from_details_with_local_target_with_perm(
+                ctx,
+                details,
+                &edit.snapshot(),
+                perm.read_permission(),
+                dry_run,
+            )
+        }
+        None => but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+            ctx,
+            details,
+            perm.read_permission(),
+            dry_run,
+        ),
+    };
 
-    let result = workspace_integrate_upstream_only_with_perm(ctx, updates, dry_run, perm);
+    let result =
+        workspace_integrate_upstream_only_with_plan(ctx, updates, dry_run, perm, local_target_plan);
     if let Some(snapshot) = maybe_oplog_entry
         && result.is_ok()
     {
@@ -549,6 +738,20 @@ pub fn workspace_integrate_upstream_only_with_perm(
     updates: Vec<but_workspace::BottomUpdate>,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
+) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
+    let local_target_plan = {
+        let repo = ctx.repo.get()?;
+        plan_local_tracking_target_update(ctx, &repo)?
+    };
+    workspace_integrate_upstream_only_with_plan(ctx, updates, dry_run, perm, local_target_plan)
+}
+
+fn workspace_integrate_upstream_only_with_plan(
+    ctx: &mut but_ctx::Context,
+    updates: Vec<but_workspace::BottomUpdate>,
+    dry_run: DryRun,
+    perm: &mut RepoExclusive,
+    local_target_plan: LocalTargetUpdatePlan,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut meta = ctx.meta()?;
     let (workspace_state, worktree_conflicts) = {
@@ -578,6 +781,15 @@ pub fn workspace_integrate_upstream_only_with_perm(
         )?;
         let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 
+        if let Some(edit) = local_target_plan.edit.as_ref() {
+            edit.validate(&repo)?;
+            rebase.queue_reference_update(
+                edit.ref_name.clone(),
+                edit.previous_tip,
+                edit.current_tip,
+            )?;
+        }
+
         if dry_run.into() {
             let replaced_commits = rebase.history.commit_mappings();
             let workspace_state =
@@ -585,6 +797,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             return Ok(WorkspaceIntegrateUpstreamOutcome {
                 workspace_state,
                 worktree_conflicts,
+                local_target: local_target_plan.outcome,
             });
         }
 
@@ -615,6 +828,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
     Ok(WorkspaceIntegrateUpstreamOutcome {
         workspace_state,
         worktree_conflicts,
+        local_target: local_target_plan.outcome,
     })
 }
 
@@ -623,8 +837,8 @@ mod tests {
     use super::{
         review_integration_hints_from_reviews, target_branch_name, workspace_fetch_from_remotes,
     };
-    use but_core::RefMetadata;
-    use but_testsupport::{CommandExt, git_at_dir, open_repo};
+    use but_core::{DryRun, RefMetadata};
+    use but_testsupport::{CommandExt, Sandbox, git_at_dir, open_repo};
     use std::collections::HashSet;
     use std::path::Path;
 
@@ -678,6 +892,37 @@ mod tests {
         assert!(
             ctx.meta()?.branch_stack_order(main.as_ref())?.is_none(),
             "failed fetch should still prune missing branch-order references"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn workspace_integration_fast_forwards_unique_local_tracking_target() -> anyhow::Result<()> {
+        let env = Sandbox::init_scenario_with_target_and_default_settings(
+            "../../../../but/tests/fixtures/scenario/zero-stacks",
+        );
+        env.setup_metadata(&[]);
+        env.set_target_sha("origin/main");
+        env.invoke_git("config user.name GitButler");
+        env.invoke_git("config user.email gitbutler@example.com");
+        let old_target = env.invoke_git("rev-parse main");
+        env.invoke_git("branch -m main trunk");
+        env.invoke_git("config branch.trunk.remote origin");
+        env.invoke_git("config branch.trunk.merge refs/heads/main");
+        let new_target = env.invoke_git(&format!(
+            "commit-tree {old_target}^{{tree}} -p {old_target} -m upstream-change"
+        ));
+        env.invoke_git(&format!(
+            "update-ref refs/remotes/origin/main {new_target} {old_target}"
+        ));
+        let mut ctx = env.context();
+
+        super::workspace_integrate_upstream(&mut ctx, vec![], DryRun::No)?;
+
+        assert_eq!(
+            env.invoke_git("rev-parse trunk"),
+            new_target,
+            "the shared integration API should advance the unique local branch tracking its target"
         );
         Ok(())
     }

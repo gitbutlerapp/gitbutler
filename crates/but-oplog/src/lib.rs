@@ -68,7 +68,10 @@ pub struct UnmaterializedOplogSnapshot {
 /// legacy types for easy of use, all provided by `gitbutler-oplog`.
 #[cfg(feature = "legacy")]
 pub mod legacy {
-    pub use gitbutler_oplog::entry::{OperationKind, SnapshotDetails, Trailer};
+    pub use gitbutler_oplog::{
+        LocalTargetSnapshot,
+        entry::{OperationKind, SnapshotDetails, Trailer},
+    };
 }
 
 #[cfg(feature = "legacy")]
@@ -99,6 +102,31 @@ mod oplog_snapshot {
             }
 
             let tree_id = match ctx.prepare_snapshot(perm) {
+                Ok(tree_id) => tree_id,
+                Err(err) => {
+                    tracing::warn!(?err, "Failed to prepare unmaterialized oplog snapshot");
+                    return None;
+                }
+            };
+            Some(Self { tree_id, details })
+        }
+
+        /// Create a pending snapshot that also records a guarded local target update.
+        ///
+        /// This has the same dry-run and best-effort behavior as
+        /// [`Self::from_details_with_perm`].
+        pub fn from_details_with_local_target_with_perm(
+            ctx: &but_ctx::Context,
+            details: gitbutler_oplog::entry::SnapshotDetails,
+            local_target: &gitbutler_oplog::LocalTargetSnapshot,
+            perm: &RepoShared,
+            dry_run: DryRun,
+        ) -> Option<Self> {
+            if dry_run.into() {
+                return None;
+            }
+
+            let tree_id = match ctx.prepare_snapshot_with_local_target(local_target, perm) {
                 Ok(tree_id) => tree_id,
                 Err(err) => {
                     tracing::warn!(?err, "Failed to prepare unmaterialized oplog snapshot");

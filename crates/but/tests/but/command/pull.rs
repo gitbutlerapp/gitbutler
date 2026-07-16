@@ -387,6 +387,236 @@ Hint: run `but branch new` to create a new branch to work on
 }
 
 #[test]
+fn pull_local_target_fast_forwards_tracking_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+
+    assert_eq!(
+        env.invoke_git("rev-parse --symbolic-full-name trunk@{upstream}"),
+        "refs/remotes/origin/main"
+    );
+    assert_eq!(rev_parse(&env, "trunk")?, remote.previous_main);
+
+    let output = pull_json(&env)?;
+    assert_eq!(output["localTarget"], "trunk");
+
+    assert_eq!(rev_parse(&env, "origin/main")?, remote.advanced_target);
+    assert_eq!(rev_parse(&env, "trunk")?, remote.advanced_target);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_undo_redo_restores_tracking_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+
+    env.but("pull").assert().success();
+    assert_eq!(rev_parse(&env, "trunk")?, remote.advanced_target);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target
+    );
+
+    env.but("undo").assert().success();
+    assert_eq!(rev_parse(&env, "trunk")?, remote.previous_main);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.previous_main
+    );
+
+    env.but("redo").assert().success();
+    assert_eq!(rev_parse(&env, "trunk")?, remote.advanced_target);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_updates_when_the_workspace_is_already_current() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+
+    env.but("pull").assert().success();
+    env.invoke_git(&format!("branch -f main {}", remote.previous_main));
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target
+    );
+    assert_eq!(rev_parse(&env, "main")?, remote.previous_main);
+
+    env.but("pull").assert().success();
+    assert_eq!(rev_parse(&env, "main")?, remote.advanced_target);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target
+    );
+
+    env.but("undo").assert().success();
+    assert_eq!(rev_parse(&env, "main")?, remote.previous_main);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target
+    );
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_undo_refuses_new_local_history() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+
+    env.but("pull").assert().success();
+    env.invoke_git("checkout trunk");
+    env.invoke_git("commit --allow-empty -m local-after-pull");
+    let local_tip = rev_parse(&env, "trunk")?;
+    env.invoke_git("checkout gitbutler/workspace");
+    let workspace_before_undo = rev_parse(&env, "gitbutler/workspace")?;
+
+    assert_command_error(
+        &env,
+        "undo",
+        &[
+            "changed since the snapshot",
+            &local_tip,
+            &remote.advanced_target,
+        ],
+    )?;
+    assert_eq!(rev_parse(&env, "trunk")?, local_tip);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace")?,
+        workspace_before_undo,
+        "failed undo preserves the exact workspace commit"
+    );
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target
+    );
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_undo_refuses_a_checked_out_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch -m main trunk");
+
+    env.but("pull").assert().success();
+    let root = tempfile::tempdir()?;
+    let linked = root.path().join("trunk-worktree");
+    env.invoke_git(&format!("worktree add {} trunk", linked.display()));
+
+    assert_command_error(&env, "undo", &["trunk-worktree"])?;
+    assert_eq!(rev_parse(&env, "trunk")?, remote.advanced_target);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target
+    );
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_leaves_unconfigured_branch_unchanged() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch --unset-upstream main");
+
+    let output = pull_json(&env)?;
+    assert!(output["localTarget"].is_null());
+
+    assert_eq!(rev_parse(&env, "main")?, remote.previous_main);
+    assert_eq!(rev_parse(&env, "origin/main")?, remote.advanced_target);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.advanced_target
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_refuses_ambiguous_tracking_branches() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("branch trunk main");
+    env.invoke_git("branch --set-upstream-to origin/main trunk");
+
+    assert_command_error(
+        &env,
+        "pull",
+        &["both 'main' and 'trunk' are configured to track 'origin/main'"],
+    )?;
+    assert_eq!(rev_parse(&env, "main")?, remote.previous_main);
+    assert_eq!(rev_parse(&env, "trunk")?, remote.previous_main);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.previous_main
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_refuses_divergence() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    env.invoke_git("checkout main");
+    env.invoke_git("commit --allow-empty -m local-divergence");
+    let diverged_main = rev_parse(&env, "main")?;
+    env.invoke_git("checkout gitbutler/workspace");
+
+    assert_command_error(
+        &env,
+        "pull",
+        &["has diverged", &diverged_main, &remote.advanced_target],
+    )?;
+    assert_eq!(rev_parse(&env, "main")?, diverged_main);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.previous_main
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pull_local_target_refuses_checked_out_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata_at_target(&[], "origin/main");
+    let remote = setup_advanced_remote(&env)?;
+    let linked_root = tempfile::tempdir()?;
+    let linked_worktree = linked_root.path().join("main-worktree");
+    env.invoke_git(&format!("worktree add {} main", linked_worktree.display()));
+
+    assert_command_error(&env, "pull", &["checked out", "main-worktree"])?;
+    assert_eq!(rev_parse(&env, "main")?, remote.previous_main);
+    assert_eq!(
+        rev_parse(&env, "gitbutler/workspace^")?,
+        remote.previous_main
+    );
+
+    Ok(())
+}
+
+#[test]
 fn pull_does_not_report_branch_rebase_conflicts_as_worktree_conflicts() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-branch-and-dirty-worktree-conflict",
@@ -676,7 +906,7 @@ fn pull_does_not_write_conflict_markers_into_uncommitted_files() -> anyhow::Resu
 }
 
 #[test]
-fn pull_reports_worktree_conflict_paths() -> anyhow::Result<()> {
+fn pull_local_target_stays_put_when_worktree_conflicts_block_integration() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-dirty-worktree-conflicts-with-clean-rebase",
     );
@@ -685,6 +915,7 @@ fn pull_reports_worktree_conflict_paths() -> anyhow::Result<()> {
     // The branch rebases cleanly, but this uncommitted edit conflicts with the upstream change
     // to `shared.txt` on the resulting workspace head.
     env.file("shared.txt", "dirty local\nmore local work\n");
+    let local_target = rev_parse(&env, "main")?;
 
     env.but("pull").assert().success().stdout_eq(str![[r#"
 
@@ -696,6 +927,11 @@ There are uncommitted changes in the worktree that conflict with the updates:
 Please commit or stash them and try again.
 
 "#]]);
+    assert_eq!(
+        rev_parse(&env, "main")?,
+        local_target,
+        "a worktree conflict must stop before the local target moves"
+    );
 
     Ok(())
 }
@@ -739,6 +975,68 @@ fn rev_parse(env: &Sandbox, spec: &str) -> anyhow::Result<String> {
         anyhow::bail!("expected exactly one rev for {spec}, got {values:?}");
     };
     Ok(value.clone())
+}
+
+fn pull_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
+    let output = env
+        .but("--format json pull")
+        .allow_json()
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    Ok(serde_json::from_slice(&output)?)
+}
+
+fn assert_command_error(env: &Sandbox, command: &str, expected: &[&str]) -> anyhow::Result<()> {
+    let output = env.but(command).output()?;
+    assert!(!output.status.success());
+    let error = String::from_utf8_lossy(&output.stderr);
+    for text in expected {
+        assert!(error.contains(text), "missing {text:?} in stderr:\n{error}");
+    }
+    Ok(())
+}
+
+struct AdvancedRemote {
+    _root: tempfile::TempDir,
+    previous_main: String,
+    advanced_target: String,
+}
+
+fn setup_advanced_remote(env: &Sandbox) -> anyhow::Result<AdvancedRemote> {
+    let previous_main = rev_parse(env, "main")?;
+    let root = tempfile::tempdir()?;
+    let upstream_git = root.path().join("upstream.git");
+    let upstream_work = root.path().join("upstream-work");
+    env.invoke_git(&format!("init --bare {}", upstream_git.display()));
+    env.invoke_git(&format!("remote set-url origin {}", upstream_git.display()));
+    env.invoke_git("push --set-upstream origin main");
+    env.invoke_git(&format!(
+        "--git-dir={} symbolic-ref HEAD refs/heads/main",
+        upstream_git.display()
+    ));
+    env.invoke_git(&format!(
+        "clone {} {}",
+        upstream_git.display(),
+        upstream_work.display()
+    ));
+    env.invoke_git(&format!(
+        "-C {} -c user.name=Test -c user.email=test@example.com \
+         commit --allow-empty -m upstream-change",
+        upstream_work.display()
+    ));
+    env.invoke_git(&format!("-C {} push origin main", upstream_work.display()));
+    let advanced_target = env.invoke_git(&format!(
+        "--git-dir={} rev-parse main",
+        upstream_git.display()
+    ));
+    Ok(AdvancedRemote {
+        _root: root,
+        previous_main,
+        advanced_target,
+    })
 }
 
 fn rev_parse_all(env: &Sandbox, spec: &str) -> anyhow::Result<Vec<String>> {
