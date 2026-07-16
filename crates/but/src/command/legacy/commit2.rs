@@ -10,7 +10,7 @@ use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, branch::create_reference::Anchor};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gix::refs::FullName;
+use gix::{prelude::ObjectIdExt as _, refs::FullName};
 use nonempty::NonEmpty;
 use serde::Serialize;
 
@@ -36,6 +36,7 @@ use crate::{
 #[must_use]
 pub struct CommitOutcome {
     pub new_commit: gix::ObjectId,
+    pub change_id: but_core::ChangeId,
     pub branch_name: Option<BranchNameTarget>,
 }
 
@@ -49,24 +50,26 @@ pub enum BranchNameTarget {
 impl CliOutputHuman for CommitOutcome {
     fn on_human(self, out: &mut dyn WriteWithUtils, _theme: &Theme) -> anyhow::Result<()> {
         let Self {
-            new_commit,
+            new_commit: _,
+            change_id,
             branch_name,
         } = self;
+        let change_id = theme::ChangeId(&change_id);
 
         match branch_name {
             Some(BranchNameTarget::New(branch_name)) => writeln!(
                 out,
                 "Created commit {} on new branch {}",
-                theme::Commit(new_commit),
+                change_id,
                 theme::Branch(branch_name),
             )?,
             Some(BranchNameTarget::Existing(branch_name)) => writeln!(
                 out,
                 "Created commit {} on branch {}",
-                theme::Commit(new_commit),
+                change_id,
                 theme::Branch(branch_name),
             )?,
-            None => writeln!(out, "Created commit {}", theme::Commit(new_commit))?,
+            None => writeln!(out, "Created commit {change_id}")?,
         }
 
         Ok(())
@@ -76,10 +79,11 @@ impl CliOutputHuman for CommitOutcome {
 impl CliOutput for CommitOutcome {
     fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
         let Self {
-            new_commit,
+            new_commit: _,
+            change_id,
             branch_name: _,
         } = self;
-        writeln!(out, "{}", new_commit.to_hex_with_len(7))?;
+        writeln!(out, "{change_id}")?;
         Ok(())
     }
 
@@ -87,12 +91,14 @@ impl CliOutput for CommitOutcome {
         #[derive(Serialize)]
         struct Output {
             commit: HexHash,
+            change_id: String,
             #[serde(skip_serializing_if = "Option::is_none")]
             branch: Option<String>,
         }
 
         let Self {
             new_commit,
+            change_id,
             branch_name,
         } = self;
 
@@ -103,6 +109,7 @@ impl CliOutput for CommitOutcome {
 
         Output {
             commit: new_commit.into(),
+            change_id: change_id.to_string(),
             branch: branch_name,
         }
     }
@@ -285,8 +292,12 @@ pub fn run(
         },
     )?;
 
+    let repo = ctx.repo.get()?;
+    let change_id = but_core::Commit::from_id(new_commit.attach(&repo))?.change_id();
+
     Ok(CommitOutcome {
         new_commit,
+        change_id,
         branch_name,
     })
 }

@@ -616,15 +616,26 @@ where
     }
 }
 
+/// Minimum number of change ID characters shown in human-readable output.
+pub(crate) const MIN_DISPLAYED_CHANGE_ID_CHARS: usize = 3;
+
+pub struct ChangeId<'a>(pub &'a but_core::ChangeId);
+
+impl Display for ChangeId<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let short_id = self.0[..MIN_DISPLAYED_CHANGE_ID_CHARS.min(self.0.len())].to_str_lossy();
+        write!(f, "{}", get().change_id.paint(short_id))
+    }
+}
+
 pub struct Commit(pub gix::ObjectId);
 
 impl Display for Commit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let t = get();
         write!(
             f,
             "{}",
-            t.commit_id.paint(self.0.to_hex_with_len(7).to_string())
+            get().commit_id.paint(self.0.to_hex_with_len(7).to_string())
         )
     }
 }
@@ -639,11 +650,10 @@ impl Display for Branch<FullName> {
 
 impl Display for Branch<&FullName> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let t = get();
         write!(
             f,
             "'{}'",
-            t.local_branch.paint(self.0.shorten().to_str_lossy())
+            get().local_branch.paint(self.0.shorten().to_str_lossy())
         )
     }
 }
@@ -651,6 +661,12 @@ impl Display for Branch<&FullName> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn change_id_is_shortened_to_three_characters() {
+        let change_id = but_core::ChangeId::from_number_for_testing(123456);
+        assert_eq!(ChangeId(&change_id).to_string(), "123");
+    }
 
     #[test]
     fn round_trip_default_theme_through_json() {

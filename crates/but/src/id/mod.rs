@@ -19,9 +19,12 @@ use gix::hash::hasher;
 use nonempty::NonEmpty;
 use self_cell::self_cell;
 
-use crate::id::{
-    file_info::FileInfo, id_usage::UintId, stacks_info::StacksInfo,
-    uncommitted_info::UncommittedInfo,
+use crate::{
+    id::{
+        file_info::FileInfo, id_usage::UintId, stacks_info::StacksInfo,
+        uncommitted_info::UncommittedInfo,
+    },
+    theme::MIN_DISPLAYED_CHANGE_ID_CHARS,
 };
 
 mod file_info;
@@ -264,10 +267,6 @@ pub struct ChangeIdWithShortId {
     /// The shortened version of [`Self::change_id`]
     pub short_id: ShortId,
 }
-
-/// The minimum number of change ID characters displayed for a commit, so that
-/// short IDs remain visually distinctive.
-pub(crate) const MIN_DISPLAYED_CHANGE_ID_CHARS: usize = 3;
 
 impl ChangeIdWithShortId {
     /// The short ID padded with further change ID characters to

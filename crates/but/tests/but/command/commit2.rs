@@ -36,7 +36,7 @@ fn no_args_single_head_no_message_human_output() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 7bbfdca on branch 'A'
+Created commit 1 on branch 'A'
 
 "#]]);
 
@@ -59,6 +59,23 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn human_output_shortens_change_id_to_three_characters() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.invoke_git("config --local gitbutler.testing.changeId 123456");
+
+    env.file("file.txt", "Some text");
+
+    env.but("_commit2 --no-message")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created commit 123 on branch 'A'
+
+"#]]);
+}
+
+#[test]
 fn no_args_single_head_no_message_shell_output() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
@@ -69,7 +86,7 @@ fn no_args_single_head_no_message_shell_output() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-7bbfdca
+1
 
 "#]]);
 }
@@ -86,7 +103,8 @@ fn no_args_single_head_no_message_json_output() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 {
-  "commit": "7bbfdca68284535242b93595db5f6a5bc885a124"
+  "commit": "7bbfdca68284535242b93595db5f6a5bc885a124",
+  "change_id": "1"
 }
 
 "#]]);
@@ -477,6 +495,7 @@ fn newly_created_branches_are_included_in_json_output() {
         .stdout_eq(snapbox::str![[r#"
 {
   "commit": "5a6fc56305c69edc974a5ed2d100c525db8fd288",
+  "change_id": "1",
   "branch": "foo"
 }
 

@@ -537,6 +537,7 @@ where
 
     let commit2::CommitOutcome {
         new_commit,
+        change_id: _,
         branch_name: _,
     } = commit2::run(
         ctx,
