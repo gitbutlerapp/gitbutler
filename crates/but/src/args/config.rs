@@ -102,12 +102,21 @@ pub enum Subcommands {
     /// ```text
     /// but config target upstream/main --push-remote origin
     /// ```
+    ///
+    /// Refresh the stored target commit from the configured remote-tracking ref:
+    ///
+    /// ```text
+    /// but config target --refresh
+    /// ```
     Target {
         /// New target branch to set (e.g., "origin/main")
         branch: Option<String>,
         /// Remote to push branches to (e.g., "origin" for a fork).
         #[clap(long, value_name = "REMOTE", requires = "branch")]
         push_remote: Option<String>,
+        /// Refresh the stored target commit from the configured remote-tracking ref.
+        #[clap(long, conflicts_with = "branch")]
+        refresh: bool,
     },
 
     /// View or set the remote used to push branches.

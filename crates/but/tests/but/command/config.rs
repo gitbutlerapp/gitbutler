@@ -1,3 +1,9 @@
+#[cfg(feature = "legacy")]
+use std::fs;
+
+#[cfg(feature = "legacy")]
+use but_core::RepositoryExt as _;
+
 use crate::utils::{CommandExt as _, Sandbox};
 use snapbox::str;
 
@@ -9,7 +15,7 @@ fn target_configures_distinct_push_remote_for_fork() {
     env.invoke_git("remote add upstream .");
     env.invoke_git("update-ref refs/remotes/upstream/main refs/remotes/origin/main");
 
-    env.but("config target upstream/main --push-remote origin")
+    env.but("config target refs/remotes/upstream/main --push-remote origin")
         .assert()
         .success();
 
@@ -20,6 +26,165 @@ fn target_configures_distinct_push_remote_for_fork() {
     assert_eq!(
         env.invoke_git("config --local --get gitbutler.project.pushRemote"),
         "origin"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn target_refresh_updates_only_metadata_and_is_idempotent() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    env.but("setup").assert().success();
+    env.invoke_git("remote add upstream .");
+    env.invoke_git("update-ref refs/remotes/upstream/main refs/remotes/origin/main");
+    env.but("config target upstream/main --push-remote origin")
+        .assert()
+        .success();
+    env.invoke_bash(
+        r#"
+new_target=$(printf 'advance target\n' | git commit-tree refs/remotes/upstream/main^{tree} -p refs/remotes/upstream/main)
+git update-ref refs/remotes/upstream/main "$new_target"
+"#,
+    );
+
+    let expected_target = env.invoke_git("rev-parse refs/remotes/upstream/main");
+    let refs_before = env.invoke_git("show-ref");
+    let head_before = env.invoke_git("rev-parse HEAD");
+    let index_before = env.invoke_git("ls-files --stage");
+    let worktree_before = env.invoke_git("status --porcelain=v2 --untracked-files=all");
+
+    env.but("config target --refresh").assert().success();
+
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetRef"),
+        "refs/remotes/upstream/main"
+    );
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetCommitId"),
+        expected_target
+    );
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.pushRemote"),
+        "origin"
+    );
+    assert_eq!(
+        env.invoke_git("show-ref"),
+        refs_before,
+        "refresh does not move local, remote, or workspace refs"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse HEAD"),
+        head_before,
+        "refresh does not move HEAD"
+    );
+    assert_eq!(
+        env.invoke_git("ls-files --stage"),
+        index_before,
+        "refresh does not alter the index"
+    );
+    assert_eq!(
+        env.invoke_git("status --porcelain=v2 --untracked-files=all"),
+        worktree_before,
+        "refresh does not alter the worktree"
+    );
+
+    let repo = env.open_repo();
+    let config_path = repo.path().join("config");
+    let metadata_path = repo
+        .gitbutler_storage_path()
+        .unwrap()
+        .join("virtual_branches.toml");
+    let config_after_first_refresh = fs::read(&config_path).unwrap();
+    let metadata_after_first_refresh = fs::read(&metadata_path).unwrap();
+
+    env.but("config target --refresh").assert().success();
+
+    assert_eq!(
+        fs::read(config_path).unwrap(),
+        config_after_first_refresh,
+        "a current target does not rewrite repository config"
+    );
+    assert_eq!(
+        fs::read(metadata_path).unwrap(),
+        metadata_after_first_refresh,
+        "a current target does not rewrite legacy metadata"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn target_refresh_rejects_named_stacks_before_metadata_writes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    assert_refresh_rejected_without_metadata_writes(&env);
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn target_refresh_rejects_anonymous_stacks_before_metadata_writes() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-anonymous-segment");
+
+    assert_refresh_rejected_without_metadata_writes(&env);
+}
+
+#[cfg(feature = "legacy")]
+fn assert_refresh_rejected_without_metadata_writes(env: &Sandbox) {
+    let repo = env.open_repo();
+    let config_path = repo.path().join("config");
+    let metadata_path = repo
+        .gitbutler_storage_path()
+        .unwrap()
+        .join("virtual_branches.toml");
+    let config_before = fs::read(&config_path).unwrap();
+    let metadata_before = fs::read(&metadata_path).unwrap();
+    let refs_before = env.invoke_git("show-ref");
+    let head_before = env.invoke_git("rev-parse HEAD");
+    let index_before = env.invoke_git("ls-files --stage");
+    let worktree_before = env.invoke_git("status --porcelain=v2 --untracked-files=all");
+
+    let output = env.but("config target --refresh").output().unwrap();
+    assert!(
+        !output.status.success(),
+        "refresh should reject applied branches"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(
+            "Cannot refresh target metadata while there are applied branches. Please unapply all branches first."
+        ),
+        "unexpected stderr: {stderr}"
+    );
+
+    assert_eq!(
+        fs::read(config_path).unwrap(),
+        config_before,
+        "rejection happens before repository config is written"
+    );
+    assert_eq!(
+        fs::read(metadata_path).unwrap(),
+        metadata_before,
+        "rejection happens before legacy metadata is written"
+    );
+    assert_eq!(
+        env.invoke_git("show-ref"),
+        refs_before,
+        "rejection does not move refs"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse HEAD"),
+        head_before,
+        "rejection does not move HEAD"
+    );
+    assert_eq!(
+        env.invoke_git("ls-files --stage"),
+        index_before,
+        "rejection does not alter the index"
+    );
+    assert_eq!(
+        env.invoke_git("status --porcelain=v2 --untracked-files=all"),
+        worktree_before,
+        "rejection does not alter the worktree"
     );
 }
 

@@ -479,10 +479,12 @@ mod config_target {
                     Some(ConfigCmd::Target {
                         branch,
                         push_remote,
+                        refresh,
                     }),
             }) => {
                 assert_eq!(branch.as_deref(), Some("upstream/main"));
                 assert_eq!(push_remote.as_deref(), Some("origin"));
+                assert!(!refresh);
             }
             _ => panic!("unexpected command shape"),
         }
@@ -492,13 +494,37 @@ mod config_target {
     fn parses_standalone_push_remote() {
         let args = Args::try_parse_from(["but", "config", "push-remote", "origin"])
             .expect("parse standalone push remote");
-
         assert!(matches!(
             args.cmd,
             Some(Subcommands::Config(ConfigPlatform {
                 cmd: Some(ConfigCmd::PushRemote { remote: Some(remote) }),
             })) if remote == "origin"
         ));
+    }
+
+    #[test]
+    fn parses_target_refresh() {
+        let args = Args::try_parse_from(["but", "config", "target", "--refresh"])
+            .expect("parse target refresh");
+
+        assert!(matches!(
+            args.cmd,
+            Some(Subcommands::Config(ConfigPlatform {
+                cmd: Some(ConfigCmd::Target {
+                    branch: None,
+                    push_remote: None,
+                    refresh: true,
+                }),
+            }))
+        ));
+    }
+
+    #[test]
+    fn refresh_rejects_target_branch() {
+        let err = Args::try_parse_from(["but", "config", "target", "upstream/main", "--refresh"])
+            .expect_err("refresh uses the already configured target");
+
+        assert_eq!(err.kind(), clap::error::ErrorKind::ArgumentConflict);
     }
 
     #[test]

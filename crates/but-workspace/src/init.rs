@@ -11,6 +11,38 @@ use but_core::{
     ref_metadata::ProjectMeta,
 };
 
+/// Refresh the stored target commit from the configured remote-tracking ref.
+///
+/// Returns `true` when metadata changed. This does not move refs or alter the
+/// workspace; callers must reject applied stacks and hold exclusive repository
+/// access before invoking it.
+pub fn refresh_target_commit_id(
+    repo: &gix::Repository,
+    meta: &mut impl RefMetadata,
+) -> Result<bool> {
+    let mut project_meta = ProjectMeta::resolve(repo, &*meta)?;
+    let target_ref = project_meta.target_ref_or_err()?.clone();
+    if target_ref.category() != Some(gix::refs::Category::RemoteBranch) {
+        bail!(
+            "target ref '{}' must be a remote tracking branch",
+            target_ref.as_bstr()
+        );
+    }
+    let target_tip = repo
+        .try_find_reference(target_ref.as_ref())?
+        .with_context(|| format!("remote branch '{}' not found", target_ref.as_bstr()))?
+        .peel_to_commit()
+        .with_context(|| format!("failed to peel branch '{}' to commit", target_ref.as_bstr()))?
+        .id;
+    if project_meta.target_commit_id == Some(target_tip) {
+        return Ok(false);
+    }
+
+    project_meta.target_commit_id = Some(target_tip);
+    project_meta.persist(repo, meta)?;
+    Ok(true)
+}
+
 /// Make `target_ref` the project's default target and initialize project metadata,
 /// without changing the currently checked out branch.
 ///

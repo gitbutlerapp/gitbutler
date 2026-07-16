@@ -92,7 +92,8 @@ pub async fn exec(
         Some(Subcommands::Target {
             branch,
             push_remote,
-        }) => target_config(ctx, out, branch, push_remote).await,
+            refresh,
+        }) => target_config(ctx, out, branch, push_remote, refresh).await,
         Some(Subcommands::PushRemote { remote }) => push_remote_config(ctx, out, remote),
         Some(Subcommands::Forge { cmd }) => forge_config(out, cmd).await,
         Some(Subcommands::Metrics { status }) => metrics_config(out, status).await,
@@ -1769,10 +1770,11 @@ async fn target_config(
     out: &mut OutputChannel,
     branch: Option<String>,
     push_remote: Option<String>,
+    refresh: bool,
 ) -> Result<()> {
     let t = theme::get();
-    match branch {
-        None => {
+    match (branch, refresh) {
+        (None, false) => {
             #[cfg(feature = "legacy")]
             {
                 let target = {
@@ -1822,7 +1824,77 @@ async fn target_config(
                 }
             }
         }
-        Some(new_branch) => {
+        (None, true) => {
+            let (changed, target_id) = {
+                let mut guard = ctx.exclusive_worktree_access();
+                let (repo, ws, db) =
+                    ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+                if !ws.stacks.is_empty() {
+                    if let Some(out) = out.for_human() {
+                        writeln!(
+                            out,
+                            "{}",
+                            t.important
+                                .paint("\nThe following branches are currently applied:\n")
+                        )?;
+                        for stack in &ws.stacks {
+                            writeln!(
+                                out,
+                                "{} Applied branch: {}",
+                                t.hint.paint("•"),
+                                t.config_value.paint(stack.ref_name().map_or_else(
+                                    || "ANONYMOUS".to_string(),
+                                    |rn| rn.shorten().to_string()
+                                ))
+                            )?;
+                        }
+                        writeln!(
+                            out,
+                            "\n{}\n",
+                            t.attention.paint(
+                                "Please unapply all branches before refreshing target metadata."
+                            )
+                        )?;
+                    }
+                    anyhow::bail!(
+                        "Cannot refresh target metadata while there are applied branches. Please unapply all branches first."
+                    );
+                }
+                drop((repo, ws, db));
+
+                let (changed, target_id) = {
+                    let repo = ctx.repo.get()?;
+                    let mut meta = ctx.meta()?;
+                    let changed = but_workspace::init::refresh_target_commit_id(&repo, &mut meta)?;
+                    let target_id = ctx.project_meta()?.target_commit_id_or_err()?;
+                    (changed, target_id)
+                };
+                ctx.invalidate_workspace_cache()?;
+                (changed, target_id)
+            };
+
+            if let Some(out) = out.for_human() {
+                writeln!(
+                    out,
+                    "{} {} {}",
+                    t.sym().success,
+                    if changed {
+                        "Refreshed target SHA to"
+                    } else {
+                        "Target SHA is already current at"
+                    },
+                    t.config_value.paint(target_id.to_string())
+                )?;
+            } else if let Some(out) = out.for_shell() {
+                writeln!(out, "{target_id}")?;
+            } else if let Some(out) = out.for_json() {
+                out.write_value(serde_json::json!({
+                    "refreshed": changed,
+                    "sha": target_id.to_string(),
+                }))?;
+            }
+        }
+        (Some(new_branch), false) => {
             // refuse to run if there are any applied branches. if so, ask user to unapply first.
             let (guard, _, ws, _) = ctx.workspace_and_db()?;
             if !ws.stacks.is_empty() {
@@ -1878,9 +1950,19 @@ async fn target_config(
                     .with_context(|| format!("Failed to find push remote '{push_remote}'"))?;
             }
 
-            let target_ref: gix::refs::FullName = format!("refs/remotes/{new_branch}")
-                .try_into()
-                .context("Invalid target branch name")?;
+            let target_ref: gix::refs::FullName = if new_branch.starts_with("refs/") {
+                new_branch
+                    .as_str()
+                    .try_into()
+                    .context("Invalid target branch name")?
+            } else {
+                format!("refs/remotes/{new_branch}")
+                    .try_into()
+                    .context("Invalid target branch name")?
+            };
+            if target_ref.category() != Some(gix::refs::Category::RemoteBranch) {
+                anyhow::bail!("Target branch must be a remote tracking branch");
+            }
             drop((guard, ws));
             but_api::workspace::set_target_ref_and_init_project(
                 ctx,
@@ -1888,6 +1970,7 @@ async fn target_config(
                 push_remote,
             )?;
         }
+        (Some(_), true) => unreachable!("clap rejects --refresh with a branch"),
     }
 
     Ok(())

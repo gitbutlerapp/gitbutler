@@ -46,6 +46,13 @@ fn stored_meta(repo: &gix::Repository, meta: &VirtualBranchesTomlMetadata) -> Pr
     ProjectMeta::resolve(repo, meta).expect("project metadata is readable")
 }
 
+fn refresh_target(
+    repo: &gix::Repository,
+    meta: &mut VirtualBranchesTomlMetadata,
+) -> anyhow::Result<bool> {
+    but_workspace::init::refresh_target_commit_id(repo, meta)
+}
+
 /// Create an empty commit on top of `parent` without updating any reference.
 fn empty_commit_on_top(
     repo: &gix::Repository,
@@ -249,6 +256,90 @@ fn push_remote_changes_without_changing_target() {
     assert_eq!(after.target_ref, before.target_ref);
     assert_eq!(after.target_commit_id, before.target_commit_id);
     assert_eq!(after.push_remote.as_deref(), Some("fork"));
+}
+
+#[test]
+fn refresh_updates_only_the_target_commit_id_to_the_configured_ref_tip() {
+    let (repo, mut meta, _tmp) = scenario();
+    set_target_ref(&repo, &mut meta, "refs/remotes/origin/main", Some("fork")).unwrap();
+    let stale_target_id = stored_meta(&repo, &meta).target_commit_id.unwrap();
+    let new_target_tip = empty_commit_on_top(&repo, stale_target_id, "advance target");
+    repo.reference(
+        "refs/remotes/origin/main",
+        new_target_tip,
+        PreviousValue::Any,
+        "test",
+    )
+    .unwrap();
+    let head_before = repo.head_id().unwrap().detach();
+    let refs_before = repo
+        .references()
+        .unwrap()
+        .all()
+        .unwrap()
+        .map(|reference| {
+            let reference = reference.unwrap();
+            (reference.name().to_owned(), reference.id())
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        refresh_target(&repo, &mut meta).unwrap(),
+        "stale metadata should be updated"
+    );
+
+    let project_meta = stored_meta(&repo, &meta);
+    assert_eq!(
+        project_meta.target_ref.map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_string()),
+        "refresh keeps the configured target ref"
+    );
+    assert_eq!(
+        project_meta.target_commit_id,
+        Some(new_target_tip),
+        "refresh stores the configured remote-tracking ref tip"
+    );
+    assert_eq!(
+        project_meta.push_remote.as_deref(),
+        Some("fork"),
+        "refresh preserves the distinct push remote"
+    );
+    assert_eq!(
+        repo.head_id().unwrap().detach(),
+        head_before,
+        "refresh does not move HEAD"
+    );
+    let refs_after = repo
+        .references()
+        .unwrap()
+        .all()
+        .unwrap()
+        .map(|reference| {
+            let reference = reference.unwrap();
+            (reference.name().to_owned(), reference.id())
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        refs_after, refs_before,
+        "refresh does not move local, remote, or workspace refs"
+    );
+}
+
+#[test]
+fn refresh_is_an_idempotent_no_op_when_the_target_is_current() {
+    let (repo, mut meta, _tmp) = scenario();
+    set_target_ref(&repo, &mut meta, "refs/remotes/origin/main", Some("fork")).unwrap();
+    let before = stored_meta(&repo, &meta);
+
+    assert!(
+        !refresh_target(&repo, &mut meta).unwrap(),
+        "current metadata should not be persisted again"
+    );
+    assert_eq!(
+        stored_meta(&repo, &meta),
+        before,
+        "an idempotent refresh preserves all project metadata"
+    );
 }
 
 mod error {
