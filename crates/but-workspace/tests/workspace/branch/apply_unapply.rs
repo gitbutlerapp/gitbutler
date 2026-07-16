@@ -1260,6 +1260,193 @@ Outcome {
 }
 
 #[test]
+fn unapply_advanced_ref_drops_its_projected_tip_for_every_disposition() -> anyhow::Result<()> {
+    for disposition in [
+        WorkspaceDisposition::KeepWorkspaceCommit,
+        WorkspaceDisposition::KeepWorkspaceReference,
+        WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences,
+        WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
+    ] {
+        let (_tmp, graph, repo, mut meta, _description) =
+            named_writable_scenario_with_description_and_graph(
+                "advanced-stack-and-unnamed-stack-in-workspace",
+                |meta| {
+                    add_stack_with_segments(meta, 1, "outside", StackState::InWorkspace, &[]);
+                },
+            )?;
+        let ws = graph.into_workspace()?;
+        let advanced_ref_tip = id_by_rev(&repo, "outside");
+        let projected_tip = id_by_rev(&repo, "outside~1").detach();
+        let workspace_commit = repo.find_reference(WORKSPACE_REF_NAME)?.peel_to_commit()?;
+        let parents = workspace_commit
+            .parent_ids()
+            .map(|id| id.detach())
+            .collect::<Vec<_>>();
+        let anonymous_tip = parents
+            .iter()
+            .copied()
+            .find(|id| *id != projected_tip)
+            .expect("fixture has an independent anonymous workspace parent");
+
+        let out = but_workspace::branch::unapply(
+            r("refs/heads/outside"),
+            &ws,
+            &repo,
+            &mut meta,
+            unapply_options_with(disposition),
+        )?;
+
+        assert!(out.workspace_changed());
+        assert_eq!(id_by_rev(&repo, "outside"), advanced_ref_tip);
+        let workspace_tip = repo.find_reference(WORKSPACE_REF_NAME)?.peel_to_commit()?;
+        let remaining_parents = workspace_tip
+            .parent_ids()
+            .map(|id| id.detach())
+            .collect::<Vec<_>>();
+        assert!(
+            workspace_tip.id != projected_tip && !remaining_parents.contains(&projected_tip),
+            "the preserved branch contains its projected tip, so disposition {disposition:?} must not retain it anonymously"
+        );
+        assert!(
+            workspace_tip.id == anonymous_tip || remaining_parents.contains(&anonymous_tip),
+            "disposition {disposition:?} must preserve independent anonymous history"
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn unapply_last_advanced_ref_dissolves_unnecessary_workspace() -> anyhow::Result<()> {
+    for disposition in [
+        WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences,
+        WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
+    ] {
+        let (_tmp, _graph, repo, mut meta, _description) =
+            named_writable_scenario_with_description_and_graph(
+                "advanced-stack-and-unnamed-stack-in-workspace",
+                |meta| {
+                    add_stack_with_segments(meta, 1, "outside", StackState::InWorkspace, &[]);
+                },
+            )?;
+        let projected_tip = id_by_rev(&repo, "outside~1").detach();
+        let workspace_commit = repo.find_reference(WORKSPACE_REF_NAME)?.peel_to_commit()?;
+        let mut commit = workspace_commit.decode()?.to_owned()?;
+        commit.parents = vec![projected_tip].into();
+        let workspace_tip = repo.write_object(commit)?.detach();
+        repo.reference(
+            WORKSPACE_REF_NAME,
+            workspace_tip,
+            PreviousValue::Any,
+            "test workspace with only the projected branch"
+                .as_bytes()
+                .as_bstr(),
+        )?;
+        let project_meta = meta
+            .workspace(WORKSPACE_REF_NAME.try_into().expect("valid workspace ref"))?
+            .project_meta();
+        let ws = Graph::from_head(&repo, &meta, project_meta, standard_traversal_options())?
+            .into_workspace()?;
+
+        let out = but_workspace::branch::unapply(
+            r("refs/heads/outside"),
+            &ws,
+            &repo,
+            &mut meta,
+            unapply_options_with(disposition),
+        )?;
+
+        assert_eq!(
+            out.checked_out.as_ref().map(|name| name.as_ref()),
+            Some(r("refs/heads/main")),
+            "disposition {disposition:?} should switch to the local target"
+        );
+        assert!(
+            repo.try_find_reference(WORKSPACE_REF_NAME)?.is_none(),
+            "disposition {disposition:?} should delete the unnecessary workspace ref"
+        );
+        assert!(
+            meta.workspace_opt(r(WORKSPACE_REF_NAME))?.is_some(),
+            "branch unapply currently retains target-bearing workspace metadata after deleting the ref"
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn apply_branch_containing_anonymous_parent_drops_only_anonymous_stack() -> anyhow::Result<()> {
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "advanced-stack-and-unnamed-stack-in-workspace",
+            |meta| {
+                add_stack_with_segments(meta, 1, "outside", StackState::InWorkspace, &[]);
+            },
+        )?;
+    let workspace_commit = repo.find_reference(WORKSPACE_REF_NAME)?.peel_to_commit()?;
+    let original_parents = workspace_commit
+        .parent_ids()
+        .map(|id| id.detach())
+        .collect::<Vec<_>>();
+    git(&repo).args(["checkout", "feature"]).run();
+    git(&repo)
+        .args([
+            "merge",
+            "--no-ff",
+            "gitbutler/workspace^1",
+            "outside",
+            "-m",
+            "merge workspace histories",
+        ])
+        .run();
+    let feature_tip = id_by_rev(&repo, "feature");
+    git(&repo).args(["checkout", "gitbutler/workspace"]).run();
+    let project_meta = meta
+        .workspace(WORKSPACE_REF_NAME.try_into().expect("valid workspace ref"))?
+        .project_meta();
+    let ws = Graph::from_head(&repo, &meta, project_meta, standard_traversal_options())?
+        .into_workspace()?;
+
+    let out = but_workspace::branch::apply(
+        r("refs/heads/feature"),
+        ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+
+    assert!(out.workspace_changed());
+    assert_eq!(id_by_rev(&repo, "feature"), feature_tip);
+    assert!(
+        out.workspace
+            .stacks
+            .iter()
+            .all(|stack| stack.ref_name().is_some()),
+        "the contained anonymous parent must not remain projected; original parents were {original_parents:?}\n{}",
+        graph_workspace(&out.workspace)
+    );
+    assert!(
+        out.workspace.refname_is_segment(r("refs/heads/outside")),
+        "apply must preserve the existing named stack instead of erasing its branch identity"
+    );
+    let ws_md = meta.workspace(r(WORKSPACE_REF_NAME))?;
+    assert!(
+        ws_md
+            .find_branch(r("refs/heads/outside"), StackKind::Applied)
+            .is_some(),
+        "apply must preserve the existing named stack in metadata"
+    );
+    assert!(
+        ws_md
+            .find_branch(r("refs/heads/feature"), StackKind::Applied)
+            .is_some(),
+        "the incoming branch must be applied in metadata"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn ws_ref_no_ws_commit_two_stacks_on_same_commit() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(

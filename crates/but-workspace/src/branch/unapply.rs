@@ -468,9 +468,10 @@ pub(crate) mod function {
         workspace_ref_name: &FullNameRef,
         ws_md: &but_core::ref_metadata::Workspace,
         disposition: WorkspaceDisposition,
-        excluded_anonymous_tip_id: Option<gix::ObjectId>,
+        unapplied_branch_tip_id: Option<gix::ObjectId>,
     ) -> anyhow::Result<WorkspaceRefUpdateAfterUnapply> {
-        let future_workspace_tips = future_workspace_tips(ws_md, ws, excluded_anonymous_tip_id)?;
+        let future_workspace_tips =
+            future_workspace_tips(ws_md, ws, repo, unapplied_branch_tip_id)?;
         let remaining_tip_count = future_workspace_tips.len();
         let keep_workspace_commit = match disposition {
             WorkspaceDisposition::KeepWorkspaceCommit
@@ -530,16 +531,14 @@ pub(crate) mod function {
     fn future_workspace_tips(
         ws_md: &but_core::ref_metadata::Workspace,
         ws: &but_graph::Workspace,
-        excluded_anonymous_tip_id: Option<gix::ObjectId>,
+        repo: &gix::Repository,
+        unapplied_branch_tip_id: Option<gix::ObjectId>,
     ) -> anyhow::Result<Vec<crate::commit::merge::Tip>> {
+        let anonymous_tips = anon_stacks_to_preserve(ws, repo, unapplied_branch_tip_id)?;
         let crate::commit::merge::ResolvedTips {
             tips,
             missing_stacks,
-        } = WorkspaceCommit::tips_from_metadata(
-            ws_md.stacks.iter(),
-            anon_stacks_to_preserve(ws, excluded_anonymous_tip_id),
-            &ws.graph,
-        );
+        } = WorkspaceCommit::tips_from_metadata(ws_md.stacks.iter(), anonymous_tips, &ws.graph);
         ensure!(
             missing_stacks.is_empty(),
             "Somehow some of the workspace stacks weren't part of the graph: {missing_stacks:#?}"
@@ -689,14 +688,43 @@ pub(crate) mod function {
     /// Reprojecting after metadata changes can leave old workspace-commit parents visible as
     /// anonymous stacks. If such a stack still has a metadata [stack id](but_core::ref_metadata::StackId),
     /// it is a projected remnant of the old workspace commit rather than independent anonymous work,
-    /// and feeding it back into the merge would preserve the removed stack.
-    fn anon_stacks_to_preserve<'a>(
-        ws: &'a but_graph::Workspace,
-        excluded_tip_id: Option<gix::ObjectId>,
-    ) -> impl Iterator<Item = (usize, crate::commit::merge::Tip)> + 'a {
-        anon_stacks(&ws.stacks)
-            .filter(move |(idx, _)| ws.stacks.get(*idx).is_none_or(|stack| stack.id.is_none()))
-            .filter(move |(_, tip)| excluded_tip_id.is_none_or(|id| tip.commit_id != id))
+    /// and feeding it back into the merge would preserve the removed stack. The same is true when
+    /// the just-unapplied branch ref has advanced beyond its projected workspace tip: the ref
+    /// already preserves that ancestor, so retaining it anonymously would duplicate the stack.
+    fn anon_stacks_to_preserve(
+        ws: &but_graph::Workspace,
+        repo: &gix::Repository,
+        unapplied_branch_tip_id: Option<gix::ObjectId>,
+    ) -> anyhow::Result<Vec<(usize, crate::commit::merge::Tip)>> {
+        let mut preserved = Vec::new();
+        for (idx, tip) in anon_stacks(&ws.stacks) {
+            if ws.stacks.get(idx).is_some_and(|stack| stack.id.is_some()) {
+                continue;
+            }
+            if let Some(branch_tip_id) = unapplied_branch_tip_id
+                && commit_contains(repo, branch_tip_id, tip.commit_id)?
+            {
+                continue;
+            }
+            preserved.push((idx, tip));
+        }
+        Ok(preserved)
+    }
+
+    /// Return whether `tip` is preserved by `commit`, either by identity or ancestry.
+    fn commit_contains(
+        repo: &gix::Repository,
+        commit: gix::ObjectId,
+        tip: gix::ObjectId,
+    ) -> anyhow::Result<bool> {
+        if commit == tip {
+            return Ok(true);
+        }
+        match repo.merge_base(commit, tip) {
+            Ok(base) => Ok(base.detach() == tip),
+            Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(false),
+            Err(err) => Err(err.into()),
+        }
     }
 
     /// Local tracking branch of target ref or the most recent named stack tip.
