@@ -1660,10 +1660,20 @@ impl From<ForgeReviewTargetUpdate> for ForgeReviewUpdate {
 
 /// Update reviews: description footers and, optionally, target/base branches.
 ///
+/// The `reviews` slice must describe a single stack, ordered bottom-to-top
+/// (the review closest to the base branch first).
+///
+/// On GitHub repositories with native stacked PRs enabled (a per-repository
+/// preview feature), the stack is registered with GitHub instead of writing
+/// description footers; any footers left over from before the feature was
+/// enabled are removed. `forge_push_repo_info` is used to detect fork-headed
+/// reviews, which native stacks don't support.
+///
 /// Per-review failures are collected rather than aborting the batch.
 pub async fn sync_reviews(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
+    forge_push_repo_info: &Option<crate::forge::ForgeRepoInfo>,
     reviews: &[ForgeReviewUpdate],
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
@@ -1673,25 +1683,48 @@ pub async fn sync_reviews(
 
     let mut errors: Vec<String> = Vec::new();
 
-    // Skip body updates when no review has footer content (e.g. push-only target updates).
-    let has_footer_content = reviews.iter().any(|r| !r.unit_symbol.is_empty());
+    // Push-only target updates carry no footer content and leave bodies alone.
+    let footer_sync = if reviews.iter().any(|r| !r.unit_symbol.is_empty()) {
+        FooterSync::Write
+    } else {
+        FooterSync::KeepBody
+    };
 
     match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let pr_numbers: Vec<i64> = reviews.iter().map(|r| r.number).collect();
 
+            let (_, head_repo) = github_head_owner_and_repo(forge_repo_info, forge_push_repo_info);
+            let native_stack = if head_repo.is_none() && pr_numbers.len() >= 2 {
+                but_github::stacks::lookup(preferred_account, owner, repo, pr_numbers[0], storage)
+                    .await
+                    .unwrap_or_else(|err| {
+                        tracing::warn!(
+                            ?err,
+                            "Failed to look up GitHub native stacks; keeping footers"
+                        );
+                        but_github::stacks::StackLookup::Unsupported
+                    })
+            } else {
+                but_github::stacks::StackLookup::Unsupported
+            };
+
+            // GitHub renders native stacks itself, so instead of writing
+            // footers, remove any left over from before the repository had
+            // the feature.
+            let footer_sync = match (&native_stack, footer_sync) {
+                (but_github::stacks::StackLookup::Supported(_), FooterSync::Write) => {
+                    FooterSync::Remove
+                }
+                (_, footer_sync) => footer_sync,
+            };
+
             for review in reviews {
-                let updated_body = if has_footer_content {
-                    Some(update_body(
-                        review.body.as_deref(),
-                        review.number,
-                        &pr_numbers,
-                        &review.unit_symbol,
-                    ))
-                } else {
-                    None
-                };
+                let updated_body = footer_body_update(footer_sync, review, &pr_numbers);
+                if updated_body.is_none() && review.target_branch.is_none() {
+                    continue;
+                }
 
                 let params = but_github::UpdatePullRequestParams {
                     owner,
@@ -1707,6 +1740,23 @@ pub async fn sync_reviews(
                     errors.push(format!("PR #{}: {err}", review.number));
                 }
             }
+
+            // Register the stack with GitHub once the target branches are in
+            // place. Best-effort: a failed registration must not fail the
+            // publish or push that triggered this sync.
+            if let but_github::stacks::StackLookup::Supported(existing) = native_stack
+                && let Err(err) = but_github::stacks::ensure(
+                    preferred_account,
+                    owner,
+                    repo,
+                    &pr_numbers,
+                    existing.as_ref(),
+                    storage,
+                )
+                .await
+            {
+                tracing::warn!(?err, "Failed to register the stack with GitHub");
+            }
         }
         ForgeName::GitLab => {
             let project_id = GitLabProjectId::new(owner, repo);
@@ -1714,16 +1764,7 @@ pub async fn sync_reviews(
             let mr_iids: Vec<i64> = reviews.iter().map(|r| r.number).collect();
 
             for review in reviews {
-                let updated_body = if has_footer_content {
-                    Some(update_body(
-                        review.body.as_deref(),
-                        review.number,
-                        &mr_iids,
-                        &review.unit_symbol,
-                    ))
-                } else {
-                    None
-                };
+                let updated_body = footer_body_update(footer_sync, review, &mr_iids);
 
                 let params = but_gitlab::UpdateMergeRequestParams {
                     project_id: project_id.clone(),
@@ -1746,16 +1787,7 @@ pub async fn sync_reviews(
             let pr_ids: Vec<i64> = reviews.iter().map(|r| r.number).collect();
 
             for review in reviews {
-                let updated_body = if has_footer_content {
-                    Some(update_body(
-                        review.body.as_deref(),
-                        review.number,
-                        &pr_ids,
-                        &review.unit_symbol,
-                    ))
-                } else {
-                    None
-                };
+                let updated_body = footer_body_update(footer_sync, review, &pr_ids);
 
                 let params = but_bitbucket::UpdatePullRequestParams {
                     workspace: owner,
@@ -1817,6 +1849,47 @@ pub fn compute_review_target_updates(
         current_target = branch_name;
     }
     updates
+}
+
+/// What a sync should do to review descriptions.
+#[derive(Debug, Clone, Copy)]
+enum FooterSync {
+    /// Leave bodies untouched (e.g. push-only target updates).
+    KeepBody,
+    /// Write or refresh the stack footer.
+    Write,
+    /// The forge renders the stack natively: only remove leftover footers.
+    Remove,
+}
+
+/// The body update for one review of a stack, per the [`FooterSync`] mode.
+/// `None` means the body should not be touched.
+fn footer_body_update(
+    footer_sync: FooterSync,
+    review: &ForgeReviewUpdate,
+    all_numbers: &[i64],
+) -> Option<String> {
+    match footer_sync {
+        FooterSync::KeepBody => None,
+        FooterSync::Write => Some(update_body(
+            review.body.as_deref(),
+            review.number,
+            all_numbers,
+            &review.unit_symbol,
+        )),
+        FooterSync::Remove => review
+            .body
+            .as_deref()
+            .filter(|body| body.contains(STACKING_FOOTER_BOUNDARY_TOP))
+            .map(|body| {
+                update_body(
+                    Some(body),
+                    review.number,
+                    &[review.number],
+                    &review.unit_symbol,
+                )
+            }),
+    }
 }
 
 /// Replaces or inserts a new footer into an existing body of text.

@@ -23,6 +23,26 @@ pub fn push_remote_url(project_meta: &ProjectMeta, repo: &gix::Repository) -> Re
     project_meta.push_remote_url(repo)
 }
 
+/// Forge repo info for the base remote, plus the push remote's when it
+/// differs (i.e. when pushing to a fork).
+fn base_and_push_repo_info(
+    project_meta: &ProjectMeta,
+    repo: &gix::Repository,
+) -> Result<(but_forge::ForgeRepoInfo, Option<but_forge::ForgeRepoInfo>)> {
+    let base_remote_url = remote_url(project_meta, repo)?;
+    let push_remote_url = push_remote_url(project_meta, repo)?;
+    let forge_repo_info = but_forge::derive_forge_repo_info(&base_remote_url)
+        .context("No forge could be determined for this repository branch")?;
+    let forge_push_repo_info = if base_remote_url != push_remote_url {
+        let info = but_forge::derive_forge_repo_info(&push_remote_url)
+            .context("Failed to derive forge repository information from the push remote URL.")?;
+        Some(info)
+    } else {
+        None
+    };
+    Ok((forge_repo_info, forge_push_repo_info))
+}
+
 fn review_template_content(file: FileInfo) -> Result<String> {
     if file.size.is_none() {
         return Ok(String::new());
@@ -695,18 +715,8 @@ pub async fn publish_review(
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let base_remote_url = remote_url(&project_meta, &repo)?;
-        let push_remote_url = push_remote_url(&project_meta, &repo)?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&base_remote_url)
-            .context("No forge could be determined for this repository branch")?;
-        let forge_push_repo_info = if base_remote_url != push_remote_url {
-            let info = but_forge::derive_forge_repo_info(&push_remote_url).context(
-                "Failed to derive forge repository information from the push remote URL.",
-            )?;
-            Some(info)
-        } else {
-            None
-        };
+        let (forge_repo_info, forge_push_repo_info) =
+            base_and_push_repo_info(&project_meta, &repo)?;
 
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
@@ -875,22 +885,25 @@ pub async fn update_review_footers(
     ctx: ThreadSafeContext,
     reviews: Vec<but_forge::ForgeReviewUpdate>,
 ) -> Result<()> {
-    let (storage, forge_repo_info, preferred_forge_user) = {
+    let (storage, forge_repo_info, forge_push_repo_info, preferred_forge_user) = {
         let ctx = ctx.into_thread_local();
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
+        let (forge_repo_info, forge_push_repo_info) =
+            base_and_push_repo_info(&project_meta, &repo)?;
 
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
+            forge_push_repo_info,
             ctx.legacy_project.preferred_forge_user.clone(),
         )
     };
 
     but_forge::sync_reviews(
         &preferred_forge_user,
-        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        &forge_repo_info,
+        &forge_push_repo_info,
         &reviews,
         &storage,
     )

@@ -24,7 +24,7 @@
 	import { type PullRequest } from "$lib/forge/interface/types";
 	import { PrPersistedStore } from "$lib/forge/prContents";
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
-	import { updatePrDescriptionTables as updatePrStackInfo } from "$lib/forge/shared/prFooter";
+	import { updatePrStackInfo } from "$lib/forge/shared/prFooter";
 	import { showToast } from "$lib/notifications/toasts";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { requiresPush } from "$lib/stacks/stack";

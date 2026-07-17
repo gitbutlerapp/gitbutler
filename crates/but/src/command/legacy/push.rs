@@ -1122,7 +1122,10 @@ async fn update_review_targets_for_stacks(ctx: &Context, perm: &RepoShared) -> a
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx, perm)?;
     let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
-    let mut target_updates = Vec::new();
+    // One sync per stack: `sync_reviews` treats each batch as a single
+    // stack ordered bottom-to-top. A failing stack must not keep the
+    // remaining stacks from being reconciled.
+    let mut errors: Vec<anyhow::Error> = Vec::new();
     for stack in &stacks {
         // heads are ordered top-first, so iterate in reverse for bottom-to-top
         let heads: Vec<(String, Option<i64>)> = stack
@@ -1131,19 +1134,32 @@ async fn update_review_targets_for_stacks(ctx: &Context, perm: &RepoShared) -> a
             .rev()
             .map(|branch| (branch.name.clone(), branch.review_id.map(|id| id as i64)))
             .collect();
-        target_updates.extend(but_forge::compute_review_target_updates(
-            &heads,
-            &base_branch.short_name,
-        ));
-    }
+        let target_updates =
+            but_forge::compute_review_target_updates(&heads, &base_branch.short_name);
+        if target_updates.is_empty() {
+            continue;
+        }
 
-    if target_updates.is_empty() {
-        return Ok(());
+        let reviews: Vec<but_forge::ForgeReviewUpdate> =
+            target_updates.into_iter().map(Into::into).collect();
+        if let Err(err) =
+            but_api::legacy::forge::update_review_footers(ctx.to_sync(), reviews).await
+        {
+            errors.push(err);
+        }
     }
-
-    let reviews: Vec<but_forge::ForgeReviewUpdate> =
-        target_updates.into_iter().map(Into::into).collect();
-    but_api::legacy::forge::update_review_footers(ctx.to_sync(), reviews).await
+    match errors.len() {
+        0 => Ok(()),
+        1 => Err(errors.remove(0)),
+        _ => Err(anyhow::anyhow!(
+            "Some stacks failed to sync:\n{}",
+            errors
+                .iter()
+                .map(|err| err.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        )),
+    }
 }
 
 /// Check if a branch contains any conflicted commits

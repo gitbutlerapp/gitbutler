@@ -33,8 +33,8 @@ fn ensure_success(response: &reqwest::Response) -> Result<()> {
 }
 
 pub struct GitHubClient {
-    client: reqwest::Client,
-    base_url: String,
+    pub(crate) client: reqwest::Client,
+    pub(crate) base_url: String,
 }
 
 impl GitHubClient {

@@ -1,6 +1,6 @@
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import type { PrService } from "$lib/forge/prService.svelte";
-import type { Segment } from "@gitbutler/but-sdk";
+import type { ForgeReviewUpdate, Segment } from "@gitbutler/but-sdk";
 
 export const STACKING_FOOTER_BOUNDARY_TOP = "<!-- GitButler Footer Boundary Top -->";
 export const STACKING_FOOTER_BOUNDARY_BOTTOM = "<!-- GitButler Footer Boundary Bottom -->";
@@ -13,37 +13,36 @@ export function unixifyNewlines(target: string): string {
 }
 
 /**
- * Updates a pull request description with a table pointing to other pull
- * requests in the same stack.
+ * Sync stack info onto the pull requests of a stack: description footers, or
+ * GitHub's native stacks where the repo has them enabled (decided backend-side).
+ *
+ * `prNumbers` are expected top-first, as the stack segments are ordered.
  */
-export async function updatePrDescriptionTables(
+export async function updatePrStackInfo(
 	prService: PrService,
 	projectId: string,
 	prNumbers: number[],
 	unitSymbol = "#",
 ) {
-	if (prService && prNumbers.length > 1) {
-		const prs = await Promise.all(
-			prNumbers.map(async (id) => await prService.fetch(projectId, id)),
-		);
-		const updates = prs.filter(isDefined).map((pr) => ({
-			prNumber: pr.number,
-			description: updateBody(pr.body, pr.number, prNumbers, unitSymbol),
-		}));
-		await Promise.all(
-			updates.map(async ({ prNumber, description }) => {
-				await prService.update(projectId, prNumber, { description });
-			}),
-		);
-	}
+	if (prNumbers.length <= 1) return;
+	// The backend expects a single stack ordered bottom-to-top.
+	const bottomToTop = [...prNumbers].reverse();
+	const prs = await Promise.all(
+		bottomToTop.map(async (id) => await prService.fetch(projectId, id)),
+	);
+	const updates: ForgeReviewUpdate[] = prs.filter(isDefined).map((pr) => ({
+		number: pr.number,
+		body: pr.body ?? null,
+		unitSymbol,
+		targetBranch: null,
+	}));
+	await prService.updateFooters(projectId, updates);
 }
 
-type PrUpdate = {
-	prNumber: number;
-	targetBase: string;
-	description: string;
-};
-
+/**
+ * Sync stack info and target branches after the stack structure changed
+ * (e.g. branches were reordered). `branchDetails` are expected top-first.
+ */
 export async function updateStackPrs(
 	prService: PrService,
 	projectId: string,
@@ -52,10 +51,10 @@ export async function updateStackPrs(
 	unitSymbol = "#",
 ) {
 	if (branchDetails.length <= 1) return;
-	const allPrNumbers = branchDetails.map((b) => b.metadata?.review.pullRequest).filter(isDefined);
-	const updates: PrUpdate[] = [];
+	const updates: ForgeReviewUpdate[] = [];
 	let prevBranch: string | undefined = undefined;
 
+	// Walk bottom-to-top, chaining each PR onto the branch below it.
 	for (let i = branchDetails.length - 1; i >= 0; i--) {
 		const details = branchDetails[i];
 		if (!details) continue;
@@ -74,19 +73,16 @@ export async function updateStackPrs(
 		}
 
 		updates.push({
-			prNumber,
-			description: updateBody(pr.body, pr.number, allPrNumbers, unitSymbol),
-			targetBase: prevBranch ?? baseBranchName,
+			number: prNumber,
+			body: pr.body ?? null,
+			unitSymbol,
+			targetBranch: prevBranch ?? baseBranchName,
 		});
 		prevBranch = branchName;
 	}
 
 	if (updates.length > 0) {
-		await Promise.all(
-			updates.map(async ({ prNumber, targetBase, description }) => {
-				await prService.update(projectId, prNumber, { description, targetBase });
-			}),
-		);
+		await prService.updateFooters(projectId, updates);
 	}
 }
 
@@ -120,22 +116,6 @@ export async function unstackPRs(
 }
 
 /**
- * Replaces or inserts a new footer into an existing body of text.
- */
-function updateBody(
-	body: string | undefined,
-	prNumber: number,
-	allPrNumbers: number[],
-	symbol: string,
-) {
-	const head = (body?.split(STACKING_FOOTER_BOUNDARY_TOP).at(0) || "").trim();
-	const tail = (body?.split(STACKING_FOOTER_BOUNDARY_BOTTOM).at(1) || "").trim();
-	const footer = generateFooter(prNumber, allPrNumbers, symbol);
-	const description = head + "\n\n" + footer + "\n\n" + tail;
-	return description;
-}
-
-/**
  * Remove the footer from an existing body of text.
  */
 function clearFooter(body: string | undefined) {
@@ -147,23 +127,4 @@ function clearFooter(body: string | undefined) {
 	const tail = (body?.split(STACKING_FOOTER_BOUNDARY_BOTTOM).at(1) || "").trim();
 	const description = head + "\n\n" + tail;
 	return description;
-}
-
-/**
- * Generates a footer for use in pull request descriptions when part of a stack.
- */
-export function generateFooter(forPrNumber: number, allPrNumbers: number[], symbol: string) {
-	const stackLength = allPrNumbers.length;
-	const stackIndex = allPrNumbers.findIndex((number) => number === forPrNumber);
-	const nth = stackLength - stackIndex;
-	let footer = "";
-	footer += STACKING_FOOTER_BOUNDARY_TOP + "\n";
-	footer += "---\n";
-	footer += `This is **part ${nth} of ${stackLength} in a stack** made with GitButler:\n`;
-	allPrNumbers.forEach((prNumber, i) => {
-		const current = i === stackIndex;
-		footer += `- <kbd>&nbsp;${stackLength - i}&nbsp;</kbd> ${symbol}${prNumber} ${current ? "👈 " : ""}\n`;
-	});
-	footer += STACKING_FOOTER_BOUNDARY_BOTTOM;
-	return footer;
 }

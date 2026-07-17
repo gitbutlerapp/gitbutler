@@ -9,6 +9,7 @@ pub mod checks;
 mod client;
 mod graphql;
 pub mod pr;
+pub mod stacks;
 pub use client::{
     AutoMergeEnableParams, AutoMergeState, CheckRun, CreatePullRequestParams, GitHubClient,
     GitHubPrLabel, GitHubRepoPermissions, GitHubRepository, GitHubUser, MergeMethod,
