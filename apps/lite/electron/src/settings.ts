@@ -20,6 +20,7 @@ const guiSettingsV1 = type({
 	"diffStyle?": '"unified" | "split"',
 	"diffTabSize?": "number",
 	"editorId?": "string",
+	"filesVisible?": "boolean",
 	"syntaxHighlighting?": {
 		"light?": "string",
 		"dark?": "string",

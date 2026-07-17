@@ -8,6 +8,7 @@ export const defaultSettings = {
 	diffOverflow: "scroll",
 	diffStyle: "unified",
 	diffTabSize: 4,
+	filesVisible: false,
 	// Pierre doesn't re-export BundledTheme from Shiki and it's not possible to extract it from the
 	// union, hence importing from Shiki. See also:
 	//   https://shiki.style/themes#bundled-themes

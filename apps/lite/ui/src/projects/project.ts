@@ -67,14 +67,12 @@ const createInitialWorkspaceState = (): WorkspaceState => ({
 export type ProjectState = {
 	detailsFullWindow: boolean;
 	dialog: Dialog;
-	filesVisible: boolean;
 	workspace: WorkspaceState;
 };
 
 export const createInitialProjectState = (): ProjectState => ({
 	detailsFullWindow: false,
 	dialog: { _tag: "None" },
-	filesVisible: false,
 	workspace: createInitialWorkspaceState(),
 });
 
@@ -344,9 +342,6 @@ export const projectReducers = {
 			if (commit) workspaceState.mode = rewordCommitOutlineMode({ operand: commit });
 		}
 	},
-	toggleFiles: (state: ProjectState) => {
-		state.filesVisible = !state.filesVisible;
-	},
 	setDetailsFullWindow: (state: ProjectState, { fullWindow }: { fullWindow: boolean }) => {
 		state.detailsFullWindow = fullWindow;
 	},
@@ -362,7 +357,6 @@ export const projectReducers = {
 };
 
 export const projectSelectors = {
-	selectFilesVisible: (state: ProjectState) => state.filesVisible,
 	selectDetailsFullWindow: (state: ProjectState) => state.detailsFullWindow,
 	selectDialogState: (state: ProjectState) => state.dialog,
 	selectIsSelectedOutline: (

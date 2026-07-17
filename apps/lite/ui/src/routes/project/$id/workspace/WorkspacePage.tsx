@@ -1,10 +1,11 @@
 import {
 	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
+	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { useRestoreSnapshot } from "#ui/api/mutations.ts";
+import { useRestoreSnapshot, useSaveGUISettings } from "#ui/api/mutations.ts";
 import {
 	focusAdjacentSelectionScope,
 	focusSelectionScope,
@@ -53,6 +54,7 @@ import { OperationControls } from "#ui/routes/project/$id/workspace/OperationCon
 import { WorkspacePageErrorBoundary } from "./WorkspacePageErrorBoundary.tsx";
 import { Settings } from "./Settings.tsx";
 import type { OutlineMode } from "#ui/outline/mode.ts";
+import { defaultSettings } from "#ui/settings.ts";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -66,9 +68,12 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const dialog = useAppSelector((state) =>
 		projectSlice.selectors.selectDialogState(state, projectId),
 	);
-	const filesVisible = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
+	const { data: filesVisibleSetting } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.filesVisible,
+	});
+	const filesVisible = filesVisibleSetting ?? defaultSettings.filesVisible;
+	const { mutate: saveGUISettings } = useSaveGUISettings();
 	const activeElement = useActiveElement();
 	const focusedSelectionScope = getFocusedSelectionScope(activeElement);
 	const isDefaultMode = useAppSelector(
@@ -120,7 +125,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 				if (focusedSelectionScope === "files" && filesVisible)
 					focusSelectionScope(outlineVisible ? "outline" : "diff");
 
-				dispatch(projectSlice.actions.toggleFiles({ projectId }));
+				saveGUISettings({ filesVisible: !filesVisible });
 			},
 			options: {
 				conflictBehavior: "allow",

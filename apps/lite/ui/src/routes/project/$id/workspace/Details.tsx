@@ -770,11 +770,11 @@ const Title: FC<{
 const FilesToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
 > = (toggleProps) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
-	const filesVisible = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
+	const { data: filesVisible } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.filesVisible,
+	});
+	const { mutate: saveGUISettings } = useSaveGUISettings();
 
 	return (
 		<Tooltip.Root>
@@ -783,8 +783,8 @@ const FilesToggle: FC<
 					<Toggle
 						{...toggleProps}
 						aria-label="Toggle files"
-						pressed={filesVisible}
-						onPressedChange={() => dispatch(projectSlice.actions.toggleFiles({ projectId }))}
+						pressed={filesVisible ?? defaultSettings.filesVisible}
+						onPressedChange={(pressed) => saveGUISettings({ filesVisible: pressed })}
 					/>
 				}
 			/>
@@ -1504,9 +1504,10 @@ export const Details: FC<
 	const detailsFullWindow = useAppSelector((state) =>
 		projectSlice.selectors.selectDetailsFullWindow(state, projectId),
 	);
-	const filesVisible = useAppSelector((state) =>
-		projectSlice.selectors.selectFilesVisible(state, projectId),
-	);
+	const { data: filesVisible } = useQuery({
+		...guiSettingsQueryOptions,
+		select: (cfg) => cfg.filesVisible,
+	});
 	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
 	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
 	const commitBodyId = useId();
@@ -1605,7 +1606,7 @@ export const Details: FC<
 					}) => (
 						<Diff
 							changes={changes}
-							filesVisible={filesVisible}
+							filesVisible={filesVisible ?? defaultSettings.filesVisible}
 							filesItems={filesItems}
 							onFileSelection={selectFile}
 							outlineSelection={outlineSelection}
