@@ -2,6 +2,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ipcTracePlugin } from "../electron/src/tracing.ts";
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
@@ -14,6 +15,7 @@ export default defineConfig(({ command }) => ({
 				plugins: ["babel-plugin-react-compiler"],
 			},
 		}),
+		...(command === "serve" ? [ipcTracePlugin()] : []),
 	],
 	base: "/",
 	build: {

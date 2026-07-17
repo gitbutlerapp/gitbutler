@@ -41,6 +41,235 @@ import type {
 } from "@gitbutler/but-sdk";
 import type { GUISettings } from "./settings";
 
+// Sandboxed preloads cannot load local modules. Keep these values in sync with tracing.ts.
+const ipcTraceCompleteChannel = "lite:ipc-trace-complete";
+const ipcTraceWatcherEventChannel = "lite:ipc-trace-watcher-event";
+const ipcTraceWatcherHost = "ipc-watcher.localhost";
+const ipcTracePathPrefix = "/__ipc/";
+const ipcTraceAcceptPrefix = "application/json; trace-id=";
+const ipcTraceStreamAcceptPrefix = "text/event-stream; trace-id=";
+const ipcTraceWatcherEventsPath = `${ipcTracePathPrefix}watcher-events`;
+const maxTraceResponseCharacters = 1_000_000;
+const maxTraceArgsCharacters = 4_000;
+const maxTraceGateMs = 60_000;
+const ipcTraceServerUrl = (() => {
+	const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+	if (devServerUrl === undefined) return undefined;
+
+	const url = new URL(devServerUrl);
+	url.hostname = "ipc.localhost";
+	return url;
+})();
+const ipcTraceWatcherServerUrl = (() => {
+	if (ipcTraceServerUrl === undefined) return undefined;
+
+	const url = new URL(ipcTraceServerUrl);
+	url.hostname = ipcTraceWatcherHost;
+	return url;
+})();
+
+interface IpcTrace {
+	traceId: string;
+	startedAt: number;
+	finished: Promise<void>;
+	stopWaiting: () => void;
+}
+
+const traceSafeArgs = (channel: string, args: Array<unknown>): Array<unknown> => {
+	if (channel === "askpass:submit-prompt-response") {
+		const [params, ...rest] = args;
+		if (typeof params === "object" && params !== null)
+			return [{ ...params, response: "<redacted>" }, ...rest];
+	}
+
+	if (channel === "lite:clipboard-write-text") return ["<redacted>"];
+
+	return args;
+};
+
+// Lite's IPC arguments and results are JSON-compatible. Errors are the one useful exception: their
+// properties are not enumerable, so normalize them before displaying them in DevTools.
+const stringifyTracePayload = (
+	value: unknown,
+	maxCharacters = maxTraceResponseCharacters,
+): string => {
+	let json: string;
+
+	try {
+		json = JSON.stringify(value, (_key, nestedValue: unknown) => {
+			if (nestedValue instanceof Error) {
+				return {
+					name: nestedValue.name,
+					message: nestedValue.message,
+					stack: nestedValue.stack,
+				};
+			}
+			return nestedValue;
+		});
+	} catch (error) {
+		json = JSON.stringify({ serializationError: String(error) });
+	}
+
+	if (json.length <= maxCharacters) return json;
+	return JSON.stringify({
+		truncated: true,
+		originalCharacters: json.length,
+		preview: json.slice(0, maxCharacters),
+	});
+};
+
+const beginIpcTrace = (channel: string, args: Array<unknown>): IpcTrace | undefined => {
+	if (ipcTraceServerUrl === undefined) return undefined;
+
+	const traceId = crypto.randomUUID();
+	const separatorIndex = channel.indexOf(":");
+	const scope = separatorIndex === -1 ? "ipc" : channel.slice(0, separatorIndex);
+	const method = separatorIndex === -1 ? channel : channel.slice(separatorIndex + 1);
+	const traceUrl = new URL(
+		`${ipcTracePathPrefix}${encodeURIComponent(scope)}/${encodeURIComponent(method)}`,
+		ipcTraceServerUrl,
+	);
+	const serializedArgs = stringifyTracePayload(
+		traceSafeArgs(channel, args),
+		maxTraceArgsCharacters,
+	);
+	const abortController = new AbortController();
+	const startedAt = performance.now();
+
+	const response = fetch(traceUrl, {
+		method: "POST",
+		headers: { Accept: `${ipcTraceAcceptPrefix}${traceId}` },
+		body: serializedArgs,
+		signal: abortController.signal,
+	});
+	const timeout = setTimeout(() => abortController.abort(), maxTraceGateMs);
+	const finished = response
+		.then((response) => response.arrayBuffer())
+		.then(() => undefined)
+		.catch(() => undefined)
+		.finally(() => clearTimeout(timeout));
+
+	return {
+		traceId,
+		startedAt,
+		finished,
+		stopWaiting: () => abortController.abort(),
+	};
+};
+
+const completeIpcTrace = async (
+	trace: IpcTrace | undefined,
+	ok: boolean,
+	value: unknown,
+): Promise<void> => {
+	if (trace === undefined) return;
+
+	try {
+		const stored = (await ipcRenderer.invoke(ipcTraceCompleteChannel, {
+			traceId: trace.traceId,
+			ok,
+			body: stringifyTracePayload(value),
+			durationMs: performance.now() - trace.startedAt,
+		})) as unknown;
+		if (stored !== true) {
+			trace.stopWaiting();
+			return;
+		}
+
+		await trace.finished;
+	} catch {
+		trace.stopWaiting();
+		// Tracing must never affect the real IPC call.
+	}
+};
+
+const invoke = async (channel: string, ...args: Array<unknown>): Promise<unknown> => {
+	const trace = beginIpcTrace(channel, args);
+
+	try {
+		const result = (await ipcRenderer.invoke(channel, ...args)) as unknown;
+		await completeIpcTrace(trace, true, result);
+		return result;
+	} catch (error) {
+		await completeIpcTrace(trace, false, error);
+		throw error;
+	}
+};
+
+interface IpcWatcherTraceStream {
+	streamId: string;
+	connected: boolean;
+	active: boolean;
+	stop: () => void;
+}
+
+let watcherTraceStream: IpcWatcherTraceStream | undefined;
+
+const startWatcherTraceStream = (): void => {
+	if (ipcTraceWatcherServerUrl === undefined || watcherTraceStream?.active === true) return;
+
+	const streamId = crypto.randomUUID();
+	const abortController = new AbortController();
+	const stream: IpcWatcherTraceStream = {
+		streamId,
+		connected: false,
+		active: true,
+		stop: () => {
+			stream.active = false;
+			abortController.abort();
+		},
+	};
+	watcherTraceStream = stream;
+
+	const streamUrl = new URL(ipcTraceWatcherEventsPath, ipcTraceWatcherServerUrl);
+	void fetch(streamUrl, {
+		headers: { Accept: `${ipcTraceStreamAcceptPrefix}${streamId}` },
+		signal: abortController.signal,
+	})
+		.then(async (response) => {
+			if (!response.ok || !stream.active) return;
+			stream.connected = true;
+
+			// Drain incrementally: response.text() would retain the stream's entire lifetime in memory.
+			const reader = response.body?.getReader();
+			if (reader === undefined) return;
+			while (!(await reader.read()).done) {
+				// DevTools records the server-sent events; preload only needs to consume the bytes.
+			}
+		})
+		.catch(() => undefined)
+		.finally(() => {
+			stream.connected = false;
+			stream.active = false;
+		});
+};
+
+const stopWatcherTraceStream = (): void => {
+	watcherTraceStream?.stop();
+	watcherTraceStream = undefined;
+};
+
+const traceWatcherEvent = (
+	projectId: string,
+	subscriptionId: string,
+	event: WatcherEvent,
+): void => {
+	const stream = watcherTraceStream;
+	if (stream?.connected !== true) return;
+
+	void ipcRenderer
+		.invoke(ipcTraceWatcherEventChannel, {
+			streamId: stream.streamId,
+			type: event.payload.type,
+			body: stringifyTracePayload({
+				projectId,
+				subscriptionId,
+				payload: event.payload,
+			}),
+		})
+		.catch(() => undefined);
+};
+
 /**
  * The map of subscription IDs to channels and callbacks.
  *
@@ -57,14 +286,11 @@ const watcherListenerBySubscription = new Map<
 
 const api: LiteElectronApi = {
 	absorptionPlan: (params) =>
-		ipcRenderer.invoke("workspace:absorption-plan", params) as Promise<Array<CommitAbsorption>>,
-	absorb: (params) => ipcRenderer.invoke("workspace:absorb", params) as Promise<number>,
-	apply: (params) => ipcRenderer.invoke("workspace:apply", params) as Promise<ApplyOutcome>,
+		invoke("workspace:absorption-plan", params) as Promise<Array<CommitAbsorption>>,
+	absorb: (params) => invoke("workspace:absorb", params) as Promise<number>,
+	apply: (params) => invoke("workspace:apply", params) as Promise<ApplyOutcome>,
 	applyBranchIntegration: (params) =>
-		ipcRenderer.invoke(
-			"workspace:apply-branch-integration",
-			params,
-		) as Promise<IntegrateBranchResult>,
+		invoke("workspace:apply-branch-integration", params) as Promise<IntegrateBranchResult>,
 	onAskpassPrompt: (callback) => {
 		const listener = (_event: Electron.IpcRendererEvent, payload: AskpassPromptEvent) => {
 			callback(payload);
@@ -73,144 +299,110 @@ const api: LiteElectronApi = {
 		return () => ipcRenderer.removeListener("askpass:prompt", listener);
 	},
 	askpassSubmitPromptResponse: (params) =>
-		ipcRenderer.invoke("askpass:submit-prompt-response", params) as Promise<void>,
-	assignHunk: (params) => ipcRenderer.invoke("workspace:assign-hunk", params) as Promise<void>,
+		invoke("askpass:submit-prompt-response", params) as Promise<void>,
+	assignHunk: (params) => invoke("workspace:assign-hunk", params) as Promise<void>,
 	branchCheckout: (params) =>
-		ipcRenderer.invoke("workspace:branch-checkout", params) as Promise<BranchCheckoutResult>,
+		invoke("workspace:branch-checkout", params) as Promise<BranchCheckoutResult>,
 	branchCheckoutNew: (params) =>
-		ipcRenderer.invoke("workspace:branch-checkout-new", params) as Promise<BranchCheckoutResult>,
+		invoke("workspace:branch-checkout-new", params) as Promise<BranchCheckoutResult>,
 	branchCreate: (params) =>
-		ipcRenderer.invoke("workspace:branch-create", params) as Promise<BranchCreateResult>,
-	branchDetails: (params) =>
-		ipcRenderer.invoke("workspace:branch-details", params) as Promise<BranchDetails>,
-	branchDiff: (params) =>
-		ipcRenderer.invoke("workspace:branch-diff", params) as Promise<TreeChanges>,
+		invoke("workspace:branch-create", params) as Promise<BranchCreateResult>,
+	branchDetails: (params) => invoke("workspace:branch-details", params) as Promise<BranchDetails>,
+	branchDiff: (params) => invoke("workspace:branch-diff", params) as Promise<TreeChanges>,
 	changesInWorktree: (projectId) =>
-		ipcRenderer.invoke("workspace:changes-in-worktree", projectId) as Promise<WorktreeChanges>,
-	clipboardWriteText: (text) =>
-		ipcRenderer.invoke("lite:clipboard-write-text", text) as Promise<void>,
-	commitAmend: (params) =>
-		ipcRenderer.invoke("workspace:commit-amend", params) as Promise<CommitCreateResult>,
+		invoke("workspace:changes-in-worktree", projectId) as Promise<WorktreeChanges>,
+	clipboardWriteText: (text) => invoke("lite:clipboard-write-text", text) as Promise<void>,
+	commitAmend: (params) => invoke("workspace:commit-amend", params) as Promise<CommitCreateResult>,
 	commitCreate: (params) =>
-		ipcRenderer.invoke("workspace:commit-create", params) as Promise<CommitCreateResult>,
+		invoke("workspace:commit-create", params) as Promise<CommitCreateResult>,
 	commitDiscard: (params) =>
-		ipcRenderer.invoke("workspace:commit-discard", params) as Promise<CommitDiscardResult>,
+		invoke("workspace:commit-discard", params) as Promise<CommitDiscardResult>,
 	commitDiscardChanges: (params) =>
-		ipcRenderer.invoke("workspace:commit-discard-changes", params) as Promise<MoveChangesResult>,
+		invoke("workspace:commit-discard-changes", params) as Promise<MoveChangesResult>,
 	commitDetailsWithLineStats: (params) =>
-		ipcRenderer.invoke(
-			"workspace:commit-details-with-line-stats",
-			params,
-		) as Promise<CommitDetails>,
+		invoke("workspace:commit-details-with-line-stats", params) as Promise<CommitDetails>,
 	discardWorktreeChanges: (params) =>
-		ipcRenderer.invoke("workspace:discard-worktree-changes", params) as Promise<Array<DiffSpec>>,
+		invoke("workspace:discard-worktree-changes", params) as Promise<Array<DiffSpec>>,
 	commitInsertBlank: (params) =>
-		ipcRenderer.invoke("workspace:commit-insert-blank", params) as Promise<CommitInsertBlankResult>,
-	commitMove: (params) =>
-		ipcRenderer.invoke("workspace:commit-move", params) as Promise<CommitMoveResult>,
+		invoke("workspace:commit-insert-blank", params) as Promise<CommitInsertBlankResult>,
+	commitMove: (params) => invoke("workspace:commit-move", params) as Promise<CommitMoveResult>,
 	commitSquash: (params) =>
-		ipcRenderer.invoke("workspace:commit-squash", params) as Promise<CommitSquashResult>,
+		invoke("workspace:commit-squash", params) as Promise<CommitSquashResult>,
 	commitReword: (params) =>
-		ipcRenderer.invoke("workspace:commit-reword", params) as Promise<CommitRewordResult>,
+		invoke("workspace:commit-reword", params) as Promise<CommitRewordResult>,
 	commitMoveChangesBetween: (params) =>
-		ipcRenderer.invoke(
-			"workspace:commit-move-changes-between",
-			params,
-		) as Promise<MoveChangesResult>,
+		invoke("workspace:commit-move-changes-between", params) as Promise<MoveChangesResult>,
 	commitUncommit: (params) =>
-		ipcRenderer.invoke("workspace:commit-uncommit", params) as Promise<UncommitResult>,
+		invoke("workspace:commit-uncommit", params) as Promise<UncommitResult>,
 	commitUncommitChanges: (params) =>
-		ipcRenderer.invoke("workspace:commit-uncommit-changes", params) as Promise<MoveChangesResult>,
+		invoke("workspace:commit-uncommit-changes", params) as Promise<MoveChangesResult>,
 	forgeCompareBranchUrl: (params) =>
-		ipcRenderer.invoke("workspace:forge-compare-branch-url", params) as Promise<string | null>,
-	forgeInfo: (projectId) =>
-		ipcRenderer.invoke("workspace:forge-info", projectId) as Promise<ForgeInfo | null>,
+		invoke("workspace:forge-compare-branch-url", params) as Promise<string | null>,
+	forgeInfo: (projectId) => invoke("workspace:forge-info", projectId) as Promise<ForgeInfo | null>,
 	forgeProvider: (projectId) =>
-		ipcRenderer.invoke("workspace:forge-provider", projectId) as Promise<ForgeName | null>,
+		invoke("workspace:forge-provider", projectId) as Promise<ForgeName | null>,
 	getInitialBranchIntegration: (params) =>
-		ipcRenderer.invoke(
-			"workspace:get-initial-branch-integration",
-			params,
-		) as Promise<InitialBranchIntegration>,
-	getRepoInfo: (projectId) =>
-		ipcRenderer.invoke("workspace:get-repo-info", projectId) as Promise<RepoInfo>,
+		invoke("workspace:get-initial-branch-integration", params) as Promise<InitialBranchIntegration>,
+	getRepoInfo: (projectId) => invoke("workspace:get-repo-info", projectId) as Promise<RepoInfo>,
 	getReviewBaseRepoUrl: (params) =>
-		ipcRenderer.invoke("workspace:get-review-base-repo-url", params) as Promise<string | null>,
+		invoke("workspace:get-review-base-repo-url", params) as Promise<string | null>,
 	getReviewMergeStatus: (params) =>
-		ipcRenderer.invoke("workspace:get-review-merge-status", params) as Promise<ReviewMergeStatus>,
-	getVersion: () => ipcRenderer.invoke("lite:get-version") as Promise<string>,
+		invoke("workspace:get-review-merge-status", params) as Promise<ReviewMergeStatus>,
+	getVersion: () => invoke("lite:get-version") as Promise<string>,
 	getRedoTargetSnapshot: (params) =>
-		ipcRenderer.invoke("workspace:get-redo-target-snapshot", params) as Promise<Snapshot | null>,
-	getReview: (params) => ipcRenderer.invoke("workspace:get-review", params) as Promise<ForgeReview>,
+		invoke("workspace:get-redo-target-snapshot", params) as Promise<Snapshot | null>,
+	getReview: (params) => invoke("workspace:get-review", params) as Promise<ForgeReview>,
 	getUndoTargetSnapshot: (params) =>
-		ipcRenderer.invoke("workspace:get-undo-target-snapshot", params) as Promise<Snapshot | null>,
-	headInfo: (projectId) => ipcRenderer.invoke("workspace:head-info", projectId) as Promise<RefInfo>,
+		invoke("workspace:get-undo-target-snapshot", params) as Promise<Snapshot | null>,
+	headInfo: (projectId) => invoke("workspace:head-info", projectId) as Promise<RefInfo>,
 	listBranches: (projectId, filter) =>
-		ipcRenderer.invoke("workspace:list-branches", projectId, filter) as Promise<
-			Array<BranchListing>
-		>,
+		invoke("workspace:list-branches", projectId, filter) as Promise<Array<BranchListing>>,
 	listAvailableReviewTemplates: (projectId) =>
-		ipcRenderer.invoke("workspace:list-available-review-templates", projectId) as Promise<
-			Array<string>
-		>,
-	listCiChecks: (params) =>
-		ipcRenderer.invoke("workspace:list-ci-checks", params) as Promise<Array<CiCheck>>,
-	listEditors: () => ipcRenderer.invoke("workspace:list-editors") as Promise<Array<Editor>>,
+		invoke("workspace:list-available-review-templates", projectId) as Promise<Array<string>>,
+	listCiChecks: (params) => invoke("workspace:list-ci-checks", params) as Promise<Array<CiCheck>>,
+	listEditors: () => invoke("workspace:list-editors") as Promise<Array<Editor>>,
 	listProjectsStateless: () =>
-		ipcRenderer.invoke("projects:list-stateless") as Promise<Array<ProjectForFrontend>>,
-	listReviews: (params) =>
-		ipcRenderer.invoke("workspace:list-reviews", params) as Promise<Array<ForgeReview>>,
+		invoke("projects:list-stateless") as Promise<Array<ProjectForFrontend>>,
+	listReviews: (params) => invoke("workspace:list-reviews", params) as Promise<Array<ForgeReview>>,
 	listReviewsForBranch: (params) =>
-		ipcRenderer.invoke("workspace:list-reviews-for-branch", params) as Promise<Array<ForgeReview>>,
-	mergeReview: (params) => ipcRenderer.invoke("workspace:merge-review", params) as Promise<void>,
-	moveBranch: (params) =>
-		ipcRenderer.invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
-	openInEditor: (params) => ipcRenderer.invoke("workspace:open-in-editor", params) as Promise<void>,
-	openInWebBrowser: (url) =>
-		ipcRenderer.invoke("workspace:open-in-web-browser", url) as Promise<void>,
-	pathJoin: (path, ...paths) =>
-		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
-	publishReview: (params) =>
-		ipcRenderer.invoke("workspace:publish-review", params) as Promise<ForgeReview>,
+		invoke("workspace:list-reviews-for-branch", params) as Promise<Array<ForgeReview>>,
+	mergeReview: (params) => invoke("workspace:merge-review", params) as Promise<void>,
+	moveBranch: (params) => invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
+	openInEditor: (params) => invoke("workspace:open-in-editor", params) as Promise<void>,
+	openInWebBrowser: (url) => invoke("workspace:open-in-web-browser", url) as Promise<void>,
+	pathJoin: (path, ...paths) => invoke("lite:path-join", path, ...paths) as Promise<string>,
+	publishReview: (params) => invoke("workspace:publish-review", params) as Promise<ForgeReview>,
 	updateBranchName: (params) =>
-		ipcRenderer.invoke("workspace:update-branch-name", params) as Promise<UpdateBranchNameResult>,
-	updateReview: (params) => ipcRenderer.invoke("workspace:update-review", params) as Promise<void>,
+		invoke("workspace:update-branch-name", params) as Promise<UpdateBranchNameResult>,
+	updateReview: (params) => invoke("workspace:update-review", params) as Promise<void>,
 	tearOffBranch: (params) =>
-		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
+		invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
 	peelRestoreSnapshot: (params) =>
-		ipcRenderer.invoke("workspace:peel-restore-snapshot", params) as Promise<Snapshot | null>,
+		invoke("workspace:peel-restore-snapshot", params) as Promise<Snapshot | null>,
 	workspaceBranchAndAncestorsPush: (params) =>
-		ipcRenderer.invoke("workspace:push-stack", params) as Promise<PushResult>,
-	removeBranch: (params) => ipcRenderer.invoke("workspace:remove-branch", params) as Promise<void>,
+		invoke("workspace:push-stack", params) as Promise<PushResult>,
+	removeBranch: (params) => invoke("workspace:remove-branch", params) as Promise<void>,
 	restoreSnapshotWithKind: (params) =>
-		ipcRenderer.invoke("workspace:restore-snapshot-with-kind", params) as Promise<void>,
+		invoke("workspace:restore-snapshot-with-kind", params) as Promise<void>,
 	reviewTemplate: (projectId) =>
-		ipcRenderer.invoke(
-			"workspace:review-template",
-			projectId,
-		) as Promise<ReviewTemplateInfo | null>,
+		invoke("workspace:review-template", projectId) as Promise<ReviewTemplateInfo | null>,
 	setReviewAutoMerge: (params) =>
-		ipcRenderer.invoke("workspace:set-review-auto-merge", params) as Promise<void>,
+		invoke("workspace:set-review-auto-merge", params) as Promise<void>,
 	setReviewDraftiness: (params) =>
-		ipcRenderer.invoke("workspace:set-review-draftiness", params) as Promise<void>,
-	setReviewTemplate: (params) =>
-		ipcRenderer.invoke("workspace:set-review-template", params) as Promise<void>,
+		invoke("workspace:set-review-draftiness", params) as Promise<void>,
+	setReviewTemplate: (params) => invoke("workspace:set-review-template", params) as Promise<void>,
 	setTargetRefAndInitProject: (params) =>
-		ipcRenderer.invoke("workspace:set-target-ref-and-init-project", params) as Promise<void>,
-	showNativeMenu: (params) =>
-		ipcRenderer.invoke("lite:show-native-menu", params) as Promise<string | null>,
+		invoke("workspace:set-target-ref-and-init-project", params) as Promise<void>,
+	showNativeMenu: (params) => invoke("lite:show-native-menu", params) as Promise<string | null>,
 	treeChangeDiffs: (params) =>
-		ipcRenderer.invoke("workspace:tree-change-diffs", params) as Promise<UnifiedPatch | null>,
-	unapplyStack: (params) => ipcRenderer.invoke("workspace:unapply-stack", params) as Promise<void>,
+		invoke("workspace:tree-change-diffs", params) as Promise<UnifiedPatch | null>,
+	unapplyStack: (params) => invoke("workspace:unapply-stack", params) as Promise<void>,
 	workspaceIntegrateUpstream: (params) =>
-		ipcRenderer.invoke(
-			"workspace:integrate-upstream",
-			params,
-		) as Promise<WorkspaceIntegrateUpstreamOutcome>,
+		invoke("workspace:integrate-upstream", params) as Promise<WorkspaceIntegrateUpstreamOutcome>,
 	updateReviewFooters: (params) =>
-		ipcRenderer.invoke("workspace:update-review-footers", params) as Promise<void>,
+		invoke("workspace:update-review-footers", params) as Promise<void>,
 	warmCiChecksCache: (projectId) =>
-		ipcRenderer.invoke("workspace:warm-ci-checks-cache", projectId) as Promise<void>,
+		invoke("workspace:warm-ci-checks-cache", projectId) as Promise<void>,
 	/**
 	 * Subscribe to a project.
 	 *
@@ -228,11 +420,12 @@ const api: LiteElectronApi = {
 	 * @returns A subscription ID.
 	 */
 	watcherSubscribe: async (projectId, callback) => {
-		const { subscriptionId, eventChannel } = (await ipcRenderer.invoke(
-			"workspace:watcher-subscribe",
-			{ projectId },
-		)) as WatcherSubscribeResult;
+		const { subscriptionId, eventChannel } = (await invoke("workspace:watcher-subscribe", {
+			projectId,
+		})) as WatcherSubscribeResult;
+		startWatcherTraceStream();
 		const listener = (_event: Electron.IpcRendererEvent, payload: WatcherEvent) => {
+			traceWatcherEvent(projectId, subscriptionId, payload);
 			callback(payload);
 		};
 		watcherListenerBySubscription.set(subscriptionId, { eventChannel, listener });
@@ -251,8 +444,9 @@ const api: LiteElectronApi = {
 		if (registration) {
 			ipcRenderer.removeListener(registration.eventChannel, registration.listener);
 			watcherListenerBySubscription.delete(subscriptionId);
+			if (watcherListenerBySubscription.size === 0) stopWatcherTraceStream();
 		}
-		return ipcRenderer.invoke("workspace:watcher-unsubscribe", {
+		return invoke("workspace:watcher-unsubscribe", {
 			subscriptionId,
 		}) as Promise<boolean>;
 	},
@@ -266,11 +460,12 @@ const api: LiteElectronApi = {
 			ipcRenderer.removeListener(eventChannel, listener);
 
 		watcherListenerBySubscription.clear();
-		return ipcRenderer.invoke("workspace:watcher-stop-all") as Promise<number>;
+		stopWatcherTraceStream();
+		return invoke("workspace:watcher-stop-all") as Promise<number>;
 	},
-	readGUISettings: () => ipcRenderer.invoke("lite:gui-settings:read") as Promise<GUISettings>,
+	readGUISettings: () => invoke("lite:gui-settings:read") as Promise<GUISettings>,
 	writeGUISettings: (settings: GUISettings) =>
-		ipcRenderer.invoke("lite:gui-settings:write", settings) as Promise<void>,
+		invoke("lite:gui-settings:write", settings) as Promise<void>,
 	platform: process.platform,
 };
 
