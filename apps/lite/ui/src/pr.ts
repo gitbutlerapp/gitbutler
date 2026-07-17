@@ -52,7 +52,7 @@ export const draftPRQueryOptions = ({
 	branchName: string;
 }) =>
 	queryOptions({
-		queryKey: ["pr-draft", projectId, branchName],
+		queryKey: ["prDraft", projectId, branchName],
 		queryFn: async () => (await idb.get<DraftPR>(draftPRKey({ projectId, branchName }))) ?? null,
 	});
 

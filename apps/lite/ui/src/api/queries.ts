@@ -30,7 +30,7 @@ export type QueryKey =
 	| "treeChangeDiffs"
 	| "absorptionPlan"
 	| "dryRun"
-	| "gui-settings";
+	| "guiSettings";
 
 export const branchDetailsQueryOptions = ({ projectId, ...params }: BranchDetailsParams) =>
 	queryOptions({
@@ -194,6 +194,6 @@ export const absorptionPlanQueryOptions = ({ projectId, target }: AbsorptionPlan
 	});
 
 export const guiSettingsQueryOptions = queryOptions({
-	queryKey: ["gui-settings" satisfies QueryKey],
+	queryKey: ["guiSettings" satisfies QueryKey],
 	queryFn: () => window.lite.readGUISettings(),
 });

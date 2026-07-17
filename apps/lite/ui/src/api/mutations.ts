@@ -876,7 +876,7 @@ export const useSaveGUISettings = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		scope: { id: "gui-settings" },
+		scope: { id: "guiSettings" },
 		mutationFn: async (cfg: Partial<GUISettings>, ctx) => {
 			// In practice we should always have some cached data at this point.
 			const prev = await ctx.client.ensureQueryData(guiSettingsQueryOptions);
