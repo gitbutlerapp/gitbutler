@@ -5,7 +5,7 @@ import {
 	useOpenInEditor,
 } from "#ui/api/mutations.ts";
 import {
-	getGUISettingsQueryOptions,
+	guiSettingsQueryOptions,
 	listEditorsQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -39,7 +39,7 @@ export const useFileMenuItems = ({
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
-		...getGUISettingsQueryOptions(),
+		...guiSettingsQueryOptions,
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
 

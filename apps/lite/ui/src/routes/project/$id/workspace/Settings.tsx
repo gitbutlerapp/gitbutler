@@ -2,7 +2,7 @@ import { Dialog } from "@base-ui/react";
 import type { FC } from "react";
 import styles from "./Settings.module.css";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { getGUISettingsQueryOptions, listEditorsQueryOptions } from "#ui/api/queries.ts";
+import { guiSettingsQueryOptions, listEditorsQueryOptions } from "#ui/api/queries.ts";
 import { useSaveGUISettings } from "#ui/api/mutations.ts";
 import type { ThemeCollectionFilter } from "@pierre/theming";
 import { themes } from "@pierre/theming/themes";
@@ -30,7 +30,7 @@ type Props = {
 
 export const Settings: FC<Props> = ({ open, onOpenChange }) => {
 	const { data: editors } = useSuspenseQuery(listEditorsQueryOptions);
-	const { data: settings } = useSuspenseQuery(getGUISettingsQueryOptions());
+	const { data: settings } = useSuspenseQuery(guiSettingsQueryOptions);
 	const { mutate: saveGUISettings } = useSaveGUISettings();
 
 	const setTheme = (variant: keyof ThemesType, themeName: string): void => {

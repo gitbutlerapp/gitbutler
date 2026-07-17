@@ -8,7 +8,7 @@ import { Provider } from "react-redux";
 import { store } from "#ui/store.ts";
 import { Toasts } from "#ui/components/Toasts.tsx";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
-import { getGUISettingsQueryOptions } from "./api/queries.ts";
+import { guiSettingsQueryOptions } from "./api/queries.ts";
 import { defaultSettings } from "./settings.ts";
 
 const workerFactory = (): Worker =>
@@ -20,7 +20,7 @@ const workerFactory = (): Worker =>
 const ThemeSync: FC = () => {
 	const workerPool = useWorkerPool();
 	const { data: theme } = useQuery({
-		...getGUISettingsQueryOptions(),
+		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.syntaxHighlighting,
 	});
 

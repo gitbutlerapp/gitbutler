@@ -15,7 +15,7 @@ import {
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
 	forgeInfoOptions,
-	getGUISettingsQueryOptions,
+	guiSettingsQueryOptions,
 	getReviewMergeStatusQueryOptions,
 	headInfoQueryOptions,
 	listCIChecksQueryOptions,
@@ -340,19 +340,19 @@ const DiffContents: FC<{
 	const dispatch = useAppDispatch();
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
-		...getGUISettingsQueryOptions(),
+		...guiSettingsQueryOptions,
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
 	const { data: preferredFontFamily } = useQuery({
-		...getGUISettingsQueryOptions(),
+		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.diffFontFamily,
 	});
 	const { data: preferredFontSize } = useQuery({
-		...getGUISettingsQueryOptions(),
+		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.diffFontSize,
 	});
 	const { data: preferredTabSize } = useQuery({
-		...getGUISettingsQueryOptions(),
+		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.diffTabSize,
 	});
 	const { mutate: openInEditor } = useOpenInEditor();
@@ -803,7 +803,7 @@ const DiffOverflowToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
 > = (toggleProps) => {
 	const { data: diffOverflow } = useQuery({
-		...getGUISettingsQueryOptions(),
+		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.diffOverflow,
 	});
 	const { mutate: saveGUISettings } = useSaveGUISettings();
@@ -835,7 +835,7 @@ const DiffBackgroundsToggle: FC<
 	Omit<ComponentProps<typeof Toggle>, "aria-label" | "pressed" | "onPressedChange">
 > = (toggleProps) => {
 	const { data: diffBackgrounds } = useQuery({
-		...getGUISettingsQueryOptions(),
+		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.diffBackground,
 	});
 	const { mutate: saveGUISettings } = useSaveGUISettings();
@@ -868,7 +868,7 @@ const DiffStyleToggleGroup: FC<
 	>
 > = (toggleGroupProps) => {
 	const { data: diffStyle } = useQuery({
-		...getGUISettingsQueryOptions(),
+		...guiSettingsQueryOptions,
 		select: (cfg) => cfg.diffStyle,
 	});
 	const { mutate: saveGUISettings } = useSaveGUISettings();
@@ -1027,7 +1027,7 @@ const Diff: FC<{
 	};
 
 	const { data: diffSettings } = useQuery({
-		...getGUISettingsQueryOptions(),
+		...guiSettingsQueryOptions,
 		select: (cfg) => ({
 			diffBackground: cfg.diffBackground,
 			diffOverflow: cfg.diffOverflow,

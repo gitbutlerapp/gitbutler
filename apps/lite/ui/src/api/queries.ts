@@ -193,8 +193,7 @@ export const absorptionPlanQueryOptions = ({ projectId, target }: AbsorptionPlan
 		queryFn: () => window.lite.absorptionPlan({ projectId, target }),
 	});
 
-export const getGUISettingsQueryOptions = () =>
-	queryOptions({
-		queryKey: ["gui-settings" satisfies QueryKey],
-		queryFn: () => window.lite.readGUISettings(),
-	});
+export const guiSettingsQueryOptions = queryOptions({
+	queryKey: ["gui-settings" satisfies QueryKey],
+	queryFn: () => window.lite.readGUISettings(),
+});

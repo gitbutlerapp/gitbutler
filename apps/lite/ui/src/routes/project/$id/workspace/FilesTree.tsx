@@ -1,7 +1,7 @@
 import rowStyles from "./Row.module.css";
 import {
 	changesInWorktreeQueryOptions,
-	getGUISettingsQueryOptions,
+	guiSettingsQueryOptions,
 	headInfoQueryOptions,
 	listEditorsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -46,7 +46,7 @@ const useFilesTreeHotkeys = ({
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 	const { data: editors } = useQuery(listEditorsQueryOptions);
 	const { data: preferredEditor } = useQuery({
-		...getGUISettingsQueryOptions(),
+		...guiSettingsQueryOptions,
 		select: (cfg) => editors?.find((editor) => editor.id === cfg.editorId),
 	});
 	const { mutate: openInEditor } = useOpenInEditor();

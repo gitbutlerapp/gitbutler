@@ -5,7 +5,7 @@ import {
 	getReviewMergeStatusQueryOptions,
 	getReviewQueryOptions,
 	headInfoQueryOptions,
-	getGUISettingsQueryOptions,
+	guiSettingsQueryOptions,
 	type QueryKey,
 } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
@@ -879,7 +879,7 @@ export const useSaveGUISettings = () => {
 		scope: { id: "gui-settings" },
 		mutationFn: async (cfg: Partial<GUISettings>, ctx) => {
 			// In practice we should always have some cached data at this point.
-			const prev = await ctx.client.ensureQueryData(getGUISettingsQueryOptions());
+			const prev = await ctx.client.ensureQueryData(guiSettingsQueryOptions);
 			const next: GUISettings = {
 				...prev,
 				...cfg,
@@ -887,7 +887,7 @@ export const useSaveGUISettings = () => {
 
 			// Update the cache immediately for UX, and keep it updated even if writing fails so that the
 			// app is usable. We shan't bother invalidating the query.
-			ctx.client.setQueryData(getGUISettingsQueryOptions().queryKey, next);
+			ctx.client.setQueryData(guiSettingsQueryOptions.queryKey, next);
 
 			return await window.lite.writeGUISettings(next);
 		},
