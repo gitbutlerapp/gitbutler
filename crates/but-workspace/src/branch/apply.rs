@@ -178,6 +178,10 @@ use but_core::{
     },
 };
 use but_graph::{SegmentIndex, init::Overlay, petgraph::Direction, workspace::WorkspaceKind};
+use but_rebase::graph_rebase::{
+    Editor, GraphEditorOptions, LookupStep, SuccessfulRebase,
+    mutate::{SegmentDelimiter, SelectorSet, SomeSelectors},
+};
 use gix::{
     prelude::ObjectIdExt,
     reference::Category,
@@ -777,6 +781,632 @@ pub fn apply(
         conflicting_stacks,
         applied_branches,
     })
+}
+
+/// Apply `branch` by rebasing it onto the applied branch `onto`.
+///
+/// Unlike [`apply`], this does not add `branch` as an independent workspace stack. If `branch` is
+/// the tip of a known unapplied stack, that entire stack is rewritten on top of `onto`; otherwise
+/// only `branch` is rewritten. In a managed workspace the incoming branches become the new tip
+/// segments of the destination stack, while in an ad-hoc workspace the selected branch becomes the
+/// checked-out branch. The rebase and any managed-workspace merge are prepared in memory before
+/// refs, metadata, or the worktree are changed. Rebase conflicts are materialized as GitButler
+/// conflicted commits.
+///
+/// The incoming branch must be a stack tip without dependent child branches. The destination must
+/// be the tip of an applied managed stack, or the symbolic `HEAD` branch in an ad-hoc workspace.
+#[instrument(skip(workspace, repo, meta), err(Debug))]
+pub fn apply_stacked(
+    branch: &FullNameRef,
+    onto: &FullNameRef,
+    mut workspace: but_graph::Workspace,
+    repo: &gix::Repository,
+    meta: &mut impl RefMetadata,
+) -> anyhow::Result<Outcome> {
+    let original_workspace = workspace.clone();
+    validate_stacked_apply_inputs(branch, onto, &workspace, repo)?;
+    let source = prepare_stacked_source(branch, onto, &workspace, repo)?;
+    let project_meta = workspace.graph.project_meta.clone();
+    let PreparedStackMetadata {
+        mut managed_metadata,
+        incoming_branches,
+    } = prepare_stacked_workspace_metadata(source.ref_name.as_ref(), onto, &workspace, repo, meta)?;
+    let incoming_tip = incoming_branches
+        .first()
+        .context("Incoming stack must contain at least one branch")?;
+
+    let traversal_metadata = stacked_traversal_metadata(
+        &incoming_branches,
+        onto,
+        &workspace,
+        managed_metadata.as_deref(),
+    );
+    workspace = project_stacked_workspace(
+        workspace,
+        source.ref_name.as_ref(),
+        source.tip,
+        traversal_metadata.clone(),
+        repo,
+        meta,
+    )?;
+    let anonymous_stacks = anon_stacks(&workspace.stacks).collect::<Vec<_>>();
+
+    let rebase = rebase_stacked_source(&mut workspace, &incoming_branches, onto, repo, meta)?;
+    let (overlayed_graph, new_source_tip) =
+        preview_stacked_rebase(&rebase, incoming_tip.as_ref(), traversal_metadata)?;
+
+    let (new_head_id, workspace_merge) = match prepare_stacked_checkout(
+        managed_metadata.as_deref(),
+        anonymous_stacks,
+        &overlayed_graph,
+        rebase.repo(),
+        incoming_tip.as_ref(),
+        new_source_tip,
+    )? {
+        StackedCheckout::Ready {
+            head_id,
+            workspace_merge,
+        } => (head_id, workspace_merge),
+        StackedCheckout::Conflict {
+            workspace_merge,
+            conflicting_stacks,
+        } => {
+            return Ok(Outcome {
+                workspace: original_workspace,
+                status: OutcomeStatus::ConflictAborted,
+                applied_branches: Vec::new(),
+                workspace_ref_created: false,
+                workspace_merge: Some(workspace_merge),
+                conflicting_stacks,
+            });
+        }
+    };
+
+    materialize_stacked_rebase(rebase, new_head_id)?;
+    persist_stacked_apply_metadata(
+        repo,
+        meta,
+        &incoming_branches,
+        &project_meta,
+        managed_metadata.as_mut(),
+        source.tracking_setup,
+    )?;
+
+    set_head_to_reference(
+        repo,
+        new_head_id,
+        managed_metadata.is_none().then_some(incoming_tip.as_ref()),
+    )?;
+    workspace.refresh_from_head(repo, meta, project_meta)?;
+
+    Ok(Outcome {
+        workspace,
+        status: OutcomeStatus::Applied,
+        applied_branches: incoming_branches,
+        workspace_ref_created: false,
+        workspace_merge,
+        conflicting_stacks: Vec::new(),
+    })
+}
+
+type LocalTrackingSetup = (gix::config::File, gix::lock::File, gix::ObjectId);
+
+struct StackedSource {
+    ref_name: gix::refs::FullName,
+    tip: gix::ObjectId,
+    tracking_setup: Option<LocalTrackingSetup>,
+}
+
+struct PreparedStackMetadata<H> {
+    managed_metadata: Option<H>,
+    incoming_branches: Vec<gix::refs::FullName>,
+}
+
+enum StackedCheckout {
+    Ready {
+        head_id: gix::ObjectId,
+        workspace_merge: Option<crate::commit::merge::Outcome>,
+    },
+    Conflict {
+        workspace_merge: crate::commit::merge::Outcome,
+        conflicting_stacks: Vec<ConflictingStack>,
+    },
+}
+
+/// Validate ref-level invariants that hold before resolving a remote source to its local branch.
+///
+/// This rejects protected refs, an already-projected source, and destinations that are missing or
+/// cannot be rewritten as local branch topology.
+fn validate_stacked_apply_inputs(
+    branch: &FullNameRef,
+    onto: &FullNameRef,
+    workspace: &but_graph::Workspace,
+    repo: &gix::Repository,
+) -> anyhow::Result<()> {
+    use but_error::bail_precondition;
+
+    if branch == onto {
+        bail_precondition!("Cannot stack '{}' on top of itself", branch.shorten());
+    }
+    if branch.as_bstr() == WORKSPACE_REF_NAME.as_bytes()
+        || onto.as_bstr() == WORKSPACE_REF_NAME.as_bytes()
+    {
+        bail_precondition!("The GitButler workspace reference cannot be stacked");
+    }
+    if workspace.is_branch_the_target_or_its_local_tracking_branch(branch)
+        || workspace.is_branch_the_target_or_its_local_tracking_branch(onto)
+    {
+        bail_precondition!("The workspace target cannot be used for stacked apply");
+    }
+    ensure_branch_is_not_projected(branch, workspace)?;
+    try_find_validated_ref(repo, onto, "stack onto")?
+        .with_context(|| format!("Cannot stack onto missing branch '{}'", onto.shorten()))?;
+    if onto.category() != Some(Category::LocalBranch) {
+        bail_precondition!("Cannot stack onto non-local branch '{}'", onto.shorten());
+    }
+    Ok(())
+}
+
+/// Resolve the source to the local ref and commit that the graph editor will rewrite.
+///
+/// For a remote-only source, this prepares—but does not persist—the local tracking ref and branch
+/// configuration so the rest of the operation can include that prospective ref in its graph.
+fn prepare_stacked_source(
+    branch: &FullNameRef,
+    onto: &FullNameRef,
+    workspace: &but_graph::Workspace,
+    repo: &gix::Repository,
+) -> anyhow::Result<StackedSource> {
+    use but_error::bail_precondition;
+
+    let mut ref_name = branch.to_owned();
+    let mut branch_ref = try_find_validated_ref(repo, ref_name.as_ref(), "apply by stacking")?;
+    let mut tracking_setup = None;
+    if ref_name.category() == Some(Category::RemoteBranch) {
+        let Some((local_tracking_name, _remote_name)) =
+            repo.upstream_branch_and_remote_for_tracking_branch(ref_name.as_ref())?
+        else {
+            bail!("Couldn't find remote refspecs that would match {ref_name}");
+        };
+        ref_name = local_tracking_name;
+        branch_ref = try_find_validated_ref(repo, ref_name.as_ref(), "apply by stacking")?;
+        if branch_ref.is_none() {
+            tracking_setup = setup_local_tracking_configuration(repo, ref_name.as_ref(), branch)?;
+        }
+        ensure_branch_is_not_projected(ref_name.as_ref(), workspace)?;
+    }
+    if ref_name.as_ref() == onto {
+        bail_precondition!("Cannot stack '{}' on top of itself", ref_name.shorten());
+    }
+    if workspace.is_branch_the_target_or_its_local_tracking_branch(ref_name.as_ref()) {
+        bail_precondition!("The workspace target cannot be used for stacked apply");
+    }
+    let tip = match branch_ref {
+        Some(mut reference) => reference.peel_to_id()?.detach(),
+        None => tracking_setup
+            .as_ref()
+            .map(|(_, _, id)| *id)
+            .with_context(|| format!("Cannot apply missing branch '{}'", ref_name.shorten()))?,
+    };
+    Ok(StackedSource {
+        ref_name,
+        tip,
+        tracking_setup,
+    })
+}
+
+/// Reject a source ref that is already represented by the current workspace projection.
+///
+/// Rewriting such a ref would mutate a branch that is already contributing to the checked-out
+/// workspace rather than applying an outside branch.
+fn ensure_branch_is_not_projected(
+    branch: &FullNameRef,
+    workspace: &but_graph::Workspace,
+) -> anyhow::Result<()> {
+    use but_error::bail_precondition;
+
+    let is_projected = workspace
+        .find_segment_and_stack_by_refname(branch)
+        .is_some();
+
+    if is_projected {
+        bail_precondition!(
+            "Cannot apply '{}' by stacking because it is already part of the workspace projection",
+            branch.shorten()
+        );
+    }
+    Ok(())
+}
+
+/// Prepare the workspace metadata and ordered source refs used by a stacked apply.
+///
+/// Managed workspaces move the complete unapplied source stack into a cloned metadata document.
+/// Ad-hoc workspaces have no stack metadata, so they validate `onto` against symbolic `HEAD` and
+/// return only the selected source branch.
+fn prepare_stacked_workspace_metadata<M: RefMetadata>(
+    branch: &FullNameRef,
+    onto: &FullNameRef,
+    workspace: &but_graph::Workspace,
+    repo: &gix::Repository,
+    meta: &M,
+) -> anyhow::Result<PreparedStackMetadata<M::Handle<Workspace>>> {
+    use but_error::bail_precondition;
+
+    match &workspace.kind {
+        WorkspaceKind::Managed { ref_info } => {
+            let mut ws_md = meta.workspace(ref_info.ref_name.as_ref())?;
+            if ws_md.find_branch(branch, StackKind::Applied).is_some() {
+                bail_precondition!(
+                    "Cannot apply '{}' by stacking because it is already applied",
+                    branch.shorten()
+                );
+            }
+            let incoming_branch_records =
+                take_incoming_stack_branches(&mut ws_md, branch, workspace)?;
+            let incoming_branches = incoming_branch_records
+                .iter()
+                .map(|branch| branch.ref_name.clone())
+                .collect();
+            insert_incoming_stack_above_destination(&mut ws_md, incoming_branch_records, onto)?;
+            Ok(PreparedStackMetadata {
+                managed_metadata: Some(ws_md),
+                incoming_branches,
+            })
+        }
+        WorkspaceKind::AdHoc => {
+            let head_name = repo.head_name()?.with_context(
+                || "Cannot apply by stacking in an ad-hoc workspace with detached HEAD",
+            )?;
+            if head_name.as_ref() != onto {
+                bail_precondition!(
+                    "Cannot stack onto '{}' because it is not the checked-out branch",
+                    onto.shorten()
+                );
+            }
+            Ok(PreparedStackMetadata {
+                managed_metadata: None,
+                incoming_branches: vec![branch.to_owned()],
+            })
+        }
+        WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
+            bail_precondition!("Cannot apply by stacking without a managed workspace commit")
+        }
+    }
+}
+
+/// Remove and return the source stack's branch records in tip-to-base order.
+///
+/// A source found in metadata must name the stack tip, and none of the stack's refs may already be
+/// projected. A source without metadata is represented as a new single-branch stack fragment.
+fn take_incoming_stack_branches(
+    ws_md: &mut Workspace,
+    branch: &FullNameRef,
+    workspace: &but_graph::Workspace,
+) -> anyhow::Result<Vec<ref_metadata::WorkspaceStackBranch>> {
+    use but_error::bail_precondition;
+
+    let Some((stack_idx, branch_idx)) =
+        ws_md.find_owner_indexes_by_name(branch, StackKind::AppliedAndUnapplied)
+    else {
+        return Ok(vec![ref_metadata::WorkspaceStackBranch {
+            ref_name: branch.to_owned(),
+            archived: false,
+        }]);
+    };
+    if branch_idx != 0 {
+        bail_precondition!(
+            "Cannot apply '{}' by stacking because it is not the tip of its stack",
+            branch.shorten()
+        );
+    }
+    let source_stack = ws_md
+        .stacks
+        .get(stack_idx)
+        .context("Incoming stack index is no longer present in workspace metadata")?;
+    for source_branch in &source_stack.branches {
+        ensure_branch_is_not_projected(source_branch.ref_name.as_ref(), workspace)?;
+    }
+    Ok(ws_md.stacks.remove(stack_idx).branches)
+}
+
+/// Insert tip-to-base source branch records immediately above an applied destination tip.
+///
+/// The destination stack is marked as merged so the prepared metadata describes the workspace
+/// commit that will be built after the graph rewrite.
+fn insert_incoming_stack_above_destination(
+    ws_md: &mut Workspace,
+    incoming_branches: Vec<ref_metadata::WorkspaceStackBranch>,
+    onto: &FullNameRef,
+) -> anyhow::Result<()> {
+    use but_error::bail_precondition;
+
+    let Some((stack_idx, branch_idx)) = ws_md.find_owner_indexes_by_name(onto, StackKind::Applied)
+    else {
+        bail_precondition!(
+            "Cannot stack onto '{}' because it is not applied",
+            onto.shorten()
+        );
+    };
+    if branch_idx != 0 {
+        bail_precondition!(
+            "Cannot stack onto '{}' because it is not the tip of its stack",
+            onto.shorten()
+        );
+    }
+    let destination_stack = ws_md
+        .stacks
+        .get_mut(stack_idx)
+        .context("Destination stack index is no longer present in workspace metadata")?;
+    destination_stack
+        .branches
+        .splice(branch_idx..branch_idx, incoming_branches);
+    destination_stack.workspacecommit_relation = Merged;
+    Ok(())
+}
+
+/// Build the metadata override used while traversing the prospective stacked graph.
+///
+/// Managed workspaces use their already-prepared metadata clone. Ad-hoc workspaces receive a
+/// temporary source-to-destination stack solely to give the graph editor the intended topology.
+fn stacked_traversal_metadata(
+    incoming_branches: &[gix::refs::FullName],
+    onto: &FullNameRef,
+    workspace: &but_graph::Workspace,
+    managed_metadata: Option<&Workspace>,
+) -> (gix::refs::FullName, Workspace) {
+    managed_metadata
+        .map(|ws_md| {
+            (
+                workspace
+                    .ref_name()
+                    .map(ToOwned::to_owned)
+                    .expect("managed workspaces have a reference name"),
+                ws_md.clone(),
+            )
+        })
+        .unwrap_or_else(|| {
+            let ws_md = Workspace::new(
+                ref_metadata::RefInfo::default(),
+                vec![ref_metadata::WorkspaceStack {
+                    id: StackId::generate(),
+                    branches: incoming_branches
+                        .iter()
+                        .cloned()
+                        .map(|ref_name| ref_metadata::WorkspaceStackBranch {
+                            ref_name,
+                            archived: false,
+                        })
+                        .chain(Some(ref_metadata::WorkspaceStackBranch {
+                            ref_name: onto.to_owned(),
+                            archived: false,
+                        }))
+                        .collect(),
+                    workspacecommit_relation: Merged,
+                }],
+                workspace.graph.project_meta.clone(),
+            );
+            (onto.to_owned(), ws_md)
+        })
+}
+
+/// Reproject the workspace with the prepared metadata and any prospective local source ref.
+///
+/// The overlay makes a remote-only source visible to graph traversal without creating the local
+/// tracking ref or changing repository state.
+fn project_stacked_workspace<M: RefMetadata>(
+    workspace: but_graph::Workspace,
+    branch: &FullNameRef,
+    source_tip: gix::ObjectId,
+    traversal_metadata: (gix::refs::FullName, Workspace),
+    repo: &gix::Repository,
+    meta: &M,
+) -> anyhow::Result<but_graph::Workspace> {
+    let overlay = Overlay::default()
+        .with_references_if_new((repo.try_find_reference(branch)?.is_none()).then(|| {
+            gix::refs::Reference {
+                name: branch.to_owned(),
+                target: Target::Object(source_tip),
+                peeled: Some(source_tip),
+            }
+        }))
+        .with_workspace_metadata_override(Some(traversal_metadata));
+    workspace
+        .graph
+        .redo_traversal_with_overlay(repo, meta, overlay)?
+        .into_workspace()
+}
+
+/// Prepare an in-memory rebase of the complete incoming stack onto `onto`.
+///
+/// Every incoming ref is mutable. The source stack is disconnected below its bottom segment and
+/// reattached to the destination, preserving internal branch boundaries and rejecting dependents
+/// outside the incoming stack. No refs or objects are persisted by this helper.
+fn rebase_stacked_source<'workspace, 'meta, M: RefMetadata>(
+    workspace: &'workspace mut but_graph::Workspace,
+    incoming_branches: &[gix::refs::FullName],
+    onto: &FullNameRef,
+    repo: &gix::Repository,
+    meta: &'meta mut M,
+) -> anyhow::Result<SuccessfulRebase<'workspace, 'meta, M>> {
+    use but_error::bail_precondition;
+
+    let branch = incoming_branches
+        .first()
+        .context("Incoming stack must contain a tip branch")?;
+    let bottom_branch = incoming_branches
+        .last()
+        .context("Incoming stack must contain a bottom branch")?;
+    let bottom_segment = workspace
+        .graph
+        .segment_by_ref_name(bottom_branch.as_ref())
+        .with_context(|| {
+            format!(
+                "Could not find bottom branch '{}' of the incoming stack in the graph",
+                bottom_branch.shorten()
+            )
+        })?;
+    let source_bottom = bottom_segment.commits.last().map(|commit| commit.id);
+    let options = GraphEditorOptions {
+        extra_mutable_refs: incoming_branches.to_vec(),
+        ..GraphEditorOptions::default()
+    };
+    let mut editor = Editor::create_with_opts(workspace, meta, repo, &options)?;
+    let source_selector = editor
+        .select_reference(branch.as_ref())
+        .context("Failed to select the incoming branch")?;
+    let dependent_children = editor
+        .direct_children(source_selector)?
+        .into_iter()
+        .filter(|(selector, _)| match editor.lookup_reference(*selector) {
+            Ok(ref_name) => {
+                ref_name.category() != Some(Category::RemoteBranch)
+                    && !incoming_branches.iter().any(|branch| branch == &ref_name)
+            }
+            Err(_) => true,
+        })
+        .collect::<Vec<_>>();
+    if !dependent_children.is_empty() {
+        bail_precondition!(
+            "Cannot apply '{}' by stacking because another branch depends on it",
+            branch.shorten()
+        );
+    }
+    let source_parent_selector = source_bottom
+        .map(|id| editor.select_commit(id))
+        .transpose()?
+        .unwrap_or(source_selector);
+    let parent_to_disconnect = editor
+        .direct_parents(source_parent_selector)?
+        .into_iter()
+        .min_by_key(|(_, order)| *order)
+        .map(|(selector, _)| selector)
+        .context("Incoming branch has no base to replace")?;
+    editor.disconnect_segment_from(
+        SegmentDelimiter {
+            child: source_selector,
+            parent: source_parent_selector,
+        },
+        SelectorSet::None,
+        SelectorSet::Some(SomeSelectors::new([parent_to_disconnect])?),
+        true,
+    )?;
+    let onto_selector = editor
+        .select_reference(onto)
+        .context("Failed to select the stacking destination")?;
+    editor.add_edge(source_parent_selector, onto_selector, 0)?;
+    editor.rebase()
+}
+
+/// Project the in-memory rebase result and resolve the rewritten incoming tip.
+///
+/// The supplied metadata override ensures managed workspace-commit preparation observes the same
+/// stack layout that will later be persisted.
+fn preview_stacked_rebase<M: RefMetadata>(
+    rebase: &SuccessfulRebase<'_, '_, M>,
+    branch: &FullNameRef,
+    traversal_metadata: (gix::refs::FullName, Workspace),
+) -> anyhow::Result<(but_graph::Graph, gix::ObjectId)> {
+    let graph = rebase.overlayed_graph_with_workspace_metadata(Some(traversal_metadata))?;
+    let source_tip = graph
+        .segment_and_commit_by_ref_name(branch)
+        .map(|(_, commit)| commit.id)
+        .with_context(|| format!("Rebased branch '{}' has no tip", branch.shorten()))?;
+    Ok((graph, source_tip))
+}
+
+/// Determine the commit to check out after a successful stacked rebase.
+///
+/// Ad-hoc workspaces check out the rewritten source tip directly. Managed workspaces first build a
+/// prospective workspace merge and classify remaining parallel-stack conflicts without persisting
+/// any part of the operation.
+fn prepare_stacked_checkout(
+    managed_metadata: Option<&Workspace>,
+    anonymous_stacks: Vec<(usize, Tip)>,
+    graph: &but_graph::Graph,
+    repo: &gix::Repository,
+    branch: &FullNameRef,
+    source_tip: gix::ObjectId,
+) -> anyhow::Result<StackedCheckout> {
+    let Some(ws_md) = managed_metadata else {
+        return Ok(StackedCheckout::Ready {
+            head_id: source_tip,
+            workspace_merge: None,
+        });
+    };
+    let merge_result = WorkspaceCommit::from_new_merge_with_metadata(
+        ws_md.stacks.iter(),
+        anonymous_stacks,
+        graph,
+        repo,
+        Some(branch),
+    )?;
+    ensure_no_missing_stacks(&merge_result)?;
+    if merge_result.has_conflicts() {
+        let conflicting_stacks =
+            correlate_conflicting_stacks(ws_md, &merge_result.conflicting_stacks);
+        Ok(StackedCheckout::Conflict {
+            workspace_merge: merge_result,
+            conflicting_stacks,
+        })
+    } else {
+        Ok(StackedCheckout::Ready {
+            head_id: merge_result.workspace_commit_id,
+            workspace_merge: Some(merge_result),
+        })
+    }
+}
+
+/// Persist the prepared rebase objects, update the worktree, and finally move rewritten refs.
+///
+/// Objects are written before checkout because libgit2 cannot read the editor's in-memory object
+/// store. A checkout failure therefore leaves refs untouched, with only unreachable objects.
+fn materialize_stacked_rebase<M: RefMetadata>(
+    mut rebase: SuccessfulRebase<'_, '_, M>,
+    head_id: gix::ObjectId,
+) -> anyhow::Result<()> {
+    // `safe_checkout_from_head()` crosses the libgit2 boundary and therefore cannot see the
+    // graph editor's in-memory object store. Persist only the newly created, still-unreferenced
+    // objects after every conflict/validation check has passed; refs and metadata remain untouched
+    // until checkout succeeds.
+    rebase.persist_objects()?;
+    but_core::worktree::safe_checkout_from_head(
+        head_id,
+        rebase.repo(),
+        but_core::worktree::checkout::Options {
+            skip_head_update: true,
+            allow_conflicted_commit_checkout: true,
+            ..Default::default()
+        },
+    )?;
+    rebase.materialize_without_checkout()?;
+    Ok(())
+}
+
+/// Persist the non-graph bookkeeping for a successfully materialized stacked apply.
+///
+/// This writes prospective remote-tracking configuration, managed workspace metadata, and access
+/// timestamps for every incoming branch.
+fn persist_stacked_apply_metadata<M: RefMetadata>(
+    repo: &gix::Repository,
+    meta: &mut M,
+    branches: &[gix::refs::FullName],
+    project_meta: &ref_metadata::ProjectMeta,
+    managed_metadata: Option<&mut M::Handle<Workspace>>,
+    tracking_setup: Option<LocalTrackingSetup>,
+) -> anyhow::Result<()> {
+    if let Some((config, lock, _)) = tracking_setup {
+        repo.write_locked_config(&config, lock)?;
+    }
+    if let Some(ws_md) = managed_metadata {
+        ws_md.set_project_meta(project_meta.clone());
+        meta.set_workspace(ws_md)?;
+    }
+    for branch in branches {
+        let mut branch_md = meta.branch(branch.as_ref())?;
+        branch_md.update_times(false);
+        meta.set_branch(&branch_md)?;
+    }
+    Ok(())
 }
 
 /// Map conflicting merge tips back to workspace stack metadata.

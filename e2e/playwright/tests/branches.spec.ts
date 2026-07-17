@@ -197,6 +197,57 @@ test.describe("GitHub review apply", () => {
 		}
 	});
 
+	test("should apply a conflicting GitHub review by stacking it", async ({ page, gitbutler }) => {
+		const localClone = gitbutler.pathInWorkdir("local-clone");
+		const forkRepoPath = gitbutler.pathInWorkdir("fork-project-bare");
+		const fakeGitHub = await startFakeGitHubServer({
+			forkRepoPath,
+			sourceBranch: "fork-feature",
+			title: "Conflicting PR",
+		});
+		try {
+			await gitbutler.runScript("project-with-github-conflicting-pr.sh", [
+				fakeGitHub.repositoryUrl,
+			]);
+			await applyUpstream(gitbutler, "applied-feature");
+			const destinationBefore = git(localClone, ["rev-parse", "refs/heads/applied-feature"]);
+			await openWorkspace(page);
+			await storeFakeGitHubEnterprisePat(page, fakeGitHub);
+			await page.reload();
+			await waitForTestId(page, "workspace-view");
+
+			await clickByTestId(page, "navigation-branches-button");
+			await expect(
+				getByTestId(page, "pr-list-card").filter({ hasText: "Conflicting PR" }),
+			).toBeVisible();
+			await getByTestId(page, "pr-list-card").filter({ hasText: "Conflicting PR" }).click();
+			await clickByTestId(page, "branches-view-apply-from-fork-button");
+			await waitForTestId(page, "branch-apply-stacking-modal");
+			expect(git(localClone, ["branch", "--list", "fork-feature"])).toBe("");
+			const remoteBefore = git(localClone, [
+				"rev-parse",
+				"refs/remotes/contributor-user/fork-feature",
+			]);
+
+			await clickByTestId(page, "branch-apply-stacking-modal-action-button");
+			await waitForTestId(page, "workspace-view");
+			expect(git(localClone, ["rev-parse", "refs/heads/applied-feature"])).toBe(destinationBefore);
+			const localAfter = git(localClone, ["rev-parse", "refs/heads/fork-feature"]);
+			expect(localAfter).not.toBe(remoteBefore);
+			expect(git(localClone, ["rev-parse", "refs/remotes/contributor-user/fork-feature"])).toBe(
+				remoteBefore,
+			);
+			expect(git(localClone, ["rev-parse", "refs/heads/fork-feature^"])).toBe(destinationBefore);
+			await expect(stack(page)).toHaveCount(1);
+			const headers = stack(page).getByTestId("branch-header");
+			await expect(headers.nth(0)).toContainText("fork-feature");
+			await expect(headers.nth(1)).toContainText("applied-feature");
+			await expect(getByTestId(page, "pr-review-badge")).toContainText("#42");
+		} finally {
+			await fakeGitHub.close();
+		}
+	});
+
 	test.describe("single-branch mode", () => {
 		test.use({
 			gitbutlerOptions: {
@@ -244,6 +295,12 @@ test.describe("GitHub review apply", () => {
 				);
 				await expect(stack(page, "single-branch-fixture")).toHaveCount(1);
 				await expect(stack(page, "base-pr-feature")).toHaveCount(1);
+				await expect(stack(page, "base-pr-feature").getByTestId("pr-review-badge")).toContainText(
+					"#42",
+				);
+				await expect(
+					stack(page, "single-branch-fixture").getByTestId("pr-review-badge"),
+				).toHaveCount(0);
 			} finally {
 				await fakeGitHub.close();
 			}
@@ -563,19 +620,166 @@ branch1 commit 2
 	);
 });
 
-test("should handle gracefully applying two conflicting branches", async ({ page, gitbutler }) => {
+test("applies an entire unapplied two-branch stack above an existing stack", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-unapplied-two-branch-stack.sh");
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	const destinationBefore = git(localClone, ["rev-parse", "refs/heads/destination"]);
+	const sourceLowerBefore = git(localClone, ["rev-parse", "refs/heads/source-lower"]);
+	const sourceTipBefore = git(localClone, ["rev-parse", "refs/heads/source-tip"]);
+	await openWorkspace(page);
+
+	await clickByTestId(page, "navigation-branches-button");
+	await waitForTestId(page, "branches-view");
+	await getByTestId(page, "branch-list-card").filter({ hasText: "source-tip" }).click();
+	await clickByTestId(page, "branches-view-apply-branch-button");
+	await waitForTestId(page, "branch-apply-stacking-modal");
+	await expect(getByTestId(page, "branch-apply-stacking-modal")).toContainText("source-tip");
+	await expect(getByTestId(page, "branch-apply-stacking-modal")).toContainText("destination");
+	await clickByTestId(page, "branch-apply-stacking-modal-action-button");
+	await waitForTestId(page, "workspace-view");
+
+	await expect(stack(page)).toHaveCount(1);
+	const headers = stack(page).getByTestId("branch-header");
+	await expect(headers).toHaveCount(3);
+	await expect(headers.nth(0)).toContainText("source-tip");
+	await expect(headers.nth(1)).toContainText("source-lower");
+	await expect(headers.nth(2)).toContainText("destination");
+
+	expect(git(localClone, ["rev-parse", "refs/heads/destination"])).toBe(destinationBefore);
+	const sourceLowerAfter = git(localClone, ["rev-parse", "refs/heads/source-lower"]);
+	const sourceTipAfter = git(localClone, ["rev-parse", "refs/heads/source-tip"]);
+	expect(sourceLowerAfter).not.toBe(sourceLowerBefore);
+	expect(sourceTipAfter).not.toBe(sourceTipBefore);
+	expect(git(localClone, ["rev-parse", "refs/heads/source-lower^"])).toBe(destinationBefore);
+	expect(git(localClone, ["rev-parse", "refs/heads/source-tip^"])).toBe(sourceLowerAfter);
+
+	await commitRow(page, "source-lower: conflicting change").click();
+	await expect(getByTestId(page, "commit-drawer-resolve-conflicts-button")).toBeVisible();
+});
+
+test("applies a local-only conflicting branch onto an existing stack", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler, "branch1");
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	git(localClone, ["checkout", "-b", "local-only", "origin/master"]);
+	writeFileSync(`${localClone}/a_file`, "foo\nbar\nbaz\nlocal-only commit 1\n");
+	git(localClone, ["add", "a_file"]);
+	git(localClone, ["commit", "-m", "local-only: first commit"]);
+	writeFileSync(
+		`${localClone}/a_file`,
+		"foo\nbar\nbaz\nlocal-only commit 1\nlocal-only commit 2\n",
+	);
+	git(localClone, ["commit", "-am", "local-only: second commit"]);
+	git(localClone, ["checkout", "gitbutler/workspace"]);
+	const destinationBefore = git(localClone, ["rev-parse", "refs/heads/branch1"]);
+	const sourceBefore = git(localClone, ["rev-parse", "refs/heads/local-only"]);
+	await openWorkspace(page);
+
+	await clickByTestId(page, "navigation-branches-button");
+	await waitForTestId(page, "branches-view");
+	await getByTestId(page, "branch-list-card").filter({ hasText: "local-only" }).click();
+	await clickByTestId(page, "branches-view-apply-branch-button");
+	await waitForTestId(page, "branch-apply-stacking-modal");
+	await clickByTestId(page, "branch-apply-stacking-modal-action-button");
+	await waitForTestId(page, "workspace-view");
+
+	const headers = stack(page).getByTestId("branch-header");
+	await expect(headers).toHaveCount(2);
+	await expect(headers.nth(0)).toContainText("local-only");
+	await expect(headers.nth(1)).toContainText("branch1");
+	expect(git(localClone, ["rev-parse", "refs/heads/branch1"])).toBe(destinationBefore);
+	expect(git(localClone, ["rev-parse", "refs/heads/local-only"])).not.toBe(sourceBefore);
+	expect(git(localClone, ["branch", "-r", "--list", "origin/local-only"])).toBe("");
+	expect(git(localClone, ["rev-parse", "refs/heads/local-only~2"])).toBe(destinationBefore);
+});
+
+test("should apply a remote-only conflicting branch by stacking it on the conflicting stack", async ({
+	page,
+	gitbutler,
+}) => {
 	await gitbutler.runScript("project-with-remote-branches.sh");
 	await applyUpstream(gitbutler, "branch1");
 	await openWorkspace(page);
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	const destinationBefore = git(localClone, ["rev-parse", "refs/heads/branch1"]);
+	const incomingRemoteBefore = git(localClone, ["rev-parse", "refs/remotes/origin/branch2"]);
+	const workspaceBefore = git(localClone, ["rev-parse", "refs/heads/gitbutler/workspace"]);
 
 	await expect(commitRow(page)).toHaveCount(2);
 
 	await gotoBranchesView(page);
 	await getByTestId(page, "branch-list-card").filter({ hasText: "branch2" }).click();
 	await clickByTestId(page, "branches-view-apply-branch-button");
+	await waitForTestId(page, "branch-apply-stacking-modal");
+	await expect(getByTestId(page, "branches-view")).toBeVisible();
+	expect(git(localClone, ["branch", "--list", "branch2"])).toBe("");
+	expect(git(localClone, ["rev-parse", "refs/heads/branch1"])).toBe(destinationBefore);
+	expect(git(localClone, ["rev-parse", "refs/heads/gitbutler/workspace"])).toBe(workspaceBefore);
+
+	// Cancelling leaves us on the branches page and does not create or move any refs.
+	await clickByTestId(page, "branch-apply-stacking-modal-cancel");
+	await waitForTestIdToNotExist(page, "branch-apply-stacking-modal");
+	await expect(getByTestId(page, "branches-view")).toBeVisible();
+	expect(git(localClone, ["branch", "--list", "branch2"])).toBe("");
+	expect(git(localClone, ["rev-parse", "refs/heads/branch1"])).toBe(destinationBefore);
+	expect(git(localClone, ["rev-parse", "refs/heads/gitbutler/workspace"])).toBe(workspaceBefore);
+
+	await clickByTestId(page, "branches-view-apply-branch-button");
+	await waitForTestId(page, "branch-apply-stacking-modal");
+	await expect(getByTestId(page, "branch-apply-stacking-modal")).toContainText("branch2");
+	await expect(getByTestId(page, "branch-apply-stacking-modal")).toContainText("branch1");
+	await clickByTestId(page, "branch-apply-stacking-modal-action-button");
 	await waitForTestId(page, "workspace-view");
 
-	await waitForTestId(page, "branch-apply-conflict-toast");
+	await expect(stack(page)).toHaveCount(1);
+	const headers = stack(page).getByTestId("branch-header");
+	await expect(headers).toHaveCount(2);
+	await expect(headers.nth(0)).toContainText("branch2");
+	await expect(headers.nth(1)).toContainText("branch1");
+	expect(git(localClone, ["rev-parse", "refs/heads/branch1"])).toBe(destinationBefore);
+	const incomingLocalAfter = git(localClone, ["rev-parse", "refs/heads/branch2"]);
+	expect(incomingLocalAfter).not.toBe(incomingRemoteBefore);
+	expect(git(localClone, ["rev-parse", "refs/remotes/origin/branch2"])).toBe(incomingRemoteBefore);
+	expect(git(localClone, ["rev-parse", "refs/heads/branch2~2"])).toBe(destinationBefore);
+
+	await commitRow(page, "branch2: first commit").click();
+	await expect(getByTestId(page, "commit-drawer-resolve-conflicts-button")).toBeVisible();
+});
+
+test("does not offer a stacking target when a branch conflicts with multiple stacks", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-multiple-branch-conflicts.sh");
+	await applyUpstream(gitbutler, "branch-a", "branch-c");
+	await openWorkspace(page);
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+	const branchABefore = git(localClone, ["rev-parse", "refs/heads/branch-a"]);
+	const branchCBefore = git(localClone, ["rev-parse", "refs/heads/branch-c"]);
+	const branchBRemoteBefore = git(localClone, ["rev-parse", "refs/remotes/origin/branch-b"]);
+	const workspaceBefore = git(localClone, ["rev-parse", "refs/heads/gitbutler/workspace"]);
+
+	await clickByTestId(page, "navigation-branches-button");
+	await waitForTestId(page, "branches-view");
+	await getByTestId(page, "branch-list-card").filter({ hasText: "branch-b" }).click();
+	await clickByTestId(page, "branches-view-apply-branch-button");
+	const warning = await waitForTestId(page, "branch-apply-conflict-toast");
+	await expect(warning).toContainText("branch-a");
+	await expect(warning).toContainText("branch-c");
+	await expect(getByTestId(page, "branch-apply-stacking-modal")).toHaveCount(0);
+	await expect(getByTestId(page, "branches-view")).toBeVisible();
+
+	expect(git(localClone, ["branch", "--list", "branch-b"])).toBe("");
+	expect(git(localClone, ["rev-parse", "refs/heads/branch-a"])).toBe(branchABefore);
+	expect(git(localClone, ["rev-parse", "refs/heads/branch-c"])).toBe(branchCBefore);
+	expect(git(localClone, ["rev-parse", "refs/remotes/origin/branch-b"])).toBe(branchBRemoteBefore);
+	expect(git(localClone, ["rev-parse", "refs/heads/gitbutler/workspace"])).toBe(workspaceBefore);
 });
 
 test("should update the stale selection of an unexisting branch", async ({ page, gitbutler }) => {

@@ -551,7 +551,15 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(workspace::set_target_ref_and_init_project_cmd),
         )
         .route("/apply", but_post(but_api::branch::apply_cmd))
+        .route(
+            "/apply_stacked",
+            but_post(but_api::branch::apply_stacked_cmd),
+        )
         .route("/review_apply", but_post(legacy::forge::review_apply_cmd))
+        .route(
+            "/review_apply_stacked",
+            but_post(legacy::forge::review_apply_stacked_cmd),
+        )
         .route(
             "/branch_create",
             but_post(but_api::branch::branch_create_cmd),

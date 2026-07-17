@@ -10,7 +10,7 @@ pub mod traverse;
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
-use but_core::{RefMetadata, commit::SignCommit};
+use but_core::{ObjectStorageExt, RefMetadata, commit::SignCommit};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
 use gix::refs::transaction::RefEdit;
@@ -304,6 +304,18 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         &self.repo
     }
 
+    /// Persist newly created objects without applying reference edits or checking out the result.
+    ///
+    /// This is intended for callers that must preflight a checkout through libgit2, which cannot
+    /// read the in-memory object store. Until [`Self::materialize`] is called, the persisted objects
+    /// remain unreachable and all refs and metadata retain their original values.
+    pub fn persist_objects(&mut self) -> Result<()> {
+        if let Some(memory) = self.repo.objects.take_object_memory() {
+            memory.persist(self.repo.clone())?;
+        }
+        Ok(())
+    }
+
     /// Returns the preview repository together with mutable access to the
     /// ref-metadata the editor was created with.
     ///
@@ -342,7 +354,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     /// in-memory repository owned by this [`SuccessfulRebase`] (`self.repo`),
     /// since they might exist only in memory.
     pub fn overlayed_graph(&self) -> Result<but_graph::Graph> {
-        self.overlayed_graph_with_workspace_overrides(None, None)
+        self.overlayed_graph_with_all_workspace_overrides(None, None, None)
     }
 
     /// Return the post-rebase graph with optional ad-hoc workspace projection overrides.
@@ -355,6 +367,27 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         &self,
         entrypoint: Option<(gix::ObjectId, gix::refs::FullName)>,
         branch_stack_order: Option<&[gix::refs::FullName]>,
+    ) -> Result<but_graph::Graph> {
+        self.overlayed_graph_with_all_workspace_overrides(entrypoint, branch_stack_order, None)
+    }
+
+    /// Returns a post-rebase graph preview with an optional workspace-metadata override.
+    ///
+    /// This is useful when the graph rewrite and the workspace placement are staged together: the
+    /// rewritten refs come from this rebase, while `workspace_metadata` describes how those refs
+    /// should be projected before either part is persisted.
+    pub fn overlayed_graph_with_workspace_metadata(
+        &self,
+        workspace_metadata: Option<(gix::refs::FullName, but_core::ref_metadata::Workspace)>,
+    ) -> Result<but_graph::Graph> {
+        self.overlayed_graph_with_all_workspace_overrides(None, None, workspace_metadata)
+    }
+
+    fn overlayed_graph_with_all_workspace_overrides(
+        &self,
+        entrypoint: Option<(gix::ObjectId, gix::refs::FullName)>,
+        branch_stack_order: Option<&[gix::refs::FullName]>,
+        workspace_metadata: Option<(gix::refs::FullName, but_core::ref_metadata::Workspace)>,
     ) -> Result<but_graph::Graph> {
         let dropped_refs = self.ref_edits.iter().filter_map(|edit| match &edit.change {
             gix::refs::transaction::Change::Delete { .. } => Some(edit.name.clone()),
@@ -407,7 +440,8 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         let mut overlay = Overlay::default()
             .with_references(updated_refs)
             .with_dropped_references(dropped_refs)
-            .with_entrypoint(entrypoint_id, entrypoint_refname);
+            .with_entrypoint(entrypoint_id, entrypoint_refname)
+            .with_workspace_metadata_override(workspace_metadata);
         if let Some(branch_stack_order) = branch_stack_order {
             overlay = overlay.with_branch_stack_order_override(branch_stack_order.iter().cloned());
         }

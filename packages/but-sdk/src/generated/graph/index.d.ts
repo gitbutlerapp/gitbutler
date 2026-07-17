@@ -38,6 +38,14 @@ export declare function apply(projectId: string, existingBranch: string): Promis
 export declare function applyBranchIntegration(projectId: string, branch: string, integration: InteractiveIntegration, dryRun: boolean): Promise<IntegrateBranchResult>
 
 /**
+ * Applies `existing_branch` by stacking it on top of the applied `onto_branch`.
+ *
+ * This acquires exclusive worktree access, rebases the incoming branch's entire unapplied stack,
+ * and records one oplog snapshot if the stacked apply is persisted.
+ */
+export declare function applyStacked(projectId: string, existingBranch: string, ontoBranch: string): Promise<ApplyOutcome>
+
+/**
  * Persists `assignments` for the current workspace and records an oplog
  * snapshot on success.
  *
@@ -462,10 +470,18 @@ export declare function restoreSnapshotWithKind(projectId: string, restoreKind: 
  * Applies a forge review by resolving it to its source branch.
  *
  * This fetches the review's head repository through a configured or newly
- * created remote, applies the fetched remote-tracking branch, and records the
- * review number on the applied branch metadata.
+ * created remote and applies the fetched remote-tracking branch.
  */
 export declare function reviewApply(projectId: string, reviewId: number): Promise<ApplyOutcome>
+
+/**
+ * Applies a forge review by rebasing its source branch on top of `onto_branch`.
+ *
+ * The review is fetched and resolved through the same remote/local-tracking flow as
+ * [`review_apply`], then the local incoming branch's entire unapplied stack is rebased onto the
+ * destination stack.
+ */
+export declare function reviewApplyStacked(projectId: string, reviewId: number, ontoBranch: string): Promise<ApplyOutcome>
 
 /**
  * Get the review template content for the given project and relative path.

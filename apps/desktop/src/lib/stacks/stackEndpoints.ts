@@ -868,10 +868,47 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.BranchListing),
 			],
 		}),
+		branchApplyStacked: build.mutation<
+			ApplyOutcome,
+			{ projectId: string; existingBranch: string; ontoBranch: string }
+		>({
+			extraOptions: {
+				command: "apply_stacked",
+				actionName: "Stack Branch",
+			},
+			query: (args) => args,
+			invalidatesTags: [
+				invalidatesList(ReduxTag.HeadMetadata),
+				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.WorktreeChanges),
+				invalidatesList(ReduxTag.Stacks),
+				invalidatesList(ReduxTag.StackDetails),
+				invalidatesList(ReduxTag.BranchListing),
+			],
+		}),
 		reviewApply: build.mutation<ApplyOutcome, { projectId: string; reviewId: number }>({
 			extraOptions: {
 				command: "review_apply",
 				actionName: "Apply Review",
+			},
+			query: (args) => args,
+			invalidatesTags: [
+				invalidatesList(ReduxTag.HeadMetadata),
+				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.WorktreeChanges),
+				invalidatesList(ReduxTag.Stacks),
+				invalidatesList(ReduxTag.StackDetails),
+				invalidatesList(ReduxTag.BranchListing),
+				invalidatesList(ReduxTag.PullRequests),
+			],
+		}),
+		reviewApplyStacked: build.mutation<
+			ApplyOutcome,
+			{ projectId: string; reviewId: number; ontoBranch: string }
+		>({
+			extraOptions: {
+				command: "review_apply_stacked",
+				actionName: "Stack Review",
 			},
 			query: (args) => args,
 			invalidatesTags: [

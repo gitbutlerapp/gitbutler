@@ -705,6 +705,65 @@ pub fn apply_with_perm(
     res
 }
 
+/// Applies `existing_branch` by stacking it on top of the applied `onto_branch`.
+///
+/// This acquires exclusive worktree access, rebases the incoming branch's entire unapplied stack,
+/// and records one oplog snapshot if the stacked apply is persisted.
+#[but_api(napi, json::ApplyOutcome)]
+#[instrument(err(Debug))]
+pub fn apply_stacked(
+    ctx: &mut but_ctx::Context,
+    existing_branch: &gix::refs::FullNameRef,
+    onto_branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<but_workspace::branch::apply::Outcome> {
+    let mut guard = ctx.exclusive_worktree_access();
+    apply_stacked_with_perm(ctx, existing_branch, onto_branch, guard.write_permission())
+}
+
+/// Apply `existing_branch` on top of `onto_branch` under caller-held exclusive access.
+///
+/// The workspace cache is updated only when the lower-level operation persisted a mutation. A
+/// best-effort oplog snapshot is committed under the same condition.
+pub fn apply_stacked_with_perm(
+    ctx: &mut but_ctx::Context,
+    existing_branch: &gix::refs::FullNameRef,
+    onto_branch: &gix::refs::FullNameRef,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<but_workspace::branch::apply::Outcome> {
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::CreateBranch)
+            .with_trailers([Trailer::Name(existing_branch.to_string())]),
+        perm.read_permission(),
+        DryRun::No,
+    );
+
+    let res = (|| {
+        let mut meta = ctx.meta()?;
+        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let out = but_workspace::branch::apply_stacked(
+            existing_branch,
+            onto_branch,
+            ws.clone(),
+            &repo,
+            &mut meta,
+        )?;
+        if out.status.persisted_mutation() {
+            *ws = out.workspace.clone();
+        }
+        Ok(out)
+    })();
+
+    if let Some(snapshot) = maybe_oplog_entry
+        && res
+            .as_ref()
+            .is_ok_and(|out| out.status.persisted_mutation())
+    {
+        snapshot.commit(ctx, perm).ok();
+    }
+    res
+}
+
 /// Creates a new branch named `new_ref` at `placement`.
 ///
 /// This acquires exclusive worktree access from `ctx`, creates the branch,

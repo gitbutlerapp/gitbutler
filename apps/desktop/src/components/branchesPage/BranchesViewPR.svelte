@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
+	import ApplyBranchByStackingModal from "$components/branch/ApplyBranchByStackingModal.svelte";
 	import PRListCard from "$components/branchesPage/PRListCard.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
@@ -26,16 +27,45 @@
 	const prUnit = $derived(forgeInfo?.unit);
 
 	const stackService = inject(STACK_SERVICE);
+	let applyByStackingModal = $state<ApplyBranchByStackingModal>();
 
 	export async function applyPr() {
 		const outcome = await stackService.reviewApply({
 			projectId,
 			reviewId: prNumber,
 		});
-		handleApplyOutcome(outcome);
-		goto(workspacePath(projectId));
+		if (outcome.status === "conflictAborted") {
+			const [conflictingStack] = outcome.conflictingStacks;
+			if (outcome.conflictingStacks.length !== 1 || !conflictingStack) {
+				handleApplyOutcome(outcome);
+				return;
+			}
+
+			applyByStackingModal?.show({
+				incomingName: prQuery.response?.sourceBranch ?? `Review #${prNumber}`,
+				ontoName: conflictingStack.shortName,
+				onStack: async () => {
+					const stackedOutcome = await stackService.reviewApplyStacked({
+						projectId,
+						reviewId: prNumber,
+						ontoBranch: conflictingStack.refName.full,
+					});
+					if (stackedOutcome.status === "conflictAborted") {
+						handleApplyOutcome(stackedOutcome);
+						return true;
+					}
+					await goto(workspacePath(projectId));
+					return true;
+				},
+			});
+			return;
+		}
+
+		await goto(workspacePath(projectId));
 	}
 </script>
+
+<ApplyBranchByStackingModal bind:this={applyByStackingModal} />
 
 <ReduxResult result={prQuery.result} {projectId} {onerror}>
 	{#snippet children(pr)}

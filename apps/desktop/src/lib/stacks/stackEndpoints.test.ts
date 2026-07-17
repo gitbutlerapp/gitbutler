@@ -326,6 +326,35 @@ describe("buildStackEndpoints", () => {
 		]);
 	});
 
+	test("uses apply_stacked for stacked branch application", () => {
+		const endpoints = buildStackEndpoints(createEndpointBuilder());
+		const query = endpoints.branchApplyStacked.query;
+
+		expect(endpoints.branchApplyStacked.extraOptions).toEqual({
+			command: "apply_stacked",
+			actionName: "Stack Branch",
+		});
+		expect(
+			query?.({
+				projectId: "project-1",
+				existingBranch: "refs/heads/feature",
+				ontoBranch: "refs/heads/applied",
+			}),
+		).toEqual({
+			projectId: "project-1",
+			existingBranch: "refs/heads/feature",
+			ontoBranch: "refs/heads/applied",
+		});
+		expect(endpoints.branchApplyStacked.invalidatesTags).toEqual([
+			invalidatesList(ReduxTag.HeadMetadata),
+			invalidatesList(ReduxTag.HeadSha),
+			invalidatesList(ReduxTag.WorktreeChanges),
+			invalidatesList(ReduxTag.Stacks),
+			invalidatesList(ReduxTag.StackDetails),
+			invalidatesList(ReduxTag.BranchListing),
+		]);
+	});
+
 	test("uses review_apply for review application", () => {
 		const endpoints = buildStackEndpoints(createEndpointBuilder());
 		const query = endpoints.reviewApply.query;
@@ -345,6 +374,36 @@ describe("buildStackEndpoints", () => {
 			reviewId: 42,
 		});
 		expect(endpoints.reviewApply.invalidatesTags).toEqual([
+			invalidatesList(ReduxTag.HeadMetadata),
+			invalidatesList(ReduxTag.HeadSha),
+			invalidatesList(ReduxTag.WorktreeChanges),
+			invalidatesList(ReduxTag.Stacks),
+			invalidatesList(ReduxTag.StackDetails),
+			invalidatesList(ReduxTag.BranchListing),
+			invalidatesList(ReduxTag.PullRequests),
+		]);
+	});
+
+	test("uses review_apply_stacked for stacked review application", () => {
+		const endpoints = buildStackEndpoints(createEndpointBuilder());
+		const query = endpoints.reviewApplyStacked.query;
+
+		expect(endpoints.reviewApplyStacked.extraOptions).toEqual({
+			command: "review_apply_stacked",
+			actionName: "Stack Review",
+		});
+		expect(
+			query?.({
+				projectId: "project-1",
+				reviewId: 42,
+				ontoBranch: "refs/heads/applied",
+			}),
+		).toEqual({
+			projectId: "project-1",
+			reviewId: 42,
+			ontoBranch: "refs/heads/applied",
+		});
+		expect(endpoints.reviewApplyStacked.invalidatesTags).toEqual([
 			invalidatesList(ReduxTag.HeadMetadata),
 			invalidatesList(ReduxTag.HeadSha),
 			invalidatesList(ReduxTag.WorktreeChanges),

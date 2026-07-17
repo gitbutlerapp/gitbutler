@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
+	import ApplyBranchByStackingModal from "$components/branch/ApplyBranchByStackingModal.svelte";
 	import BranchExplorer from "$components/branchesPage/BranchExplorer.svelte";
 	import BranchListCard from "$components/branchesPage/BranchListCard.svelte";
 	import BranchesListGroup from "$components/branchesPage/BranchesListGroup.svelte";
@@ -89,6 +90,7 @@
 
 	let branchColumn = $state<HTMLDivElement>();
 	let branchViewLeftEl = $state<HTMLDivElement>();
+	let applyByStackingModal = $state<ApplyBranchByStackingModal>();
 
 	const LEFT_PANEL_RESIZER = {
 		minWidth: 16,
@@ -110,15 +112,47 @@
 		const { remote, hasLocal, branchName } = args;
 		const remoteRef = remote ? `refs/remotes/${remote}/${branchName}` : undefined;
 		const branchRef = hasLocal ? `refs/heads/${branchName}` : remoteRef;
-		if (branchRef) {
-			const outcome = await stackService.branchApply({
-				projectId,
-				existingBranch: branchRef,
+		if (!branchRef) return;
+
+		const outcome = await stackService.branchApply({
+			projectId,
+			existingBranch: branchRef,
+		});
+		await baseBranchService.refreshBaseBranch(projectId);
+		if (outcome.status === "conflictAborted") {
+			const [conflictingStack] = outcome.conflictingStacks;
+			if (outcome.conflictingStacks.length !== 1 || !conflictingStack) {
+				handleApplyOutcome(outcome);
+				return;
+			}
+
+			applyByStackingModal?.show({
+				incomingName: branchName,
+				ontoName: conflictingStack.shortName,
+				onStack: async () => {
+					try {
+						const stackedOutcome = await stackService.branchApplyStacked({
+							projectId,
+							existingBranch: branchRef,
+							ontoBranch: conflictingStack.refName.full,
+						});
+						await baseBranchService.refreshBaseBranch(projectId);
+						if (stackedOutcome.status === "conflictAborted") {
+							handleApplyOutcome(stackedOutcome);
+							return true;
+						}
+						await goto(workspacePath(projectId));
+						return true;
+					} catch (error) {
+						await baseBranchService.refreshBaseBranch(projectId);
+						throw error;
+					}
+				},
 			});
-			handleApplyOutcome(outcome);
-			await baseBranchService.refreshBaseBranch(projectId);
+			return;
 		}
-		goto(workspacePath(projectId));
+
+		await goto(workspacePath(projectId));
 	}
 
 	async function deleteLocalBranch(branchName: string) {
@@ -153,6 +187,8 @@
 
 	let multiDiffView = $state<MultiDiffView>();
 </script>
+
+<ApplyBranchByStackingModal bind:this={applyByStackingModal} />
 
 {#snippet branchActions(branchName: string, remote: string | undefined, hasLocal: boolean)}
 	<div class="branch-actions">

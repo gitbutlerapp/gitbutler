@@ -758,8 +758,16 @@ export class StackService {
 		return this.backendApi.endpoints.branchApply.mutate;
 	}
 
+	get branchApplyStacked() {
+		return this.backendApi.endpoints.branchApplyStacked.mutate;
+	}
+
 	get reviewApply() {
 		return this.backendApi.endpoints.reviewApply.mutate;
+	}
+
+	get reviewApplyStacked() {
+		return this.backendApi.endpoints.reviewApplyStacked.mutate;
 	}
 
 	get deleteLocalBranch() {

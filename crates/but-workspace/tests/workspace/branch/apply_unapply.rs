@@ -5283,6 +5283,659 @@ Outcome {
 }
 
 #[test]
+fn an_unapplied_two_branch_stack_is_applied_completely_above_an_existing_stack()
+-> anyhow::Result<()> {
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "one-fork-with-conflicting-sibling",
+            |_meta| {},
+        )?;
+    git(&repo).args(["checkout", "add-A-too"]).run();
+    git(&repo).args(["checkout", "-b", "add-A-too-tip"]).run();
+    std::fs::write(repo.workdir_path("tip").expect("non-bare"), "tip\n")?;
+    git(&repo).args(["add", "tip"]).run();
+    git(&repo)
+        .args(["commit", "-m", "add source stack tip"])
+        .run();
+    git(&repo).args(["checkout", "main"]).run();
+
+    let graph = Graph::from_head(&repo, &meta, project_meta(&meta), Options::limited())?;
+    let destination = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        graph.into_workspace()?,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+    let destination_before = id_by_rev(&repo, "A");
+    let source_lower_before = id_by_rev(&repo, "add-A-too");
+    let source_tip_before = id_by_rev(&repo, "add-A-too-tip");
+
+    let mut ws_md = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
+    ws_md.stacks.push(ref_metadata::WorkspaceStack {
+        id: StackId::generate(),
+        branches: vec![
+            ref_metadata::WorkspaceStackBranch {
+                ref_name: r("refs/heads/add-A-too-tip").to_owned(),
+                archived: false,
+            },
+            ref_metadata::WorkspaceStackBranch {
+                ref_name: r("refs/heads/add-A-too").to_owned(),
+                archived: false,
+            },
+        ],
+        workspacecommit_relation: Outside,
+    });
+    meta.set_workspace(&ws_md)?;
+
+    let out = but_workspace::branch::apply_stacked(
+        r("refs/heads/add-A-too-tip"),
+        r("refs/heads/A"),
+        destination.workspace,
+        &repo,
+        &mut meta,
+    )?;
+
+    assert_eq!(out.status, OutcomeStatus::Applied);
+    assert_eq!(
+        out.applied_branches,
+        [
+            r("refs/heads/add-A-too-tip").to_owned(),
+            r("refs/heads/add-A-too").to_owned(),
+        ],
+        "the outcome should report every branch brought in with the source stack"
+    );
+    assert_eq!(id_by_rev(&repo, "A"), destination_before);
+    let source_lower_after = id_by_rev(&repo, "add-A-too");
+    let source_tip_after = id_by_rev(&repo, "add-A-too-tip");
+    assert_ne!(
+        source_lower_after, source_lower_before,
+        "the lower source branch must be rebased with the rest of its stack"
+    );
+    assert_ne!(source_tip_after, source_tip_before);
+    assert_eq!(
+        repo.find_commit(source_lower_after)?.parent_ids().next(),
+        Some(destination_before),
+        "the bottom of the incoming stack should be based on the destination"
+    );
+    assert_eq!(
+        repo.find_commit(source_tip_after)?.parent_ids().next(),
+        Some(source_lower_after),
+        "the incoming stack's branch order should be preserved"
+    );
+    assert!(
+        but_core::Commit::from_id(source_lower_after)?.is_conflicted(),
+        "the conflict in the lower source branch should remain attached to that branch"
+    );
+
+    let ws_md = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
+    let source_tip = ws_md
+        .find_owner_indexes_by_name(r("refs/heads/add-A-too-tip"), StackKind::Applied)
+        .expect("source tip is applied");
+    let source_lower = ws_md
+        .find_owner_indexes_by_name(r("refs/heads/add-A-too"), StackKind::Applied)
+        .expect("source lower branch is applied");
+    let destination = ws_md
+        .find_owner_indexes_by_name(r("refs/heads/A"), StackKind::Applied)
+        .expect("destination remains applied");
+    assert_eq!(source_tip.0, destination.0);
+    assert_eq!(source_lower.0, destination.0);
+    assert_eq!(
+        (source_tip.1, source_lower.1, destination.1),
+        (0, 1, 2),
+        "the complete source stack should be ordered above the destination"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn a_local_only_conflicting_branch_can_be_applied_onto_an_existing_stack() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "one-fork-with-conflicting-sibling",
+            |_meta| {},
+        )?;
+    let ws = graph.into_workspace()?;
+    let out =
+        but_workspace::branch::apply(r("refs/heads/A"), ws, &repo, &mut meta, apply_options())?;
+    let a_before = id_by_rev(&repo, "A");
+    let incoming_before = id_by_rev(&repo, "add-A-too");
+    assert!(
+        repo.try_find_reference(r("refs/remotes/origin/add-A-too"))?
+            .is_none(),
+        "the incoming branch should be local-only"
+    );
+
+    let out = but_workspace::branch::apply_stacked(
+        r("refs/heads/add-A-too"),
+        r("refs/heads/A"),
+        out.workspace,
+        &repo,
+        &mut meta,
+    )?;
+
+    assert_eq!(
+        out.status,
+        OutcomeStatus::Applied,
+        "stacked apply should persist the rewritten incoming branch"
+    );
+    assert_eq!(
+        id_by_rev(&repo, "A"),
+        a_before,
+        "stacked apply must not rewrite the destination branch"
+    );
+    let incoming_after = id_by_rev(&repo, "add-A-too");
+    assert_ne!(
+        incoming_after, incoming_before,
+        "stacked apply should rewrite the incoming branch"
+    );
+    assert_eq!(
+        repo.find_commit(incoming_after)?.parent_ids().next(),
+        Some(a_before),
+        "the rewritten incoming branch should be based directly on the destination"
+    );
+    assert!(
+        but_core::Commit::from_id(incoming_after)?.is_conflicted(),
+        "the content conflict should be owned by the rewritten incoming commit"
+    );
+    assert_eq!(
+        repo.head_name()?.map(|name| name.to_owned()),
+        Some(r("refs/heads/gitbutler/workspace").to_owned()),
+        "managed stacked apply should keep HEAD on the workspace reference"
+    );
+
+    let ws_md = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
+    let source_location = ws_md
+        .find_owner_indexes_by_name(r("refs/heads/add-A-too"), StackKind::Applied)
+        .expect("incoming branch is represented in applied metadata");
+    let destination_location = ws_md
+        .find_owner_indexes_by_name(r("refs/heads/A"), StackKind::Applied)
+        .expect("destination branch remains represented in applied metadata");
+    assert_eq!(
+        source_location.0, destination_location.0,
+        "incoming and destination branches should share a stack"
+    );
+    assert_eq!(
+        (source_location.1, destination_location.1),
+        (0, 1),
+        "incoming branch should be ordered directly above its destination"
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace_determinisitcally(&out.workspace).to_string(),
+        snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e31e6ca
+└── ≡📙:3:add-A-too on e31e6ca {1}
+    ├── 📙:3:add-A-too
+    │   └── ·fcc8263 (🏘️)
+    └── 📙:4:A
+        └── ·bf53300 (🏘️)
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn remote_only_conflicting_branch_is_created_locally_only_after_stacked_apply_succeeds()
+-> anyhow::Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "one-fork-with-conflicting-sibling",
+            |_meta| {},
+        )?;
+    let remote_tip = id_by_rev(&repo, "add-A-too");
+    repo.reference(
+        r("refs/remotes/origin/remote-A"),
+        remote_tip,
+        PreviousValue::Any,
+        "create a remote-only conflicting branch",
+    )?;
+    let destination = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        graph.into_workspace()?,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+
+    let failed = but_workspace::branch::apply(
+        r("refs/remotes/origin/remote-A"),
+        destination.workspace,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+    assert_eq!(failed.status, OutcomeStatus::ConflictAborted);
+    assert!(
+        repo.try_find_reference(r("refs/heads/remote-A"))?.is_none(),
+        "the independent attempt must not create the prospective local tracking ref"
+    );
+    assert_eq!(id_by_rev(&repo, "origin/remote-A"), remote_tip);
+
+    let out = but_workspace::branch::apply_stacked(
+        r("refs/remotes/origin/remote-A"),
+        r("refs/heads/A"),
+        failed.workspace,
+        &repo,
+        &mut meta,
+    )?;
+
+    assert_eq!(out.status, OutcomeStatus::Applied);
+    let local_tip = id_by_rev(&repo, "remote-A");
+    assert_ne!(local_tip, remote_tip, "the local branch should be rebased");
+    assert_eq!(
+        id_by_rev(&repo, "origin/remote-A"),
+        remote_tip,
+        "the remote-tracking ref must remain untouched"
+    );
+    assert_eq!(
+        repo.find_commit(local_tip)?.parent_ids().next(),
+        Some(id_by_rev(&repo, "A"))
+    );
+    repo.reload()?;
+    let config = repo.config_snapshot();
+    let section = config.section("branch", Some("remote-A".into()))?;
+    assert_eq!(
+        section.value("remote").as_deref(),
+        Some("origin".as_bytes().as_bstr())
+    );
+    assert_eq!(
+        section.value("merge").as_deref(),
+        Some("refs/heads/remote-A".as_bytes().as_bstr())
+    );
+    let ws_md = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
+    let source = ws_md
+        .find_owner_indexes_by_name(r("refs/heads/remote-A"), StackKind::Applied)
+        .expect("the remote-only source is represented by its applied local branch");
+    let destination = ws_md
+        .find_owner_indexes_by_name(r("refs/heads/A"), StackKind::Applied)
+        .expect("the destination remains applied");
+    assert_eq!(source.0, destination.0);
+    assert_eq!(
+        (source.1, destination.1),
+        (0, 1),
+        "the remote-only source should be stacked directly above the destination"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn stacked_apply_preserves_an_unaffected_parallel_stack() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "one-fork-with-conflicting-sibling",
+            |_meta| {},
+        )?;
+    let mut ws = graph.into_workspace()?;
+    for branch in [r("refs/heads/A"), r("refs/remotes/origin/B")] {
+        ws = but_workspace::branch::apply(branch, ws, &repo, &mut meta, apply_options())?.workspace;
+    }
+    let b_before = id_by_rev(&repo, "B");
+
+    let out = but_workspace::branch::apply_stacked(
+        r("refs/heads/add-A-too"),
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+    )?;
+
+    assert_eq!(out.status, OutcomeStatus::Applied);
+    assert_eq!(
+        id_by_rev(&repo, "B"),
+        b_before,
+        "the parallel branch must not be rewritten"
+    );
+    let ws_md = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
+    let incoming = ws_md
+        .find_owner_indexes_by_name(r("refs/heads/add-A-too"), StackKind::Applied)
+        .expect("incoming branch is applied");
+    let destination = ws_md
+        .find_owner_indexes_by_name(r("refs/heads/A"), StackKind::Applied)
+        .expect("destination is applied");
+    let unaffected = ws_md
+        .find_owner_indexes_by_name(r("refs/heads/B"), StackKind::Applied)
+        .expect("parallel branch remains applied");
+    assert_eq!(incoming.0, destination.0);
+    assert_ne!(unaffected.0, destination.0);
+
+    Ok(())
+}
+
+#[test]
+fn stacked_apply_rejects_invalid_or_stale_destinations_without_mutation() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "one-fork-with-conflicting-sibling",
+            |_meta| {},
+        )?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        graph.into_workspace()?,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+    let ws = out.workspace;
+    let refs_before = visualize_commit_graph_all(&repo)?;
+    let metadata_before = sanitize_uuids_and_timestamps(format!(
+        "{:#?}",
+        &*meta.workspace(r("refs/heads/gitbutler/workspace"))?
+    ));
+
+    for (source, onto) in [
+        ("refs/heads/A", "refs/heads/A"),
+        ("refs/heads/add-A-too", "refs/heads/gitbutler/workspace"),
+        ("refs/heads/add-A-too", "refs/remotes/origin/main"),
+        ("refs/heads/add-A-too", "refs/heads/main"),
+        ("refs/remotes/origin/B", "refs/heads/add-A-too"),
+    ] {
+        but_workspace::branch::apply_stacked(r(source), r(onto), ws.clone(), &repo, &mut meta)
+            .unwrap_err();
+        assert_eq!(
+            visualize_commit_graph_all(&repo)?,
+            refs_before,
+            "invalid target {onto} must not move refs"
+        );
+        assert_eq!(
+            sanitize_uuids_and_timestamps(format!(
+                "{:#?}",
+                &*meta.workspace(r("refs/heads/gitbutler/workspace"))?
+            )),
+            metadata_before,
+            "invalid target {onto} must not alter metadata"
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn stacked_apply_rejects_detached_head_in_an_ad_hoc_workspace() -> anyhow::Result<()> {
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "one-fork-with-conflicting-sibling",
+            |_meta| {},
+        )?;
+    git(&repo).args(["checkout", "--detach", "A"]).run();
+    let ws = Graph::from_head(&repo, &meta, project_meta(&meta), Options::limited())?
+        .into_workspace()?;
+    let refs_before = visualize_commit_graph_all(&repo)?;
+
+    let error = but_workspace::branch::apply_stacked(
+        r("refs/heads/add-A-too"),
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+    )
+    .unwrap_err();
+
+    assert!(
+        error.to_string().contains("detached HEAD"),
+        "unexpected error: {error:#}"
+    );
+    assert_eq!(visualize_commit_graph_all(&repo)?, refs_before);
+
+    Ok(())
+}
+
+#[test]
+fn stacked_apply_rejects_a_source_branch_already_in_the_workspace_projection() -> anyhow::Result<()>
+{
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "one-fork-with-conflicting-sibling",
+            |_meta| {},
+        )?;
+    git(&repo).args(["checkout", "A"]).run();
+    git(&repo).args(["checkout", "-b", "A-child"]).run();
+    std::fs::write(repo.workdir_path("A-child").expect("non-bare"), "child\n")?;
+    git(&repo).args(["add", "A-child"]).run();
+    git(&repo).args(["commit", "-m", "add A child"]).run();
+
+    let ws = Graph::from_head(&repo, &meta, project_meta(&meta), Options::limited())?
+        .into_workspace()?;
+    assert!(
+        ws.stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .any(|segment| segment.ref_names().any(|name| name == r("refs/heads/A"))),
+        "the source branch should be visible below HEAD in the ad-hoc projection"
+    );
+    let refs_before = visualize_commit_graph_all(&repo)?;
+    let head_before = repo.head_id()?.detach();
+    let worktree_before =
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?
+            .to_string();
+
+    let error = but_workspace::branch::apply_stacked(
+        r("refs/heads/A"),
+        r("refs/heads/A-child"),
+        ws,
+        &repo,
+        &mut meta,
+    )
+    .expect_err("a branch already in the workspace projection must not be rewritten");
+
+    assert!(
+        error
+            .to_string()
+            .contains("already part of the workspace projection"),
+        "unexpected error: {error:#}"
+    );
+    assert_eq!(visualize_commit_graph_all(&repo)?, refs_before);
+    assert_eq!(repo.head_id()?.detach(), head_before);
+    assert_eq!(
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?
+            .to_string(),
+        worktree_before
+    );
+
+    Ok(())
+}
+
+#[test]
+fn stacked_apply_checkout_failure_leaves_refs_and_metadata_unchanged() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "one-fork-with-conflicting-sibling",
+            |_meta| {},
+        )?;
+    let out = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        graph.into_workspace()?,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+    let refs_before = visualize_commit_graph_all(&repo)?;
+    let metadata_before = sanitize_uuids_and_timestamps(format!(
+        "{:#?}",
+        &*meta.workspace(r("refs/heads/gitbutler/workspace"))?
+    ));
+    let dirty_content = "uncommitted work that must not be overwritten\n";
+    std::fs::write(repo.workdir().expect("worktree").join("B"), dirty_content)?;
+
+    but_workspace::branch::apply_stacked(
+        r("refs/remotes/origin/B"),
+        r("refs/heads/A"),
+        out.workspace,
+        &repo,
+        &mut meta,
+    )
+    .expect_err("checkout should refuse to overwrite a dirty conflicting path");
+
+    assert_eq!(visualize_commit_graph_all(&repo)?, refs_before);
+    assert_eq!(
+        sanitize_uuids_and_timestamps(format!(
+            "{:#?}",
+            &*meta.workspace(r("refs/heads/gitbutler/workspace"))?
+        )),
+        metadata_before
+    );
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir().expect("worktree").join("B"))?,
+        dirty_content
+    );
+
+    Ok(())
+}
+
+#[test]
+fn conflicting_branch_can_be_stacked_while_remaining_in_an_ad_hoc_workspace() -> anyhow::Result<()>
+{
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "one-fork-with-conflicting-sibling",
+            |_meta| {},
+        )?;
+    git(&repo).args(["checkout", "A"]).run();
+    let ws = Graph::from_head(&repo, &meta, project_meta(&meta), Options::limited())?
+        .into_workspace()?;
+    assert!(
+        matches!(ws.kind, WorkspaceKind::AdHoc),
+        "checking out A directly should produce an ad-hoc workspace"
+    );
+    let a_before = id_by_rev(&repo, "A");
+    let incoming_before = id_by_rev(&repo, "add-A-too");
+
+    let out = but_workspace::branch::apply_stacked(
+        r("refs/heads/add-A-too"),
+        r("refs/heads/A"),
+        ws,
+        &repo,
+        &mut meta,
+    )?;
+
+    assert_eq!(
+        out.status,
+        OutcomeStatus::Applied,
+        "ad-hoc stacked apply should persist the incoming branch"
+    );
+    assert!(
+        matches!(out.workspace.kind, WorkspaceKind::AdHoc),
+        "stacked apply should not create a managed workspace"
+    );
+    assert_eq!(
+        repo.head_name()?.map(|name| name.to_owned()),
+        Some(r("refs/heads/add-A-too").to_owned()),
+        "the rewritten incoming branch should be checked out"
+    );
+    assert!(
+        repo.try_find_reference(r("refs/heads/gitbutler/workspace"))?
+            .is_none(),
+        "ad-hoc stacked apply must not create the workspace reference"
+    );
+    assert_eq!(
+        id_by_rev(&repo, "A"),
+        a_before,
+        "ad-hoc stacked apply must not rewrite the destination"
+    );
+    let incoming_after = id_by_rev(&repo, "add-A-too");
+    assert_ne!(
+        incoming_after, incoming_before,
+        "ad-hoc stacked apply should rewrite the incoming branch"
+    );
+    assert_eq!(
+        repo.find_commit(incoming_after)?.parent_ids().next(),
+        Some(a_before),
+        "the incoming branch should be based on the checked-out destination"
+    );
+    assert!(
+        but_core::Commit::from_id(incoming_after)?.is_conflicted(),
+        "the ad-hoc rebase conflict should be stored on the incoming commit"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn stacked_apply_aborts_without_mutation_when_an_unaffected_parallel_stack_still_conflicts()
+-> anyhow::Result<()> {
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "various-heads-for-multi-line-merge-conflict",
+            |_meta| {},
+        )?;
+    git(&repo).args(["checkout", "main"]).run();
+    git(&repo)
+        .args(["branch", "-d", "gitbutler/workspace"])
+        .run();
+    let mut ws = Graph::from_head(
+        &repo,
+        &meta,
+        ref_metadata::ProjectMeta::default(),
+        Options {
+            extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
+            ..Options::limited()
+        },
+    )?
+    .into_workspace()?;
+    for branch_to_apply in ["conflict-F1", "conflict-F2"] {
+        ws = but_workspace::branch::apply(
+            Category::LocalBranch
+                .to_full_name(branch_to_apply)?
+                .as_ref(),
+            ws,
+            &repo,
+            &mut meta,
+            apply_options(),
+        )?
+        .workspace;
+    }
+
+    let refs_before = visualize_commit_graph_all(&repo)?;
+    let worktree_before =
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?
+            .to_string();
+    let metadata_before = sanitize_uuids_and_timestamps(format!(
+        "{:#?}",
+        &*meta.workspace(r("refs/heads/gitbutler/workspace"))?
+    ));
+    let head_before = repo.head_id()?.detach();
+
+    let out = but_workspace::branch::apply_stacked(
+        r("refs/heads/conflict-hero"),
+        r("refs/heads/conflict-F1"),
+        ws,
+        &repo,
+        &mut meta,
+    )?;
+
+    assert_eq!(out.status, OutcomeStatus::ConflictAborted);
+    assert_eq!(
+        out.conflicting_stacks
+            .iter()
+            .map(|stack| stack.ref_name.as_bstr())
+            .collect::<Vec<_>>(),
+        [b"refs/heads/conflict-F2".as_bstr()],
+        "the retry should report only the unaffected parallel stack that still conflicts"
+    );
+    assert_eq!(visualize_commit_graph_all(&repo)?, refs_before);
+    assert_eq!(repo.head_id()?.detach(), head_before);
+    assert_eq!(
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?
+            .to_string(),
+        worktree_before,
+        "an aborted retry must leave the worktree untouched"
+    );
+    assert_eq!(
+        sanitize_uuids_and_timestamps(format!(
+            "{:#?}",
+            &*meta.workspace(r("refs/heads/gitbutler/workspace"))?
+        )),
+        metadata_before,
+        "an aborted retry must leave workspace metadata untouched"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repeat_on_unapply()
 -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =

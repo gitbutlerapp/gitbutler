@@ -34,6 +34,43 @@ pub fn repo_with_feature_branch() -> anyhow::Result<(gix::Repository, tempfile::
     Ok((open_repo(tmp.path())?, tmp))
 }
 
+/// Build a repository with sibling branches `A` and `B` that replace the same line differently.
+pub fn repo_with_conflicting_branches() -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {
+    let tmp = tempfile::tempdir()?;
+    git_at_dir(tmp.path()).args(["init", "-b", "main"]).run();
+    git_at_dir(tmp.path())
+        .args(["config", "user.name", "GitButler"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["config", "user.email", "gitbutler@example.com"])
+        .run();
+    write_file(tmp.path(), "shared.txt", "base\n")?;
+    git_at_dir(tmp.path()).args(["add", "shared.txt"]).run();
+    git_at_dir(tmp.path()).args(["commit", "-m", "base"]).run();
+    git_at_dir(tmp.path()).args(["checkout", "-b", "A"]).run();
+    write_file(tmp.path(), "shared.txt", "change from A\n")?;
+    git_at_dir(tmp.path())
+        .args(["commit", "-am", "change from A"])
+        .run();
+    git_at_dir(tmp.path()).args(["checkout", "main"]).run();
+    git_at_dir(tmp.path()).args(["checkout", "-b", "B"]).run();
+    write_file(tmp.path(), "shared.txt", "change from B\n")?;
+    git_at_dir(tmp.path())
+        .args(["commit", "-am", "change from B"])
+        .run();
+    git_at_dir(tmp.path()).args(["checkout", "main"]).run();
+    git_at_dir(tmp.path())
+        .args(["config", "remote.origin.url", "../origin"])
+        .run();
+    git_at_dir(tmp.path())
+        .args(["update-ref", "refs/remotes/origin/main", "main"])
+        .run();
+
+    let repo = open_repo(tmp.path())?;
+    persist_default_target(&repo)?;
+    Ok((repo, tmp))
+}
+
 /// Persist a project default target pointing at `origin/main` but at the `feature` branch's commit.
 pub fn set_project_target_to_feature(repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
     let mut feature = repo.find_reference("refs/heads/feature")?;

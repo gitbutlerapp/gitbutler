@@ -547,7 +547,7 @@ pub(crate) fn try_find_validated_ref<'repo>(
 
 /// Functions and types related to adding a branch to the workspace.
 pub mod apply;
-pub use apply::apply;
+pub use apply::{apply, apply_stacked};
 
 /// Functions and types related to removing a branch from the workspace.
 pub mod unapply;

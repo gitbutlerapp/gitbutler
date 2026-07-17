@@ -246,13 +246,35 @@ pub fn list_reviews(
 /// Applies a forge review by resolving it to its source branch.
 ///
 /// This fetches the review's head repository through a configured or newly
-/// created remote, applies the fetched remote-tracking branch, and records the
-/// review number on the applied branch metadata.
+/// created remote and applies the fetched remote-tracking branch.
 #[but_api(napi, crate::branch::json::ApplyOutcome)]
 #[instrument(err(Debug))]
 pub fn review_apply(
     ctx: &mut but_ctx::Context,
     review_id: usize,
+) -> Result<but_workspace::branch::apply::Outcome> {
+    review_apply_inner(ctx, review_id, None)
+}
+
+/// Applies a forge review by rebasing its source branch on top of `onto_branch`.
+///
+/// The review is fetched and resolved through the same remote/local-tracking flow as
+/// [`review_apply`], then the local incoming branch's entire unapplied stack is rebased onto the
+/// destination stack.
+#[but_api(napi, crate::branch::json::ApplyOutcome)]
+#[instrument(err(Debug))]
+pub fn review_apply_stacked(
+    ctx: &mut but_ctx::Context,
+    review_id: usize,
+    onto_branch: &gix::refs::FullNameRef,
+) -> Result<but_workspace::branch::apply::Outcome> {
+    review_apply_inner(ctx, review_id, Some(onto_branch))
+}
+
+fn review_apply_inner(
+    ctx: &mut but_ctx::Context,
+    review_id: usize,
+    onto_branch: Option<&gix::refs::FullNameRef>,
 ) -> Result<but_workspace::branch::apply::Outcome> {
     let (forge_repo_info, preferred_forge_user, target_protocol) = {
         let project_meta = ctx.project_meta()?;
@@ -298,8 +320,15 @@ pub fn review_apply(
                     review_id, review.source_branch
                 )
             })?;
-
-    let out = crate::branch::apply_with_perm(ctx, remote_ref.as_ref(), guard.write_permission())?;
+    let out = match onto_branch {
+        Some(onto_branch) => crate::branch::apply_stacked_with_perm(
+            ctx,
+            remote_ref.as_ref(),
+            onto_branch,
+            guard.write_permission(),
+        )?,
+        None => crate::branch::apply_with_perm(ctx, remote_ref.as_ref(), guard.write_permission())?,
+    };
     if out.status.persisted_mutation() {
         // The applied review is already in the forge cache (it was just fetched
         // to be applied), so its PR association is derived at projection time.
