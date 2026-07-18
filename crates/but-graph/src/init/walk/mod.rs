@@ -1,4 +1,4 @@
-//! Utilities shared by commit traversal and the legacy segment compatibility view.
+//! Utilities shared by commit traversal and reference discovery.
 
 use std::{cmp::Ordering, collections::BTreeMap, ops::Deref};
 
@@ -6,119 +6,12 @@ use but_core::{RefMetadata, ref_metadata};
 use gix::{reference::Category, traverse::commit::Either};
 
 use crate::{
-    Segment, SegmentMetadata, Worktree,
+    Worktree,
     init::overlay::{OverlayMetadata, OverlayRepo},
 };
 
 pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
 pub(crate) type WorktreeByBranch = BTreeMap<gix::refs::FullName, Vec<Worktree>>;
-
-fn local_branches_by_id(
-    refs_by_id: &RefsById,
-    id: gix::ObjectId,
-) -> Option<impl Iterator<Item = &gix::refs::FullName> + '_> {
-    refs_by_id.get(&id).map(|refs| {
-        refs.iter()
-            .filter(|rn| rn.category() == Some(Category::LocalBranch))
-    })
-}
-
-/// Build a segment from an explicit reference, or infer an unambiguous local reference.
-pub fn branch_segment_from_name_and_meta<T: RefMetadata>(
-    ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
-    meta: &OverlayMetadata<'_, T>,
-    refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
-    worktree_by_branch: &WorktreeByBranch,
-) -> anyhow::Result<Segment> {
-    let commit_id = refs_by_id_lookup.map(|(_, id)| id);
-    let (ref_name, metadata) =
-        unambiguous_local_branch_and_segment_data(ref_name, meta, refs_by_id_lookup)?;
-    Ok(Segment {
-        metadata,
-        ref_info: ref_name.map(|rn| crate::RefInfo::from_ref(rn, commit_id, worktree_by_branch)),
-        ..Default::default()
-    })
-}
-
-fn unambiguous_local_branch_and_segment_data<T: RefMetadata>(
-    ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
-    meta: &OverlayMetadata<'_, T>,
-    refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
-) -> anyhow::Result<(Option<gix::refs::FullName>, Option<SegmentMetadata>)> {
-    Ok(match ref_name {
-        None => {
-            let Some(lookup) = refs_by_id_lookup else {
-                return Ok(Default::default());
-            };
-            disambiguate_refs_by_branch_metadata_with_lookup(lookup, meta)
-                .map(|(rn, md)| (Some(rn), md))
-                .unwrap_or_default()
-        }
-        Some((ref_name, maybe_metadata)) => {
-            let metadata = maybe_metadata
-                .map(Ok)
-                .or_else(|| extract_local_branch_metadata(ref_name.as_ref(), meta).transpose())
-                .transpose()?;
-            (Some(ref_name), metadata)
-        }
-    })
-}
-
-fn disambiguate_refs_by_branch_metadata_with_lookup<T: RefMetadata>(
-    refs_by_id_lookup: (&RefsById, gix::ObjectId),
-    meta: &OverlayMetadata<'_, T>,
-) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
-    let (refs_by_id, id) = refs_by_id_lookup;
-    let branches = local_branches_by_id(refs_by_id, id)?;
-    disambiguate_refs_by_branch_metadata(branches, meta)
-}
-
-fn disambiguate_refs_by_branch_metadata<'a, T: RefMetadata>(
-    branches: impl Iterator<Item = &'a gix::refs::FullName>,
-    meta: &OverlayMetadata<'_, T>,
-) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
-    let branches = branches
-        .map(|rn| {
-            (
-                rn,
-                extract_local_branch_metadata(rn.as_ref(), meta)
-                    .ok()
-                    .flatten(),
-            )
-        })
-        .collect::<Vec<_>>();
-    let mut branches_with_metadata = branches
-        .iter()
-        .filter_map(|(rn, md)| md.is_some().then_some((*rn, md.as_ref())));
-    branches_with_metadata
-        .next()
-        .filter(|_| branches_with_metadata.next().is_none())
-        .or_else(|| {
-            let mut iter = branches.iter();
-            iter.next()
-                .filter(|_| iter.next().is_none())
-                .map(|(rn, md)| (*rn, md.as_ref()))
-        })
-        .map(|(rn, md)| (rn.clone(), md.cloned()))
-}
-
-fn extract_local_branch_metadata<T: RefMetadata>(
-    ref_name: &gix::refs::FullNameRef,
-    meta: &OverlayMetadata<'_, T>,
-) -> anyhow::Result<Option<SegmentMetadata>> {
-    if ref_name.category() != Some(Category::LocalBranch) {
-        return Ok(None);
-    }
-    meta.branch_opt(ref_name)
-        .map(|res| res.map(SegmentMetadata::Branch))
-        .transpose()
-        .or_else(|| {
-            meta.workspace_opt(ref_name)
-                .map(|res| res.map(|md| SegmentMetadata::Workspace(md.clone())))
-                .transpose()
-        })
-        .transpose()
-}
 
 /// Commit data needed while traversing, plus its stable queue sort key.
 #[derive(Debug, Clone)]

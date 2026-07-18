@@ -12,10 +12,12 @@ pub struct Options {
     pub keep_metadata: bool,
 }
 
-use anyhow::{Context as _, bail};
+use anyhow::Context as _;
 use but_core::RefMetadata;
 use but_error::bail_precondition;
 use gix::refs::transaction::PreviousValue;
+
+use crate::workspace::find_segment_and_stack;
 
 /// Remove the workspace reference `ref_name` (if it still exists),
 /// possibly along with its `meta`-data.
@@ -35,29 +37,9 @@ pub fn remove_reference(
     }: Options,
 ) -> anyhow::Result<Option<but_graph::Workspace>> {
     // We assume the stack-idx can't change by deleting
-    let Some((stack, _segment)) = workspace.find_segment_and_stack_by_refname(ref_name) else {
+    let Some((stack, _segment)) = find_segment_and_stack(workspace, ref_name) else {
         return Ok(None);
     };
-
-    if avoid_anonymous_stacks
-        && (stack
-            .segments
-            .iter()
-            .map(|s| s.commits.len())
-            .sum::<usize>()
-            > 0
-            && stack
-                .segments
-                .iter()
-                .filter(|s| s.ref_info.is_some())
-                .count()
-                < 2)
-    {
-        bail!(
-            "Refusing to delete last named segment '{}' as it would leave an anonymous segment",
-            ref_name.shorten()
-        );
-    }
 
     let deleted_ref = if let Some(r) = repo.try_find_reference(ref_name)? {
         let safe = but_core::branch::SafeDelete::new(repo)?;
@@ -103,8 +85,10 @@ pub fn remove_reference(
                 .segments
                 .iter()
                 .find_map(|s| {
-                    let rn = s.ref_name()?;
-                    ws.tip_commit_by_segment_id(s.id).map(|c| (rn, c.id))
+                    let ref_info = s.ref_info.as_ref()?;
+                    ref_info
+                        .commit_id
+                        .map(|commit_id| (ref_info.ref_name.as_ref(), commit_id))
                 })
                 .with_context(|| {
                     "BUG: should not try to delete branch if anon \

@@ -415,8 +415,6 @@ use but_core::ref_metadata::StackId;
 use crate::ref_info;
 
 /// A stack in the workspace, composed of one or more [segments](ref_info::Segment).
-// TODO: move this to the crate root once the 'old' implementation isn't used anymore.
-// TODO: this is going to be the UI version, ideally consumed directly.
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Stack {
     /// If the stack belongs to a managed workspace, the `id` will be set and persist.
@@ -490,13 +488,12 @@ pub(crate) fn anon_stacks(
     stacks.iter().enumerate().filter_map(|(idx, s)| {
         if s.ref_name().is_none() {
             s.tip_skip_empty().and_then(|cid| {
-                s.segments.first().map(|s| {
+                s.segments.first().map(|_| {
                     (
                         idx,
                         crate::commit::merge::Tip {
                             name: None,
                             commit_id: cid,
-                            segment_idx: s.id,
                         },
                     )
                 })

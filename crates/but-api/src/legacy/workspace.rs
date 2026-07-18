@@ -1,4 +1,9 @@
-use std::str::FromStr;
+use std::{
+    fmt::Write as _,
+    io::Write as _,
+    process::{Command, Stdio},
+    str::FromStr,
+};
 
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
@@ -118,8 +123,48 @@ pub fn show_graph_svg(ctx: &Context) -> Result<()> {
             ..but_graph::init::Options::limited()
         },
     )?;
-    graph.open_as_svg();
+    let svg_path = std::env::temp_dir().join(format!("gitbutler-graph-{}.svg", std::process::id()));
+    let mut dot = Command::new("dot")
+        .args(["-Tsvg", "-o"])
+        .arg(&svg_path)
+        .stdin(Stdio::piped())
+        .spawn()
+        .context("failed to launch Graphviz")?;
+    dot.stdin
+        .take()
+        .context("Graphviz stdin wasn't piped")?
+        .write_all(node_graph_dot(&graph).as_bytes())?;
+    let status = dot.wait().context("failed to wait for Graphviz")?;
+    anyhow::ensure!(status.success(), "Graphviz failed with {status}");
+    open::that(&svg_path).context("failed to open graph SVG")?;
     Ok(())
+}
+
+#[cfg(unix)]
+fn node_graph_dot(graph: &but_graph::Graph) -> String {
+    let mut out = String::from("digraph {\n  node [shape=box, fontname=Courier];\n");
+    for (index, node) in graph.nodes().iter().enumerate() {
+        let label = match node.kind() {
+            but_graph::NodeKind::Commit { id } => format!(
+                "{} {}",
+                id.to_hex_with_len(7),
+                graph.annotations()[index].debug_string(None)
+            ),
+            but_graph::NodeKind::Reference(reference) => reference.ref_info.ref_name.to_string(),
+            but_graph::NodeKind::ShallowPoint { id, reason } => format!(
+                "{} {}",
+                id.to_hex_with_len(7),
+                reason.debug_string(graph.hard_limit_hit())
+            ),
+        };
+        writeln!(out, "  {index} [label={label:?}];").expect("writing to a string cannot fail");
+        for (order, parent) in node.parents().iter().enumerate() {
+            writeln!(out, "  {index} -> {parent} [label=\"{order}\"];")
+                .expect("writing to a string cannot fail");
+        }
+    }
+    out.push_str("}\n");
+    out
 }
 
 #[but_api]

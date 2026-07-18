@@ -70,11 +70,11 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 12,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
-                            LocalCommit(f9c2b14, "A2\n", integrated(36c87e5)),
+                            LocalCommit(f9c2b14, "A2\n", integrated(36c87e5), ►origin/A),
                             LocalCommit(e1f216e, "A1\n", integrated(818dbb2)),
                         ],
                         commits_on_remote: [],
@@ -91,18 +91,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                node_index: 10,
                 commits_ahead: 5,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(eabf2989a998260c7fbe181b33d5772705d62907),
-                segment_index: NodeIndex(2),
+                node_index: 0,
             },
         ),
         lower_bound: Some(
-            NodeIndex(5),
+            7,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -180,11 +180,11 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 12,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
-                            LocalCommit(5039218, "A2\n", local/remote(identity)),
+                            LocalCommit(5039218, "A2\n", local/remote(identity), ►origin/A),
                             LocalCommit(e1f216e, "A1\n", integrated(d72fd2d)),
                         ],
                         commits_on_remote: [],
@@ -201,18 +201,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                node_index: 10,
                 commits_ahead: 5,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(d89aadb67d5c32e6a63cad3d36020b5e8e192a91),
-                segment_index: NodeIndex(2),
+                node_index: 0,
             },
         ),
         lower_bound: Some(
-            NodeIndex(5),
+            7,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -287,7 +287,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 9,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -308,18 +308,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                node_index: 7,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                segment_index: NodeIndex(2),
+                node_index: 0,
             },
         ),
         lower_bound: Some(
-            NodeIndex(2),
+            0,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -397,11 +397,11 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: NodeIndex(3),
+                        id: 12,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
-                            LocalCommit(f9c2b14, "A2\n", integrated(85063c1)),
+                            LocalCommit(f9c2b14, "A2\n", integrated(85063c1), ►origin/A),
                             LocalCommit(e1f216e, "A1\n", integrated(444639d)),
                         ],
                         commits_on_remote: [],
@@ -418,18 +418,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                segment_index: NodeIndex(1),
+                node_index: 10,
                 commits_ahead: 5,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(7a2d071f19ec7551996099943167460ff2c2dd9d),
-                segment_index: NodeIndex(2),
+                node_index: 0,
             },
         ),
         lower_bound: Some(
-            NodeIndex(5),
+            8,
         ),
         is_managed_ref: true,
         is_managed_commit: true,

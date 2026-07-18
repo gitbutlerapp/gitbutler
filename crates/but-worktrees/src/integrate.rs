@@ -107,7 +107,12 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
     WorktreeIntegrationStatus,
     Option<SuccessfulRebase<'ws, 'meta, M>>,
 )> {
-    if !ws.refname_is_segment(target) {
+    if !ws
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .any(|segment| segment.ref_name() == Some(target))
+    {
         bail!("Branch {} not found in workspace", target.shorten());
     }
 
@@ -151,7 +156,7 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
     }
 
     // State needed later which can't be read while the editor borrows `ws`.
-    let ws_commit_id = ws.graph.managed_entrypoint_commit(repo)?.map(|c| c.id);
+    let ws_commit_id = ws.graph.managed_workspace_commit_id();
     let head_id = repo.head_id().ok().map(|id| id.detach());
     let head_tree_id = repo.head_tree_id_or_empty()?.detach();
     #[expect(

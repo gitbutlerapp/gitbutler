@@ -4,7 +4,7 @@ use anyhow::{Context as _, Result};
 use but_core::{RefMetadata, ref_metadata::StackKind};
 use gix::refs::Category;
 
-use crate::{CommitFlags, NodeGraph, NodeIndex, NodeKind, Reference, SegmentMetadata};
+use crate::{CommitFlags, NodeGraph, NodeIndex, NodeKind, Reference, ReferenceMetadata};
 
 use super::{
     overlay::{OverlayMetadata, OverlayRepo},
@@ -118,19 +118,19 @@ fn discover_references<T: RefMetadata>(
         .collect()
 }
 
-fn metadata_for_ref<T: RefMetadata>(
+pub(super) fn metadata_for_ref<T: RefMetadata>(
     meta: &OverlayMetadata<'_, T>,
     ref_name: &gix::refs::FullNameRef,
-) -> Result<Option<SegmentMetadata>> {
+) -> Result<Option<ReferenceMetadata>> {
     if ref_name.category() != Some(Category::LocalBranch) {
         return Ok(None);
     }
     if let Some(branch) = meta.branch_opt(ref_name)? {
-        return Ok(Some(SegmentMetadata::Branch(branch)));
+        return Ok(Some(ReferenceMetadata::Branch(branch)));
     }
     Ok(meta
         .workspace_opt(ref_name)?
-        .map(SegmentMetadata::Workspace))
+        .map(ReferenceMetadata::Workspace))
 }
 
 fn build_reference_groups(
@@ -197,7 +197,7 @@ fn reference_orders(
     let mut workspace_orders = Vec::new();
 
     for reference in references {
-        let Some(SegmentMetadata::Workspace(workspace)) = &reference.metadata else {
+        let Some(ReferenceMetadata::Workspace(workspace)) = &reference.metadata else {
             continue;
         };
         let workspace_name = reference.ref_info.ref_name.clone();
@@ -297,8 +297,8 @@ fn reference_orders(
 ///
 /// Workspace metadata may retain these pieces as separate stacks while the graph proves that one
 /// anchor is strictly above the other. Treating them as independent orders makes their references
-/// compete for the same commit-child slot; one effective order preserves every empty segment
-/// between the upper and lower commits.
+/// compete for the same commit-child slot; one effective order preserves every
+/// reference between the upper and lower commits.
 fn stitch_nested_workspace_orders(
     graph: &NodeGraph,
     orders: &mut [ReferenceOrder],
@@ -507,12 +507,11 @@ fn group_at_commit(
         .iter()
         .enumerate()
         .filter_map(|(index, reference)| {
-            matches!(reference.metadata, Some(SegmentMetadata::Workspace(_)))
+            matches!(reference.metadata, Some(ReferenceMetadata::Workspace(_)))
                 .then_some((index, &reference.ref_info.ref_name))
         })
     {
         let (workspace_index, workspace_name) = workspace;
-        let mut seen_roots = BTreeSet::new();
         let stack_roots = workspace_orders
             .iter()
             .filter(|order| &order.workspace_name == workspace_name)
@@ -532,17 +531,7 @@ fn group_at_commit(
             })
             .filter(|(root, _)| root != workspace_name)
             .collect::<Vec<_>>();
-        let mut stack_roots = stack_roots
-            .iter()
-            .filter(|(_, anchor)| {
-                graph.annotations[*anchor].contains(CommitFlags::Integrated)
-                    || !stack_roots.iter().any(|(_, other_anchor)| {
-                        other_anchor != anchor && reaches(graph, *other_anchor, *anchor)
-                    })
-            })
-            .filter(|(root, _)| seen_roots.insert(root.clone()))
-            .map(|(root, _)| root.clone())
-            .collect::<Vec<_>>();
+        let mut stack_roots = select_workspace_stack_roots(graph, &stack_roots);
         if let ([root], Some(entrypoint_name)) = (
             stack_roots.as_slice(),
             graph.context.entrypoint_ref.as_ref(),
@@ -631,7 +620,7 @@ fn group_at_commit(
             !hints.contains_key(index)
                 && !matches!(
                     references[**index].metadata.as_ref(),
-                    Some(SegmentMetadata::Workspace(_))
+                    Some(ReferenceMetadata::Workspace(_))
                 )
                 && references[**index].ref_info.ref_name.category() != Some(Category::Tag)
         })
@@ -653,7 +642,7 @@ fn group_at_commit(
                     hints.contains_key(&root)
                         || matches!(
                             references[root].metadata.as_ref(),
-                            Some(SegmentMetadata::Workspace(_))
+                            Some(ReferenceMetadata::Workspace(_))
                         )
                         || unhinted_ordinary_roots == 1,
                 )
@@ -691,6 +680,37 @@ fn group_at_commit(
             .collect(),
         children,
     })
+}
+
+fn select_workspace_stack_roots(
+    graph: &NodeGraph,
+    candidates: &[(gix::refs::FullName, NodeIndex)],
+) -> Vec<gix::refs::FullName> {
+    let roots_per_anchor = candidates.iter().fold(
+        BTreeMap::<NodeIndex, BTreeSet<&gix::refs::FullName>>::new(),
+        |mut roots, (name, anchor)| {
+            roots.entry(*anchor).or_default().insert(name);
+            roots
+        },
+    );
+    let mut represented_ambiguous_anchors = BTreeSet::new();
+    let mut seen_roots = BTreeSet::new();
+    candidates
+        .iter()
+        .filter(|(_, anchor)| {
+            if graph.annotations[*anchor].contains(CommitFlags::Integrated) {
+                return true;
+            }
+            let dominated = candidates.iter().any(|(_, other_anchor)| {
+                other_anchor != anchor && reaches(graph, *other_anchor, *anchor)
+            });
+            !dominated
+                || (roots_per_anchor[anchor].len() > 1
+                    && represented_ambiguous_anchors.insert(*anchor))
+        })
+        .filter(|(root, _)| seen_roots.insert(root.clone()))
+        .map(|(root, _)| root.clone())
+        .collect()
 }
 
 fn reference_parent_reaches(
@@ -828,7 +848,7 @@ mod tests {
     use gix::refs::Target;
 
     use super::*;
-    use crate::{Graph, Node, NodeGraphEntrypoint, init};
+    use crate::{Node, NodeGraphEntrypoint, init};
 
     fn scenario(name: &str) -> Result<gix::Repository> {
         let root = but_testsupport::gix_testtools::scripted_fixture_read_only("scenarios.sh")
@@ -860,7 +880,7 @@ mod tests {
     }
 
     /// Test-only proof of the intended construction pipeline:
-    /// tips -> commits -> discovered reference groups -> applied node graph -> legacy adapter.
+    /// tips -> commits -> discovered reference groups -> applied node graph.
     fn construct<T: RefMetadata>(
         repo: &gix::Repository,
         meta: &T,
@@ -869,7 +889,7 @@ mod tests {
         options: init::Options,
         overlay: init::Overlay,
         entrypoint_ref_override: Option<gix::refs::FullName>,
-    ) -> Result<(NodeGraph, Graph)> {
+    ) -> Result<NodeGraph> {
         let (repo, meta, _) = overlay.into_parts(repo, meta);
         let graph = super::super::node_traversal::traverse_tips(
             &repo,
@@ -879,9 +899,7 @@ mod tests {
             options,
             entrypoint_ref_override,
         )?;
-        let graph = discover_and_apply_reference_groups(graph, &repo, &meta)?;
-        let legacy = graph.clone().into_segment_graph()?;
-        Ok((graph, legacy))
+        discover_and_apply_reference_groups(graph, &repo, &meta)
     }
 
     fn stack(id: usize, branches: &[&str]) -> WorkspaceStack {
@@ -1116,7 +1134,6 @@ mod tests {
                 order_index: 2,
             },
         ];
-
         stitch_nested_workspace_orders(&graph, &mut orders, &mut workspace_orders);
 
         assert_eq!(
@@ -1150,6 +1167,59 @@ mod tests {
     }
 
     #[test]
+    fn ambiguous_lower_anchor_keeps_one_workspace_stack_root() {
+        let oid = |value: u8| {
+            gix::ObjectId::from_hex(format!("{value:040x}").as_bytes())
+                .expect("valid test object id")
+        };
+        let graph = NodeGraph {
+            nodes: vec![
+                Node {
+                    kind: NodeKind::Commit { id: oid(1) },
+                    parents: vec![],
+                },
+                Node {
+                    kind: NodeKind::Commit { id: oid(2) },
+                    parents: vec![0],
+                },
+            ],
+            annotations: vec![CommitFlags::empty(); 2],
+            context: crate::node::ConstructionContext {
+                entrypoint: NodeGraphEntrypoint::Node(1),
+                entrypoint_ref: None,
+                managed_workspace_commit_id: None,
+                traversal_tips: Vec::new(),
+                ad_hoc_branch_stack_orders: Vec::new(),
+                hard_limit_hit: false,
+                options: init::Options::default(),
+                project_meta: ProjectMeta::default(),
+                symbolic_remote_names: Vec::new(),
+            },
+        };
+        let upper = name("refs/heads/upper");
+        let lower = name("refs/heads/lower");
+        let alternative_lower = name("refs/heads/alternative-lower");
+
+        assert_eq!(
+            select_workspace_stack_roots(
+                &graph,
+                &[
+                    (upper.clone(), 1),
+                    (lower.clone(), 0),
+                    (alternative_lower, 0),
+                ],
+            ),
+            [upper.clone(), lower.clone()],
+            "one lower root survives when ancestry cannot absorb both alternatives"
+        );
+        assert_eq!(
+            select_workspace_stack_roots(&graph, &[(upper.clone(), 1), (lower, 0)]),
+            [upper],
+            "an unambiguous lower continuation remains part of the upper stack"
+        );
+    }
+
+    #[test]
     fn workspace_fan_out_is_derived_from_applied_stack_order() -> Result<()> {
         let repo = scenario("detached")?;
         let tip = id(&repo, "HEAD")?;
@@ -1161,7 +1231,7 @@ mod tests {
         let tips = vec![
             init::Tip::entrypoint(tip, Some(workspace_name.clone()))
                 .with_role(init::TipRole::Workspace)
-                .with_metadata(SegmentMetadata::Workspace(workspace)),
+                .with_metadata(ReferenceMetadata::Workspace(workspace)),
             init::Tip::new(tip).with_role(init::TipRole::WorkspaceStackBranch {
                 desired_ref_name: name("refs/heads/A"),
             }),
@@ -1174,7 +1244,7 @@ mod tests {
             overlay_ref("refs/heads/A", tip),
             overlay_ref("refs/heads/B", tip),
         ]);
-        let (graph, legacy) = construct(
+        let graph = construct(
             &repo,
             &meta,
             tips,
@@ -1201,17 +1271,6 @@ mod tests {
             ),
             "workspace overlays retain one direct path to their own ref target"
         );
-        let workspace_segment = legacy
-            .segment_by_ref_name(name("refs/heads/gitbutler/workspace").as_ref())
-            .expect("workspace segment");
-        assert_eq!(
-            legacy
-                .inner
-                .edges_directed(workspace_segment.id, petgraph::Direction::Outgoing)
-                .count(),
-            2,
-            "same-target named paths make the structural compatibility edge redundant"
-        );
         Ok(())
     }
 
@@ -1221,13 +1280,13 @@ mod tests {
         let tip = id(&repo, "HEAD")?;
         let (meta, workspace) = metadata(vec![stack(1, &["B", "B"])], ProjectMeta::default());
         let workspace_name = name("refs/heads/gitbutler/workspace");
-        let (graph, _) = construct(
+        let graph = construct(
             &repo,
             &meta,
             vec![
                 init::Tip::entrypoint(tip, Some(workspace_name.clone()))
                     .with_role(init::TipRole::Workspace)
-                    .with_metadata(SegmentMetadata::Workspace(workspace)),
+                    .with_metadata(ReferenceMetadata::Workspace(workspace)),
                 init::Tip::new(tip).with_role(init::TipRole::WorkspaceStackBranch {
                     desired_ref_name: name("refs/heads/B"),
                 }),
@@ -1277,13 +1336,13 @@ mod tests {
             ProjectMeta::default(),
         );
         let workspace_name = name("refs/heads/gitbutler/workspace");
-        let (graph, _) = construct(
+        let graph = construct(
             &repo,
             &meta,
             vec![
                 init::Tip::entrypoint(tip, Some(workspace_name.clone()))
                     .with_role(init::TipRole::Workspace)
-                    .with_metadata(SegmentMetadata::Workspace(workspace)),
+                    .with_metadata(ReferenceMetadata::Workspace(workspace)),
             ],
             ProjectMeta::default(),
             options(),
@@ -1321,13 +1380,13 @@ mod tests {
         let (meta, workspace) = metadata(vec![stack(1, &["A"])], ProjectMeta::default());
         let workspace_name = name("refs/heads/gitbutler/workspace");
         let peer_name = name("refs/heads/peer");
-        let (graph, _) = construct(
+        let graph = construct(
             &repo,
             &meta,
             vec![
                 init::Tip::entrypoint(workspace_id, Some(workspace_name.clone()))
                     .with_role(init::TipRole::Workspace)
-                    .with_metadata(SegmentMetadata::Workspace(workspace)),
+                    .with_metadata(ReferenceMetadata::Workspace(workspace)),
                 init::Tip::new(stack_id).with_role(init::TipRole::WorkspaceStackBranch {
                     desired_ref_name: name("refs/heads/A"),
                 }),
@@ -1358,13 +1417,13 @@ mod tests {
         let rejected_stack_id = id(&repo, "A")?;
         let (meta, workspace) = metadata(vec![stack(1, &["A"])], ProjectMeta::default());
         let workspace_name = name("refs/heads/gitbutler/workspace");
-        let (graph, _) = construct(
+        let graph = construct(
             &repo,
             &meta,
             vec![
                 init::Tip::entrypoint(workspace_id, Some(workspace_name.clone()))
                     .with_role(init::TipRole::Workspace)
-                    .with_metadata(SegmentMetadata::Workspace(workspace)),
+                    .with_metadata(ReferenceMetadata::Workspace(workspace)),
                 init::Tip::new(rejected_stack_id).with_role(init::TipRole::WorkspaceStackBranch {
                     desired_ref_name: name("refs/heads/A"),
                 }),
@@ -1422,7 +1481,7 @@ mod tests {
         let tips = vec![
             init::Tip::entrypoint(workspace_id, Some(name("refs/heads/gitbutler/workspace")))
                 .with_role(init::TipRole::Workspace)
-                .with_metadata(SegmentMetadata::Workspace(workspace)),
+                .with_metadata(ReferenceMetadata::Workspace(workspace)),
             init::Tip::integrated(target_id, Some(name("refs/remotes/origin/main"))),
             init::Tip::new(id(&repo, "A")?).with_role(init::TipRole::WorkspaceStackBranch {
                 desired_ref_name: name("refs/heads/A"),
@@ -1434,7 +1493,7 @@ mod tests {
                 desired_ref_name: name("refs/heads/C"),
             }),
         ];
-        let (graph, legacy) = construct(
+        let graph = construct(
             &repo,
             &meta,
             tips,
@@ -1502,14 +1561,6 @@ mod tests {
                 .map(str::to_owned)
                 .collect()
         );
-        for branch in ["A", "B", "C", "below-A", "below-B", "below-C"] {
-            assert!(
-                legacy
-                    .segment_by_ref_name(name(&format!("refs/heads/{branch}")).as_ref())
-                    .is_some(),
-                "metadata branch {branch} survives the legacy adapter"
-            );
-        }
         Ok(())
     }
 
@@ -1529,7 +1580,7 @@ mod tests {
                 peeled: Some(tip),
             }))
             .with_branch_stack_order_override(order.clone());
-        let (graph, _) = construct(
+        let graph = construct(
             &repo,
             &InMemoryRefMetadata::default(),
             vec![init::Tip::entrypoint(tip, Some(order[0].clone()))],
@@ -1559,7 +1610,7 @@ mod tests {
         let repo = scenario("detached")?;
         let tip = id(&repo, "refs/tags/release/v1")?;
         let tag = name("refs/tags/release/v1");
-        let (graph, legacy) = construct(
+        let graph = construct(
             &repo,
             &InMemoryRefMetadata::default(),
             vec![init::Tip::entrypoint(tip, Some(tag.clone()))],
@@ -1579,8 +1630,6 @@ mod tests {
             &crate::NodeGraphEntrypoint::Node(tag_index),
             "the named entrypoint moves from its commit to the explicitly seeded tag"
         );
-        assert_eq!(legacy.entrypoint_ref.as_ref(), Some(&tag));
-        assert!(legacy.segment_by_ref_name(tag.as_ref()).is_some());
         Ok(())
     }
 
@@ -1590,10 +1639,10 @@ mod tests {
         let head = id(&repo, "merged")?;
         let custom_tip = id(&repo, "C~1")?;
         let custom = name("refs/custom/review-tip");
-        let metadata = SegmentMetadata::Branch(Default::default());
+        let metadata = ReferenceMetadata::Branch(Default::default());
         let overlay = init::Overlay::default()
             .with_references([overlay_ref("refs/custom/review-tip", custom_tip)]);
-        let (graph, legacy) = construct(
+        let graph = construct(
             &repo,
             &InMemoryRefMetadata::default(),
             vec![
@@ -1613,10 +1662,6 @@ mod tests {
         };
         assert_eq!(reference.ref_info.commit_id, Some(custom_tip));
         assert_eq!(reference.metadata, Some(metadata.clone()));
-        let segment = legacy
-            .segment_by_ref_name(custom.as_ref())
-            .expect("custom named tip survives the adapter");
-        assert_eq!(segment.metadata, Some(metadata));
         Ok(())
     }
 
@@ -1632,7 +1677,7 @@ mod tests {
                 local_ref_name: name("refs/heads/main"),
             }),
         ];
-        let (graph, legacy) = construct(
+        let graph = construct(
             &repo,
             &InMemoryRefMetadata::default(),
             tips.clone(),
@@ -1646,29 +1691,11 @@ mod tests {
             parent_ref_name(&graph, reference_node(&graph, "refs/remotes/origin/main").1),
             Some("refs/heads/main".into())
         );
-        assert_eq!(
-            legacy
-                .node_weights()
-                .flat_map(|segment| segment.commits.iter())
-                .filter(|commit| commit.id == target_id)
-                .count(),
-            1,
-            "the local/remote pair must not duplicate its commit"
-        );
-        let local = legacy
-            .segment_by_ref_name(name("refs/heads/main").as_ref())
-            .expect("local target segment");
-        let remote = legacy
-            .segment_by_ref_name(name("refs/remotes/origin/main").as_ref())
-            .expect("remote target segment");
-        assert_eq!(local.remote_tracking_branch_segment_id, Some(remote.id));
-        assert_eq!(remote.sibling_segment_id, Some(local.id));
-
         repo.config_snapshot_mut()
             .set_raw_value("branch.aaa-main.remote", "origin")?;
         repo.config_snapshot_mut()
             .set_raw_value("branch.aaa-main.merge", "refs/heads/main")?;
-        let (graph, _) = construct(
+        let graph = construct(
             &repo,
             &InMemoryRefMetadata::default(),
             tips,
@@ -1699,7 +1726,7 @@ mod tests {
     fn detached_entrypoint_keeps_tags_outside() -> Result<()> {
         let repo = scenario("detached")?;
         let head = id(&repo, "HEAD")?;
-        let (graph, legacy) = construct(
+        let graph = construct(
             &repo,
             &InMemoryRefMetadata::default(),
             vec![init::Tip::detached_entrypoint(head)],
@@ -1721,9 +1748,7 @@ mod tests {
             let (_, node) = reference_node(&graph, tag);
             assert_eq!(graph.child_counts()[reference_node(&graph, tag).0], 0);
             assert_eq!(node.parents.len(), 1);
-            assert!(legacy.segment_by_ref_name(name(tag).as_ref()).is_some());
         }
-        assert!(legacy.entrypoint()?.segment.ref_info.is_none());
         Ok(())
     }
 
@@ -1735,7 +1760,7 @@ mod tests {
         let overlay = init::Overlay::default()
             .with_references([overlay_ref("refs/heads/new-reference", replacement_tip)])
             .with_dropped_references([name("refs/heads/C")]);
-        let (graph, legacy) = construct(
+        let graph = construct(
             &repo,
             &InMemoryRefMetadata::default(),
             vec![init::Tip::entrypoint(head, Some(name("refs/heads/merged")))],
@@ -1751,16 +1776,6 @@ mod tests {
             NodeKind::Reference(reference)
                 if reference.ref_info.ref_name == name("refs/heads/C")
         )));
-        assert!(
-            legacy
-                .segment_by_ref_name(name("refs/heads/new-reference").as_ref())
-                .is_some()
-        );
-        assert!(
-            legacy
-                .segment_by_ref_name(name("refs/heads/C").as_ref())
-                .is_none()
-        );
         Ok(())
     }
 
@@ -1773,7 +1788,7 @@ mod tests {
             overlay_ref("refs/heads/alpha", interior),
             overlay_ref("refs/heads/beta", interior),
         ]);
-        let (graph, _) = construct(
+        let graph = construct(
             &repo,
             &InMemoryRefMetadata::default(),
             vec![init::Tip::entrypoint(head, Some(name("refs/heads/merged")))],
@@ -1813,13 +1828,13 @@ mod tests {
         repo.config_snapshot_mut()
             .set_raw_value("branch.A.merge", "refs/heads/A")?;
         let (meta, workspace) = metadata(vec![stack(1, &["A", "main"])], ProjectMeta::default());
-        let (graph, legacy) = construct(
+        let graph = construct(
             &repo,
             &meta,
             vec![
                 init::Tip::entrypoint(workspace_id, Some(name("refs/heads/gitbutler/workspace")))
                     .with_role(init::TipRole::Workspace)
-                    .with_metadata(SegmentMetadata::Workspace(workspace)),
+                    .with_metadata(ReferenceMetadata::Workspace(workspace)),
                 init::Tip::new(base_id).with_role(init::TipRole::WorkspaceStackBranch {
                     desired_ref_name: name("refs/heads/A"),
                 }),
@@ -1858,17 +1873,6 @@ mod tests {
             1,
             "the shared local ref remains acyclic"
         );
-        let local_segment = legacy
-            .segment_by_ref_name(name("refs/heads/main").as_ref())
-            .expect("local segment");
-        let remote_segment = legacy
-            .segment_by_ref_name(name("refs/remotes/origin/main").as_ref())
-            .expect("remote segment");
-        assert_eq!(
-            local_segment.remote_tracking_branch_segment_id,
-            Some(remote_segment.id)
-        );
-        assert_eq!(remote_segment.sibling_segment_id, Some(local_segment.id));
         Ok(())
     }
 
@@ -1878,13 +1882,13 @@ mod tests {
         let workspace_id = id(&repo, "gitbutler/workspace")?;
         let base_id = id(&repo, "main")?;
         let (meta, workspace) = metadata(vec![stack(1, &["A"])], ProjectMeta::default());
-        let (graph, _) = construct(
+        let graph = construct(
             &repo,
             &meta,
             vec![
                 init::Tip::entrypoint(workspace_id, Some(name("refs/heads/gitbutler/workspace")))
                     .with_role(init::TipRole::Workspace)
-                    .with_metadata(SegmentMetadata::Workspace(workspace)),
+                    .with_metadata(ReferenceMetadata::Workspace(workspace)),
                 init::Tip::new(base_id).with_role(init::TipRole::WorkspaceStackBranch {
                     desired_ref_name: name("refs/heads/A"),
                 }),

@@ -6,11 +6,14 @@
 use snapbox::prelude::*;
 use std::borrow::Cow;
 
+use bstr::ByteSlice;
 use but_core::{RefMetadata, WORKSPACE_REF_NAME, ref_metadata::StackId};
 use but_workspace::{legacy::StacksFilter, ref_info};
 use gix::prelude::ObjectIdExt;
 
-use crate::ref_info::utils::{read_only_in_memory_scenario, standard_options};
+use crate::ref_info::utils::{
+    named_writable_scenario_with_args, read_only_in_memory_scenario, standard_options,
+};
 
 /// All tests that use a workspace commit for a fully managed, explicit workspace.
 pub(crate) mod with_workspace_commit;
@@ -137,6 +140,10 @@ fn commit_change_id_prefers_stored_header_value() -> anyhow::Result<()> {
 fn unborn_untracked() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("unborn-untracked")?;
     let info = head_info(&repo, &meta, standard_options())?;
+    assert_eq!(
+        info.stacks[0].segments[0].id, None,
+        "the legacy empty segment has no backing graph node"
+    );
     // It's clear that this branch is unborn as there is not a single commit,
     // in absence of a target ref.
     snapbox::assert_data_eq!(
@@ -166,7 +173,7 @@ RefInfo {
             base: None,
             segments: [
                 ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                    id: None,
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -258,65 +265,94 @@ StackDetails {
 fn detached() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("one-commit-detached")?;
     let info = head_info(&repo, &meta, ref_info::Options::default())?;
-    // As the workspace name is derived from the first segment, it's empty as well.
-    // We do know that `main` is pointing at the local commit though, despite the unnamed segment owning it.
-    snapbox::assert_data_eq!(
-        info.to_debug(),
-        snapbox::str![[r#"
-RefInfo {
-    workspace_ref_info: None,
-    symbolic_remote_names: {},
-    stacks: [
-        Stack {
-            id: Some(
-                00000000-0000-0000-0000-000000000001,
-            ),
-            base: None,
-            segments: [
-                ref_info::ui::Segment {
-                    id: NodeIndex(0),
-                    ref_name: "None",
-                    remote_tracking_ref_name: "None",
-                    commits: [
-                        LocalCommit(15bcd1b, "init\n", local, ►main),
-                    ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: "None",
-                    push_status: CompletelyUnpushed,
-                    base: "None",
-                },
-            ],
-        },
-    ],
-    target_ref: None,
-    target_commit: None,
-    lower_bound: None,
-    is_managed_ref: false,
-    is_managed_commit: false,
-    ancestor_workspace_commit: None,
-    is_entrypoint: true,
-}
-
-"#]]
-        .raw()
+    let commit_id = repo.head_commit()?.id().detach();
+    let [stack] = info.stacks.as_slice() else {
+        panic!("the detached commit should still project as one stack")
+    };
+    let [segment] = stack.segments.as_slice() else {
+        panic!("the stack should contain the reference node that names its commit")
+    };
+    assert_eq!(
+        segment
+            .ref_info
+            .as_ref()
+            .map(|info| info.ref_name.to_string()),
+        Some("refs/heads/main".to_owned()),
+        "a detached entrypoint can still be represented by a reference pointing at its commit"
+    );
+    assert_eq!(
+        segment
+            .commits
+            .iter()
+            .map(|commit| commit.id)
+            .collect::<Vec<_>>(),
+        vec![commit_id]
     );
 
     let stacks = stacks_v3(&repo, &meta, StacksFilter::All, None)?;
-    // Detached heads can't be represented with this API as it really needs a name.
-    snapbox::assert_data_eq!(
-        stacks.to_debug(),
-        snapbox::str![[r#"
-[]
+    let [stack] = stacks.as_slice() else {
+        panic!("the legacy listing should expose the named reference")
+    };
+    let [head] = stack.heads.as_slice() else {
+        panic!("the legacy stack should contain main")
+    };
+    assert_eq!(head.name.to_str()?, "main");
+    assert_eq!(head.tip, commit_id);
 
-"#]]
-    );
-
-    let err = stack_details_v3(None, &repo, &meta).unwrap_err();
+    let details = stack_details_v3(stack.id, &repo, &meta)?;
+    assert_eq!(details.derived_name, "main");
+    let [branch] = details.branch_details.as_slice() else {
+        panic!("the legacy details should expose main")
+    };
+    assert_eq!(branch.name.to_str()?, "main");
+    assert_eq!(branch.reference.to_string(), "refs/heads/main");
+    assert_eq!(branch.tip, commit_id);
     assert_eq!(
-        err.to_string(),
-        "Can't handle a stack yet whose tip isn't pointed to by a ref"
+        branch
+            .commits
+            .iter()
+            .map(|commit| commit.id)
+            .collect::<Vec<_>>(),
+        vec![commit_id],
+        "legacy details now follow the reference node instead of rejecting detached HEAD"
     );
+    Ok(())
+}
+
+#[test]
+fn detached_with_ambiguous_local_refs_stays_anonymous() -> anyhow::Result<()> {
+    let (_tmp, repo, meta) =
+        named_writable_scenario_with_args("one-commit-detached", std::iter::empty::<String>())?;
+    let commit_id = repo.head_commit()?.id().detach();
+    repo.reference(
+        "refs/heads/also-main",
+        commit_id,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "create an ambiguous detached-head name",
+    )?;
+
+    let info = head_info(&repo, &meta, ref_info::Options::default())?;
+    let [stack] = info.stacks.as_slice() else {
+        panic!("the detached commit should still project as one stack")
+    };
+    let [segment] = stack.segments.as_slice() else {
+        panic!("the detached commit should still project as one segment")
+    };
+    assert!(
+        segment.ref_info.is_none(),
+        "the compatibility boundary must not choose between ambiguous local refs"
+    );
+    let [commit] = segment.commits.as_slice() else {
+        panic!("the detached one-commit fixture should expose its commit")
+    };
+    let mut local_refs = commit
+        .refs
+        .iter()
+        .filter(|info| info.ref_name.category() == Some(gix::refs::Category::LocalBranch))
+        .map(|info| info.ref_name.to_string())
+        .collect::<Vec<_>>();
+    local_refs.sort();
+    assert_eq!(local_refs, ["refs/heads/also-main", "refs/heads/main"]);
     Ok(())
 }
 
@@ -353,8 +389,8 @@ RefInfo {
             ),
             base: None,
             segments: [
-                ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                👉ref_info::ui::Segment {
+                    id: 2,
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -395,12 +431,12 @@ RefInfo {
                 name: "main",
                 tip: Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
                 review_id: None,
-                is_checked_out: false,
+                is_checked_out: true,
             },
         ],
         tip: Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
         order: None,
-        is_checked_out: false,
+        is_checked_out: true,
     },
 ]
 
@@ -460,6 +496,10 @@ fn single_branch() -> anyhow::Result<()> {
         1,
         "a single branch, a single segment"
     );
+    assert!(
+        info.stacks[0].segments[0].id.is_some(),
+        "a born branch segment retains its backing graph node"
+    );
     snapbox::assert_data_eq!(
         info.to_debug(),
         snapbox::str![[r#"
@@ -488,8 +528,8 @@ RefInfo {
             ),
             base: None,
             segments: [
-                ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                👉ref_info::ui::Segment {
+                    id: 10,
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -538,12 +578,12 @@ RefInfo {
                 name: "main",
                 tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
                 review_id: None,
-                is_checked_out: false,
+                is_checked_out: true,
             },
         ],
         tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
         order: None,
-        is_checked_out: false,
+        is_checked_out: true,
     },
 ]
 
@@ -632,8 +672,8 @@ RefInfo {
             ),
             base: None,
             segments: [
-                ref_info::ui::Segment {
-                    id: NodeIndex(0),
+                👉ref_info::ui::Segment {
+                    id: 11,
                     ref_name: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -646,7 +686,7 @@ RefInfo {
                     base: "344e320",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(1),
+                    id: 12,
                     ref_name: "►nine",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -661,7 +701,7 @@ RefInfo {
                     base: "c4f2a35",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(2),
+                    id: 13,
                     ref_name: "►six",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -676,7 +716,7 @@ RefInfo {
                     base: "281da94",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(3),
+                    id: 14,
                     ref_name: "►three",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -690,7 +730,7 @@ RefInfo {
                     base: "3d57fc1",
                 },
                 ref_info::ui::Segment {
-                    id: NodeIndex(4),
+                    id: 15,
                     ref_name: "►one",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -732,6 +772,12 @@ RefInfo {
                 name: "main",
                 tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
                 review_id: None,
+                is_checked_out: true,
+            },
+            StackHeadInfo {
+                name: "above-10",
+                tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
+                review_id: None,
                 is_checked_out: false,
             },
             StackHeadInfo {
@@ -761,7 +807,7 @@ RefInfo {
         ],
         tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
         order: None,
-        is_checked_out: false,
+        is_checked_out: true,
     },
 ]
 

@@ -210,8 +210,12 @@ pub(crate) fn traverse_tips<T: RefMetadata>(
             NodeKind::Reference(_) | NodeKind::ShallowPoint { .. } => None,
         })
         .collect::<BTreeSet<_>>();
-    let managed_workspace_commit_id =
-        managed_workspace_commit_id(repo, &traversal_tips, &traversed_commit_ids)?;
+    let managed_workspace_commit_id = managed_workspace_commit_id(
+        repo,
+        &traversal_tips,
+        &traversed_commit_ids,
+        entrypoint_ref.as_ref().map(|name| name.as_ref()),
+    )?;
     NodeGraph {
         nodes,
         annotations,
@@ -234,13 +238,16 @@ fn managed_workspace_commit_id(
     repo: &OverlayRepo<'_>,
     traversal_tips: &[Tip],
     traversed_commit_ids: &BTreeSet<gix::ObjectId>,
+    entrypoint_ref: Option<&gix::refs::FullNameRef>,
 ) -> Result<Option<gix::ObjectId>> {
+    let entrypoint_is_workspace = entrypoint_ref.is_some_and(but_core::is_workspace_ref_name);
     for tip in traversal_tips.iter().filter(|tip| {
         matches!(tip.role, TipRole::Workspace)
             || tip
                 .ref_name
                 .as_ref()
                 .is_some_and(|name| but_core::is_workspace_ref_name(name.as_ref()))
+            || (entrypoint_is_workspace && tip.is_entrypoint)
     }) {
         // Breadth-first traversal selects the nearest match, with Git parent order as the tie-breaker.
         let mut candidates = VecDeque::from([tip.id]);
@@ -713,16 +720,19 @@ mod tests {
     }
 
     #[test]
-    fn records_managed_workspace_commit_from_an_effective_entrypoint() -> Result<()> {
+    fn records_managed_workspace_commit_from_entrypoint_ref_without_metadata() -> Result<()> {
         let repo = scenario("scenarios", "ws/two-segments-one-integrated-without-remote")?;
         let workspace_id = tip(&repo, "gitbutler/workspace")?;
-        let graph = traverse(
-            &repo,
-            vec![Tip::entrypoint(
-                workspace_id,
-                Some(but_core::WORKSPACE_REF_NAME.try_into()?),
-            )],
+        let meta = metadata(&repo)?;
+        let (overlay_repo, overlay_meta, _) =
+            super::super::Overlay::default().into_parts(&repo, &meta);
+        let graph = super::traverse_tips(
+            &overlay_repo,
+            vec![Tip::entrypoint(workspace_id, None)],
+            &overlay_meta,
+            ProjectMeta::default(),
             Options::default(),
+            Some(but_core::WORKSPACE_REF_NAME.try_into()?),
         )?;
 
         assert_eq!(
@@ -1136,7 +1146,7 @@ mod tests {
     }
 
     #[test]
-    fn integrated_tip_processing_order_drives_node_and_adapter_insertion() -> Result<()> {
+    fn integrated_tip_processing_order_drives_node_insertion() -> Result<()> {
         let repo = scenario("scenarios", "four-diamond")?;
         let entrypoint = tip(&repo, "merged")?;
         let reachable = tip(&repo, "A")?;
@@ -1159,16 +1169,6 @@ mod tests {
                 graph.nodes().first().map(Node::kind),
                 Some(NodeKind::Commit { id }) if *id == integrated
             ));
-
-            let graph = graph.into_segment_graph()?;
-            assert_eq!(
-                graph
-                    .node_weights()
-                    .next()
-                    .and_then(|segment| segment.commits.first())
-                    .map(|commit| commit.id),
-                Some(integrated)
-            );
         }
         Ok(())
     }

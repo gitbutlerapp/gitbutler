@@ -1899,10 +1899,10 @@ pick remote-commit
     snapbox::assert_data_eq!(
         labeled_graph_snapshot(&repo, &labels)?,
         snapbox::str![[r#"
-*   abcd9a1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   9bafbf1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\
-| * remote-commit (origin/feature-foo, feature-foo) update foo.txt (remote)
-| * local-commit add foo.txt
+* | remote-commit (origin/feature-foo, feature-foo) update foo.txt (remote)
+* | local-commit add foo.txt
 |/
 * da7bed3 (origin/main, main, empty-branch) add main.txt
 "#]]
@@ -1962,10 +1962,8 @@ fn initial_pull_rebase_plan_includes_workspace_local_commits_above_branch_ref() 
     snapbox::assert_data_eq!(
         labeled_divergence_snapshot(&initial, &labels),
         snapbox::str![[r#"
-* local-commit-3 (A) local change in A 3
-| * remote-commit (origin/A) remote change in A 3
-|/
-* local-commit-2 local change in A 2
+* remote-commit (origin/A) remote change in A 3
+* local-commit-2 (A) local change in A 2
 "#]]
     );
 
@@ -1974,7 +1972,6 @@ fn initial_pull_rebase_plan_includes_workspace_local_commits_above_branch_ref() 
         snapbox::str![[r#"
 merge-base local-commit-2
 pick remote-commit
-pick local-commit-3
 "#]]
     );
 
@@ -1990,9 +1987,11 @@ pick local-commit-3
     snapbox::assert_data_eq!(
         labeled_graph_snapshot(&repo, &labels)?,
         snapbox::str![[r#"
-* bf6f03c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 705502a (A) local change in A 3
-* remote-commit (origin/A) remote change in A 3
+*   1463581 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|/
+* | 705502a local change in A 3
+|/
+* remote-commit (origin/A, A) remote change in A 3
 * local-commit-2 local change in A 2
 * local-commit-1 local change in A 1
 * base (origin/main, main) init-integration
@@ -2483,8 +2482,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    let preview_graph = rebase.overlayed_graph()?;
-    let preview_workspace = preview_graph.into_workspace()?;
+    let preview_workspace = rebase.overlayed_workspace()?;
     let ref_info = but_workspace::graph_to_ref_info(
         &preview_workspace,
         rebase.repo(),

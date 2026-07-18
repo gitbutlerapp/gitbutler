@@ -271,7 +271,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
     /// The target commit's node, if a target is configured and present.
     fn target_selector(&self) -> Option<Selector> {
-        let target = self.workspace.graph.project_meta.target_commit_id?;
+        let target = self.workspace.stored_target_commit_id()?;
         let selector = self.try_select_commit(target)?;
         self.history.normalize_selector(selector).ok()
     }
@@ -353,10 +353,11 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// intentionally not ported. Without a target there is nothing to integrate
     /// into, so both sets are empty.
     fn integration(&self, nodes: &HashSet<Selector>) -> Result<Integration> {
-        let Some(target_ref) = self.workspace.graph.project_meta.target_ref.as_ref() else {
+        let Some(target_ref) = self.workspace.target_ref.as_ref() else {
             return Ok(Integration::default());
         };
-        let Some(target_ref_selector) = self.try_select_reference(target_ref.as_ref()) else {
+        let Some(target_ref_selector) = self.try_select_reference(target_ref.ref_name.as_ref())
+        else {
             return Ok(Integration::default());
         };
 

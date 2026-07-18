@@ -347,7 +347,7 @@ fn validate_branch_landing(
         &ws,
         &repo,
         but_workspace::ref_info::Options {
-            project_meta: ws.graph.project_meta.clone(),
+            project_meta: ws.graph.project_meta().clone(),
             traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
             ..Default::default()

@@ -18,7 +18,7 @@ use git2::build::CheckoutBuilder;
 use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_operating_modes::{
-    EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
+    EDIT_BRANCH_REF, EditModeMetadata, OperatingMode, WORKSPACE_BRANCH_REF,
     delete_edit_mode_metadata, operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
@@ -195,40 +195,15 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     Ok(())
 }
 
-fn open_workspace_ref<'repo>(repo: &'repo gix::Repository) -> Result<gix::Reference<'repo>> {
-    [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF]
+fn ensure_stack_in_workspace(ctx: &Context, stack_id: StackId, perm: &RepoShared) -> Result<()> {
+    let (_repo, workspace, _db) = ctx.workspace_and_db_with_perm(perm)?;
+    if !workspace
+        .stacks
         .iter()
-        .find_map(|&name| repo.find_reference(name).ok())
-        .with_context(|| {
-            format!(
-                "expected one of the open workspace refs to exist: {}",
-                [WORKSPACE_BRANCH_REF, INTEGRATION_BRANCH_REF].join(", ")
-            )
-        })
-}
-
-/// TODO: This function must go away as it recreates an artificial traversal from the workspace,
-/// probably because at some point the surrounding workspace couldn't be found anymore and was strictly required.
-/// By now, edit-mode won't fully detach the commit-to-edit anymore, so the surrounding workspace should still be
-/// found.
-#[deprecated = "extra traversals must not be done and shouldn't be needed here."]
-fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::Workspace> {
-    let repo = ctx.repo.get()?;
-    let meta = ctx.meta()?;
-    let mut workspace_ref = open_workspace_ref(&repo)?;
-    let graph = but_graph::Graph::from_commit_traversal(
-        workspace_ref.peel_to_id()?,
-        Some(workspace_ref.inner.name.clone()),
-        &meta,
-        ctx.project_meta()?,
-        but_graph::init::Options::limited(),
-    )?;
-    graph.into_workspace()
-}
-
-fn ensure_stack_in_workspace(ctx: &Context, stack_id: StackId) -> Result<()> {
-    #[allow(deprecated)]
-    workspace_from_workspace_ref(ctx)?.try_find_stack_by_id(stack_id)?;
+        .any(|stack| stack.id == Some(stack_id))
+    {
+        bail!("Couldn't find stack with id {stack_id:?} in workspace");
+    }
     Ok(())
 }
 
@@ -236,16 +211,16 @@ pub(crate) fn enter_edit_mode(
     ctx: &Context,
     commit_oid: gix::ObjectId,
     stack_id: StackId,
-    _perm: &mut RepoExclusive,
+    perm: &mut RepoExclusive,
 ) -> Result<EditModeMetadata> {
-    let repo = &*ctx.repo.get()?;
     let edit_mode_metadata = EditModeMetadata {
         commit_oid,
         stack_id,
     };
 
-    ensure_stack_in_workspace(ctx, stack_id)?;
+    ensure_stack_in_workspace(ctx, stack_id, perm.read_permission())?;
 
+    let repo = &*ctx.repo.get()?;
     commit_uncommited_changes(repo)?;
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
     checkout_edit_branch(ctx, commit_oid).context("Failed to checkout edit branch")?;
@@ -303,20 +278,22 @@ pub(crate) fn abort_and_return_to_workspace(
 
 pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
+    let (old_target_base_oid, old_head_oids) = {
+        let (_repo, workspace, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        let target_base_oid = workspace
+            .stored_target_commit_id()
+            .context("failed to get target base oid")?;
+        let head_oids = workspace
+            .stacks
+            .iter()
+            .map(|stack| stack.tip_skip_empty().unwrap_or(target_base_oid))
+            .collect::<Vec<_>>();
+        (target_base_oid, head_oids)
+    };
+
     #[expect(deprecated, reason = "checkout/index materialization boundary")]
     let git2_repo = &*ctx.git2_repo.get()?;
     let repo = &*ctx.repo.get()?;
-
-    #[allow(deprecated)]
-    let old_workspace_projection = workspace_from_workspace_ref(ctx)?;
-    let old_target_base_oid = old_workspace_projection
-        .stored_target_commit_id()
-        .context("failed to get target base oid")?;
-    let old_head_oids = old_workspace_projection
-        .stacks
-        .iter()
-        .map(|stack| stack.tip_skip_empty().unwrap_or(old_target_base_oid))
-        .collect::<Vec<_>>();
     let old_workspace =
         WorkspaceState::create_from_heads_and_target(repo, &old_head_oids, old_target_base_oid)?;
 

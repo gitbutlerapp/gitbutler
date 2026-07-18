@@ -55,23 +55,25 @@ fn insert_below_merge_commit() -> Result<()> {
     editor.insert(selector, Step::new_pick(new_commit), InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    ├── ·f699c45 (⌂|1)
-    └── ·16b7c68 (⌂|1)
-        └── ►:1[1]:anon:
-            └── ·8ca0053 (⌂|1)
-                ├── ►:2[2]:A
-                │   └── ·add59d2 (⌂|1)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂|1)
-                        └── →:4: (main)
+◎  main
+│ ◎  👉with-inner-merge[🌳]
+│ ●  ·f699c45 (⌂)
+│ ●  ·16b7c68 (⌂)
+│ ●    ·8ca0053 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │  ·add59d2 (⌂)
+├─╯ │
+│   ◎  B
+│   ●  ·984fd1c (⌂)
+├───╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -161,23 +163,25 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
     )?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    ├── ·f699c45 (⌂|1)
-    └── ·16b7c68 (⌂|1)
-        └── ►:1[1]:anon:
-            └── ·8ca0053 (⌂|1)
-                ├── ►:2[2]:A
-                │   └── ·add59d2 (⌂|1)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂|1)
-                        └── →:4: (main)
+◎  main
+│ ◎  👉with-inner-merge[🌳]
+│ ●  ·f699c45 (⌂)
+│ ●  ·16b7c68 (⌂)
+│ ●    ·8ca0053 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │  ·add59d2 (⌂)
+├─╯ │
+│   ◎  B
+│   ●  ·984fd1c (⌂)
+├───╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -262,23 +266,25 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     editor.insert(selector, Step::new_pick(new_commit), InsertSide::Above)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·42f9ff4 (⌂|1)
-        └── ►:1[1]:anon:
-            └── ·5219d30 (⌂|1)
-                ├── ►:2[2]:A
-                │   └── ·72d9d9b (⌂|1)
-                │       └── ►:4[3]:main
-                │           ├── ·3dc4e45 (⌂|1) ►tags/base
-                │           └── 🏁·8f0d338 (⌂|1)
-                └── ►:3[2]:B
-                    └── ·df0cf44 (⌂|1)
-                        └── →:4: (main)
+◎  main
+│ ◎  👉with-inner-merge[🌳]
+│ ●  ·42f9ff4 (⌂)
+│ ●    ·5219d30 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │  ·72d9d9b (⌂)
+├─╯ │
+│   ◎  B
+│   ●  ·df0cf44 (⌂)
+├───╯
+●  ·3dc4e45 (⌂)
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -294,8 +300,8 @@ fn insert_above_commit_with_two_children() -> Result<()> {
 | * df0cf44 (B) C: new file with 10 lines
 * | 72d9d9b (A) A: 10 lines on top
 |/  
-* 3dc4e45 (tag: base, main) Commit above base commit
-* 8f0d338 base
+* 3dc4e45 (main) Commit above base commit
+* 8f0d338 (tag: base) base
 
 "#]]
         .raw()

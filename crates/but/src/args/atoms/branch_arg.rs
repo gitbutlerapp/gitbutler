@@ -82,7 +82,12 @@ impl BranchArg {
         }
 
         let local_name = self.resolve_local_branch_name()?;
-        if ws.is_reachable_from_entrypoint(local_name.as_ref()) {
+        if ws
+            .stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .any(|segment| segment.ref_name() == Some(local_name.as_ref()))
+        {
             return Err(
                 bad_input(format!("A branch named '{branch_name}' is already applied")).into(),
             );

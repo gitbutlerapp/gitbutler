@@ -594,10 +594,28 @@ fn merge_base_with_target_branch(
     perm: &RepoShared,
     branch_oid: gix::ObjectId,
 ) -> Result<Option<gix::ObjectId>> {
-    let (_, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
-    Ok(workspace
-        .merge_base_with_target_branch(branch_oid)
-        .map(|t| t.0))
+    let (repo, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
+    let target_oid = workspace
+        .target_ref
+        .as_ref()
+        .and_then(|target| {
+            workspace
+                .graph
+                .node_by_ref_name(target.ref_name.as_ref())
+                .and_then(|(_, reference)| reference.ref_info.commit_id)
+        })
+        .or_else(|| {
+            workspace
+                .target_commit
+                .as_ref()
+                .map(|target| target.commit_id)
+        })
+        .or(workspace.graph.project_meta().target_commit_id);
+    Ok(target_oid.and_then(|target_oid| {
+        repo.merge_base(branch_oid, target_oid)
+            .ok()
+            .map(|id| id.detach())
+    }))
 }
 
 fn format_timestamp(timestamp: i64) -> String {

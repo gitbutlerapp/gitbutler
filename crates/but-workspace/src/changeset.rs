@@ -4,7 +4,7 @@
 //! This property allows changeset IDs to be used to determine if two different commits, or sets of commits,
 //! represent the same change.
 
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashSet};
 
 use bstr::BStr;
 use but_core::changeset::{
@@ -64,34 +64,18 @@ impl RefInfo {
         repo: &gix::Repository,
         expensive: bool,
     ) -> anyhow::Result<()> {
-        let topmost_target_sidx = self
+        let target_node = self
             .target_ref
             .as_ref()
-            .map(|t| t.segment_index)
-            .or(self.target_commit.as_ref().map(|t| t.segment_index));
+            .map(|t| t.node_index)
+            .or(self.target_commit.as_ref().map(|t| t.node_index));
         let mut upstream_commits = Vec::new();
-        let Some(target_tip) = topmost_target_sidx else {
+        let Some(target_tip) = target_node else {
             // Without any notion of 'target' we can't do anything here.
             self.compute_pushstatus(graph);
             return Ok(());
         };
-        let lower_bound_generation = self.lower_bound.map(|sidx| graph[sidx].generation);
-        graph.visit_all_segments_including_start_until(
-            target_tip,
-            but_graph::petgraph::Direction::Outgoing,
-            |s| {
-                let prune = true;
-                if Some(s.id) == self.lower_bound
-                    || lower_bound_generation.is_some_and(|generation| s.generation > generation)
-                {
-                    return prune;
-                }
-                for c in &s.commits {
-                    upstream_commits.push(c.id);
-                }
-                !prune
-            },
-        );
+        collect_reachable_commit_ids(graph, target_tip, self.lower_bound, &mut upstream_commits);
 
         let cost_info = (
             upstream_commits.len(),
@@ -228,7 +212,7 @@ impl RefInfo {
 }
 
 /// Derive the push-status from the first-parent relationship between a local
-/// segment and its remote-tracking branch segment.
+/// projected stack portion and its remote-tracking reference.
 ///
 /// We intentionally reason in terms of the branch line, not arbitrary
 /// all-parents reachability:
@@ -255,7 +239,7 @@ fn derive_push_status_from_graph(
     graph: &but_graph::Graph,
     segment: &crate::ref_info::Segment,
 ) -> PushStatus {
-    let Some(remote_segment_id) = segment.remote_tracking_branch_segment_id else {
+    let Some(remote_node) = segment.remote_tracking_branch_segment_id else {
         // Generally, don't do anything if no remote relationship is set up (anymore).
         // There may be better ways to deal with this.
         return PushStatus::CompletelyUnpushed;
@@ -269,17 +253,13 @@ fn derive_push_status_from_graph(
         return PushStatus::Integrated;
     }
 
-    let local_segment_id = segment.id;
-    let Some(local_tip_id) = graph
-        .tip_skip_empty(local_segment_id)
-        .map(|commit| commit.id)
-    else {
+    let Some(local_node) = segment.id else {
         return PushStatus::NothingToPush;
     };
-    let Some(remote_tip_id) = graph
-        .tip_skip_empty(remote_segment_id)
-        .map(|commit| commit.id)
-    else {
+    let Some(local_tip_id) = commit_id_at(graph, local_node) else {
+        return PushStatus::NothingToPush;
+    };
+    let Some(remote_tip_id) = commit_id_at(graph, remote_node) else {
         // A missing remote tip acts like an unpushed branch: there is a
         // remote configured, but nothing reachable on that side that could
         // block a normal push.
@@ -296,9 +276,9 @@ fn derive_push_status_from_graph(
         .any(|commit| matches!(commit.relation, LocalCommitRelation::Integrated(_)));
 
     if local_tip_id == remote_tip_id {
-        // Same tip, regardless of how the graph was segmented.
+        // Same tip, regardless of how the graph was projected into stack segments.
         PushStatus::NothingToPush
-    } else if first_parent_contains_commit(graph, local_segment_id, remote_tip_id) {
+    } else if first_parent_contains_commit(graph, local_node, remote_tip_id) {
         // Local is a straightforward first-parent extension of remote.
         // However, if this segment already contains an integrated commit
         // below a local tip, we preserve the previous behavior and treat it
@@ -320,7 +300,7 @@ fn derive_push_status_from_graph(
 }
 
 /// Return `true` if `sought_commit_id` occurs on the first-parent branch line
-/// of `start_segment_id`.
+/// of `start_node`.
 ///
 /// This is stricter than an all-parents reachability test on purpose:
 ///
@@ -332,25 +312,94 @@ fn derive_push_status_from_graph(
 ///   `ahead/behind` here
 fn first_parent_contains_commit(
     graph: &but_graph::Graph,
-    start_segment_id: but_graph::SegmentIndex,
+    start_node: but_graph::NodeIndex,
     sought_commit_id: gix::ObjectId,
 ) -> bool {
-    let mut found = false;
-    if graph[start_segment_id]
-        .commits
-        .iter()
-        .any(|commit| commit.id == sought_commit_id)
-    {
-        return true;
+    let mut current = Some(start_node);
+    let mut seen = HashSet::new();
+    while let Some(index) = current {
+        if !seen.insert(index) {
+            return false;
+        }
+        let Some(node) = graph.nodes().get(index) else {
+            return false;
+        };
+        current = match node.kind() {
+            but_graph::NodeKind::Commit { id } => {
+                if *id == sought_commit_id {
+                    return true;
+                }
+                node.parents().first().copied()
+            }
+            but_graph::NodeKind::Reference(reference) => {
+                if reference.ref_info.commit_id == Some(sought_commit_id) {
+                    return true;
+                }
+                node.parents().last().copied()
+            }
+            but_graph::NodeKind::ShallowPoint { .. } => None,
+        };
     }
-    graph.visit_segments_downward_along_first_parent_exclude_start(start_segment_id, |segment| {
-        found = segment
-            .commits
-            .iter()
-            .any(|commit| commit.id == sought_commit_id);
-        found
-    });
-    found
+    false
+}
+
+fn collect_reachable_commit_ids(
+    graph: &but_graph::Graph,
+    start: but_graph::NodeIndex,
+    stop: Option<but_graph::NodeIndex>,
+    out: &mut Vec<gix::ObjectId>,
+) {
+    let excluded = stop
+        .map(|stop| reachable_node_indices(graph, stop))
+        .unwrap_or_default();
+    let mut pending = vec![start];
+    let mut seen = HashSet::new();
+    while let Some(index) = pending.pop() {
+        if excluded.contains(&index) || !seen.insert(index) {
+            continue;
+        }
+        let Some(node) = graph.nodes().get(index) else {
+            continue;
+        };
+        match node.kind() {
+            but_graph::NodeKind::Commit { id } => {
+                out.push(*id);
+                pending.extend(node.parents().iter().rev().copied());
+            }
+            but_graph::NodeKind::Reference(_) => {
+                pending.extend(node.parents().iter().rev().copied());
+            }
+            but_graph::NodeKind::ShallowPoint { .. } => {}
+        }
+    }
+}
+
+fn reachable_node_indices(
+    graph: &but_graph::Graph,
+    start: but_graph::NodeIndex,
+) -> HashSet<but_graph::NodeIndex> {
+    let mut out = HashSet::new();
+    let mut pending = vec![start];
+    while let Some(index) = pending.pop() {
+        if out.insert(index) {
+            pending.extend(
+                graph
+                    .nodes()
+                    .get(index)
+                    .into_iter()
+                    .flat_map(|node| node.parents().iter().copied()),
+            );
+        }
+    }
+    out
+}
+
+fn commit_id_at(graph: &but_graph::Graph, start: but_graph::NodeIndex) -> Option<gix::ObjectId> {
+    match graph.nodes().get(start)?.kind() {
+        but_graph::NodeKind::Commit { id } => Some(*id),
+        but_graph::NodeKind::Reference(reference) => reference.ref_info.commit_id,
+        but_graph::NodeKind::ShallowPoint { .. } => None,
+    }
 }
 
 fn is_similarity_candidate(commit: &crate::ref_info::LocalCommit) -> bool {

@@ -1,5 +1,5 @@
 use but_graph::{
-    CommitFlags, Graph, StopCondition,
+    CommitFlags, Graph, NodeGraphEntrypoint, NodeKind, StopCondition,
     init::{Overlay, Tip},
 };
 use but_testsupport::{
@@ -9,7 +9,7 @@ use but_testsupport::{
 use gix::prelude::ObjectIdExt;
 use snapbox::prelude::*;
 
-use crate::support::graph_dag;
+use but_testsupport::graph_tree;
 
 #[test]
 fn unborn() -> anyhow::Result<()> {
@@ -21,74 +21,27 @@ fn unborn() -> anyhow::Result<()> {
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?;
-    snapbox::assert_data_eq!(graph_dag(&graph), snapbox::str!["◎  👉main[🌳]"]);
     snapbox::assert_data_eq!(
-        graph.to_debug(),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-Graph {
-    inner: StableGraph {
-        Ty: "Directed",
-        node_count: 1,
-        edge_count: 0,
-        node weights: {
-            0: Segment {
-                id: NodeIndex(0),
-                generation: 0,
-                ref_info: "►main[🌳]",
-                remote_tracking_ref_name: None,
-                sibling_segment_id: None,
-                remote_tracking_branch_segment_id: None,
-                commits: [],
-                metadata: "None",
-            },
-        },
-        edge weights: {},
-        free_node: NodeIndex(4294967295),
-        free_edge: EdgeIndex(4294967295),
-    },
-    entrypoint: Some(
-        (
-            NodeIndex(0),
-            Unborn,
-        ),
-    ),
-    entrypoint_ref: Some(
-        FullName(
-            "refs/heads/main",
-        ),
-    ),
-    traversal_tips: [],
-    ad_hoc_branch_stack_orders: [],
-    hard_limit_hit: false,
-    options: Options {
-        collect_tags: true,
-        commits_limit_hint: None,
-        commits_limit_recharge_location: [],
-        hard_limit: None,
-        extra_target_commit_id: None,
-        dangerously_skip_postprocessing_for_debugging: false,
-    },
-    project_meta: ProjectMeta {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    symbolic_remote_names: [],
-}
+◎  👉main[🌳]
 
 "#]]
     );
 
     assert!(
-        graph.managed_entrypoint_commit(&repo)?.is_none(),
+        graph.managed_workspace_commit_id().is_none(),
         "there is no commit it could return"
     );
+    let workspace = graph.into_workspace()?;
+    assert_eq!(
+        workspace.id, None,
+        "an unborn workspace has no backing graph node"
+    );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓!
-└── ≡:0:main[🌳] {1}
-    └── :0:main[🌳]
+⌂:-:main <> ✓!
 
 "#]]
     );
@@ -117,7 +70,7 @@ fn detached() -> anyhow::Result<()> {
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  main
 │ ◎  tags/annotated
@@ -127,175 +80,48 @@ fn detached() -> anyhow::Result<()> {
 ●  👉·541396b (⌂)
 ◎  other
 ●  🏁·fafd9d0 (⌂)
-"#]]
-    );
-    snapbox::assert_data_eq!(
-        graph.to_debug(),
-        snapbox::str![[r#"
-Graph {
-    inner: StableGraph {
-        Ty: "Directed",
-        node_count: 4,
-        edge_count: 3,
-        edges: (0, 3), (1, 0), (2, 0),
-        node weights: {
-            0: Segment {
-                id: NodeIndex(0),
-                generation: 1,
-                ref_info: None,
-                remote_tracking_ref_name: None,
-                sibling_segment_id: None,
-                remote_tracking_branch_segment_id: None,
-                commits: [
-                    Commit(541396b, ⌂►main),
-                ],
-                metadata: "None",
-            },
-            1: Segment {
-                id: NodeIndex(1),
-                generation: 0,
-                ref_info: "►annotated",
-                remote_tracking_ref_name: None,
-                sibling_segment_id: None,
-                remote_tracking_branch_segment_id: None,
-                commits: [],
-                metadata: "None",
-            },
-            2: Segment {
-                id: NodeIndex(2),
-                generation: 0,
-                ref_info: "►release/v1",
-                remote_tracking_ref_name: None,
-                sibling_segment_id: None,
-                remote_tracking_branch_segment_id: None,
-                commits: [],
-                metadata: "None",
-            },
-            3: Segment {
-                id: NodeIndex(3),
-                generation: 2,
-                ref_info: "►other",
-                remote_tracking_ref_name: None,
-                sibling_segment_id: None,
-                remote_tracking_branch_segment_id: None,
-                commits: [
-                    Commit(fafd9d0, ⌂),
-                ],
-                metadata: "None",
-            },
-        },
-        edge weights: {
-            0: Edge {
-                src: Some(
-                    0,
-                ),
-                src_id: Some(
-                    Sha1(541396b24e13b8ac45b7905c3fe8691c7fc5fbd0),
-                ),
-                dst: Some(
-                    0,
-                ),
-                dst_id: Some(
-                    Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                ),
-                parent_order: 0,
-            },
-            1: Edge {
-                src: None,
-                src_id: None,
-                dst: Some(
-                    0,
-                ),
-                dst_id: Some(
-                    Sha1(541396b24e13b8ac45b7905c3fe8691c7fc5fbd0),
-                ),
-                parent_order: 0,
-            },
-            2: Edge {
-                src: None,
-                src_id: None,
-                dst: Some(
-                    0,
-                ),
-                dst_id: Some(
-                    Sha1(541396b24e13b8ac45b7905c3fe8691c7fc5fbd0),
-                ),
-                parent_order: 0,
-            },
-        },
-        free_node: NodeIndex(4294967295),
-        free_edge: EdgeIndex(4294967295),
-    },
-    entrypoint: Some(
-        (
-            NodeIndex(0),
-            AtCommit(
-                Sha1(541396b24e13b8ac45b7905c3fe8691c7fc5fbd0),
-            ),
-        ),
-    ),
-    entrypoint_ref: None,
-    traversal_tips: [
-        Tip {
-            id: Sha1(541396b24e13b8ac45b7905c3fe8691c7fc5fbd0),
-            ref_name: None,
-            role: Reachable,
-            metadata: None,
-            is_entrypoint: true,
-            is_detached: false,
-        },
-    ],
-    ad_hoc_branch_stack_orders: [],
-    hard_limit_hit: false,
-    options: Options {
-        collect_tags: true,
-        commits_limit_hint: None,
-        commits_limit_recharge_location: [],
-        hard_limit: None,
-        extra_target_commit_id: None,
-        dangerously_skip_postprocessing_for_debugging: false,
-    },
-    project_meta: ProjectMeta {
-        target_ref: None,
-        target_commit_id: None,
-        push_remote: None,
-    },
-    symbolic_remote_names: [],
-}
 
 "#]]
     );
 
     assert!(
-        graph.entrypoint()?.commit().map(|c| c.id).is_some(),
+        matches!(
+            graph.entrypoint(),
+            NodeGraphEntrypoint::Node(index)
+                if matches!(graph.nodes()[*index].kind(), NodeKind::Commit { .. })
+        ),
         "there is an entrypoint commit, detached or not"
     );
     assert!(
-        graph.managed_entrypoint_commit(&repo)?.is_none(),
+        graph.managed_workspace_commit_id().is_none(),
         "but it's not managed"
     );
-    let root_sidx = graph
-        .base_segments()
-        .find(|sidx| {
-            graph[*sidx]
-                .commits
-                .last()
-                .is_some_and(|commit| commit.parent_ids.is_empty())
-        })
-        .expect("root segment is present");
-    assert_eq!(
-        graph.stop_condition(root_sidx),
-        Some(StopCondition::FirstCommit)
+    assert!(
+        graph.nodes().iter().any(|node| matches!(
+            node.kind(),
+            NodeKind::Commit { .. } if node.parents().is_empty()
+        )),
+        "root commit node is present"
     );
 
+    let workspace = graph.into_workspace()?;
+    let entrypoint_segment = workspace
+        .stacks
+        .first()
+        .and_then(|stack| stack.segments.first())
+        .expect("detached HEAD projects to an anonymous stack segment");
+    assert!(
+        entrypoint_segment.is_entrypoint && entrypoint_segment.ref_info.is_none(),
+        "a detached commit entrypoint must stay anonymous"
+    );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 ⌂:0:DETACHED <> ✓!
-└── ≡:0:anon: {1}
-    ├── :0:anon:
-    │   └── ·541396b ►main
-    └── :3:other
+└── ≡👉:0:anon {1}
+    ├── 👉:0:anon
+    │   └── ·541396b ►main, ►annotated, ►release/v1
+    └── :5:other
         └── ·fafd9d0
 
 "#]]
@@ -331,45 +157,34 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  origin/main
 ◎  👉main[🌳] <> origin/main
 ●  ·71a64f3 (⌂)
 ●  ⛰·62d65ed (⌂|⛰)
+
 "#]]
     );
-    let (boundary_sidx, boundary_cidx) = graph
-        .segments()
-        .find_map(|sidx| {
-            graph[sidx]
-                .commits
-                .iter()
-                .position(|commit| commit.id == shallow_boundary_id)
-                .map(|cidx| (sidx, cidx))
-        })
+    let (boundary_index, boundary_node) = graph
+        .node_by_commit_id(shallow_boundary_id)
         .expect("boundary commit is included in the graph");
-    let boundary_commit = &graph[boundary_sidx].commits[boundary_cidx];
     assert!(
-        boundary_commit.flags.contains(CommitFlags::ShallowBoundary),
+        graph.annotations()[boundary_index].contains(CommitFlags::ShallowBoundary),
         "the boundary commit is explicitly flagged"
     );
-    let missing_parent = boundary_commit
-        .parent_ids
-        .first()
-        .copied()
-        .expect("shallow boundary commit still records its grafted parent");
+    let (missing_parent, condition) = boundary_node
+        .parents()
+        .iter()
+        .find_map(|parent| match graph.nodes()[*parent].kind() {
+            NodeKind::ShallowPoint { id, reason } => Some((*id, *reason)),
+            _ => None,
+        })
+        .expect("shallow boundary commit has an omitted-parent sentinel");
     assert!(
-        graph.segments().all(|sidx| graph[sidx]
-            .commits
-            .iter()
-            .all(|commit| commit.id != missing_parent)),
+        graph.node_by_commit_id(missing_parent).is_none(),
         "the grafted parent is not traversed"
     );
-
-    let condition = graph
-        .stop_condition(boundary_sidx)
-        .expect("boundary segment has a cutoff condition");
     assert!(condition.contains(StopCondition::ShallowBoundary));
     assert!(!condition.contains(StopCondition::Limit));
     assert!(!condition.contains(StopCondition::FirstCommit));
@@ -378,9 +193,11 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓refs/remotes/origin/main on 71a64f3
-└── ≡:0:main[🌳] <> origin/main →:1: {1}
-    └── :0:main[🌳] <> origin/main →:1:
+⌂:3:main <> ✓!
+└── ≡👉:3:main[🌳] <> origin/main →:4: on 0847f69 {1}
+    └── 👉:3:main[🌳] <> origin/main →:4:
+        ├── ❄71a64f3 ►origin/main
+        └── ✂️❄62d65ed (⛰)
 
 "#]]
     );
@@ -398,11 +215,10 @@ fn skipping_postprocessing_keeps_commit_graph_and_traversal_boundaries() -> anyh
     )?
     .validated()?;
     assert!(
-        normal.segments().any(|sidx| normal[sidx].ref_info.is_some()
-            || normal[sidx]
-                .commits
-                .iter()
-                .any(|commit| !commit.refs.is_empty())),
+        normal
+            .nodes()
+            .iter()
+            .any(|node| matches!(node.kind(), NodeKind::Reference(_))),
         "normal postprocessing discovers repository references"
     );
 
@@ -417,13 +233,10 @@ fn skipping_postprocessing_keeps_commit_graph_and_traversal_boundaries() -> anyh
     )?
     .validated()?;
     assert!(
-        skipped.segments().all(|sidx| {
-            skipped[sidx].ref_info.is_none()
-                && skipped[sidx]
-                    .commits
-                    .iter()
-                    .all(|commit| commit.refs.is_empty())
-        }),
+        skipped
+            .nodes()
+            .iter()
+            .all(|node| !matches!(node.kind(), NodeKind::Reference(_))),
         "skipping postprocessing adapts only commit nodes"
     );
 
@@ -443,9 +256,10 @@ fn skipping_postprocessing_keeps_commit_graph_and_traversal_boundaries() -> anyh
         "skipping postprocessing preserves the hard-limit result"
     );
     assert!(
-        limited.segments().any(|sidx| limited
-            .stop_condition(sidx)
-            .is_some_and(|condition| condition.contains(StopCondition::Limit))),
+        limited.nodes().iter().any(|node| matches!(
+            node.kind(),
+            NodeKind::ShallowPoint { reason, .. } if reason.contains(StopCondition::Limit)
+        )),
         "skipping postprocessing preserves limit boundaries"
     );
 
@@ -462,16 +276,18 @@ fn skipping_postprocessing_keeps_commit_graph_and_traversal_boundaries() -> anyh
     )?
     .validated()?;
     assert!(
-        shallow.segments().any(|sidx| shallow[sidx]
-            .commits
+        shallow
+            .annotations()
             .iter()
-            .any(|commit| commit.flags.contains(CommitFlags::ShallowBoundary))),
+            .any(|flags| flags.contains(CommitFlags::ShallowBoundary)),
         "skipping postprocessing preserves shallow commit annotations"
     );
     assert!(
-        shallow.segments().any(|sidx| shallow
-            .stop_condition(sidx)
-            .is_some_and(|condition| condition.contains(StopCondition::ShallowBoundary))),
+        shallow.nodes().iter().any(|node| matches!(
+            node.kind(),
+            NodeKind::ShallowPoint { reason, .. }
+                if reason.contains(StopCondition::ShallowBoundary)
+        )),
         "skipping postprocessing preserves shallow boundaries"
     );
     Ok(())
@@ -509,7 +325,7 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉first-parent[🌳]
 ●  ·738ea18 (⌂)
@@ -521,10 +337,12 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
 │ ●  ·553bbf7 (⌂)
 │ ●  ·72614bb (⌂)
 ├─╯
+│ ◎  main
+├─╯
 │ ◎  tags/base
 ├─╯
-◎  main
 ●  🏁·793a434 (⌂)
+
 "#]]
     );
 
@@ -532,14 +350,13 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:first-parent[🌳] <> ✓!
-└── ≡:1:first-parent[🌳] {1}
-    ├── :1:first-parent[🌳]
-    │   ├── ·738ea18
-    │   ├── ·408ca26
-    │   └── ·2854fa2
-    └── :3:main
-        └── ·793a434
+⌂:7:first-parent <> ✓!
+└── ≡👉:7:first-parent[🌳] {1}
+    └── 👉:7:first-parent[🌳]
+        ├── ·738ea18
+        ├── ·408ca26
+        ├── ·2854fa2
+        └── ·793a434 ►main, ►base
 
 "#]]
     );
@@ -568,7 +385,7 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉main[🌳] <> origin/main
 ●  ·971953d (⌂)
@@ -577,17 +394,20 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
 ├─╯
 ●  ·ce09734 (⌂)
 ●  🏁·fafd9d0 (⌂)
+
 "#]]
     );
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:main[🌳] <> ✓refs/remotes/origin/main⇣1 on ce09734
-└── ≡:1:main[🌳] <> origin/main →:2:⇡1⇣1 on ce09734 {1}
-    └── :1:main[🌳] <> origin/main →:2:⇡1⇣1
-        ├── 🟣5d29d62
-        └── ·971953d
+⌂:4:main <> ✓!
+└── ≡👉:4:main[🌳] <> origin/main →:5:⇡1⇣1 {1}
+    └── 👉:4:main[🌳] <> origin/main →:5:⇡1⇣1
+        ├── 🟣5d29d62 ►origin/main
+        ├── ·971953d
+        ├── ❄ce09734
+        └── ❄fafd9d0
 
 "#]]
     );
@@ -617,7 +437,7 @@ fn only_remote_advanced() -> anyhow::Result<()> {
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  origin/main
 ●  🟣085535d
@@ -627,6 +447,7 @@ fn only_remote_advanced() -> anyhow::Result<()> {
 ●  ·971953d (⌂)
 ●  ·ce09734 (⌂)
 ●  🏁·fafd9d0 (⌂)
+
 "#]]
     );
 
@@ -636,10 +457,14 @@ fn only_remote_advanced() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-└── ≡:0:main[🌳] <> origin/main →:1:⇣1 {1}
-    └── :0:main[🌳] <> origin/main →:1:⇣1
-        └── 🟣085535d
+⌂:5:main <> ✓!
+└── ≡👉:5:main[🌳] <> origin/main →:6:⇣2 {1}
+    └── 👉:5:main[🌳] <> origin/main →:6:⇣2
+        ├── 🟣085535d ►origin/main
+        ├── 🟣dd9f8d9 ►origin/split-segment
+        ├── ❄971953d
+        ├── ❄ce09734
+        └── ❄fafd9d0
 
 "#]]
     );
@@ -670,7 +495,7 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  origin/main
 ●  🟣085535d
@@ -681,6 +506,7 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
 ◎  gitbutler/target
 ●  ·ce09734 (⌂)
 ●  🏁·fafd9d0 (⌂)
+
 "#]]
     );
 
@@ -690,10 +516,14 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓refs/remotes/origin/main⇣2 on 971953d
-└── ≡:0:main[🌳] <> origin/main →:2:⇣1 {1}
-    └── :0:main[🌳] <> origin/main →:2:⇣1
-        └── 🟣085535d
+⌂:5:main <> ✓!
+└── ≡👉:5:main[🌳] <> origin/main →:7:⇣2 {1}
+    └── 👉:5:main[🌳] <> origin/main →:7:⇣2
+        ├── 🟣085535d ►origin/main
+        ├── 🟣dd9f8d9 ►origin/split-segment
+        ├── ❄971953d
+        ├── ❄ce09734 ►gitbutler/target
+        └── ❄fafd9d0
 
 "#]]
     );
@@ -729,7 +559,7 @@ fn multi_root() -> anyhow::Result<()> {
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉main[🌳]
 ●    ·c6c8c05 (⌂)
@@ -745,24 +575,27 @@ fn multi_root() -> anyhow::Result<()> {
 │ ●  🏁·00fab2a (⌂)
 ◎  D
 ●  🏁·f4955b6 (⌂)
+
 "#]]
     );
     assert_eq!(
-        graph.tip_segments().count(),
-        1,
-        "all leads to a single merge-commit"
-    );
-    assert_eq!(
-        graph.base_segments().count(),
+        graph
+            .nodes()
+            .iter()
+            .filter(|node| matches!(
+                node.kind(),
+                NodeKind::Commit { .. } if node.parents().is_empty()
+            ))
+            .count(),
         4,
         "there are 4 orphaned bases"
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:3:main[🌳] <> ✓!
-└── ≡:3:main[🌳] {1}
-    └── :3:main[🌳]
+⌂:7:main <> ✓!
+└── ≡👉:7:main[🌳] {1}
+    └── 👉:7:main[🌳]
         ├── ·c6c8c05
         ├── ·76fc5c4
         └── ·e5d0542
@@ -804,55 +637,55 @@ fn four_diamond() -> anyhow::Result<()> {
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
 ◎  main
+│ ◎  👉merged[🌳]
+│ ●    ·8a6c109 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │    ·62b409a (⌂)
+│ ├───╮
+│ ● │ │  ·592abec (⌂)
+├─╯ │ │
+│   │ ◎  B
+│   │ ●  ·f16dddf (⌂)
+├─────╯
+│   ◎  C
+│   ●  ·7ed512a (⌂)
+│ ╭─┤
+│ │ ●  ·35ee481 (⌂)
+├───╯
+│ ◎  D
+│ ●  ·ecb1877 (⌂)
+├─╯
 ●  🏁·965998b (⌂)
+
 "#]]
     );
 
     assert_eq!(
-        graph.num_segments(),
+        graph
+            .nodes()
+            .iter()
+            .filter(|node| matches!(node.kind(), NodeKind::Commit { .. }))
+            .count(),
         8,
-        "just as many as are displayed in the tree"
+        "all commits are represented as canonical nodes"
     );
-    assert_eq!(graph.num_commits(), 8, "one commit per node");
-    assert_eq!(
-        graph.num_connections(),
-        10,
-        "however, we see only a portion of the edges as the tree can only show simple stacks"
-    );
+    assert_eq!(graph.annotations().len(), graph.nodes().len());
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:2:merged[🌳] <> ✓!
-└── ≡:2:merged[🌳] {1}
-    ├── :2:merged[🌳]
+⌂:8:merged <> ✓!
+└── ≡👉:8:merged[🌳] {1}
+    ├── 👉:8:merged[🌳]
     │   └── ·8a6c109
-    ├── :3:A
-    │   ├── ·62b409a
-    │   └── ·592abec
-    └── :7:main
-        └── ·965998b
+    └── :9:A
+        ├── ·62b409a
+        ├── ·592abec
+        └── ·965998b ►main
 
 "#]]
     );
@@ -907,15 +740,17 @@ fn explicit_traversal_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> 
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  tags/annotated
+◎  👉main
+│ ◎  tags/annotated
+├─╯
 │ ◎  tags/release/v1
 ├─╯
-◎  👉main
 ●  ·541396b (⌂)
 ◎  other
 ●  🏁·fafd9d0 (⌂)
+
 "#]]
     );
     Ok(())
@@ -965,28 +800,30 @@ fn explicit_traversal_tips_allow_named_and_anonymous_integrated_targets_on_same_
 
     // anonymous target context with the same commit collapses into the named target ref
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
 ◎  main
+│ ◎  👉merged[🌳]
+│ ●    ·8a6c109 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │    ·62b409a (⌂)
+│ ├───╮
+│ ● │ │  ·592abec (⌂)
+├─╯ │ │
+│   │ ◎  B
+│   │ ●  ·f16dddf (⌂)
+├─────╯
+│   ◎  C
+│   ●  ·7ed512a (⌂)
+│ ╭─┤
+│ │ ●  ·35ee481 (⌂)
+├───╯
+│ ◎  D
+│ ●  ·ecb1877 (⌂)
+├─╯
 ●  🏁·965998b (⌂|✓)
+
 "#]]
     );
     Ok(())
@@ -1155,7 +992,7 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  main
 │ ◎  👉merged[🌳]
@@ -1178,41 +1015,83 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
 │ ●  ·ecb1877 (⌂)
 ├─╯
 ●  🏁·965998b (⌂|✓)
+
 "#]]
     );
 
-    let target_segment = graph.segment_by_commit_id(target_commit_id)?;
-    assert_eq!(
-        target_segment.commits.first().map(|commit| commit.id),
-        Some(target_commit_id),
-        "integrated tip is also split into its own segment"
+    let (target_index, _) = graph
+        .node_by_commit_id(target_commit_id)
+        .expect("integrated target is present");
+    assert!(
+        graph.annotations()[target_index].contains(CommitFlags::Integrated),
+        "the integrated target keeps its traversal annotation"
     );
 
     let ws = graph.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-⌂:6:merged[🌳] <> ✓refs/heads/A⇣3 on 965998b
-└── ≡:6:merged[🌳] on 965998b {1}
-    ├── :6:merged[🌳]
-    │   └── ·8a6c109
-    └── :3:A
-        ├── ·62b409a (✓)
-        └── ·592abec (✓)
-
-"#]]
-    );
     assert_eq!(
         ws.target_ref
             .as_ref()
             .map(|target| target.ref_name.as_ref()),
         Some(target_ref_name.as_ref()),
-        "workspace projection uses named integrated tips as target refs if no metadata is available"
+        "the named integrated tip becomes the target ref without workspace metadata"
     );
     assert_eq!(
-        ws.target_commit.as_ref().map(|target| target.commit_id),
+        ws.target_ref_tip_commit_id(),
+        Some(target_ref_id),
+        "the moving target ref keeps its own tip"
+    );
+    assert_eq!(
+        ws.stored_target_commit_id(),
         Some(target_commit_id),
-        "workspace projection falls back to using integrated refs"
+        "the lower anonymous integrated tip becomes stable target context"
+    );
+    assert_eq!(
+        ws.lower_bound,
+        Some(target_commit_id),
+        "the stable target commit bounds the projected workspace"
+    );
+    snapbox::assert_data_eq!(
+        graph_workspace(&ws).to_string(),
+        snapbox::str![[r#"
+⌂:11:merged <> ✓refs/heads/A⇣3 on 965998b
+└── ≡👉:11:merged[🌳] on 965998b {1}
+    ├── 👉:11:merged[🌳]
+    │   └── ·8a6c109
+    └── :8:A
+        ├── ·62b409a (✓)
+        └── ·592abec (✓)
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn extra_target_commit_is_workspace_context_for_head_traversal() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
+    let target_commit_id = id_by_rev(&repo, "main").detach();
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options().with_extra_target_commit_id(target_commit_id),
+    )?
+    .validated()?;
+
+    let ws = graph.into_workspace()?;
+    assert!(
+        ws.target_ref.is_none(),
+        "commit-only target context must not invent a moving target ref"
+    );
+    assert_eq!(
+        ws.stored_target_commit_id(),
+        Some(target_commit_id),
+        "the extra target commit becomes stable workspace context"
+    );
+    assert_eq!(
+        ws.lower_bound,
+        Some(target_commit_id),
+        "the extra target commit bounds HEAD projection"
     );
     Ok(())
 }
@@ -1242,19 +1121,21 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉B[🌳] <> origin/B
 ●  ·312f819 (⌂)
 ◎  A <> origin/A
 ●  ·e255adc (⌂)
+│ ◎  main
+├─╯
 │ ◎  origin/B
 │ ●  🟣682be32
 │ ◎  origin/A
 │ ●  🟣e29c23d
 ├─╯
-◎  main
 ●  🏁·fafd9d0 (⌂)
+
 "#]]
     );
 
@@ -1262,14 +1143,16 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣2 on fafd9d0
-└── ≡:0:B[🌳] <> origin/B →:2:⇡1⇣1 on fafd9d0 {1}
-    ├── :0:B[🌳] <> origin/B →:2:⇡1⇣1
-    │   ├── 🟣682be32
+⌂:5:B <> ✓!
+└── ≡👉:5:B[🌳] <> origin/B →:7:⇡1⇣2 {1}
+    ├── 👉:5:B[🌳] <> origin/B →:7:⇡1⇣2
+    │   ├── 🟣682be32 ►origin/B
+    │   ├── 🟣e29c23d ►origin/A
     │   └── ·312f819
-    └── :1:A <> origin/A →:3:⇡1⇣1
-        ├── 🟣e29c23d
-        └── ·e255adc
+    └── :6:A <> origin/A →:8:⇡1⇣1
+        ├── 🟣e29c23d ►origin/A
+        ├── ·e255adc
+        └── ❄fafd9d0 ►main
 
 "#]]
     );
@@ -1284,19 +1167,19 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉B[🌳] <> origin/B
 ●  ·312f819 (⌂)
 ◎  A <> origin/A
 ●  ❌·e255adc (⌂)
-│ ◎  origin/B
-│ ●  🟣682be32
-│ ◎  origin/A
-│ ●  🟣e29c23d
-│ ◎  main
-├─╯
+◎  origin/B
+●  🟣682be32
+◎  origin/A
+●  🟣e29c23d
+◎  main
 ●  🏁🟣fafd9d0
+
 "#]]
     );
     assert!(
@@ -1306,10 +1189,15 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣1 on 312f819
-└── ≡:0:B[🌳] <> origin/B →:2:⇣1 on e255adc {1}
-    └── :0:B[🌳] <> origin/B →:2:⇣1
-        └── 🟣682be32
+⌂:6:B <> ✓!
+└── ≡👉:6:B[🌳] <> origin/B →:8:⇡1⇣2 on fafd9d0 {1}
+    ├── 👉:6:B[🌳] <> origin/B →:8:⇡1⇣2
+    │   ├── 🟣682be32 ►origin/B
+    │   ├── 🟣e29c23d ►origin/A
+    │   └── ·312f819
+    └── :7:A <> origin/A →:9:⇡1⇣1
+        ├── 🟣e29c23d ►origin/A
+        └── ❌·e255adc
 
 "#]]
     );
@@ -1323,19 +1211,21 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉B[🌳] <> origin/B
 ●  ·312f819 (⌂)
 ◎  A <> origin/A
 ●  ·e255adc (⌂)
+│ ◎  main
+├─╯
 │ ◎  origin/B
 │ ●  🟣682be32
 │ ◎  origin/A
 │ ●  🟣e29c23d
 ├─╯
-◎  main
 ●  🏁·fafd9d0 (⌂)
+
 "#]]
     );
 
@@ -1350,25 +1240,28 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉A <> origin/A
 ●  ·e255adc (⌂)
+│ ◎  main
+├─╯
 │ ◎  origin/A
 │ ●  🟣e29c23d
 ├─╯
-◎  main
 ●  🏁·fafd9d0 (⌂)
+
 "#]]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:0:A <> ✓refs/remotes/origin/A⇣1 on fafd9d0
-└── ≡:0:A <> origin/A →:2:⇡1⇣1 on fafd9d0 {1}
-    └── :0:A <> origin/A →:2:⇡1⇣1
-        ├── 🟣e29c23d
-        └── ·e255adc
+⌂:3:A <> ✓!
+└── ≡👉:3:A <> origin/A →:5:⇡1⇣1 {1}
+    └── 👉:3:A <> origin/A →:5:⇡1⇣1
+        ├── 🟣e29c23d ►origin/A
+        ├── ·e255adc
+        └── ❄fafd9d0 ►main
 
 "#]]
     );
@@ -1413,7 +1306,7 @@ fn with_limits() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉C[🌳]
 ●      ·2a95729 (⌂)
@@ -1431,27 +1324,28 @@ fn with_limits() -> anyhow::Result<()> {
 │   ●  ·60d9a56 (⌂)
 │   ●  ·9d171ff (⌂)
 ├───╯
-◎  main
+│ ◎  main
+├─╯
 ●  ·edc4dee (⌂)
 ●  ·01d0e1e (⌂)
 ●  ·4b3e5a8 (⌂)
 ●  ·34d0715 (⌂)
 ●  🏁·eb5f731 (⌂)
+
 "#]]
     );
     // No limits list the first parent everywhere.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:C[🌳] <> ✓!
-└── ≡:1:C[🌳] {1}
-    ├── :1:C[🌳]
-    │   ├── ·2a95729
-    │   ├── ·6861158
-    │   ├── ·4f1f248
-    │   └── ·487ffce
-    └── :4:main
-        ├── ·edc4dee
+⌂:15:C <> ✓!
+└── ≡👉:15:C[🌳] {1}
+    └── 👉:15:C[🌳]
+        ├── ·2a95729
+        ├── ·6861158
+        ├── ·4f1f248
+        ├── ·487ffce
+        ├── ·edc4dee ►main
         ├── ·01d0e1e
         ├── ·4b3e5a8
         ├── ·34d0715
@@ -1470,19 +1364,20 @@ fn with_limits() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉C[🌳]
 ●  ✂·2a95729 (⌂)
+
 "#]]
     );
     // The cut by limit is also represented here.
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:0:C[🌳] <> ✓!
-└── ≡:0:C[🌳] {1}
-    └── :0:C[🌳]
+⌂:4:C <> ✓!
+└── ≡👉:4:C[🌳] on 6861158 {1}
+    └── 👉:4:C[🌳]
         └── ✂️·2a95729
 
 "#]]
@@ -1497,7 +1392,7 @@ fn with_limits() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉C[🌳]
 ●      ·2a95729 (⌂)
@@ -1507,14 +1402,15 @@ fn with_limits() -> anyhow::Result<()> {
   ● │  ✂·20a823c (⌂)
     ◎  B
     ●  ✂·9908c99 (⌂)
+
 "#]]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:C[🌳] <> ✓!
-└── ≡:1:C[🌳] {1}
-    └── :1:C[🌳]
+⌂:7:C <> ✓!
+└── ≡👉:7:C[🌳] on 4f1f248 {1}
+    └── 👉:7:C[🌳]
         ├── ·2a95729
         └── ✂️·6861158
 
@@ -1535,7 +1431,7 @@ fn with_limits() -> anyhow::Result<()> {
         "graph should record that traversal stopped queueing after hitting the hard limit"
     );
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉C[🌳]
 ●      ·2a95729 (⌂)
@@ -1545,6 +1441,7 @@ fn with_limits() -> anyhow::Result<()> {
   ● │  ❌·20a823c (⌂)
     ◎  B
     ●  ❌·9908c99 (⌂)
+
 "#]]
     );
 
@@ -1557,7 +1454,7 @@ fn with_limits() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉C[🌳]
 ●      ·2a95729 (⌂)
@@ -1570,14 +1467,15 @@ fn with_limits() -> anyhow::Result<()> {
     ◎  B
     ●  ·9908c99 (⌂)
     ●  ✂·60d9a56 (⌂)
+
 "#]]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:C[🌳] <> ✓!
-└── ≡:1:C[🌳] {1}
-    └── :1:C[🌳]
+⌂:10:C <> ✓!
+└── ≡👉:10:C[🌳] on 487ffce {1}
+    └── 👉:10:C[🌳]
         ├── ·2a95729
         ├── ·6861158
         └── ✂️·4f1f248
@@ -1597,7 +1495,7 @@ fn with_limits() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉C[🌳]
 ●      ·2a95729 (⌂)
@@ -1611,14 +1509,15 @@ fn with_limits() -> anyhow::Result<()> {
     ◎  B
     ●  ·9908c99 (⌂)
     ●  ✂·60d9a56 (⌂)
+
 "#]]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:C[🌳] <> ✓!
-└── ≡:1:C[🌳] {1}
-    └── :1:C[🌳]
+⌂:11:C <> ✓!
+└── ≡👉:11:C[🌳] on 487ffce {1}
+    └── 👉:11:C[🌳]
         ├── ·2a95729
         ├── ·6861158
         └── ✂️·4f1f248
@@ -1638,7 +1537,7 @@ fn with_limits() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉C[🌳]
 ●      ·2a95729 (⌂)
@@ -1646,79 +1545,26 @@ fn with_limits() -> anyhow::Result<()> {
 ● │ │  ·6861158 (⌂)
 ● │ │  ·4f1f248 (⌂)
 ● │ │  ✂·487ffce (⌂)
-│ ◎ │  A
-│ ● │  ·20a823c (⌂)
-│ ● │  ·442a12f (⌂)
-│ ● │  ·686706b (⌂)
-│ ◎ │  main
-├─╯ │
-│   ◎  B
-│   ●  ·9908c99 (⌂)
-│   ●  ·60d9a56 (⌂)
-│   ●  ✂·9d171ff (⌂)
-├───╯
-●  ·edc4dee (⌂)
-●  ✂·01d0e1e (⌂)
-"#]]
-    );
-    snapbox::assert_data_eq!(
-        graph.statistics().to_debug(),
-        snapbox::str![[r#"
-Statistics {
-    segments: 5,
-    segments_integrated: 0,
-    segments_remote: 0,
-    segments_with_remote_tracking_branch: 0,
-    segments_empty: 0,
-    segments_unnamed: 1,
-    segments_in_workspace: 0,
-    segments_in_workspace_and_integrated: 0,
-    segments_with_workspace_metadata: 0,
-    segments_with_branch_metadata: 0,
-    entrypoint_in_workspace: Some(
-        false,
-    ),
-    segments_behind_of_entrypoint: 4,
-    segments_ahead_of_entrypoint: 0,
-    entrypoint: (
-        NodeIndex(1),
-        Some(
-            0,
-        ),
-    ),
-    segment_entrypoint_incoming: 0,
-    segment_entrypoint_outgoing: 3,
-    top_segments: [
-        (
-            Some(
-                FullName(
-                    "refs/heads/C",
-                ),
-            ),
-            NodeIndex(1),
-            Some(
-                CommitFlags(
-                    NotInRemote,
-                ),
-            ),
-        ),
-    ],
-    segments_at_bottom: 3,
-    connections: 4,
-    commits: 12,
-    commit_references: 0,
-    commits_at_cutoff: 3,
-}
+  ◎ │  A
+  ● │  ·20a823c (⌂)
+  ● │  ·442a12f (⌂)
+  ● │  ·686706b (⌂)
+  ◎ │  main
+  ● │  ·edc4dee (⌂)
+  ● │  ✂·01d0e1e (⌂)
+    ◎  B
+    ●  ·9908c99 (⌂)
+    ●  ·60d9a56 (⌂)
+    ●  ✂·9d171ff (⌂)
 
 "#]]
     );
-
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:C[🌳] <> ✓!
-└── ≡:1:C[🌳] {1}
-    └── :1:C[🌳]
+⌂:14:C <> ✓!
+└── ≡👉:14:C[🌳] on edc4dee {1}
+    └── 👉:14:C[🌳]
         ├── ·2a95729
         ├── ·6861158
         ├── ·4f1f248
@@ -1738,7 +1584,7 @@ Statistics {
 
     // This limits the reach of the stack naturally.
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉C[🌳]
 ●      ·2a95729 (⌂)
@@ -1763,15 +1609,16 @@ Statistics {
 ●  ·4b3e5a8 (⌂|✓)
 ●  ·34d0715 (⌂|✓)
 ●  🏁·eb5f731 (⌂|✓)
+
 "#]]
     );
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:3:C[🌳] <> ✓! on edc4dee
-└── ≡:3:C[🌳] on edc4dee {1}
-    └── :3:C[🌳]
+⌂:16:C <> ✓! on edc4dee
+└── ≡👉:16:C[🌳] on edc4dee {1}
+    └── 👉:16:C[🌳]
         ├── ·2a95729
         ├── ·6861158
         ├── ·4f1f248
@@ -1804,7 +1651,7 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     .validated()?;
     // Standard handling after travrsal and post-processing.
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉main[🌳]
 ●  ·3686017 (⌂)
@@ -1812,19 +1659,34 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
 ●  ·9725482 (⌂)
 ◎  gitbutler/target
 ●  🏁·fafd9d0 (⌂)
+
 "#]]
     );
 
     // But special handling for workspace views.
+    let workspace = graph.into_workspace()?;
+    assert_eq!(workspace.stacks.len(), 1, "there is one ad-hoc stack");
+    let stack = &workspace.stacks[0];
+    assert_eq!(
+        stack.segments.len(),
+        1,
+        "internal GitButler refs must not split user-visible stacks"
+    );
+    let main = ref_name("refs/heads/main");
+    assert_eq!(
+        stack.segments[0].ref_name(),
+        Some(main.as_ref()),
+        "main remains the only user-visible branch segment"
+    );
     snapbox::assert_data_eq!(
-        graph_workspace(&graph.into_workspace()?).to_string(),
+        graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓!
-└── ≡:0:main[🌳] {1}
-    └── :0:main[🌳]
+⌂:3:main <> ✓!
+└── ≡👉:3:main[🌳] {1}
+    └── 👉:3:main[🌳]
         ├── ·3686017
-        ├── ·9725482
-        └── ·fafd9d0
+        ├── ·9725482 ►gitbutler/edit
+        └── ·fafd9d0 ►gitbutler/target
 
 "#]]
     );
@@ -1850,7 +1712,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     )?
     .validated()?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉main[🌳@repo]
 │ ◎  wt-inside-ambiguous-worktree[📁]
@@ -1858,15 +1720,16 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 │ ◎  wt-outside-ambiguous-worktree[📁]
 ├─╯
 ●  🏁·85efbe4 (⌂)
+
 "#]]
     );
 
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳@repo] <> ✓!
-└── ≡:0:main[🌳@repo] {1}
-    └── :0:main[🌳@repo]
+⌂:1:main <> ✓!
+└── ≡👉:1:main[🌳@repo] {1}
+    └── 👉:1:main[🌳@repo]
         └── ·85efbe4 ►wt-inside-ambiguous-worktree[📁], ►wt-outside-ambiguous-worktree[📁]
 
 "#]]
@@ -1889,7 +1752,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     .validated()?;
     // when the graph is built from the linked worktree repository, it can't see anything else without metadata
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  main[🌳]
 │ ◎  👉wt-inside-ambiguous-worktree[📁@repo]
@@ -1897,6 +1760,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 │ ◎  wt-outside-ambiguous-worktree[📁]
 ├─╯
 ●  🏁·85efbe4 (⌂)
+
 "#]]
     );
 
@@ -1904,9 +1768,9 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:0:wt-inside-ambiguous-worktree[📁@repo] <> ✓!
-└── ≡:0:wt-inside-ambiguous-worktree[📁@repo] {1}
-    └── :0:wt-inside-ambiguous-worktree[📁@repo]
+⌂:2:wt-inside-ambiguous-worktree <> ✓!
+└── ≡👉:2:wt-inside-ambiguous-worktree[📁@repo] {1}
+    └── 👉:2:wt-inside-ambiguous-worktree[📁@repo]
         └── ·85efbe4 ►main[🌳], ►wt-outside-ambiguous-worktree[📁]
 
 "#]]
@@ -1966,11 +1830,12 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
     .validated()?;
     // Duplicate parent commits are kept verbatim.
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  👉main[🌳]
 ●  ·06470d7 (⌂)
 ●  🏁·86719d5 (⌂)
+
 "#]]
     );
     Ok(())
@@ -1992,28 +1857,35 @@ fn ad_hoc_same_tip_order_creates_empty_branch_segments() -> anyhow::Result<()> {
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  bottom
-│ ◎  main[🌳]
-├─╯
+◎  main[🌳]
 │ ◎  👉top
+│ ◎  bottom
 ├─╯
 ●  🏁·960152d (⌂)
+
 "#]]
     );
+    let NodeGraphEntrypoint::Node(entrypoint) = graph.entrypoint() else {
+        panic!("checked-out ordered branch is born");
+    };
+    let NodeKind::Reference(reference) = graph.nodes()[*entrypoint].kind() else {
+        panic!("symbolic entrypoint is represented by a reference node");
+    };
     assert_eq!(
-        graph.entrypoint()?.commit().map(|commit| commit.id),
+        reference.ref_info.commit_id,
         Some(tip),
         "a checked-out empty ordered branch still points at the bottom commit"
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:top <> ✓!
-└── ≡:1:top {1}
-    └── :1:top
-        └── ·960152d ►bottom, ►main[🌳]
+⌂:3:top <> ✓!
+└── ≡👉:3:top {1}
+    ├── 👉:3:top
+    └── :1:bottom
+        └── ·960152d ►main[🌳], ►top
 
 "#]]
     );
@@ -2036,22 +1908,23 @@ fn ad_hoc_order_projects_from_entrypoint_when_top_is_above_it() -> anyhow::Resul
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  main[🌳]
 │ ◎  top
 │ ◎  👉bottom
 ├─╯
 ●  🏁·960152d (⌂)
+
 "#]]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:0:bottom <> ✓!
-└── ≡:0:bottom {1}
-    └── :0:bottom
-        └── ·960152d ►main[🌳]
+⌂:1:bottom <> ✓!
+└── ≡👉:1:bottom {1}
+    └── 👉:1:bottom
+        └── ·960152d ►main[🌳], ►top
 
 "#]]
     );
@@ -2078,25 +1951,26 @@ fn ad_hoc_three_branch_order_preserves_middle_empty_segment() -> anyhow::Result<
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  bottom
-│ ◎  main[🌳]
-├─╯
+◎  main[🌳]
 │ ◎  👉top
 │ ◎  middle
+│ ◎  bottom
 ├─╯
 ●  🏁·960152d (⌂)
+
 "#]]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:2:top <> ✓!
-└── ≡:2:top {1}
-    ├── :2:top
-    └── :1:middle
-        └── ·960152d ►bottom, ►main[🌳]
+⌂:4:top <> ✓!
+└── ≡👉:4:top {1}
+    ├── 👉:4:top
+    ├── :3:middle
+    └── :1:bottom
+        └── ·960152d ►main[🌳], ►middle, ►top
 
 "#]]
     );
@@ -2119,23 +1993,24 @@ fn ad_hoc_order_ignores_missing_metadata_refs_without_phantoms() -> anyhow::Resu
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  bottom
-│ ◎  main[🌳]
-├─╯
+◎  main[🌳]
 │ ◎  👉top
+│ ◎  bottom
 ├─╯
 ●  🏁·960152d (⌂)
+
 "#]]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:top <> ✓!
-└── ≡:1:top {1}
-    └── :1:top
-        └── ·960152d ►bottom, ►main[🌳]
+⌂:3:top <> ✓!
+└── ≡👉:3:top {1}
+    ├── 👉:3:top
+    └── :1:bottom
+        └── ·960152d ►main[🌳], ►top
 
 "#]]
     );
@@ -2160,25 +2035,26 @@ fn ad_hoc_order_does_not_force_diverged_refs_into_empty_stack() -> anyhow::Resul
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  bottom
-│ ◎  main[🌳]
-├─╯
+◎  main[🌳]
 │ ◎  👉top
 │ ●  ·5cd63e5 (⌂)
+│ ◎  bottom
 ├─╯
 ●  🏁·fa91c94 (⌂)
+
 "#]]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:top <> ✓!
-└── ≡:1:top {1}
-    └── :1:top
-        ├── ·5cd63e5
-        └── ·fa91c94 ►bottom, ►main[🌳]
+⌂:2:top <> ✓!
+└── ≡👉:2:top {1}
+    ├── 👉:2:top
+    │   └── ·5cd63e5
+    └── :3:bottom
+        └── ·fa91c94 ►main[🌳]
 
 "#]]
     );
@@ -2215,14 +2091,14 @@ fn ad_hoc_order_preserves_empty_top_above_commit_owning_branch() -> anyhow::Resu
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:empty-top <> ✓!
-└── ≡:1:empty-top {1}
-    ├── :1:empty-top
-    ├── :0:commit-branch
-    │   └── ·4782705
-    ├── :2:bottom
+⌂:4:empty-top <> ✓!
+└── ≡👉:4:empty-top {1}
+    ├── 👉:4:empty-top
+    ├── :3:commit-branch
+    │   └── ·4782705 ►empty-top
+    ├── :5:bottom
     │   └── ·dbc3a4c
-    └── :3:main[🌳]
+    └── :6:main[🌳]
         └── ·67b14ca
 
 "#]]
@@ -2265,15 +2141,15 @@ fn ad_hoc_order_keeps_lower_empty_branches_after_non_empty_move() -> anyhow::Res
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:0:commit-branch <> ✓!
-└── ≡:0:commit-branch {1}
-    ├── :0:commit-branch
+⌂:3:commit-branch <> ✓!
+└── ≡👉:3:commit-branch {1}
+    ├── 👉:3:commit-branch
     │   └── ·5380c0a
-    ├── :3:empty-top
-    ├── :2:empty-low
-    ├── :1:base
-    │   └── ·a5cd64d
-    └── :4:main[🌳]
+    ├── :6:empty-top
+    ├── :5:empty-low
+    ├── :4:base
+    │   └── ·a5cd64d ►empty-low, ►empty-top
+    └── :7:main[🌳]
         └── ·67b14ca
 
 "#]]
@@ -2309,27 +2185,28 @@ fn ad_hoc_order_scopes_empty_segments_to_active_chain() -> anyhow::Result<()> {
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  bottom
-│ ◎  main[🌳]
-├─╯
+◎  main[🌳]
 │ ◎  other-bottom
 ├─╯
 │ ◎  other-top
 ├─╯
 │ ◎  👉top
+│ ◎  bottom
 ├─╯
 ●  🏁·960152d (⌂)
+
 "#]]
     );
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:1:top <> ✓!
-└── ≡:1:top {1}
-    └── :1:top
-        └── ·960152d ►bottom, ►main[🌳], ►other-bottom, ►other-top
+⌂:5:top <> ✓!
+└── ≡👉:5:top {1}
+    ├── 👉:5:top
+    └── :1:bottom
+        └── ·960152d ►main[🌳], ►other-bottom, ►other-top, ►top
 
 "#]]
     );

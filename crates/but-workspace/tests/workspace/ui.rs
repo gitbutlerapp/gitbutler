@@ -170,7 +170,7 @@ TreeChanges {
             "passing strange ref-names still causes an error - they must exist"
         );
 
-        let mut ref_info: ui::RefInfo = but_workspace::head_info(
+        let ref_info = but_workspace::head_info(
             &repo,
             &*meta,
             but_workspace::ref_info::Options {
@@ -179,8 +179,42 @@ TreeChanges {
                     .project_meta(),
                 ..Default::default()
             },
-        )?
-        .try_into()?;
+        )?;
+        let segment = ref_info
+            .stacks
+            .first()
+            .and_then(|stack| stack.segments.first())
+            .expect("fixture has one projected segment");
+        assert_eq!(
+            segment.ref_info.as_ref().map(|info| info.ref_name.as_ref()),
+            Some(r("refs/heads/A"))
+        );
+        assert_eq!(
+            segment
+                .remote_tracking_ref_name
+                .as_ref()
+                .map(|name| name.as_ref()),
+            Some(r("refs/remotes/origin/A"))
+        );
+        assert!(matches!(
+            segment.commits.first().map(|commit| commit.relation),
+            Some(but_workspace::ref_info::LocalCommitRelation::LocalAndRemote(id))
+                if id == repo.rev_parse_single("A")?.detach()
+        ));
+        assert_eq!(
+            segment
+                .commits_on_remote
+                .iter()
+                .map(|commit| commit.id)
+                .collect::<Vec<_>>(),
+            vec![repo.rev_parse_single("origin/A")?.detach()]
+        );
+        assert_eq!(
+            segment.push_status,
+            but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce
+        );
+
+        let mut ref_info: ui::RefInfo = ref_info.try_into()?;
         ref_info = ref_info.pruned_to_entrypoint();
         snapbox::assert_data_eq!((&ref_info).into_json(), snapbox::str![[r#"
 {

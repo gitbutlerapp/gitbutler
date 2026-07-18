@@ -288,13 +288,6 @@ impl Sandbox {
         graph_workspace_determinisitcally(&graph.into_workspace().unwrap()).to_string()
     }
 
-    /// Open the graph at `HEAD` as SVG for debugging.
-    #[cfg(unix)]
-    pub fn open_graph_at_head_as_svg(&self) {
-        let (graph, _repo, _meta) = self.graph_at_head();
-        graph.open_as_svg();
-    }
-
     /// Show a git log for all refs.
     pub fn git_log(&self) -> String {
         visualize_commit_graph_all_from_dir(self.projects_root()).unwrap()

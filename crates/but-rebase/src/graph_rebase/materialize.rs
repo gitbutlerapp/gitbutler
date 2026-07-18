@@ -96,9 +96,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }
         repo.edit_references(ref_edits)?;
 
-        let project_meta = self.workspace.graph.project_meta.clone();
-        self.workspace
-            .refresh_from_head(&repo, &*self.meta, project_meta)?;
+        refresh_workspace_from_head(self.workspace, &repo, &*self.meta)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,
@@ -131,9 +129,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
         repo.edit_references(self.ref_edits.clone())?;
 
-        let project_meta = self.workspace.graph.project_meta.clone();
-        self.workspace
-            .refresh_from_head(&repo, &*self.meta, project_meta)?;
+        refresh_workspace_from_head(self.workspace, &repo, &*self.meta)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,
@@ -142,4 +138,20 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             meta: self.meta,
         })
     }
+}
+
+fn refresh_workspace_from_head(
+    workspace: &mut but_graph::Workspace,
+    repo: &gix::Repository,
+    meta: &impl RefMetadata,
+) -> Result<()> {
+    let graph = but_graph::Graph::from_head(
+        repo,
+        meta,
+        workspace.graph.project_meta().clone(),
+        workspace.graph.options().clone(),
+    )?
+    .validated()?;
+    *workspace = graph.into_workspace()?;
+    Ok(())
 }

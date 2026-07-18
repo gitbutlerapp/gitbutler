@@ -12,7 +12,7 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_forge::ForgeReview;
-use but_graph::SegmentIndex;
+use but_graph::NodeIndex;
 use but_workspace::{
     ref_info::{Commit, LocalCommit, LocalCommitRelation, Segment},
     ui::PushStatus,
@@ -202,7 +202,7 @@ struct StatusContext<'a> {
     is_paged: bool,
     should_truncate_for_terminal: bool,
     id_map: IdMap,
-    push_statuses_by_segment_id: HashMap<SegmentIndex, but_workspace::ui::PushStatus>,
+    push_statuses_by_segment_id: HashMap<NodeIndex, but_workspace::ui::PushStatus>,
     local_commits_by_id: HashMap<gix::ObjectId, LocalCommit>,
     remote_commits_by_id: HashMap<gix::ObjectId, Commit>,
     base_branch: Option<gitbutler_branch_actions::BaseBranch>,
@@ -358,12 +358,12 @@ fn build_status_context<'a>(
             &ws,
             &repo,
             but_workspace::ref_info::Options {
-                project_meta: ws.graph.project_meta.clone(),
+                project_meta: ws.graph.project_meta().clone(),
                 expensive_commit_info: true,
                 ..Default::default()
             },
         )?;
-        let mut push_statuses_by_segment_id = HashMap::<SegmentIndex, PushStatus>::new();
+        let mut push_statuses_by_segment_id = HashMap::<NodeIndex, PushStatus>::new();
         let mut local_commits_by_id = HashMap::<gix::ObjectId, LocalCommit>::new();
         let mut remote_commits_by_id = HashMap::<gix::ObjectId, Commit>::new();
         let mut commit_id_to_change_id =
@@ -385,7 +385,9 @@ fn build_status_context<'a>(
                 for remote_commit in commits_on_remote {
                     remote_commits_by_id.insert(remote_commit.id, remote_commit);
                 }
-                push_statuses_by_segment_id.insert(segment.id, push_status);
+                if let Some(id) = segment.id {
+                    push_statuses_by_segment_id.insert(id, push_status);
+                }
             }
         }
 
@@ -1036,7 +1038,7 @@ fn ci_map(
     ctx: &Context,
     cache_config: &but_forge::CacheConfig,
     stack_details: &[StackEntry],
-    push_statuses_by_segment_id: &HashMap<SegmentIndex, PushStatus>,
+    push_statuses_by_segment_id: &HashMap<NodeIndex, PushStatus>,
     review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
 ) -> Result<BTreeMap<String, Vec<but_forge::CiCheck>>, anyhow::Error> {
     let mut ci_map = BTreeMap::new();

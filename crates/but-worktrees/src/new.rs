@@ -20,7 +20,12 @@ pub fn worktree_new(
     data_dir: &Path,
     refname: &gix::refs::FullNameRef,
 ) -> Result<NewWorktreeOutcome> {
-    if !ws.refname_is_segment(refname) {
+    if !ws
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .any(|segment| segment.ref_name() == Some(refname))
+    {
         bail!("Branch not found in workspace");
     }
 

@@ -47,14 +47,14 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:9:A on 85efbe4 {1}
+│   └── 📙:9:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:8:C on 85efbe4 {2}
+    ├── 📙:8:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:10:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -78,8 +78,8 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    let project_meta = ws.graph.project_meta().clone();
+    crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
     let new_c_commit = commit_mapping.get(&c_commit);
     let tip_of_a_branch = repo.rev_parse_single("A")?.detach();
@@ -114,15 +114,15 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:10:A on 85efbe4 {1}
+│   └── 📙:10:A
 │       ├── ·f2cc60d (🏘️)
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:5:C on 85efbe4 {2}
-    ├── 📙:5:C
-    └── 📙:6:B
-        └── ·c813d8d (🏘️)
+└── ≡📙:9:C on 85efbe4 {2}
+    ├── 📙:9:C
+    └── 📙:8:B
+        └── ·c813d8d (🏘️) ►C
 
 "#]]
     );
@@ -159,14 +159,14 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:9:A on 85efbe4 {1}
+│   └── 📙:9:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:8:C on 85efbe4 {2}
+    ├── 📙:8:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:10:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -190,8 +190,8 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    let project_meta = ws.graph.project_meta().clone();
+    crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
     let new_b_commit = commit_mapping.get(&b_commit);
     let new_c_commit = commit_mapping.get(&c_commit);
@@ -228,13 +228,13 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:10:A on 85efbe4 {1}
+│   └── 📙:10:A
 │       ├── ·f9061ed (🏘️)
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:9:C on 85efbe4 {2}
+    ├── 📙:9:C
     │   └── ·8e00332 (🏘️)
     └── 📙:5:B
 
@@ -273,14 +273,14 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:9:A on 85efbe4 {1}
+│   └── 📙:9:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:8:C on 85efbe4 {2}
+    ├── 📙:8:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:10:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -304,8 +304,8 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    let project_meta = ws.graph.project_meta().clone();
+    crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
     let tip_of_a_branch = repo.rev_parse_single("A")?.detach();
@@ -340,15 +340,15 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:10:A on 85efbe4 {1}
+│   └── 📙:10:A
 │       ├── ·2506923 (🏘️)
 │       └── ·8e00332 (🏘️)
-└── ≡📙:5:C on 85efbe4 {2}
-    ├── 📙:5:C
-    └── 📙:6:B
-        └── ·c813d8d (🏘️)
+└── ≡📙:9:C on 85efbe4 {2}
+    ├── 📙:9:C
+    └── 📙:8:B
+        └── ·c813d8d (🏘️) ►C
 
 "#]]
     );
@@ -385,14 +385,14 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:9:A on 85efbe4 {1}
+│   └── 📙:9:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:8:C on 85efbe4 {2}
+    ├── 📙:8:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:10:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -416,8 +416,8 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    let project_meta = ws.graph.project_meta().clone();
+    crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
     let new_c_commit = commit_mapping.get(&c_commit);
@@ -454,13 +454,13 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:10:A on 85efbe4 {1}
+│   └── 📙:10:A
 │       ├── ·4dfe841 (🏘️)
 │       └── ·c813d8d (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:9:C on 85efbe4 {2}
+    ├── 📙:9:C
     │   └── ·8e00332 (🏘️)
     └── 📙:5:B
 
@@ -499,14 +499,14 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:9:A on 85efbe4 {1}
+│   └── 📙:9:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:8:C on 85efbe4 {2}
+    ├── 📙:8:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:10:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -529,8 +529,8 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    let project_meta = ws.graph.project_meta().clone();
+    crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
     let tip_of_c_branch = repo.rev_parse_single("C")?.detach();
@@ -559,14 +559,14 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
 ├── ≡📙:5:A on 85efbe4 {1}
 │   └── 📙:5:A
-└── ≡📙:3:C on 85efbe4 {2}
-    ├── 📙:3:C
+└── ≡📙:9:C on 85efbe4 {2}
+    ├── 📙:9:C
     │   ├── ·148f8f3 (🏘️)
     │   └── ·09bc93e (🏘️)
-    └── 📙:4:B
+    └── 📙:10:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -604,14 +604,14 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:9:A on 85efbe4 {1}
+│   └── 📙:9:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:C on 85efbe4 {2}
-    ├── 📙:4:C
+└── ≡📙:8:C on 85efbe4 {2}
+    ├── 📙:8:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:5:B
+    └── 📙:10:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -635,8 +635,8 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    let project_meta = ws.graph.project_meta().clone();
+    crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
     let new_b_commit = commit_mapping.get(&b_commit);
     let new_c_commit = commit_mapping.get(&c_commit);
@@ -673,13 +673,13 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
 ├── ≡📙:5:A on 85efbe4 {1}
 │   └── 📙:5:A
-└── ≡📙:3:C on 85efbe4 {2}
-    ├── 📙:3:C
+└── ≡📙:9:C on 85efbe4 {2}
+    ├── 📙:9:C
     │   └── ·ad476a8 (🏘️)
-    └── 📙:4:B
+    └── 📙:10:B
         ├── ·f9061ed (🏘️)
         └── ·09d8e52 (🏘️)
 
@@ -713,12 +713,12 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:7:A on 85efbe4 {1}
+│   └── 📙:7:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:4:B on 85efbe4 {2}
-    └── 📙:4:B
+└── ≡📙:3:B on 85efbe4 {2}
+    └── 📙:3:B
 
 "#]]
     );
@@ -739,8 +739,8 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
 
     // Materialize the operation
     rebase.materialize()?;
-    let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    let project_meta = ws.graph.project_meta().clone();
+    crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
     let tip_of_b_branch = repo.rev_parse_single("B")?.detach();
 
@@ -765,11 +765,11 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:4:A on 85efbe4 {1}
-│   └── 📙:4:A
-└── ≡📙:3:B on 85efbe4 {2}
-    └── 📙:3:B
+📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:3:A on 85efbe4 {1}
+│   └── 📙:3:A
+└── ≡📙:7:B on 85efbe4 {2}
+    └── 📙:7:B
         └── ·09d8e52 (🏘️)
 
 "#]]
@@ -797,13 +797,13 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:three[🌳] <> ✓!
-└── ≡:0:three[🌳] {1}
-    ├── :0:three[🌳]
+⌂:3:three <> ✓!
+└── ≡👉:3:three[🌳] {1}
+    ├── 👉:3:three[🌳]
     │   └── ·c9f444c
-    ├── :1:two <> origin/two →:2:
-    │   └── ❄️16fd221
-    └── :3:one
+    ├── :4:two <> origin/two →:5:
+    │   └── ❄16fd221 ►origin/two
+    └── :6:one
         └── ❄8b426d0
 
 "#]]
@@ -825,8 +825,8 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 
     // Materialize the operation
     rebase.materialize()?;
-    let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    let project_meta = ws.graph.project_meta().clone();
+    crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
     let tip_of_three_branch = repo.rev_parse_single("three")?.detach();
     let tip_of_two_branch = repo.rev_parse_single("two")?.detach();
@@ -854,12 +854,13 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:three[🌳] <> ✓!
-└── ≡:0:three[🌳] {1}
-    ├── :0:three[🌳]
-    │   ├── ·c9f444c ►two
+⌂:3:three <> ✓!
+└── ≡👉:3:three[🌳] {1}
+    ├── 👉:3:three[🌳]
+    │   └── ·c9f444c ►two
+    ├── :5:origin/two →:4:
     │   └── ·16fd221
-    └── :3:one
+    └── :6:one
         └── ·8b426d0
 
 "#]]
@@ -895,13 +896,13 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
-└── ≡:0:child-stack[🌳] on aa67ae0 {1}
-    ├── :0:child-stack[🌳]
+⌂:12:child-stack <> ✓refs/remotes/origin/main on aa67ae0
+└── ≡👉:12:child-stack[🌳] on aa67ae0 {1}
+    ├── 👉:12:child-stack[🌳]
     │   └── ·32c8bda ►C2
-    ├── :3:C1
+    ├── :13:C1
     │   └── ·64dace5
-    └── :4:M
+    └── :14:M
         └── ·197bdf1
 
 "#]]
@@ -921,8 +922,8 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
     )?;
 
     rebase.materialize()?;
-    let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    let project_meta = ws.graph.project_meta().clone();
+    crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
     let post_move_graph = visualize_commit_graph_all(&repo)?;
     assert_eq!(
@@ -981,13 +982,13 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
-└── ≡:0:child-stack[🌳] on aa67ae0 {1}
-    ├── :0:child-stack[🌳]
+⌂:12:child-stack <> ✓refs/remotes/origin/main on aa67ae0
+└── ≡👉:12:child-stack[🌳] on aa67ae0 {1}
+    ├── 👉:12:child-stack[🌳]
     │   └── ·32c8bda ►C2
-    ├── :3:C1
+    ├── :13:C1
     │   └── ·64dace5
-    └── :4:M
+    └── :14:M
         └── ·197bdf1
 
 "#]]
@@ -1007,8 +1008,8 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
     )?;
 
     rebase.materialize()?;
-    let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    let project_meta = ws.graph.project_meta().clone();
+    crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
     let post_move_graph = visualize_commit_graph_all(&repo)?;
     assert_eq!(
@@ -1058,13 +1059,13 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:three[🌳] <> ✓!
-└── ≡:0:three[🌳] {1}
-    ├── :0:three[🌳]
+⌂:3:three <> ✓!
+└── ≡👉:3:three[🌳] {1}
+    ├── 👉:3:three[🌳]
     │   └── ·c9f444c
-    ├── :1:two <> origin/two →:2:
-    │   └── ❄️16fd221
-    └── :3:one
+    ├── :4:two <> origin/two →:5:
+    │   └── ❄16fd221 ►origin/two
+    └── :6:one
         └── ❄8b426d0
 
 "#]]
@@ -1087,8 +1088,8 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mappings = materialization.history.commit_mappings();
-    let project_meta = ws.graph.project_meta.clone();
-    ws.refresh_from_head(&repo, &meta, project_meta)?;
+    let project_meta = ws.graph.project_meta().clone();
+    crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
     let new_commit_two = commit_mappings.get(&two_commit);
     let tip_of_three_branch = repo.rev_parse_single("three")?.detach();
@@ -1124,13 +1125,12 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:three[🌳] <> ✓!
-└── ≡:0:three[🌳] {1}
-    ├── :0:three[🌳]
-    │   ├── ·09ad3ca ►two
-    │   └── ·0c38dd9
-    └── :2:one
-        └── ·8b426d0
+⌂:4:three <> ✓!
+└── ≡👉:4:three[🌳] {1}
+    └── 👉:4:three[🌳]
+        ├── ·09ad3ca ►two
+        ├── ·0c38dd9
+        └── ·8b426d0 ►one
 
 "#]]
     );

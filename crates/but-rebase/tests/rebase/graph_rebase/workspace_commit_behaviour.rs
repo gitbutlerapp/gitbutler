@@ -35,11 +35,16 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
         standard_options(),
     )?
     .validated()?;
+    let id = repo.rev_parse_single("gitbutler/workspace")?;
+    assert_eq!(
+        graph.managed_workspace_commit_id(),
+        Some(id.detach()),
+        "construction records the managed workspace commit without workspace metadata"
+    );
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
-    let id = repo.rev_parse_single("gitbutler/workspace")?;
     let selector = editor.select_commit(id.detach())?;
     let step = editor.lookup_step(selector)?;
 
@@ -50,20 +55,23 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:gitbutler/workspace[🌳]
-    ├── ·8795f47 (⌂|1)
-    └── ·dd72792 (⌂|1) ►c, ►main
-        └── ►:1[1]:b
-            └── ·e5aa7b5 (⌂|1)
-                └── ►:2[2]:a
-                    └── ·3bfeb52 (⌂|1)
-                        └── ►:3[3]:base
-                            └── 🏁·b6e2f57 (⌂|1)
+◎  c
+│ ◎  👉gitbutler/workspace[🌳]
+│ ●  ·8795f47 (⌂)
+├─╯
+│ ◎  main
+├─╯
+●  ·dd72792 (⌂)
+◎  b
+●  ·e5aa7b5 (⌂)
+◎  a
+●  ·3bfeb52 (⌂)
+◎  base
+●  🏁·b6e2f57 (⌂)
 
 "#]]
     );
@@ -126,17 +134,24 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:gitbutler/workspace[🌳]
-    ├── ·badca2f (⌂|1)
-    ├── ·06106c2 (⌂|1) ►c, ►main
-    └── ·3bfeb52 (⌂|1) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·b6e2f57 (⌂|1)
+◎  a
+│ ◎  b
+├─╯
+│ ◎  c
+│ │ ◎  👉gitbutler/workspace[🌳]
+│ │ ●  ·badca2f (⌂)
+│ ├─╯
+│ │ ◎  main
+│ ├─╯
+│ ●  ·06106c2 (⌂)
+├─╯
+●  ·3bfeb52 (⌂)
+◎  base
+●  🏁·b6e2f57 (⌂)
 
 "#]]
     );
@@ -240,16 +255,15 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
     );
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·120e3a9 (⌂|1)
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+◎  👉main[🌳]
+●  ·120e3a9 (⌂)
+●  ·a96434e (⌂)
+●  ·d591dfe (⌂)
+●  🏁·35b8235 (⌂)
 
 "#]]
     );

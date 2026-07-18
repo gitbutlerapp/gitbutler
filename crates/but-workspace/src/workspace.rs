@@ -12,6 +12,126 @@ use renderdag::{Ancestor, GraphRowRenderer, LinkLine, NodeLine, PadLine, Rendere
 
 use crate::{ref_info::Commit, ui::CommitState};
 
+pub(crate) fn find_segment_and_stack<'a>(
+    workspace: &'a but_graph::Workspace,
+    name: &gix::refs::FullNameRef,
+) -> Option<(
+    &'a but_graph::workspace::Stack,
+    &'a but_graph::workspace::StackSegment,
+)> {
+    workspace.stacks.iter().find_map(|stack| {
+        stack
+            .segments
+            .iter()
+            .find_map(|segment| (segment.ref_name() == Some(name)).then_some((stack, segment)))
+    })
+}
+
+pub(crate) fn find_workspace_commit(
+    workspace: &but_graph::Workspace,
+    id: gix::ObjectId,
+) -> Option<&but_graph::workspace::StackCommit> {
+    workspace
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .flat_map(|segment| &segment.commits)
+        .find(|commit| commit.id == id)
+}
+
+pub(crate) fn workspace_tip_id(workspace: &but_graph::Workspace) -> Option<gix::ObjectId> {
+    workspace
+        .id
+        .and_then(|id| node_commit_id(&workspace.graph, id))
+}
+
+pub(crate) fn node_commit_id(
+    graph: &but_graph::Graph,
+    index: but_graph::NodeIndex,
+) -> Option<gix::ObjectId> {
+    match graph.nodes().get(index)?.kind() {
+        but_graph::NodeKind::Commit { id } | but_graph::NodeKind::ShallowPoint { id, .. } => {
+            Some(*id)
+        }
+        but_graph::NodeKind::Reference(reference) => reference.ref_info.commit_id,
+    }
+}
+
+pub(crate) fn workspace_is_entrypoint(workspace: &but_graph::Workspace) -> bool {
+    workspace
+        .stacks
+        .iter()
+        .all(|stack| stack.segments.iter().all(|segment| !segment.is_entrypoint))
+}
+
+pub(crate) fn workspace_contains_ref(
+    workspace: &but_graph::Workspace,
+    name: &gix::refs::FullNameRef,
+) -> bool {
+    find_segment_and_stack(workspace, name).is_some()
+}
+
+pub(crate) fn resolved_target_commit_id(workspace: &but_graph::Workspace) -> Option<gix::ObjectId> {
+    workspace
+        .stored_target_commit_id()
+        .or_else(|| workspace.target_ref_tip_commit_id())
+}
+
+pub(crate) fn target_matches_branch(
+    workspace: &but_graph::Workspace,
+    name: &gix::refs::FullNameRef,
+) -> bool {
+    let Some(target) = workspace.target_ref.as_ref() else {
+        return false;
+    };
+    target.ref_name.as_ref() == name
+        // Reference grouping places the target remote directly above its authoritative local pair.
+        || workspace
+            .graph
+            .nodes()
+            .get(target.node_index)
+            .and_then(|target| target.parents().first())
+            .and_then(|paired_local| workspace.graph.nodes().get(*paired_local))
+            .is_some_and(|node| {
+                matches!(
+                    node.kind(),
+                    but_graph::NodeKind::Reference(reference)
+                        if reference.ref_info.ref_name.as_ref() == name
+                )
+            })
+}
+
+pub(crate) fn ref_reachable_from_entrypoint(
+    workspace: &but_graph::Workspace,
+    name: &gix::refs::FullNameRef,
+) -> bool {
+    if workspace
+        .ref_name()
+        .filter(|_| workspace_is_entrypoint(workspace))
+        == Some(name)
+    {
+        return true;
+    }
+    if workspace_is_entrypoint(workspace) {
+        return workspace_contains_ref(workspace, name);
+    }
+    let Some((stack, entrypoint)) = workspace.stacks.iter().find_map(|stack| {
+        stack
+            .segments
+            .iter()
+            .position(|segment| segment.is_entrypoint)
+            .map(|index| (stack, index))
+    }) else {
+        return false;
+    };
+    stack
+        .segments
+        .get(entrypoint..)
+        .into_iter()
+        .flatten()
+        .any(|segment| segment.ref_name() == Some(name))
+}
+
 /// A graph row's data
 #[expect(clippy::large_enum_variant)]
 pub enum GraphRowData {

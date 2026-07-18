@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
-use but_graph::{NodeGraph, NodeGraphEntrypoint, NodeKind, Reference, SegmentMetadata};
+use but_graph::{Graph, NodeGraphEntrypoint, NodeKind, Reference, ReferenceMetadata};
 
 use crate::graph_rebase::{
     Checkout, Edge, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
@@ -16,7 +16,7 @@ pub struct GraphEditorOptions {
     pub default_sign_commit: SignCommit,
     /// References whose ancestry should be forced mutable.
     ///
-    /// The editor always contains every node in the construction graph, with
+    /// The editor always contains every node in the workspace graph, with
     /// only those reachable from `HEAD` being mutable. Use this to force a
     /// reference and its ancestry to be mutable so they can be rewritten.
     pub extra_mutable_refs: Vec<gix::refs::FullName>,
@@ -49,18 +49,13 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         repo: &gix::Repository,
         options: &GraphEditorOptions,
     ) -> Result<Self> {
-        let graph = workspace.graph.construction_graph().ok_or_else(|| {
-            anyhow::anyhow!(
-                "Editor construction requires an unmodified traversal graph with construction provenance"
-            )
-        })?;
-        let workspace_commit_id = workspace_commit_id(&graph, repo);
+        let workspace_commit_id = workspace.graph.managed_workspace_commit_id();
         if workspace_commit_id.is_none()
-            && graph.nodes().iter().any(|node| {
+            && workspace.graph.nodes().iter().any(|node| {
                 matches!(
                     node.kind(),
                     NodeKind::Reference(reference)
-                        if matches!(reference.metadata, Some(SegmentMetadata::Workspace(_)))
+                        if matches!(reference.metadata, Some(ReferenceMetadata::Workspace(_)))
                 )
             })
         {
@@ -68,21 +63,36 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 "Editor construction does not yet support a workspace reference without a managed workspace commit"
             );
         }
-        Self::create_from_node_graph(graph, workspace_commit_id, workspace, meta, repo, options)
+        let (graph, initial_references, checkouts) =
+            Self::create_from_graph(&workspace.graph, workspace_commit_id, repo, options)?;
+        Ok(Self {
+            graph,
+            initial_references,
+            checkouts,
+            repo: repo.clone().with_object_memory(),
+            history: RevisionHistory::new(),
+            workspace,
+            meta,
+        })
     }
 
-    fn create_from_node_graph(
-        node_graph: std::sync::Arc<NodeGraph>,
+    fn create_from_graph(
+        node_graph: &Graph,
         workspace_commit_id: Option<gix::ObjectId>,
-        workspace: &'ws mut but_graph::Workspace,
-        meta: &'meta mut M,
         repo: &gix::Repository,
         options: &GraphEditorOptions,
-    ) -> Result<Self> {
+    ) -> Result<(StepGraph, Vec<gix::refs::FullName>, Vec<Checkout>)> {
         let mut mutable_nodes = HashSet::new();
         let mut mutable_entrypoints = Vec::new();
+        let mut has_mutable_local_ref = false;
         if let NodeGraphEntrypoint::Node(entrypoint) = node_graph.entrypoint() {
             mutable_entrypoints.push(*entrypoint);
+            has_mutable_local_ref = matches!(
+                node_graph.nodes()[*entrypoint].kind(),
+                NodeKind::Reference(reference)
+                    if reference.ref_info.ref_name.category()
+                        == Some(gix::refs::Category::LocalBranch)
+            );
         }
         for ref_name in &options.extra_mutable_refs {
             let index = node_graph
@@ -97,6 +107,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 })
                 .ok_or_else(|| anyhow::anyhow!("Failed to find graph node for {ref_name}"))?;
             mutable_entrypoints.push(index);
+            has_mutable_local_ref |= ref_name.category() == Some(gix::refs::Category::LocalBranch);
         }
 
         // A reference with multiple commit children cannot occupy one NodeGraph parent slot.
@@ -134,6 +145,32 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         while let Some(index) = mutable_entrypoints.pop() {
             if mutable_nodes.insert(index) {
                 mutable_entrypoints.extend(&effective_parents[index]);
+            }
+        }
+
+        // Local branches decorating mutable commits are part of the rewrite even when the node
+        // graph keeps them as sibling roots instead of placing them on the entrypoint ancestry.
+        // Remote-tracking branches, tags, and custom references remain immutable.
+        if has_mutable_local_ref {
+            let mutable_commit_ids = mutable_nodes
+                .iter()
+                .filter_map(|index| match node_graph.nodes()[*index].kind() {
+                    NodeKind::Commit { id } => Some(*id),
+                    NodeKind::Reference(_) | NodeKind::ShallowPoint { .. } => None,
+                })
+                .collect::<HashSet<_>>();
+            for (index, node) in node_graph.nodes().iter().enumerate() {
+                let NodeKind::Reference(reference) = node.kind() else {
+                    continue;
+                };
+                if reference.ref_info.ref_name.category() == Some(gix::refs::Category::LocalBranch)
+                    && reference
+                        .ref_info
+                        .commit_id
+                        .is_some_and(|id| mutable_commit_ids.contains(&id))
+                {
+                    mutable_nodes.insert(index);
+                }
             }
         }
 
@@ -238,14 +275,14 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     let mut claimed_parent_slots = HashSet::new();
                     let mut next_parent_order = node.parents().len();
                     for parent in overlay_parents {
-                        let parent_order = node_target_id(&node_graph, *parent)
+                        let parent_order = node_target_id(node_graph, *parent)
                             .and_then(|id| {
                                 node.parents()
                                     .iter()
                                     .enumerate()
                                     .find_map(|(order, candidate)| {
                                         (!claimed_parent_slots.contains(&order)
-                                            && node_target_id(&node_graph, *candidate) == Some(id))
+                                            && node_target_id(node_graph, *candidate) == Some(id))
                                         .then_some(order)
                                     })
                             })
@@ -322,46 +359,16 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 .collect(),
         };
 
-        Ok(Self {
-            graph,
-            initial_references,
-            checkouts,
-            repo: repo.clone().with_object_memory(),
-            history: RevisionHistory::new(),
-            workspace,
-            meta,
-        })
+        Ok((graph, initial_references, checkouts))
     }
 }
 
-fn workspace_commit_id(node_graph: &NodeGraph, repo: &gix::Repository) -> Option<gix::ObjectId> {
-    node_graph.managed_workspace_commit_id().or_else(|| {
-        node_graph.nodes().iter().find_map(|node| {
-            let NodeKind::Reference(reference) = node.kind() else {
-                return None;
-            };
-            if !but_core::is_workspace_ref_name(reference.ref_info.ref_name.as_ref()) {
-                return None;
-            }
-            let own_target = *node.parents().last()?;
-            let NodeKind::Commit { id } = node_graph.nodes()[own_target].kind() else {
-                return None;
-            };
-            let commit = repo.find_commit(*id).ok()?;
-            but_graph::workspace::commit::is_managed_workspace_by_message(
-                commit.message_raw().ok()?,
-            )
-            .then_some(*id)
-        })
-    })
-}
-
 fn is_workspace_reference(reference: &Reference) -> bool {
-    matches!(reference.metadata, Some(SegmentMetadata::Workspace(_)))
+    matches!(reference.metadata, Some(ReferenceMetadata::Workspace(_)))
         || but_core::is_workspace_ref_name(reference.ref_info.ref_name.as_ref())
 }
 
-fn node_target_id(node_graph: &NodeGraph, index: usize) -> Option<gix::ObjectId> {
+fn node_target_id(node_graph: &Graph, index: usize) -> Option<gix::ObjectId> {
     match node_graph.nodes()[index].kind() {
         NodeKind::Commit { id } => Some(*id),
         NodeKind::Reference(reference) => reference.ref_info.commit_id,

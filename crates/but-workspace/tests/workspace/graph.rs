@@ -374,25 +374,20 @@ fn single_stack_no_target() -> Result<()> {
         render(&detailed),
         snapbox::str![[r#"
 # Stack 0
-◎  0 refs/heads/c
-◎  1 refs/heads/main
-●  2 120e3a9 c
-◎  3 refs/heads/b
-●  4 a96434e b
-◎  5 refs/heads/a
-●  6 d591dfe a
-◎  7 refs/heads/base
-●  8 35b8235 base
-  linear    ref=0  rows=[0]
+●  0 120e3a9 c
+◎  1 refs/heads/b
+●  2 a96434e b
+◎  3 refs/heads/a
+●  4 d591dfe a
+◎  5 refs/heads/base
+●  6 35b8235 base
+  linear    ref=-  rows=[0]
   linear    ref=1  rows=[1, 2]
   linear    ref=3  rows=[3, 4]
   linear    ref=5  rows=[5, 6]
-  linear    ref=7  rows=[7, 8]
-  reference ref=0  rows=[0]
   reference ref=1  rows=[1, 2]
   reference ref=3  rows=[3, 4]
   reference ref=5  rows=[5, 6]
-  reference ref=7  rows=[7, 8]
 "#]]
     );
     Ok(())
@@ -406,24 +401,19 @@ fn single_stack_with_target() -> Result<()> {
         render(&detailed),
         snapbox::str![[r#"
 # Stack 0
-◎  0 refs/heads/c
-◎  1 refs/heads/main
-●  2 120e3a9 c
-◎  3 refs/heads/b
-●  4 a96434e b
-◎  5 refs/heads/a
-●  6 d591dfe a
-◎  7 refs/heads/base
-  linear    ref=0  rows=[0]
+●  0 120e3a9 c
+◎  1 refs/heads/b
+●  2 a96434e b
+◎  3 refs/heads/a
+●  4 d591dfe a
+◎  5 refs/heads/base
+  linear    ref=-  rows=[0]
   linear    ref=1  rows=[1, 2]
   linear    ref=3  rows=[3, 4]
-  linear    ref=5  rows=[5, 6]
-  linear    ref=7  rows=[7]
-  reference ref=0  rows=[0]
+  linear    ref=5  rows=[5]
   reference ref=1  rows=[1, 2]
   reference ref=3  rows=[3, 4]
-  reference ref=5  rows=[5, 6]
-  reference ref=7  rows=[7]
+  reference ref=5  rows=[5]
 "#]]
     );
     Ok(())
@@ -489,16 +479,8 @@ fn three_stacks_same_base_collapse() -> Result<()> {
         render(&detailed),
         snapbox::str![[r#"
 # Stack 0
-◎  0 refs/heads/stack-1
-◎  1 refs/heads/stack-2
-◎  2 refs/heads/stack-3
-●  3 fafd9d0 init
-  linear    ref=0  rows=[0]
-  linear    ref=1  rows=[1]
-  linear    ref=2  rows=[2, 3]
-  reference ref=0  rows=[0]
-  reference ref=1  rows=[1]
-  reference ref=2  rows=[2, 3]
+●  0 fafd9d0 init
+  linear    ref=-  rows=[0]
 "#]]
     );
     Ok(())
@@ -630,13 +612,6 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
         render(&detailed),
         snapbox::str![[r#"
 # Stack 0
-◎  0 refs/heads/stack-b
-●  1 cb7021b B2
-●  2 ce3278a B1
-  linear    ref=0  rows=[0, 1, 2]
-  reference ref=0  rows=[0, 1, 2]
-
-# Stack 1
 ◎  0 refs/heads/stack-a
 ●  1 49c06ff A2
 ●  2 ff76d2f A1
@@ -646,6 +621,13 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
   linear    ref=3  rows=[3, 4]
   reference ref=0  rows=[0, 1, 2]
   reference ref=3  rows=[3, 4]
+
+# Stack 1
+◎  0 refs/heads/stack-b
+●  1 cb7021b B2
+●  2 ce3278a B1
+  linear    ref=0  rows=[0, 1, 2]
+  reference ref=0  rows=[0, 1, 2]
 "#]]
     );
     Ok(())
@@ -659,13 +641,6 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
         render(&detailed),
         snapbox::str![[r#"
 # Stack 0
-◎  0 refs/heads/stack-b
-●  1 cb7021b B2
-●  2 ce3278a B1
-  linear    ref=0  rows=[0, 1, 2]
-  reference ref=0  rows=[0, 1, 2]
-
-# Stack 1
 ◎  0 refs/heads/stack-a
 ●  1 49c06ff A2
 ●  2 ff76d2f A1
@@ -674,6 +649,13 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
   linear    ref=3  rows=[3]
   reference ref=0  rows=[0, 1, 2]
   reference ref=3  rows=[3]
+
+# Stack 1
+◎  0 refs/heads/stack-b
+●  1 cb7021b B2
+●  2 ce3278a B1
+  linear    ref=0  rows=[0, 1, 2]
+  reference ref=0  rows=[0, 1, 2]
 "#]]
     );
     Ok(())
@@ -1046,14 +1028,14 @@ fn integration_status_marks_fully_integrated_two_stacks() -> Result<()> {
         render_statuses(&detailed),
         snapbox::str![[r#"
 # Stack 0
-refs/heads/B   push=Integrated                     combined=Integrated                     remote=-
-# Stack 1
 refs/heads/A   push=Integrated                     combined=Integrated                     remote=-
+# Stack 1
+refs/heads/B   push=Integrated                     combined=Integrated                     remote=-
 
 # Stack 0
-b38b04b add B1   state=integrated
-# Stack 1
 905d6e5 add A1   state=integrated
+# Stack 1
+b38b04b add B1   state=integrated
 "#]]
     );
     Ok(())

@@ -177,7 +177,7 @@ impl Snapshot {
                     })
                     .collect::<BTreeMap<_, _>>()
             });
-        let mut seen_refnames = BTreeMap::<String, Option<but_graph::SegmentIndex>>::new();
+        let mut seen_refnames = BTreeMap::<String, Option<but_graph::NodeIndex>>::new();
         for (stack_id, stack) in self
             .content
             .branches

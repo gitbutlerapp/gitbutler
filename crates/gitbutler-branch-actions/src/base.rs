@@ -8,7 +8,7 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_error::Code;
-use but_graph::FirstParent;
+use but_graph::{NodeGraphEntrypoint, NodeKind};
 use but_meta::virtual_branches_legacy_types::Target;
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -338,10 +338,33 @@ pub(crate) fn target_to_base_branch(
     let target_sha_ahead_of_ref = !target_sha_not_ref.is_empty();
 
     // The longest first-parent list of upstream commit ids.
-    let mut upstream_commit_ids = ws
-        .upstream_commits(repo, target_ref_name.as_ref(), FirstParent::Yes)?
+    let mut heads = ws
+        .stacks
+        .iter()
+        .filter_map(|stack| stack.tip_skip_empty())
+        .collect::<Vec<_>>();
+    if heads.is_empty()
+        && let NodeGraphEntrypoint::Node(entrypoint) = ws.graph.entrypoint()
+        && let Some(id) = match ws.graph.nodes()[*entrypoint].kind() {
+            NodeKind::Commit { id } => Some(*id),
+            NodeKind::Reference(reference) => reference.ref_info.commit_id,
+            NodeKind::ShallowPoint { .. } => None,
+        }
+    {
+        heads.push(id);
+    }
+    let mut upstream_commit_ids = heads
         .into_iter()
-        .map(|h| h.upstream_commits)
+        .map(|head| {
+            repo.rev_walk([target_ref.id()])
+                .with_hidden([head])
+                .first_parent_only()
+                .all()?
+                .map(|info| Ok(info?.id))
+                .collect::<Result<Vec<_>>>()
+        })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
         .max_by_key(|us| us.len())
         .unwrap_or_default();
     if upstream_commit_ids.is_empty() && target_ref_commit_id != target_sha {

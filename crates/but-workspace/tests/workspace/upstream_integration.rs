@@ -72,7 +72,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     let remote_tip_before = repo.rev_parse_single("origin/master")?.detach();
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -164,7 +164,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
     );
 
     let mut workspace = graph.into_workspace()?;
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -256,20 +256,19 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/master⇣4 on 85aa44b
-└── ≡📙:4:E on 85aa44b {1}
-    ├── 📙:4:E
+📕🏘️:15:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/master⇣4 on 85aa44b
+└── ≡📙:16:E on 85aa44b {1}
+    ├── 📙:16:E
     │   └── ·a6588cf (🏘️)
-    ├── :6:C
+    ├── :17:C
     │   └── ·4827d2f (🏘️)
-    ├── :7:B
-    │   └── ·3d3bfa7 (🏘️)
-    └── :9:A
-        └── ·f5b02d3 (🏘️)
+    └── :18:B
+        ├── ·3d3bfa7 (🏘️)
+        └── ·f5b02d3 (🏘️) ►A
 
 "#]]
     );
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -351,7 +350,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     );
 
     let mut workspace = graph.into_workspace()?;
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -439,16 +438,18 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
-└── ≡:1:A[🌳] on 3183e43 {1}
-    ├── :1:A[🌳]
-    │   └── ·e792f40
-    └── :3:B
-        └── ·b38b04b (✓)
+⌂:7:A <> ✓refs/remotes/origin/main⇣2 on 3183e43
+└── ≡👉:7:A[🌳] on 3183e43 {1}
+    ├── 👉:7:A[🌳]
+    │   ├── ·e792f40
+    │   └── ❄b38b04b (✓) ►B
+    └── :4:main <> origin/main →:5:⇣2
+        ├── 🟣8c8a843 (✓) ►origin/main
+        └── 🟣b38b04b (✓) ►B
 
 "#]]
     );
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -519,7 +520,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
         },
     )?;
     let mut workspace = graph.into_workspace()?;
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
@@ -598,16 +599,18 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
-└── ≡:1:A[🌳] on 3183e43 {1}
-    ├── :1:A[🌳]
-    │   └── ·e792f40
-    └── :3:B
-        └── ·b38b04b (✓)
+⌂:7:A <> ✓refs/remotes/origin/main⇣2 on 3183e43
+└── ≡👉:7:A[🌳] on 3183e43 {1}
+    ├── 👉:7:A[🌳]
+    │   ├── ·e792f40
+    │   └── ❄b38b04b (✓) ►B
+    └── :4:main <> origin/main →:5:⇣2
+        ├── 🟣8c8a843 (✓) ►origin/main
+        └── 🟣b38b04b (✓) ►B
 
 "#]]
     );
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -693,7 +696,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
     );
 
     let mut workspace = graph.into_workspace()?;
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
@@ -803,12 +806,12 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:4:A on 3183e43 {1}
-│   └── 📙:4:A
-│       └── ·905d6e5 (🏘️|✓)
-└── ≡📙:3:B on 3183e43 {2}
-    └── 📙:3:B
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+├── ≡📙:5:A on 3183e43 {1}
+│   └── 📙:5:A
+│       └── ·905d6e5 (🏘️|✓) ►origin/main
+└── ≡📙:8:B on 3183e43 {2}
+    └── 📙:8:B
         └── ·b38b04b (🏘️)
 
 "#]]
@@ -836,9 +839,9 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
-└── ≡📙:3:B on 905d6e5 {2}
-    └── 📙:3:B
+📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
+└── ≡📙:7:B on 905d6e5 {2}
+    └── 📙:7:B
         └── ·c932222 (🏘️)
 
 "#]]
@@ -894,10 +897,10 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:3:A on 3183e43 {1}
-    └── 📙:3:A
-        └── ·905d6e5 (🏘️|✓)
+📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡📙:4:A on 3183e43 {1}
+    └── 📙:4:A
+        └── ❄905d6e5 (🏘️|✓) ►origin/main
 
 "#]]
     );
@@ -918,7 +921,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
+📕🏘️:5:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
 
 "#]]
     );
@@ -975,11 +978,11 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 8d5739f
-└── ≡📙:3:A on 8d5739f {1}
-    └── 📙:3:A
-        ├── ·ffde79e (🏘️|✓)
-        └── ·86b55e6 (🏘️|✓)
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 8d5739f
+└── ≡📙:7:A on 8d5739f {1}
+    └── 📙:7:A
+        ├── ❄ffde79e (🏘️|✓)
+        └── ❄86b55e6 (🏘️|✓)
 
 "#]]
     );
@@ -1000,7 +1003,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 6b20716
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 6b20716
 
 "#]]
     );
@@ -1074,11 +1077,11 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 8d5739f
-└── ≡📙:3:A on 8d5739f {1}
-    └── 📙:3:A
-        ├── ·ffde79e (🏘️|✓)
-        └── ·86b55e6 (🏘️|✓)
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 8d5739f
+└── ≡📙:7:A on 8d5739f {1}
+    └── 📙:7:A
+        ├── ❄ffde79e (🏘️|✓)
+        └── ❄86b55e6 (🏘️|✓)
 
 "#]]
     );
@@ -1133,9 +1136,9 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 8d5739f
-└── ≡📙:3:A on 8d5739f {1}
-    └── 📙:3:A
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣4 on 8d5739f
+└── ≡📙:9:A on 8d5739f {1}
+    └── 📙:9:A
         ├── ·ffde79e (🏘️|✓)
         └── ·86b55e6 (🏘️|✓)
 
@@ -1158,7 +1161,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f27db86
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f27db86
 
 "#]]
     );
@@ -1215,7 +1218,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         },
     )?;
     let mut workspace = graph.into_workspace()?;
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
@@ -1228,7 +1231,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         }],
     )?;
 
-    let preview = rebase.overlayed_graph()?.into_workspace()?;
+    let preview = rebase.overlayed_workspace()?;
     assert_eq!(
         preview.ref_name(),
         Some(branch_2.as_ref()),
@@ -1311,7 +1314,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         },
     )?;
     let mut workspace = graph.into_workspace()?;
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
@@ -1324,7 +1327,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         }],
     )?;
 
-    let preview = rebase.overlayed_graph()?.into_workspace()?;
+    let preview = rebase.overlayed_workspace()?;
     assert_eq!(
         preview.ref_name(),
         Some(branch_2.as_ref()),
@@ -1463,13 +1466,13 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fe9ae6e
-├── ≡:5:anon: on fe9ae6e
-│   └── :5:anon:
-│       └── ·0d97cc1 (🏘️)
-└── ≡📙:4:A on fe9ae6e {1}
-    └── 📙:4:A
-        └── ·90d25da (🏘️)
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fe9ae6e
+├── ≡📙:9:A on fe9ae6e {1}
+│   └── 📙:9:A
+│       └── ·90d25da (🏘️)
+└── ≡:3:anon on fe9ae6e
+    └── :3:anon
+        └── ·0d97cc1 (🏘️)
 
 "#]]
     );
@@ -1489,13 +1492,14 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fe9ae6e
-├── ≡:5:anon: on fe9ae6e
-│   └── :5:anon:
-│       └── ·0d97cc1 (🏘️)
-└── ≡📙:3:A on 20a5ffc {1}
-    └── 📙:3:A
-        └── ·c529875 (🏘️)
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fe9ae6e
+├── ≡📙:9:A on 20a5ffc {1}
+│   ├── 📙:9:A
+│   │   └── ·c529875 (🏘️)
+│   └── :5:main <> origin/main →:6:
+└── ≡:3:anon on fe9ae6e
+    └── :3:anon
+        └── ·0d97cc1 (🏘️)
 
 "#]]
     );
@@ -1670,14 +1674,14 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:3:A on 3183e43 {1}
-│   ├── 📙:3:A
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+├── ≡📙:10:A on 3183e43 {1}
+│   ├── 📙:10:A
 │   │   └── ·44c9428 (🏘️)
-│   └── 📙:5:C
-│       └── ·f1e7451 (🏘️|✓)
-└── ≡📙:4:B on 3183e43 {2}
-    └── 📙:4:B
+│   └── 📙:6:C
+│       └── ·f1e7451 (🏘️|✓) ►origin/main
+└── ≡📙:9:B on 3183e43 {2}
+    └── 📙:9:B
         └── ·b38b04b (🏘️)
 
 "#]]
@@ -1705,12 +1709,12 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f1e7451
-├── ≡📙:3:A on f1e7451 {1}
-│   └── 📙:3:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f1e7451
+├── ≡📙:9:A on f1e7451 {1}
+│   └── 📙:9:A
 │       └── ·44c9428 (🏘️)
-└── ≡📙:4:B on f1e7451 {2}
-    └── 📙:4:B
+└── ≡📙:8:B on f1e7451 {2}
+    └── 📙:8:B
         └── ·a27415e (🏘️)
 
 "#]]
@@ -1776,14 +1780,14 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-├── ≡📙:5:A on 3183e43 {1}
-│   ├── 📙:5:A
-│   │   └── ·44c9428 (🏘️|✓)
-│   └── 📙:3:C
+📕🏘️:9:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+├── ≡📙:6:A on 3183e43 {1}
+│   ├── 📙:6:A
+│   │   └── ·44c9428 (🏘️|✓) ►origin/main
+│   └── 📙:8:C
 │       └── ·f1e7451 (🏘️|✓)
-└── ≡📙:4:B on 3183e43 {2}
-    └── 📙:4:B
+└── ≡📙:10:B on 3183e43 {2}
+    └── 📙:10:B
         └── ·b38b04b (🏘️)
 
 "#]]
@@ -1811,9 +1815,9 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 44c9428
-└── ≡📙:3:B on 44c9428 {2}
-    └── 📙:3:B
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 44c9428
+└── ≡📙:8:B on 44c9428 {2}
+    └── 📙:8:B
         └── ·f59d71f (🏘️)
 
 "#]]
@@ -1882,12 +1886,12 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
-├── ≡📙:4:A on 3183e43 {1}
-│   └── 📙:4:A
+📕🏘️:9:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣4 on 3183e43
+├── ≡📙:10:A on 3183e43 {1}
+│   └── 📙:10:A
 │       └── ·905d6e5 (🏘️|✓)
-└── ≡📙:5:B on 3183e43 {2}
-    └── 📙:5:B
+└── ≡📙:8:B on 3183e43 {2}
+    └── 📙:8:B
         └── ·b38b04b (🏘️|✓)
 
 "#]]
@@ -1915,7 +1919,7 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 5f7d45e
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 5f7d45e
 
 "#]]
     );
@@ -2164,10 +2168,10 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
-└── ≡📙:4:topic <> origin/topic →:5: on 563a7fc {1}
-    └── 📙:4:topic <> origin/topic →:5:
-        └── ❄️6ba217e (🏘️|✓)
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
+└── ≡📙:6:topic <> origin/topic →:7: on 563a7fc {1}
+    └── 📙:6:topic <> origin/topic →:7:
+        └── ❄6ba217e (🏘️|✓) ►origin/topic
 
 "#]]
     );
@@ -2199,10 +2203,10 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
-└── ≡:2:main <> origin/main →:1: on 563a7fc
-    └── :2:main <> origin/main →:1:
-        └── ❄️364a08f (🏘️|✓)
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
+└── ≡:4:main <> origin/main →:5: on 563a7fc
+    └── :4:main <> origin/main →:5:
+        └── ❄364a08f (🏘️|✓) ►origin/main
 
 "#]]
     );
@@ -2267,11 +2271,11 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
-└── ≡📙:4:topic <> origin/topic →:5:⇡1 on 563a7fc {1}
-    └── 📙:4:topic <> origin/topic →:5:⇡1
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
+└── ≡📙:9:topic <> origin/topic →:7:⇡1 on 563a7fc {1}
+    └── 📙:9:topic <> origin/topic →:7:⇡1
         ├── ·f1a3cba (🏘️)
-        └── ❄️6ba217e (🏘️|✓)
+        └── ❄6ba217e (🏘️|✓) ►origin/topic
 
 "#]]
     );
@@ -2303,12 +2307,12 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
-└── ≡📙:4:topic <> origin/topic →:5:⇡1 on 563a7fc {1}
-    ├── 📙:4:topic <> origin/topic →:5:⇡1
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
+└── ≡📙:9:topic <> origin/topic →:7:⇡1 on 563a7fc {1}
+    ├── 📙:9:topic <> origin/topic →:7:⇡1
     │   └── ·f3ceb3d (🏘️)
-    └── :2:main <> origin/main →:1:
-        └── ❄️364a08f (🏘️|✓)
+    └── :5:main <> origin/main →:6:
+        └── ❄364a08f (🏘️|✓) ►origin/main
 
 "#]]
     );
@@ -2372,11 +2376,11 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
-└── ≡📙:7:top <> origin/top →:6: on 563a7fc {1}
-    ├── 📙:7:top <> origin/top →:6:
-    └── 📙:8:bottom <> origin/bottom →:5:
-        └── ❄️141de4f (🏘️|✓)
+📕🏘️:10:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
+└── ≡📙:7:top <> origin/top →:9: on 563a7fc {1}
+    ├── 📙:7:top <> origin/top →:9:
+    └── 📙:6:bottom <> origin/bottom →:8:
+        └── ❄141de4f (🏘️|✓) ►top, ►origin/bottom, ►origin/top
 
 "#]]
     );
@@ -2416,10 +2420,10 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
-└── ≡📙:2:top <> origin/top →:4: on 563a7fc {1}
-    └── 📙:2:top <> origin/top →:4:
-        └── ·334227d (🏘️|✓)
+📕🏘️:9:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
+└── ≡📙:5:top <> origin/top →:8: on 563a7fc {1}
+    └── 📙:5:top <> origin/top →:8:
+        └── ·334227d (🏘️|✓) ►main, ►origin/main
 
 "#]]
     );
@@ -2569,7 +2573,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
         },
     )?;
     let mut workspace = graph.into_workspace()?;
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
 
     let out = integrate_upstream_with_hints(
         &mut workspace,
@@ -2646,19 +2650,19 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-├── ≡📙:3:A on 3183e43 {1}
-│   └── 📙:3:A
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+├── ≡📙:10:A on 3183e43 {1}
+│   └── 📙:10:A
 │       ├── ·ad1d22b (🏘️)
 │       └── ·fe98e29 (🏘️)
-└── ≡📙:4:B on 3183e43 {2}
-    └── 📙:4:B
+└── ≡📙:9:B on 3183e43 {2}
+    └── 📙:9:B
         └── ·b38b04b (🏘️)
 
 "#]]
     );
 
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
 
     let out = integrate_upstream_with_hints(
         &mut workspace,
@@ -2680,9 +2684,9 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡📙:3:B on 3183e43 {2}
-    └── 📙:3:B
+📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡📙:7:B on 3183e43 {2}
+    └── 📙:7:B
         └── ·b38b04b (🏘️)
 
 "#]]
@@ -2761,16 +2765,16 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡:1:A[🌳] on 3183e43 {1}
-    └── :1:A[🌳]
+⌂:6:A <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡👉:6:A[🌳] on 3183e43 {1}
+    └── 👉:6:A[🌳]
         ├── ·ad1d22b
         └── ·fe98e29
 
 "#]]
     );
 
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
 
     let out = integrate_upstream_with_hints(
         &mut workspace,
@@ -2791,10 +2795,12 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:0:amo-branch-1[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡:0:amo-branch-1[🌳] on 3183e43 {1}
-    └── :0:amo-branch-1[🌳]
-        └── ·56057f2
+⌂:2:amo-branch-1 <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡👉:2:amo-branch-1[🌳] on 3183e43 {1}
+    ├── 👉:2:amo-branch-1[🌳]
+    │   └── ❄56057f2 ►origin/main
+    └── :4:main <> origin/main →:3:⇣1
+        └── 🟣56057f2 ►amo-branch-1[🌳], ►origin/main
 
 "#]]
     );
@@ -2864,9 +2870,9 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡📙:3:A on 3183e43 {1}
-    └── 📙:3:A
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡📙:9:A on 3183e43 {1}
+    └── 📙:9:A
         ├── ·f015e95 (🏘️)
         ├── ·ad1d22b (🏘️)
         └── ·fe98e29 (🏘️)
@@ -2893,9 +2899,9 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e2f5892
-└── ≡📙:3:A on e2f5892 {1}
-    └── 📙:3:A
+📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e2f5892
+└── ≡📙:7:A on e2f5892 {1}
+    └── 📙:7:A
         └── ·92f1780 (🏘️)
 
 "#]]
@@ -2963,9 +2969,9 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡:1:A[🌳] on 3183e43 {1}
-    └── :1:A[🌳]
+⌂:7:A <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡👉:7:A[🌳] on 3183e43 {1}
+    └── 👉:7:A[🌳]
         ├── ·f015e95
         ├── ·ad1d22b
         └── ·fe98e29
@@ -2973,7 +2979,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
 "#]]
     );
 
-    let current_project_meta = workspace.graph.project_meta.clone();
+    let current_project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
         project_meta: updated_project_meta,
@@ -3010,10 +3016,11 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:1:A[🌳] <> ✓refs/remotes/origin/main on e2f5892
-└── ≡:1:A[🌳] on e2f5892 {1}
-    └── :1:A[🌳]
-        └── ·92f1780
+⌂:5:A <> ✓refs/remotes/origin/main on e2f5892
+└── ≡👉:5:A[🌳] on e2f5892 {1}
+    ├── 👉:5:A[🌳]
+    │   └── ·92f1780
+    └── :3:origin/main →:4:
 
 "#]]
     );
@@ -3071,7 +3078,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         },
     )?;
     let mut workspace = graph.into_workspace()?;
-    let project_meta = workspace.graph.project_meta.clone();
+    let project_meta = workspace.graph.project_meta().clone();
 
     let out = integrate_upstream_with_hints(
         &mut workspace,

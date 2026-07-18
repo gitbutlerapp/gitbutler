@@ -5,7 +5,7 @@ use but_testsupport::visualize_commit_graph_all;
 use snapbox::IntoData;
 
 use crate::init::{read_only_in_memory_scenario, standard_options};
-use crate::support::graph_dag;
+use but_testsupport::graph_tree;
 
 #[test]
 fn drop_and_add_regular_refs() -> anyhow::Result<()> {
@@ -39,28 +39,30 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
 ◎  main
+│ ◎  👉merged[🌳]
+│ ●    ·8a6c109 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │    ·62b409a (⌂)
+│ ├───╮
+│ ● │ │  ·592abec (⌂)
+├─╯ │ │
+│   │ ◎  B
+│   │ ●  ·f16dddf (⌂)
+├─────╯
+│   ◎  C
+│   ●  ·7ed512a (⌂)
+│ ╭─┤
+│ │ ●  ·35ee481 (⌂)
+├───╯
+│ ◎  D
+│ ●  ·ecb1877 (⌂)
+├─╯
 ●  🏁·965998b (⌂)
+
 "#]]
     );
 
@@ -77,28 +79,30 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
     let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ◎ │  new-reference
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
 ◎  main
+│ ◎  👉merged[🌳]
+│ ●    ·8a6c109 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │    ·62b409a (⌂)
+│ ├───╮
+│ ● │ │  ·592abec (⌂)
+├─╯ │ │
+│   │ ◎  B
+│   │ ●  ·f16dddf (⌂)
+├─────╯
+│   ●  ·7ed512a (⌂)
+│ ╭─┤
+│ │ ◎  new-reference
+│ │ ●  ·35ee481 (⌂)
+├───╯
+│ ◎  D
+│ ●  ·ecb1877 (⌂)
+├─╯
 ●  🏁·965998b (⌂)
+
 "#]]
     );
 
@@ -137,28 +141,30 @@ fn drop_head_ref() -> anyhow::Result<()> {
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
 ◎  main
+│ ◎  👉merged[🌳]
+│ ●    ·8a6c109 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │    ·62b409a (⌂)
+│ ├───╮
+│ ● │ │  ·592abec (⌂)
+├─╯ │ │
+│   │ ◎  B
+│   │ ●  ·f16dddf (⌂)
+├─────╯
+│   ◎  C
+│   ●  ·7ed512a (⌂)
+│ ╭─┤
+│ │ ●  ·35ee481 (⌂)
+├───╯
+│ ◎  D
+│ ●  ·ecb1877 (⌂)
+├─╯
 ●  🏁·965998b (⌂)
+
 "#]]
     );
 
@@ -167,7 +173,7 @@ fn drop_head_ref() -> anyhow::Result<()> {
     let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ●    👉·8a6c109 (⌂)
 ├─╮
@@ -186,8 +192,10 @@ fn drop_head_ref() -> anyhow::Result<()> {
 │   ◎  D
 │   ●  ·ecb1877 (⌂)
 ├───╯
-◎  main
+│ ◎  main
+├─╯
 ●  🏁·965998b (⌂)
+
 "#]]
     );
 
@@ -226,28 +234,30 @@ fn overriding_references() -> anyhow::Result<()> {
         standard_options(),
     )?;
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂)
-├───╮
-● │ │  ·592abec (⌂)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂)
-│ ├─╮
-│ ● │  ·35ee481 (⌂)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂)
-├───╯
 ◎  main
+│ ◎  👉merged[🌳]
+│ ●    ·8a6c109 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │    ·62b409a (⌂)
+│ ├───╮
+│ ● │ │  ·592abec (⌂)
+├─╯ │ │
+│   │ ◎  B
+│   │ ●  ·f16dddf (⌂)
+├─────╯
+│   ◎  C
+│   ●  ·7ed512a (⌂)
+│ ╭─┤
+│ │ ●  ·35ee481 (⌂)
+├───╯
+│ ◎  D
+│ ●  ·ecb1877 (⌂)
+├─╯
 ●  🏁·965998b (⌂)
+
 "#]]
     );
 
@@ -274,7 +284,7 @@ fn overriding_references() -> anyhow::Result<()> {
     let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ●    👉·8a6c109 (⌂)
 ├─╮
@@ -293,8 +303,10 @@ fn overriding_references() -> anyhow::Result<()> {
 │   ◎  D
 │   ●  ·ecb1877 (⌂)
 ├───╯
-◎  main
+│ ◎  main
+├─╯
 ●  🏁·965998b (⌂)
+
 "#]]
     );
 
@@ -315,7 +327,7 @@ fn overriding_references() -> anyhow::Result<()> {
     let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ●    👉·8a6c109 (⌂)
 ├─╮
@@ -335,8 +347,10 @@ fn overriding_references() -> anyhow::Result<()> {
 │   ◎  D
 │   ●  ·ecb1877 (⌂)
 ├───╯
-◎  main
+│ ◎  main
+├─╯
 ●  🏁·965998b (⌂)
+
 "#]]
     );
 
@@ -350,7 +364,7 @@ fn overriding_references() -> anyhow::Result<()> {
     let graph = graph.redo_traversal_with_overlay(&repo, &*meta, overlay)?;
 
     snapbox::assert_data_eq!(
-        graph_dag(&graph),
+        graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ●    👉·8a6c109 (⌂)
 ├─╮
@@ -370,8 +384,10 @@ fn overriding_references() -> anyhow::Result<()> {
 │   ◎  D
 │   ●  ·ecb1877 (⌂)
 ├───╯
-◎  main
+│ ◎  main
+├─╯
 ●  🏁·965998b (⌂)
+
 "#]]
     );
 

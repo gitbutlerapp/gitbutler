@@ -92,9 +92,9 @@ Use it for state/query questions such as:
 
 Caveats:
 
-- The graph is segment/bucket based because older UI concerns influenced it.
+- The graph is vector-backed, with commits and references represented as nodes and parent relationships stored as node indexes.
 - It can encode ordering information Git itself does not represent, especially around refs.
-- Merge parent order may not always be reliable; be careful with first-parent traversal or UI that assumes the first parent is the mainline.
+- Commit parent indexes preserve Git parent order; do not reorder them when traversing or projecting first-parent state.
 
 ## Workspace projection and refinfo
 
@@ -130,7 +130,7 @@ Important graph editor concepts:
 - none step (`but_rebase::graph_rebase::Step::None`) — placeholder after removing a pick/ref.
 - `Editor::rebase()` — materializes the edited graph back into Git objects and ref edits.
 
-The graph editor is not merely “a rebase command.” It is the in-memory graph mutation layer for history and ref-placement rewrites. It is currently created from a mutable workspace projection, so projection may be involved in editor setup even when the mutation decision should be graph-shaped.
+The graph editor is not merely “a rebase command.” It is the in-memory graph mutation layer for history and ref-placement rewrites. It is created directly from the node graph held by `but_graph::Workspace`; the workspace wrapper remains involved so edited refs can be retraversed and projected after materialization.
 
 ## Push and upstream integration
 
@@ -195,7 +195,7 @@ Ask this for both read/query code and mutation code:
 ## Examples / starting points
 
 - Graph construction and workspace projection: `crates/but-graph/tests/graph/init/with_workspace.rs`, especially `workspace_with_stack_and_local_target()` and `workspace_projection_with_advanced_stack_tip()`, shows `Graph::from_head()`, `validated()`, `into_workspace()`, and snapshot-backed graph/projection expectations.
-- Target ref and target commit semantics: `crates/but-graph/tests/graph/workspace/resolved_target_commit_id.rs`, especially `prefers_target_commit_over_target_ref()` and `returns_none_with_only_extra_target()`, shows cases where target commit metadata, target refs, and extra traversal targets intentionally differ.
-- Graph editor mutation patterns: `crates/but-rebase/tests/rebase/graph_rebase/replace.rs` and `crates/but-rebase/tests/rebase/graph_rebase/insert.rs` show selecting commits, replacing/inserting steps, checking `overlayed_graph()`, and materializing once.
+- Target ref and target commit semantics: `crates/but-graph/tests/graph/init/with_workspace.rs` covers cases where target commit metadata, target refs, and extra traversal targets intentionally differ.
+- Graph editor mutation patterns: `crates/but-rebase/tests/rebase/graph_rebase/replace.rs` and `crates/but-rebase/tests/rebase/graph_rebase/insert.rs` show selecting commits, replacing/inserting steps, checking `overlayed_workspace()?.graph`, and materializing once.
 - Workspace mutation call sites layered over the graph editor: `crates/but-workspace/tests/workspace/commit/move_commit.rs` shows creating an editor, calling `but_workspace::commit::move_commit`, materializing, refreshing workspace state, and asserting ref movement.
 - Normal Git / single-branch presentation behavior: `crates/but-workspace/tests/workspace/ref_info/mod.rs`, especially `single_branch()` and `single_branch_multiple_segments()`, shows unmanaged/non-workspace `RefInfo` behavior and legacy stack compatibility expectations.

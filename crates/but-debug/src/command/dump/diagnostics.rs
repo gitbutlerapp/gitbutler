@@ -87,7 +87,7 @@ impl Diagnostics {
         err: &mut dyn io::Write,
     ) -> Result<Self> {
         let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
-        let dot_graph = ws.graph.dot_graph_pruned();
+        let dot_graph = crate::command::graph::node_graph_dot(&ws.graph);
         let workspace_debug = format!("{ws:#?}\n");
 
         let mut files = vec![

@@ -24,14 +24,16 @@ pub fn worktree_conflicts_for_rebase<M: RefMetadata>(
         return Ok(Vec::new());
     }
 
-    let preview_workspace = rebase.overlayed_graph()?.into_workspace()?;
-    let resulting_head = preview_workspace
-        .graph
-        .entrypoint()?
-        .commit()
-        .context("Cannot compute worktree conflicts without a resulting workspace head")?;
+    let preview_workspace = rebase.overlayed_workspace()?;
+    let resulting_head = match preview_workspace.graph.entrypoint() {
+        but_graph::NodeGraphEntrypoint::Node(index) => {
+            crate::workspace::node_commit_id(&preview_workspace.graph, *index)
+        }
+        but_graph::NodeGraphEntrypoint::Unborn(_) => None,
+    }
+    .context("Cannot compute worktree conflicts without a resulting workspace head")?;
     let resulting_head_tree =
-        Commit::from_id(resulting_head.id.attach(repo))?.tree_id_or_auto_resolution()?;
+        Commit::from_id(resulting_head.attach(repo))?.tree_id_or_auto_resolution()?;
 
     let (merge_options, _) = repo.merge_options_no_rewrites_fail_fast()?;
     let conflict_kind = TreatAsUnresolved::git();

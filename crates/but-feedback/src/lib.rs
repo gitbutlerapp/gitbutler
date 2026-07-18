@@ -1,10 +1,11 @@
 //! Provide utilities for creating archives for letting users provide feedback.
 #![deny(missing_docs)]
-use std::path::PathBuf;
+use std::{fmt::Write as _, path::PathBuf};
 
 use anyhow::Result;
 use but_core::RefMetadata;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_graph::{Graph, NodeGraphEntrypoint, NodeKind, ReferenceMetadata};
 
 /// A utility to keep important paths to make archival/zip-file creation easier later.
 pub struct Archival {
@@ -39,21 +40,21 @@ impl Archival {
         meta: &impl RefMetadata,
     ) -> Result<PathBuf> {
         let project_meta = but_core::ref_metadata::ProjectMeta::resolve(repo, meta)?;
-        let mut graph =
-            but_graph::Graph::from_head(repo, meta, project_meta.clone(), Default::default())
-                .or_else(|_| {
-                    but_graph::Graph::from_head(
-                        repo,
-                        meta,
-                        project_meta,
-                        but_graph::init::Options {
-                            // Assume it fails because of post-processing, try again without.
-                            dangerously_skip_postprocessing_for_debugging: true,
-                            ..Default::default()
-                        },
-                    )
-                })?;
-        let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph_pruned();
+        let options = but_graph::init::Options::default().with_hard_limit(5000);
+        let graph =
+            Graph::from_head(repo, meta, project_meta.clone(), options.clone()).or_else(|_| {
+                Graph::from_head(
+                    repo,
+                    meta,
+                    project_meta,
+                    but_graph::init::Options {
+                        // Preserve the diagnostic even if reference placement fails.
+                        dangerously_skip_postprocessing_for_debugging: true,
+                        ..options
+                    },
+                )
+            })?;
+        let dot_file_contents = anonymous_dot(&graph);
         let output_file = self.cache_dir.join(format!(
             "commit-graph-anon-{date}.zip",
             date = filesafe_date_time()
@@ -68,6 +69,67 @@ impl Archival {
             .join(format!("logs-{date}.zip", date = filesafe_date_time()));
         create_zip_file_from_dir(&self.logs_dir, output_file)
     }
+}
+
+fn anonymous_dot(graph: &Graph) -> String {
+    let mut out = String::from("digraph {\n  node [shape=box, fontname=Courier];\n");
+    for (index, node) in graph.nodes().iter().enumerate() {
+        let entrypoint = matches!(
+            graph.entrypoint(),
+            NodeGraphEntrypoint::Node(entrypoint) if *entrypoint == index
+        );
+        let label = match node.kind() {
+            NodeKind::Commit { id } => {
+                let flags = graph.annotations()[index].debug_string(None);
+                let flags = if flags.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({flags})")
+                };
+                format!(
+                    "{}{}{flags}",
+                    if entrypoint { "👉" } else { "" },
+                    id.to_hex_with_len(7),
+                )
+            }
+            NodeKind::Reference(reference) => format!(
+                "{}{}{kind}-{index}{remote}",
+                if entrypoint { "👉" } else { "" },
+                match reference.metadata {
+                    Some(ReferenceMetadata::Workspace(_)) => "📕",
+                    Some(ReferenceMetadata::Branch(_)) => "📙",
+                    None => "",
+                },
+                kind = match reference.ref_info.ref_name.category() {
+                    Some(gix::refs::Category::LocalBranch) => "local",
+                    Some(gix::refs::Category::RemoteBranch) => "remote",
+                    Some(gix::refs::Category::Tag) => "tag",
+                    _ => "ref",
+                },
+                remote = reference
+                    .remote_tracking_ref_name
+                    .as_ref()
+                    .map(|_| " <> tracking")
+                    .unwrap_or_default(),
+            ),
+            NodeKind::ShallowPoint { id, reason } => format!(
+                "{}{} shallow",
+                reason.debug_string(graph.hard_limit_hit()),
+                id.to_hex_with_len(7),
+            ),
+        };
+        writeln!(out, "  {index} [label=\"{label}\"];").expect("writing to a string cannot fail");
+        for (order, parent) in node.parents().iter().enumerate() {
+            writeln!(out, "  {index} -> {parent} [label=\"{order}\"];")
+                .expect("writing to a string cannot fail");
+        }
+    }
+    if graph.nodes().is_empty() && matches!(graph.entrypoint(), NodeGraphEntrypoint::Unborn(_)) {
+        writeln!(out, "  unborn [label=\"👉unborn-ref\"];")
+            .expect("writing to a string cannot fail");
+    }
+    out.push_str("}\n");
+    out
 }
 
 mod zip;

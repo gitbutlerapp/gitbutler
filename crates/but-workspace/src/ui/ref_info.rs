@@ -106,7 +106,7 @@ impl Target {
     fn for_ui(
         but_graph::workspace::TargetRef {
             ref_name,
-            segment_index: _,
+            node_index: _,
             commits_ahead,
         }: but_graph::workspace::TargetRef,
         remote_names: &gix::remote::Names,

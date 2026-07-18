@@ -146,8 +146,15 @@ pub fn create_reference_with_perm(
     }
 
     let stack_id = new_ws
-        .find_segment_and_stack_by_refname(new_ref.as_ref())
-        .and_then(|(stack, _)| stack.id);
+        .stacks
+        .iter()
+        .find(|stack| {
+            stack
+                .segments
+                .iter()
+                .any(|segment| segment.ref_name() == Some(new_ref.as_ref()))
+        })
+        .and_then(|stack| stack.id);
 
     *ws = new_ws.into_owned();
     Ok((stack_id, new_ref))
@@ -175,7 +182,11 @@ pub fn create_branch(
         .ok();
 
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
-    let stack = ws.try_find_stack_by_id(stack_id)?;
+    let stack = ws
+        .stacks
+        .iter()
+        .find(|stack| stack.id == Some(stack_id))
+        .with_context(|| format!("Could not find stack with ID {stack_id:?}"))?;
     if request.preceding_head.is_some() {
         return Err(anyhow!(
             "BUG: cannot have preceding head name set - let's use the new API instead"
@@ -198,7 +209,7 @@ pub fn create_branch(
                 )
                 .or_else(|| {
                     Some(but_workspace::branch::create_reference::Anchor::AtCommit {
-                        commit_id: ws.tip_commit_by_segment_id(segment.id)?.id,
+                        commit_id: segment.tip()?,
                         position: Above,
                     })
                 })

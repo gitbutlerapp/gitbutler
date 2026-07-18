@@ -303,8 +303,15 @@ impl App {
 
         let stack_id = {
             let (_guard, _, ws, _) = ctx.workspace_and_db()?;
-            ws.find_commit_and_containers(*commit_id)
-                .and_then(|(stack, _, _)| stack.id)
+            ws.stacks
+                .iter()
+                .find(|stack| {
+                    stack
+                        .segments
+                        .iter()
+                        .any(|segment| segment.commits.iter().any(|commit| commit.id == *commit_id))
+                })
+                .and_then(|stack| stack.id)
         };
 
         let source = if let Some(stack_id) = stack_id

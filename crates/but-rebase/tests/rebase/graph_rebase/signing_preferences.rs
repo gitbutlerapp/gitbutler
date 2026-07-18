@@ -42,19 +42,20 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     editor.replace(c_sel, Step::Pick(pick))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·dd72792 (⌂|1) ►c
-        └── ►:1[1]:b
-            └── ·e5aa7b5 (⌂|1)
-                └── ►:2[2]:a
-                    └── ·3bfeb52 (⌂|1)
-                        └── ►:3[3]:base
-                            └── 🏁·b6e2f57 (⌂|1)
+◎  c
+│ ◎  👉main[🌳]
+├─╯
+●  ·dd72792 (⌂)
+◎  b
+●  ·e5aa7b5 (⌂)
+◎  a
+●  ·3bfeb52 (⌂)
+◎  base
+●  🏁·b6e2f57 (⌂)
 
 "#]]
     );
@@ -98,16 +99,21 @@ fn commits_are_signed_by_default() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·06106c2 (⌂|1) ►c
-    └── ·3bfeb52 (⌂|1) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·b6e2f57 (⌂|1)
+◎  a
+│ ◎  b
+├─╯
+│ ◎  c
+│ │ ◎  👉main[🌳]
+│ ├─╯
+│ ●  ·06106c2 (⌂)
+├─╯
+●  ·3bfeb52 (⌂)
+◎  base
+●  🏁·b6e2f57 (⌂)
 
 "#]]
     );
@@ -195,16 +201,21 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·a773b84 (⌂|1) ►c
-    └── ·3bfeb52 (⌂|1) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·b6e2f57 (⌂|1)
+◎  a
+│ ◎  b
+├─╯
+│ ◎  c
+│ │ ◎  👉main[🌳]
+│ ├─╯
+│ ●  ·a773b84 (⌂)
+├─╯
+●  ·3bfeb52 (⌂)
+◎  base
+●  🏁·b6e2f57 (⌂)
 
 "#]]
     );

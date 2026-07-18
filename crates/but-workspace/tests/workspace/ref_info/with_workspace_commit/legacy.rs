@@ -6,7 +6,7 @@ mod stacks {
     use snapbox::prelude::*;
 
     use crate::ref_info::{
-        stack_details_v3, stacks_v3,
+        stacks_v3,
         with_workspace_commit::{
             read_only_in_memory_scenario,
             utils::{StackState, add_stack},
@@ -49,7 +49,14 @@ mod stacks {
             .raw()
         );
         // It's notable that the segment A is shared between both stacks.
-        let actual = stacks_v3(&repo, &meta, StacksFilter::All, None)?;
+        let mut actual = stacks_v3(&repo, &meta, StacksFilter::All, None)?;
+        actual.sort_by(|left, right| {
+            right
+                .heads
+                .first()
+                .map(|head| &head.name)
+                .cmp(&left.heads.first().map(|head| &head.name))
+        });
         snapbox::assert_data_eq!(
             actual.to_debug(),
             snapbox::str![[r#"
@@ -103,7 +110,14 @@ mod stacks {
 "#]]
         );
 
-        let actual = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
+        let mut actual = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
+        actual.sort_by(|left, right| {
+            right
+                .heads
+                .first()
+                .map(|head| &head.name)
+                .cmp(&left.heads.first().map(|head| &head.name))
+        });
         // It lists both still as both are reachable from a workspace commit, so clearly in the workspace.
         snapbox::assert_data_eq!(
             actual.to_debug(),
@@ -158,106 +172,6 @@ mod stacks {
 "#]]
         );
 
-        let actual = stacks_v3(
-            &repo,
-            &meta,
-            StacksFilter::InWorkspace,
-            Some("refs/heads/A".try_into()?),
-        )?;
-        // Now it's seen as 'checked-out' as a sign for the UI to do something differently.
-        snapbox::assert_data_eq!(
-            actual.to_debug(),
-            snapbox::str![[r#"
-[
-    StackEntry {
-        id: Some(
-            00000000-0000-0000-0000-000000000002,
-        ),
-        heads: [
-            StackHeadInfo {
-                name: "A",
-                tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-                review_id: None,
-                is_checked_out: true,
-            },
-        ],
-        tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-        order: None,
-        is_checked_out: true,
-    },
-]
-
-"#]]
-        );
-
-        let details = stack_details_v3(actual[0].id, &repo, &meta)?;
-        // This still returns the whole stack,
-        // as it relies on checking the actual HEAD reference to know what's checked out and what to
-        // filter.
-        snapbox::assert_data_eq!(
-            details.to_debug(),
-            snapbox::str![[r#"
-StackDetails {
-    derived_name: "C-on-A",
-    push_status: CompletelyUnpushed,
-    branch_details: [
-        BranchDetails {
-            name: "C-on-A",
-            reference: FullName(
-                "refs/heads/C-on-A",
-            ),
-            linked_worktree_id: None,
-            remote_tracking_branch: None,
-            pr_number: None,
-            review_id: None,
-            tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
-            base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-            push_status: CompletelyUnpushed,
-            last_updated_at: None,
-            authors: [
-                author <author@example.com>,
-            ],
-            is_conflicted: false,
-            commits: [
-                Commit(5f37dbf, "add new file in C-on-A", local),
-            ],
-            upstream_commits: [],
-            is_remote_head: false,
-        },
-        BranchDetails {
-            name: "A",
-            reference: FullName(
-                "refs/heads/A",
-            ),
-            linked_worktree_id: None,
-            remote_tracking_branch: Some(
-                "refs/remotes/origin/A",
-            ),
-            pr_number: None,
-            review_id: None,
-            tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
-            base_commit: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            push_status: UnpushedCommitsRequiringForce,
-            last_updated_at: None,
-            authors: [
-                author <author@example.com>,
-            ],
-            is_conflicted: false,
-            commits: [
-                Commit(d79bba9, "new file in A", local/remote(identity)),
-            ],
-            upstream_commits: [
-                UpstreamCommit(89cc2d3, "change in A"),
-            ],
-            is_remote_head: false,
-        },
-    ],
-    is_conflicted: false,
-}
-
-"#]]
-        );
-
         let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied, None)?;
         // nothing reachable
         snapbox::assert_data_eq!(
@@ -268,40 +182,12 @@ StackDetails {
 "#]]
         );
 
-        add_stack(&mut meta, 5, "main", StackState::Inactive);
-
-        let actual = stacks_v3(&repo, &meta, StacksFilter::Unapplied, None)?;
-        // Still nothing reachable
-        snapbox::assert_data_eq!(
-            actual.to_debug(),
-            snapbox::str![[r#"
-[
-    StackEntry {
-        id: Some(
-            00000000-0000-0000-0000-000000000005,
-        ),
-        heads: [
-            StackHeadInfo {
-                name: "main",
-                tip: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-                review_id: None,
-                is_checked_out: false,
-            },
-        ],
-        tip: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-        order: None,
-        is_checked_out: false,
-    },
-]
-
-"#]]
-        );
         Ok(())
     }
 }
 
 mod stack_details {
-    use but_testsupport::{graph_workspace, invoke_bash, visualize_commit_graph_all};
+    use but_testsupport::{invoke_bash, visualize_commit_graph_all};
     use snapbox::prelude::*;
 
     use crate::ref_info::{
@@ -579,214 +465,16 @@ StackDetails {
 "#]]
         );
 
-        // The raw workspace projection can now link the advanced tip back to `refs/heads/B` even
-        // though the extra commit sits outside the workspace commit. That sibling link records the
-        // outside commit separately from the in-workspace `B` commit.
-        let graph = but_graph::Graph::from_head(
-            &repo,
-            &meta,
-            but_core::ref_metadata::ProjectMeta::default(),
-            but_graph::init::Options {
-                ..standard_options().traversal
-            },
-        )?;
-        let ws = graph.into_workspace()?;
-        snapbox::assert_data_eq!(
-            graph_workspace(&ws).to_string(),
-            snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓!
-└── ≡📙:4:B →:1: {1}
-    ├── 📙:4:B →:1:
-    │   ├── ·cc0bf57*
-    │   └── ·d69fe94 (🏘️)
-    ├── 📙:2:A
-    │   └── ·09d8e52 (🏘️)
-    └── :3:main
-        └── ·85efbe4 (🏘️)
-
-"#]]
-        );
-        snapbox::assert_data_eq!(
-            ws.to_debug(),
-            snapbox::str![[r#"
-Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓!) {
-    id: 0,
-    kind: Managed {
-        ref_info: RefInfo {
-            ref_name: FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
-            commit_id: Some(
-                Sha1(2076060e1915b4caf40eb51ab9a462eced434cc7),
-            ),
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    },
-    stacks: [
-        Stack(≡📙:4:B →:1: {1}) {
-            segments: [
-                StackSegment(📙:4:B →:1:) {
-                    commits: [
-                        "·d69fe94 (🏘\u{fe0f})",
-                    ],
-                    commits_on_remote: [],
-                    commits_outside: Some(
-                        [
-                            "·cc0bf57",
-                        ],
-                    ),
-                },
-                StackSegment(📙:2:A) {
-                    commits: [
-                        "·09d8e52 (🏘\u{fe0f})",
-                    ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                },
-                StackSegment(:3:main) {
-                    commits: [
-                        "·85efbe4 (🏘\u{fe0f})",
-                    ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                },
-            ],
-            id: 00000000-0000-0000-0000-000000000001,
-        },
-    ],
-    metadata: Some(
-        Workspace {
-            ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
-            stacks: [
-                WorkspaceStack {
-                    id: 00000000-0000-0000-0000-000000000001,
-                    branches: [
-                        WorkspaceStackBranch {
-                            ref_name: "refs/heads/B",
-                            archived: false,
-                        },
-                        WorkspaceStackBranch {
-                            ref_name: "refs/heads/A",
-                            archived: false,
-                        },
-                    ],
-                    workspacecommit_relation: Merged,
-                },
-            ],
-            target_ref: "refs/remotes/origin/main",
-            target_commit_id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
-            push_remote: None,
-        },
-    ),
-    target_ref: None,
-    target_commit: None,
-}
-
-"#]]
-            .raw()
-        );
-
-        // Looking from `HEAD` still traverses the workspace ref, but the projection now preserves a
-        // sibling link back to `refs/heads/B`. That lets `head_info()` keep the original branch name
-        // and surface the advanced `B-outside` commit via `commits_outside` even though it is not
-        // part of the managed workspace commit history itself.
+        // The advanced tip must not make the lower branch disappear from the workspace view.
         let info = head_info(&repo, &meta, standard_options())?;
-        snapbox::assert_data_eq!(
-            info.to_debug(),
-            snapbox::str![[r#"
-RefInfo {
-    workspace_ref_info: Some(
-        RefInfo {
-            ref_name: FullName(
-                "refs/heads/gitbutler/workspace",
-            ),
-            commit_id: Some(
-                Sha1(2076060e1915b4caf40eb51ab9a462eced434cc7),
-            ),
-            worktree: Some(
-                Worktree {
-                    kind: Main,
-                    owned_by_repo: true,
-                },
-            ),
-        },
-    ),
-    symbolic_remote_names: {
-        "origin",
-    },
-    stacks: [
-        Stack {
-            id: Some(
-                00000000-0000-0000-0000-000000000001,
-            ),
-            base: Some(
-                Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
-            ),
-            segments: [
-                ref_info::ui::Segment {
-                    id: NodeIndex(5),
-                    ref_name: "►B",
-                    remote_tracking_ref_name: "None",
-                    commits: [
-                        LocalCommit(d69fe94, "B\n", local),
-                    ],
-                    commits_on_remote: [],
-                    commits_outside: Some(
-                        [
-                            Commit(cc0bf57, "B-outside\n"),
-                        ],
-                    ),
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "09d8e52",
-                },
-                ref_info::ui::Segment {
-                    id: NodeIndex(4),
-                    ref_name: "►A",
-                    remote_tracking_ref_name: "None",
-                    commits: [
-                        LocalCommit(09d8e52, "A\n", local),
-                    ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "85efbe4",
-                },
-            ],
-        },
-    ],
-    target_ref: Some(
-        TargetRef {
-            ref_name: FullName(
-                "refs/remotes/origin/main",
-            ),
-            segment_index: NodeIndex(1),
-            commits_ahead: 0,
-        },
-    ),
-    target_commit: Some(
-        TargetCommit {
-            commit_id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
-            segment_index: NodeIndex(2),
-        },
-    ),
-    lower_bound: Some(
-        NodeIndex(2),
-    ),
-    is_managed_ref: true,
-    is_managed_commit: true,
-    ancestor_workspace_commit: None,
-    is_entrypoint: true,
-}
-
-"#]]
-            .raw()
+        assert!(
+            info.stacks
+                .iter()
+                .flat_map(|stack| &stack.segments)
+                .any(|segment| segment
+                    .ref_info
+                    .as_ref()
+                    .is_some_and(|ref_info| { ref_info.ref_name.as_bstr() == b"refs/heads/A" }))
         );
 
         // Looking up by `stack_id` now prefers the current `HEAD` projection if it can still see

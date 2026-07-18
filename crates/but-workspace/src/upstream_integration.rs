@@ -17,6 +17,7 @@ use but_rebase::{
 use crate::changeset::compute_similarity_by_commit_ids;
 use crate::graph_manipulation::traverse_nodes;
 use crate::resolve_tracking_branch_ref_name;
+use crate::workspace::node_commit_id;
 
 /// Whether a bottom most commit should be rebased, or a merge commit should be
 /// created at the top of the commit run.
@@ -183,11 +184,15 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         .context("Cannot update a workspace with no target ref")?;
     let target_ref_commit = repo.find_reference(&target_ref.ref_name)?.id();
 
-    let entrypoint = workspace.graph.entrypoint()?;
-    let head_commit = entrypoint
-        .commit()
+    let entrypoint = match workspace.graph.entrypoint() {
+        but_graph::NodeGraphEntrypoint::Node(index) => *index,
+        but_graph::NodeGraphEntrypoint::Unborn(_) => {
+            bail!("Cannot update workspace without head commit")
+        }
+    };
+    let head_commit_id = node_commit_id(&workspace.graph, entrypoint)
         .context("Cannot update workspace without head commit")?;
-    let head_commit = repo.find_commit(head_commit.id)?;
+    let head_commit = repo.find_commit(head_commit_id)?;
     let head_commit_id = head_commit.id;
     let head_is_workspace_commit = is_managed_workspace_by_message(head_commit.message_raw()?);
     let direct_checkout_head_ref_name = if head_is_workspace_commit {
@@ -195,15 +200,28 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     } else {
         repo.head_name()?
     };
+    let segment_local_refs = workspace
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .filter_map(|segment| segment.ref_name())
+        .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+        .map(ToOwned::to_owned)
+        .collect::<HashSet<_>>();
     let operational_local_refs = workspace
         .graph
-        .segments()
-        .flat_map(|segment_id| {
-            let segment = &workspace.graph[segment_id];
-            segment.commits.iter().flat_map(|commit| commit.refs.iter())
+        .nodes()
+        .iter()
+        .filter_map(|node| match node.kind() {
+            but_graph::NodeKind::Reference(reference)
+                if reference.ref_info.ref_name.category()
+                    == Some(gix::refs::Category::LocalBranch) =>
+            {
+                (!segment_local_refs.contains(&reference.ref_info.ref_name))
+                    .then(|| reference.ref_info.ref_name.clone())
+            }
+            _ => None,
         })
-        .filter(|reference| reference.ref_name.category() == Some(gix::refs::Category::LocalBranch))
-        .map(|reference| reference.ref_name.clone())
         .collect::<HashSet<_>>();
 
     let mut editor = Editor::create_with_opts(

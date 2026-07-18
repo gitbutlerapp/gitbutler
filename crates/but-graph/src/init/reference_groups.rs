@@ -207,7 +207,7 @@ fn validate_groups(graph: &NodeGraph, groups: &[ReferenceGroup]) -> Result<()> {
             );
             let is_workspace = matches!(
                 grouped.reference.metadata,
-                Some(crate::SegmentMetadata::Workspace(_))
+                Some(crate::ReferenceMetadata::Workspace(_))
             );
             if grouped.parents.len() > 1 {
                 ensure!(
@@ -342,7 +342,7 @@ fn entrypoint_ref(graph: &NodeGraph) -> Option<(gix::refs::FullName, gix::Object
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{RefInfo, SegmentMetadata, init, node::ConstructionContext};
+    use crate::{RefInfo, ReferenceMetadata, init, node::ConstructionContext};
 
     fn oid(value: u8) -> gix::ObjectId {
         let hex = format!("{value:040x}");
@@ -441,7 +441,7 @@ mod tests {
     fn applies_workspace_reference_fan_out() -> Result<()> {
         let id = oid(1);
         let mut workspace = reference("refs/heads/gitbutler/workspace", id);
-        workspace.metadata = Some(SegmentMetadata::Workspace(Default::default()));
+        workspace.metadata = Some(ReferenceMetadata::Workspace(Default::default()));
         let graph = apply_reference_groups(
             graph(vec![commit(id, vec![])], 0, None),
             vec![ReferenceGroup {
@@ -482,7 +482,7 @@ mod tests {
         let base = oid(1);
         let workspace_id = oid(2);
         let mut workspace = reference("refs/heads/gitbutler/workspace", workspace_id);
-        workspace.metadata = Some(SegmentMetadata::Workspace(Default::default()));
+        workspace.metadata = Some(ReferenceMetadata::Workspace(Default::default()));
         let graph = apply_reference_groups(
             graph(
                 vec![commit(base, vec![]), commit(workspace_id, vec![0])],
@@ -548,7 +548,7 @@ mod tests {
         );
 
         let mut workspace = reference("refs/heads/gitbutler/workspace", id);
-        workspace.metadata = Some(SegmentMetadata::Workspace(Default::default()));
+        workspace.metadata = Some(ReferenceMetadata::Workspace(Default::default()));
         let missing_target = ReferenceGroup {
             parent: 0,
             references: vec![

@@ -96,7 +96,6 @@ pub mod merge {
         RepositoryExt,
         ref_metadata::{MaybeDebug, WorkspaceCommitRelation},
     };
-    use but_graph::SegmentIndex;
     use gix::prelude::ObjectIdExt;
     use tracing::instrument;
 
@@ -111,8 +110,6 @@ pub mod merge {
         pub name: Option<gix::refs::FullName>,
         /// The commit that should be merged into the workspace commit.
         pub commit_id: gix::ObjectId,
-        /// The index to the top-most segment of the stack in the graph for use in merge-base computation.
-        pub segment_idx: SegmentIndex,
     }
 
     /// Tips resolved from workspace metadata, with references that metadata mentioned but the graph
@@ -179,7 +176,7 @@ pub mod merge {
         /// `anon_stacks` are unnamed projected tips paired with the parent slot they occupied in
         /// the workspace projection, used to preserve anonymous parents not represented in metadata.
         ///
-        /// `graph` resolves metadata branch names to commit and segment ids.
+        /// `graph` resolves metadata branch names to commit ids.
         pub fn tips_from_metadata<'a>(
             stacks: impl IntoIterator<Item = &'a but_core::ref_metadata::WorkspaceStack>,
             anon_stacks: impl IntoIterator<Item = (usize, Tip)>,
@@ -202,15 +199,14 @@ pub mod merge {
                         WorkspaceCommitRelation::Outside => return None,
                     }
                     let stack_tip_name = top_segment.ref_name.as_ref();
-                    match graph.segment_and_commit_by_ref_name(stack_tip_name) {
+                    match graph.node_by_ref_name(stack_tip_name) {
                         None => {
                             missing_stacks.push(top_segment.ref_name.to_owned());
                             None
                         }
-                        Some((segment, commit)) => Some(Tip {
+                        Some((_, reference)) => reference.ref_info.commit_id.map(|commit_id| Tip {
                             name: Some(stack_tip_name.to_owned()),
-                            commit_id: commit.id,
-                            segment_idx: segment.id,
+                            commit_id,
                         }),
                     }
                 })
@@ -223,9 +219,7 @@ pub mod merge {
             let mut anon_stacks = anon_stacks.into_iter().collect::<Vec<_>>();
             anon_stacks.sort_by_key(|(idx, _)| *idx);
             for (idx, anon_tip) in anon_stacks {
-                if named_tips.iter().any(|t| {
-                    t.commit_id == anon_tip.commit_id || t.segment_idx == anon_tip.segment_idx
-                }) {
+                if named_tips.iter().any(|t| t.commit_id == anon_tip.commit_id) {
                     // prevent duplication of tips, make calling this easier as well.
                     continue;
                 }
@@ -243,7 +237,7 @@ pub mod merge {
         /// Note that [`missing_stacks`](Outcome::missing_stacks) is never set.
         pub fn from_new_merge_with_tips(
             tips: impl IntoIterator<Item = Tip>,
-            graph: &but_graph::Graph,
+            _graph: &but_graph::Graph,
             repo: &gix::Repository,
             hero_stack: Option<&gix::refs::FullNameRef>,
         ) -> anyhow::Result<Outcome> {
@@ -251,7 +245,7 @@ pub mod merge {
             enum Instruction {
                 Merge,
                 MergeTrial {
-                    hero_sidx: SegmentIndex,
+                    hero_commit_id: gix::ObjectId,
                     hero_tree_id: gix::ObjectId,
                 },
                 Skip,
@@ -272,7 +266,7 @@ pub mod merge {
             let mut ran_merge_trials_loop_safety = false;
             #[expect(clippy::indexing_slicing)]
             'retry_loop: loop {
-                let mut prev_base_sidx = None;
+                let mut prev_base_id = None;
                 let mut merge_tree_id = None;
                 let mut previous_tip = None;
                 let (merge_options, conflict_kind) = repo.merge_options_fail_fast()?;
@@ -283,22 +277,21 @@ pub mod merge {
                         Tip {
                             name: ref_name,
                             commit_id,
-                            segment_idx: sidx,
                         },
                     ) = &mut tips[tip_idx];
-                    let sidx = *sidx;
+                    let commit_id = *commit_id;
                     if mode.should_skip() {
                         continue;
                     }
                     let this_tree_id = peel_to_tree(commit_id.attach(repo))?;
-                    if let Some((prev_tree_id, prev_sidx)) = previous_tip {
-                        let (base_tree_id, base_sidx) = {
+                    if let Some((prev_tree_id, prev_commit_id)) = previous_tip {
+                        let (base_tree_id, base_id) = {
                             // This is critical: we enforce using the lowest merge-base by using
                             // the previous iterations merge-base.
                             // This is the same as computing the merge-base between the new
                             // (non-existing merge-commit) and the next tip.
-                            let left = prev_base_sidx.unwrap_or(prev_sidx);
-                            compute_merge_base(graph, repo, left, sidx)?
+                            let left = prev_base_id.unwrap_or(prev_commit_id);
+                            compute_merge_base(repo, left, commit_id)?
                         };
 
                         let mut merge = repo.merge_trees(
@@ -362,7 +355,7 @@ pub mod merge {
                                     I::Skip => {
                                         if saw_first_certain_conflict {
                                             *mode = I::MergeTrial {
-                                                hero_sidx: sidx,
+                                                hero_commit_id: commit_id,
                                                 hero_tree_id: this_tree_id,
                                             };
                                             has_merge_trials = true;
@@ -385,14 +378,13 @@ pub mod merge {
                             }
                             // We are past possible trials and proceed as usual, with future conflicting stacks just being dropped.
                         } else if let I::MergeTrial {
-                            hero_sidx,
+                            hero_commit_id,
                             hero_tree_id,
                         } = *mode
                         {
                             // This stack merged cleanly, and now we have to merge the hero into that result to see if it works.
                             // This tells us if this is stack merges cleanly or causes a real conflict in conjunction with hero.
-                            let base_tree_id =
-                                compute_merge_base(graph, repo, base_sidx, hero_sidx)?.0;
+                            let base_tree_id = compute_merge_base(repo, base_id, hero_commit_id)?.0;
                             let merge = repo.merge_trees(
                                 base_tree_id,
                                 merge.tree.write()?,
@@ -412,10 +404,10 @@ pub mod merge {
                                 continue 'tips_loop;
                             }
                         }
-                        prev_base_sidx = Some(base_sidx);
+                        prev_base_id = Some(base_id);
                         merge_tree_id = merge.tree.write()?.detach().into();
                     }
-                    previous_tip = Some((this_tree_id, sidx));
+                    previous_tip = Some((this_tree_id, commit_id));
                 }
 
                 let (stacks, conflicting_stacks) = tips.iter().fold(
@@ -516,31 +508,15 @@ pub mod merge {
     }
 
     fn compute_merge_base(
-        graph: &but_graph::Graph,
         repo: &gix::Repository,
-        left: SegmentIndex,
-        right: SegmentIndex,
-    ) -> anyhow::Result<(gix::ObjectId, SegmentIndex)> {
-        let base_sidx = graph.find_merge_base(left, right).with_context(|| {
-            format!(
-                "Couldn't find merge-base between segments {l} and {r} - they are disjoint in the commit-graph",
-                l = left.index(),
-                r = right.index()
-            )
-        })?;
-        let base_commit_id = graph
-            .tip_skip_empty(base_sidx)
-            .with_context(|| {
-                format!(
-                    "Base segment {base} between {l} and {r} didn't have  single commit reachable",
-                    base = base_sidx.index(),
-                    l = left.index(),
-                    r = right.index()
-                )
-            })?
-            .id
-            .attach(repo);
-        Ok((peel_to_tree(base_commit_id)?, base_sidx))
+        left: gix::ObjectId,
+        right: gix::ObjectId,
+    ) -> anyhow::Result<(gix::ObjectId, gix::ObjectId)> {
+        let base = repo
+            .merge_base(left, right)
+            .with_context(|| format!("Couldn't find merge-base between {left} and {right}"))?
+            .detach();
+        Ok((peel_to_tree(base.attach(repo))?, base))
     }
 
     fn peel_to_tree(commit: gix::Id) -> anyhow::Result<gix::ObjectId> {

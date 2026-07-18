@@ -1,17 +1,23 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{cmp::Ordering, collections::BTreeMap};
 
 use but_core::ref_metadata::StackId;
-use but_graph::{Graph, SegmentIndex, SegmentMetadata, workspace::StackCommitDebugFlags};
+use but_graph::{
+    CommitFlags, Graph, NodeGraphEntrypoint, NodeIndex, NodeKind, RefInfo, Reference,
+    ReferenceMetadata, StopCondition, WorktreeKind,
+    workspace::{Stack, StackCommitDebugFlags, StackCommitFlags, StackSegment, WorkspaceKind},
+};
+use gix::{bstr::ByteSlice as _, refs::Category};
+use renderdag::{Ancestor, GraphRowRenderer, Renderer as _};
 use termtree::Tree;
 
 type StringTree = Tree<String>;
 
-/// Visualize `graph` as a tree.
+/// Visualize a workspace projection as a tree.
 pub fn graph_workspace(workspace: &but_graph::Workspace) -> StringTree {
     graph_workspace_inner(workspace, None)
 }
 
-/// Visualize `graph` as a tree, and remap random stack ids to something deterministic.
+/// Visualize a workspace projection, remapping random stack IDs deterministically.
 pub fn graph_workspace_determinisitcally(workspace: &but_graph::Workspace) -> StringTree {
     graph_workspace_inner(workspace, Some(Default::default()))
 }
@@ -25,219 +31,400 @@ fn graph_workspace_inner(
     } else {
         Default::default()
     };
-    let mut root = Tree::new(workspace.debug_string());
+    let mut root = Tree::new(workspace_label(workspace));
     for stack in &workspace.stacks {
-        root.push(tree_for_stack(
-            &workspace.graph,
-            stack,
-            commit_flags,
-            stack_id_map.as_mut(),
-        ));
-    }
-    root
-}
-
-fn tree_for_stack(
-    graph: &Graph,
-    stack: &but_graph::workspace::Stack,
-    commit_flags: StackCommitDebugFlags,
-    stack_id_map: Option<&mut BTreeMap<StackId, StackId>>,
-) -> StringTree {
-    let mut root = Tree::new(stack.debug_string_with_graph_context(
-        graph,
-        stack.id.zip(stack_id_map).map(|(id, map)| {
+        let id = stack.id.zip(stack_id_map.as_mut()).map(|(id, map)| {
             let next_id = StackId::from_number_for_testing((map.len() + 1) as u128);
             *map.entry(id).or_insert(next_id)
-        }),
-    ));
-    for segment in &stack.segments {
-        root.push(tree_for_stack_segment(graph, segment, commit_flags));
+        });
+        let mut stack_tree = Tree::new(stack_label(&workspace.graph, stack, id));
+        for segment in &stack.segments {
+            let mut segment_tree = Tree::new(stack_segment_label(&workspace.graph, segment));
+            if let Some(outside) = &segment.commits_outside {
+                for commit in outside {
+                    segment_tree.push(format!("{}*", commit.debug_string(commit_flags)));
+                }
+            }
+            for commit in &segment.commits_on_remote {
+                segment_tree
+                    .push(commit.debug_string(commit_flags | StackCommitDebugFlags::RemoteOnly));
+            }
+            for commit in &segment.commits {
+                segment_tree.push(commit.debug_string(commit_flags));
+            }
+            stack_tree.push(segment_tree);
+        }
+        root.push(stack_tree);
     }
     root
 }
 
-fn tree_for_stack_segment(
-    graph: &Graph,
-    segment: &but_graph::workspace::StackSegment,
-    commit_flags: StackCommitDebugFlags,
-) -> StringTree {
-    let mut root = Tree::new(segment.debug_string_with_graph_context(graph));
-    if let Some(outside) = &segment.commits_outside {
-        for commit in outside {
-            root.push(format!("{}*", commit.debug_string(commit_flags)));
+fn workspace_label(workspace: &but_graph::Workspace) -> String {
+    let (name, sign) = match &workspace.kind {
+        WorkspaceKind::Managed { ref_info } => (ref_info_label(&workspace.graph, ref_info), "🏘️"),
+        WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info } => {
+            (ref_info_label(&workspace.graph, ref_info), "🏘️⚠️")
         }
-    }
-    for commit in &segment.commits_on_remote {
-        root.push(commit.debug_string(commit_flags | StackCommitDebugFlags::RemoteOnly));
-    }
-    for commit in &segment.commits {
-        root.push(commit.debug_string(commit_flags));
-    }
-    root
-}
-
-/// Visualize `graph` as a tree.
-pub fn graph_tree(graph: &Graph) -> StringTree {
-    let mut root = Tree::new("".to_string());
-    let mut seen = Default::default();
-    let max_goals = graph.max_goals();
-    for sidx in graph.tip_segments() {
-        root.push(recurse_segment(graph, sidx, &mut seen, max_goals));
-    }
-    let missing = graph.num_segments() - seen.len();
-    if missing > 0 {
-        let mut missing = Tree::new(format!(
-            "ERROR: disconnected {missing} nodes unreachable through base"
-        ));
-        let mut newly_seen = Default::default();
-        for sidx in graph.segments().filter(|sidx| !seen.contains(sidx)) {
-            missing.push(recurse_segment(graph, sidx, &mut newly_seen, max_goals));
-        }
-        root.push(missing);
-        seen.extend(newly_seen);
-    }
-
-    if seen.is_empty() {
-        "<UNBORN>".to_string().into()
-    } else {
-        root
-    }
-}
-
-fn tree_for_commit(
-    graph: &Graph,
-    commit: &but_graph::Commit,
-    is_entrypoint: bool,
-    stop_condition: Option<but_graph::StopCondition>,
-    hard_limit_hit: bool,
-    max_goals: Option<usize>,
-) -> StringTree {
-    graph
-        .commit_debug_string_with_graph_context(
-            commit,
-            is_entrypoint,
-            stop_condition,
-            hard_limit_hit,
-            max_goals,
-        )
-        .into()
-}
-fn recurse_segment(
-    graph: &but_graph::Graph,
-    sidx: SegmentIndex,
-    seen: &mut BTreeSet<SegmentIndex>,
-    max_goals: Option<usize>,
-) -> StringTree {
-    let segment = &graph[sidx];
-    if seen.contains(&sidx) {
-        return format!(
-            "→:{sidx}:{name}",
-            sidx = sidx.index(),
-            name = graph[sidx]
-                .ref_info
-                .as_ref()
-                .map(|ri| format!(
-                    " ({}{maybe_sibling})",
-                    graph.ref_debug_string_with_graph_context(
-                        ri.ref_name.as_ref(),
-                        ri.worktree.as_ref(),
-                    ),
-                    maybe_sibling = segment
-                        .remote_tracking_branch_segment_id
-                        .or(segment.sibling_segment_id)
-                        .map_or_else(String::new, |sid| format!(" →:{}:", sid.index()))
-                ))
-                .unwrap_or_default()
-        )
-        .into();
-    }
-    seen.insert(sidx);
-    let ep = graph.entrypoint().unwrap();
-    let segment_is_entrypoint = ep.segment.id == sidx;
-    let entrypoint_commit = ep.commit();
-    let mut entrypoint_commit_index =
-        entrypoint_commit.and_then(|commit| ep.segment.commit_index_of(commit.id));
-    if ep.segment.ref_info.is_some() && entrypoint_commit_index == Some(0) {
-        entrypoint_commit_index = None;
-    }
-    let mut show_segment_entrypoint = segment_is_entrypoint;
-    if segment_is_entrypoint {
-        // Reduce noise by preferring ref-based entry-points.
-        if segment.ref_info.is_none() && entrypoint_commit_index.is_some() {
-            show_segment_entrypoint = false;
-        }
-    }
-    let connected_segments = {
-        let mut m = BTreeMap::<_, Vec<_>>::new();
-        let below = graph.segments_below_in_order(sidx).collect::<Vec<_>>();
-        for (source_cidx, sidx) in below {
-            m.entry(source_cidx).or_default().push(sidx);
-        }
-        m
+        WorkspaceKind::AdHoc => (
+            workspace
+                .ref_name()
+                .map(|name| ref_name_label(&workspace.graph, name, None))
+                .unwrap_or_else(|| "DETACHED".into()),
+            "⌂",
+        ),
     };
-
-    let mut root = Tree::new(format!(
-        "{entrypoint}{meta}{arrow}:{id}[{generation}]:{ref_name_and_remote}",
-        meta = match segment.metadata {
-            None => {
-                ""
-            }
-            Some(SegmentMetadata::Workspace(_)) => {
-                "📕"
-            }
-            Some(SegmentMetadata::Branch(_)) => {
-                "📙"
-            }
+    let target = workspace.target_ref.as_ref().map_or_else(
+        || "!".into(),
+        |target| {
+            format!(
+                "{}{ahead}",
+                target.ref_name,
+                ahead = if target.commits_ahead == 0 {
+                    String::new()
+                } else {
+                    format!("⇣{}", target.commits_ahead)
+                }
+            )
         },
-        id = segment.id.index(),
-        generation = segment.generation,
-        arrow = if segment.workspace_metadata().is_some() {
-            "►►►"
-        } else {
-            "►"
-        },
-        entrypoint = if show_segment_entrypoint {
-            if entrypoint_commit.is_none() && entrypoint_commit_index.is_some() {
-                "🫱"
-            } else {
-                "👉"
-            }
+    );
+    format!(
+        "{meta}{sign}:{id}:{name} <> ✓{target}{bound}",
+        id = workspace.id.map_or_else(|| "-".into(), |id| id.to_string()),
+        meta = if workspace.metadata.is_some() {
+            "📕"
         } else {
             ""
         },
-        ref_name_and_remote = graph.ref_and_remote_debug_string_with_graph_context(
+        bound = workspace
+            .lower_bound
+            .map(|base| format!(" on {}", base.to_hex_with_len(7)))
+            .unwrap_or_default(),
+    )
+}
+
+fn stack_label(graph: &Graph, stack: &Stack, id_override: Option<StackId>) -> String {
+    let mut label = stack.segments.first().map_or_else(
+        || "<anon>".into(),
+        |segment| stack_segment_label(graph, segment),
+    );
+    if let Some(base) = stack.base() {
+        label.push_str(&format!(" on {}", base.to_hex_with_len(7)));
+    }
+    label.insert(0, '≡');
+    if let Some(id) = id_override.or(stack.id) {
+        let id = id.to_string().replace(['0', '-'], "");
+        label.push_str(&format!(" {{{}}}", if id.is_empty() { "0" } else { &id }));
+    }
+    label
+}
+
+fn stack_segment_label(graph: &Graph, segment: &StackSegment) -> String {
+    let local_commits = segment
+        .remote_tracking_ref_name
+        .as_ref()
+        .map(|_| {
+            segment
+                .commits
+                .iter()
+                .filter(|commit| {
+                    !commit.flags.intersects(
+                        StackCommitFlags::ReachableByRemote | StackCommitFlags::Integrated,
+                    )
+                })
+                .count()
+        })
+        .unwrap_or_default();
+    format!(
+        "{entrypoint}{metadata}:{}:{}{local}{remote}",
+        segment.id,
+        ref_and_remote_label(
+            graph,
             segment.ref_info.as_ref(),
             segment.remote_tracking_ref_name.as_ref(),
-            segment.sibling_segment_id,
-            segment.remote_tracking_branch_segment_id,
+            segment.sibling_node_id,
+            segment.remote_tracking_branch_node_id,
         ),
-    ));
-    for (cidx, commit) in segment.commits.iter().enumerate() {
-        let mut commit_tree = tree_for_commit(
-            graph,
-            commit,
-            segment_is_entrypoint && Some(cidx) == entrypoint_commit_index,
-            if cidx + 1 != segment.commits.len() {
-                None
-            } else {
-                graph.stop_condition(sidx)
-            },
-            graph.hard_limit_hit(),
-            max_goals,
-        );
-        if let Some(segment_indices) = connected_segments.get(&Some(cidx)) {
-            for sidx in segment_indices {
-                commit_tree.push(recurse_segment(graph, *sidx, seen, max_goals));
+        entrypoint = if segment.is_entrypoint { "👉" } else { "" },
+        metadata = if segment.metadata.is_some() {
+            "📙"
+        } else {
+            ""
+        },
+        local = if local_commits == 0 {
+            String::new()
+        } else {
+            format!("⇡{local_commits}")
+        },
+        remote = if segment.commits_on_remote.is_empty() {
+            String::new()
+        } else {
+            format!("⇣{}", segment.commits_on_remote.len())
+        },
+    )
+}
+
+fn ref_and_remote_label(
+    graph: &Graph,
+    ref_info: Option<&RefInfo>,
+    remote_ref_name: Option<&gix::refs::FullName>,
+    sibling_id: Option<NodeIndex>,
+    remote_tracking_branch_id: Option<NodeIndex>,
+) -> String {
+    let local = ref_info.map_or_else(
+        || format!("anon{}", node_arrow(sibling_id)),
+        |ref_info| {
+            format!(
+                "{}{}",
+                ref_info_label(graph, ref_info),
+                if remote_ref_name.is_none() {
+                    node_arrow(sibling_id)
+                } else {
+                    String::new()
+                }
+            )
+        },
+    );
+    remote_ref_name.map_or(local.clone(), |remote| {
+        format!(
+            "{local} <> {}{}",
+            ref_name_label(graph, remote.as_ref(), None),
+            node_arrow(remote_tracking_branch_id.or(sibling_id))
+        )
+    })
+}
+
+fn node_arrow(index: Option<NodeIndex>) -> String {
+    index.map_or_else(String::new, |index| format!(" →:{index}:"))
+}
+
+/// Visualize the canonical commit/reference DAG.
+pub fn graph_tree(graph: &Graph) -> StringTree {
+    graph_dag(graph).into()
+}
+
+fn graph_dag(graph: &Graph) -> String {
+    if graph.nodes().is_empty() {
+        return match graph.entrypoint() {
+            NodeGraphEntrypoint::Unborn(reference) => {
+                render_unborn_reference(graph, reference.as_ref())
             }
-        }
-        root.push(commit_tree);
+            NodeGraphEntrypoint::Node(_) => "<UNBORN>".into(),
+        };
     }
-    // Get the segments that are directly connected.
-    if let Some(segment_indices) = connected_segments.get(&None) {
-        for sidx in segment_indices {
-            root.push(recurse_segment(graph, *sidx, seen, max_goals));
+
+    let mut renderer = GraphRowRenderer::<NodeIndex>::new()
+        .output()
+        .with_min_row_height(1)
+        .build_box_drawing();
+    let mut out = String::new();
+    for index in topological_order(graph) {
+        let (glyph, label) = node_label(graph, index);
+        let parents = graph.nodes()[index]
+            .parents()
+            .iter()
+            .copied()
+            .filter(|parent| {
+                !matches!(graph.nodes()[*parent].kind(), NodeKind::ShallowPoint { .. })
+            })
+            .map(Ancestor::Parent)
+            .collect();
+        out.push_str(&renderer.next_row(index, parents, glyph.into(), label));
+    }
+    out.trim_end().into()
+}
+
+fn render_unborn_reference(graph: &Graph, reference: &Reference) -> String {
+    let mut renderer = GraphRowRenderer::<NodeIndex>::new()
+        .output()
+        .with_min_row_height(1)
+        .build_box_drawing();
+    renderer
+        .next_row(
+            0,
+            Vec::new(),
+            "◎".into(),
+            reference_label(graph, reference, true),
+        )
+        .trim_end()
+        .into()
+}
+
+fn node_label(graph: &Graph, index: NodeIndex) -> (&'static str, String) {
+    let is_entrypoint =
+        matches!(graph.entrypoint(), NodeGraphEntrypoint::Node(entrypoint) if *entrypoint == index);
+    match graph.nodes()[index].kind() {
+        NodeKind::Commit { id } => {
+            let flags = graph.annotations()[index] & CommitFlags::all();
+            let stop = commit_stop_condition(graph, index)
+                .map(|condition| condition.debug_string(graph.hard_limit_hit()))
+                .unwrap_or_default();
+            let flags_label = if flags.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", flags.debug_string(None))
+            };
+            (
+                "●",
+                format!(
+                    "{}{stop}{}{}{flags_label}",
+                    if is_entrypoint { "👉" } else { "" },
+                    if flags.is_remote() { "🟣" } else { "·" },
+                    id.to_hex_with_len(7),
+                ),
+            )
+        }
+        NodeKind::Reference(reference) => ("◎", reference_label(graph, reference, is_entrypoint)),
+        NodeKind::ShallowPoint { .. } => unreachable!("shallow points are not rendered"),
+    }
+}
+
+fn commit_stop_condition(graph: &Graph, index: NodeIndex) -> Option<StopCondition> {
+    let node = &graph.nodes()[index];
+    let mut stop = if node.parents().is_empty() {
+        StopCondition::FirstCommit
+    } else {
+        StopCondition::empty()
+    };
+    for parent in node.parents() {
+        if let NodeKind::ShallowPoint { reason, .. } = graph.nodes()[*parent].kind() {
+            stop |= *reason;
+        }
+    }
+    (!stop.is_empty()).then_some(stop)
+}
+
+fn reference_label(graph: &Graph, reference: &Reference, is_entrypoint: bool) -> String {
+    let metadata = match reference.metadata {
+        Some(ReferenceMetadata::Workspace(_)) => "📕",
+        Some(ReferenceMetadata::Branch(_)) => "📙",
+        None => "",
+    };
+    let remote = reference
+        .remote_tracking_ref_name
+        .as_ref()
+        .map(|name| format!(" <> {}", ref_name_label(graph, name.as_ref(), None)))
+        .unwrap_or_default();
+    format!(
+        "{}{metadata}{}{remote}",
+        if is_entrypoint { "👉" } else { "" },
+        ref_info_label(graph, &reference.ref_info),
+    )
+}
+
+fn ref_info_label(graph: &Graph, ref_info: &RefInfo) -> String {
+    ref_name_label(
+        graph,
+        ref_info.ref_name.as_ref(),
+        ref_info.worktree.as_ref(),
+    )
+}
+
+fn ref_name_label(
+    graph: &Graph,
+    name: &gix::refs::FullNameRef,
+    worktree: Option<&but_graph::Worktree>,
+) -> String {
+    let (category, short_name) = name.category_and_short_name().expect("valid reference");
+    let rendered_name = if matches!(category, Category::LocalBranch | Category::RemoteBranch) {
+        short_name.to_string()
+    } else {
+        name.as_bstr()
+            .strip_prefix(b"refs/")
+            .unwrap_or(name.as_bstr())
+            .as_bstr()
+            .to_string()
+    };
+    let worktree = worktree
+        .map(|worktree| {
+            worktree.debug_string_with_graph_context(name, has_multiple_worktrees(graph))
+        })
+        .unwrap_or_default();
+    format!("{rendered_name}{worktree}")
+}
+
+fn has_multiple_worktrees(graph: &Graph) -> bool {
+    let mut first: Option<&WorktreeKind> = None;
+    graph
+        .nodes()
+        .iter()
+        .filter_map(|node| match node.kind() {
+            NodeKind::Reference(reference) => reference.ref_info.worktree.as_ref(),
+            NodeKind::Commit { .. } | NodeKind::ShallowPoint { .. } => None,
+        })
+        .any(|worktree| {
+            if let Some(first) = first {
+                first != &worktree.kind
+            } else {
+                first = Some(&worktree.kind);
+                false
+            }
+        })
+}
+
+fn topological_order(graph: &Graph) -> Vec<NodeIndex> {
+    let mut children = graph
+        .nodes()
+        .iter()
+        .enumerate()
+        .filter(|(_, node)| !matches!(node.kind(), NodeKind::ShallowPoint { .. }))
+        .map(|(index, _)| (index, 0usize))
+        .collect::<BTreeMap<_, _>>();
+    for node in graph.nodes() {
+        if matches!(node.kind(), NodeKind::ShallowPoint { .. }) {
+            continue;
+        }
+        for parent in node.parents() {
+            if let Some(count) = children.get_mut(parent) {
+                *count += 1;
+            }
         }
     }
 
-    root
+    let mut tips = children
+        .iter()
+        .filter_map(|(index, count)| (*count == 0).then_some(*index))
+        .collect::<Vec<_>>();
+    tips.sort_by(|left, right| compare_nodes(graph, *left, *right));
+
+    fn visit(
+        graph: &Graph,
+        index: NodeIndex,
+        children: &mut BTreeMap<NodeIndex, usize>,
+        out: &mut Vec<NodeIndex>,
+    ) {
+        if children[&index] != 0 || out.contains(&index) {
+            return;
+        }
+        out.push(index);
+        for parent in graph.nodes()[index].parents() {
+            if let Some(count) = children.get_mut(parent) {
+                *count -= 1;
+            }
+        }
+        for parent in graph.nodes()[index].parents() {
+            if children.contains_key(parent) {
+                visit(graph, *parent, children, out);
+            }
+        }
+    }
+
+    let mut out = Vec::with_capacity(children.len());
+    for tip in tips {
+        visit(graph, tip, &mut children, &mut out);
+    }
+    out
+}
+
+fn compare_nodes(graph: &Graph, left: NodeIndex, right: NodeIndex) -> Ordering {
+    match (graph.nodes()[left].kind(), graph.nodes()[right].kind()) {
+        (NodeKind::Commit { id: left }, NodeKind::Commit { id: right }) => left.cmp(right),
+        (NodeKind::Reference(left), NodeKind::Reference(right)) => {
+            left.ref_info.ref_name.cmp(&right.ref_info.ref_name)
+        }
+        (NodeKind::Commit { .. }, NodeKind::Reference(_)) => Ordering::Less,
+        (NodeKind::Reference(_), NodeKind::Commit { .. }) => Ordering::Greater,
+        (NodeKind::ShallowPoint { .. }, _) | (_, NodeKind::ShallowPoint { .. }) => {
+            unreachable!("shallow points are not ordered")
+        }
+    }
 }

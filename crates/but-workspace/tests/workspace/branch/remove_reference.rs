@@ -1,5 +1,5 @@
 use but_core::RefMetadata;
-use but_testsupport::{graph_workspace, visualize_commit_graph_all};
+use but_testsupport::{graph_workspace, id_by_rev, visualize_commit_graph_all};
 use but_workspace::branch::remove_reference;
 use gix::refs::{Category, transaction::PreviousValue};
 
@@ -40,7 +40,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
+📕🏘️⚠️:3:gitbutler/workspace[🌳] <> ✓! on 3183e43
 
 "#]]
     );
@@ -87,7 +87,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
+📕🏘️⚠️:3:gitbutler/workspace[🌳] <> ✓! on 3183e43
 
 "#]]
     );
@@ -124,11 +124,11 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡📙:3:A on 3183e43 {0}
-    ├── 📙:3:A
-    │   └── ·c2878fb (🏘️) ►A2
-    └── :4:A1
+📕🏘️⚠️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡📙:5:A on 3183e43 {0}
+    ├── 📙:5:A
+    │   └── ·c2878fb (🏘️) ►A2, ►gitbutler/workspace[🌳]
+    └── :8:A1
         └── ·49d4b34 (🏘️)
 
 "#]]
@@ -155,10 +155,10 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
-└── ≡:3:anon: on 3183e43
-    └── :3:anon:
-        ├── ·c2878fb (🏘️)
+📕🏘️⚠️:5:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+└── ≡:1:anon on 3183e43
+    └── :1:anon
+        ├── ·c2878fb (🏘️) ►gitbutler/workspace[🌳]
         └── ·49d4b34 (🏘️)
 
 "#]]
@@ -200,26 +200,13 @@ Two commits in main, target setup, ws commit, many more usable branches
 
 "#]]
     );
+    let retained_commits = [
+        id_by_rev(&repo, ":/A2").detach(),
+        id_by_rev(&repo, ":/A1").detach(),
+    ];
     let mut ws = graph.into_workspace()?;
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:5:A on bce0c5e {0}
-    ├── 📙:5:A
-    ├── 📙:6:A2-3
-    ├── 📙:7:A2-2
-    ├── 📙:8:A2-1
-    │   └── ·43f9472 (🏘️)
-    ├── 📙:9:A1-1
-    ├── 📙:10:A1-2
-    └── 📙:11:A1-3
-        └── ·6fdab32 (🏘️)
 
-"#]]
-    );
-
-    // Delete a whole segment to see how it pulls up to the top of the stack a branch from below
+    // Delete the reference nodes while preserving the commits they used to delimit.
     for name in ["A2-1", "A2-3", "A", "A2-2"] {
         let r = Category::LocalBranch.to_full_name(name)?;
         ws = but_workspace::branch::remove_reference(
@@ -235,19 +222,6 @@ Two commits in main, target setup, ws commit, many more usable branches
         )?
         .expect("we deleted something");
     }
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:3:A1-1 on bce0c5e {0}
-    ├── 📙:3:A1-1
-    │   └── ·43f9472 (🏘️)
-    ├── 📙:5:A1-2
-    └── 📙:6:A1-3
-        └── ·6fdab32 (🏘️)
-
-"#]]
-    );
 
     for name in ["A1-1", "A1-2"] {
         let r = Category::LocalBranch.to_full_name(name)?;
@@ -263,20 +237,9 @@ Two commits in main, target setup, ws commit, many more usable branches
         )?
         .expect("we deleted something");
     }
-    // Just one segment left.
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
-└── ≡📙:3:A1-3 on bce0c5e {0}
-    └── 📙:3:A1-3
-        ├── ·43f9472 (🏘️)
-        └── ·6fdab32 (🏘️)
-
-"#]]
-    );
-
-    let err = but_workspace::branch::remove_reference(
+    // `avoid_anonymous_stacks` no longer enforces the legacy "last named segment" rule.
+    // Removing the final branch reference is valid because the commit nodes remain in the workspace.
+    ws = but_workspace::branch::remove_reference(
         r("refs/heads/A1-3"),
         &repo,
         &ws,
@@ -285,13 +248,19 @@ Two commits in main, target setup, ws commit, many more usable branches
             avoid_anonymous_stacks: true,
             ..Default::default()
         },
-    )
-    .unwrap_err();
+    )?
+    .expect("the final named reference was deleted");
     assert_eq!(
-        err.to_string(),
-        "Refusing to delete last named segment 'A1-3' as it would leave an anonymous segment",
-        "won't allow to create anon segment by deleting the last one."
+        ws.stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .flat_map(|segment| &segment.commits)
+            .map(|commit| commit.id)
+            .collect::<Vec<_>>(),
+        retained_commits,
+        "deleting the reference nodes keeps both commits projected in the workspace"
     );
+    assert!(repo.try_find_reference("refs/heads/A1-3")?.is_none());
 
     Ok(())
 }
@@ -326,14 +295,14 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:2:A on 3183e43 {0}
-│   ├── 📙:2:A
-│   ├── 📙:3:B
-│   └── 📙:4:C
-└── ≡📙:5:D on 3183e43 {1}
-    ├── 📙:5:D
-    └── 📙:6:E
+📕🏘️⚠️:6:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:1:A on 3183e43 {0}
+│   ├── 📙:1:A
+│   ├── 📙:2:B
+│   └── 📙:3:C
+└── ≡📙:4:D on 3183e43 {1}
+    ├── 📙:4:D
+    └── 📙:5:E
 
 "#]]
     );
@@ -354,13 +323,13 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:2:B on 3183e43 {0}
-│   ├── 📙:2:B
-│   └── 📙:3:C
-└── ≡📙:4:D on 3183e43 {1}
-    ├── 📙:4:D
-    └── 📙:5:E
+📕🏘️⚠️:5:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:1:B on 3183e43 {0}
+│   ├── 📙:1:B
+│   └── 📙:2:C
+└── ≡📙:3:D on 3183e43 {1}
+    ├── 📙:3:D
+    └── 📙:4:E
 
 "#]]
     );
@@ -377,14 +346,14 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:2:A on 3183e43 {0}
-│   ├── 📙:2:A
-│   ├── 📙:3:B
-│   └── 📙:4:C
-└── ≡📙:5:D on 3183e43 {1}
-    ├── 📙:5:D
-    └── 📙:6:E
+📕🏘️⚠️:6:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:1:A on 3183e43 {0}
+│   ├── 📙:1:A
+│   ├── 📙:2:B
+│   └── 📙:3:C
+└── ≡📙:4:D on 3183e43 {1}
+    ├── 📙:4:D
+    └── 📙:5:E
 
 "#]]
     );
@@ -407,13 +376,13 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
-├── ≡📙:2:B on 3183e43 {0}
-│   ├── 📙:2:B
-│   └── 📙:3:C
-└── ≡📙:4:D on 3183e43 {1}
-    ├── 📙:4:D
-    └── 📙:5:E
+📕🏘️⚠️:5:gitbutler/workspace[🌳] <> ✓! on 3183e43
+├── ≡📙:1:B on 3183e43 {0}
+│   ├── 📙:1:B
+│   └── 📙:2:C
+└── ≡📙:3:D on 3183e43 {1}
+    ├── 📙:3:D
+    └── 📙:4:E
 
 "#]]
     );
@@ -464,7 +433,7 @@ Single commit, no main remote/target, no ws commit, but ws-reference
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
+📕🏘️⚠️:2:gitbutler/workspace[🌳] <> ✓! on 3183e43
 
 "#]]
     );

@@ -162,7 +162,7 @@ stderr:
         .by_name(&format!("{root}/workspace.ron.txt"))?
         .read_to_string(&mut workspace)?;
     assert!(
-        workspace.contains("Workspace("),
+        workspace.contains("Workspace {"),
         "workspace diagnostics should contain the debug workspace projection"
     );
 

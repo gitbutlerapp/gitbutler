@@ -25,18 +25,16 @@ use crate::utils::{fixture_writable, standard_options};
 fn render(fixture: &str, target: Option<&str>) -> Result<String> {
     let (repo, _tmp, mut meta) = fixture_writable(fixture)?;
 
-    let graph =
-        Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
-    let mut ws = graph.into_workspace()?;
-
     // The projection bounds stacks at the target commit, so wire it onto the
     // workspace graph that the editor reads from.
-    ws.graph.project_meta = ProjectMeta {
+    let project_meta = ProjectMeta {
         target_commit_id: target
             .map(|t| repo.rev_parse_single(t).map(|id| id.detach()))
             .transpose()?,
         ..Default::default()
     };
+    let graph = Graph::from_head(&repo, &*meta, project_meta, standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     editor.graph_workspace_ascii()
@@ -69,8 +67,6 @@ fn single_stack_no_target() -> Result<()> {
 ●  8795f47 GitButler Workspace Commit
 
 # Stack 0
-◎  refs/heads/c
-◎  refs/heads/main
 ●  dd72792 c
 ◎  refs/heads/b
 ●  e5aa7b5 b
@@ -97,8 +93,6 @@ fn single_stack_with_target() -> Result<()> {
 ●  8795f47 GitButler Workspace Commit
 
 # Stack 0
-◎  refs/heads/c
-◎  refs/heads/main
 ●  dd72792 c
 ◎  refs/heads/b
 ●  e5aa7b5 b
@@ -182,9 +176,6 @@ fn three_stacks_same_base_collapse() -> Result<()> {
 ●  a26ae77 GitButler Workspace Commit
 
 # Stack 0
-◎  refs/heads/stack-1
-◎  refs/heads/stack-2
-◎  refs/heads/stack-3
 ●  fafd9d0 init
 "#]]
     );
@@ -357,16 +348,16 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
 ●  f97c026 GitButler Workspace Commit
 
 # Stack 0
-◎  refs/heads/stack-b
-●  cb7021b B2
-●  ce3278a B1
-
-# Stack 1
 ◎  refs/heads/stack-a
 ●  49c06ff A2
 ●  ff76d2f A1
 ◎  refs/heads/main
 ●  965998b base
+
+# Stack 1
+◎  refs/heads/stack-b
+●  cb7021b B2
+●  ce3278a B1
 "#]]
     );
     Ok(())
@@ -389,15 +380,15 @@ fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
 ●  f97c026 GitButler Workspace Commit
 
 # Stack 0
-◎  refs/heads/stack-b
-●  cb7021b B2
-●  ce3278a B1
-
-# Stack 1
 ◎  refs/heads/stack-a
 ●  49c06ff A2
 ●  ff76d2f A1
 ◎  refs/heads/main
+
+# Stack 1
+◎  refs/heads/stack-b
+●  cb7021b B2
+●  ce3278a B1
 "#]]
     );
     Ok(())

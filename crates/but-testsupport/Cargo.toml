@@ -41,6 +41,7 @@ gix.workspace = true
 anyhow.workspace = true
 temp-env = "0.3"
 termtree = "0.5.1"
+sapling-renderdag.workspace = true
 regex = { workspace = true }
 snapbox = { workspace = true, optional = true, features = ["regex"] }
 

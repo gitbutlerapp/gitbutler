@@ -18,6 +18,7 @@ use anyhow::Result;
 use bstr::{BString, ByteSlice};
 use but_core::{DiffSpec, HunkHeader, TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_db::{HunkAssignmentsHandle, HunkAssignmentsHandleMut};
+use but_graph::workspace::Stack;
 use but_hunk_dependency::ui::HunkDependencies;
 use gix::ObjectId;
 use reconcile::MultipleOverlapping;
@@ -410,7 +411,7 @@ pub fn assign(
     requests: Vec<HunkAssignmentRequest>,
     context_lines: u32,
 ) -> Result<()> {
-    let branches_by_stack = workspace_branches_by_stack(workspace);
+    let branches_by_stack = workspace_branches_by_stack(&workspace.stacks);
 
     let worktree_changes: Vec<but_core::TreeChange> =
         but_core::diff::worktree_changes(repo)?.changes;
@@ -425,7 +426,7 @@ pub fn assign(
 
     // Reconcile worktree with the persisted assignments
     let mut persisted_assignments = state::assignments(db.to_ref())?;
-    backfill_branch_ref_from_legacy_stack_id(&mut persisted_assignments, workspace);
+    backfill_branch_ref_from_legacy_stack_id(&mut persisted_assignments, &workspace.stacks);
     let with_worktree = reconcile::assignments(
         &worktree_assignments,
         &persisted_assignments,
@@ -435,7 +436,7 @@ pub fn assign(
     );
 
     // Reconcile with the requested changes
-    let request_assignments = requests_to_assignments(requests, workspace)?;
+    let request_assignments = requests_to_assignments(requests, &workspace.stacks)?;
     let mut with_requests = reconcile::assignments(
         &with_worktree,
         &request_assignments,
@@ -444,7 +445,7 @@ pub fn assign(
         true,
     );
 
-    derive_stack_ids(&mut with_requests, workspace);
+    derive_stack_ids(&mut with_requests, &workspace.stacks);
     state::set_assignments(db, with_requests)?;
 
     Ok(())
@@ -505,7 +506,7 @@ fn reconcile_worktree_changes_with_worktree(
     }
     let mut reconciled = reconcile_with_worktree(db.to_ref(), workspace, &worktree_assignments)?;
 
-    derive_stack_ids(&mut reconciled, workspace);
+    derive_stack_ids(&mut reconciled, &workspace.stacks);
     state::set_assignments(db, reconciled.clone())?;
     Ok(reconciled)
 }
@@ -530,10 +531,10 @@ fn reconcile_with_worktree(
     workspace: &but_graph::Workspace,
     worktree_assignments: &[HunkAssignment],
 ) -> Result<Vec<HunkAssignment>> {
-    let branches_by_stack = workspace_branches_by_stack(workspace);
+    let branches_by_stack = workspace_branches_by_stack(&workspace.stacks);
 
     let mut persisted_assignments = state::assignments(db)?;
-    backfill_branch_ref_from_legacy_stack_id(&mut persisted_assignments, workspace);
+    backfill_branch_ref_from_legacy_stack_id(&mut persisted_assignments, &workspace.stacks);
     let with_worktree = reconcile::assignments(
         worktree_assignments,
         &persisted_assignments,
@@ -547,16 +548,14 @@ fn reconcile_with_worktree(
 
 /// Backfill legacy stack-backed rows to the topmost branch of that stack before
 /// reconciliation runs.
-fn backfill_branch_ref_from_legacy_stack_id(
-    assignments: &mut [HunkAssignment],
-    workspace: &but_graph::Workspace,
-) {
+fn backfill_branch_ref_from_legacy_stack_id(assignments: &mut [HunkAssignment], stacks: &[Stack]) {
     for assignment in assignments.iter_mut() {
         if assignment.branch_ref_bytes.is_none()
             && let Some(stack_id) = assignment.stack_id
         {
-            assignment.branch_ref_bytes = workspace
-                .find_stack_by_id(stack_id)
+            assignment.branch_ref_bytes = stacks
+                .iter()
+                .find(|stack| stack.id == Some(stack_id))
                 .and_then(|stack| stack.ref_name())
                 .map(|ref_name| ref_name.to_owned());
         }
@@ -564,11 +563,9 @@ fn backfill_branch_ref_from_legacy_stack_id(
 }
 
 /// Collect the workspace branches keyed by stack for reconciliation validation.
-fn workspace_branches_by_stack(
-    workspace: &but_graph::Workspace,
-) -> HashMap<StackId, Vec<gix::refs::FullName>> {
+fn workspace_branches_by_stack(stacks: &[Stack]) -> HashMap<StackId, Vec<gix::refs::FullName>> {
     let mut branches_by_stack = HashMap::new();
-    for stack in &workspace.stacks {
+    for stack in stacks {
         if let Some(id) = stack.id {
             let branch_refs: Vec<gix::refs::FullName> = stack
                 .segments
@@ -582,12 +579,18 @@ fn workspace_branches_by_stack(
 }
 
 /// Derive `stack_id` from the assigned branch ref for API compatibility.
-fn derive_stack_ids(assignments: &mut [HunkAssignment], workspace: &but_graph::Workspace) {
+fn derive_stack_ids(assignments: &mut [HunkAssignment], stacks: &[Stack]) {
     for assignment in assignments.iter_mut() {
         assignment.stack_id = assignment.branch_ref_bytes.as_ref().and_then(|branch_ref| {
-            workspace
-                .find_segment_and_stack_by_refname(branch_ref.as_ref())
-                .and_then(|(stack, _segment)| stack.id)
+            stacks
+                .iter()
+                .find(|stack| {
+                    stack
+                        .segments
+                        .iter()
+                        .any(|segment| segment.ref_name() == Some(branch_ref.as_ref()))
+                })
+                .and_then(|stack| stack.id)
         });
     }
 }
@@ -719,7 +722,7 @@ fn line_nums_from_hunk(diff: &BString, old_start: u32, new_start: u32) -> (Vec<u
 
 fn requests_to_assignments(
     request: Vec<HunkAssignmentRequest>,
-    workspace: &but_graph::Workspace,
+    stacks: &[Stack],
 ) -> Result<Vec<HunkAssignment>> {
     let mut assignments = vec![];
     for req in request {
@@ -739,8 +742,9 @@ fn requests_to_assignments(
                 })?,
             ),
             Some(HunkAssignmentTarget::Stack { stack_id }) => Some(
-                workspace
-                    .find_stack_by_id(stack_id)
+                stacks
+                    .iter()
+                    .find(|stack| stack.id == Some(stack_id))
                     .and_then(|stack| stack.ref_name())
                     .map(|ref_name| ref_name.to_owned())
                     .ok_or_else(|| {
@@ -896,10 +900,7 @@ pub type GroupedChanges = BTreeMap<
 mod tests {
     use bstr::BString;
     use but_core::{HunkHeader, ref_metadata::StackId};
-    use but_graph::{
-        SegmentIndex, Workspace,
-        workspace::{Stack, StackSegment, WorkspaceKind},
-    };
+    use but_graph::workspace::{Stack, StackSegment};
 
     use super::*;
     use crate::reconcile::MultipleOverlapping;
@@ -964,20 +965,6 @@ mod tests {
         uuid::Uuid::parse_str(&format!("00000000-0000-0000-0000-00000000000{}", num % 10)).unwrap()
     }
 
-    fn empty_workspace() -> Workspace {
-        Workspace {
-            graph: but_graph::Graph::default(),
-            id: Default::default(),
-            kind: WorkspaceKind::AdHoc,
-            stacks: vec![],
-            lower_bound: None,
-            lower_bound_segment_id: None,
-            target_ref: None,
-            target_commit: None,
-            metadata: None,
-        }
-    }
-
     fn branch_ref(name: &str) -> gix::refs::FullName {
         gix::refs::FullName::try_from(name.to_owned()).expect("test branch ref should be valid")
     }
@@ -990,14 +977,12 @@ mod tests {
                 worktree: None,
             }),
             remote_tracking_ref_name: None,
-            sibling_segment_id: None,
-            remote_tracking_branch_segment_id: None,
-            id: SegmentIndex::new(id),
+            sibling_node_id: None,
+            remote_tracking_branch_node_id: None,
+            id,
             commits: vec![],
             commits_outside: None,
             base: None,
-            base_segment_id: None,
-            commits_by_segment: vec![],
             commits_on_remote: vec![],
             metadata: None,
             is_entrypoint: false,
@@ -1012,13 +997,6 @@ mod tests {
                 .enumerate()
                 .map(|(idx, name)| stack_segment(segment_offset + idx, Some(name)))
                 .collect(),
-        }
-    }
-
-    fn workspace_with_stacks(stacks: Vec<Stack>) -> Workspace {
-        Workspace {
-            stacks,
-            ..empty_workspace()
         }
     }
 
@@ -1191,7 +1169,7 @@ mod tests {
                     branch_ref_bytes: BString::from("not a valid ref"),
                 }),
             }],
-            &empty_workspace(),
+            &[],
         )
         .expect_err("invalid branch targets should fail");
 
@@ -1211,7 +1189,7 @@ mod tests {
                     stack_id: stack_id_seq(1),
                 }),
             }],
-            &empty_workspace(),
+            &[],
         )
         .expect_err("unknown stack targets should fail");
 
@@ -1223,56 +1201,56 @@ mod tests {
 
     #[test]
     fn test_derive_stack_ids_replaces_stale_stack_id_from_branch_ref() {
-        let workspace = workspace_with_stacks(vec![
+        let stacks = vec![
             stack(Some(1), &["refs/heads/feature-a"], 0),
             stack(Some(2), &["refs/heads/feature-b"], 10),
-        ]);
+        ];
         let mut assignments = vec![
             HunkAssignment::new("foo.rs", 10, 5, Some(1), Some(1))
                 .with_branch_ref_bytes(Some("refs/heads/feature-b")),
         ];
 
-        derive_stack_ids(&mut assignments, &workspace);
+        derive_stack_ids(&mut assignments, &stacks);
 
         assert_eq!(assignments[0].stack_id, Some(stack_id_seq(2)));
     }
 
     #[test]
     fn test_derive_stack_ids_clears_stack_id_for_missing_branch_ref() {
-        let workspace = workspace_with_stacks(vec![stack(Some(1), &["refs/heads/feature-a"], 0)]);
+        let stacks = vec![stack(Some(1), &["refs/heads/feature-a"], 0)];
         let mut assignments = vec![
             HunkAssignment::new("foo.rs", 10, 5, Some(1), Some(1))
                 .with_branch_ref_bytes(Some("refs/heads/missing")),
         ];
 
-        derive_stack_ids(&mut assignments, &workspace);
+        derive_stack_ids(&mut assignments, &stacks);
 
         assert_eq!(assignments[0].stack_id, None);
     }
 
     #[test]
     fn test_derive_stack_ids_returns_none_when_matching_stack_has_no_id() {
-        let workspace = workspace_with_stacks(vec![stack(None, &["refs/heads/feature-a"], 0)]);
+        let stacks = vec![stack(None, &["refs/heads/feature-a"], 0)];
         let mut assignments = vec![
             HunkAssignment::new("foo.rs", 10, 5, Some(1), Some(1))
                 .with_branch_ref_bytes(Some("refs/heads/feature-a")),
         ];
 
-        derive_stack_ids(&mut assignments, &workspace);
+        derive_stack_ids(&mut assignments, &stacks);
 
         assert_eq!(assignments[0].stack_id, None);
     }
 
     #[test]
     fn test_backfill_branch_ref_from_legacy_stack_id_uses_stack_tip_branch() {
-        let workspace = workspace_with_stacks(vec![stack(
+        let stacks = vec![stack(
             Some(2),
             &["refs/heads/feature-tip", "refs/heads/feature-base"],
             0,
-        )]);
+        )];
         let mut assignments = vec![HunkAssignment::new("foo.rs", 10, 5, Some(2), Some(1))];
 
-        backfill_branch_ref_from_legacy_stack_id(&mut assignments, &workspace);
+        backfill_branch_ref_from_legacy_stack_id(&mut assignments, &stacks);
 
         assert_eq!(
             assignments[0].branch_ref_bytes,
@@ -1282,10 +1260,10 @@ mod tests {
 
     #[test]
     fn test_backfill_branch_ref_from_legacy_stack_id_ignores_unknown_stack() {
-        let workspace = workspace_with_stacks(vec![stack(Some(1), &["refs/heads/feature-a"], 0)]);
+        let stacks = vec![stack(Some(1), &["refs/heads/feature-a"], 0)];
         let mut assignments = vec![HunkAssignment::new("foo.rs", 10, 5, Some(2), Some(1))];
 
-        backfill_branch_ref_from_legacy_stack_id(&mut assignments, &workspace);
+        backfill_branch_ref_from_legacy_stack_id(&mut assignments, &stacks);
 
         assert_eq!(assignments[0].branch_ref_bytes, None);
     }

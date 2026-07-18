@@ -2054,8 +2054,15 @@ fn stack_id_for_branch_name(
     let target_branch_full_name = FullName::try_from(format!("refs/heads/{branch_name}"))?;
     let (_guard, _repo, ws, _db) = ctx.workspace_and_db()?;
     Ok(ws
-        .find_segment_and_stack_by_refname(target_branch_full_name.as_ref())
-        .and_then(|(stack, _segment)| stack.id))
+        .stacks
+        .iter()
+        .find(|stack| {
+            stack
+                .segments
+                .iter()
+                .any(|segment| segment.ref_name() == Some(target_branch_full_name.as_ref()))
+        })
+        .and_then(|stack| stack.id))
 }
 
 /// Reassigns all current worktree assignments from `source_stack_id` to `target_stack_id`.

@@ -222,13 +222,12 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
         )?;
 
         let add_c_ref = "refs/heads/add-C".try_into()?;
-        let (segment, commit) = graph
-            .segment_and_commit_by_ref_name(add_c_ref)
+        let (_, reference) = graph
+            .node_by_ref_name(add_c_ref)
             .expect("add-C is visible in the graph");
         let anon_c_tip = Tip {
             name: None,
-            commit_id: commit.id,
-            segment_idx: segment.id,
+            commit_id: reference.ref_info.commit_id.expect("born branch"),
         };
 
         let mut stacks = to_stacks(["add-A", "add-D", "add-B"]);

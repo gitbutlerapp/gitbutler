@@ -5,9 +5,10 @@ use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, integrate_upstream, worktree_conflicts_for_rebase,
 };
+use gix::prelude::ObjectIdExt;
 
 use crate::ref_info::with_workspace_commit::utils::{
-    StackState, add_stack, named_writable_scenario_with_description,
+    StackState, add_stack, add_stack_with_segments, named_writable_scenario_with_description,
 };
 
 fn project_meta(meta: &impl but_core::RefMetadata) -> Result<but_core::ref_metadata::ProjectMeta> {
@@ -44,6 +45,63 @@ fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
         conflicts,
         vec![but_serde::BStringForFrontend::from("shared.txt")],
         "dirty worktree changes conflicting with the preview head should be reported"
+    );
+    Ok(())
+}
+
+#[test]
+fn conflict_preview_uses_direct_stack_checkout() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("partially-integrated-multi-branch-stack")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    git(&repo, ["checkout", "A"])?;
+    std::fs::write(repo.workdir_path("B.txt").expect("non-bare"), "dirty\n")?;
+    let mut workspace = workspace_for_stack(&repo, &meta)?;
+
+    let project_meta = project_meta(&meta)?;
+    let rebase = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+        }],
+    )?
+    .rebase;
+
+    let preview_workspace = rebase.overlayed_workspace()?;
+    let entrypoint = entrypoint_commit_id(&preview_workspace)
+        .context("direct checkout should have a preview entrypoint commit")?;
+    let containing_workspace = crate::utils::workspace_tip_id(&preview_workspace)
+        .context("direct checkout should still resolve its containing workspace")?;
+    assert_ne!(
+        entrypoint, containing_workspace,
+        "the direct checkout must not be replaced by its containing workspace"
+    );
+    let entrypoint_tree = but_core::Commit::from_id(entrypoint.attach(rebase.repo()))?
+        .tree_id_or_auto_resolution()?;
+    let containing_workspace_tree =
+        but_core::Commit::from_id(containing_workspace.attach(rebase.repo()))?
+            .tree_id_or_auto_resolution()?;
+    assert_ne!(
+        entrypoint_tree, containing_workspace_tree,
+        "the fixture must distinguish the direct checkout from its containing workspace by content"
+    );
+
+    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    assert!(
+        conflicts.is_empty(),
+        "a dirty path absent from the direct checkout must not conflict merely because it exists in the containing workspace"
     );
     Ok(())
 }
@@ -107,13 +165,9 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
     )?
     .rebase;
 
-    let preview_workspace = rebase.overlayed_graph()?.into_workspace()?;
-    let preview_head = preview_workspace
-        .graph
-        .entrypoint()?
-        .commit()
-        .context("preview workspace should have a head commit")?
-        .id;
+    let preview_workspace = rebase.overlayed_workspace()?;
+    let preview_head = crate::utils::workspace_tip_id(&preview_workspace)
+        .context("preview workspace should have a head commit")?;
     assert!(
         repo.find_object(preview_head).is_err(),
         "preview commits should not have to exist in the persistent repository before materialization"
@@ -229,6 +283,19 @@ fn workspace_for_stack(
     )?
     .into_workspace()?;
     Ok(ws)
+}
+
+fn entrypoint_commit_id(workspace: &but_graph::Workspace) -> Option<gix::ObjectId> {
+    match workspace.graph.entrypoint() {
+        but_graph::NodeGraphEntrypoint::Node(index) => {
+            match workspace.graph.nodes().get(*index)?.kind() {
+                but_graph::NodeKind::Commit { id }
+                | but_graph::NodeKind::ShallowPoint { id, .. } => Some(*id),
+                but_graph::NodeKind::Reference(reference) => reference.ref_info.commit_id,
+            }
+        }
+        but_graph::NodeGraphEntrypoint::Unborn(_) => None,
+    }
 }
 
 fn git(

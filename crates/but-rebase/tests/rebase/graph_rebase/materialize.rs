@@ -62,15 +62,14 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     editor.replace(c_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+◎  👉main[🌳]
+●  ·a96434e (⌂)
+●  ·d591dfe (⌂)
+●  🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -143,15 +142,14 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     editor.replace(c_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+◎  👉main[🌳]
+●  ·a96434e (⌂)
+●  ·d591dfe (⌂)
+●  🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -202,7 +200,7 @@ fn both_methods_update_references_identically() -> Result<()> {
         editor.replace(c_sel, Step::None)?;
 
         let outcome = editor.rebase()?;
-        let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+        let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
         let outcome = outcome.materialize()?;
         assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
@@ -226,7 +224,7 @@ fn both_methods_update_references_identically() -> Result<()> {
         editor.replace(c_sel, Step::None)?;
 
         let outcome = editor.rebase()?;
-        let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+        let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
         let outcome = outcome.materialize_without_checkout()?;
         assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
 
@@ -239,11 +237,10 @@ fn both_methods_update_references_identically() -> Result<()> {
     snapbox::assert_data_eq!(
         &overlayed_materialize,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+◎  👉main[🌳]
+●  ·a96434e (⌂)
+●  ·d591dfe (⌂)
+●  🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -278,16 +275,15 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     editor.replace(main_selector, Step::new_reference(replacement_ref.clone()))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:replacement[🌳]
-    ├── ·120e3a9 (⌂|1)
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+◎  👉replacement[🌳]
+●  ·120e3a9 (⌂)
+●  ·a96434e (⌂)
+●  ·d591dfe (⌂)
+●  🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -412,6 +408,54 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
 }
 
 #[test]
+fn materialize_moves_same_tip_local_aliases_only() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+    let old_tip = repo.head_id()?.detach();
+    let local_alias = gix::refs::FullName::try_from("refs/heads/local-alias")?;
+    let remote_alias = gix::refs::FullName::try_from("refs/remotes/origin/remote-alias")?;
+    let tag_alias = gix::refs::FullName::try_from("refs/tags/tag-alias")?;
+    let custom_alias = gix::refs::FullName::try_from("refs/custom/custom-alias")?;
+    for name in [&local_alias, &remote_alias, &tag_alias, &custom_alias] {
+        repo.reference(
+            name.clone(),
+            old_tip,
+            gix::refs::transaction::PreviousValue::Any,
+            "same-tip alias test setup",
+        )?;
+    }
+
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let b = repo.rev_parse_single("HEAD~")?.detach();
+    let b_selector = editor.select_commit(b)?;
+    editor.replace(b_selector, Step::None)?;
+    editor.rebase()?.materialize()?;
+
+    let rewritten_tip = repo.head_id()?.detach();
+    assert_ne!(
+        rewritten_tip, old_tip,
+        "dropping the parent should rewrite the checked-out commit"
+    );
+    assert_eq!(
+        repo.rev_parse_single(local_alias.as_bstr())?.detach(),
+        rewritten_tip,
+        "a local branch on the rewritten commit should move with it"
+    );
+    for name in [&remote_alias, &tag_alias, &custom_alias] {
+        assert_eq!(
+            repo.rev_parse_single(name.as_bstr())?.detach(),
+            old_tip,
+            "non-local reference {name} should remain at its original target"
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
 fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
@@ -469,10 +513,6 @@ fn materialize_moves_detached_head_to_a_rewritten_entrypoint() -> Result<()> {
 
     let graph =
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
-    assert!(
-        graph.construction_graph().is_some(),
-        "detached compatibility cleanup keeps construction provenance"
-    );
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 

@@ -6,7 +6,7 @@ use std::{
 use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::Headers};
 use but_rebase::graph_rebase::{
-    Editor, LookupStep, SuccessfulRebase, ToSelector,
+    Editor, LookupStep, SuccessfulRebase,
     mutate::{SegmentDelimiter, SelectorSet},
 };
 
@@ -16,8 +16,8 @@ use crate::{
         editable_local_commits, initial_integration_steps, integration_steps_into_segment_nodes,
     },
     divergence::{
-        BranchMergeBaseCommits, classify_selectors_against_target_ref, commit_ids_from_selectors,
-        get_commits_until_merge_base,
+        BranchMergeBaseCommits, classify_selectors_against_target_commits,
+        commit_ids_from_selectors, get_commits_until_merge_base,
     },
 };
 use crate::{graph_manipulation::determine_parent_selector, resolve_tracking_branch_ref_name};
@@ -237,14 +237,32 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
     meta: &mut M,
     repo: &gix::Repository,
 ) -> Result<InitialBranchIntegration> {
-    // Step 1: We create the editor, which maps every segment in the graph -
-    // including the remote branch to integrate and the project's target ref.
+    // Step 1: Preserve target reachability by commit identity before the editor maps the graph.
     let upstream_ref_name = resolve_tracking_branch_ref_name(ref_name, repo)?;
-    let target_ref_name = workspace
+    let target_reachable_commits = if workspace
         .target_ref
         .as_ref()
-        .map(|target| target.ref_name.clone())
-        .filter(|target_ref_name| target_ref_name.as_ref() != upstream_ref_name.as_ref());
+        .is_some_and(|target| target.ref_name.as_ref() == upstream_ref_name.as_ref())
+    {
+        HashSet::new()
+    } else {
+        workspace
+            .graph
+            .nodes()
+            .iter()
+            .zip(workspace.graph.annotations())
+            .filter_map(|(node, flags)| {
+                if !flags.contains(but_graph::CommitFlags::Integrated) {
+                    return None;
+                }
+                match node.kind() {
+                    but_graph::NodeKind::Commit { id } => Some(*id),
+                    but_graph::NodeKind::Reference(_)
+                    | but_graph::NodeKind::ShallowPoint { .. } => None,
+                }
+            })
+            .collect()
+    };
 
     let editor = Editor::create(workspace, meta, repo)?;
 
@@ -269,18 +287,11 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
         .copied()
         .chain(std::iter::once(merge_base_selector))
         .collect::<Vec<_>>();
-    let target_relations = target_ref_name
-        .as_ref()
-        .map(|target_ref_name| {
-            let target_ref_selector = target_ref_name.as_ref().to_selector(&editor)?;
-            classify_selectors_against_target_ref(
-                &editor,
-                target_ref_selector,
-                &candidate_selectors,
-            )
-        })
-        .transpose()?
-        .unwrap_or_default();
+    let target_relations = classify_selectors_against_target_commits(
+        &editor,
+        &target_reachable_commits,
+        &candidate_selectors,
+    )?;
 
     // Step 4: Build the initial set of integration steps.
     let change_ids = if matches!(strategy, BranchIntegrationStrategy::SmartSquash) {

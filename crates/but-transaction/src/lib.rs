@@ -376,15 +376,14 @@ where
             .rebase
             .as_ref()
             .expect("rebase is always Some(_)")
-            .overlayed_graph()?
-            .into_workspace()?;
+            .overlayed_workspace()?;
 
         let ref_name = workspace
             .ref_name()
             .context("workspace metadata update requires workspace ref")?
             .to_owned();
 
-        ws_meta.set_project_meta(workspace.graph.project_meta.clone());
+        ws_meta.set_project_meta(workspace.graph.project_meta().clone());
 
         self.inner
             .pending_metadata_updates
@@ -412,20 +411,23 @@ where
             .try_find_reference(ref_name)?
             .map(|reference| reference.target().into());
 
-        let graph = self
+        let workspace = self
             .inner
             .rebase
             .as_ref()
             .expect("rebase is always Some(_)")
-            .overlayed_graph()?;
-        let workspace = graph.into_workspace()?;
+            .overlayed_workspace()?;
         let (anchor, anchor_segment_oldest_commit_id) = match anchor {
             Some(but_workspace::branch::create_reference::Anchor::AtSegment {
                 ref_name,
                 position,
             }) => {
-                let (_, segment) =
-                    workspace.try_find_segment_and_stack_by_refname(ref_name.as_ref())?;
+                let segment = workspace
+                    .stacks
+                    .iter()
+                    .flat_map(|stack| &stack.segments)
+                    .find(|segment| segment.ref_name() == Some(ref_name.as_ref()))
+                    .with_context(|| format!("Could not find workspace segment '{ref_name}'"))?;
                 if matches!(
                     position,
                     but_workspace::branch::create_reference::Position::Below
@@ -445,11 +447,7 @@ where
                         .commits
                         .last()
                         .map(|commit| commit.id)
-                        .or_else(|| {
-                            workspace
-                                .tip_commit_by_segment_id(segment.id)
-                                .map(|commit| commit.id)
-                        })
+                        .or_else(|| segment.ref_info.as_ref().and_then(|info| info.commit_id))
                         .ok_or_else(|| {
                             anyhow::anyhow!(
                                 "Cannot position reference below unborn segment '{}'",
@@ -1152,8 +1150,10 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     for branch in pending_created_independent_refs {
         if materialized
             .workspace
-            .find_segment_and_stack_by_refname(branch.name.as_ref())
-            .is_some()
+            .stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .any(|segment| segment.ref_name() == Some(branch.name.as_ref()))
         {
             continue;
         }

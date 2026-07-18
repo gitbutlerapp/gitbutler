@@ -123,28 +123,48 @@ fn try_from_stack_v3(
         .name()
         .context("Every V2/V3 stack has a name as long as it's in a gitbutler workspace")?
         .to_owned();
-    let heads: Vec<_> = stack
-        .segments
-        .into_iter()
-        .map(|segment| -> anyhow::Result<_> {
-            let review_id = segment.metadata.and_then(|meta| meta.review.pull_request);
-            let ref_name = segment
-                .ref_info
-                .context("This type can't represent this state and it shouldn't have to")?
-                .ref_name;
-            Ok(StackHeadInfo {
+    let base = stack.base;
+    let mut heads = Vec::new();
+    let mut seen = HashSet::new();
+    for segment in stack.segments {
+        let review_id = segment.metadata.and_then(|meta| meta.review.pull_request);
+        let ref_info = segment
+            .ref_info
+            .context("This type can't represent this state and it shouldn't have to")?;
+        if seen.insert(ref_info.ref_name.clone()) {
+            heads.push(StackHeadInfo {
                 tip: repo
-                    .find_reference(ref_name.as_ref())
+                    .find_reference(ref_info.ref_name.as_ref())
                     .ok()
                     .and_then(|r| r.try_id())
                     .map(|id| id.detach())
                     .unwrap_or(repo.object_hash().null()),
                 review_id,
-                name: ref_name.shorten().into(),
+                name: ref_info.ref_name.shorten().into(),
                 is_checked_out: segment.is_entrypoint,
+            });
+        }
+        for ref_info in segment
+            .commits
+            .into_iter()
+            .flat_map(|commit| commit.inner.refs)
+            .filter(|ref_info| {
+                ref_info.ref_name.category() == Some(gix::refs::Category::LocalBranch)
+                    && ref_info.commit_id != base
             })
-        })
-        .collect::<anyhow::Result<_>>()?;
+        {
+            if seen.insert(ref_info.ref_name.clone()) {
+                heads.push(StackHeadInfo {
+                    tip: ref_info
+                        .commit_id
+                        .unwrap_or_else(|| repo.object_hash().null()),
+                    review_id: None,
+                    name: ref_info.ref_name.shorten().into(),
+                    is_checked_out: ref_info.worktree.is_some(),
+                });
+            }
+        }
+    }
     Ok(StackEntry {
         id: stack_ids_by_ref_name.get(&name).copied(),
         tip: heads
@@ -394,11 +414,7 @@ pub fn stack_details_v3(
             }
         }
     }
-    let branch_details = stack
-        .segments
-        .iter()
-        .map(ui::BranchDetails::from_segment)
-        .collect::<Result<Vec<_>, _>>()?;
+    let branch_details = branch_details_from_stack(&stack, repo, meta, project_meta)?;
 
     let topmost_branch = branch_details
         .first()
@@ -409,6 +425,75 @@ pub fn stack_details_v3(
         is_conflicted: topmost_branch.is_conflicted,
         branch_details,
     })
+}
+
+fn branch_details_from_stack(
+    stack: &branch::Stack,
+    repo: &gix::Repository,
+    meta: &impl RefMetadata,
+    project_meta: &ProjectMeta,
+) -> anyhow::Result<Vec<ui::BranchDetails>> {
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    for segment in &stack.segments {
+        let primary_ref_info = segment.ref_info.as_ref();
+        let primary_ref_name = primary_ref_info.map(|info| &info.ref_name);
+        let mut embedded_heads = Vec::new();
+        for commit in &segment.commits {
+            for ref_info in &commit.inner.refs {
+                if ref_info.ref_name.category() == Some(gix::refs::Category::LocalBranch)
+                    && Some(&ref_info.ref_name) != primary_ref_name
+                    && Some(commit.id) != primary_ref_info.and_then(|info| info.commit_id)
+                    && ref_info.commit_id != stack.base
+                    && seen.insert(ref_info.ref_name.clone())
+                {
+                    embedded_heads.push((ref_info.ref_name.clone(), commit.id));
+                }
+            }
+        }
+
+        let mut primary = ui::BranchDetails::from_segment(segment)?;
+        seen.insert(primary.reference.clone());
+        if let Some(base) = embedded_heads.first().map(|(_, tip)| *tip).or(segment.base) {
+            trim_branch_details_to_base(&mut primary, base);
+        }
+        out.push(primary);
+
+        for (idx, (ref_name, _)) in embedded_heads.iter().enumerate() {
+            let mut details = crate::branch_details(repo, ref_name.as_ref(), meta, project_meta)?;
+            if let Some(base) = embedded_heads
+                .get(idx + 1)
+                .map(|(_, tip)| *tip)
+                .or(segment.base)
+            {
+                trim_branch_details_to_base(&mut details, base);
+            }
+            out.push(details);
+        }
+    }
+    Ok(out)
+}
+
+fn trim_branch_details_to_base(details: &mut ui::BranchDetails, base: gix::ObjectId) {
+    if let Some(pos) = details.commits.iter().position(|commit| commit.id == base) {
+        details.commits.truncate(pos);
+    }
+    details.base_commit = base;
+    details.is_conflicted = details.commits.iter().any(|commit| commit.has_conflicts);
+    details.authors = details
+        .commits
+        .iter()
+        .map(|commit| commit.author.clone())
+        .chain(
+            details
+                .upstream_commits
+                .iter()
+                .map(|commit| commit.author.clone()),
+        )
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+    details.authors.sort_by(|a, b| a.name.cmp(&b.name));
 }
 
 impl ui::BranchDetails {

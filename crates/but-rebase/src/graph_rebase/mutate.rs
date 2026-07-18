@@ -536,42 +536,25 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
 
         let new_parent_nodes = new_parent_nodes.into_iter().collect::<Vec<_>>();
-        match parent_reparenting_order {
-            ParentReparentingOrder::Prepend => {
-                for (order, parent_node) in new_parent_nodes.iter().enumerate() {
-                    self.graph
-                        .add_edge(child_node, *parent_node, Edge { order });
-                }
-
-                // Insertion-location parents define the first-parent lane. Existing parents stay
-                // attached after them as merge-side parents.
-                let shifted_by = new_parent_nodes.len();
-                for (offset, (_, _, parent_node)) in existing_parent_edges.into_iter().enumerate() {
-                    self.graph.add_edge(
-                        child_node,
-                        parent_node,
-                        Edge {
-                            order: shifted_by + offset,
-                        },
-                    );
-                }
-            }
-            ParentReparentingOrder::Append => {
-                let shifted_by = existing_parent_edges.len();
-                for (order, (_, _, parent_node)) in existing_parent_edges.into_iter().enumerate() {
-                    self.graph.add_edge(child_node, parent_node, Edge { order });
-                }
-
-                for (offset, parent_node) in new_parent_nodes.into_iter().enumerate() {
-                    self.graph.add_edge(
-                        child_node,
-                        parent_node,
-                        Edge {
-                            order: shifted_by + offset,
-                        },
-                    );
-                }
-            }
+        let existing_parent_nodes = existing_parent_edges
+            .into_iter()
+            .map(|(_, _, parent_node)| parent_node);
+        let parent_nodes = match parent_reparenting_order {
+            ParentReparentingOrder::Prepend => new_parent_nodes
+                .into_iter()
+                .chain(existing_parent_nodes)
+                .collect::<Vec<_>>(),
+            ParentReparentingOrder::Append => existing_parent_nodes
+                .chain(new_parent_nodes)
+                .collect::<Vec<_>>(),
+        };
+        let mut seen = HashSet::new();
+        for (order, parent_node) in parent_nodes
+            .into_iter()
+            .filter(|parent_node| seen.insert(*parent_node))
+            .enumerate()
+        {
+            self.graph.add_edge(child_node, parent_node, Edge { order });
         }
     }
 

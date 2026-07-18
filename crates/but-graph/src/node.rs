@@ -2,7 +2,7 @@ use std::collections::{HashSet, VecDeque};
 
 use anyhow::{Result, bail, ensure};
 
-use crate::{CommitFlags, RefInfo, SegmentMetadata, StopCondition, init};
+use crate::{CommitFlags, RefInfo, ReferenceMetadata, StopCondition, init};
 
 /// The position of a node in a [`NodeGraph`].
 pub type NodeIndex = usize;
@@ -51,6 +51,59 @@ impl NodeGraph {
     /// Return the managed workspace commit discovered during construction, if any.
     pub fn managed_workspace_commit_id(&self) -> Option<gix::ObjectId> {
         self.context.managed_workspace_commit_id
+    }
+
+    /// Return the reference used to start traversal, if `HEAD` was symbolic.
+    pub fn entrypoint_ref(&self) -> Option<&gix::refs::FullNameRef> {
+        self.context
+            .entrypoint_ref
+            .as_ref()
+            .map(|name| name.as_ref())
+    }
+
+    /// Return the options used to construct this graph.
+    pub fn options(&self) -> &init::Options {
+        &self.context.options
+    }
+
+    /// Return mutable construction options for a subsequent redo traversal.
+    pub fn options_mut(&mut self) -> &mut init::Options {
+        &mut self.context.options
+    }
+
+    /// Return project-wide target and push metadata.
+    pub fn project_meta(&self) -> &but_core::ref_metadata::ProjectMeta {
+        &self.context.project_meta
+    }
+
+    /// Return remote names observed while constructing this graph.
+    pub fn symbolic_remote_names(&self) -> &[String] {
+        &self.context.symbolic_remote_names
+    }
+
+    /// Return whether traversal stopped at the configured hard limit.
+    pub fn hard_limit_hit(&self) -> bool {
+        self.context.hard_limit_hit
+    }
+
+    /// Find a commit node by object ID.
+    pub fn node_by_commit_id(&self, id: gix::ObjectId) -> Option<(NodeIndex, &Node)> {
+        self.nodes.iter().enumerate().find(
+            |(_, node)| matches!(node.kind, NodeKind::Commit { id: candidate } if candidate == id),
+        )
+    }
+
+    /// Find a reference node by full name.
+    pub fn node_by_ref_name(
+        &self,
+        name: &gix::refs::FullNameRef,
+    ) -> Option<(NodeIndex, &Reference)> {
+        self.nodes.iter().enumerate().find_map(|(index, node)| {
+            let NodeKind::Reference(reference) = &node.kind else {
+                return None;
+            };
+            (reference.ref_info.ref_name.as_ref() == name).then_some((index, reference.as_ref()))
+        })
     }
 
     /// Validate the graph and return it unchanged.
@@ -134,7 +187,7 @@ impl NodeGraph {
                     );
                 }
                 NodeKind::Reference(reference) => {
-                    if matches!(reference.metadata, Some(SegmentMetadata::Workspace(_))) {
+                    if matches!(reference.metadata, Some(ReferenceMetadata::Workspace(_))) {
                         ensure!(
                             !node.parents.is_empty(),
                             "BUG: workspace reference node {index} has no parents"
@@ -200,7 +253,7 @@ impl NodeGraph {
                 let NodeKind::Reference(reference) = &node.kind else {
                     return None;
                 };
-                matches!(reference.metadata, Some(SegmentMetadata::Workspace(_)))
+                matches!(reference.metadata, Some(ReferenceMetadata::Workspace(_)))
                     .then(|| node.parents.last().copied())
                     .flatten()
             });
@@ -239,7 +292,7 @@ impl NodeGraph {
                 "BUG: reference node {index} targets commit {expected_id}, which is not in the graph"
             );
 
-            if matches!(reference.metadata, Some(SegmentMetadata::Workspace(_))) {
+            if matches!(reference.metadata, Some(ReferenceMetadata::Workspace(_))) {
                 let Some((own_target_parent, overlay_parents)) = node.parents.split_last() else {
                     bail!("BUG: workspace reference node {index} has no own-target parent");
                 };
@@ -278,7 +331,7 @@ impl NodeGraph {
                             "BUG: reference node {index} targets {expected_id}, but reference parent {parent} targets {:?}",
                             parent_ref.ref_info.commit_id
                         );
-                        if matches!(parent_ref.metadata, Some(SegmentMetadata::Workspace(_))) {
+                        if matches!(parent_ref.metadata, Some(ReferenceMetadata::Workspace(_))) {
                             parents.extend(self.nodes[parent].parents.last().copied());
                         } else {
                             parents.extend(self.nodes[parent].parents.iter().copied());
@@ -382,8 +435,8 @@ pub enum NodeKind {
 pub struct Reference {
     /// The reference name, resolved target, and worktree association.
     pub ref_info: RefInfo,
-    /// Legacy metadata used to place the reference in a workspace stack.
-    pub metadata: Option<SegmentMetadata>,
+    /// Metadata used to place the reference in a workspace stack.
+    pub metadata: Option<ReferenceMetadata>,
     /// The configured remote-tracking reference, if one was resolved.
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
 }
@@ -421,7 +474,7 @@ mod tests {
         let NodeKind::Reference(mut reference) = reference(name, id) else {
             unreachable!()
         };
-        reference.metadata = Some(SegmentMetadata::Workspace(Default::default()));
+        reference.metadata = Some(ReferenceMetadata::Workspace(Default::default()));
         NodeKind::Reference(reference)
     }
 

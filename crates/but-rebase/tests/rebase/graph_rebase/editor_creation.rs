@@ -92,7 +92,8 @@ fn merge_in_the_middle() -> Result<()> {
 │ ●  984fd1c C: new file with 10 lines
 ├─╯
 ◎  refs/heads/main
-◎  refs/tags/base
+│ ◎  refs/tags/base (immutable)
+├─╯
 ●  8f0d338 base
 "#]]
     );
@@ -146,7 +147,8 @@ fn three_branches_merged() -> Result<()> {
 │   ●  68a2fc3 C: add 10 lines to new file
 │   ●  984fd1c C: new file with 10 lines
 ├───╯
-◎  refs/tags/base
+│ ◎  refs/tags/base (immutable)
+├─╯
 ●  8f0d338 base
 "#]]
     );
@@ -175,12 +177,17 @@ fn many_references() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·120e3a9 (⌂|1)
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1) ►X, ►Y, ►Z
-    └── 🏁·35b8235 (⌂|1)
+◎  X
+│ ◎  Y
+├─╯
+│ ◎  Z
+├─╯
+│ ◎  👉main[🌳]
+│ ●  ·120e3a9 (⌂)
+│ ●  ·a96434e (⌂)
+├─╯
+●  ·d591dfe (⌂)
+●  🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -191,12 +198,15 @@ fn many_references() -> Result<()> {
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
         snapbox::str![[r#"
-◎  refs/heads/main
-●  120e3a9 c
-●  a96434e b
 ◎  refs/heads/X
-◎  refs/heads/Y
-◎  refs/heads/Z
+│ ◎  refs/heads/Y
+├─╯
+│ ◎  refs/heads/Z
+├─╯
+│ ◎  refs/heads/main
+│ ●  120e3a9 c
+│ ●  a96434e b
+├─╯
 ●  d591dfe a
 ●  35b8235 base
 "#]]
@@ -232,20 +242,22 @@ fn first_parent_leg_long() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·6ac5745 (⌂|1)
-        └── ►:1[1]:anon:
-            └── ·d20f547 (⌂|1)
-                ├── ►:2[2]:A
-                │   ├── ·198d2e4 (⌂|1)
-                │   ├── ·7325853 (⌂|1)
-                │   └── ·add59d2 (⌂|1)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂|1)
-                        └── →:4: (main)
+◎  main
+│ ◎  👉with-inner-merge[🌳]
+│ ●  ·6ac5745 (⌂)
+│ ●    ·d20f547 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │  ·198d2e4 (⌂)
+│ ● │  ·7325853 (⌂)
+│ ● │  ·add59d2 (⌂)
+├─╯ │
+│   ◎  B
+│   ●  ·984fd1c (⌂)
+├───╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -268,7 +280,8 @@ fn first_parent_leg_long() -> Result<()> {
 │ ●  984fd1c C: new file with 10 lines
 ├─╯
 ◎  refs/heads/main
-◎  refs/tags/base
+│ ◎  refs/tags/base (immutable)
+├─╯
 ●  8f0d338 base
 "#]]
     );
@@ -303,20 +316,22 @@ fn second_parent_leg_long() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·a6775ea (⌂|1)
-        └── ►:1[1]:anon:
-            └── ·b85214b (⌂|1)
-                ├── ►:2[2]:A
-                │   └── ·add59d2 (⌂|1)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-                └── ►:3[2]:B
-                    ├── ·f87f875 (⌂|1)
-                    ├── ·cb181a0 (⌂|1)
-                    └── ·984fd1c (⌂|1)
-                        └── →:4: (main)
+◎  main
+│ ◎  👉with-inner-merge[🌳]
+│ ●  ·a6775ea (⌂)
+│ ●    ·b85214b (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │  ·add59d2 (⌂)
+├─╯ │
+│   ◎  B
+│   ●  ·f87f875 (⌂)
+│   ●  ·cb181a0 (⌂)
+│   ●  ·984fd1c (⌂)
+├───╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -339,7 +354,8 @@ fn second_parent_leg_long() -> Result<()> {
 │ ●  984fd1c C: new file with 10 lines
 ├─╯
 ◎  refs/heads/main
-◎  refs/tags/base
+│ ◎  refs/tags/base (immutable)
+├─╯
 ●  8f0d338 base
 "#]]
     );
@@ -378,22 +394,22 @@ fn workspace_with_empty_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-
-├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-│   └── ·74bcc92 (⌂|🏘|01)
-│       ├── 📙►:3[1]:stack-1
-│       │   ├── ·2169646 (⌂|🏘|01)
-│       │   └── ·46ef828 (⌂|🏘|01)
-│       │       └── ►:4[2]:anon:
-│       │           ├── ·f555940 (⌂|🏘|✓|11)
-│       │           ├── ·d664be0 (⌂|🏘|✓|11)
-│       │           └── 🏁·fafd9d0 (⌂|🏘|✓|11)
-│       └── 📙►:5[1]:stack-2
-│           └── →:4:
-└── ►:1[0]:origin/main →:2:
-    └── ►:2[1]:main <> origin/main →:1:
-        └── ·a0f2ac5 (⌂|✓|10)
-            └── →:4:
+◎      👉📕gitbutler/workspace[🌳]
+├─┬─╮
+│ │ ●  ·74bcc92 (⌂|🏘)
+╭─┬─╯
+◎ │  📙stack-1
+● │  ·2169646 (⌂|🏘)
+● │  ·46ef828 (⌂|🏘)
+│ ◎  📙stack-2
+├─╯
+│ ◎  origin/main
+│ ◎  main <> origin/main
+│ ●  ·a0f2ac5 (⌂|✓)
+├─╯
+●  ·f555940 (⌂|🏘|✓)
+●  ·d664be0 (⌂|🏘|✓)
+●  🏁·fafd9d0 (⌂|🏘|✓)
 
 "#]]
     );
@@ -410,12 +426,12 @@ fn workspace_with_empty_stack() -> Result<()> {
 ◎ │  refs/heads/stack-1
 ● │  2169646 Commit D
 ● │  46ef828 Commit C
-│ ◎  refs/heads/stack-2
 ├─╯
 │ ◎  refs/remotes/origin/main (immutable)
 │ ◎  refs/heads/main (immutable)
 │ ●  a0f2ac5 Commit X
 ├─╯
+◎  refs/heads/stack-2
 ●  f555940 Commit A
 ●  d664be0 Commit B
 ●  fafd9d0 init
@@ -450,20 +466,20 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-
-├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-│   └── ·a26ae77 (⌂|🏘|01)
-│       ├── 📙►:4[1]:stack-1
-│       │   └── ►:3[2]:anon:
-│       │       └── 🏁·fafd9d0 (⌂|🏘|✓|11)
-│       ├── 📙►:5[1]:stack-2
-│       │   └── →:3:
-│       └── 📙►:6[1]:stack-3
-│           └── →:3:
-└── ►:1[0]:origin/main →:2:
-    └── ►:2[1]:main <> origin/main →:1:
-        └── ·1cf9cf4 (⌂|✓|10)
-            └── →:3:
+◎        👉📕gitbutler/workspace[🌳]
+├─┬─┬─╮
+│ ◎ │ │  📙stack-2
+│ │ ◎ │  📙stack-3
+│ ├─╯ │
+│ │   ●  ·a26ae77 (⌂|🏘)
+├─────╯
+◎ │  📙stack-1
+├─╯
+│ ◎  origin/main
+│ ◎  main <> origin/main
+│ ●  ·1cf9cf4 (⌂|✓)
+├─╯
+●  🏁·fafd9d0 (⌂|🏘|✓)
 
 "#]]
     );
@@ -518,12 +534,9 @@ fn commit_with_two_parents() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·d70d863 (⌂|1)
-        ├── ►:1[1]:anon:
-        │   └── 🏁·35b8235 (⌂|1)
-        └── →:1:
+◎  👉main[🌳]
+●  ·d70d863 (⌂)
+●  🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -568,12 +581,12 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
 ◎ │  refs/heads/stack-1
 ● │  2169646 Commit D
 ● │  46ef828 Commit C
-│ ◎  refs/heads/stack-2
 ├─╯
 │ ◎  refs/remotes/origin/main (immutable)
 │ ◎  refs/heads/main (immutable)
 │ ●  a0f2ac5 Commit X
 ├─╯
+◎  refs/heads/stack-2
 ●  f555940 Commit A
 ●  d664be0 Commit B
 ●  fafd9d0 init
@@ -609,12 +622,12 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
 ◎ │  refs/heads/stack-1
 ● │  2169646 Commit D
 ● │  46ef828 Commit C
-│ ◎  refs/heads/stack-2
 ├─╯
 │ ◎  refs/remotes/origin/main (immutable)
 │ ◎  refs/heads/main
 │ ●  a0f2ac5 Commit X
 ├─╯
+◎  refs/heads/stack-2
 ●  f555940 Commit A
 ●  d664be0 Commit B
 ●  fafd9d0 init
@@ -656,20 +669,21 @@ fn merge_first_parent_older_than_second() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:first-parent[🌳]
-    └── ·738ea18 (⌂|1)
-        └── ►:1[1]:anon:
-            └── ·408ca26 (⌂|1)
-                ├── ►:3[2]:anon:
-                │   └── ·2854fa2 (⌂|1)
-                │       └── ►:4[3]:main
-                │           └── 🏁·793a434 (⌂|1) ►tags/base
-                └── ►:2[2]:second-parent
-                    ├── ·75369b0 (⌂|1)
-                    ├── ·553bbf7 (⌂|1)
-                    └── ·72614bb (⌂|1)
-                        └── →:4: (main)
+◎  👉first-parent[🌳]
+●  ·738ea18 (⌂)
+●    ·408ca26 (⌂)
+├─╮
+● │  ·2854fa2 (⌂)
+│ ◎  second-parent
+│ ●  ·75369b0 (⌂)
+│ ●  ·553bbf7 (⌂)
+│ ●  ·72614bb (⌂)
+├─╯
+│ ◎  main
+├─╯
+│ ◎  tags/base
+├─╯
+●  🏁·793a434 (⌂)
 
 "#]]
     );
@@ -691,7 +705,8 @@ fn merge_first_parent_older_than_second() -> Result<()> {
 │ ●  72614bb new commit 1 on second-parent
 ├─╯
 ◎  refs/heads/main
-◎  refs/tags/base
+│ ◎  refs/tags/base (immutable)
+├─╯
 ●  793a434 base
 "#]]
     );
@@ -745,23 +760,25 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-
-├── ►:0[0]:explicit-const
-│   └── ·be4ae80 (⌂) ►main
-│       └── ►:3[1]:implicit-const
-│           └── ·120e3a9 (⌂)
-│               └── ►:6[2]:explicit-mut
-│                   └── ·a96434e (⌂)
-│                       └── ►:5[3]:foo
-│                           ├── ·d591dfe (⌂|1)
-│                           └── 🏁·35b8235 (⌂|1)
-└── ►:1[0]:explicit-const-2
-    └── ·d9fa122 (⌂)
-        └── ►:4[1]:implicit-const-2
-            └── ·85bccf0 (⌂)
-                └── 👉►:2[2]:implicit-mut
-                    └── ·c8dd361 (⌂|1)
-                        └── →:5: (foo)
+◎  explicit-const
+│ ◎  explicit-const-2
+│ ●  ·d9fa122 (⌂)
+│ ◎  implicit-const-2
+│ ●  ·85bccf0 (⌂)
+│ ◎  👉implicit-mut
+│ ●  ·c8dd361 (⌂)
+│ │ ◎  foo
+│ ├─╯
+│ │ ◎  main
+├───╯
+● │  ·be4ae80 (⌂)
+◎ │  implicit-const
+● │  ·120e3a9 (⌂)
+◎ │  explicit-mut
+● │  ·a96434e (⌂)
+├─╯
+●  ·d591dfe (⌂)
+●  🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -777,18 +794,19 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
         editor.steps_ascii(),
         snapbox::str![[r#"
 ◎  refs/heads/explicit-const (immutable)
-◎  refs/heads/main (immutable)
-●  be4ae80 d
-◎  refs/heads/implicit-const (immutable)
-●  120e3a9 c
-◎  refs/heads/explicit-mut
-●  a96434e b
 │ ◎  refs/heads/explicit-const-2 (immutable)
 │ ●  d9fa122 g
 │ ◎  refs/heads/implicit-const-2 (immutable)
 │ ●  85bccf0 f
 │ ◎  refs/heads/implicit-mut
 │ ●  c8dd361 e
+│ │ ◎  refs/heads/main (immutable)
+├───╯
+● │  be4ae80 d
+◎ │  refs/heads/implicit-const (immutable)
+● │  120e3a9 c
+◎ │  refs/heads/explicit-mut
+● │  a96434e b
 ├─╯
 ◎  refs/heads/foo
 ●  d591dfe a
@@ -810,7 +828,6 @@ fn unborn_head_is_a_single_mutable_reference() -> Result<()> {
 
     let graph =
         Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
-    assert!(graph.construction_graph().is_some());
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 

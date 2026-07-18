@@ -176,7 +176,7 @@ use but_core::{
         WorkspaceCommitRelation::{Merged, Outside},
     },
 };
-use but_graph::{SegmentIndex, init::Overlay, petgraph::Direction, workspace::WorkspaceKind};
+use but_graph::{init::Overlay, workspace::WorkspaceKind};
 use gix::{
     prelude::ObjectIdExt,
     reference::Category,
@@ -192,6 +192,10 @@ use crate::{
     branch::{anon_stacks, ensure_no_missing_stacks},
     commit::merge::Tip,
     ref_info::WorkspaceExt,
+    workspace::{
+        find_segment_and_stack, ref_reachable_from_entrypoint, target_matches_branch,
+        workspace_contains_ref, workspace_is_entrypoint, workspace_tip_id,
+    },
 };
 
 /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
@@ -234,7 +238,7 @@ pub fn apply(
     let branch_orig = branch;
     let (mut branch_ref, mut incoming_branch_is_remote_tracking_without_local_tracking) =
         (try_find_validated_ref(repo, branch, "apply")?, false);
-    if ws.is_branch_the_target_or_its_local_tracking_branch(branch) {
+    if target_matches_branch(&ws, branch) {
         bail!("Cannot add the target '{branch}' branch to its own workspace");
     }
     let mut branch = branch.to_owned();
@@ -258,7 +262,7 @@ pub fn apply(
     let branch_has_applied_metadata =
         branch_has_applied_workspace_metadata(branch.as_ref(), &ws, meta)?;
     let branch_already_applied =
-        ws.is_reachable_from_entrypoint(branch.as_ref()) && branch_has_applied_metadata;
+        ref_reachable_from_entrypoint(&ws, branch.as_ref()) && branch_has_applied_metadata;
     if branch_already_applied {
         let workspace_ref_created = false;
         // When exiting early, don't try to adjust the ws commit.
@@ -270,12 +274,10 @@ pub fn apply(
             conflicting_stacks: Vec::new(),
             applied_branches: Vec::new(),
         });
-    } else if !branch_has_applied_metadata && ws.refname_is_segment(branch.as_ref()) {
+    } else if !branch_has_applied_metadata && workspace_contains_ref(&ws, branch.as_ref()) {
         // This means our workspace encloses the desired branch, but it's not checked out yet.
-        let commit_to_checkout = ws
-            .tip_commit()
-            .map(|commit| commit.id)
-            .context("Workspace must point to a commit to check out")?;
+        let commit_to_checkout =
+            workspace_tip_id(&ws).context("Workspace must point to a commit to check out")?;
         let ws_ref_name = ws.ref_name().map(|rn| rn.to_owned());
         but_core::worktree::safe_checkout_from_head(
             commit_to_checkout,
@@ -399,7 +401,7 @@ pub fn apply(
     {
         None => {
             // Pretend to create a workspace reference later at the current AdHoc workspace id
-            let tip = ws.tip_commit().map(|c| c.id).context(
+            let tip = workspace_tip_id(&ws).context(
                     "BUG: how can an empty ad-hoc workspace exist? Should have at least one stack-segment with commit",
                 )?;
             (tip, false)
@@ -493,8 +495,15 @@ pub fn apply(
         .into_workspace()?;
 
     let all_applied_branches_are_already_visible = branches_to_apply.iter().all(|rn| {
-        ws.find_segment_and_stack_by_refname(rn.as_ref())
-            .is_some_and(|(_stack, segment)| !segment.is_projected_from_outside(&ws.graph))
+        find_segment_and_stack(&ws, rn.as_ref()).is_some_and(|(_stack, segment)| {
+            // Outside refs decorate an anonymous in-workspace commit; remote siblings point to refs.
+            !segment.sibling_node_id.is_some_and(|sibling| {
+                ws.graph
+                    .nodes()
+                    .get(sibling)
+                    .is_some_and(|node| matches!(node.kind(), but_graph::NodeKind::Commit { .. }))
+            })
+        })
     });
     let needs_ws_ref_creation = !ws_ref_exists;
     let local_tracking_config_and_ref_info = local_tracking_config_and_ref_info
@@ -620,7 +629,7 @@ pub fn apply(
     let collect_unapplied_branches = |ws: &but_graph::Workspace| {
         branches_to_apply
             .iter()
-            .filter(|rn| !ws.refname_is_segment(rn.as_ref()))
+            .filter(|rn| !workspace_contains_ref(ws, rn.as_ref()))
             .collect::<Vec<_>>()
     };
     let unapplied_branches = collect_unapplied_branches(&ws);
@@ -640,22 +649,23 @@ pub fn apply(
             // or if it has to be a dependent branch. Stacks only work if the ref rests on a base
             // outside the workspace, so if we find it in the workspace (in an ambiguous spot) it must be
             // a dependent branch
-            if let Some(segment_to_insert_above) = ws
-                .stacks
-                .iter()
-                .flat_map(|stack| stack.segments.iter())
-                .find_map(|segment| {
-                    segment
-                        .commits
-                        .iter()
-                        .flat_map(|c| c.ref_iter())
-                        .find_map(|ambiguous_rn| {
-                            (ambiguous_rn == rn.as_ref())
-                                .then_some(segment.ref_name())
-                                .flatten()
-                        })
-                })
-            {
+            let branch_commit_id = ws
+                .graph
+                .node_by_ref_name(rn.as_ref())
+                .and_then(|(_, reference)| reference.ref_info.commit_id);
+            if let Some(segment_to_insert_above) = branch_commit_id.and_then(|branch_commit_id| {
+                ws.stacks
+                    .iter()
+                    .flat_map(|stack| stack.segments.iter())
+                    .find_map(|segment| {
+                        segment
+                            .commits
+                            .iter()
+                            .any(|commit| commit.id == branch_commit_id)
+                            .then(|| segment.ref_name())
+                            .flatten()
+                    })
+            }) {
                 match ws_mut.insert_new_segment_above_anchor_if_not_present(
                     rn.as_ref(),
                     segment_to_insert_above,
@@ -848,38 +858,28 @@ fn branch_has_applied_workspace_metadata(
         return Ok(true);
     };
     Ok(ws_md.find_branch(branch, StackKind::Applied).is_some()
-        || (ws.is_entrypoint() && ws_ref_name == branch))
+        || (workspace_is_entrypoint(ws) && ws_ref_name == branch))
 }
 
 fn filter_superseded_metadata_stacks<'a>(
     stack_iter: impl Iterator<Item = &'a ref_metadata::WorkspaceStack>,
-    existing_stacks_superseded_by_branch: &[(
-        SegmentIndex,
-        Option<gix::refs::FullName>,
-        Option<gix::ObjectId>,
-    )],
+    existing_stacks_superseded_by_branch: &[(Option<gix::refs::FullName>, gix::ObjectId)],
 ) -> impl Iterator<Item = &'a ref_metadata::WorkspaceStack> {
     stack_iter.into_iter().filter(|ws_stack| {
         !existing_stacks_superseded_by_branch
             .iter()
-            .any(|(_sidx, ref_name, _cid)| ws_stack.ref_name() == ref_name.as_ref())
+            .any(|(ref_name, _cid)| ws_stack.ref_name() == ref_name.as_ref())
     })
 }
 
 fn filter_superseded_anon_stacks(
     tips_iter: impl Iterator<Item = (usize, Tip)>,
-    existing_stacks_superseded_by_branch: &[(
-        SegmentIndex,
-        Option<gix::refs::FullName>,
-        Option<gix::ObjectId>,
-    )],
+    existing_stacks_superseded_by_branch: &[(Option<gix::refs::FullName>, gix::ObjectId)],
 ) -> impl Iterator<Item = (usize, Tip)> {
     tips_iter.filter(|(_parent_idx, anon_tip)| {
         !existing_stacks_superseded_by_branch
             .iter()
-            .any(|(sidx, _ref_name, cid)| {
-                anon_tip.segment_idx == *sidx || cid.is_some_and(|cid| cid == anon_tip.commit_id)
-            })
+            .any(|(_ref_name, cid)| *cid == anon_tip.commit_id)
     })
 }
 
@@ -893,48 +893,24 @@ fn filter_superseded_anon_stacks(
 /// will be used as candidates for being superseded by it.
 ///
 /// `ws_meta` will be adjusted to indicate that the superseded branches are outside the workspace.
-#[expect(clippy::indexing_slicing)]
 fn find_superseded_stacks(
     branch: &FullNameRef,
     workspace: &but_graph::Workspace,
     ws_meta: &mut ref_metadata::Workspace,
-) -> Vec<(
-    SegmentIndex,
-    Option<gix::refs::FullName>,
-    Option<gix::ObjectId>,
-)> {
+) -> Vec<(Option<gix::refs::FullName>, gix::ObjectId)> {
     let graph = &workspace.graph;
-    let superseded = if let Some(branch_segment) = graph.segment_by_ref_name(branch) {
-        // At this stage we know first segment isn't in the workspace, so exclude it.
-        let _tip_commit_ids_and_sidx: Vec<_> = workspace
+    let superseded = if let Some((branch_node, _)) = graph.node_by_ref_name(branch) {
+        workspace
             .stacks
             .iter()
+            .filter(|stack| stack.ref_name() != Some(branch))
             .filter_map(|stack| {
-                stack
-                    .segments
-                    .first()
-                    .and_then(|s| s.commits.first().map(|c| (c.id, s.id)))
+                let tip = stack.tip_skip_empty()?;
+                let tip_node = graph.node_by_commit_id(tip)?.0;
+                node_reaches(graph, branch_node, tip_node)
+                    .then(|| (stack.ref_name().map(ToOwned::to_owned), tip))
             })
-            .collect();
-        let mut superseded = Vec::new();
-        graph.visit_all_segments_excluding_start_until(
-            branch_segment.id,
-            Direction::Outgoing,
-            |segment| {
-                let prune = _tip_commit_ids_and_sidx.iter().any(|(cid, sidx)| {
-                    segment.id == *sidx || segment.commits.first().is_some_and(|c| c.id == *cid)
-                });
-                if prune {
-                    superseded.push((
-                        segment.id,
-                        segment.ref_name().map(|rn| rn.to_owned()),
-                        segment.commits.first().map(|c| c.id),
-                    ));
-                }
-                prune
-            },
-        );
-        superseded
+            .collect()
     } else {
         tracing::warn!(
             ?branch,
@@ -945,7 +921,7 @@ fn find_superseded_stacks(
 
     let metadata_stacks_to_remove = superseded
         .iter()
-        .filter_map(|t| t.1.as_ref().map(|rn| rn.as_ref()))
+        .filter_map(|t| t.0.as_ref().map(|rn| rn.as_ref()))
         .filter_map(|superseded_tip_name| {
             ws_meta
                 .find_owner_indexes_by_name(superseded_tip_name, StackKind::Applied)
@@ -953,10 +929,36 @@ fn find_superseded_stacks(
         })
         .collect::<Vec<_>>();
     for superseded_stack_idx in metadata_stacks_to_remove {
-        ws_meta.stacks[superseded_stack_idx].workspacecommit_relation = Outside;
+        if let Some(stack) = ws_meta.stacks.get_mut(superseded_stack_idx) {
+            stack.workspacecommit_relation = Outside;
+        }
     }
 
     superseded
+}
+
+fn node_reaches(
+    graph: &but_graph::Graph,
+    start: but_graph::NodeIndex,
+    wanted: but_graph::NodeIndex,
+) -> bool {
+    let mut pending = vec![start];
+    let mut seen = std::collections::HashSet::new();
+    while let Some(index) = pending.pop() {
+        if index == wanted {
+            return true;
+        }
+        if seen.insert(index) {
+            pending.extend(
+                graph
+                    .nodes()
+                    .get(index)
+                    .into_iter()
+                    .flat_map(|node| node.parents().iter().copied()),
+            );
+        }
+    }
+    false
 }
 
 /// Setup `local_tracking_ref` to track `remote_tracking_ref` using the typical pattern, and prepare the configuration file

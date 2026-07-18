@@ -1,6 +1,10 @@
 //! Implementation of the `graph` debug command.
 
-use std::io;
+use std::{
+    fmt::Write as _,
+    io::{self, Write as _},
+    process::{Command, Stdio},
+};
 
 use anyhow::{Context as _, Result};
 use gix::odb::store::RefreshMode;
@@ -102,12 +106,8 @@ fn emit_workspace(
     out: &mut dyn io::Write,
     err: &mut dyn io::Write,
 ) -> Result<()> {
-    let errors = workspace.graph.validation_errors();
-    if !errors.is_empty() {
-        writeln!(err, "VALIDATION FAILED: {errors:?}")?;
-    }
     if graph_args.stats {
-        writeln!(err, "{:#?}", workspace.graph.statistics())?;
+        emit_statistics(&workspace.graph, err)?;
     }
 
     if graph_args.no_debug_workspace {
@@ -132,11 +132,11 @@ fn emit_workspace(
 
     match dot_mode(graph_args) {
         Some(DotMode::Print) => {
-            out.write_all(workspace.graph.dot_graph_pruned().as_bytes())?;
+            out.write_all(node_graph_dot(&workspace.graph).as_bytes())?;
         }
         Some(DotMode::OpenAsSvg) => {
             #[cfg(unix)]
-            workspace.graph.open_as_svg();
+            open_as_svg(&workspace.graph)?;
         }
         Some(DotMode::Debug) => {
             writeln!(err, "{graph:#?}", graph = workspace.graph)?;
@@ -144,6 +144,92 @@ fn emit_workspace(
         None => {}
     }
 
+    Ok(())
+}
+
+fn emit_statistics(graph: &but_graph::Graph, err: &mut dyn io::Write) -> Result<()> {
+    let mut commits = 0;
+    let mut references = 0;
+    let mut shallow_points = 0;
+    for node in graph.nodes() {
+        match node.kind() {
+            but_graph::NodeKind::Commit { .. } => commits += 1,
+            but_graph::NodeKind::Reference(_) => references += 1,
+            but_graph::NodeKind::ShallowPoint { .. } => shallow_points += 1,
+        }
+    }
+    let edges = graph
+        .nodes()
+        .iter()
+        .map(|node| node.parents().len())
+        .sum::<usize>();
+    writeln!(
+        err,
+        "Graph with {commits} commits, {references} references, {shallow_points} shallow points, and {edges} edges{}",
+        if graph.hard_limit_hit() {
+            " (hard limit reached)"
+        } else {
+            ""
+        }
+    )?;
+    Ok(())
+}
+
+pub(super) fn node_graph_dot(graph: &but_graph::Graph) -> String {
+    let mut out = String::from("digraph {\n  node [shape=box, fontname=Courier];\n");
+    for (index, node) in graph.nodes().iter().enumerate() {
+        let entrypoint = matches!(
+            graph.entrypoint(),
+            but_graph::NodeGraphEntrypoint::Node(entrypoint) if *entrypoint == index
+        );
+        let label = match node.kind() {
+            but_graph::NodeKind::Commit { id } => format!(
+                "{}{} {}",
+                if entrypoint { "HEAD " } else { "" },
+                id.to_hex_with_len(7),
+                graph.annotations()[index].debug_string(None)
+            ),
+            but_graph::NodeKind::Reference(reference) => format!(
+                "{}{}",
+                if entrypoint { "HEAD " } else { "" },
+                reference.ref_info.ref_name
+            ),
+            but_graph::NodeKind::ShallowPoint { id, reason } => format!(
+                "{} {}",
+                id.to_hex_with_len(7),
+                reason.debug_string(graph.hard_limit_hit())
+            ),
+        };
+        writeln!(out, "  {index} [label={label:?}];").expect("writing to a string cannot fail");
+        for (order, parent) in node.parents().iter().enumerate() {
+            writeln!(out, "  {index} -> {parent} [label=\"{order}\"];")
+                .expect("writing to a string cannot fail");
+        }
+    }
+    if let but_graph::NodeGraphEntrypoint::Unborn(reference) = graph.entrypoint() {
+        let label = format!("HEAD {} (unborn)", reference.ref_info.ref_name);
+        writeln!(out, "  unborn [label={label:?}];").expect("writing to a string cannot fail");
+    }
+    out.push_str("}\n");
+    out
+}
+
+#[cfg(unix)]
+fn open_as_svg(graph: &but_graph::Graph) -> Result<()> {
+    let svg_path = std::env::temp_dir().join(format!("but-debug-graph-{}.svg", std::process::id()));
+    let mut dot = Command::new("dot")
+        .args(["-Tsvg", "-o"])
+        .arg(&svg_path)
+        .stdin(Stdio::piped())
+        .spawn()
+        .context("Could not launch Graphviz")?;
+    dot.stdin
+        .take()
+        .context("Graphviz stdin wasn't piped")?
+        .write_all(node_graph_dot(graph).as_bytes())?;
+    let status = dot.wait().context("Could not wait for Graphviz")?;
+    anyhow::ensure!(status.success(), "Graphviz failed with {status}");
+    open::that(&svg_path).context("Could not open graph SVG")?;
     Ok(())
 }
 

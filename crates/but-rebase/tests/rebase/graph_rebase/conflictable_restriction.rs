@@ -43,16 +43,21 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·04d1892 (⌂|1) ►c
-    └── ·5e0ba46 (⌂|1) ►a, ►b
-        └── ►:1[1]:base
-            └── 🏁·6155f21 (⌂|1)
+◎  a
+│ ◎  b
+├─╯
+│ ◎  c
+│ │ ◎  👉main[🌳]
+│ ├─╯
+│ ●  ·04d1892 (⌂)
+├─╯
+●  ·5e0ba46 (⌂)
+◎  base
+●  🏁·6155f21 (⌂)
 
 "#]]
     );
@@ -188,20 +193,21 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
     editor.replace(c_sel, Step::Pick(c_pick))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·8b4d335 (⌂|1) ►c
-        └── ►:1[1]:b
-            ├── ·7762cf9 (⌂|1)
-            └── ·3b3bd41 (⌂|1)
-                └── ►:2[2]:a
-                    └── ·5e0ba46 (⌂|1)
-                        └── ►:3[3]:base
-                            └── 🏁·6155f21 (⌂|1)
+◎  c
+│ ◎  👉main[🌳]
+├─╯
+●  ·8b4d335 (⌂)
+◎  b
+●  ·7762cf9 (⌂)
+●  ·3b3bd41 (⌂)
+◎  a
+●  ·5e0ba46 (⌂)
+◎  base
+●  🏁·6155f21 (⌂)
 
 "#]]
     );

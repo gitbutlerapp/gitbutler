@@ -9,17 +9,20 @@ pub fn changes_in_branch(
     workspace: &but_graph::Workspace,
     branch: &gix::refs::FullNameRef,
 ) -> anyhow::Result<ui::TreeChanges> {
-    let commits = if let Some((_, segment)) = workspace.find_segment_and_stack_by_refname(branch) {
+    let segment = workspace
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .find(|segment| segment.ref_name() == Some(branch));
+    let commits = if let Some(segment) = segment {
         let base = segment.base;
         segment.tip().zip(base)
     } else {
         // TODO: this should be (kept) in sync with branch-listing!
         let tip = repo.find_reference(branch)?.peel_to_commit()?.id;
-        workspace.target_ref.as_ref().and_then(|target| {
+        workspace.target_ref.as_ref().and_then(|_| {
             // NOTE: Can't do merge-base computation in graph as `branch` might not be contained in it.
-            let base = workspace
-                .tip_commit_by_segment_id(target.segment_index)
-                .map(|c| c.id)?;
+            let base = workspace.target_ref_tip_commit_id()?;
             // This works because the lower-bound itself is the merge-base
             // between all applicable targets and the workspace branches.
             repo.merge_base(tip, base)

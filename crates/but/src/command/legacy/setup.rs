@@ -498,12 +498,16 @@ pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<b
     }
 
     // TODO(legacy): it's fine to have no target.
-    if ws.graph.project_meta.target_ref.is_none() {
+    if ws.graph.project_meta().target_ref.is_none() {
         anyhow::bail!("No default target branch set.");
     }
 
     // check if there is a remote
-    if ws.remote_name().is_none()
+    let has_workspace_remote = ws.target_ref.as_ref().map_or_else(
+        || ws.graph.project_meta().push_remote.is_some(),
+        |target| target.ref_name.category() == Some(gix::refs::Category::RemoteBranch),
+    );
+    if !has_workspace_remote
         && repo
             .remote_default_name(gix::remote::Direction::Push)
             .is_none()

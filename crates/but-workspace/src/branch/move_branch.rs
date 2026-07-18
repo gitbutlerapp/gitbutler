@@ -32,6 +32,7 @@ pub(super) mod function {
 
     use crate::graph_manipulation::DisconnectParameters;
     use crate::graph_manipulation::get_disconnect_parameters;
+    use crate::workspace::{find_segment_and_stack, workspace_tip_id};
 
     use super::Outcome;
     use anyhow::Context;
@@ -61,9 +62,9 @@ pub(super) mod function {
         stack_id_override: Option<StackId>,
     ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
         let successful_rebase = editor.rebase()?;
-        let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
+        let workspace = successful_rebase.overlayed_workspace()?;
         let mut editor = successful_rebase.into_editor();
-        let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
+        let Some(source) = find_segment_and_stack(&workspace, subject_branch_name) else {
             bail!(
                 "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
             );
@@ -84,7 +85,7 @@ pub(super) mod function {
 
         let mut ws_meta = workspace.metadata.clone();
         if let Some(ws_meta) = ws_meta.as_mut() {
-            ws_meta.set_project_meta(workspace.graph.project_meta.clone());
+            ws_meta.set_project_meta(workspace.graph.project_meta().clone());
         }
 
         let (source_stack, subject_segment) = source;
@@ -99,31 +100,19 @@ pub(super) mod function {
             });
         }
 
-        let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
+        let Some(workspace_head) = workspace_tip_id(&workspace) else {
             bail!("Couldn't find workspace head.")
         };
         let head_selector = editor
             .select_commit(workspace_head)
             .context("Failed to find the workspace head in the graph.")?;
 
-        let Some(lower_bound_segment) = workspace
-            .lower_bound_segment_id
-            .map(|segment_id| &workspace.graph[segment_id])
-        else {
-            bail!("Tearing off a branch requires a workspace common base");
-        };
-        let target_selector = if let Some(lower_bound_ref) = lower_bound_segment.ref_name() {
-            editor
-                .select_reference(lower_bound_ref)
-                .context("Failed to find target reference in graph.")?
-        } else {
-            let lower_bound = workspace
-                .lower_bound
-                .context("Tearing off a branch requires a workspace common base")?;
-            editor
-                .select_commit(lower_bound)
-                .context("Failed to find target commit in graph.")?
-        };
+        let lower_bound = workspace
+            .lower_bound
+            .context("Tearing off a branch requires a workspace common base")?;
+        let target_selector = editor
+            .select_commit(lower_bound)
+            .context("Failed to find target commit in graph.")?;
 
         let DisconnectParameters {
             delimiter: subject_delimiter,
@@ -197,7 +186,7 @@ pub(super) mod function {
         }
 
         let successful_rebase = editor.rebase()?;
-        let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
+        let workspace = successful_rebase.overlayed_workspace()?;
 
         let (source, destination) =
             retrieve_branches_and_containers(&workspace, subject_branch_name, target_branch_name)?;
@@ -352,13 +341,13 @@ pub(super) mod function {
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
     ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
-        let Some(workspace_head) = workspace.tip_commit().map(|commit| commit.id) else {
+        let Some(workspace_head) = workspace_tip_id(&workspace) else {
             bail!("Couldn't find workspace head.")
         };
 
         let mut ws_meta = workspace.metadata.clone();
         if let Some(ws_meta) = ws_meta.as_mut() {
-            ws_meta.set_project_meta(workspace.graph.project_meta.clone());
+            ws_meta.set_project_meta(workspace.graph.project_meta().clone());
         }
 
         let (source_stack, subject_segment) = source;
@@ -500,14 +489,13 @@ pub(super) mod function {
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
     ) -> anyhow::Result<(WorkspaceSegmentContext, WorkspaceSegmentContext)> {
-        let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
+        let Some(source) = find_segment_and_stack(workspace, subject_branch_name) else {
             bail!(
                 "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
             );
         };
 
-        let Some(destination) = workspace.find_segment_and_stack_by_refname(target_branch_name)
-        else {
+        let Some(destination) = find_segment_and_stack(workspace, target_branch_name) else {
             bail!(
                 "Couldn't find target branch to move in workspace with reference name: {target_branch_name}"
             );

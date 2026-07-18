@@ -36,16 +36,15 @@ fn four_commits() -> Result<()> {
     let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·120e3a9 (⌂|1)
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+◎  👉main[🌳]
+●  ·120e3a9 (⌂)
+●  ·a96434e (⌂)
+●  ·d591dfe (⌂)
+●  🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -93,9 +92,9 @@ fn four_commits_with_short_traversal() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:0:main[🌳] <> ✓!
-└── ≡:0:main[🌳] {1}
-    └── :0:main[🌳]
+⌂:4:main <> ✓!
+└── ≡👉:4:main[🌳] {1}
+    └── 👉:4:main[🌳]
         ├── ·120e3a9
         ├── ·a96434e
         ├── ·d591dfe
@@ -106,16 +105,15 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    ├── ·120e3a9 (⌂|1)
-    ├── ·a96434e (⌂|1)
-    ├── ·d591dfe (⌂|1)
-    └── 🏁·35b8235 (⌂|1)
+◎  👉main[🌳]
+●  ·120e3a9 (⌂)
+●  ·a96434e (⌂)
+●  ·d591dfe (⌂)
+●  🏁·35b8235 (⌂)
 
 "#]]
     );
@@ -165,22 +163,24 @@ fn merge_in_the_middle() -> Result<()> {
     let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·e8ee978 (⌂|1)
-        └── ►:1[1]:anon:
-            └── ·2fc288c (⌂|1)
-                ├── ►:2[2]:A
-                │   └── ·add59d2 (⌂|1)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂|1)
-                        └── →:4: (main)
+◎  main
+│ ◎  👉with-inner-merge[🌳]
+│ ●  ·e8ee978 (⌂)
+│ ●    ·2fc288c (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │  ·add59d2 (⌂)
+├─╯ │
+│   ◎  B
+│   ●  ·984fd1c (⌂)
+├───╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -234,26 +234,27 @@ fn three_branches_merged() -> Result<()> {
     let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·1348870 (⌂|1)
-        ├── ►:1[1]:A
-        │   └── ·add59d2 (⌂|1)
-        │       └── ►:4[2]:anon:
-        │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-        ├── ►:2[1]:B
-        │   ├── ·a748762 (⌂|1)
-        │   └── ·62e05ba (⌂|1)
-        │       └── →:4:
-        └── ►:3[1]:C
-            ├── ·930563a (⌂|1)
-            ├── ·68a2fc3 (⌂|1)
-            └── ·984fd1c (⌂|1)
-                └── →:4:
+◎  👉main[🌳]
+●      ·1348870 (⌂)
+├─┬─╮
+◎ │ │  A
+● │ │  ·add59d2 (⌂)
+│ ◎ │  B
+│ ● │  ·a748762 (⌂)
+│ ● │  ·62e05ba (⌂)
+├─╯ │
+│   ◎  C
+│   ●  ·930563a (⌂)
+│   ●  ·68a2fc3 (⌂)
+│   ●  ·984fd1c (⌂)
+├───╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );

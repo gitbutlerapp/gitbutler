@@ -882,8 +882,15 @@ pub fn branch_remove_with_perm(
             .flatten()
             .is_some_and(|head| head.as_ref() == ref_name.as_ref());
         if is_checked_out {
-            let (stack, _segment) = ws
-                .find_segment_and_stack_by_refname(ref_name.as_ref())
+            let stack = ws
+                .stacks
+                .iter()
+                .find(|stack| {
+                    stack
+                        .segments
+                        .iter()
+                        .any(|segment| segment.ref_name() == Some(ref_name.as_ref()))
+                })
                 .context("the checked-out branch is not part of the workspace")?;
             let idx = stack
                 .segments
@@ -1707,9 +1714,8 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
             })
             .transpose()?;
         let replaced_commits = rebase.history.commit_mappings();
-        let workspace = rebase
-            .overlayed_graph_with_workspace_overrides(entrypoint, branch_stack_order)?
-            .into_workspace()?;
+        let workspace =
+            rebase.overlayed_workspace_with_overrides(entrypoint, branch_stack_order)?;
         let (repo, meta) = rebase.repo_and_meta_mut();
         return WorkspaceState::from_workspace_with_db(
             &workspace,
@@ -1723,15 +1729,16 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
     let materialized = rebase.materialize()?;
     if let Some(order) = branch_stack_order {
         materialized.meta.set_branch_stack_order(order)?;
-        let project_meta = materialized.workspace.graph.project_meta.clone();
-        materialized
+        *materialized.workspace = materialized
             .workspace
-            .refresh_from_head(repo, &*materialized.meta, project_meta)?;
+            .graph
+            .clone()
+            .into_workspace_of_redone_traversal(repo, &*materialized.meta)?;
     }
     if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
-        md.set_project_meta(materialized.workspace.graph.project_meta.clone());
+        md.set_project_meta(materialized.workspace.graph.project_meta().clone());
         materialized.meta.set_workspace(&md)?;
     }
 

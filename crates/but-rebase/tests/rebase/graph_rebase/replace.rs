@@ -57,22 +57,24 @@ fn reword_a_commit() -> Result<()> {
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·78aaae2 (⌂|1)
-        └── ►:1[1]:anon:
-            └── ·53af95a (⌂|1)
-                ├── ►:2[2]:A
-                │   └── ·6de6b92 (⌂|1)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂|1)
-                        └── →:4: (main)
+◎  main
+│ ◎  👉with-inner-merge[🌳]
+│ ●  ·78aaae2 (⌂)
+│ ●    ·53af95a (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │  ·6de6b92 (⌂)
+├─╯ │
+│   ◎  B
+│   ●  ·984fd1c (⌂)
+├───╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -179,22 +181,24 @@ f766d1f
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:with-inner-merge[🌳]
-    └── ·e7221b5 (⌂|1)
-        └── ►:1[1]:anon:
-            └── ·8101192 (⌂|1)
-                ├── ►:2[2]:A
-                │   └── ·f1905a8 (⌂|1)
-                │       └── ►:4[3]:main
-                │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-                └── ►:3[2]:B
-                    └── ·984fd1c (⌂|1)
-                        └── →:4: (main)
+◎  main
+│ ◎  👉with-inner-merge[🌳]
+│ ●  ·e7221b5 (⌂)
+│ ●    ·8101192 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │  ·f1905a8 (⌂)
+├─╯ │
+│   ◎  B
+│   ●  ·984fd1c (⌂)
+├───╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );

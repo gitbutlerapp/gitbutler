@@ -154,20 +154,25 @@ pub fn commit_uncommit_only_with_perm(
                 )
             })?;
 
-    let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
-        let graph = rebase.overlayed_graph()?;
-        let replaced_commits = rebase.history.commit_mappings();
-        let (repo, meta) = rebase.repo_and_meta_mut();
-        (&mut graph.into_workspace()?, replaced_commits, repo, meta)
+    let mut preview_workspace = if dry_run.into() {
+        Some(rebase.overlayed_workspace()?)
     } else {
-        let materialized = rebase.materialize_without_checkout()?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings(),
-            &*repo,
-            materialized.meta,
-        )
+        None
     };
+    let (workspace, replaced_commits, repo, meta) =
+        if let Some(workspace) = preview_workspace.as_mut() {
+            let replaced_commits = rebase.history.commit_mappings();
+            let (repo, meta) = rebase.repo_and_meta_mut();
+            (workspace, replaced_commits, repo, meta)
+        } else {
+            let materialized = rebase.materialize_without_checkout()?;
+            (
+                materialized.workspace,
+                materialized.history.commit_mappings(),
+                &*repo,
+                materialized.meta,
+            )
+        };
 
     if let (Some(before_assignments), Some(assign_to)) = (before_assignments, assign_to) {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -291,20 +296,25 @@ pub fn commit_uncommit_changes_only_with_perm(
     let mut outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
-    let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
-        let graph = outcome.rebase.overlayed_graph()?;
-        let replaced_commits = outcome.rebase.history.commit_mappings();
-        let (repo, meta) = outcome.rebase.repo_and_meta_mut();
-        (&mut graph.into_workspace()?, replaced_commits, repo, meta)
+    let mut preview_workspace = if dry_run.into() {
+        Some(outcome.rebase.overlayed_workspace()?)
     } else {
-        let materialized = outcome.rebase.materialize_without_checkout()?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings(),
-            &*repo,
-            materialized.meta,
-        )
+        None
     };
+    let (workspace, replaced_commits, repo, meta) =
+        if let Some(workspace) = preview_workspace.as_mut() {
+            let replaced_commits = outcome.rebase.history.commit_mappings();
+            let (repo, meta) = outcome.rebase.repo_and_meta_mut();
+            (workspace, replaced_commits, repo, meta)
+        } else {
+            let materialized = outcome.rebase.materialize_without_checkout()?;
+            (
+                materialized.workspace,
+                materialized.history.commit_mappings(),
+                &*repo,
+                materialized.meta,
+            )
+        };
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -499,12 +509,24 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         .collect::<Vec<_>>();
 
     let mut rebase = outcome.rebase;
+    let mut preview_workspace = if dry_run.into() {
+        rebase
+            .as_ref()
+            .map(|rebase| rebase.overlayed_workspace())
+            .transpose()?
+    } else {
+        None
+    };
     let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
         if let Some(rebase) = rebase.as_mut() {
-            let graph = rebase.overlayed_graph()?;
             let replaced_commits = rebase.history.commit_mappings();
             let (repo, meta) = rebase.repo_and_meta_mut();
-            (&mut graph.into_workspace()?, replaced_commits, repo, meta)
+            (
+                preview_workspace.as_mut().expect("set above"),
+                replaced_commits,
+                repo,
+                meta,
+            )
         } else {
             (&mut *ws, BTreeMap::new(), &*repo, &mut meta)
         }

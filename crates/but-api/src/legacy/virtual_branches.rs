@@ -66,7 +66,16 @@ pub fn create_virtual_branch(
         )?;
 
         let (stack_idx, segment_idx) = new_ws
-            .find_segment_owner_indexes_by_refname(new_ref.as_ref())
+            .stacks
+            .iter()
+            .enumerate()
+            .find_map(|(stack_idx, stack)| {
+                stack
+                    .segments
+                    .iter()
+                    .position(|segment| segment.ref_name() == Some(new_ref.as_ref()))
+                    .map(|segment_idx| (stack_idx, segment_idx))
+            })
             .context("BUG: didn't find a stack that was just created")?;
         let stack = &new_ws.stacks[stack_idx];
         let tip = stack.segments[segment_idx]

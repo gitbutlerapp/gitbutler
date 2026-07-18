@@ -61,7 +61,7 @@ pub use ref_info::{graph_to_ref_info, head_info, head_info_and_workspace, ref_in
 
 mod branch_details;
 pub use branch_details::{branch_details, local_commits_for_branch};
-use but_graph::{SegmentIndex, workspace::TargetCommit};
+use but_graph::{NodeIndex, workspace::TargetCommit};
 
 mod upstream_integration;
 pub use upstream_integration::{
@@ -104,7 +104,7 @@ pub struct RefInfo {
     ///
     /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
     pub target_commit: Option<TargetCommit>,
-    /// The bound can be imagined as the segment from which all other commits in the workspace originate.
+    /// The bound can be imagined as the node from which all other commits in the workspace originate.
     /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,
     /// as antagonist to the first commit in tip of the segment with `id`, serving as first commit that is
     /// inside the workspace.
@@ -115,7 +115,7 @@ pub struct RefInfo {
     /// following all incoming connections and stopping at the tip of the workspace.
     ///
     /// It is `None` there is only a single stack and no target, so nothing was integrated.
-    pub lower_bound: Option<SegmentIndex>,
+    pub lower_bound: Option<NodeIndex>,
     /// The `workspace_ref_name` is `Some(_)` and belongs to GitButler, because it had metadata attached.
     pub is_managed_ref: bool,
     /// The `workspace_ref_name` points to a commit that was specifically created by us.
@@ -159,10 +159,8 @@ pub struct AncestorWorkspaceCommit {
     /// The commits along the first parent that are between the managed workspace reference and the managed workspace commit.
     /// The vec *should* not be empty, but it can be empty in practice for reasons yet to be discovered.
     pub commits_outside: Vec<ref_info::Commit>,
-    /// The index of the segment that actually holds the managed workspace commit.
-    pub segment_with_managed_commit: SegmentIndex,
-    /// The index of the workspace commit within the `commits` array in its parent segment.
-    pub commit_index_of_managed_commit: but_graph::CommitIndex,
+    /// The object ID of the managed workspace commit.
+    pub managed_commit_id: gix::ObjectId,
 }
 
 /// A representation of the commit that is the tip of the workspace i.e., usually what `HEAD` points to,

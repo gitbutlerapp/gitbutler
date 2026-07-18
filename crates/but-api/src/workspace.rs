@@ -3,6 +3,7 @@
 use std::{borrow::Cow, collections::HashSet};
 
 use crate::WorkspaceState;
+use anyhow::Context as _;
 use but_api_macros::but_api;
 use but_core::{
     DryRun, RefMetadata, extract_remote_name_and_short_name, is_workspace_ref_name,
@@ -253,13 +254,12 @@ fn forge_review_integration_hints(
     db: &but_db::DbHandle,
 ) -> anyhow::Result<Vec<ReviewIntegrationHint>> {
     let Some(target_branch_name) =
-        target_branch_name(&workspace.graph.symbolic_remote_names, project_meta)
+        target_branch_name(workspace.graph.symbolic_remote_names(), project_meta)
     else {
         return Ok(vec![]);
     };
 
-    let incoming_commit_ids = workspace
-        .incoming_target_commit_ids()?
+    let incoming_commit_ids = incoming_target_commit_ids(workspace)?
         .into_iter()
         .map(|id| id.to_hex().to_string())
         .collect::<HashSet<_>>();
@@ -279,6 +279,39 @@ fn forge_review_integration_hints(
         &incoming_commit_ids,
         associated_reviews,
     ))
+}
+
+fn incoming_target_commit_ids(
+    workspace: &but_graph::Workspace,
+) -> anyhow::Result<Vec<gix::ObjectId>> {
+    let target_ref = workspace
+        .target_ref
+        .as_ref()
+        .context("incoming target commits require a workspace with a target ref")?;
+    let mut pending = vec![target_ref.node_index];
+    let mut seen = HashSet::new();
+    let mut commit_ids = Vec::new();
+
+    while let Some(index) = pending.pop() {
+        if !seen.insert(index) || Some(index) == workspace.lower_bound_node_id {
+            continue;
+        }
+        let node = &workspace.graph.nodes()[index];
+        match node.kind() {
+            but_graph::NodeKind::Commit { id } => {
+                if workspace.graph.annotations()[index]
+                    .contains(but_graph::CommitFlags::InWorkspace)
+                {
+                    continue;
+                }
+                commit_ids.push(*id);
+            }
+            but_graph::NodeKind::Reference(_) => {}
+            but_graph::NodeKind::ShallowPoint { .. } => continue,
+        }
+        pending.extend(node.parents().iter().rev());
+    }
+    Ok(commit_ids)
 }
 
 /// Integrate upstream changes into the current workspace without recording an

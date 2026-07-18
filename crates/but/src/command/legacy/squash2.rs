@@ -468,7 +468,11 @@ fn resolve_target(
                     };
 
                     if ref_info.ref_name == branch_name {
-                        return if let Some(commit) = ref_info.commit_id {
+                        return if let Some(commit) = segment
+                            .workspace_commits
+                            .first()
+                            .map(|commit| commit.commit_id())
+                        {
                             let reword = resolve_reword(
                                 message,
                                 no_message,
@@ -1188,7 +1192,17 @@ fn resolve_commits_on_branch(
     ws: &Workspace,
 ) -> CliResult<(FullName, Vec<ObjectId>)> {
     let branch_name = branch.resolve_local_branch_name()?;
-    let (_, segment) = ws.try_find_segment_and_stack_by_refname(branch_name.as_ref())?;
+    let segment = ws
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .find(|segment| segment.ref_name() == Some(branch_name.as_ref()))
+        .with_context(|| {
+            format!(
+                "Couldn't find any stack that contained the branch named '{}'",
+                branch_name.shorten()
+            )
+        })?;
     let commits_in_segment = segment.commits.iter().map(|commit| commit.id).collect();
     Ok((branch_name, commits_in_segment))
 }

@@ -5,8 +5,10 @@
 //! the caller so we don't accidentally nest repository locks under a wider
 //! exclusive operation.
 
+use std::borrow::Cow;
+
 use anyhow::{Context as _, Result};
-use but_core::sync::RepoShared;
+use but_core::{extract_remote_name_and_short_name, sync::RepoShared};
 use but_ctx::Context;
 
 /// The resolved target commit and its associated reference metadata.
@@ -101,9 +103,25 @@ fn display_name_from_base_branch(base_branch: &gitbutler_branch_actions::BaseBra
 
 /// Resolve the effective target commit OID from workspace projection data.
 fn target_oid_from_workspace(workspace: &but_graph::Workspace) -> Result<gix::ObjectId> {
-    workspace.effective_target_commit_id().context(
-        "Failed to resolve workspace target: no target information available in workspace.",
-    )
+    workspace
+        .target_ref
+        .as_ref()
+        .and_then(|target| {
+            workspace
+                .graph
+                .node_by_ref_name(target.ref_name.as_ref())
+                .and_then(|(_, reference)| reference.ref_info.commit_id)
+        })
+        .or_else(|| {
+            workspace
+                .target_commit
+                .as_ref()
+                .map(|target| target.commit_id)
+        })
+        .or(workspace.graph.project_meta().target_commit_id)
+        .context(
+            "Failed to resolve workspace target: no target information available in workspace.",
+        )
 }
 
 /// Resolve the effective target reference name from workspace projection data.
@@ -112,17 +130,27 @@ fn target_ref_name_from_workspace(workspace: &but_graph::Workspace) -> Option<gi
         .target_ref
         .as_ref()
         .map(|target| target.ref_name.clone())
-        .or_else(|| workspace.graph.project_meta.target_ref.clone())
+        .or_else(|| workspace.graph.project_meta().target_ref.clone())
 }
 
 /// Resolve the effective target push remote name from workspace projection data.
 fn target_push_remote_name_from_workspace(workspace: &but_graph::Workspace) -> Option<String> {
     workspace
         .graph
-        .project_meta
+        .project_meta()
         .push_remote
         .clone()
-        .or_else(|| workspace.remote_name())
+        .or_else(|| {
+            let target_ref = workspace.target_ref.as_ref()?;
+            let remote_names = workspace
+                .graph
+                .symbolic_remote_names()
+                .iter()
+                .map(|name| Cow::Borrowed(name.as_str().into()))
+                .collect();
+            extract_remote_name_and_short_name(target_ref.ref_name.as_ref(), &remote_names)
+                .map(|(remote_name, _)| remote_name)
+        })
 }
 
 /// Find the merge base between `branch_oid` and the effective workspace target.
@@ -134,18 +162,6 @@ pub(crate) fn merge_base_with_target_with_perm(
     branch_oid: gix::ObjectId,
 ) -> Result<(gix::ObjectId, ResolvedTarget)> {
     let (repo, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
-
-    if let Some((merge_base, target_oid)) = workspace.merge_base_with_target_branch(branch_oid) {
-        return Ok((
-            merge_base,
-            ResolvedTarget {
-                oid: target_oid,
-                ref_name: target_ref_name_from_workspace(&workspace),
-                push_remote_name: target_push_remote_name_from_workspace(&workspace),
-            },
-        ));
-    }
-
     let target = ResolvedTarget::from_workspace(&workspace)?;
     let merge_base = repo
         .merge_base(branch_oid, target.oid())

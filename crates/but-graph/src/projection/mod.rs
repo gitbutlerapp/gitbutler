@@ -5,18 +5,10 @@
 //!
 //! These types are not for direct consumption, but should be processed further for consumption by the user.
 
-/// Types related to the stack representation for graphs.
-///
-/// Note that these are always a simplification, degenerating information, while maintaining a link back to the graph.
+mod node_workspace;
 mod stack;
-pub use stack::{Stack, StackCommit, StackCommitDebugFlags, StackCommitFlags, StackSegment};
-
-#[expect(clippy::module_inception)]
-pub(crate) mod workspace;
-pub use workspace::{TargetCommit, TargetRef, WorkspaceKind};
-
-#[cfg(feature = "legacy")]
-pub use workspace::api::HeadStatus;
+pub use node_workspace::{Stack, StackSegment, TargetCommit, TargetRef, Workspace, WorkspaceKind};
+pub use stack::{StackCommit, StackCommitDebugFlags, StackCommitFlags};
 
 /// utilities for workspace-related commits.
 pub mod commit {

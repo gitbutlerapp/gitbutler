@@ -76,26 +76,28 @@ fn insert_single_node_segment_above() -> Result<()> {
     editor.insert_segment(b_selector, delimiter, mutate::InsertSide::Above)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·ee7f107 (⌂|1)
-        ├── ►:1[1]:A
-        │   └── ·69221b4 (⌂|1)
-        │       ├── ►:3[2]:B
-        │       │   ├── ·a748762 (⌂|1)
-        │       │   └── ·62e05ba (⌂|1)
-        │       │       └── ►:4[3]:anon:
-        │       │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-        │       └── →:4:
-        └── ►:2[1]:C
-            ├── ·930563a (⌂|1)
-            ├── ·68a2fc3 (⌂|1)
-            └── ·984fd1c (⌂|1)
-                └── →:4:
+◎  👉main[🌳]
+●    ·ee7f107 (⌂)
+├─╮
+◎ │  A
+● │    ·69221b4 (⌂)
+├───╮
+◎ │ │  B
+● │ │  ·a748762 (⌂)
+● │ │  ·62e05ba (⌂)
+├───╯
+│ ◎  C
+│ ●  ·930563a (⌂)
+│ ●  ·68a2fc3 (⌂)
+│ ●  ·984fd1c (⌂)
+├─╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -174,28 +176,29 @@ fn insert_single_node_segment_below() -> Result<()> {
     editor.insert_segment(b_selector, delimiter, mutate::InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·b005f3c (⌂|1)
-        ├── ►:1[2]:A
-        │   └── ·7f0cc55 (⌂|1)
-        │       ├── ►:4[3]:anon:
-        │       │   └── ·62e05ba (⌂|1)
-        │       │       └── ►:5[4]:anon:
-        │       │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-        │       └── →:5:
-        ├── ►:2[1]:B
-        │   └── ·a3301fe (⌂|1)
-        │       └── →:1: (A)
-        └── ►:3[1]:C
-            ├── ·930563a (⌂|1)
-            ├── ·68a2fc3 (⌂|1)
-            └── ·984fd1c (⌂|1)
-                └── →:5:
+◎  A
+│ ◎  👉main[🌳]
+│ ●    ·b005f3c (⌂)
+╭─┼─╮
+│ ◎ │  B
+│ ● │  ·a3301fe (⌂)
+├─╯ │
+●   │  ·7f0cc55 (⌂)
+├─╮ │
+● │ │  ·62e05ba (⌂)
+├─╯ │
+│   ◎  C
+│   ●  ·930563a (⌂)
+│   ●  ·68a2fc3 (⌂)
+│   ●  ·984fd1c (⌂)
+├───╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -279,27 +282,29 @@ fn insert_multi_node_segment_above() -> Result<()> {
     editor.insert_segment(a_selector, delimiter, mutate::InsertSide::Above)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·61b2679 (⌂|1)
-        ├── ►:1[1]:anon:
-        │   └── ·758c8a3 (⌂|1) ►A, ►B
-        │       └── ►:3[2]:anon:
-        │           └── ·db40ffc (⌂|1)
-        │               ├── ►:4[3]:anon:
-        │               │   └── ·add59d2 (⌂|1)
-        │               │       └── ►:5[4]:anon:
-        │               │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-        │               └── →:5:
-        └── ►:2[1]:C
-            ├── ·930563a (⌂|1)
-            ├── ·68a2fc3 (⌂|1)
-            └── ·984fd1c (⌂|1)
-                └── →:5:
+◎  A
+│ ◎  B
+├─╯
+│ ◎  👉main[🌳]
+│ ●  ·61b2679 (⌂)
+╭─┤
+● │  ·758c8a3 (⌂)
+● │    ·db40ffc (⌂)
+├───╮
+● │ │  ·add59d2 (⌂)
+├───╯
+│ ◎  C
+│ ●  ·930563a (⌂)
+│ ●  ·68a2fc3 (⌂)
+│ ●  ·984fd1c (⌂)
+├─╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -374,6 +379,10 @@ fn insert_multi_node_segment_below() -> Result<()> {
     let b_parent_selector = editor
         .select_commit(b_parent)
         .context("Failed to find parent of commit b in editor graph")?;
+    let base = repo.rev_parse_single("base")?.detach();
+    let base_selector = editor
+        .select_commit(base)
+        .context("Failed to find base commit in editor graph")?;
 
     let delimiter = mutate::SegmentDelimiter {
         child: b_selector,
@@ -381,28 +390,36 @@ fn insert_multi_node_segment_below() -> Result<()> {
     };
 
     editor.insert_segment(a_selector, delimiter, mutate::InsertSide::Below)?;
+    let mut inserted_parents = editor.direct_parents(b_parent_selector)?;
+    inserted_parents.sort_by_key(|(_, order)| *order);
+    assert_eq!(
+        inserted_parents,
+        [(base_selector, 0)],
+        "the shared base parent should occur once in first-parent position"
+    );
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·4db28a9 (⌂|1)
-        ├── ►:1[1]:A
-        │   └── ·71dfc8f (⌂|1)
-        │       └── ►:2[2]:B
-        │           ├── ·a748762 (⌂|1)
-        │           └── ·62e05ba (⌂|1)
-        │               └── ►:4[3]:anon:
-        │                   └── 🏁·8f0d338 (⌂|1) ►tags/base
-        ├── →:2: (B)
-        └── ►:3[1]:C
-            ├── ·930563a (⌂|1)
-            ├── ·68a2fc3 (⌂|1)
-            └── ·984fd1c (⌂|1)
-                └── →:4:
+◎  B
+│ ◎  👉main[🌳]
+│ ●    ·4db28a9 (⌂)
+╭─┼─╮
+│ ◎ │  A
+│ ● │  ·71dfc8f (⌂)
+├─╯ │
+●   │  ·a748762 (⌂)
+●   │  ·62e05ba (⌂)
+│   ◎  C
+│   ●  ·930563a (⌂)
+│   ●  ·68a2fc3 (⌂)
+│   ●  ·984fd1c (⌂)
+├───╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -492,29 +509,28 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
     )?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·cca953f (⌂|1)
-        ├── ►:1[2]:A
-        │   └── ·69221b4 (⌂|1)
-        │       ├── ►:2[3]:B
-        │       │   ├── ·a748762 (⌂|1)
-        │       │   └── ·62e05ba (⌂|1)
-        │       │       └── ►:4[4]:anon:
-        │       │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-        │       └── →:4:
-        ├── →:2: (B)
-        └── ►:3[1]:C
-            └── ·76e2160 (⌂|1)
-                ├── ►:5[2]:anon:
-                │   ├── ·68a2fc3 (⌂|1)
-                │   └── ·984fd1c (⌂|1)
-                │       └── →:4:
-                └── →:1: (A)
+◎  A
+│ ◎  B
+│ │ ◎  👉main[🌳]
+│ │ ●  ·cca953f (⌂)
+╭─┬─┤
+│ │ ◎  C
+│ │ ●  ·76e2160 (⌂)
+╭───┤
+│ │ ●  ·68a2fc3 (⌂)
+│ │ ●  ·984fd1c (⌂)
+● │ │  ·69221b4 (⌂)
+╰─┬─╮
+  ● │  ·a748762 (⌂)
+  ● │  ·62e05ba (⌂)
+  ├─╯
+◎ │  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );
@@ -610,29 +626,29 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
     )?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-
-└── 👉►:0[0]:main[🌳]
-    └── ·54f9cab (⌂|1)
-        ├── ►:1[1]:A
-        │   └── ·9501727 (⌂|1)
-        │       ├── ►:4[4]:anon:
-        │       │   └── 🏁·8f0d338 (⌂|1) ►tags/base
-        │       └── ►:2[2]:B
-        │           └── ·347772f (⌂|1)
-        │               ├── ►:3[3]:C
-        │               │   ├── ·930563a (⌂|1)
-        │               │   ├── ·68a2fc3 (⌂|1)
-        │               │   └── ·984fd1c (⌂|1)
-        │               │       └── →:4:
-        │               └── ►:5[3]:anon:
-        │                   └── ·62e05ba (⌂|1)
-        │                       └── →:4:
-        ├── →:2: (B)
-        └── →:3: (C)
+◎  B
+│ ◎  C
+│ │ ◎  👉main[🌳]
+│ │ ●  ·54f9cab (⌂)
+╭─┬─┤
+│ │ ◎  A
+│ │ ●  ·9501727 (⌂)
+╭───┤
+● │ │  ·347772f (⌂)
+├─╮ │
+│ ● │  ·930563a (⌂)
+│ ● │  ·68a2fc3 (⌂)
+│ ● │  ·984fd1c (⌂)
+│ ├─╯
+● │  ·62e05ba (⌂)
+├─╯
+│ ◎  tags/base
+├─╯
+●  🏁·8f0d338 (⌂)
 
 "#]]
     );

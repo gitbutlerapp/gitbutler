@@ -3,9 +3,10 @@
 use anyhow::{Context as _, Result};
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Selector, Step, ToSelector};
-use std::{borrow::Cow, collections::HashMap};
-
-use crate::graph_manipulation::traverse_nodes;
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
 
 /// Commit ancestry information for a branch and its configured upstream.
 #[derive(Debug)]
@@ -105,31 +106,30 @@ pub(crate) fn commit_ids_from_selectors<M: RefMetadata>(
         .collect()
 }
 
-/// Classify candidate selectors by whether the target branch reaches them.
+/// Classify candidate selectors by whether the target branch reaches their commits.
 ///
 /// `editor` provides the graph traversal and pick lookup operations used during
 /// classification.
 ///
-/// `target_ref_selector` is the selector whose reachable history defines what
-/// counts as already integrated.
+/// `target_reachable_commits` contains the commit ids reachable from the target
+/// branch.
 ///
 /// `candidate_selectors` are the selectors to classify against the target
 /// branch reachability set.
 ///
 /// Returns a map keyed by candidate commit id describing whether each candidate
 /// is historically integrated into the target branch.
-pub(crate) fn classify_selectors_against_target_ref<M: RefMetadata>(
+pub(crate) fn classify_selectors_against_target_commits<M: RefMetadata>(
     editor: &Editor<'_, '_, M>,
-    target_ref_selector: Selector,
+    target_reachable_commits: &HashSet<gix::ObjectId>,
     candidate_selectors: &[Selector],
 ) -> Result<HashMap<gix::ObjectId, TargetCommitRelation>> {
-    let target_reachable_selectors = traverse_nodes(editor, target_ref_selector)?;
     candidate_selectors
         .iter()
         .copied()
         .map(|candidate_selector| {
             let candidate_commit_id = editor.lookup_pick(candidate_selector)?;
-            let relation = if target_reachable_selectors.contains(&candidate_selector) {
+            let relation = if target_reachable_commits.contains(&candidate_commit_id) {
                 TargetCommitRelation::HistoricallyIntegrated {
                     target_commit_id: candidate_commit_id,
                 }
