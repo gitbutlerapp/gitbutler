@@ -171,15 +171,15 @@ fn amended_commit() -> Result<()> {
         visualize_commit_graph(&repo, "@")?,
         snapbox::str![[r#"
 *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
-|\ \  
+|\ \
 | | * 930563a (C) C: add another 10 lines to new file
 | | * 68a2fc3 C: add 10 lines to new file
 | | * 984fd1c C: new file with 10 lines
 | * | a748762 (B) B: another 10 lines at the bottom
 | * | 62e05ba B: 10 lines at the bottom
-| |/  
+| |/
 * / add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base) base
 
 "#]]
@@ -206,15 +206,15 @@ fn amended_commit() -> Result<()> {
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
 *-.   6a38e67 Merge branches 'A', 'B' and 'C' - rewritten
-|\ \  
+|\ \
 | | * 806db8c C: add another 10 lines to new file - amended
 | | * 68a2fc3 C: add 10 lines to new file
 | | * 984fd1c C: new file with 10 lines
 | * | a748762 (B) B: another 10 lines at the bottom
 | * | 62e05ba B: 10 lines at the bottom
-| |/  
+| |/
 * / add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base) base
 
 "#]]
@@ -259,10 +259,10 @@ fn reorder_merge_in_reverse() -> Result<()> {
         snapbox::str![[r#"
 * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
 *   2fc288c Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
@@ -298,9 +298,9 @@ fn reorder_merge_in_reverse() -> Result<()> {
 * eb90e58 was dd59d2 below merge
 * 5d38e6f was e8ee978 on top
 *   418a03b was merge 2fc288c one below top
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
@@ -350,15 +350,15 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
         visualize_commit_graph(&repo, "@")?,
         snapbox::str![[r#"
 *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
-|\ \  
+|\ \
 | | * 930563a (C) C: add another 10 lines to new file
 | | * 68a2fc3 C: add 10 lines to new file
 | | * 984fd1c C: new file with 10 lines
 | * | a748762 (B) B: another 10 lines at the bottom
 | * | 62e05ba B: 10 lines at the bottom
-| |/  
+| |/
 * / add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base) base
 
 "#]]
@@ -432,15 +432,15 @@ RebaseOutput {
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
 *-.   976ad52 Re-merge branches 'A', 'B' and 'C'
-|\ \  
+|\ \
 | | * d3cf6a9 [conflict] C~1
 | | * eebaa8b C
 | | * a037d4a C~2
 | * | a748762 (B) B: another 10 lines at the bottom
 | * | 62e05ba B: 10 lines at the bottom
-| |/  
+| |/
 * / add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base) base
 
 "#]]
@@ -686,15 +686,15 @@ fn reversible_conflicts() -> anyhow::Result<()> {
         visualize_commit_graph(&repo, out.top_commit)?,
         snapbox::str![[r#"
 *-.   976ad52 Re-merge branches 'A', 'B' and 'C'
-|\ \  
+|\ \
 | | * d3cf6a9 [conflict] C~1
 | | * eebaa8b C
 | | * a037d4a C~2
 | * | a748762 (B) B: another 10 lines at the bottom
 | * | 62e05ba B: 10 lines at the bottom
-| |/  
+| |/
 * / add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base) base
 
 "#]]
@@ -929,16 +929,5 @@ pub mod utils {
                     .is_conflicted()
             })
             .collect()
-    }
-
-    pub fn standard_options() -> but_graph::init::Options {
-        but_graph::init::Options {
-            collect_tags: true,
-            commits_limit_hint: None,
-            commits_limit_recharge_location: vec![],
-            hard_limit: None,
-            extra_target_commit_id: None,
-            dangerously_skip_postprocessing_for_debugging: false,
-        }
     }
 }

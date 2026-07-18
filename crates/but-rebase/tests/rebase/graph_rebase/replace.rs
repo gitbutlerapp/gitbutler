@@ -1,11 +1,10 @@
 //! These tests exercise the replace operation.
 use anyhow::{Context, Result};
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, Step};
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all, visualize_tree};
 use snapbox::prelude::*;
 
-use crate::utils::{fixture_writable, standard_options};
+use crate::utils::fixture_writable;
 
 #[test]
 fn reword_a_commit() -> Result<()> {
@@ -16,10 +15,10 @@ fn reword_a_commit() -> Result<()> {
         snapbox::str![[r#"
 * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
 *   2fc288c Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
@@ -29,11 +28,11 @@ fn reword_a_commit() -> Result<()> {
 
     let head_tree = repo.head_tree()?.id;
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -62,19 +61,17 @@ fn reword_a_commit() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·78aaae2 (⌂)
-│ ●    ·53af95a (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·78aaae2 (→)
+│ ●    ·53af95a (→)
 │ ├─╮
 │ ◎ │  A
-│ ● │  ·6de6b92 (⌂)
+│ ● │  ·6de6b92 (→)
 ├─╯ │
 │   ◎  B
-│   ●  ·984fd1c (⌂)
+│   ●  ·984fd1c (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·8f0d338 (⌂)
+●  🏁·8f0d338 (→)
 
 "#]]
     );
@@ -88,10 +85,10 @@ fn reword_a_commit() -> Result<()> {
         snapbox::str![[r#"
 * 78aaae2 (HEAD -> with-inner-merge) on top of inner merge
 *   53af95a Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | 6de6b92 (A) A: a second coming
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
@@ -122,10 +119,10 @@ fn amend_a_commit() -> Result<()> {
         snapbox::str![[r#"
 * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
 *   2fc288c Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
@@ -142,11 +139,11 @@ f766d1f
 
 "#]].raw());
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -186,19 +183,17 @@ f766d1f
         &overlayed,
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·e7221b5 (⌂)
-│ ●    ·8101192 (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·e7221b5 (→)
+│ ●    ·8101192 (→)
 │ ├─╮
 │ ◎ │  A
-│ ● │  ·f1905a8 (⌂)
+│ ● │  ·f1905a8 (→)
 ├─╯ │
 │   ◎  B
-│   ●  ·984fd1c (⌂)
+│   ●  ·984fd1c (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·8f0d338 (⌂)
+●  🏁·8f0d338 (→)
 
 "#]]
     );
@@ -210,10 +205,10 @@ f766d1f
         snapbox::str![[r#"
 * e7221b5 (HEAD -> with-inner-merge) on top of inner merge
 *   8101192 Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | f1905a8 (A) A: a second coming
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]

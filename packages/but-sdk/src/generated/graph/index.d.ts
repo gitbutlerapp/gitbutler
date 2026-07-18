@@ -2482,8 +2482,8 @@ export type Segment = {
    */
   metadata: Branch | null;
   /**
-   * This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
-   * is this segment, and the surrounding workspace is provided for context.
+   * This is `true` when this projected segment contains the graph entrypoint
+   * and the surrounding workspace is provided for context.
    *
    * This means one will see the entire workspace, while knowing the focus is on one specific segment.
    * *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
@@ -2891,4 +2891,3 @@ export type WorktreeChanges = {
   dependencies: HunkDependencies | null;
   dependenciesError: SerdeError | null;
 };
-

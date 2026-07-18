@@ -48,7 +48,6 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
         &meta,
         but_workspace::ref_info::Options {
             project_meta: ctx.project_meta()?,
-            traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
             gerrit_mode,
         },
@@ -114,14 +113,11 @@ pub(crate) fn stacks_v3_from_ctx(
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let repo = ctx.open_isolated_repo()?;
     let meta = ctx.meta()?;
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
         ctx.project_meta()?,
-        but_graph::init::Options {
-            collect_tags: true,
-            ..but_graph::init::Options::limited()
-        },
+        but_graph::init::Overlay::default(),
     )?;
     let svg_path = std::env::temp_dir().join(format!("gitbutler-graph-{}.svg", std::process::id()));
     let mut dot = Command::new("dot")
@@ -148,14 +144,12 @@ fn node_graph_dot(graph: &but_graph::Graph) -> String {
             but_graph::NodeKind::Commit { id } => format!(
                 "{} {}",
                 id.to_hex_with_len(7),
-                graph.annotations()[index].debug_string(None)
+                graph.annotations()[index].debug_string()
             ),
             but_graph::NodeKind::Reference(reference) => reference.ref_info.ref_name.to_string(),
-            but_graph::NodeKind::ShallowPoint { id, reason } => format!(
-                "{} {}",
-                id.to_hex_with_len(7),
-                reason.debug_string(graph.hard_limit_hit())
-            ),
+            but_graph::NodeKind::Boundary { id, reason } => {
+                format!("{} {}", id.to_hex_with_len(7), reason.debug_string())
+            }
         };
         writeln!(out, "  {index} [label={label:?}];").expect("writing to a string cannot fail");
         for (order, parent) in node.parents().iter().enumerate() {
@@ -482,7 +476,6 @@ pub fn workspace_branch_and_ancestors_push(
         &meta,
         but_workspace::ref_info::Options {
             project_meta: ctx.project_meta()?,
-            traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
             gerrit_mode,
         },

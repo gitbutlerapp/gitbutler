@@ -172,16 +172,6 @@ impl Graph {
     pub fn into_workspace(self) -> anyhow::Result<Workspace> {
         Workspace::from_graph(self)
     }
-
-    /// Redo traversal and immediately project its result.
-    pub fn into_workspace_of_redone_traversal(
-        self,
-        repo: &gix::Repository,
-        meta: &impl but_core::RefMetadata,
-    ) -> anyhow::Result<Workspace> {
-        self.redo_traversal_with_overlay(repo, meta, Default::default())?
-            .into_workspace()
-    }
 }
 
 impl Workspace {
@@ -240,7 +230,7 @@ impl Workspace {
         let (kind, metadata) = containing_workspace
             .and_then(|index| match graph.nodes()[index].kind() {
                 NodeKind::Reference(reference) => Some((index, reference.as_ref())),
-                NodeKind::Commit { .. } | NodeKind::ShallowPoint { .. } => None,
+                NodeKind::Commit { .. } | NodeKind::Boundary { .. } => None,
             })
             .map(|(_index, reference)| {
                 let metadata = match &reference.metadata {
@@ -272,14 +262,20 @@ impl Workspace {
                     .as_ref()
                     .and_then(|metadata| metadata.target_ref().map(ToOwned::to_owned))
             })
-            .and_then(|name| target_ref_from_name(&graph, name))
-            .or_else(|| integrated_tip_target_ref(&graph));
+            .and_then(|name| target_ref_from_name(&graph, name));
         let target_commit_id = graph.project_meta().target_commit_id.or_else(|| {
             metadata
                 .as_ref()
                 .and_then(|metadata| metadata.target_commit_id())
         });
-        let integrated_target_indices = integrated_tip_target_indices(&graph, target_ref.as_ref());
+        let target_ref_id = target_ref
+            .as_ref()
+            .and_then(|target| commit_id_at(&graph, target.node_index));
+        let integrated_target_indices = target_commit_id
+            .filter(|id| Some(*id) != target_ref_id)
+            .and_then(|id| graph.node_by_commit_id(id).map(|(index, _)| index))
+            .into_iter()
+            .collect::<Vec<_>>();
         let target_commit = target_commit_id
             .and_then(|commit_id| {
                 graph
@@ -340,10 +336,19 @@ impl Workspace {
         let lower_bound = lower_bound_node_id.and_then(|index| commit_id_at(&graph, index));
 
         let refs_by_commit = references_by_commit(&graph);
+        let stack_projection = StackProjectionContext {
+            graph: &graph,
+            entrypoint: entrypoint_ref.or(entrypoint),
+            refs_by_commit: &refs_by_commit,
+        };
         let workspace_overlay_roots = containing_workspace
             .and_then(|workspace| graph.nodes()[workspace].parents().split_last())
             .map(|(_, overlay_roots)| overlay_roots)
             .unwrap_or_default();
+        let projected_stack_ids = starts
+            .iter()
+            .filter_map(|start| metadata_stack_id_for_root(&graph, metadata.as_ref(), *start))
+            .collect::<HashSet<_>>();
         let mut stacks = starts
             .into_iter()
             .filter_map(|start| {
@@ -353,32 +358,39 @@ impl Workspace {
                     stack_target,
                     stack_target.and(lower_bound_node_id),
                 );
-                collect_stack(
-                    &graph,
-                    start,
-                    entrypoint_ref.or(entrypoint),
-                    stack_lower_bound,
-                    &refs_by_commit,
-                )
-                .transpose()
+                let stack_id = metadata_stack_id_for_root(&graph, metadata.as_ref(), start);
+                stack_projection
+                    .collect_stack(
+                        start,
+                        stack_lower_bound,
+                        true,
+                        metadata.as_ref(),
+                        stack_id,
+                        Some(&projected_stack_ids),
+                    )
+                    .transpose()
+                    .map(|stack| {
+                        stack.map(|mut stack| {
+                            stack.id = stack_id;
+                            stack
+                        })
+                    })
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         if let Some(metadata) = metadata.as_ref() {
-            enrich_anonymous_stack_tips(
-                &graph,
-                metadata,
-                &mut stacks,
-                entrypoint_ref.or(entrypoint),
-                &refs_by_commit,
-            )?;
+            enrich_anonymous_stack_tips(&stack_projection, metadata, &mut stacks)?;
         }
         enrich_remotes(&graph, &mut stacks, &refs_by_commit);
 
         for stack in &mut stacks {
-            stack.id = metadata
-                .as_ref()
-                .and_then(|metadata| metadata_stack_id(metadata, stack))
+            stack.id = stack
+                .id
+                .or_else(|| {
+                    metadata
+                        .as_ref()
+                        .and_then(|metadata| metadata_stack_id(metadata, stack))
+                })
                 .or_else(|| matches!(kind, WorkspaceKind::AdHoc).then(StackId::single_branch_id));
         }
         if !matches!(kind, WorkspaceKind::AdHoc) {
@@ -462,6 +474,15 @@ impl Workspace {
             .as_ref()
             .and_then(|target| commit_id_at(&self.graph, target.node_index))
     }
+
+    /// Return whether `id` is part of a projected workspace stack.
+    pub fn contains_commit(&self, id: gix::ObjectId) -> bool {
+        self.stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .flat_map(|segment| &segment.commits)
+            .any(|commit| commit.id == id)
+    }
 }
 
 fn target_ref_from_name(graph: &Graph, ref_name: gix::refs::FullName) -> Option<TargetRef> {
@@ -472,37 +493,6 @@ fn target_ref_from_name(graph: &Graph, ref_name: gix::refs::FullName) -> Option<
             node_index,
             commits_ahead: 0,
         })
-}
-
-fn integrated_tip_target_ref(graph: &Graph) -> Option<TargetRef> {
-    if graph
-        .context
-        .traversal_tips
-        .iter()
-        .any(|tip| matches!(&tip.metadata, Some(ReferenceMetadata::Workspace(_))))
-    {
-        return None;
-    }
-    graph
-        .context
-        .traversal_tips
-        .iter()
-        .filter(|tip| tip.role.is_integrated())
-        .filter_map(|tip| tip.ref_name.clone())
-        .find_map(|ref_name| target_ref_from_name(graph, ref_name))
-}
-
-fn integrated_tip_target_indices(graph: &Graph, target_ref: Option<&TargetRef>) -> Vec<NodeIndex> {
-    let target_ref_id = target_ref.and_then(|target| commit_id_at(graph, target.node_index));
-    let mut out = graph
-        .context
-        .traversal_tips
-        .iter()
-        .filter(|tip| tip.role.is_integrated() && Some(tip.id) != target_ref_id)
-        .filter_map(|tip| graph.node_by_commit_id(tip.id).map(|(index, _)| index))
-        .collect::<Vec<_>>();
-    deduplicate(&mut out);
-    out
 }
 
 fn lowest_integrated_target(graph: &Graph, targets: &[NodeIndex]) -> Option<TargetCommit> {
@@ -576,6 +566,34 @@ fn stack_starts(
         let actual_parents = graph.nodes()[*own_target].parents();
         let mut starts = overlay_parents.to_vec();
         starts.extend(actual_parents);
+        starts.extend(metadata.into_iter().flat_map(|metadata| {
+            metadata
+                .stacks
+                .iter()
+                .filter(|stack| stack.workspacecommit_relation.is_in_workspace())
+                .filter_map(|stack| {
+                    stack
+                        .branches
+                        .iter()
+                        .filter(|branch| !branch.archived)
+                        .find_map(|branch| {
+                            graph
+                                .node_by_ref_name(branch.ref_name.as_ref())
+                                .map(|(index, _)| index)
+                        })
+                        .filter(|root| {
+                            let Ok(root_commit) = commit_index_at(graph, *root) else {
+                                return false;
+                            };
+                            !actual_parents.iter().any(|parent| {
+                                commit_index_at(graph, *parent).is_ok_and(|parent_commit| {
+                                    parent_commit != root_commit
+                                        && distance_to(graph, root_commit, parent_commit).is_some()
+                                })
+                            })
+                        })
+                })
+        }));
         deduplicate(&mut starts);
         let candidates = starts.clone();
         starts.retain(|root| {
@@ -657,116 +675,160 @@ fn is_internal_gitbutler_reference(reference: &Reference) -> bool {
         .starts_with(b"refs/heads/gitbutler/")
 }
 
-fn collect_stack(
-    graph: &Graph,
-    start: NodeIndex,
+struct StackProjectionContext<'a> {
+    graph: &'a Graph,
     entrypoint: Option<NodeIndex>,
-    lower_bound: Option<NodeIndex>,
-    refs_by_commit: &HashMap<NodeIndex, Vec<(NodeIndex, RefInfo)>>,
-) -> anyhow::Result<Option<Stack>> {
-    let mut segments = Vec::new();
-    let mut current = None;
-    let mut cursor = start;
-    let mut seen = HashSet::new();
-    let mut named_reference = None;
+    refs_by_commit: &'a HashMap<NodeIndex, Vec<(NodeIndex, RefInfo)>>,
+}
 
-    while seen.insert(cursor) && Some(cursor) != lower_bound {
-        match graph.nodes()[cursor].kind() {
-            NodeKind::Reference(reference) => {
-                if matches!(reference.metadata, Some(ReferenceMetadata::Workspace(_))) {
-                    break;
-                }
-                let Some(parent) = graph.nodes()[cursor].parents().last().copied() else {
-                    break;
-                };
-                if is_internal_gitbutler_reference(reference) {
-                    cursor = parent;
-                    continue;
-                }
-                if current.as_ref().is_some_and(|segment: &StackSegment| {
-                    segment.ref_info.is_some() || !segment.commits.is_empty()
-                }) {
-                    segments.push(current.take().expect("checked above"));
-                }
-                current = Some(segment_from_reference(graph, cursor, reference, entrypoint));
-                named_reference = Some(cursor);
-                if Some(parent) == lower_bound {
-                    let Some(segment) = current.as_mut() else {
+impl StackProjectionContext<'_> {
+    fn collect_stack(
+        &self,
+        start: NodeIndex,
+        lower_bound: Option<NodeIndex>,
+        in_workspace: bool,
+        workspace_metadata: Option<&ref_metadata::Workspace>,
+        stack_id: Option<StackId>,
+        projected_stack_ids: Option<&HashSet<StackId>>,
+    ) -> anyhow::Result<Option<Stack>> {
+        let graph = self.graph;
+        let entrypoint = self.entrypoint;
+        let mut segments = Vec::new();
+        let mut current: Option<StackSegment> = None;
+        let mut cursor = start;
+        let mut seen = HashSet::new();
+        let mut named_reference = None;
+
+        while seen.insert(cursor) && Some(cursor) != lower_bound {
+            match graph.nodes()[cursor].kind() {
+                NodeKind::Reference(reference) => {
+                    if matches!(reference.metadata, Some(ReferenceMetadata::Workspace(_))) {
+                        break;
+                    }
+                    if cursor != start
+                        && stack_id.is_some_and(|stack_id| {
+                            metadata_stack_id_for_root(graph, workspace_metadata, cursor)
+                                .is_some_and(|owner| {
+                                    owner != stack_id
+                                        && projected_stack_ids
+                                            .is_some_and(|stack_ids| stack_ids.contains(&owner))
+                                })
+                        })
+                    {
+                        if let Some(segment) = current.as_mut() {
+                            segment.base = reference.ref_info.commit_id;
+                        }
+                        break;
+                    }
+                    let Some(parent) = graph.nodes()[cursor].parents().last().copied() else {
                         break;
                     };
-                    segment.base = commit_id_at(graph, parent);
-                    break;
-                }
-                cursor = parent;
-            }
-            NodeKind::Commit { id } => {
-                let mut refs = refs_by_commit.get(&cursor).cloned().unwrap_or_default();
-                let reference_index = (current.is_none() && Some(cursor) != entrypoint)
-                    .then(|| unique_local_reference(graph, &refs))
-                    .flatten();
-                if let Some(reference_index) = reference_index
-                    && let NodeKind::Reference(reference) = graph.nodes()[reference_index].kind()
-                {
+                    if is_internal_gitbutler_reference(reference) {
+                        cursor = parent;
+                        continue;
+                    }
                     if current.as_ref().is_some_and(|segment: &StackSegment| {
                         segment.ref_info.is_some() || !segment.commits.is_empty()
                     }) {
                         segments.push(current.take().expect("checked above"));
                     }
-                    current = Some(segment_from_reference(
-                        graph,
-                        reference_index,
-                        reference,
-                        entrypoint,
-                    ));
-                    named_reference = Some(reference_index);
-                }
-                let segment = current.get_or_insert_with(|| anonymous_segment(cursor, entrypoint));
-                refs.retain(|(index, _)| Some(*index) != named_reference);
-                let annotation = graph.annotations()[cursor];
-                let mut flags = StackCommitFlags::from(annotation);
-                if !annotation.contains(crate::CommitFlags::NotInRemote) {
-                    flags |= StackCommitFlags::ReachableByRemote;
-                }
-                segment.commits.push(StackCommit {
-                    id: *id,
-                    parent_ids: graph.nodes()[cursor]
-                        .parents()
-                        .iter()
-                        .filter_map(|parent| commit_id_at(graph, *parent))
-                        .collect(),
-                    flags,
-                    refs: refs.into_iter().map(|(_, info)| info).collect(),
-                });
-                let Some(parent) = graph.nodes()[cursor].parents().first().copied() else {
-                    break;
-                };
-                if Some(parent) == lower_bound {
-                    segment.base = commit_id_at(graph, parent);
-                    break;
-                }
-                cursor = parent;
-            }
-            NodeKind::ShallowPoint { id, .. } => {
-                if let Some(segment) = current.as_mut() {
-                    if let Some(commit) = segment.commits.last_mut() {
-                        commit.flags |= StackCommitFlags::EarlyEnd;
+                    current = Some(segment_from_reference(graph, cursor, reference, entrypoint));
+                    named_reference = Some(cursor);
+                    if Some(parent) == lower_bound {
+                        let Some(segment) = current.as_mut() else {
+                            break;
+                        };
+                        segment.base = commit_id_at(graph, parent);
+                        break;
                     }
-                    segment.base = Some(*id);
+                    cursor = parent;
                 }
-                break;
+                NodeKind::Commit { id } => {
+                    let mut refs = self
+                        .refs_by_commit
+                        .get(&cursor)
+                        .cloned()
+                        .unwrap_or_default();
+                    let reference_index = (current.is_none() && Some(cursor) != entrypoint)
+                        .then(|| unique_local_reference(graph, &refs))
+                        .flatten();
+                    if let Some(reference_index) = reference_index
+                        && let NodeKind::Reference(reference) =
+                            graph.nodes()[reference_index].kind()
+                    {
+                        if current.as_ref().is_some_and(|segment: &StackSegment| {
+                            segment.ref_info.is_some() || !segment.commits.is_empty()
+                        }) {
+                            segments.push(current.take().expect("checked above"));
+                        }
+                        current = Some(segment_from_reference(
+                            graph,
+                            reference_index,
+                            reference,
+                            entrypoint,
+                        ));
+                        named_reference = Some(reference_index);
+                    }
+                    let segment =
+                        current.get_or_insert_with(|| anonymous_segment(cursor, entrypoint));
+                    refs.retain(|(index, _)| Some(*index) != named_reference);
+                    let annotation = graph.annotations()[cursor];
+                    let mut flags = StackCommitFlags::from(annotation);
+                    if in_workspace {
+                        flags |= StackCommitFlags::InWorkspace;
+                    }
+                    if !annotation.contains(crate::CommitFlags::EntrypointSide) {
+                        flags |= StackCommitFlags::ReachableByRemote;
+                    }
+                    if graph.nodes()[cursor].parents().iter().any(|parent| {
+                        matches!(
+                            graph.nodes()[*parent].kind(),
+                            NodeKind::Boundary {
+                                reason: crate::BoundaryKind::Shallow,
+                                ..
+                            }
+                        )
+                    }) {
+                        flags |= StackCommitFlags::ShallowBoundary;
+                    }
+                    segment.commits.push(StackCommit {
+                        id: *id,
+                        parent_ids: graph.nodes()[cursor]
+                            .parents()
+                            .iter()
+                            .filter_map(|parent| commit_id_at(graph, *parent))
+                            .collect(),
+                        flags,
+                        refs: refs.into_iter().map(|(_, info)| info).collect(),
+                    });
+                    let Some(parent) = graph.nodes()[cursor].parents().first().copied() else {
+                        break;
+                    };
+                    if Some(parent) == lower_bound {
+                        segment.base = commit_id_at(graph, parent);
+                        break;
+                    }
+                    cursor = parent;
+                }
+                NodeKind::Boundary { .. } => {
+                    if let Some(segment) = current.as_mut() {
+                        segment.base = None;
+                    }
+                    break;
+                }
             }
         }
+        if let Some(segment) = current {
+            segments.push(segment);
+        }
+        if segments.is_empty() {
+            return Ok(None);
+        }
+        for index in 0..segments.len().saturating_sub(1) {
+            segments[index].base = segments[index + 1].tip();
+        }
+        Ok(Some(Stack { id: None, segments }))
     }
-    if let Some(segment) = current {
-        segments.push(segment);
-    }
-    if segments.is_empty() {
-        return Ok(None);
-    }
-    for index in 0..segments.len().saturating_sub(1) {
-        segments[index].base = segments[index + 1].tip();
-    }
-    Ok(Some(Stack { id: None, segments }))
 }
 
 fn segment_from_reference(
@@ -883,12 +945,12 @@ fn unique_local_reference(graph: &Graph, references: &[(NodeIndex, RefInfo)]) ->
 }
 
 fn enrich_anonymous_stack_tips(
-    graph: &Graph,
+    projection: &StackProjectionContext<'_>,
     metadata: &ref_metadata::Workspace,
     stacks: &mut [Stack],
-    entrypoint: Option<NodeIndex>,
-    refs_by_commit: &HashMap<NodeIndex, Vec<(NodeIndex, RefInfo)>>,
 ) -> anyhow::Result<()> {
+    let graph = projection.graph;
+    let entrypoint = projection.entrypoint;
     for stack in stacks {
         let Some(first) = stack.segments.first() else {
             continue;
@@ -920,12 +982,13 @@ fn enrich_anonymous_stack_tips(
         if distance_to(graph, reference_index, in_workspace_tip).is_none() {
             continue;
         }
-        let Some(outside) = collect_stack(
-            graph,
+        let Some(outside) = projection.collect_stack(
             reference_index,
-            entrypoint,
             Some(in_workspace_tip),
-            refs_by_commit,
+            false,
+            None,
+            None,
+            None,
         )?
         else {
             continue;
@@ -1030,18 +1093,15 @@ fn remote_only_commits(
 }
 
 fn metadata_stack_id(metadata: &ref_metadata::Workspace, stack: &Stack) -> Option<StackId> {
-    let names = stack
+    stack
         .segments
         .iter()
         .filter_map(StackSegment::ref_name)
-        .collect::<BTreeSet<_>>();
-    metadata.stacks.iter().find_map(|candidate| {
-        candidate
-            .branches
-            .iter()
-            .any(|branch| names.contains(branch.ref_name.as_ref()))
-            .then_some(candidate.id)
-    })
+        .find_map(|name| {
+            metadata
+                .find_stack_with_branch(name, ref_metadata::StackKind::Applied)
+                .map(|stack| stack.id)
+        })
 }
 
 fn common_ancestor(graph: &Graph, starts: &[NodeIndex]) -> Option<NodeIndex> {
@@ -1123,7 +1183,7 @@ fn commit_index_at(graph: &Graph, start: NodeIndex) -> anyhow::Result<NodeIndex>
                     .last()
                     .context("reference node has no target")?;
             }
-            NodeKind::ShallowPoint { .. } => anyhow::bail!("shallow point has no commit node"),
+            NodeKind::Boundary { .. } => anyhow::bail!("boundary has no commit node"),
         }
     }
     anyhow::bail!("reference target cycle")
@@ -1131,7 +1191,8 @@ fn commit_index_at(graph: &Graph, start: NodeIndex) -> anyhow::Result<NodeIndex>
 
 fn commit_id_at(graph: &Graph, index: NodeIndex) -> Option<gix::ObjectId> {
     match graph.nodes()[index].kind() {
-        NodeKind::Commit { id } | NodeKind::ShallowPoint { id, .. } => Some(*id),
+        NodeKind::Commit { id } => Some(*id),
+        NodeKind::Boundary { .. } => None,
         NodeKind::Reference(reference) => reference.ref_info.commit_id,
     }
 }
@@ -1203,6 +1264,20 @@ mod tests {
         managed_workspace_commit_id: Option<gix::ObjectId>,
         target_commit_id: gix::ObjectId,
     ) -> Graph {
+        let entrypoint_commit_id = match nodes[entrypoint].kind() {
+            NodeKind::Commit { id } => *id,
+            NodeKind::Reference(reference) => reference
+                .ref_info
+                .commit_id
+                .expect("born reference entrypoint has a target"),
+            NodeKind::Boundary { .. } => panic!("a boundary cannot be an entrypoint"),
+        };
+        let commit_entrypoint = nodes
+            .iter()
+            .position(
+                |node| matches!(node.kind(), NodeKind::Commit { id } if *id == entrypoint_commit_id),
+            )
+            .expect("entrypoint target commit is present exactly once");
         let project_meta = but_core::ref_metadata::ProjectMeta {
             target_commit_id: Some(target_commit_id),
             ..Default::default()
@@ -1211,19 +1286,14 @@ mod tests {
             annotations: vec![CommitFlags::default(); nodes.len()],
             nodes,
             context: ConstructionContext {
-                entrypoint: NodeGraphEntrypoint::Node(entrypoint),
+                entrypoint: NodeGraphEntrypoint::Node(commit_entrypoint),
                 entrypoint_ref: Some(
                     entrypoint_ref
                         .try_into()
                         .expect("valid entrypoint ref name"),
                 ),
                 managed_workspace_commit_id,
-                traversal_tips: Vec::new(),
-                ad_hoc_branch_stack_orders: Vec::new(),
-                hard_limit_hit: false,
-                options: crate::init::Options::default(),
                 project_meta,
-                symbolic_remote_names: Vec::new(),
             },
         }
     }
@@ -1666,6 +1736,93 @@ mod tests {
         assert_eq!(
             workspace.stacks[1].id,
             Some(StackId::from_number_for_testing(2))
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn managed_stack_stops_before_lower_reference_owned_by_another_stack() -> anyhow::Result<()> {
+        use but_core::ref_metadata::{
+            Workspace as WorkspaceMetadata, WorkspaceCommitRelation, WorkspaceStack,
+            WorkspaceStackBranch,
+        };
+
+        let base = oid(1);
+        let lower = oid(2);
+        let upper = oid(3);
+        let managed = oid(4);
+        let first_id = StackId::from_number_for_testing(1);
+        let second_id = StackId::from_number_for_testing(2);
+        let metadata = WorkspaceMetadata::new(
+            Default::default(),
+            vec![
+                WorkspaceStack {
+                    id: first_id,
+                    branches: ["A", "D"]
+                        .into_iter()
+                        .map(|name| WorkspaceStackBranch {
+                            ref_name: format!("refs/heads/{name}").try_into().expect("valid ref"),
+                            archived: false,
+                        })
+                        .collect(),
+                    workspacecommit_relation: WorkspaceCommitRelation::Merged,
+                },
+                WorkspaceStack {
+                    id: second_id,
+                    branches: vec![WorkspaceStackBranch {
+                        ref_name: "refs/heads/B".try_into()?,
+                        archived: false,
+                    }],
+                    workspacecommit_relation: WorkspaceCommitRelation::Merged,
+                },
+            ],
+            Default::default(),
+        );
+        let graph = graph(
+            vec![
+                commit(base, vec![]),
+                commit(lower, vec![0]),
+                reference("refs/heads/D", lower, vec![1], None),
+                commit(upper, vec![2]),
+                reference("refs/heads/A", upper, vec![3], None),
+                reference("refs/heads/B", upper, vec![3], None),
+                commit(managed, vec![4, 5]),
+                reference(
+                    "refs/heads/gitbutler/workspace",
+                    managed,
+                    vec![4, 5, 6],
+                    Some(ReferenceMetadata::Workspace(metadata)),
+                ),
+            ],
+            7,
+            "refs/heads/gitbutler/workspace",
+            Some(managed),
+            base,
+        )
+        .validated()?;
+
+        let workspace = graph.into_workspace()?;
+
+        assert_eq!(workspace.stacks.len(), 2);
+        assert_eq!(workspace.stacks[0].id, Some(first_id));
+        assert_eq!(workspace.stacks[1].id, Some(second_id));
+        assert_eq!(
+            workspace.stacks[0]
+                .segments
+                .iter()
+                .filter_map(StackSegment::ref_name)
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            ["refs/heads/A", "refs/heads/D"]
+        );
+        assert_eq!(
+            workspace.stacks[1]
+                .segments
+                .iter()
+                .filter_map(StackSegment::ref_name)
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+            ["refs/heads/B"]
         );
         Ok(())
     }

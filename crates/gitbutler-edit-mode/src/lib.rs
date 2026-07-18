@@ -322,12 +322,14 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         .find_reference(WORKSPACE_BRANCH_REF)?
         .peel_to_commit()?;
     let mut meta = ctx.meta()?;
-    let mut workspace = but_graph::Graph::from_commit_traversal(
-        workspace_commit.id(),
-        Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
+    let mut workspace = but_graph::Graph::from_repo(
+        &repo,
         &meta,
         ctx.project_meta()?,
-        but_graph::init::Options::limited(),
+        but_graph::init::Overlay::default().with_entrypoint(
+            workspace_commit.id,
+            Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
+        ),
     )?
     .into_workspace()?;
     let mut editor = Editor::create(&mut workspace, &mut meta, repo)?;

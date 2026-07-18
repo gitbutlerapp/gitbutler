@@ -194,8 +194,8 @@ Ask this for both read/query code and mutation code:
 
 ## Examples / starting points
 
-- Graph construction and workspace projection: `crates/but-graph/tests/graph/init/with_workspace.rs`, especially `workspace_with_stack_and_local_target()` and `workspace_projection_with_advanced_stack_tip()`, shows `Graph::from_head()`, `validated()`, `into_workspace()`, and snapshot-backed graph/projection expectations.
-- Target ref and target commit semantics: `crates/but-graph/tests/graph/init/with_workspace.rs` covers cases where target commit metadata, target refs, and extra traversal targets intentionally differ.
+- Graph construction and workspace projection: `crates/but-graph/tests/graph/init/with_workspace.rs`, especially `managed_workspace_projects_its_stacks()` and `advanced_metadata_stack_tip_is_projected()`, shows `Graph::from_repo()`, `validated()`, `into_workspace()`, and snapshot-backed graph/projection expectations.
+- Target ref and target commit semantics: `crates/but-graph/tests/graph/init/with_workspace.rs` covers fully traversing disconnected target and workspace histories from one seed plan.
 - Graph editor mutation patterns: `crates/but-rebase/tests/rebase/graph_rebase/replace.rs` and `crates/but-rebase/tests/rebase/graph_rebase/insert.rs` show selecting commits, replacing/inserting steps, checking `overlayed_workspace()?.graph`, and materializing once.
 - Workspace mutation call sites layered over the graph editor: `crates/but-workspace/tests/workspace/commit/move_commit.rs` shows creating an editor, calling `but_workspace::commit::move_commit`, materializing, refreshing workspace state, and asserting ref movement.
 - Normal Git / single-branch presentation behavior: `crates/but-workspace/tests/workspace/ref_info/mod.rs`, especially `single_branch()` and `single_branch_multiple_segments()`, shows unmanaged/non-workspace `RefInfo` behavior and legacy stack compatibility expectations.

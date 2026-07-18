@@ -132,7 +132,7 @@ aac5238
 * 7cb368c (HEAD -> three) commit three
 * 198bf42 (two) commit two
 | * 16fd221 (origin/two) commit two
-|/  
+|/
 * 8b426d0 (one) commit one
 
 "#]]
@@ -220,7 +220,7 @@ fn move_file_from_parent_to_head() -> Result<()> {
 * f56f108 (HEAD -> three) commit three
 * ebc7217 (two) commit two
 | * 16fd221 (origin/two) commit two
-|/  
+|/
 * 8b426d0 (one) commit one
 
 "#]]

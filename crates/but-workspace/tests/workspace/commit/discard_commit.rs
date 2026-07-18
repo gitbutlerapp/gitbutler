@@ -62,7 +62,7 @@ fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
         snapbox::str![[r#"
 * 0c38dd9 (HEAD -> three) commit three
 | * 16fd221 (origin/two) commit two
-|/  
+|/
 * 8b426d0 (two, one) commit one
 
 "#]]
@@ -86,11 +86,11 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 09d8e52 (A) A
 * | 09bc93e (C) C
 * | c813d8d (B) B
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -104,14 +104,14 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:9:A on 85efbe4 {1}
-│   └── 📙:9:A
+📕🏘️:10:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:6:A on 85efbe4 {1}
+│   └── 📙:6:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:8:C on 85efbe4 {2}
-    ├── 📙:8:C
+└── ≡📙:5:C on 85efbe4 {2}
+    ├── 📙:5:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:10:B
+    └── 📙:9:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -123,13 +123,13 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(outcome.workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:9:A on 85efbe4 {1}
-│   └── 📙:9:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:4:A on 85efbe4 {1}
+│   └── 📙:4:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:8:C on 85efbe4 {2}
-    ├── 📙:8:C
-    └── 📙:7:B
+└── ≡📙:9:C on 85efbe4 {2}
+    ├── 📙:9:C
+    └── 📙:8:B
         └── ·c813d8d (🏘️) ►C
 
 "#]]
@@ -142,10 +142,10 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   c718ffa (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 09d8e52 (A) A
 * | c813d8d (C, B) B
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -170,11 +170,11 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 09d8e52 (A) A
 * | 09bc93e (C) C
 * | c813d8d (B) B
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -189,14 +189,14 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:9:A on 85efbe4 {1}
-│   └── 📙:9:A
+📕🏘️:10:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:6:A on 85efbe4 {1}
+│   └── 📙:6:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:8:C on 85efbe4 {2}
-    ├── 📙:8:C
+└── ≡📙:5:C on 85efbe4 {2}
+    ├── 📙:5:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:10:B
+    └── 📙:9:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -208,14 +208,14 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(outcome.workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:9:A on 85efbe4 {1}
-│   └── 📙:9:A
+📕🏘️:9:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:4:A on 85efbe4 {1}
+│   └── 📙:4:A
 │       └── ·09d8e52 (🏘️)
 └── ≡📙:8:C on 85efbe4 {2}
     ├── 📙:8:C
     │   └── ·8e00332 (🏘️)
-    └── 📙:4:B
+    └── 📙:5:B
 
 "#]]
     );
@@ -239,10 +239,10 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   d990652 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 09d8e52 (A) A
 * | 8e00332 (C) C
-|/  
+|/
 * 85efbe4 (origin/main, main, B) M
 
 "#]]
@@ -362,11 +362,11 @@ fn discard_both_commits_in_workspace_stack() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 09d8e52 (A) A
 * | 09bc93e (C) C
 * | c813d8d (B) B
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]

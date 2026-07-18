@@ -925,6 +925,7 @@ pub fn branch_remove_with_perm(
         branch_checkout_with_perm(ctx, below, perm)?;
 
         let mut meta = ctx.meta()?;
+        let project_meta = ctx.project_meta()?;
         let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
         let deleted_ref = if let Some(reference) = repo.try_find_reference(ref_name.as_ref())? {
             let safe_delete = but_core::branch::SafeDelete::new(&repo)?;
@@ -940,10 +941,13 @@ pub fn branch_remove_with_perm(
         };
         let deleted_meta = meta.remove(ref_name.as_ref())?;
         if deleted_ref || deleted_meta {
-            let new_ws = ws
-                .graph
-                .redo_traversal_with_overlay(&repo, &meta, Default::default())?
-                .into_workspace()?;
+            let new_ws = but_graph::Graph::from_repo(
+                &repo,
+                &meta,
+                project_meta,
+                but_graph::init::Overlay::default(),
+            )?
+            .into_workspace()?;
             *ws = new_ws;
             true
         } else {
@@ -1729,16 +1733,19 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
     let materialized = rebase.materialize()?;
     if let Some(order) = branch_stack_order {
         materialized.meta.set_branch_stack_order(order)?;
-        *materialized.workspace = materialized
-            .workspace
-            .graph
-            .clone()
-            .into_workspace_of_redone_traversal(repo, &*materialized.meta)?;
+        let project_meta = materialized.project_meta.clone();
+        *materialized.workspace = but_graph::Graph::from_repo(
+            repo,
+            &*materialized.meta,
+            project_meta,
+            but_graph::init::Overlay::default(),
+        )?
+        .into_workspace()?;
     }
     if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
-        md.set_project_meta(materialized.workspace.graph.project_meta().clone());
+        md.set_project_meta(materialized.project_meta.clone());
         materialized.meta.set_workspace(&md)?;
     }
 

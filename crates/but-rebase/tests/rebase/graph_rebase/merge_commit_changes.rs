@@ -1,7 +1,6 @@
 use anyhow::Result;
 use bstr::ByteSlice as _;
 use but_core::RepositoryExt;
-use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, LookupStep as _, Step},
@@ -11,7 +10,7 @@ use gix::prelude::ObjectIdExt;
 use snapbox::IntoData;
 use std::mem::ManuallyDrop;
 
-use crate::utils::{fixture, fixture_writable, standard_options};
+use crate::utils::{fixture, fixture_writable};
 
 #[test]
 fn matches_clean_octopus_merge() -> Result<()> {
@@ -21,24 +20,24 @@ fn matches_clean_octopus_merge() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *-.   a7dcd9f (HEAD -> main) octopus
-|\ \  
+|\ \
 | | * 2a5954a (right) right
-| |/  
-|/|   
+| |/
+|/|
 | * cbaa825 (left) left-2
 | * 777f2d5 left-1
-|/  
+|/
 * 66df43d base
 
 "#]]
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -71,24 +70,24 @@ fn excludes_unselected_parent_changes() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *-.   e8da81c (HEAD -> main) merge
-|\ \  
+|\ \
 | | * fa946b5 (C) C
 | | * 2eb5a0f (B) B
-| |/  
-|/|   
+| |/
+|/|
 | * cec649d (A) A
-|/  
+|/
 * b301433 M
 
 "#]]
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -139,29 +138,29 @@ fn reports_conflicts() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   9b1de89 (HEAD -> main) merge-C
-|\  
+|\
 | * ea9d91a (C) C
 * |   669016a merge-B
-|\ \  
+|\ \
 | * | a1163f7 (B) B
-| |/  
+| |/
 * |   468ee64 merge-A
-|\ \  
-| |/  
-|/|   
+|\ \
+| |/
+|/|
 | * 332e45d (A) A
-|/  
+|/
 * 66df43d base
 
 "#]]
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -210,29 +209,29 @@ fn stops_folding_after_first_conflict() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   9b1de89 (HEAD -> main) merge-C
-|\  
+|\
 | * ea9d91a (C) C
 * |   669016a merge-B
-|\ \  
+|\ \
 | * | a1163f7 (B) B
-| |/  
+| |/
 * |   468ee64 merge-A
-|\ \  
-| |/  
-|/|   
+|\ \
+| |/
+|/|
 | * 332e45d (A) A
-|/  
+|/
 * 66df43d base
 
 "#]]
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -276,25 +275,25 @@ fn preserves_noncontiguous_selected_changes() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *-.   1c47eb3 (HEAD -> main) merge
-|\ \  
+|\ \
 | | * bf7c931 (B) D
 | | * fa946b5 C
 | | * 2eb5a0f B
-| |/  
-|/|   
+| |/
+|/|
 | * cec649d (A) A
-|/  
+|/
 * b301433 M
 
 "#]]
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -346,26 +345,26 @@ fn preserves_first_selected_commit_tree_while_applying_later_selected_ranges() -
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *-.   e84cecd (HEAD -> main) merge
-|\ \  
+|\ \
 | | * e105958 (E) E
 | | * 739244f (C) C
 | | * 7f69bb3 (B) B
-| |/  
-|/|   
+| |/
+|/|
 | * 06e6d84 (D) D
 | * cec649d (A) A
-|/  
+|/
 * b301433 M
 
 "#]]
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -416,11 +415,11 @@ fn preserves_first_selected_commit_tree_while_applying_later_selected_ranges() -
 fn planning_preserves_noncontiguous_selected_changes() -> Result<()> {
     let (repo, mut meta) =
         fixture("merge-commits-preserve-noncontiguous-selected-changes-visible")?;
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -453,18 +452,18 @@ fn planning_fixture_graph() -> Result<()> {
         visualize_commit_graph_all(&fixture.repo)?,
         snapbox::str![[r#"
 *-.   d0949aa (HEAD -> main) merged
-|\ \  
+|\ \
 | | * 8259b01 (right) right-3
 | | * 0a63ea6 right-2
 | | * 26b0bd5 right-1
 | * | feaa00d (left) left-3
 | * | 07bba81 left-2
 | * | 4b6a0f2 left-1
-| |/  
+| |/
 * | f1b6511 main-3
 * | 6bbd9db main-2
 * | 257ee22 main-1
-|/  
+|/
 * 6dbc49d base
 
 "#]]
@@ -558,11 +557,11 @@ main-3 <- main-1
 #[test]
 fn uses_editor_visible_commits_not_only_original_workspace_graph() -> Result<()> {
     let (repo, _tmp, mut meta) = fixture_writable("four-commits")?;
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -593,11 +592,11 @@ fn uses_editor_visible_commits_not_only_original_workspace_graph() -> Result<()>
 #[test]
 fn planning_prunes_subjects_reachable_from_target_first_parent_lineage() -> Result<()> {
     let (repo, mut meta) = fixture("merge-commits-preserve-anchor-tree-visible")?;
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -621,11 +620,11 @@ fn planning_prunes_subjects_reachable_from_target_first_parent_lineage() -> Resu
 #[test]
 fn planning_prunes_subjects_reachable_from_target_merge_parent_lineage() -> Result<()> {
     let (repo, mut meta) = fixture("three-branches-merged")?;
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -678,11 +677,11 @@ left-3 <- left-2
 #[test]
 fn planning_uses_pruned_selected_first_parent_tree_as_base_boundary() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("two-branches-shared-bottom-two")?;
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -708,11 +707,11 @@ left: head <- shared
 #[test]
 fn planning_works_after_normalizing_chained_editor_mutations() -> Result<()> {
     let (repo, _tmp, mut meta) = fixture_writable("four-commits")?;
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -757,11 +756,11 @@ struct SimplifyFixture {
 
 fn simplify_fixture() -> Result<SimplifyFixture> {
     let (repo, meta) = fixture("three-branches-three-commits-visible")?;
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let ws = graph.into_workspace()?;

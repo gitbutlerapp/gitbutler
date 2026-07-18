@@ -251,11 +251,15 @@ fn review_integration_hints_from_reviews(
 fn forge_review_integration_hints(
     workspace: &but_graph::Workspace,
     project_meta: &but_core::ref_metadata::ProjectMeta,
+    repo: &gix::Repository,
     db: &but_db::DbHandle,
 ) -> anyhow::Result<Vec<ReviewIntegrationHint>> {
-    let Some(target_branch_name) =
-        target_branch_name(workspace.graph.symbolic_remote_names(), project_meta)
-    else {
+    let remote_names = repo
+        .remote_names()
+        .into_iter()
+        .map(|name| name.into_owned().to_string())
+        .collect::<Vec<_>>();
+    let Some(target_branch_name) = target_branch_name(&remote_names, project_meta) else {
         return Ok(vec![]);
     };
 
@@ -299,15 +303,13 @@ fn incoming_target_commit_ids(
         let node = &workspace.graph.nodes()[index];
         match node.kind() {
             but_graph::NodeKind::Commit { id } => {
-                if workspace.graph.annotations()[index]
-                    .contains(but_graph::CommitFlags::InWorkspace)
-                {
+                if workspace.contains_commit(*id) {
                     continue;
                 }
                 commit_ids.push(*id);
             }
             but_graph::NodeKind::Reference(_) => {}
-            but_graph::NodeKind::ShallowPoint { .. } => continue,
+            but_graph::NodeKind::Boundary { .. } => continue,
         }
         pending.extend(node.parents().iter().rev());
     }
@@ -410,7 +412,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
     let (workspace_state, worktree_conflicts) = {
         let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
         let project_meta = ctx.project_meta()?;
-        let review_hints = match forge_review_integration_hints(&ws, &project_meta, &db) {
+        let review_hints = match forge_review_integration_hints(&ws, &project_meta, &repo, &db) {
             Ok(review_hints) => review_hints,
             Err(err) => {
                 warn!(

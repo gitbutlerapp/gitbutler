@@ -15,18 +15,21 @@ pub fn refresh_workspace_from_head(
     meta: &impl but_core::RefMetadata,
     project_meta: but_core::ref_metadata::ProjectMeta,
 ) -> anyhow::Result<()> {
-    let options = workspace.graph.options().clone();
-    *workspace =
-        but_graph::Graph::from_head(repo, meta, project_meta, options)?.into_workspace()?;
+    *workspace = but_graph::Graph::from_repo(
+        repo,
+        meta,
+        project_meta,
+        but_graph::init::Overlay::default(),
+    )?
+    .into_workspace()?;
     Ok(())
 }
 
 pub fn workspace_tip_id(workspace: &but_graph::Workspace) -> Option<gix::ObjectId> {
     match workspace.graph.nodes().get(workspace.id?)?.kind() {
-        but_graph::NodeKind::Commit { id } | but_graph::NodeKind::ShallowPoint { id, .. } => {
-            Some(*id)
-        }
+        but_graph::NodeKind::Commit { id } => Some(*id),
         but_graph::NodeKind::Reference(reference) => reference.ref_info.commit_id,
+        but_graph::NodeKind::Boundary { .. } => None,
     }
 }
 

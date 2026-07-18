@@ -31,7 +31,7 @@ The branch should then be considered integrated
 | * 36c87e5 A2
 | * 818dbb2 A1
 | * ce09734 M1
-|/  
+|/
 * fafd9d0 init
 
 "#]]
@@ -91,18 +91,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 10,
+                node_index: 11,
                 commits_ahead: 5,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(eabf2989a998260c7fbe181b33d5772705d62907),
-                node_index: 0,
+                node_index: 1,
             },
         ),
         lower_bound: Some(
-            7,
+            6,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -140,7 +140,7 @@ The branch should then *not* be considered integrated anymore as A2 has changed
 | * 4e498f9 A2
 | * d72fd2d A1
 | * 7e89ffe M1
-|/  
+|/
 * fafd9d0 init
 
 "#]]
@@ -180,7 +180,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 12,
+                        id: 10,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -201,18 +201,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 10,
+                node_index: 13,
                 commits_ahead: 5,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(d89aadb67d5c32e6a63cad3d36020b5e8e192a91),
-                node_index: 0,
+                node_index: 2,
             },
         ),
         lower_bound: Some(
-            7,
+            5,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -248,7 +248,7 @@ as the content is too different.
 * 550b6ac A1
 | * ad92cce (origin/A) A2
 | * e1f216e A1
-|/  
+|/
 * fafd9d0 (origin/main, main) init
 
 "#]]
@@ -287,7 +287,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 9,
+                        id: 10,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -308,18 +308,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 7,
+                node_index: 9,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 2,
             },
         ),
         lower_bound: Some(
-            0,
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -358,7 +358,7 @@ This prevents quick-checks to work.
 | * 85063c1 A2
 | * 444639d A1
 | * ce09734 M1
-|/  
+|/
 * fafd9d0 init
 
 "#]]
@@ -429,7 +429,7 @@ Ok(
             },
         ),
         lower_bound: Some(
-            8,
+            6,
         ),
         is_managed_ref: true,
         is_managed_commit: true,

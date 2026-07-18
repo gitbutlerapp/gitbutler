@@ -1,14 +1,13 @@
 //! These tests cover behaviour specific to the workspace commit
 
 use anyhow::Result;
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Step};
 use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
 use crate::{
     graph_rebase::add_stack_with_segments,
-    utils::{fixture_writable, fixture_writable_with_signing, standard_options},
+    utils::{fixture_writable, fixture_writable_with_signing},
 };
 
 #[test]
@@ -28,11 +27,11 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let id = repo.rev_parse_single("gitbutler/workspace")?;
@@ -60,18 +59,18 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 ◎  c
-│ ◎  👉gitbutler/workspace[🌳]
-│ ●  ·8795f47 (⌂)
+│ ◎  gitbutler/workspace[🌳]
+│ ●  👉·8795f47 (→)
 ├─╯
 │ ◎  main
 ├─╯
-●  ·dd72792 (⌂)
+●  ·dd72792 (→)
 ◎  b
-●  ·e5aa7b5 (⌂)
+●  ·e5aa7b5 (→)
 ◎  a
-●  ·3bfeb52 (⌂)
+●  ·3bfeb52 (→)
 ◎  base
-●  🏁·b6e2f57 (⌂)
+●  🏁·b6e2f57 (→)
 
 "#]]
     );
@@ -118,11 +117,11 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -142,16 +141,16 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
 │ ◎  b
 ├─╯
 │ ◎  c
-│ │ ◎  👉gitbutler/workspace[🌳]
-│ │ ●  ·badca2f (⌂)
+│ │ ◎  gitbutler/workspace[🌳]
+│ │ ●  👉·badca2f (→)
 │ ├─╯
 │ │ ◎  main
 │ ├─╯
-│ ●  ·06106c2 (⌂)
+│ ●  ·06106c2 (→)
 ├─╯
-●  ·3bfeb52 (⌂)
+●  ·3bfeb52 (→)
 ◎  base
-●  🏁·b6e2f57 (⌂)
+●  🏁·b6e2f57 (→)
 
 "#]]
     );
@@ -233,11 +232,11 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -259,11 +258,11 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·120e3a9 (⌂)
-●  ·a96434e (⌂)
-●  ·d591dfe (⌂)
-●  🏁·35b8235 (⌂)
+◎  main[🌳]
+●  👉·120e3a9 (→)
+●  ·a96434e (→)
+●  ·d591dfe (→)
+●  🏁·35b8235 (→)
 
 "#]]
     );
@@ -310,11 +309,11 @@ fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -366,12 +365,12 @@ fn workspace_commit_with_deleted_branch_ref_rebases_successfully() -> Result<()>
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   74bcc92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 * | 2169646 (stack-1) Commit D
 * | 46ef828 Commit C
-|/  
+|/
 | * a0f2ac5 (origin/main, main) Commit X
-|/  
+|/
 * f555940 (stack-2) Commit A
 * d664be0 Commit B
 * fafd9d0 init
@@ -395,12 +394,12 @@ fn workspace_commit_with_deleted_branch_ref_rebases_successfully() -> Result<()>
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   74bcc92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 * | 2169646 Commit D
 * | 46ef828 Commit C
-|/  
+|/
 | * a0f2ac5 (origin/main, main) Commit X
-|/  
+|/
 * f555940 (stack-2) Commit A
 * d664be0 Commit B
 * fafd9d0 init
@@ -409,11 +408,11 @@ fn workspace_commit_with_deleted_branch_ref_rebases_successfully() -> Result<()>
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 

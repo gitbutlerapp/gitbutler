@@ -1,4 +1,5 @@
 use but_core::RefMetadata;
+use but_graph::init::Overlay;
 use but_testsupport::{graph_workspace, id_by_rev, visualize_commit_graph_all};
 use but_workspace::branch::remove_reference;
 use gix::refs::{Category, transaction::PreviousValue};
@@ -83,7 +84,13 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        ws.graph.project_meta().clone(),
+        Overlay::default(),
+    )?
+    .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -151,7 +158,13 @@ Single commit, target, no ws commit, but ws-reference and a named segment, and b
         .expect("we deleted something");
     }
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        ws.graph.project_meta().clone(),
+        Overlay::default(),
+    )?
+    .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -342,7 +355,13 @@ Single commit, no main remote/target, no ws commit, but ws-reference
         "recreate ref to show metadata is present and unchanged",
     )?;
 
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        ws.graph.project_meta().clone(),
+        Overlay::default(),
+    )?
+    .into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -428,7 +447,13 @@ Single commit, no main remote/target, no ws commit, but ws-reference
 
 "#]]
     );
-    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    let ws = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        ws.graph.project_meta().clone(),
+        Overlay::default(),
+    )?
+    .into_workspace()?;
     // The workspace is completely empty.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),

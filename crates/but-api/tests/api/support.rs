@@ -154,7 +154,6 @@ pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::
         &meta,
         but_workspace::ref_info::Options {
             project_meta,
-            traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
             ..Default::default()
         },

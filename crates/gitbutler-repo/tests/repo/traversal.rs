@@ -12,18 +12,18 @@ fn commit_ids_excluding_reachable_from_matches_hidden_walk_for_merge_history() -
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   302203c (HEAD -> merged) merge C into merged
-|\  
+|\
 | *   ac3212d (C) merge D into C
-| |\  
+| |\
 | | * f43cbb4 (D) D
 | * | ecdf221 C
-| |/  
+| |/
 * |   eac2241 (A) merge B into A
-|\ \  
-| |/  
-|/|   
+|\ \
+| |/
+|/|
 | * 7c77b77 (B) B
-|/  
+|/
 * e54fc74 A
 * 2f0e583 (main) base
 

@@ -391,7 +391,7 @@ fn build_status_context<'a>(
             }
         }
 
-        let resolved_target = workspace_target::ResolvedTarget::from_workspace(&ws)?;
+        let resolved_target = workspace_target::ResolvedTarget::from_workspace(&ws, &repo)?;
         (
             push_statuses_by_segment_id,
             local_commits_by_id,

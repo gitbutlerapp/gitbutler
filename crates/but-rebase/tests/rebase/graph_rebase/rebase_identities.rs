@@ -2,12 +2,11 @@
 //! graphs are returned.
 
 use anyhow::Result;
-use but_graph::Graph;
 use but_rebase::graph_rebase::Editor;
-use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
+use but_testsupport::{graph_tree, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
-use crate::utils::{fixture_writable, standard_options};
+use crate::utils::fixture_writable;
 
 #[test]
 fn four_commits() -> Result<()> {
@@ -25,11 +24,11 @@ fn four_commits() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -40,80 +39,11 @@ fn four_commits() -> Result<()> {
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·120e3a9 (⌂)
-●  ·a96434e (⌂)
-●  ·d591dfe (⌂)
-●  🏁·35b8235 (⌂)
-
-"#]]
-    );
-    let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
-
-    assert_eq!(visualize_commit_graph_all(&repo)?, before);
-    snapbox::assert_data_eq!(
-        outcome.history.commit_mappings().to_debug(),
-        snapbox::str![[r#"
-{}
-
-"#]]
-    );
-
-    Ok(())
-}
-
-#[test]
-fn four_commits_with_short_traversal() -> Result<()> {
-    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
-
-    let before = visualize_commit_graph_all(&repo)?;
-    snapbox::assert_data_eq!(
-        &before,
-        snapbox::str![[r#"
-* 120e3a9 (HEAD -> main) c
-* a96434e b
-* d591dfe a
-* 35b8235 base
-
-"#]]
-    );
-
-    let options = standard_options().with_hard_limit(4);
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        but_core::ref_metadata::ProjectMeta::default(),
-        options,
-    )?
-    .validated()?;
-    let mut ws = graph.clone().into_workspace()?;
-
-    snapbox::assert_data_eq!(
-        graph_workspace(&ws).to_string(),
-        snapbox::str![[r#"
-⌂:4:main <> ✓!
-└── ≡👉:4:main[🌳] {1}
-    └── 👉:4:main[🌳]
-        ├── ·120e3a9
-        ├── ·a96434e
-        ├── ·d591dfe
-        └── ·35b8235
-
-"#]]
-    );
-
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
-    let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_workspace()?.graph).to_string();
-    snapbox::assert_data_eq!(
-        &overlayed,
-        snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·120e3a9 (⌂)
-●  ·a96434e (⌂)
-●  ·d591dfe (⌂)
-●  🏁·35b8235 (⌂)
+◎  main[🌳]
+●  👉·120e3a9 (→)
+●  ·a96434e (→)
+●  ·d591dfe (→)
+●  🏁·35b8235 (→)
 
 "#]]
     );
@@ -142,21 +72,21 @@ fn merge_in_the_middle() -> Result<()> {
         snapbox::str![[r#"
 * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
 *   2fc288c Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -168,19 +98,17 @@ fn merge_in_the_middle() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·e8ee978 (⌂)
-│ ●    ·2fc288c (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·e8ee978 (→)
+│ ●    ·2fc288c (→)
 │ ├─╮
 │ ◎ │  A
-│ ● │  ·add59d2 (⌂)
+│ ● │  ·add59d2 (→)
 ├─╯ │
 │   ◎  B
-│   ●  ·984fd1c (⌂)
+│   ●  ·984fd1c (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·8f0d338 (⌂)
+●  🏁·8f0d338 (→)
 
 "#]]
     );
@@ -208,26 +136,26 @@ fn three_branches_merged() -> Result<()> {
         &before,
         snapbox::str![[r#"
 *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
-|\ \  
+|\ \
 | | * 930563a (C) C: add another 10 lines to new file
 | | * 68a2fc3 C: add 10 lines to new file
 | | * 984fd1c C: new file with 10 lines
 | * | a748762 (B) B: another 10 lines at the bottom
 | * | 62e05ba B: 10 lines at the bottom
-| |/  
+| |/
 * / add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base) base
 
 "#]]
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -238,23 +166,21 @@ fn three_branches_merged() -> Result<()> {
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-◎  👉main[🌳]
-●      ·1348870 (⌂)
+◎  main[🌳]
+●      👉·1348870 (→)
 ├─┬─╮
 ◎ │ │  A
-● │ │  ·add59d2 (⌂)
+● │ │  ·add59d2 (→)
 │ ◎ │  B
-│ ● │  ·a748762 (⌂)
-│ ● │  ·62e05ba (⌂)
+│ ● │  ·a748762 (→)
+│ ● │  ·62e05ba (→)
 ├─╯ │
 │   ◎  C
-│   ●  ·930563a (⌂)
-│   ●  ·68a2fc3 (⌂)
-│   ●  ·984fd1c (⌂)
+│   ●  ·930563a (→)
+│   ●  ·68a2fc3 (→)
+│   ●  ·984fd1c (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·8f0d338 (⌂)
+●  🏁·8f0d338 (→)
 
 "#]]
     );

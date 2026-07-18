@@ -36,16 +36,7 @@ impl StackCommit {
     pub fn debug_string(&self, flags: StackCommitDebugFlags) -> String {
         use StackCommitDebugFlags as F;
         format!(
-            "{end}{kind}{hex}{flags}{refs}",
-            end = if self.flags.contains(StackCommitFlags::EarlyEnd) {
-                if flags.contains(F::HardLimitReached) {
-                    "❌"
-                } else {
-                    "✂️"
-                }
-            } else {
-                ""
-            },
+            "{kind}{hex}{flags}{refs}",
             kind = if flags.contains(F::RemoteOnly) {
                 "🟣"
             } else if self
@@ -95,8 +86,6 @@ bitflags! {
     pub struct StackCommitDebugFlags: u8 {
         /// Render the commit as remote-only.
         const RemoteOnly = 1 << 0;
-        /// Render an early end as a hard traversal limit.
-        const HardLimitReached = 1 << 1;
     }
 }
 
@@ -116,8 +105,6 @@ bitflags! {
         const ReachableByMatchingRemote = 1 << 4;
         /// The commit contains unresolved conflicts.
         const HasConflicts = 1 << 5;
-        /// Traversal stopped before all parents were followed.
-        const EarlyEnd = 1 << 6;
     }
 }
 
@@ -140,12 +127,10 @@ impl StackCommitFlags {
 
 impl From<CommitFlags> for StackCommitFlags {
     fn from(value: CommitFlags) -> Self {
-        StackCommitFlags::from_bits_retain(
-            (value
-                & (CommitFlags::Integrated
-                    | CommitFlags::InWorkspace
-                    | CommitFlags::ShallowBoundary))
-                .bits() as u8,
-        )
+        if value.contains(CommitFlags::TargetSide) {
+            StackCommitFlags::Integrated
+        } else {
+            StackCommitFlags::empty()
+        }
     }
 }

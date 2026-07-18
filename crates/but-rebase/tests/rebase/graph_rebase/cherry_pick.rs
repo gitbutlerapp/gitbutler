@@ -1069,12 +1069,12 @@ fn cherry_pick_recursive_merge() -> Result<()> {
         snapbox::str![[r#"
 * aae265d (first-parent) first-parent
 | * 7d9539e (second-parent) second-parent
-|/  
+|/
 * 486af94 (b) b
 | * 7ae309b (third-parent) third-parent
-|/  
+|/
 | * bdbf7b1 (HEAD -> to-pick) to-pick
-|/  
+|/
 * 3ba97d6 (a) a
 * dd35aa7 (base) base
 
@@ -1145,12 +1145,12 @@ fn workspace_merge_surfaces_delete_vs_modify_conflict() -> Result<()> {
         snapbox::str![[r#"
 * 8ef051f (stack-2-after) stack-2-after: combine files
 | *   978e614 (HEAD -> workspace-before) GitButler Workspace Commit
-| |\  
+| |\
 | | * b8f64ac (stack-2-before) stack-2-before: unrelated change
-| |/  
-|/|   
+| |/
+|/|
 | * f02613a (stack-1) stack-1: modify file-b
-|/  
+|/
 * 57993f6 (main, base) base
 
 "#]]

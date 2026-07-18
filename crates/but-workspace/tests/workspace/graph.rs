@@ -12,7 +12,7 @@
 
 use anyhow::Result;
 use but_core::{RefMetadata as _, ref_metadata::ProjectMeta};
-use but_graph::{Graph, init::Options};
+use but_graph::{Graph, init::Overlay};
 use but_meta::{VirtualBranchesTomlMetadata, virtual_branches_legacy_types::Target};
 use but_testsupport::{gix_testtools::tempfile::TempDir, visualize_commit_graph_all};
 use but_workspace::workspace::{
@@ -26,12 +26,28 @@ use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack, add_stack_with_segments, named_writable_scenario_with_description,
 };
 
-/// Build the detailed workspace for `fixture`, optionally bounded by a target
-/// ref (e.g. `"refs/heads/main"`). Returns the repo too so callers can also
+/// Build the detailed workspace for `fixture`, optionally bounded by a remote target
+/// ref (e.g. `"refs/remotes/origin/main"`). Returns the repo too so callers can also
 /// snapshot the underlying commit graph.
 fn detailed(
     fixture: &str,
-    target: Option<&str>,
+    target_ref: Option<&str>,
+) -> Result<(gix::Repository, DetailedGraphWorkspace)> {
+    detailed_with_target(fixture, target_ref, target_ref)
+}
+
+/// Build a detailed workspace bounded only by an explicit target commit.
+fn detailed_at_commit(
+    fixture: &str,
+    target_commit: &str,
+) -> Result<(gix::Repository, DetailedGraphWorkspace)> {
+    detailed_with_target(fixture, None, Some(target_commit))
+}
+
+fn detailed_with_target(
+    fixture: &str,
+    target_ref: Option<&str>,
+    target_commit: Option<&str>,
 ) -> Result<(gix::Repository, DetailedGraphWorkspace)> {
     let repo = crate::utils::read_only_in_memory_scenario(fixture)?;
     let mut meta = VirtualBranchesTomlMetadata::from_path(
@@ -40,15 +56,15 @@ fn detailed(
             .join("should-never-be-written.toml"),
     )?;
     let project_meta = ProjectMeta {
-        target_ref: target.map(gix::refs::FullName::try_from).transpose()?,
+        target_ref: target_ref.map(gix::refs::FullName::try_from).transpose()?,
         // Bound the graph at the target commit too, so the projection is
         // actually trimmed (matching how a real workspace target behaves).
-        target_commit_id: target
+        target_commit_id: target_commit
             .map(|t| repo.rev_parse_single(t).map(|id| id.detach()))
             .transpose()?,
         ..Default::default()
     };
-    let graph = Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let mut ws = graph.into_workspace()?;
     let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
     Ok((repo, detailed))
@@ -73,18 +89,11 @@ fn detailed_writable(
     });
     configure_stacks(&mut meta);
 
-    let project_meta = meta
+    let mut project_meta = meta
         .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
         .project_meta();
-    let graph = Graph::from_head(
-        &repo,
-        &meta,
-        project_meta,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
-    )?;
+    project_meta.target_commit_id = Some(target_sha);
+    let graph = Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let mut ws = graph.into_workspace()?;
     let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
     Ok((tmp, detailed))
@@ -396,7 +405,7 @@ fn single_stack_no_target() -> Result<()> {
 /// The same linear workspace bounded by a target at `base`.
 #[test]
 fn single_stack_with_target() -> Result<()> {
-    let (_repo, detailed) = detailed("workspace-linear", Some("refs/heads/base"))?;
+    let (_repo, detailed) = detailed_at_commit("workspace-linear", "refs/heads/base")?;
     snapbox::assert_data_eq!(
         render(&detailed),
         snapbox::str![[r#"
@@ -428,12 +437,12 @@ fn overlapping_stacks_merge_into_one() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   74bcc92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 * | 2169646 (stack-1) Commit D
 * | 46ef828 Commit C
-|/  
+|/
 | * a0f2ac5 (origin/main, main) Commit X
-|/  
+|/
 * f555940 (stack-2) Commit A
 * d664be0 Commit B
 * fafd9d0 init
@@ -470,7 +479,7 @@ fn three_stacks_same_base_collapse() -> Result<()> {
         snapbox::str![[r#"
 * a26ae77 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * 1cf9cf4 (origin/main, main) Commit X
-|/  
+|/
 * fafd9d0 (stack-3, stack-2, stack-1) init
 
 "#]]
@@ -496,12 +505,12 @@ fn divergent_stacks_sharing_base_merge() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   1162583 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * afc3f8f (stack-b) B2
 | * b3ee99c B1
 * | 49c06ff (stack-a) A2
 * | ff76d2f A1
-|/  
+|/
 * 965998b (origin/main, main) base
 
 "#]]
@@ -535,7 +544,7 @@ fn divergent_stacks_sharing_base_merge() -> Result<()> {
 /// `base`).
 #[test]
 fn divergent_stacks_sharing_base_merge_with_target() -> Result<()> {
-    let (_repo, detailed) = detailed("workspace-two-stacks", Some("refs/heads/main"))?;
+    let (_repo, detailed) = detailed("workspace-two-stacks", Some("refs/remotes/origin/main"))?;
     snapbox::assert_data_eq!(
         render(&detailed),
         snapbox::str![[r#"
@@ -598,7 +607,7 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   f97c026 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * cb7021b (stack-b) B2
 | * ce3278a B1
 * 49c06ff (stack-a) A2
@@ -636,7 +645,10 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
 /// The same disjoint stacks, bounded by a target at `main`.
 #[test]
 fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
-    let (_repo, detailed) = detailed("workspace-disjoint-stacks", Some("refs/heads/main"))?;
+    let (_repo, detailed) = detailed(
+        "workspace-disjoint-stacks",
+        Some("refs/remotes/origin/main"),
+    )?;
     snapbox::assert_data_eq!(
         render(&detailed),
         snapbox::str![[r#"
@@ -707,7 +719,10 @@ fn stacked_dependent_branches_partition_per_reference() -> Result<()> {
 /// reference segment becomes header-only while the branch segments are intact.
 #[test]
 fn stacked_dependent_branches_with_target() -> Result<()> {
-    let (_repo, detailed) = detailed("workspace-stacked-branches", Some("refs/heads/main"))?;
+    let (_repo, detailed) = detailed(
+        "workspace-stacked-branches",
+        Some("refs/remotes/origin/main"),
+    )?;
     snapbox::assert_data_eq!(
         render(&detailed),
         snapbox::str![[r#"
@@ -742,10 +757,10 @@ fn non_linear_reference_segment_with_internal_merge() -> Result<()> {
         snapbox::str![[r#"
 * 30345c3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 *   d585e46 (feature) M
-|\  
+|\
 | * ed2a973 Q
 * | 6339d5b P
-|/  
+|/
 * 965998b (origin/main, main) base
 
 "#]]
@@ -784,10 +799,10 @@ fn shared_commit_belongs_to_both_reference_segments() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   a3bbad0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * e6d5410 (stack-y) Y1
 * | 9f0269c (stack-x) X1
-|/  
+|/
 * d2bff94 S
 * 965998b (origin/main, main) base
 
@@ -829,7 +844,7 @@ fn shared_commit_belongs_to_both_reference_segments() -> Result<()> {
 /// this metadata-free projection harness intentionally does not set up.
 #[test]
 fn push_status_nothing_to_push_and_unpushed() -> Result<()> {
-    let (_repo, detailed) = detailed("workspace-two-stacks", Some("refs/heads/main"))?;
+    let (_repo, detailed) = detailed("workspace-two-stacks", Some("refs/remotes/origin/main"))?;
     snapbox::assert_data_eq!(
         render_push_status(&detailed),
         snapbox::str![[r#"
@@ -1133,21 +1148,14 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("target-ahead-remote-rewritten")?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
 
-    let project_meta = meta
+    let mut project_meta = meta
         .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
         .project_meta();
     let target_sha = project_meta
         .target_commit_id
         .context("scenario should configure a target")?;
-    let graph = Graph::from_head(
-        &repo,
-        &*meta,
-        project_meta,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
-    )?;
+    project_meta.target_commit_id = Some(target_sha);
+    let graph = Graph::from_repo(&repo, &*meta, project_meta, Overlay::default())?;
     let mut ws = graph.into_workspace()?;
     let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo)?;
     snapbox::assert_data_eq!(

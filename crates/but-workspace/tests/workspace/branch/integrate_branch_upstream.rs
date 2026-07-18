@@ -4,7 +4,7 @@ use std::vec;
 use anyhow::{Result, bail};
 use bstr::ByteSlice;
 use but_core::{ChangeId, Commit, RefMetadata, commit::Headers};
-use but_graph::init::Options;
+use but_graph::init::Overlay;
 use but_testsupport::gix_testtools::tempfile::TempDir;
 use but_testsupport::{InMemoryRefMetadata, visualize_commit_graph_all, visualize_tree};
 use but_workspace::branch::integrate_branch_upstream::{
@@ -12,7 +12,6 @@ use but_workspace::branch::integrate_branch_upstream::{
     IntegrationDivergenceTargetRelation, InteractiveIntegration, InteractiveIntegrationStep,
     get_initial_integration_steps_for_branch, integrate_branch_with_steps,
 };
-use but_workspace::resolve_tracking_branch_ref_name;
 use gix::prelude::ObjectIdExt;
 
 use crate::{
@@ -188,67 +187,18 @@ fn initial_integration_for_branch_with_strategy(
 }
 
 fn integration_graph_for_branch(
-    ref_name: &gix::refs::FullNameRef,
+    _ref_name: &gix::refs::FullNameRef,
     repo: &gix::Repository,
     target_ref_name: Option<&gix::refs::FullNameRef>,
     meta: &InMemoryRefMetadata,
 ) -> Result<but_graph::Graph> {
+    let mut project_meta = project_meta(meta);
     if let Some(target_ref_name) = target_ref_name {
-        let head = repo.head()?;
-        let (head_id, head_ref_name) = match head.kind {
-            gix::head::Kind::Symbolic(reference) => {
-                let ref_name = reference.name;
-                let head_id = repo.find_reference(ref_name.as_ref())?.id().detach();
-                (head_id, Some(ref_name))
-            }
-            gix::head::Kind::Detached { target, peeled } => (peeled.unwrap_or(target), None),
-            gix::head::Kind::Unborn(_) => bail!("test repositories should not be unborn"),
-        };
-        let target_id = repo.find_reference(target_ref_name)?.id().detach();
-        let upstream_ref_name = resolve_tracking_branch_ref_name(ref_name, repo)?;
-        let upstream_id = repo
-            .find_reference(upstream_ref_name.as_ref())?
-            .id()
-            .detach();
-        but_graph::Graph::from_commit_traversal_tips(
-            repo,
-            [
-                but_graph::init::Tip::entrypoint(head_id, head_ref_name),
-                but_graph::init::Tip::reachable(upstream_id, Some(upstream_ref_name.into_owned())),
-                but_graph::init::Tip::integrated(target_id, Some(target_ref_name.to_owned())),
-            ],
-            meta,
-            project_meta(meta),
-            Options::limited(),
-        )
-    } else if let Ok(upstream_ref_name) = resolve_tracking_branch_ref_name(ref_name, repo) {
-        let head = repo.head()?;
-        let (head_id, head_ref_name) = match head.kind {
-            gix::head::Kind::Symbolic(reference) => {
-                let ref_name = reference.name;
-                let head_id = repo.find_reference(ref_name.as_ref())?.id().detach();
-                (head_id, Some(ref_name))
-            }
-            gix::head::Kind::Detached { target, peeled } => (peeled.unwrap_or(target), None),
-            gix::head::Kind::Unborn(_) => bail!("test repositories should not be unborn"),
-        };
-        let upstream_id = repo
-            .find_reference(upstream_ref_name.as_ref())?
-            .id()
-            .detach();
-        but_graph::Graph::from_commit_traversal_tips(
-            repo,
-            [
-                but_graph::init::Tip::entrypoint(head_id, head_ref_name),
-                but_graph::init::Tip::reachable(upstream_id, Some(upstream_ref_name.into_owned())),
-            ],
-            meta,
-            project_meta(meta),
-            Options::limited(),
-        )
-    } else {
-        but_graph::Graph::from_head(repo, meta, project_meta(meta), Options::limited())
+        let target_id = repo.find_reference(target_ref_name)?.peel_to_id()?.detach();
+        project_meta.target_ref = Some(target_ref_name.to_owned());
+        project_meta.target_commit_id = Some(target_id);
     }
+    but_graph::Graph::from_repo(repo, meta, project_meta, Overlay::default())
 }
 
 fn integration_workspace_for_branch(
@@ -1778,8 +1728,14 @@ fn integrate_upstream_commits_when_remote_is_ahead_of_local() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
     configure_tracking_for_branch_a(&mut repo)?;
+    let mut ws = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        graph.project_meta().clone(),
+        Overlay::default(),
+    )?
+    .into_workspace()?;
 
     let initial = get_initial_integration_steps_for_branch(
         r("refs/heads/A"),
@@ -1861,8 +1817,14 @@ fn integrate_remote_advanced_branch_with_parallel_empty_branch() -> Result<()> {
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
     configure_tracking_for_branch(&mut repo, "feature-foo")?;
+    let mut ws = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        graph.project_meta().clone(),
+        Overlay::default(),
+    )?
+    .into_workspace()?;
 
     let initial = get_initial_integration_steps_for_branch(
         r("refs/heads/feature-foo"),
@@ -1935,8 +1897,14 @@ fn initial_pull_rebase_plan_includes_workspace_local_commits_above_branch_ref() 
 "#]]
     );
 
-    let mut ws = graph.into_workspace()?;
     configure_tracking_for_branch_a(&mut repo)?;
+    let mut ws = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        graph.project_meta().clone(),
+        Overlay::default(),
+    )?
+    .into_workspace()?;
 
     let initial = get_initial_integration_steps_for_branch(
         r("refs/heads/A"),
@@ -2011,8 +1979,14 @@ fn integrate_initial_pull_rebase_plan_for_one_local_and_one_remote_commit() -> R
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
     configure_tracking_for_branch_a(&mut repo)?;
+    let mut ws = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        graph.project_meta().clone(),
+        Overlay::default(),
+    )?
+    .into_workspace()?;
 
     let initial = get_initial_integration_steps_for_branch(
         r("refs/heads/A"),
@@ -2168,6 +2142,13 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Resul
     };
 
     configure_tracking_for_branch_a(&mut repo)?;
+    ws = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        ws.graph.project_meta().clone(),
+        Overlay::default(),
+    )?
+    .into_workspace()?;
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
@@ -2229,6 +2210,13 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits
     };
 
     configure_tracking_for_branch_a(&mut repo)?;
+    ws = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        ws.graph.project_meta().clone(),
+        Overlay::default(),
+    )?
+    .into_workspace()?;
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
@@ -2237,9 +2225,9 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits
     snapbox::assert_data_eq!(
         normalized_graph_snapshot(&repo)?,
         snapbox::str![[r#"
-* b3a4b49 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* b5f69de (A) squash commits 2
-* a9e262f squash commits 1
+* 991a572 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 7e71fc2 (A) squash commits 2
+* cebfa10 squash commits 1
 | * 6a17628 (origin/A) remote change in A 2
 | * 715d7b0 remote change in A 1
 |/
@@ -2289,6 +2277,13 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_conflic
     };
 
     configure_tracking_for_branch_a(&mut repo)?;
+    ws = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        ws.graph.project_meta().clone(),
+        Overlay::default(),
+    )?
+    .into_workspace()?;
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
@@ -2487,7 +2482,6 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_
         &preview_workspace,
         rebase.repo(),
         but_workspace::ref_info::Options {
-            traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
             ..Default::default()
         },

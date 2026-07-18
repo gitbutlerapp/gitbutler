@@ -1,7 +1,6 @@
 //! Tests key graph rebase operations against a SHA-256 repository.
 
 use anyhow::{Context, Result};
-use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, Step, mutate::InsertSide},
@@ -9,7 +8,7 @@ use but_rebase::{
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
-use crate::utils::{fixture_writable, standard_options};
+use crate::utils::fixture_writable;
 
 const FIXTURE: &str = "sha256-merge-in-the-middle";
 
@@ -28,21 +27,21 @@ Sha256
         snapbox::str![[r#"
 * 0f01c77 (HEAD -> with-inner-merge) on top of inner merge
 *   8ab779b Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 8f04e4a (B) C: new file with 10 lines
 * | 2ff29ff (A) A: 10 lines on top
-|/  
+|/
 * 8dcf66f (tag: base, main) base
 
 "#]]
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -62,20 +61,18 @@ Sha256
         &overlayed,
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·d165592 (⌂)
-│ ●  ·526ed5b (⌂)
-│ ●    ·d261f8f (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·d165592 (→)
+│ ●  ·526ed5b (→)
+│ ●    ·d261f8f (→)
 │ ├─╮
 │ ◎ │  A
-│ ● │  ·2ff29ff (⌂)
+│ ● │  ·2ff29ff (→)
 ├─╯ │
 │   ◎  B
-│   ●  ·8f04e4a (⌂)
+│   ●  ·8f04e4a (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·8dcf66f (⌂)
+●  🏁·8dcf66f (→)
 
 "#]]
     );
@@ -88,10 +85,10 @@ Sha256
 * d165592 (HEAD -> with-inner-merge) on top of inner merge
 * 526ed5b Merge branch 'B' into with-inner-merge
 *   d261f8f Commit below the merge commit in SHA-256
-|\  
+|\
 | * 8f04e4a (B) C: new file with 10 lines
 * | 2ff29ff (A) A: 10 lines on top
-|/  
+|/
 * 8dcf66f (tag: base, main) base
 
 "#]]
@@ -128,21 +125,21 @@ Sha256
         snapbox::str![[r#"
 * 0f01c77 (HEAD -> with-inner-merge) on top of inner merge
 *   8ab779b Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 8f04e4a (B) C: new file with 10 lines
 * | 2ff29ff (A) A: 10 lines on top
-|/  
+|/
 * 8dcf66f (tag: base, main) base
 
 "#]]
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -163,19 +160,17 @@ Sha256
         &overlayed,
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·d050214 (⌂)
-│ ●    ·8b1722f (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·d050214 (→)
+│ ●    ·8b1722f (→)
 │ ├─╮
 │ ◎ │  A
-│ ● │  ·546b14b (⌂)
+│ ● │  ·546b14b (→)
 ├─╯ │
 │   ◎  B
-│   ●  ·8f04e4a (⌂)
+│   ●  ·8f04e4a (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·8dcf66f (⌂)
+●  🏁·8dcf66f (→)
 
 "#]]
     );
@@ -187,10 +182,10 @@ Sha256
         snapbox::str![[r#"
 * d050214 (HEAD -> with-inner-merge) on top of inner merge
 *   8b1722f Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 8f04e4a (B) C: new file with 10 lines
 * | 546b14b (A) A: SHA-256 reworded
-|/  
+|/
 * 8dcf66f (tag: base, main) base
 
 "#]]
@@ -227,21 +222,21 @@ Sha256
         snapbox::str![[r#"
 * 0f01c77 (HEAD -> with-inner-merge) on top of inner merge
 *   8ab779b Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 8f04e4a (B) C: new file with 10 lines
 * | 2ff29ff (A) A: 10 lines on top
-|/  
+|/
 * 8dcf66f (tag: base, main) base
 
 "#]]
         .raw()
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -274,18 +269,16 @@ Sha256
         &overlayed,
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·636f2bd (⌂)
-│ ●  ·93b14a1 (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·636f2bd (→)
+│ ●  ·93b14a1 (→)
 │ ◎  A
-│ ●  ·9d083f9 (⌂)
+│ ●  ·9d083f9 (→)
 ╭─┤
 │ ◎  B
-│ ●  ·8f04e4a (⌂)
+│ ●  ·8f04e4a (→)
 ├─╯
-│ ◎  tags/base
-├─╯
-●  🏁·8dcf66f (⌂)
+●  🏁·8dcf66f (→)
 
 "#]]
     );
@@ -298,9 +291,9 @@ Sha256
 * 636f2bd (HEAD -> with-inner-merge) on top of inner merge
 * 93b14a1 Merge branch 'B' into with-inner-merge
 *   9d083f9 (A) A: 10 lines on top
-|\  
+|\
 | * 8f04e4a (B) C: new file with 10 lines
-|/  
+|/
 * 8dcf66f (tag: base, main) base
 
 "#]]

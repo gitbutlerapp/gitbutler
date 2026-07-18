@@ -999,7 +999,6 @@ mod utils {
     pub fn standard_options() -> but_workspace::ref_info::Options<'static> {
         ref_info::Options {
             expensive_commit_info: true,
-            traversal: Default::default(),
             ..Default::default()
         }
     }

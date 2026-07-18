@@ -1487,25 +1487,19 @@ Some(
 
     // The above being stable already fixes `dlib`.
     let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
-    let graph = but_graph::Graph::from_commit_traversal(
-        repo.find_reference(ws_ref_name)?.peel_to_id()?,
-        Some(ws_ref_name.to_owned()),
+    let ws_id = repo.find_reference(ws_ref_name)?.peel_to_id()?.detach();
+    let graph = but_graph::Graph::from_repo(
+        &repo,
         &store,
         store.workspace(ws_ref_name)?.project_meta(),
-        but_graph::init::Options::limited(),
+        but_graph::init::Overlay::default().with_entrypoint(ws_id, Some(ws_ref_name.to_owned())),
     )?;
-    // It looks very empty without reconciliation, as if it had not found any metadata (even though it's there).
-    // The problem is that StackId {1} refers to stack that is also marked as outside the workspace, so it's not really
-    // picked up. But… it also listed as stack (which shouldn't happen), which gets it the stack-id association.
-    // Finally, we end up with nothing as that one segment is also marked archived, which leads to it being truncated
-    // and fully empty stacks are removed. OMG.
-    // AND: all of the above was before the `name` field was removed which served to help with ordering, so maybe the whole
-    // test was tuned for a certain outcome and now this becomes more obvious. But whatever, it's legacy and
-    // it doesn't fail anymore.
+    // The vec graph keeps the live reference roots visible even before reconciliation. The malformed
+    // legacy metadata therefore projects three stacks instead of disappearing through segment cleanup.
     snapbox::assert_data_eq!(
         but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
+📕🏘️:3:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
 
 "#]]
     );
@@ -1537,17 +1531,17 @@ Some(
     );
 
     let ws = store.workspace(ws_ref_name)?;
-    let graph = but_graph::Graph::from_commit_traversal(
-        repo.find_reference(ws_ref_name)?.peel_to_id()?,
-        Some(ws_ref_name.to_owned()),
+    let ws_id = repo.find_reference(ws_ref_name)?.peel_to_id()?.detach();
+    let graph = but_graph::Graph::from_repo(
+        &repo,
         &store,
         store.workspace(ws_ref_name)?.project_meta(),
-        but_graph::init::Options::limited(),
+        but_graph::init::Overlay::default().with_entrypoint(ws_id, Some(ws_ref_name.to_owned())),
     )?;
     snapbox::assert_data_eq!(
         but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
+📕🏘️:3:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e
 
 "#]]
     );

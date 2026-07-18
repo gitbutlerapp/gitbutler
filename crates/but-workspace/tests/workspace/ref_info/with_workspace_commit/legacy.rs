@@ -36,12 +36,12 @@ mod stacks {
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
 *   820f2b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 4e5484a (B-on-A) add new file in B-on-A
 * | 5f37dbf (C-on-A) add new file in C-on-A
-|/  
+|/
 | * 89cc2d3 (origin/A) change in A
-|/  
+|/
 * d79bba9 (A) new file in A
 * c166d42 (origin/main, origin/HEAD, main) init-integration
 
@@ -291,12 +291,12 @@ StackDetails {
             visualize_commit_graph_all(&repo)?,
             snapbox::str![[r#"
 *   820f2b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 4e5484a (B-on-A) add new file in B-on-A
 * | 5f37dbf (C-on-A) add new file in C-on-A
-|/  
+|/
 | * 89cc2d3 (origin/A) change in A
-|/  
+|/
 * d79bba9 (A) new file in A
 * c166d42 (origin/main, origin/HEAD, main) init-integration
 
@@ -457,7 +457,7 @@ StackDetails {
             snapbox::str![[r#"
 * cc0bf57 (B) B-outside
 | * 2076060 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|/  
+|/
 * d69fe94 B
 * 09d8e52 (A) A
 * 85efbe4 (origin/main, main) M
@@ -475,6 +475,37 @@ StackDetails {
                     .ref_info
                     .as_ref()
                     .is_some_and(|ref_info| { ref_info.ref_name.as_bstr() == b"refs/heads/A" }))
+        );
+        let b_segment = info
+            .stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .find(|segment| {
+                segment
+                    .ref_info
+                    .as_ref()
+                    .is_some_and(|info| info.ref_name.as_bstr() == b"refs/heads/B")
+            })
+            .expect("the advanced B ref enriches its metadata-owned stack");
+        assert_eq!(
+            b_segment
+                .commits
+                .iter()
+                .map(|commit| commit.id)
+                .collect::<Vec<_>>(),
+            [repo.rev_parse_single("B~1")?.detach()],
+            "only the commit represented by the managed workspace parent is in the stack"
+        );
+        assert_eq!(
+            b_segment
+                .commits_outside
+                .as_deref()
+                .unwrap_or_default()
+                .iter()
+                .map(|commit| commit.id)
+                .collect::<Vec<_>>(),
+            [repo.rev_parse_single("B")?.detach()],
+            "the commit added after the workspace commit remains outside the stack"
         );
 
         // Looking up by `stack_id` now prefers the current `HEAD` projection if it can still see

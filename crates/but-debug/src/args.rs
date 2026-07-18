@@ -148,9 +148,6 @@ pub struct GraphArgs {
     /// The rev-spec of the extra target to provide for traversal.
     #[arg(long)]
     pub extra_target: Option<String>,
-    /// Disable post-processing of the graph, useful if that's failing.
-    #[arg(long)]
-    pub no_post: bool,
     /// Do not debug-print the workspace.
     ///
     /// If too large, it takes a long time or runs out of memory.
@@ -159,19 +156,6 @@ pub struct GraphArgs {
     /// Output the dot-file to stdout.
     #[arg(long, conflicts_with = "dot_show")]
     pub dot: bool,
-    /// The maximum number of commits to traverse.
-    ///
-    /// Use only as safety net to prevent runaways.
-    #[arg(long)]
-    pub hard_limit: Option<usize>,
-    /// The hint of the number of commits to traverse.
-    ///
-    /// Specifying no limit with `--limit` removes all limits.
-    #[arg(long, short = 'l', default_value = "300")]
-    pub limit: Option<Option<usize>>,
-    /// Refill the limit when running over these hashes, provided as short or long hash.
-    #[arg(long, short = 'e')]
-    pub limit_extension: Vec<String>,
     /// Open the dot-file as SVG instead of writing it to stdout.
     #[arg(long)]
     pub dot_show: bool,

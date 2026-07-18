@@ -40,20 +40,12 @@ impl Archival {
         meta: &impl RefMetadata,
     ) -> Result<PathBuf> {
         let project_meta = but_core::ref_metadata::ProjectMeta::resolve(repo, meta)?;
-        let options = but_graph::init::Options::default().with_hard_limit(5000);
-        let graph =
-            Graph::from_head(repo, meta, project_meta.clone(), options.clone()).or_else(|_| {
-                Graph::from_head(
-                    repo,
-                    meta,
-                    project_meta,
-                    but_graph::init::Options {
-                        // Preserve the diagnostic even if reference placement fails.
-                        dangerously_skip_postprocessing_for_debugging: true,
-                        ..options
-                    },
-                )
-            })?;
+        let graph = Graph::from_repo(
+            repo,
+            meta,
+            project_meta,
+            but_graph::init::Overlay::default(),
+        )?;
         let dot_file_contents = anonymous_dot(&graph);
         let output_file = self.cache_dir.join(format!(
             "commit-graph-anon-{date}.zip",
@@ -80,7 +72,7 @@ fn anonymous_dot(graph: &Graph) -> String {
         );
         let label = match node.kind() {
             NodeKind::Commit { id } => {
-                let flags = graph.annotations()[index].debug_string(None);
+                let flags = graph.annotations()[index].debug_string();
                 let flags = if flags.is_empty() {
                     String::new()
                 } else {
@@ -112,11 +104,9 @@ fn anonymous_dot(graph: &Graph) -> String {
                     .map(|_| " <> tracking")
                     .unwrap_or_default(),
             ),
-            NodeKind::ShallowPoint { id, reason } => format!(
-                "{}{} shallow",
-                reason.debug_string(graph.hard_limit_hit()),
-                id.to_hex_with_len(7),
-            ),
+            NodeKind::Boundary { id, reason } => {
+                format!("{}{} shallow", reason.debug_string(), id.to_hex_with_len(7),)
+            }
         };
         writeln!(out, "  {index} [label=\"{label}\"];").expect("writing to a string cannot fail");
         for (order, parent) in node.parents().iter().enumerate() {

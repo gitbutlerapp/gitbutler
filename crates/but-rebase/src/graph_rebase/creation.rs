@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
-use but_graph::{Graph, NodeGraphEntrypoint, NodeKind, Reference, ReferenceMetadata};
+use but_graph::{BoundaryKind, Graph, NodeGraphEntrypoint, NodeKind, Reference, ReferenceMetadata};
 
 use crate::graph_rebase::{
     Checkout, Edge, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
@@ -65,12 +65,14 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         }
         let (graph, initial_references, checkouts) =
             Self::create_from_graph(&workspace.graph, workspace_commit_id, repo, options)?;
+        let project_meta = workspace.graph.project_meta().clone();
         Ok(Self {
             graph,
             initial_references,
             checkouts,
             repo: repo.clone().with_object_memory(),
             history: RevisionHistory::new(),
+            project_meta,
             workspace,
             meta,
         })
@@ -86,13 +88,15 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         let mut mutable_entrypoints = Vec::new();
         let mut has_mutable_local_ref = false;
         if let NodeGraphEntrypoint::Node(entrypoint) = node_graph.entrypoint() {
-            mutable_entrypoints.push(*entrypoint);
-            has_mutable_local_ref = matches!(
-                node_graph.nodes()[*entrypoint].kind(),
-                NodeKind::Reference(reference)
-                    if reference.ref_info.ref_name.category()
-                        == Some(gix::refs::Category::LocalBranch)
-            );
+            let symbolic_entrypoint = node_graph
+                .entrypoint_ref()
+                .and_then(|name| node_graph.node_by_ref_name(name).map(|(index, _)| index));
+            mutable_entrypoints.push(symbolic_entrypoint.unwrap_or(*entrypoint));
+            has_mutable_local_ref = symbolic_entrypoint.is_some_and(|_| {
+                node_graph
+                    .entrypoint_ref()
+                    .is_some_and(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+            });
         }
         for ref_name in &options.extra_mutable_refs {
             let index = node_graph
@@ -121,7 +125,10 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 continue;
             };
             if reference.ref_info.ref_name.category() == Some(gix::refs::Category::LocalBranch)
-                && matches!(node_graph.nodes()[*target].kind(), NodeKind::Commit { .. })
+                && node_graph.nodes()[*target]
+                    .kind()
+                    .addressable_commit_id()
+                    .is_some()
             {
                 local_refs_by_commit.entry(*target).or_default().push(index);
             }
@@ -139,7 +146,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     .iter()
                     .map(|parent| owning_ref_by_commit.get(parent).copied().unwrap_or(*parent))
                     .collect(),
-                NodeKind::Reference(_) | NodeKind::ShallowPoint { .. } => node.parents().to_vec(),
+                NodeKind::Reference(_) | NodeKind::Boundary { .. } => node.parents().to_vec(),
             })
             .collect::<Vec<Vec<_>>>();
         while let Some(index) = mutable_entrypoints.pop() {
@@ -154,10 +161,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         if has_mutable_local_ref {
             let mutable_commit_ids = mutable_nodes
                 .iter()
-                .filter_map(|index| match node_graph.nodes()[*index].kind() {
-                    NodeKind::Commit { id } => Some(*id),
-                    NodeKind::Reference(_) | NodeKind::ShallowPoint { .. } => None,
-                })
+                .filter_map(|index| node_graph.nodes()[*index].kind().addressable_commit_id())
                 .collect::<HashSet<_>>();
             for (index, node) in node_graph.nodes().iter().enumerate() {
                 let NodeKind::Reference(reference) = node.kind() else {
@@ -178,8 +182,16 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             .nodes()
             .iter()
             .filter_map(|node| match node.kind() {
-                NodeKind::Commit { id } => Some(*id),
-                NodeKind::Reference(_) | NodeKind::ShallowPoint { .. } => None,
+                NodeKind::Commit { id }
+                | NodeKind::Boundary {
+                    id,
+                    reason: BoundaryKind::Convergence,
+                } => Some(*id),
+                NodeKind::Reference(_)
+                | NodeKind::Boundary {
+                    reason: BoundaryKind::Shallow,
+                    ..
+                } => None,
             })
             .collect::<HashSet<_>>();
 
@@ -218,7 +230,10 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     let has_shallow_parent = node.parents().iter().any(|parent| {
                         matches!(
                             node_graph.nodes()[*parent].kind(),
-                            NodeKind::ShallowPoint { .. }
+                            NodeKind::Boundary {
+                                reason: BoundaryKind::Shallow,
+                                ..
+                            }
                         )
                     });
                     if has_shallow_parent || parent_ids.iter().any(|id| !commit_ids.contains(id)) {
@@ -237,7 +252,20 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     }
                     Some(Step::Reference { refname, mutable })
                 }
-                NodeKind::ShallowPoint { .. } => None,
+                NodeKind::Boundary {
+                    id,
+                    reason: BoundaryKind::Convergence,
+                } => {
+                    // A convergence boundary is a real shared commit. Keep it in the editor so
+                    // deleting the commit above it can reconnect references to this base.
+                    let mut pick = Pick::new_pick(*id);
+                    pick.mutable = false;
+                    Some(Step::Pick(pick))
+                }
+                NodeKind::Boundary {
+                    reason: BoundaryKind::Shallow,
+                    ..
+                } => None,
             };
             if let Some(step) = step {
                 node_to_step[index] = Some(graph.add_node(step));
@@ -338,18 +366,25 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                         &node_to_step,
                     );
                 }
-                NodeKind::ShallowPoint { .. } => unreachable!("shallow points have no step"),
+                NodeKind::Boundary { .. } => {}
             }
         }
 
         let checkouts = match node_graph.entrypoint() {
-            NodeGraphEntrypoint::Node(index) => node_to_step[*index]
-                .map(|id| Checkout::Head {
-                    selector: Selector { id, revision: 0 },
-                    merge_base_override: None,
-                })
-                .into_iter()
-                .collect(),
+            NodeGraphEntrypoint::Node(index) => {
+                let checkout_index = node_graph
+                    .entrypoint_ref()
+                    .and_then(|name| node_graph.node_by_ref_name(name))
+                    .map(|(index, _)| index)
+                    .unwrap_or(*index);
+                node_to_step[checkout_index]
+                    .map(|id| Checkout::Head {
+                        selector: Selector { id, revision: 0 },
+                        merge_base_override: None,
+                    })
+                    .into_iter()
+                    .collect()
+            }
             NodeGraphEntrypoint::Unborn(_) => unborn_head
                 .map(|id| Checkout::Head {
                     selector: Selector { id, revision: 0 },
@@ -370,9 +405,8 @@ fn is_workspace_reference(reference: &Reference) -> bool {
 
 fn node_target_id(node_graph: &Graph, index: usize) -> Option<gix::ObjectId> {
     match node_graph.nodes()[index].kind() {
-        NodeKind::Commit { id } => Some(*id),
         NodeKind::Reference(reference) => reference.ref_info.commit_id,
-        NodeKind::ShallowPoint { .. } => None,
+        kind => kind.addressable_commit_id(),
     }
 }
 
@@ -402,6 +436,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             checkouts: self.checkouts,
             repo: self.repo,
             history: self.history,
+            project_meta: self.project_meta,
             workspace: self.workspace,
             meta: self.meta,
         }

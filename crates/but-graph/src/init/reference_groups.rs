@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context as _, Result, ensure};
 
-use crate::{CommitFlags, Node, NodeGraph, NodeGraphEntrypoint, NodeIndex, NodeKind, Reference};
+use crate::{CommitFlags, Node, NodeGraph, NodeIndex, NodeKind, Reference};
 
 type ReferenceIndex = usize;
 
@@ -52,8 +52,6 @@ pub(super) fn apply_reference_groups(
     let mut graph = graph.validated()?;
     validate_groups(&graph, &groups)?;
 
-    let entrypoint_ref = entrypoint_ref(&graph);
-    let mut entrypoint_node = None;
     let mut replacements = BTreeMap::<NodeIndex, BTreeMap<usize, NodeIndex>>::new();
     let mut next_index = graph.nodes.len();
     let mut reference_nodes = graph
@@ -62,7 +60,7 @@ pub(super) fn apply_reference_groups(
         .enumerate()
         .filter_map(|(index, node)| match &node.kind {
             NodeKind::Reference(reference) => Some((reference.ref_info.ref_name.clone(), index)),
-            NodeKind::Commit { .. } | NodeKind::ShallowPoint { .. } => None,
+            NodeKind::Commit { .. } | NodeKind::Boundary { .. } => None,
         })
         .collect::<BTreeMap<_, _>>();
     let first_references = groups
@@ -88,13 +86,6 @@ pub(super) fn apply_reference_groups(
                     ReferenceGroupParent::ReferenceByName(name) => reference_nodes[&name],
                 })
                 .collect();
-            let index = graph.nodes.len();
-            if entrypoint_ref.as_ref().is_some_and(|(name, id)| {
-                grouped.reference.ref_info.ref_name == *name
-                    && grouped.reference.ref_info.commit_id == Some(*id)
-            }) {
-                entrypoint_node = Some(index);
-            }
             graph.nodes.push(Node {
                 kind: NodeKind::Reference(Box::new(grouped.reference)),
                 parents,
@@ -127,9 +118,6 @@ pub(super) fn apply_reference_groups(
             .collect();
     }
 
-    if let Some(entrypoint_node) = entrypoint_node {
-        graph.context.entrypoint = NodeGraphEntrypoint::Node(entrypoint_node);
-    }
     graph.validated()
 }
 
@@ -140,7 +128,7 @@ fn validate_groups(graph: &NodeGraph, groups: &[ReferenceGroup]) -> Result<()> {
         .iter()
         .filter_map(|node| match &node.kind {
             NodeKind::Reference(reference) => Some(reference.ref_info.ref_name.clone()),
-            NodeKind::Commit { .. } | NodeKind::ShallowPoint { .. } => None,
+            NodeKind::Commit { .. } | NodeKind::Boundary { .. } => None,
         })
         .collect::<BTreeSet<_>>();
     let mut claimed_slots = BTreeSet::new();
@@ -166,9 +154,9 @@ fn validate_groups(graph: &NodeGraph, groups: &[ReferenceGroup]) -> Result<()> {
                 group.parent
             )
         })?;
-        let NodeKind::Commit { id: parent_id } = parent.kind else {
+        let Some(parent_id) = parent.kind.addressable_commit_id() else {
             anyhow::bail!(
-                "BUG: reference-group parent {} is not a commit",
+                "BUG: reference-group parent {} is not an addressable commit",
                 group.parent
             );
         };
@@ -329,20 +317,10 @@ fn validate_groups(graph: &NodeGraph, groups: &[ReferenceGroup]) -> Result<()> {
     Ok(())
 }
 
-fn entrypoint_ref(graph: &NodeGraph) -> Option<(gix::refs::FullName, gix::ObjectId)> {
-    let NodeGraphEntrypoint::Node(entrypoint) = graph.context.entrypoint else {
-        return None;
-    };
-    let NodeKind::Commit { id } = graph.nodes.get(entrypoint)?.kind else {
-        return None;
-    };
-    graph.context.entrypoint_ref.clone().map(|name| (name, id))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{RefInfo, ReferenceMetadata, init, node::ConstructionContext};
+    use crate::{NodeGraphEntrypoint, RefInfo, ReferenceMetadata, node::ConstructionContext};
 
     fn oid(value: u8) -> gix::ObjectId {
         let hex = format!("{value:040x}");
@@ -377,26 +355,18 @@ mod tests {
     }
 
     fn graph(nodes: Vec<Node>, entrypoint: NodeIndex, entrypoint_ref: Option<&str>) -> NodeGraph {
-        let NodeKind::Commit { id } = nodes[entrypoint].kind else {
+        let NodeKind::Commit { .. } = nodes[entrypoint].kind else {
             panic!("test entrypoint must be a commit")
         };
-        let tip = init::Tip::entrypoint(
-            id,
-            entrypoint_ref.map(|name| name.try_into().expect("valid full ref name")),
-        );
         NodeGraph {
             annotations: vec![CommitFlags::empty(); nodes.len()],
             nodes,
             context: ConstructionContext {
                 entrypoint: NodeGraphEntrypoint::Node(entrypoint),
-                entrypoint_ref: tip.ref_name.clone(),
+                entrypoint_ref: entrypoint_ref
+                    .map(|name| name.try_into().expect("valid full ref name")),
                 managed_workspace_commit_id: None,
-                traversal_tips: vec![tip],
-                ad_hoc_branch_stack_orders: Vec::new(),
-                hard_limit_hit: false,
-                options: init::Options::default(),
                 project_meta: Default::default(),
-                symbolic_remote_names: Vec::new(),
             },
         }
     }
@@ -405,7 +375,7 @@ mod tests {
     fn applies_same_tip_reference_chain_and_keeps_annotations_parallel() -> Result<()> {
         let id = oid(1);
         let mut graph = graph(vec![commit(id, vec![])], 0, None);
-        graph.annotations[0] = CommitFlags::Integrated;
+        graph.annotations[0] = CommitFlags::TargetSide;
         let graph = apply_reference_groups(
             graph,
             vec![ReferenceGroup {
@@ -429,7 +399,7 @@ mod tests {
         assert_eq!(
             graph.annotations,
             [
-                CommitFlags::Integrated,
+                CommitFlags::TargetSide,
                 CommitFlags::empty(),
                 CommitFlags::empty()
             ]
@@ -524,7 +494,7 @@ mod tests {
         )?;
 
         assert_eq!(graph.nodes[4].parents, [3, 2, 1]);
-        assert_eq!(graph.entrypoint(), &NodeGraphEntrypoint::Node(4));
+        assert_eq!(graph.entrypoint(), &NodeGraphEntrypoint::Node(1));
         Ok(())
     }
 
@@ -647,7 +617,7 @@ mod tests {
     }
 
     #[test]
-    fn moves_the_entrypoint_to_its_reference() -> Result<()> {
+    fn keeps_the_entrypoint_on_its_commit() -> Result<()> {
         let id = oid(1);
         let graph = apply_reference_groups(
             graph(vec![commit(id, vec![])], 0, Some("refs/heads/main")),
@@ -661,7 +631,11 @@ mod tests {
             }],
         )?;
 
-        assert_eq!(graph.entrypoint(), &NodeGraphEntrypoint::Node(1));
+        assert_eq!(graph.entrypoint(), &NodeGraphEntrypoint::Node(0));
+        assert_eq!(
+            graph.entrypoint_ref().map(ToString::to_string),
+            Some("refs/heads/main".to_owned())
+        );
         Ok(())
     }
 

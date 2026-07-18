@@ -54,47 +54,21 @@ pub(crate) fn run(
         .map(|rev_spec| repo.rev_parse_single(rev_spec))
         .transpose()?
         .map(|id| id.detach());
-    let opts = but_graph::init::Options {
-        extra_target_commit_id: extra_target,
-        collect_tags: true,
-        hard_limit: graph_args.hard_limit,
-        commits_limit_hint: graph_args.limit.flatten(),
-        commits_limit_recharge_location: graph_args
-            .limit_extension
-            .iter()
-            .map(|short_hash| {
-                repo.objects
-                    .lookup_prefix(
-                        gix::hash::Prefix::from_hex(short_hash).expect("valid hex prefix"),
-                        None,
-                    )
-                    .unwrap()
-                    .expect("object for prefix exists")
-                    .expect("the prefix is unambiguous")
-            })
-            .collect(),
-        dangerously_skip_postprocessing_for_debugging: graph_args.no_post,
+    let project_meta = but_core::ref_metadata::ProjectMeta {
+        target_commit_id: extra_target,
+        ..Default::default()
     };
 
-    let graph = match graph_args.ref_name.as_deref() {
-        None => but_graph::Graph::from_head(
-            &repo,
-            &meta,
-            but_core::ref_metadata::ProjectMeta::default(),
-            opts,
-        ),
+    let overlay = match graph_args.ref_name.as_deref() {
+        None => but_graph::init::Overlay::default(),
         Some(ref_name) => {
             let mut reference = repo.find_reference(ref_name)?;
-            let id = reference.peel_to_id()?;
-            but_graph::Graph::from_commit_traversal(
-                id,
-                reference.name().to_owned(),
-                &meta,
-                but_core::ref_metadata::ProjectMeta::default(),
-                opts,
-            )
+            let name = reference.name().to_owned();
+            let id = reference.peel_to_id()?.detach();
+            but_graph::init::Overlay::default().with_entrypoint(id, Some(name))
         }
-    }?;
+    };
+    let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, overlay)?;
 
     let workspace = graph.into_workspace()?;
     emit_workspace(&workspace, graph_args, out, err)
@@ -155,7 +129,7 @@ fn emit_statistics(graph: &but_graph::Graph, err: &mut dyn io::Write) -> Result<
         match node.kind() {
             but_graph::NodeKind::Commit { .. } => commits += 1,
             but_graph::NodeKind::Reference(_) => references += 1,
-            but_graph::NodeKind::ShallowPoint { .. } => shallow_points += 1,
+            but_graph::NodeKind::Boundary { .. } => shallow_points += 1,
         }
     }
     let edges = graph
@@ -165,12 +139,7 @@ fn emit_statistics(graph: &but_graph::Graph, err: &mut dyn io::Write) -> Result<
         .sum::<usize>();
     writeln!(
         err,
-        "Graph with {commits} commits, {references} references, {shallow_points} shallow points, and {edges} edges{}",
-        if graph.hard_limit_hit() {
-            " (hard limit reached)"
-        } else {
-            ""
-        }
+        "Graph with {commits} commits, {references} references, {shallow_points} shallow points, and {edges} edges"
     )?;
     Ok(())
 }
@@ -187,18 +156,16 @@ pub(super) fn node_graph_dot(graph: &but_graph::Graph) -> String {
                 "{}{} {}",
                 if entrypoint { "HEAD " } else { "" },
                 id.to_hex_with_len(7),
-                graph.annotations()[index].debug_string(None)
+                graph.annotations()[index].debug_string()
             ),
             but_graph::NodeKind::Reference(reference) => format!(
                 "{}{}",
                 if entrypoint { "HEAD " } else { "" },
                 reference.ref_info.ref_name
             ),
-            but_graph::NodeKind::ShallowPoint { id, reason } => format!(
-                "{} {}",
-                id.to_hex_with_len(7),
-                reason.debug_string(graph.hard_limit_hit())
-            ),
+            but_graph::NodeKind::Boundary { id, reason } => {
+                format!("{} {}", id.to_hex_with_len(7), reason.debug_string())
+            }
         };
         writeln!(out, "  {index} [label={label:?}];").expect("writing to a string cannot fail");
         for (order, parent) in node.parents().iter().enumerate() {
@@ -238,15 +205,9 @@ fn open_as_svg(graph: &but_graph::Graph) -> Result<()> {
 ///
 /// Context discovery loads the same workspace graph used by the application,
 /// including metadata-backed target handling. The manual repository path below
-/// is still needed when any debug traversal knob is set, because those options
-/// must be passed directly into `but_graph::Graph::from_*`.
+/// is still needed for an explicit entrypoint or extra target.
 fn uses_context_discovery(graph_args: &GraphArgs) -> bool {
-    graph_args.extra_target.is_none()
-        && !graph_args.no_post
-        && graph_args.hard_limit.is_none()
-        && graph_args.limit == Some(Some(300))
-        && graph_args.limit_extension.is_empty()
-        && graph_args.ref_name.is_none()
+    graph_args.extra_target.is_none() && graph_args.ref_name.is_none()
 }
 
 /// Determine which graph output mode should be used.

@@ -202,6 +202,23 @@ pub(crate) mod function {
         }: Options,
     ) -> anyhow::Result<Outcome<'ws>> {
         let ws = workspace;
+        let project_meta = ws.graph.project_meta().clone();
+        let (source_entrypoint_id, source_entrypoint_ref) = match ws.graph.entrypoint() {
+            but_graph::NodeGraphEntrypoint::Node(index) => {
+                let Some(node) = ws.graph.nodes().get(*index) else {
+                    unreachable!("born graph entrypoints are valid node indices")
+                };
+                match node.kind() {
+                    but_graph::NodeKind::Commit { id } => {
+                        (*id, ws.graph.entrypoint_ref().map(ToOwned::to_owned))
+                    }
+                    _ => unreachable!("born graph entrypoints are commits"),
+                }
+            }
+            but_graph::NodeGraphEntrypoint::Unborn(_) => {
+                anyhow::bail!("cannot unapply from an unborn workspace")
+            }
+        };
         let mut branch_ref = try_find_validated_ref(repo, branch, "unapply")?;
         let branch_commit_id = branch_ref
             .as_mut()
@@ -282,9 +299,13 @@ pub(crate) mod function {
             // TODO: this will actually be observable even if it doens't work, unless it's run in a transaction, which right now it's not!
             //       Should be able to redo the traversal with an overlay that hides branch metadata, but I'd say it's not important enough.
             meta.remove(branch)?;
-            let graph = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, Overlay::default())?;
+            let graph = but_graph::Graph::from_repo(
+                repo,
+                meta,
+                project_meta.clone(),
+                Overlay::default()
+                    .with_entrypoint(source_entrypoint_id, source_entrypoint_ref.clone()),
+            )?;
             let workspace = graph.into_workspace()?;
             if workspace_contains_ref(&workspace, branch) {
                 bail!(
@@ -298,18 +319,19 @@ pub(crate) mod function {
         // Everything past this point is stricly in non-dry-run mode and we may totally end up in intermediate states
         // if something fails.
         // Redo the traversal with the changed workspace metadata so code below can rely on the reconciled version.
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                repo,
-                meta,
-                Overlay::default()
-                    .with_dropped_references([branch.to_owned()])
-                    .with_workspace_metadata_override(Some((
-                        workspace_ref_name.to_owned(),
-                        ws_md.clone(),
-                    ))),
-            )?
+        let mut preview_overlay = Overlay::default()
+            .with_dropped_references([branch.to_owned()])
+            .with_workspace_metadata_override(Some((workspace_ref_name.to_owned(), ws_md.clone())));
+        if source_entrypoint_ref
+            .as_ref()
+            .is_some_and(|name| name.as_ref() == branch)
+        {
+            preview_overlay = preview_overlay.with_entrypoint(source_entrypoint_id, None);
+        } else {
+            preview_overlay = preview_overlay
+                .with_entrypoint(source_entrypoint_id, source_entrypoint_ref.clone());
+        }
+        let ws = but_graph::Graph::from_repo(repo, meta, project_meta.clone(), preview_overlay)?
             .into_workspace()?;
         // Normal unapply first:
         // - re-merge or collapse the workspace commit
@@ -331,10 +353,26 @@ pub(crate) mod function {
         let overlay = Overlay::default()
             .with_dropped_references([branch.to_owned()])
             .with_workspace_metadata_override(Some((workspace_ref_name.to_owned(), ws_md.clone())));
-        let mut ws = ws
-            .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
-            .into_workspace()?;
+        let (rebuilt_entrypoint_id, rebuilt_entrypoint_ref) = if source_entrypoint_ref
+            .as_ref()
+            .is_some_and(|name| name.as_ref() == workspace_ref_name.as_ref())
+        {
+            (entrypoint_id, Some(workspace_ref_name.to_owned()))
+        } else if source_entrypoint_ref
+            .as_ref()
+            .is_some_and(|name| name.as_ref() == branch)
+        {
+            (source_entrypoint_id, None)
+        } else {
+            (source_entrypoint_id, source_entrypoint_ref.clone())
+        };
+        let mut ws = but_graph::Graph::from_repo(
+            repo,
+            meta,
+            project_meta.clone(),
+            overlay.with_entrypoint(rebuilt_entrypoint_id, rebuilt_entrypoint_ref),
+        )?
+        .into_workspace()?;
         let checked_out = if !workspace_tip_was_entrypoint
             && (workspace_is_entrypoint(&ws) || branch_stack_was_entrypoint)
         {
@@ -345,9 +383,7 @@ pub(crate) mod function {
             let overlay = Overlay::default()
                 .with_dropped_references([branch.to_owned()])
                 .with_entrypoint(entrypoint_id, Some(workspace_ref_name.to_owned()));
-            ws = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
+            ws = but_graph::Graph::from_repo(repo, meta, project_meta.clone(), overlay)?
                 .into_workspace()?;
             Some(workspace_ref_name.to_owned())
         } else {
@@ -392,9 +428,7 @@ pub(crate) mod function {
                         Some(ref_to_switch_to.ref_name.clone()),
                     )
                     .with_dropped_references([branch.to_owned()]);
-                let ws = ws
-                    .graph
-                    .redo_traversal_with_overlay(repo, meta, overlay)?
+                let ws = but_graph::Graph::from_repo(repo, meta, project_meta, overlay)?
                     .into_workspace()?;
 
                 Ok(Outcome {
@@ -605,9 +639,7 @@ pub(crate) mod function {
             ref_to_checkout.commit_id,
             Some(ref_to_checkout.ref_name.clone()),
         );
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(repo, meta, overlay)?
+        let ws = but_graph::Graph::from_repo(repo, meta, ProjectMeta::default(), overlay)?
             .into_workspace()?;
         Ok(Outcome {
             workspace: Cow::Owned(ws),

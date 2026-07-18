@@ -578,11 +578,11 @@ fn read_only_workspace(ctx: &but_ctx::Context) -> Option<but_graph::Workspace> {
         ctx.project_data_dir(),
     )
     .ok()?;
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
         ctx.project_meta().ok()?,
-        but_graph::init::Options::limited(),
+        but_graph::init::Overlay::default(),
     )
     .ok()?;
     graph.into_workspace().ok()

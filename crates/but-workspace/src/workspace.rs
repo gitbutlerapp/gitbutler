@@ -50,10 +50,9 @@ pub(crate) fn node_commit_id(
     index: but_graph::NodeIndex,
 ) -> Option<gix::ObjectId> {
     match graph.nodes().get(index)?.kind() {
-        but_graph::NodeKind::Commit { id } | but_graph::NodeKind::ShallowPoint { id, .. } => {
-            Some(*id)
-        }
+        but_graph::NodeKind::Commit { id } => Some(*id),
         but_graph::NodeKind::Reference(reference) => reference.ref_info.commit_id,
+        but_graph::NodeKind::Boundary { .. } => None,
     }
 }
 
@@ -85,19 +84,11 @@ pub(crate) fn target_matches_branch(
         return false;
     };
     target.ref_name.as_ref() == name
-        // Reference grouping places the target remote directly above its authoritative local pair.
         || workspace
             .graph
-            .nodes()
-            .get(target.node_index)
-            .and_then(|target| target.parents().first())
-            .and_then(|paired_local| workspace.graph.nodes().get(*paired_local))
-            .is_some_and(|node| {
-                matches!(
-                    node.kind(),
-                    but_graph::NodeKind::Reference(reference)
-                        if reference.ref_info.ref_name.as_ref() == name
-                )
+            .node_by_ref_name(name)
+            .is_some_and(|(_, reference)| {
+                reference.remote_tracking_ref_name.as_ref() == Some(&target.ref_name)
             })
 }
 

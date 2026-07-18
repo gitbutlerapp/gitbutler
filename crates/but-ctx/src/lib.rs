@@ -769,11 +769,11 @@ impl Context {
             self.project_data_dir().join("virtual_branches.toml"),
             self.project_data_dir(),
         )?;
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Graph::from_repo(
             &repo,
             &meta,
             self.project_meta()?,
-            but_graph::init::Options::limited(),
+            but_graph::init::Overlay::default(),
         )?;
         graph.into_workspace()
     }

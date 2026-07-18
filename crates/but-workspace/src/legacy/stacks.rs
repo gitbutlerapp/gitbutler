@@ -250,7 +250,6 @@ pub fn stacks_v3(
     let options = ref_info::Options {
         project_meta: project_meta.clone(),
         expensive_commit_info: false,
-        traversal: but_graph::init::Options::limited(),
         ..Default::default()
     };
     let info = match ref_name_override {
@@ -332,18 +331,13 @@ pub fn stack_details_v3(
         ref_info::Options {
             project_meta: project_meta.clone(),
             expensive_commit_info: true,
-            traversal: but_graph::init::Options::limited(),
             ..Default::default()
         }
     }
-    let mut ref_info_options = new_ref_info_options(project_meta);
+    let ref_info_options = new_ref_info_options(project_meta);
     let mut stack = match stack_id {
         None => {
             // assume single-branch mode.
-            // Make sure the UI isn't overwhelmed, this currently happens easily on some repos where a lot of commits
-            // would otherwise be returned. The problem is that then the workspace might not be correct, but there isn't
-            // another way that still allows to extend the range via gas-stations. Maybe one day we won't need this.
-            ref_info_options.traversal.hard_limit = Some(500);
             let mut info = head_info(repo, meta, ref_info_options)?;
             if info.is_entrypoint {
                 if info.stacks.len() != 1 {

@@ -215,7 +215,7 @@ aac5238
 * b5e5f88 (HEAD -> three) commit three
 * ebc7217 (two) commit two
 | * 16fd221 (origin/two) commit two
-|/  
+|/
 * 8b426d0 (one) commit one
 
 "#]]

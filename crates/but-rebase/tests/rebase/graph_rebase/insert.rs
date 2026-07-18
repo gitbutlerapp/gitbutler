@@ -1,11 +1,10 @@
 //! These tests exercise the insert operation.
 use anyhow::{Context, Result};
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, Step, mutate::InsertSide};
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
-use crate::utils::{fixture_writable, standard_options};
+use crate::utils::fixture_writable;
 
 /// Inserting below a merge commit should inherit all of it's parents
 #[test]
@@ -17,10 +16,10 @@ fn insert_below_merge_commit() -> Result<()> {
         snapbox::str![[r#"
 * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
 *   2fc288c Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
@@ -28,11 +27,11 @@ fn insert_below_merge_commit() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -60,20 +59,18 @@ fn insert_below_merge_commit() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·f699c45 (⌂)
-│ ●  ·16b7c68 (⌂)
-│ ●    ·8ca0053 (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·f699c45 (→)
+│ ●  ·16b7c68 (→)
+│ ●    ·8ca0053 (→)
 │ ├─╮
 │ ◎ │  A
-│ ● │  ·add59d2 (⌂)
+│ ● │  ·add59d2 (→)
 ├─╯ │
 │   ◎  B
-│   ●  ·984fd1c (⌂)
+│   ●  ·984fd1c (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·8f0d338 (⌂)
+●  🏁·8f0d338 (→)
 
 "#]]
     );
@@ -86,10 +83,10 @@ fn insert_below_merge_commit() -> Result<()> {
 * f699c45 (HEAD -> with-inner-merge) on top of inner merge
 * 16b7c68 Merge branch 'B' into with-inner-merge
 *   8ca0053 Commit below the merge commit
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
@@ -121,10 +118,10 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
         snapbox::str![[r#"
 * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
 *   2fc288c Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
@@ -132,11 +129,11 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -168,20 +165,18 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·f699c45 (⌂)
-│ ●  ·16b7c68 (⌂)
-│ ●    ·8ca0053 (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·f699c45 (→)
+│ ●  ·16b7c68 (→)
+│ ●    ·8ca0053 (→)
 │ ├─╮
 │ ◎ │  A
-│ ● │  ·add59d2 (⌂)
+│ ● │  ·add59d2 (→)
 ├─╯ │
 │   ◎  B
-│   ●  ·984fd1c (⌂)
+│   ●  ·984fd1c (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·8f0d338 (⌂)
+●  🏁·8f0d338 (→)
 
 "#]]
     );
@@ -194,10 +189,10 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
 * f699c45 (HEAD -> with-inner-merge) on top of inner merge
 * 16b7c68 Merge branch 'B' into with-inner-merge
 *   8ca0053 Commit below the merge commit
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
@@ -228,10 +223,10 @@ fn insert_above_commit_with_two_children() -> Result<()> {
         snapbox::str![[r#"
 * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
 *   2fc288c Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
@@ -239,11 +234,11 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -271,20 +266,18 @@ fn insert_above_commit_with_two_children() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·42f9ff4 (⌂)
-│ ●    ·5219d30 (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·42f9ff4 (→)
+│ ●    ·5219d30 (→)
 │ ├─╮
 │ ◎ │  A
-│ ● │  ·72d9d9b (⌂)
+│ ● │  ·72d9d9b (→)
 ├─╯ │
 │   ◎  B
-│   ●  ·df0cf44 (⌂)
+│   ●  ·df0cf44 (→)
 ├───╯
-●  ·3dc4e45 (⌂)
-│ ◎  tags/base
-├─╯
-●  🏁·8f0d338 (⌂)
+●  ·3dc4e45 (→)
+●  🏁·8f0d338 (→)
 
 "#]]
     );
@@ -296,10 +289,10 @@ fn insert_above_commit_with_two_children() -> Result<()> {
         snapbox::str![[r#"
 * 42f9ff4 (HEAD -> with-inner-merge) on top of inner merge
 *   5219d30 Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * df0cf44 (B) C: new file with 10 lines
 * | 72d9d9b (A) A: 10 lines on top
-|/  
+|/
 * 3dc4e45 (main) Commit above base commit
 * 8f0d338 (tag: base) base
 

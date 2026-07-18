@@ -3,7 +3,7 @@ use std::{cmp::Ordering, collections::BTreeMap};
 use but_core::ref_metadata::StackId;
 use but_graph::{
     CommitFlags, Graph, NodeGraphEntrypoint, NodeIndex, NodeKind, RefInfo, Reference,
-    ReferenceMetadata, StopCondition, WorktreeKind,
+    ReferenceMetadata, WorktreeKind,
     workspace::{Stack, StackCommitDebugFlags, StackCommitFlags, StackSegment, WorkspaceKind},
 };
 use gix::{bstr::ByteSlice as _, refs::Category};
@@ -26,11 +26,7 @@ fn graph_workspace_inner(
     workspace: &but_graph::Workspace,
     mut stack_id_map: Option<BTreeMap<StackId, StackId>>,
 ) -> StringTree {
-    let commit_flags = if workspace.graph.hard_limit_hit() {
-        StackCommitDebugFlags::HardLimitReached
-    } else {
-        Default::default()
-    };
+    let commit_flags = StackCommitDebugFlags::default();
     let mut root = Tree::new(workspace_label(workspace));
     for stack in &workspace.stacks {
         let id = stack.id.zip(stack_id_map.as_mut()).map(|(id, map)| {
@@ -223,9 +219,7 @@ fn graph_dag(graph: &Graph) -> String {
             .parents()
             .iter()
             .copied()
-            .filter(|parent| {
-                !matches!(graph.nodes()[*parent].kind(), NodeKind::ShallowPoint { .. })
-            })
+            .filter(|parent| !matches!(graph.nodes()[*parent].kind(), NodeKind::Boundary { .. }))
             .map(Ancestor::Parent)
             .collect();
         out.push_str(&renderer.next_row(index, parents, glyph.into(), label));
@@ -255,42 +249,44 @@ fn node_label(graph: &Graph, index: NodeIndex) -> (&'static str, String) {
     match graph.nodes()[index].kind() {
         NodeKind::Commit { id } => {
             let flags = graph.annotations()[index] & CommitFlags::all();
-            let stop = commit_stop_condition(graph, index)
-                .map(|condition| condition.debug_string(graph.hard_limit_hit()))
-                .unwrap_or_default();
+            let stop = commit_stop_marker(graph, index);
             let flags_label = if flags.is_empty() {
                 String::new()
             } else {
-                format!(" ({})", flags.debug_string(None))
+                format!(" ({})", flags.debug_string())
             };
             (
                 "●",
                 format!(
                     "{}{stop}{}{}{flags_label}",
                     if is_entrypoint { "👉" } else { "" },
-                    if flags.is_remote() { "🟣" } else { "·" },
+                    if flags.contains(CommitFlags::EntrypointSide) {
+                        "·"
+                    } else {
+                        "🟣"
+                    },
                     id.to_hex_with_len(7),
                 ),
             )
         }
         NodeKind::Reference(reference) => ("◎", reference_label(graph, reference, is_entrypoint)),
-        NodeKind::ShallowPoint { .. } => unreachable!("shallow points are not rendered"),
+        NodeKind::Boundary { .. } => unreachable!("boundaries are not rendered"),
     }
 }
 
-fn commit_stop_condition(graph: &Graph, index: NodeIndex) -> Option<StopCondition> {
+fn commit_stop_marker(graph: &Graph, index: NodeIndex) -> String {
     let node = &graph.nodes()[index];
     let mut stop = if node.parents().is_empty() {
-        StopCondition::FirstCommit
+        "🏁".to_owned()
     } else {
-        StopCondition::empty()
+        String::new()
     };
     for parent in node.parents() {
-        if let NodeKind::ShallowPoint { reason, .. } = graph.nodes()[*parent].kind() {
-            stop |= *reason;
+        if let NodeKind::Boundary { reason, .. } = graph.nodes()[*parent].kind() {
+            stop.push_str(reason.debug_string());
         }
     }
-    (!stop.is_empty()).then_some(stop)
+    stop
 }
 
 fn reference_label(graph: &Graph, reference: &Reference, is_entrypoint: bool) -> String {
@@ -349,7 +345,7 @@ fn has_multiple_worktrees(graph: &Graph) -> bool {
         .iter()
         .filter_map(|node| match node.kind() {
             NodeKind::Reference(reference) => reference.ref_info.worktree.as_ref(),
-            NodeKind::Commit { .. } | NodeKind::ShallowPoint { .. } => None,
+            NodeKind::Commit { .. } | NodeKind::Boundary { .. } => None,
         })
         .any(|worktree| {
             if let Some(first) = first {
@@ -366,11 +362,11 @@ fn topological_order(graph: &Graph) -> Vec<NodeIndex> {
         .nodes()
         .iter()
         .enumerate()
-        .filter(|(_, node)| !matches!(node.kind(), NodeKind::ShallowPoint { .. }))
+        .filter(|(_, node)| !matches!(node.kind(), NodeKind::Boundary { .. }))
         .map(|(index, _)| (index, 0usize))
         .collect::<BTreeMap<_, _>>();
     for node in graph.nodes() {
-        if matches!(node.kind(), NodeKind::ShallowPoint { .. }) {
+        if matches!(node.kind(), NodeKind::Boundary { .. }) {
             continue;
         }
         for parent in node.parents() {
@@ -423,7 +419,7 @@ fn compare_nodes(graph: &Graph, left: NodeIndex, right: NodeIndex) -> Ordering {
         }
         (NodeKind::Commit { .. }, NodeKind::Reference(_)) => Ordering::Less,
         (NodeKind::Reference(_), NodeKind::Commit { .. }) => Ordering::Greater,
-        (NodeKind::ShallowPoint { .. }, _) | (_, NodeKind::ShallowPoint { .. }) => {
+        (NodeKind::Boundary { .. }, _) | (_, NodeKind::Boundary { .. }) => {
             unreachable!("shallow points are not ordered")
         }
     }

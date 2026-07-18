@@ -21,11 +21,11 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 09d8e52 (A) A
 * | 09bc93e (C) C
 * | c813d8d (B) B
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -36,14 +36,14 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:9:A on 85efbe4 {1}
-│   └── 📙:9:A
+📕🏘️:10:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:6:A on 85efbe4 {1}
+│   └── 📙:6:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:8:C on 85efbe4 {2}
-    ├── 📙:8:C
+└── ≡📙:5:C on 85efbe4 {2}
+    ├── 📙:5:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:10:B
+    └── 📙:9:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -69,12 +69,12 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *-.   efd284c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\ \  
+|\ \
 | | * 09d8e52 (A) A
 | * | c813d8d (B) B
-| |/  
+| |/
 * / 8e00332 (C) C
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -84,9 +84,9 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:10:A on 85efbe4 {1}
-│   └── 📙:10:A
+📕🏘️:10:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:5:A on 85efbe4 {1}
+│   └── 📙:5:A
 │       └── ·09d8e52 (🏘️)
 ├── ≡📙:9:B on 85efbe4 {2}
 │   └── 📙:9:B
@@ -115,11 +115,11 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 09d8e52 (A) A
 * | 09bc93e (C) C
 * | c813d8d (B) B
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -130,14 +130,14 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:9:A on 85efbe4 {1}
-│   └── 📙:9:A
+📕🏘️:10:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:6:A on 85efbe4 {1}
+│   └── 📙:6:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:8:C on 85efbe4 {2}
-    ├── 📙:8:C
+└── ≡📙:5:C on 85efbe4 {2}
+    ├── 📙:5:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:10:B
+    └── 📙:9:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -163,12 +163,12 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *-.   a3c9e85 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\ \  
+|\ \
 | | * 09d8e52 (A) A
 | * | 8e00332 (C) C
-| |/  
+| |/
 * / c813d8d (B) B
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -178,15 +178,15 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:10:A on 85efbe4 {1}
-│   └── 📙:10:A
+📕🏘️:9:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:5:A on 85efbe4 {1}
+│   └── 📙:5:A
 │       └── ·09d8e52 (🏘️)
-├── ≡📙:9:C on 85efbe4 {2}
-│   └── 📙:9:C
+├── ≡📙:8:C on 85efbe4 {2}
+│   └── 📙:8:C
 │       └── ·8e00332 (🏘️)
-└── ≡📙:8:B on 85efbe4 {3}
-    └── 📙:8:B
+└── ≡📙:10:B on 85efbe4 {3}
+    └── 📙:10:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -209,11 +209,11 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 09d8e52 (A) A
 * | 09bc93e (C) C
 * | c813d8d (B) B
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -224,14 +224,14 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:9:A on 85efbe4 {1}
-│   └── 📙:9:A
+📕🏘️:10:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:6:A on 85efbe4 {1}
+│   └── 📙:6:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:8:C on 85efbe4 {2}
-    ├── 📙:8:C
+└── ≡📙:5:C on 85efbe4 {2}
+    ├── 📙:5:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:10:B
+    └── 📙:9:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -257,11 +257,11 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 09d8e52 (A) A
 * | 09bc93e (C) C
 * | c813d8d (B) B
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -271,14 +271,14 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:9:A on 85efbe4 {1}
-│   └── 📙:9:A
+📕🏘️:10:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:6:A on 85efbe4 {1}
+│   └── 📙:6:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:8:C on 85efbe4 {2}
-    ├── 📙:8:C
+└── ≡📙:5:C on 85efbe4 {2}
+    ├── 📙:5:C
     │   └── ·09bc93e (🏘️)
-    └── 📙:10:B
+    └── 📙:9:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -309,11 +309,11 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:7:B on 85efbe4 {1}
-    ├── 📙:7:B
+📕🏘️:5:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:8:B on 85efbe4 {2}
+    ├── 📙:8:B
     │   └── ·d69fe94 (🏘️)
-    └── 📙:8:A
+    └── 📙:4:A
         └── ·09d8e52 (🏘️)
 
 "#]]
@@ -339,10 +339,10 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   e2d89a5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 09d8e52 (A) A
 * | 1273ba9 (B) B
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -352,12 +352,12 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:8:A on 85efbe4 {1}
-│   └── 📙:8:A
+📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:4:A on 85efbe4 {1}
+│   └── 📙:4:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:7:B on 85efbe4 {2}
-    └── 📙:7:B
+└── ≡📙:5:B on 85efbe4 {2}
+    └── 📙:5:B
         └── ·1273ba9 (🏘️)
 
 "#]]
@@ -388,11 +388,11 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:7:B on 85efbe4 {1}
-    ├── 📙:7:B
+📕🏘️:5:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:8:B on 85efbe4 {2}
+    ├── 📙:8:B
     │   └── ·d69fe94 (🏘️)
-    └── 📙:8:A
+    └── 📙:4:A
         └── ·09d8e52 (🏘️)
 
 "#]]
@@ -418,10 +418,10 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   828af37 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 1273ba9 (B) B
 * | 09d8e52 (A) A
-|/  
+|/
 * 85efbe4 (origin/main, main) M
 
 "#]]
@@ -432,11 +432,11 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:8:B on 85efbe4 {2}
-│   └── 📙:8:B
+├── ≡📙:5:B on 85efbe4 {2}
+│   └── 📙:5:B
 │       └── ·1273ba9 (🏘️)
-└── ≡📙:7:A on 85efbe4 {1}
-    └── 📙:7:A
+└── ≡📙:4:A on 85efbe4 {1}
+    └── 📙:4:A
         └── ·09d8e52 (🏘️)
 
 "#]]
@@ -468,10 +468,10 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:5:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:7:B on 85efbe4 {1}
-    ├── 📙:7:B
-    └── 📙:6:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:4:B on 85efbe4 {1}
+    ├── 📙:4:B
+    └── 📙:3:A
         └── ·09d8e52 (🏘️) ►B
 
 "#]]
@@ -497,9 +497,9 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   d744692 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 09d8e52 (A) A
-|/  
+|/
 * 85efbe4 (origin/main, main, B) M
 
 "#]]
@@ -509,12 +509,12 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:7:A on 85efbe4 {1}
-│   └── 📙:7:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:3:A on 85efbe4 {1}
+│   └── 📙:3:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:3:B on 85efbe4 {3}
-    └── 📙:3:B
+└── ≡📙:4:B on 85efbe4 {3}
+    └── 📙:4:B
 
 "#]]
     );
@@ -545,10 +545,10 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:5:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-└── ≡📙:7:B on 85efbe4 {1}
-    ├── 📙:7:B
-    └── 📙:6:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+└── ≡📙:4:B on 85efbe4 {1}
+    ├── 📙:4:B
+    └── 📙:3:A
         └── ·09d8e52 (🏘️) ►B
 
 "#]]
@@ -574,9 +574,9 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   b1314f4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 * | 09d8e52 (A) A
-|/  
+|/
 * 85efbe4 (origin/main, main, B) M
 
 "#]]
@@ -586,11 +586,11 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:B on 85efbe4 {1}
-│   └── 📙:3:B
-└── ≡📙:7:A on 85efbe4 {3}
-    └── 📙:7:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:4:B on 85efbe4 {1}
+│   └── 📙:4:B
+└── ≡📙:3:A on 85efbe4 {3}
+    └── 📙:3:A
         └── ·09d8e52 (🏘️)
 
 "#]]

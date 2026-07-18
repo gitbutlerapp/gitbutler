@@ -270,6 +270,8 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
     repo: gix::Repository,
     /// Provides data about how the editor instance was transformed.
     history: RevisionHistory,
+    /// Project configuration captured when the operation started.
+    project_meta: but_core::ref_metadata::ProjectMeta,
     /// A reference to the workspace that the editor was created for.
     workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
@@ -289,6 +291,8 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     pub(crate) checkouts: Vec<Checkout>,
     /// Provides data about how the editor instance was transformed.
     pub history: RevisionHistory,
+    /// Project configuration captured when the operation started.
+    pub project_meta: but_core::ref_metadata::ProjectMeta,
     /// A reference to the workspace that the editor was created for.
     workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
@@ -411,9 +415,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         if let Some(branch_stack_order) = branch_stack_order {
             overlay = overlay.with_branch_stack_order_override(branch_stack_order.iter().cloned());
         }
-        self.workspace
-            .graph
-            .redo_traversal_with_overlay(&self.repo, self.meta, overlay)
+        but_graph::Graph::from_repo(&self.repo, self.meta, self.project_meta.clone(), overlay)
             .and_then(but_graph::Graph::into_workspace)
     }
 }
@@ -424,6 +426,8 @@ pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
     pub(crate) graph: StepGraph,
     /// Provides data about how the editor instance was transformed.
     pub history: RevisionHistory,
+    /// Project configuration captured when the operation started.
+    pub project_meta: but_core::ref_metadata::ProjectMeta,
     /// A reference to the workspace that the editor was created for.
     pub workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.

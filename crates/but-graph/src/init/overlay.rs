@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::bail;
 use but_core::{RefMetadata, ref_metadata};
-use gix::{prelude::ReferenceExt, refs::Target};
+use gix::prelude::ReferenceExt;
 
 use crate::{
     Worktree, WorktreeKind,
@@ -29,7 +29,11 @@ impl Overlay {
     /// Serve the given `refs` from memory, which is like creating the reference or as if its value was set,
     /// completely overriding the value in the repository.
     pub fn with_references(mut self, refs: impl IntoIterator<Item = gix::refs::Reference>) -> Self {
-        self.overriding_references.extend(refs);
+        for reference in refs {
+            self.overriding_references
+                .retain(|existing| existing.name != reference.name);
+            self.overriding_references.push(reference);
+        }
         self
     }
 
@@ -50,24 +54,15 @@ impl Overlay {
     }
 
     /// Override the starting position of the traversal by setting it to `id`,
-    /// and optionally, by providing the `ref_name` that points to `id`.
+    /// optionally preserving the symbolic identity of that position as `ref_name`.
+    ///
+    /// This does not create or move `ref_name`; compose it with [`Self::with_references`] when
+    /// the reference itself must be overlaid.
     pub fn with_entrypoint(
         mut self,
         id: gix::ObjectId,
         ref_name: Option<gix::refs::FullName>,
     ) -> Self {
-        if let Some((_id, ref_name)) = self.entrypoint {
-            self.overriding_references
-                .retain(|r| Some(&r.name) != ref_name.as_ref())
-        }
-
-        if let Some(ref_name) = &ref_name {
-            self.overriding_references.push(gix::refs::Reference {
-                name: ref_name.to_owned(),
-                target: Target::Object(id),
-                peeled: Some(id),
-            })
-        }
         self.entrypoint = Some((id, ref_name));
         self
     }
@@ -165,10 +160,6 @@ pub(crate) struct OverlayRepo<'repo> {
 /// Note that functions with `'repo` in their return value technically leak the bare repo, and it's
 /// up to us to ensure it's not actually used directly, or only such that the in-memory feature isn't bypassed.
 impl<'repo> OverlayRepo<'repo> {
-    pub fn commit_graph_if_enabled(&self) -> anyhow::Result<Option<gix::commitgraph::Graph>> {
-        Ok(self.inner.commit_graph_if_enabled()?)
-    }
-
     pub fn shallow_commits(
         &self,
     ) -> Result<Option<gix::shallow::Commits>, gix::shallow::read::Error> {
@@ -192,37 +183,6 @@ impl<'repo> OverlayRepo<'repo> {
         }
     }
 
-    pub fn find_reference(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<gix::Reference<'repo>> {
-        if self.dropped_references.contains(ref_name) {
-            bail!(
-                "Failed to find reference {ref_name} due to it being dropped in the traversal overlay"
-            );
-        }
-        if let Some(r) = self.overriding_references.get(ref_name) {
-            return Ok(r.clone().attach(self.inner));
-        }
-        Ok(self
-            .inner
-            .find_reference(ref_name)
-            .or_else(|err| match err {
-                gix::reference::find::existing::Error::Find(_) => Err(err),
-                gix::reference::find::existing::Error::NotFound { .. } => {
-                    if let Some(r) = self.nonoverriding_references.get(ref_name) {
-                        Ok(r.clone().attach(self.inner))
-                    } else {
-                        Err(err)
-                    }
-                }
-            })?)
-    }
-
-    pub fn config_snapshot(&self) -> gix::config::Snapshot<'repo> {
-        self.inner.config_snapshot()
-    }
-
     pub fn branch_remote_tracking_ref_name(
         &self,
         name: &gix::refs::FullNameRef,
@@ -236,16 +196,16 @@ impl<'repo> OverlayRepo<'repo> {
         self.inner.branch_remote_tracking_ref_name(name, direction)
     }
 
+    pub fn remote_names(&self) -> gix::remote::Names<'_> {
+        self.inner.remote_names()
+    }
+
     pub fn find_commit(&self, id: gix::ObjectId) -> anyhow::Result<gix::Commit<'repo>> {
         Ok(self.inner.find_commit(id)?)
     }
 
     pub fn for_find_only(&self) -> &'repo gix::Repository {
         self.inner
-    }
-
-    pub fn remote_names(&self) -> gix::remote::Names<'repo> {
-        self.inner.remote_names()
     }
 
     pub fn upstream_branch_and_remote_for_tracking_branch(

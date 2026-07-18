@@ -31,7 +31,7 @@ We change the name of the first commit and also need the similarity to be detect
 * f9c2b14 (A) A2
 * e1f216e A1
 | * 3fcd07a (origin/A) A1 (same but different)
-|/  
+|/
 * fafd9d0 (origin/main, main) init
 
 "#]]
@@ -70,7 +70,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 8,
+                        id: 9,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -91,18 +91,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 6,
+                node_index: 8,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 2,
             },
         ),
         lower_bound: Some(
-            0,
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -134,9 +134,9 @@ On the remote, a rewritten/rebased commit we have locally is merged back into ta
 * f9c2b14 (A) A2
 * e1f216e A1
 | * c635f08 (origin/main) merge origin/A
-|/| 
+|/|
 | * 3fcd07a (origin/A) A1 (same but different)
-|/  
+|/
 * fafd9d0 (main) init
 
 "#]]
@@ -196,18 +196,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 7,
+                node_index: 8,
                 commits_ahead: 2,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 3,
             },
         ),
         lower_bound: Some(
-            0,
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -240,7 +240,7 @@ The tip of the local branch isn't in the ancestry of the remote anymore.
 * 3ea2742 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * a62b0de (A) A2
 | * 0c06863 (origin/A) A3
-|/  
+|/
 * 120a217 A1
 * fafd9d0 (origin/main, main) init
 
@@ -280,7 +280,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 8,
+                        id: 9,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -303,18 +303,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 6,
+                node_index: 8,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 2,
             },
         ),
         lower_bound: Some(
-            0,
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -347,12 +347,12 @@ We'd not want to see the remote unique commit anymore as it's also considered in
 * 3ea2742 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * a62b0de (A) A2
 | *   085089c (origin/main, main) Merge remote-tracking branch 'origin/A'
-| |\  
+| |\
 | | * 0c06863 (origin/A) A3
-| |/  
-|/|   
+| |/
+|/|
 * | 120a217 A1
-|/  
+|/
 * fafd9d0 init
 
 "#]]
@@ -417,17 +417,17 @@ Ok(
                     "refs/remotes/origin/main",
                 ),
                 node_index: 7,
-                commits_ahead: 3,
+                commits_ahead: 2,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(085089cbf8a35fa549a5d50bd74930a7fddf970d),
-                node_index: 1,
+                node_index: 0,
             },
         ),
         lower_bound: Some(
-            0,
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -496,7 +496,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 7,
+                        id: 8,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -509,7 +509,7 @@ Ok(
                         base: "120a217",
                     },
                     ref_info::ui::Segment {
-                        id: 8,
+                        id: 4,
                         ref_name: "►origin/A",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -529,18 +529,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 5,
+                node_index: 7,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 2,
             },
         ),
         lower_bound: Some(
-            0,
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -571,11 +571,11 @@ Remote origin/A is merged back (with forceful merge commit) while there are stil
 * 3ea2742 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * a62b0de (A) A2
 | *   a670cd5 (origin/main, main) Merge remote-tracking branch 'origin/A'
-| |\  
-| |/  
-|/|   
+| |\
+| |/
+|/|
 * | 120a217 (origin/A) A1
-|/  
+|/
 * fafd9d0 init
 
 "#]]
@@ -639,14 +639,14 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 6,
-                commits_ahead: 2,
+                node_index: 8,
+                commits_ahead: 1,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(a670cd571f1a6946a1a87d107e909445aa0fe90d),
-                node_index: 1,
+                node_index: 2,
             },
         ),
         lower_bound: Some(
@@ -680,7 +680,7 @@ There are no unpushed local commits, the remote is one ahead (FF)
         snapbox::str![[r#"
 * 8ee08de (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * a62b0de (origin/A) A2
-|/  
+|/
 * 120a217 (A) A1
 * fafd9d0 (origin/main, main) init
 
@@ -720,7 +720,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 7,
+                        id: 8,
                         ref_name: "►A",
                         remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
@@ -742,18 +742,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 5,
+                node_index: 7,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 2,
             },
         ),
         lower_bound: Some(
-            0,
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -783,7 +783,7 @@ Remote origin/A is merged back (fast-forward), bringing all into the target bran
         snapbox::str![[r#"
 * 8ee08de (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * a62b0de (origin/main, origin/A, main) A2
-|/  
+|/
 * 120a217 (A) A1
 * fafd9d0 init
 
@@ -825,8 +825,8 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 6,
-                commits_ahead: 2,
+                node_index: 7,
+                commits_ahead: 1,
             },
         ),
         target_commit: Some(
@@ -836,7 +836,7 @@ Ok(
             },
         ),
         lower_bound: Some(
-            0,
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,

@@ -92,7 +92,7 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
 | * f179ebf (origin/main, origin/HEAD, a-branch-1) virt-3
 | * 56122fd virt-2
 | * 00ca34e virt-1
-|/  
+|/
 | * 21f9396 (HEAD -> non-virtual-feature) non-virtual-feat-10
 | * f721808 non-virtual-feat-9
 | * bcb3226 non-virtual-feat-8
@@ -103,7 +103,7 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
 | * 0996ec4 non-virtual-feat-3
 | * 1562511 non-virtual-feat-2
 | * 15264e2 non-virtual-feat-1
-|/  
+|/
 * c214aea (main) main-5
 * 0223093 main-4
 * a6590f8 main-3

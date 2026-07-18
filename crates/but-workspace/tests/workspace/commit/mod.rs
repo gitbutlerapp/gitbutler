@@ -11,7 +11,7 @@ mod uncommit_changes;
 mod from_new_merge_with_metadata {
     use bstr::ByteSlice;
     use but_core::ref_metadata::WorkspaceCommitRelation::Outside;
-    use but_graph::init::{Options, Overlay};
+    use but_graph::init::Overlay;
     use but_testsupport::{visualize_commit_graph_all, visualize_tree};
     use but_workspace::{WorkspaceCommit, commit::merge::Tip};
     use gix::{prelude::ObjectIdExt, refs::Target};
@@ -30,11 +30,11 @@ mod from_new_merge_with_metadata {
             snapbox::str![[r#"
 * d3cce74 (add-A) add A
 | * 115e41b (add-B) add B
-|/  
+|/
 | * 34c4591 (add-C) add C
-|/  
+|/
 | * 27ab782 (HEAD -> add-D) add D
-|/  
+|/
 * 85efbe4 (main, gitbutler/workspace) M
 
 "#]]
@@ -42,11 +42,11 @@ mod from_new_merge_with_metadata {
 
         let stacks = ["add-A"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Graph::from_repo(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            Options::limited(),
+            Overlay::default(),
         )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
@@ -110,11 +110,11 @@ f53c910
 
         let stacks = ["add-D", "add-A", "add-C", "add-B"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Graph::from_repo(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            Options::limited(),
+            Overlay::default(),
         )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
@@ -204,21 +204,21 @@ https://docs.gitbutler.com/features/branch-management/integration-branch
             snapbox::str![[r#"
 * d3cce74 (add-A) add A
 | * 115e41b (add-B) add B
-|/  
+|/
 | * 34c4591 (add-C) add C
-|/  
+|/
 | * 27ab782 (HEAD -> add-D) add D
-|/  
+|/
 * 85efbe4 (main, gitbutler/workspace) M
 
 "#]]
         );
         add_stacks(&mut meta, ["add-A", "add-B", "add-C"]);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Graph::from_repo(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            Options::limited(),
+            Overlay::default(),
         )?;
 
         let add_c_ref = "refs/heads/add-C".try_into()?;
@@ -273,16 +273,16 @@ Outcome {
             snapbox::str![[r#"
 * d3cce74 (clean-A) add A
 | * 115e41b (clean-B) add B
-|/  
+|/
 | * 34c4591 (clean-C) add C
-|/  
+|/
 | * bf09eae (conflict-F1) add F1
-|/  
+|/
 | * f2ce66d (conflict-F2) add F2
-|/  
+|/
 | * 4bbb93c (HEAD -> conflict-hero) add conflicting-F2
 | * 98519e9 add conflicting-F1
-|/  
+|/
 * 85efbe4 (main, gitbutler/workspace) M
 
 "#]]
@@ -298,11 +298,11 @@ Outcome {
             "clean-A",
         ];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Graph::from_repo(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            Options::limited(),
+            Overlay::default(),
         )?;
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(
@@ -421,7 +421,7 @@ Outcome {
             snapbox::str![[r#"
 * 8450331 (tag: conflicted, tip-conflicted) GitButler WIP Commit
 | * 8ab1c4d (HEAD -> unrelated) unrelated
-|/  
+|/
 * a047f81 (tag: normal, main) init
 
 "#]]
@@ -430,19 +430,22 @@ Outcome {
         let stacks = ["tip-conflicted", "unrelated"];
         add_stacks(&mut meta, stacks);
 
-        graph = graph.redo_traversal_with_overlay(
+        graph = but_graph::Graph::from_repo(
             &repo,
             &meta,
-            Overlay::default().with_references_if_new([
-                repo.find_reference("unrelated")?.inner,
-                // The workspace ref is needed so the workspace and its stacks are iterated as well.
-                // Algorithms which work with simulation also have to be mindful about this.
-                gix::refs::Reference {
-                    name: "refs/heads/gitbutler/workspace".try_into()?,
-                    target: Target::Object(repo.rev_parse_single("main")?.detach()),
-                    peeled: None,
-                },
-            ]),
+            graph.project_meta().clone(),
+            Overlay::default()
+                .with_references_if_new([
+                    repo.find_reference("unrelated")?.inner,
+                    // The workspace ref is needed so the workspace and its stacks are iterated as well.
+                    // Algorithms which work with simulation also have to be mindful about this.
+                    gix::refs::Reference {
+                        name: "refs/heads/gitbutler/workspace".try_into()?,
+                        target: Target::Object(repo.rev_parse_single("main")?.detach()),
+                        peeled: None,
+                    },
+                ])
+                .with_entrypoint(repo.head_id()?.detach(), repo.head_name()?),
         )?;
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(
@@ -498,11 +501,11 @@ Outcome {
             snapbox::str![[r#"
 * d3cce74 (clean-A) add A
 | * 115e41b (clean-B) add B
-|/  
+|/
 | * 6777bd8 (conflict-C1) add C1
-|/  
+|/
 | * f8392d2 (HEAD -> conflict-C2) add C2
-|/  
+|/
 * 85efbe4 (main, gitbutler/workspace) M
 
 "#]]
@@ -511,11 +514,11 @@ Outcome {
         // NOTE: the caller would be expected to have prepared a graph that contains these branches.
         let stacks = ["clean-A", "conflict-C1", "clean-B", "conflict-C2"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Graph::from_repo(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
-            Options::limited(),
+            Overlay::default(),
         )?;
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(

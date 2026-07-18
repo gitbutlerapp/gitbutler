@@ -1,12 +1,14 @@
 use anyhow::Result;
-use but_graph::{Graph, init::Tip};
-use but_rebase::graph_rebase::{Editor, GraphEditorOptions, testing::Testing as _};
+use but_graph::{Graph, init::Overlay};
+use but_rebase::graph_rebase::{
+    Editor, GraphEditorOptions, LookupStep, Step, testing::Testing as _,
+};
 use but_testsupport::{StackState, graph_tree, visualize_commit_graph_all};
 use snapbox::IntoData;
 
 use crate::{
     graph_rebase::add_stack_with_segments,
-    utils::{fixture, fixture_writable, standard_options},
+    utils::{fixture, fixture_writable},
 };
 
 fn project_meta(meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
@@ -34,8 +36,13 @@ fn four_commits() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -63,18 +70,23 @@ fn merge_in_the_middle() -> Result<()> {
         snapbox::str![[r#"
 * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
 *   2fc288c Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -92,8 +104,6 @@ fn merge_in_the_middle() -> Result<()> {
 │ ●  984fd1c C: new file with 10 lines
 ├─╯
 ◎  refs/heads/main
-│ ◎  refs/tags/base (immutable)
-├─╯
 ●  8f0d338 base
 "#]]
     );
@@ -109,23 +119,28 @@ fn three_branches_merged() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
-|\ \  
+|\ \
 | | * 930563a (C) C: add another 10 lines to new file
 | | * 68a2fc3 C: add 10 lines to new file
 | | * 984fd1c C: new file with 10 lines
 | * | a748762 (B) B: another 10 lines at the bottom
 | * | 62e05ba B: 10 lines at the bottom
-| |/  
+| |/
 * / add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base) base
 
 "#]]
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -147,8 +162,6 @@ fn three_branches_merged() -> Result<()> {
 │   ●  68a2fc3 C: add 10 lines to new file
 │   ●  984fd1c C: new file with 10 lines
 ├───╯
-│ ◎  refs/tags/base (immutable)
-├─╯
 ●  8f0d338 base
 "#]]
     );
@@ -171,8 +184,13 @@ fn many_references() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
@@ -182,12 +200,12 @@ fn many_references() -> Result<()> {
 ├─╯
 │ ◎  Z
 ├─╯
-│ ◎  👉main[🌳]
-│ ●  ·120e3a9 (⌂)
-│ ●  ·a96434e (⌂)
+│ ◎  main[🌳]
+│ ●  👉·120e3a9 (→)
+│ ●  ·a96434e (→)
 ├─╯
-●  ·d591dfe (⌂)
-●  🏁·35b8235 (⌂)
+●  ·d591dfe (→)
+●  🏁·35b8235 (→)
 
 "#]]
     );
@@ -224,40 +242,43 @@ fn first_parent_leg_long() -> Result<()> {
         snapbox::str![[r#"
 * 6ac5745 (HEAD -> with-inner-merge) on top of inner merge
 *   d20f547 Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | 198d2e4 (A) A: 10 more more lines on top
 * | 7325853 A: 10 more lines on top
 * | add59d2 A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·6ac5745 (⌂)
-│ ●    ·d20f547 (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·6ac5745 (→)
+│ ●    ·d20f547 (→)
 │ ├─╮
 │ ◎ │  A
-│ ● │  ·198d2e4 (⌂)
-│ ● │  ·7325853 (⌂)
-│ ● │  ·add59d2 (⌂)
+│ ● │  ·198d2e4 (→)
+│ ● │  ·7325853 (→)
+│ ● │  ·add59d2 (→)
 ├─╯ │
 │   ◎  B
-│   ●  ·984fd1c (⌂)
+│   ●  ·984fd1c (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·8f0d338 (⌂)
+●  🏁·8f0d338 (→)
 
 "#]]
     );
@@ -280,8 +301,6 @@ fn first_parent_leg_long() -> Result<()> {
 │ ●  984fd1c C: new file with 10 lines
 ├─╯
 ◎  refs/heads/main
-│ ◎  refs/tags/base (immutable)
-├─╯
 ●  8f0d338 base
 "#]]
     );
@@ -298,40 +317,43 @@ fn second_parent_leg_long() -> Result<()> {
         snapbox::str![[r#"
 * a6775ea (HEAD -> with-inner-merge) on top of inner merge
 *   b85214b Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * f87f875 (B) C: 10 more more lines on top
 | * cb181a0 C: 10 more lines on top
 | * 984fd1c C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·a6775ea (⌂)
-│ ●    ·b85214b (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·a6775ea (→)
+│ ●    ·b85214b (→)
 │ ├─╮
 │ ◎ │  A
-│ ● │  ·add59d2 (⌂)
+│ ● │  ·add59d2 (→)
 ├─╯ │
 │   ◎  B
-│   ●  ·f87f875 (⌂)
-│   ●  ·cb181a0 (⌂)
-│   ●  ·984fd1c (⌂)
+│   ●  ·f87f875 (→)
+│   ●  ·cb181a0 (→)
+│   ●  ·984fd1c (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·8f0d338 (⌂)
+●  🏁·8f0d338 (→)
 
 "#]]
     );
@@ -354,8 +376,6 @@ fn second_parent_leg_long() -> Result<()> {
 │ ●  984fd1c C: new file with 10 lines
 ├─╯
 ◎  refs/heads/main
-│ ◎  refs/tags/base (immutable)
-├─╯
 ●  8f0d338 base
 "#]]
     );
@@ -374,12 +394,12 @@ fn workspace_with_empty_stack() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   74bcc92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 * | 2169646 (stack-1) Commit D
 * | 46ef828 Commit C
-|/  
+|/
 | * a0f2ac5 (origin/main, main) Commit X
-|/  
+|/
 * f555940 (stack-2) Commit A
 * d664be0 Commit B
 * fafd9d0 init
@@ -388,28 +408,31 @@ fn workspace_with_empty_stack() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎      👉📕gitbutler/workspace[🌳]
+◎      📕gitbutler/workspace[🌳]
 ├─┬─╮
-│ │ ●  ·74bcc92 (⌂|🏘)
+│ │ ●  👉·74bcc92 (→)
 ╭─┬─╯
 ◎ │  📙stack-1
-● │  ·2169646 (⌂|🏘)
-● │  ·46ef828 (⌂|🏘)
+● │  ·2169646 (→)
+● │  ·46ef828 (→)
 │ ◎  📙stack-2
 ├─╯
 │ ◎  origin/main
 │ ◎  main <> origin/main
-│ ●  ·a0f2ac5 (⌂|✓)
+│ ●  ·a0f2ac5 (→|←)
 ├─╯
-●  ·f555940 (⌂|🏘|✓)
-●  ·d664be0 (⌂|🏘|✓)
-●  🏁·fafd9d0 (⌂|🏘|✓)
+●  ✂·f555940 (→|←)
 
 "#]]
     );
@@ -434,7 +457,6 @@ fn workspace_with_empty_stack() -> Result<()> {
 ◎  refs/heads/stack-2
 ●  f555940 Commit A
 ●  d664be0 Commit B
-●  fafd9d0 init
 "#]]
     );
 
@@ -454,32 +476,37 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
         snapbox::str![[r#"
 * a26ae77 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * 1cf9cf4 (origin/main, main) Commit X
-|/  
+|/
 * fafd9d0 (stack-3, stack-2, stack-1) init
 
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎        👉📕gitbutler/workspace[🌳]
+◎        📕gitbutler/workspace[🌳]
 ├─┬─┬─╮
 │ ◎ │ │  📙stack-2
 │ │ ◎ │  📙stack-3
 │ ├─╯ │
-│ │   ●  ·a26ae77 (⌂|🏘)
+│ │   ●  👉·a26ae77 (→)
 ├─────╯
 ◎ │  📙stack-1
 ├─╯
 │ ◎  origin/main
 │ ◎  main <> origin/main
-│ ●  ·1cf9cf4 (⌂|✓)
+│ ●  ·1cf9cf4 (→|←)
 ├─╯
-●  🏁·fafd9d0 (⌂|🏘|✓)
+●  🏁·fafd9d0 (→|←)
 
 "#]]
     );
@@ -528,15 +555,20 @@ fn commit_with_two_parents() -> Result<()> {
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·d70d863 (⌂)
-●  🏁·35b8235 (⌂)
+◎  main[🌳]
+●  👉·d70d863 (→)
+●  🏁·35b8235 (→)
 
 "#]]
     );
@@ -567,8 +599,13 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     let workspace_commit = repo.rev_parse_single(workspace_ref.as_ref())?.detach();
 
     {
-        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-            .validated()?;
+        let graph = but_graph::Graph::from_repo(
+            &repo,
+            &*meta,
+            project_meta(&*meta),
+            but_graph::init::Overlay::default(),
+        )?
+        .validated()?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -589,7 +626,6 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
 ◎  refs/heads/stack-2
 ●  f555940 Commit A
 ●  d664be0 Commit B
-●  fafd9d0 init
 "#]]
         );
         let (_, target) = editor.find_reference_target(workspace_ref.as_ref())?;
@@ -600,8 +636,13 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     }
 
     {
-        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-            .validated()?;
+        let graph = but_graph::Graph::from_repo(
+            &repo,
+            &*meta,
+            project_meta(&*meta),
+            but_graph::init::Overlay::default(),
+        )?
+        .validated()?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create_with_opts(
             &mut ws,
@@ -630,7 +671,6 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
 ◎  refs/heads/stack-2
 ●  f555940 Commit A
 ●  d664be0 Commit B
-●  fafd9d0 init
 "#]]
         );
     }
@@ -651,39 +691,42 @@ fn merge_first_parent_older_than_second() -> Result<()> {
         snapbox::str![[r#"
 * 738ea18 (HEAD -> first-parent) commit on top of merge
 *   408ca26 merge second-parent into first-parent
-|\  
+|\
 | * 75369b0 (second-parent) new commit 3 on second-parent
 | * 553bbf7 new commit 2 on second-parent
 | * 72614bb new commit 1 on second-parent
 * | 2854fa2 old commit on first-parent
-|/  
+|/
 * 793a434 (tag: base, main) base
 
 "#]]
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
 
     snapbox::assert_data_eq!(
         graph_tree(&graph).to_string(),
         snapbox::str![[r#"
-◎  👉first-parent[🌳]
-●  ·738ea18 (⌂)
-●    ·408ca26 (⌂)
+◎  first-parent[🌳]
+●  👉·738ea18 (→)
+●    ·408ca26 (→)
 ├─╮
-● │  ·2854fa2 (⌂)
+● │  ·2854fa2 (→)
 │ ◎  second-parent
-│ ●  ·75369b0 (⌂)
-│ ●  ·553bbf7 (⌂)
-│ ●  ·72614bb (⌂)
+│ ●  ·75369b0 (→)
+│ ●  ·553bbf7 (→)
+│ ●  ·72614bb (→)
 ├─╯
 │ ◎  main
 ├─╯
-│ ◎  tags/base
-├─╯
-●  🏁·793a434 (⌂)
+●  🏁·793a434 (→)
 
 "#]]
     );
@@ -705,8 +748,6 @@ fn merge_first_parent_older_than_second() -> Result<()> {
 │ ●  72614bb new commit 1 on second-parent
 ├─╯
 ◎  refs/heads/main
-│ ◎  refs/tags/base (immutable)
-├─╯
 ●  793a434 base
 "#]]
     );
@@ -727,61 +768,37 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
 | * d9fa122 (explicit-const-2) g
 | * 85bccf0 (implicit-const-2) f
 | * c8dd361 (HEAD, implicit-mut) e
-|/  
+|/
 * d591dfe (foo) a
 * 35b8235 base
 
 "#]]
     );
 
-    let graph = Graph::from_commit_traversal_tips(
+    let entrypoint_id = repo.rev_parse_single("refs/heads/implicit-mut")?.detach();
+    let entrypoint_ref = "refs/heads/implicit-mut".try_into()?;
+    let second_immutable_id = repo
+        .rev_parse_single("refs/heads/explicit-const-2")?
+        .detach();
+    let target_ref: gix::refs::FullName = "refs/remotes/origin/explicit-const-2".try_into()?;
+    let project_meta = but_core::ref_metadata::ProjectMeta {
+        target_ref: Some(target_ref.clone()),
+        target_commit_id: Some(repo.rev_parse_single("refs/heads/explicit-const")?.detach()),
+        ..project_meta(&*meta)
+    };
+    let graph = Graph::from_repo(
         &repo,
-        [
-            Tip::entrypoint(
-                repo.rev_parse_single("refs/heads/implicit-mut")?.detach(),
-                Some("refs/heads/implicit-mut".try_into()?),
-            ),
-            Tip::reachable(
-                repo.rev_parse_single("refs/heads/explicit-const")?.detach(),
-                Some("refs/heads/explicit-const".try_into()?),
-            ),
-            Tip::reachable(
-                repo.rev_parse_single("refs/heads/explicit-const-2")?
-                    .detach(),
-                Some("refs/heads/explicit-const-2".try_into()?),
-            ),
-        ],
         &*meta,
-        project_meta(&*meta),
-        standard_options(),
+        project_meta,
+        Overlay::default()
+            .with_references([gix::refs::Reference {
+                name: target_ref,
+                target: gix::refs::Target::Object(second_immutable_id),
+                peeled: Some(second_immutable_id),
+            }])
+            .with_entrypoint(entrypoint_id, Some(entrypoint_ref)),
     )?
     .validated()?;
-
-    snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
-        snapbox::str![[r#"
-◎  explicit-const
-│ ◎  explicit-const-2
-│ ●  ·d9fa122 (⌂)
-│ ◎  implicit-const-2
-│ ●  ·85bccf0 (⌂)
-│ ◎  👉implicit-mut
-│ ●  ·c8dd361 (⌂)
-│ │ ◎  foo
-│ ├─╯
-│ │ ◎  main
-├───╯
-● │  ·be4ae80 (⌂)
-◎ │  implicit-const
-● │  ·120e3a9 (⌂)
-◎ │  explicit-mut
-● │  ·a96434e (⌂)
-├─╯
-●  ·d591dfe (⌂)
-●  🏁·35b8235 (⌂)
-
-"#]]
-    );
 
     let mut ws = graph.into_workspace()?;
     let opts = GraphEditorOptions {
@@ -790,29 +807,24 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
     };
     let editor = Editor::create_with_opts(&mut ws, &mut *meta, &repo, &opts)?;
 
-    snapbox::assert_data_eq!(
-        editor.steps_ascii(),
-        snapbox::str![[r#"
-◎  refs/heads/explicit-const (immutable)
-│ ◎  refs/heads/explicit-const-2 (immutable)
-│ ●  d9fa122 g
-│ ◎  refs/heads/implicit-const-2 (immutable)
-│ ●  85bccf0 f
-│ ◎  refs/heads/implicit-mut
-│ ●  c8dd361 e
-│ │ ◎  refs/heads/main (immutable)
-├───╯
-● │  be4ae80 d
-◎ │  refs/heads/implicit-const (immutable)
-● │  120e3a9 c
-◎ │  refs/heads/explicit-mut
-● │  a96434e b
-├─╯
-◎  refs/heads/foo
-●  d591dfe a
-●  35b8235 base
-"#]]
-    );
+    for (name, expected_mutable) in [
+        ("refs/heads/implicit-mut", true),
+        ("refs/heads/explicit-mut", true),
+        ("refs/heads/foo", true),
+        ("refs/heads/main", false),
+        ("refs/heads/implicit-const", false),
+        ("refs/heads/explicit-const", false),
+        ("refs/heads/implicit-const-2", false),
+        ("refs/heads/explicit-const-2", false),
+        ("refs/remotes/origin/explicit-const-2", false),
+    ] {
+        let name: gix::refs::FullName = name.try_into()?;
+        let selector = editor.select_reference(name.as_ref())?;
+        let Step::Reference { mutable, .. } = editor.lookup_step(selector)? else {
+            unreachable!("selected a reference")
+        };
+        assert_eq!(mutable, expected_mutable, "mutability of {name}");
+    }
 
     Ok(())
 }
@@ -826,8 +838,13 @@ fn unborn_head_is_a_single_mutable_reference() -> Result<()> {
     )?);
     let head_name = repo.head_name()?.expect("unborn HEAD is symbolic");
 
-    let graph =
-        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        Default::default(),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 

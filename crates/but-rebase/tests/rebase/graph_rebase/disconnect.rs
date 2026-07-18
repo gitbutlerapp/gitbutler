@@ -3,12 +3,11 @@ use snapbox::IntoData;
 use std::collections::HashSet;
 
 use anyhow::{Context, Result};
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, Step, mutate};
 use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
 use gix::prelude::ObjectIdExt;
 
-use crate::utils::{fixture_writable, standard_options};
+use crate::utils::fixture_writable;
 
 #[test]
 fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
@@ -26,11 +25,11 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -59,10 +58,10 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·b4fd8ee (⌂)
-●  ·d591dfe (⌂)
-●  🏁·35b8235 (⌂)
+◎  main[🌳]
+●  👉·b4fd8ee (→)
+●  ·d591dfe (→)
+●  🏁·35b8235 (→)
 
 "#]]
     );
@@ -99,11 +98,11 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -137,9 +136,9 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·19f8134 (⌂)
-●  🏁·35b8235 (⌂)
+◎  main[🌳]
+●  👉·19f8134 (→)
+●  🏁·35b8235 (→)
 
 "#]]
     );
@@ -168,10 +167,10 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
         snapbox::str![[r#"
 * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
 *   2fc288c Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
 * | add59d2 (A) A: 10 lines on top
-|/  
+|/
 * 8f0d338 (tag: base, main) base
 
 "#]]
@@ -179,11 +178,11 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -215,16 +214,14 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
 ◎  A
 │ ◎  main
 ├─╯
-│ ◎  👉with-inner-merge[🌳]
-│ ●  ·4023659 (⌂)
-│ ●  ·01c4df0 (⌂)
+│ ◎  with-inner-merge[🌳]
+│ ●  👉·4023659 (→)
+│ ●  ·01c4df0 (→)
 ╭─┤
 │ ◎  B
-│ ●  ·984fd1c (⌂)
+│ ●  ·984fd1c (→)
 ├─╯
-│ ◎  tags/base
-├─╯
-●  🏁·8f0d338 (⌂)
+●  🏁·8f0d338 (→)
 
 "#]]
     );
@@ -240,9 +237,9 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
         snapbox::str![[r#"
 * 4023659 (HEAD -> with-inner-merge) on top of inner merge
 *   01c4df0 Merge branch 'B' into with-inner-merge
-|\  
+|\
 | * 984fd1c (B) C: new file with 10 lines
-|/  
+|/
 * 8f0d338 (tag: base, main, A) base
 
 "#]]
@@ -261,15 +258,15 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   d1cc4c7 (HEAD -> with-two-children) tip
-|\  
+|\
 | * ce6aca9 (C2) C2: second child
 * | f94f259 (C1) C1: first child
-|/  
+|/
 *   c5d1178 (M) M: merge two parents
-|\  
+|\
 | * 392a8f8 (P2) P2: second merge parent
 * | bc0e772 (P1) P1: first merge parent
-|/  
+|/
 * 7674a5e (tag: base, main) base
 
 "#]]
@@ -277,11 +274,11 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -315,22 +312,20 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
 ├─╯
 │ ◎  P2
 │ │ ◎  main
-│ │ │ ◎  👉with-two-children[🌳]
-│ │ │ ●    ·87269f1 (⌂)
+│ │ │ ◎  with-two-children[🌳]
+│ │ │ ●    👉·87269f1 (→)
 │ │ │ ├─╮
 │ │ │ ◎ │  C1
-│ │ │ ● │  ·3e50be4 (⌂)
+│ │ │ ● │  ·3e50be4 (→)
 ╭─┬───╯ │
 │ │ │   ◎  C2
-│ │ │   ●  ·c291781 (⌂)
+│ │ │   ●  ·c291781 (→)
 ╭─┬─────╯
-● │ │  ·bc0e772 (⌂)
+● │ │  ·bc0e772 (→)
 ├───╯
-│ ●  ·392a8f8 (⌂)
+│ ●  ·392a8f8 (→)
 ├─╯
-│ ◎  tags/base
-├─╯
-●  🏁·7674a5e (⌂)
+●  🏁·7674a5e (→)
 
 "#]]
     );
@@ -371,17 +366,17 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   87269f1 (HEAD -> with-two-children) tip
-|\  
+|\
 | *   c291781 (C2) C2: second child
-| |\  
+| |\
 * | \   3e50be4 (C1) C1: first child
-|\ \ \  
-| |/ /  
-|/| /   
-| |/    
+|\ \ \
+| |/ /
+|/| /
+| |/
 | * 392a8f8 (P2) P2: second merge parent
 * | bc0e772 (P1, M) P1: first merge parent
-|/  
+|/
 * 7674a5e (tag: base, main) base
 
 "#]]
@@ -400,15 +395,15 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   d1cc4c7 (HEAD -> with-two-children) tip
-|\  
+|\
 | * ce6aca9 (C2) C2: second child
 * | f94f259 (C1) C1: first child
-|/  
+|/
 *   c5d1178 (M) M: merge two parents
-|\  
+|\
 | * 392a8f8 (P2) P2: second merge parent
 * | bc0e772 (P1) P1: first merge parent
-|/  
+|/
 * 7674a5e (tag: base, main) base
 
 "#]]
@@ -416,11 +411,11 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -461,24 +456,22 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         &overlayed,
         snapbox::str![[r#"
 ◎  main
-│ ◎  👉with-two-children[🌳]
-│ ●    ·9de031b (⌂)
+│ ◎  with-two-children[🌳]
+│ ●    👉·9de031b (→)
 │ ├─╮
 │ ◎ │  C1
-│ ● │  ·54d0b0d (⌂)
+│ ● │  ·54d0b0d (→)
 │ ◎ │  P1
-│ ● │  ·bc0e772 (⌂)
+│ ● │  ·bc0e772 (→)
 ├─╯ │
 │   ◎  C2
-│   ●  ·41cb528 (⌂)
+│   ●  ·41cb528 (→)
 │   ◎  M
-│   ●  ·9f6b11a (⌂)
+│   ●  ·9f6b11a (→)
 │   ◎  P2
-│   ●  ·392a8f8 (⌂)
+│   ●  ·392a8f8 (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·7674a5e (⌂)
+●  🏁·7674a5e (→)
 
 "#]]
     );
@@ -520,13 +513,13 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   9de031b (HEAD -> with-two-children) tip
-|\  
+|\
 | * 41cb528 (C2) C2: second child
 | * 9f6b11a (M) M: merge two parents
 | * 392a8f8 (P2) P2: second merge parent
 * | 54d0b0d (C1) C1: first child
 * | bc0e772 (P1) P1: first merge parent
-|/  
+|/
 * 7674a5e (tag: base, main) base
 
 "#]]
@@ -544,15 +537,15 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   d1cc4c7 (HEAD -> with-two-children) tip
-|\  
+|\
 | * ce6aca9 (C2) C2: second child
 * | f94f259 (C1) C1: first child
-|/  
+|/
 *   c5d1178 (M) M: merge two parents
-|\  
+|\
 | * 392a8f8 (P2) P2: second merge parent
 * | bc0e772 (P1) P1: first merge parent
-|/  
+|/
 * 7674a5e (tag: base, main) base
 
 "#]]
@@ -560,11 +553,11 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
     );
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -601,22 +594,20 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         &overlayed,
         snapbox::str![[r#"
 ◎  M
-│ ◎  👉with-two-children[🌳]
-│ ●    ·b87b6c9 (⌂)
+│ ◎  with-two-children[🌳]
+│ ●    👉·b87b6c9 (→)
 │ ├─╮
 │ ◎ │  C1
-│ ● │  ·76ecfed (⌂)
+│ ● │  ·76ecfed (→)
 ├─╯ │
 │   ◎  C2
-│   ●  ·41cb528 (⌂)
+│   ●  ·41cb528 (→)
 ├───╯
-●  ·9f6b11a (⌂)
+●  ·9f6b11a (→)
 ◎  P2
-●  ·392a8f8 (⌂)
+●  ·392a8f8 (→)
 ◎  main
-│ ◎  tags/base
-├─╯
-●  🏁·7674a5e (⌂)
+●  🏁·7674a5e (→)
 
 "#]]
     );
@@ -683,13 +674,13 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         snapbox::str![[r#"
 * bc0e772 (P1) P1: first merge parent
 | *   b87b6c9 (HEAD -> with-two-children) tip
-| |\  
+| |\
 | | * 41cb528 (C2) C2: second child
 | * | 76ecfed (C1) C1: first child
-| |/  
+| |/
 | * 9f6b11a (M) M: merge two parents
 | * 392a8f8 (P2) P2: second merge parent
-|/  
+|/
 * 7674a5e (tag: base, main) base
 
 "#]]
@@ -706,11 +697,11 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -755,26 +746,24 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
         snapbox::str![[r#"
 ◎  M
 │ ◎  main
-│ │ ◎  👉with-two-children[🌳]
-│ │ ●    ·d1cc4c7 (⌂)
+│ │ ◎  with-two-children[🌳]
+│ │ ●    👉·d1cc4c7 (→)
 │ │ ├─╮
 │ │ ◎ │  C1
-│ │ ● │  ·f94f259 (⌂)
+│ │ ● │  ·f94f259 (→)
 ├───╯ │
 │ │   ◎  C2
-│ │   ●  ·ce6aca9 (⌂)
+│ │   ●  ·ce6aca9 (→)
 ├─────╯
-● │    ·c5d1178 (⌂)
+● │    ·c5d1178 (→)
 ├───╮
 ◎ │ │  P1
-● │ │  ·bc0e772 (⌂)
+● │ │  ·bc0e772 (→)
 ├─╯ │
 │   ◎  P2
-│   ●  ·392a8f8 (⌂)
+│   ●  ·392a8f8 (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·7674a5e (⌂)
+●  🏁·7674a5e (→)
 
 "#]]
     );
@@ -793,11 +782,11 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -842,26 +831,24 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
         snapbox::str![[r#"
 ◎  M
 │ ◎  main
-│ │ ◎  👉with-two-children[🌳]
-│ │ ●    ·d1cc4c7 (⌂)
+│ │ ◎  with-two-children[🌳]
+│ │ ●    👉·d1cc4c7 (→)
 │ │ ├─╮
 │ │ ◎ │  C1
-│ │ ● │  ·f94f259 (⌂)
+│ │ ● │  ·f94f259 (→)
 ├───╯ │
 │ │   ◎  C2
-│ │   ●  ·ce6aca9 (⌂)
+│ │   ●  ·ce6aca9 (→)
 ├─────╯
-● │    ·c5d1178 (⌂)
+● │    ·c5d1178 (→)
 ├───╮
 ◎ │ │  P1
-● │ │  ·bc0e772 (⌂)
+● │ │  ·bc0e772 (→)
 ├─╯ │
 │   ◎  P2
-│   ●  ·392a8f8 (⌂)
+│   ●  ·392a8f8 (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·7674a5e (⌂)
+●  🏁·7674a5e (→)
 
 "#]]
     );
@@ -880,11 +867,11 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
 
     let before = visualize_commit_graph_all(&repo)?;
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -929,26 +916,24 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
         snapbox::str![[r#"
 ◎  M
 │ ◎  main
-│ │ ◎  👉with-two-children[🌳]
-│ │ ●    ·d1cc4c7 (⌂)
+│ │ ◎  with-two-children[🌳]
+│ │ ●    👉·d1cc4c7 (→)
 │ │ ├─╮
 │ │ ◎ │  C1
-│ │ ● │  ·f94f259 (⌂)
+│ │ ● │  ·f94f259 (→)
 ├───╯ │
 │ │   ◎  C2
-│ │   ●  ·ce6aca9 (⌂)
+│ │   ●  ·ce6aca9 (→)
 ├─────╯
-● │    ·c5d1178 (⌂)
+● │    ·c5d1178 (→)
 ├───╮
 ◎ │ │  P1
-● │ │  ·bc0e772 (⌂)
+● │ │  ·bc0e772 (→)
 ├─╯ │
 │   ◎  P2
-│   ●  ·392a8f8 (⌂)
+│   ●  ·392a8f8 (→)
 ├───╯
-│ ◎  tags/base
-├─╯
-●  🏁·7674a5e (⌂)
+●  🏁·7674a5e (→)
 
 "#]]
     );

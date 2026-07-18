@@ -12,12 +12,11 @@
 
 use anyhow::Result;
 use but_core::ref_metadata::ProjectMeta;
-use but_graph::Graph;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::visualize_commit_graph_all;
 use snapbox::IntoData;
 
-use crate::utils::{fixture_writable, standard_options};
+use crate::utils::fixture_writable;
 
 /// Build an editor for `fixture` (optionally bounded by `target`, a revspec
 /// resolved against the repo) and render its [`Editor::graph_workspace`]
@@ -33,7 +32,13 @@ fn render(fixture: &str, target: Option<&str>) -> Result<String> {
             .transpose()?,
         ..Default::default()
     };
-    let graph = Graph::from_head(&repo, &*meta, project_meta, standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta,
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -114,12 +119,12 @@ fn overlapping_stacks_merge_into_one() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   74bcc92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 * | 2169646 (stack-1) Commit D
 * | 46ef828 Commit C
-|/  
+|/
 | * a0f2ac5 (origin/main, main) Commit X
-|/  
+|/
 * f555940 (stack-2) Commit A
 * d664be0 Commit B
 * fafd9d0 init
@@ -160,7 +165,7 @@ fn three_stacks_same_base_collapse() -> Result<()> {
         snapbox::str![[r#"
 * a26ae77 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * 1cf9cf4 (origin/main, main) Commit X
-|/  
+|/
 * fafd9d0 (stack-3, stack-2, stack-1) init
 
 "#]]
@@ -195,12 +200,12 @@ fn divergent_stacks_sharing_base_merge_with_target() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   1162583 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * afc3f8f (stack-b) B2
 | * b3ee99c B1
 * | 49c06ff (stack-a) A2
 * | ff76d2f A1
-|/  
+|/
 * 965998b (origin/main, main) base
 
 "#]]
@@ -327,7 +332,7 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   f97c026 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * cb7021b (stack-b) B2
 | * ce3278a B1
 * 49c06ff (stack-a) A2

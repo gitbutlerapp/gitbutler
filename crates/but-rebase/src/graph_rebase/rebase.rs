@@ -233,6 +233,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             graph: output_graph,
             checkouts: self.checkouts.to_owned(),
             history,
+            project_meta: self.project_meta,
             workspace: self.workspace,
             meta: self.meta,
         })

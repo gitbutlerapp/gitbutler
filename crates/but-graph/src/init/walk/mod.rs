@@ -1,9 +1,9 @@
 //! Utilities shared by commit traversal and reference discovery.
 
-use std::{cmp::Ordering, collections::BTreeMap, ops::Deref};
+use std::collections::BTreeMap;
 
 use but_core::{RefMetadata, ref_metadata};
-use gix::{reference::Category, traverse::commit::Either};
+use gix::reference::Category;
 
 use crate::{
     Worktree,
@@ -12,110 +12,6 @@ use crate::{
 
 pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
 pub(crate) type WorktreeByBranch = BTreeMap<gix::refs::FullName, Vec<Worktree>>;
-
-/// Commit data needed while traversing, plus its stable queue sort key.
-#[derive(Debug, Clone)]
-pub struct TraverseInfo {
-    inner: gix::traverse::commit::Info,
-    pub(crate) gen_then_time: GenThenTime,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct GenThenTime {
-    generation: Option<u32>,
-    committer_time: u64,
-}
-
-impl Eq for GenThenTime {}
-
-impl PartialEq<Self> for GenThenTime {
-    fn eq(&self, other: &Self) -> bool {
-        self.cmp(other).is_eq()
-    }
-}
-
-impl PartialOrd<Self> for GenThenTime {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.cmp(other).into()
-    }
-}
-
-/// Sort younger generations first, using newer commit times as the tiebreaker.
-impl Ord for GenThenTime {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let gen_a = self.generation.unwrap_or(u32::MAX);
-        let gen_b = other.generation.unwrap_or(u32::MAX);
-        gen_a
-            .cmp(&gen_b)
-            .reverse()
-            .then_with(|| self.committer_time.cmp(&other.committer_time).reverse())
-    }
-}
-
-impl Deref for TraverseInfo {
-    type Target = gix::traverse::commit::Info;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-pub fn find(
-    cache: Option<&gix::commitgraph::Graph>,
-    objects: &impl gix::objs::Find,
-    id: gix::ObjectId,
-    buf: &mut Vec<u8>,
-) -> anyhow::Result<TraverseInfo> {
-    let mut parent_ids = gix::traverse::commit::ParentIds::new();
-    let gen_then_time = match gix::traverse::commit::find(cache, objects, &id, buf)? {
-        Either::CachedCommit(c) => {
-            let cache = cache.expect("cache is available if a cached commit is returned");
-            for parent_id in c.iter_parents() {
-                match parent_id {
-                    Ok(pos) => parent_ids.push(cache.commit_at(pos).id().to_owned()),
-                    Err(_err) => return find(None, objects, id, buf),
-                }
-            }
-            GenThenTime {
-                generation: c.generation().into(),
-                committer_time: c.committer_timestamp(),
-            }
-        }
-        Either::CommitRefIter(iter) => {
-            let mut committer_time = None;
-            for token in iter {
-                use gix::objs::commit::ref_iter::Token;
-                match token {
-                    Ok(Token::Tree { .. } | Token::Author { .. }) => continue,
-                    Ok(Token::Parent { id }) => parent_ids.push(id),
-                    Ok(Token::Committer { signature }) => {
-                        committer_time = Some(
-                            signature
-                                .time()
-                                .map(|t| t.seconds as u64)
-                                .unwrap_or_default(),
-                        )
-                    }
-                    Ok(_) => break,
-                    Err(err) => return Err(err.into()),
-                }
-            }
-            GenThenTime {
-                generation: None,
-                committer_time: committer_time.unwrap_or_default(),
-            }
-        }
-    };
-
-    Ok(TraverseInfo {
-        inner: gix::traverse::commit::Info {
-            id,
-            parent_ids,
-            commit_time: None,
-        },
-        gen_then_time,
-    })
-}
 
 /// Return all applicable workspace tips and their metadata.
 pub fn obtain_workspace_infos<T: RefMetadata>(
@@ -182,6 +78,3 @@ impl crate::RefInfo {
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

@@ -140,6 +140,94 @@ git init triple-merge
   git merge A B
 )
 
+# Three tips whose octopus merge-base has three ordered parents. Traversal
+# should keep the merge-base and represent each omitted parent as a boundary.
+git init three-tip-octopus-base
+(cd three-tip-octopus-base
+  commit root
+  git checkout -b second
+    commit second
+  git checkout -b third main
+    commit third
+  git checkout main
+    commit first
+    git merge --no-ff --strategy octopus -m octopus second third
+    git branch base
+  git checkout -b A
+    commit A
+  git checkout -b B base
+    commit B
+  git checkout -b C base
+    commit C
+)
+
+# B discovers origin/B. Its history then discovers local A, which is configured
+# to origin/A, requiring another fixed-point round.
+git init configured-upstream-fixed-point
+(cd configured-upstream-fixed-point
+  commit root
+  git checkout -b A
+    commit A
+  git checkout -b soon-origin-A
+    commit origin-A
+    setup_remote_tracking soon-origin-A A "move"
+  git checkout -b soon-origin-B A
+    commit origin-B
+    setup_remote_tracking soon-origin-B B "move"
+  git checkout -b B main
+    commit B
+
+  cat <<EOF >>.git/config
+[remote "origin"]
+	url = .
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "A"]
+	remote = origin
+	merge = refs/heads/A
+[branch "B"]
+	remote = origin
+	merge = refs/heads/B
+EOF
+)
+
+# Local branches without upstream configuration may pair with a unique same-name ref on a
+# configured remote. Configured upstreams stay authoritative and reserve their remote refs.
+git init effective-upstream-rules
+(cd effective-upstream-rules
+  commit root
+  for branch in configured configured-missing unique ambiguous reserved claimant; do
+    git branch "$branch"
+  done
+  for branch in configured special unique ambiguous reserved; do
+    git checkout -b "soon-origin-$branch" main
+    commit "origin-$branch"
+    setup_remote_tracking "soon-origin-$branch" "$branch" "move"
+  done
+  git checkout -b soon-backup-ambiguous main
+  commit backup-ambiguous
+  mkdir -p .git/refs/remotes/backup
+  mv .git/refs/heads/soon-backup-ambiguous .git/refs/remotes/backup/ambiguous
+  git checkout main
+
+  cat <<EOF >>.git/config
+[remote "origin"]
+	url = .
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[remote "backup"]
+	url = .
+	fetch = +refs/heads/*:refs/remotes/backup/*
+[branch "configured"]
+	remote = origin
+	merge = refs/heads/special
+[branch "claimant"]
+	remote = origin
+	merge = refs/heads/reserved
+[branch "configured-missing"]
+	remote = origin
+	merge = refs/heads/missing
+EOF
+)
+
 git init special-branches
 (cd special-branches
   commit init

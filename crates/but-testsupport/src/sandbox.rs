@@ -272,11 +272,11 @@ impl Sandbox {
     ) {
         let repo = self.open_repo();
         let meta = self.meta();
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Graph::from_repo(
             &repo,
             &meta,
             self.project_meta(),
-            but_graph::init::Options::default(),
+            but_graph::init::Overlay::default(),
         )
         .unwrap();
         (graph, repo, meta)

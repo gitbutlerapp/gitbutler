@@ -1,7 +1,6 @@
 //! Exercises the step option for whether a step should be allowed to enter a conflicted state.
 
 use anyhow::{Result, bail};
-use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, LookupStep, Step, mutate::InsertSide},
@@ -9,7 +8,7 @@ use but_rebase::{
 use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 use snapbox::prelude::*;
 
-use crate::utils::{fixture_writable, standard_options};
+use crate::utils::fixture_writable;
 
 #[test]
 fn by_default_conflicts_are_allowed() -> Result<()> {
@@ -26,11 +25,11 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -51,13 +50,13 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 │ ◎  b
 ├─╯
 │ ◎  c
-│ │ ◎  👉main[🌳]
+│ │ ◎  main[🌳]
 │ ├─╯
-│ ●  ·04d1892 (⌂)
+│ ●  👉·04d1892 (→)
 ├─╯
-●  ·5e0ba46 (⌂)
+●  ·5e0ba46 (→)
 ◎  base
-●  🏁·6155f21 (⌂)
+●  🏁·6155f21 (→)
 
 "#]]
     );
@@ -109,11 +108,11 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -164,11 +163,11 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -198,16 +197,16 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
         &overlayed,
         snapbox::str![[r#"
 ◎  c
-│ ◎  👉main[🌳]
+│ ◎  main[🌳]
 ├─╯
-●  ·8b4d335 (⌂)
+●  👉·8b4d335 (→)
 ◎  b
-●  ·7762cf9 (⌂)
-●  ·3b3bd41 (⌂)
+●  ·7762cf9 (→)
+●  ·3b3bd41 (→)
 ◎  a
-●  ·5e0ba46 (⌂)
+●  ·5e0ba46 (→)
 ◎  base
-●  🏁·6155f21 (⌂)
+●  🏁·6155f21 (→)
 
 "#]]
     );

@@ -2,11 +2,10 @@
 
 use anyhow::Result;
 use but_core::commit::SignCommit;
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, GraphEditorOptions, Pick, Step, cherry_pick::PickMode};
 use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
 
-use crate::utils::{fixture_writable_with_signing, standard_options};
+use crate::utils::fixture_writable_with_signing;
 
 #[test]
 fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
@@ -24,11 +23,11 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -47,15 +46,15 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
         &overlayed,
         snapbox::str![[r#"
 ◎  c
-│ ◎  👉main[🌳]
+│ ◎  main[🌳]
 ├─╯
-●  ·dd72792 (⌂)
+●  👉·dd72792 (→)
 ◎  b
-●  ·e5aa7b5 (⌂)
+●  ·e5aa7b5 (→)
 ◎  a
-●  ·3bfeb52 (⌂)
+●  ·3bfeb52 (→)
 ◎  base
-●  🏁·b6e2f57 (⌂)
+●  🏁·b6e2f57 (→)
 
 "#]]
     );
@@ -83,11 +82,11 @@ fn commits_are_signed_by_default() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -107,13 +106,13 @@ fn commits_are_signed_by_default() -> Result<()> {
 │ ◎  b
 ├─╯
 │ ◎  c
-│ │ ◎  👉main[🌳]
+│ │ ◎  main[🌳]
 │ ├─╯
-│ ●  ·06106c2 (⌂)
+│ ●  👉·06106c2 (→)
 ├─╯
-●  ·3bfeb52 (⌂)
+●  ·3bfeb52 (→)
 ◎  base
-●  🏁·b6e2f57 (⌂)
+●  🏁·b6e2f57 (→)
 
 "#]]
     );
@@ -178,11 +177,11 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -209,13 +208,13 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
 │ ◎  b
 ├─╯
 │ ◎  c
-│ │ ◎  👉main[🌳]
+│ │ ◎  main[🌳]
 │ ├─╯
-│ ●  ·a773b84 (⌂)
+│ ●  👉·a773b84 (→)
 ├─╯
-●  ·3bfeb52 (⌂)
+●  ·3bfeb52 (→)
 ◎  base
-●  🏁·b6e2f57 (⌂)
+●  🏁·b6e2f57 (→)
 
 "#]]
     );
@@ -269,11 +268,11 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -351,11 +350,11 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -452,11 +451,11 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -550,11 +549,11 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
@@ -632,11 +631,11 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;

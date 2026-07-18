@@ -293,8 +293,7 @@ pub struct Segment {
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
-    /// is this segment, and the surrounding workspace is provided for context.
+    /// This is `true` for the segment containing the graph entrypoint.
     ///
     /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
     /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.

@@ -1,12 +1,11 @@
 //! Change id tests
 
 use anyhow::Result;
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, LookupStep, Step, ToSelector};
 use gix::prelude::ObjectIdExt;
 use snapbox::prelude::*;
 
-use crate::utils::{fixture_writable, standard_options};
+use crate::utils::fixture_writable;
 
 #[test]
 fn temporary_change_id_persisted() -> Result<()> {
@@ -27,11 +26,11 @@ fn temporary_change_id_persisted() -> Result<()> {
 "#]]
     );
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 
@@ -75,11 +74,11 @@ fn temporary_change_id_persisted() -> Result<()> {
 fn empty_commit_uses_default_change_id() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-    let graph = Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        standard_options(),
+        but_graph::init::Overlay::default(),
     )?
     .validated()?;
 

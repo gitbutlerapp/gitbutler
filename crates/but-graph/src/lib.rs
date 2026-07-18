@@ -4,7 +4,7 @@
 #![deny(missing_docs)]
 
 mod types;
-pub use types::{CommitFlags, RefInfo, ReferenceMetadata, StopCondition, Worktree, WorktreeKind};
+pub use types::{BoundaryKind, CommitFlags, RefInfo, ReferenceMetadata, Worktree, WorktreeKind};
 
 mod node;
 pub(crate) use node::NodeGraph;

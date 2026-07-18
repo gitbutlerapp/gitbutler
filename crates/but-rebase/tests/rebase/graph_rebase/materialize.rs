@@ -1,16 +1,12 @@
 //! Tests for `materialize` vs `materialize_without_checkout` behavior differences
 use anyhow::Result;
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, Step};
 use but_testsupport::{
     StackState, graph_tree, visualize_commit_graph_all, visualize_disk_tree_skip_dot_git,
 };
 use snapbox::IntoData;
 
-use crate::{
-    graph_rebase::add_stack_with_segments,
-    utils::{fixture_writable, standard_options},
-};
+use crate::{graph_rebase::add_stack_with_segments, utils::fixture_writable};
 
 fn project_meta(meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
     meta.workspace(
@@ -51,8 +47,13 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -66,10 +67,10 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·a96434e (⌂)
-●  ·d591dfe (⌂)
-●  🏁·35b8235 (⌂)
+◎  main[🌳]
+●  👉·a96434e (→)
+●  ·d591dfe (→)
+●  🏁·35b8235 (→)
 
 "#]]
     );
@@ -131,8 +132,13 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
 "#]]
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -146,10 +152,10 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·a96434e (⌂)
-●  ·d591dfe (⌂)
-●  🏁·35b8235 (⌂)
+◎  main[🌳]
+●  👉·a96434e (→)
+●  ·d591dfe (→)
+●  🏁·35b8235 (→)
 
 "#]]
     );
@@ -190,8 +196,13 @@ fn both_methods_update_references_identically() -> Result<()> {
     let (ref_after_materialize, overlayed_materialize) = {
         let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-            .validated()?;
+        let graph = but_graph::Graph::from_repo(
+            &repo,
+            &*meta,
+            project_meta(&*meta),
+            but_graph::init::Overlay::default(),
+        )?
+        .validated()?;
         let mut ws = graph.into_workspace()?;
         let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -214,8 +225,13 @@ fn both_methods_update_references_identically() -> Result<()> {
     let (ref_after_materialize_without_checkout, overlayed_without_checkout) = {
         let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-            .validated()?;
+        let graph = but_graph::Graph::from_repo(
+            &repo,
+            &*meta,
+            project_meta(&*meta),
+            but_graph::init::Overlay::default(),
+        )?
+        .validated()?;
         let mut ws = graph.into_workspace()?;
         let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -237,10 +253,10 @@ fn both_methods_update_references_identically() -> Result<()> {
     snapbox::assert_data_eq!(
         &overlayed_materialize,
         snapbox::str![[r#"
-◎  👉main[🌳]
-●  ·a96434e (⌂)
-●  ·d591dfe (⌂)
-●  🏁·35b8235 (⌂)
+◎  main[🌳]
+●  👉·a96434e (→)
+●  ·d591dfe (→)
+●  🏁·35b8235 (→)
 
 "#]]
     );
@@ -266,8 +282,13 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
     let head_before = repo.rev_parse_single("HEAD")?.detach();
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -279,11 +300,11 @@ fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()>
     snapbox::assert_data_eq!(
         &overlayed,
         snapbox::str![[r#"
-◎  👉replacement[🌳]
-●  ·120e3a9 (⌂)
-●  ·a96434e (⌂)
-●  ·d591dfe (⌂)
-●  🏁·35b8235 (⌂)
+◎  replacement[🌳]
+●  👉·120e3a9 (→)
+●  ·a96434e (→)
+●  ·d591dfe (→)
+●  🏁·35b8235 (→)
 
 "#]]
     );
@@ -319,8 +340,13 @@ fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
     let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -358,12 +384,12 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   74bcc92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 * | 2169646 (stack-1) Commit D
 * | 46ef828 Commit C
-|/  
+|/
 | * a0f2ac5 (origin/main, main) Commit X
-|/  
+|/
 * f555940 (stack-2) Commit A
 * d664be0 Commit B
 * fafd9d0 init
@@ -372,8 +398,13 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
         .raw()
     );
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -388,13 +419,13 @@ fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Res
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   3cc8b6f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 * | c869f24 (stack-1) Commit D
 * | 07a9b49 Commit C
-|/  
+|/
 | * a0f2ac5 (origin/main, main) Commit X
 | * f555940 Commit A
-|/  
+|/
 * d664be0 (stack-2) Commit B
 * fafd9d0 init
 
@@ -424,8 +455,13 @@ fn materialize_moves_same_tip_local_aliases_only() -> Result<()> {
         )?;
     }
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -463,8 +499,13 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     let main_before = repo.rev_parse_single("main")?.detach();
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -480,12 +521,12 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   74bcc92 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 * | 2169646 (stack-1) Commit D
 * | 46ef828 Commit C
-|/  
+|/
 | * a0f2ac5 (origin/main, main) Commit X
-|/  
+|/
 * f555940 (stack-2) Commit A
 * d664be0 Commit B
 * fafd9d0 init
@@ -511,8 +552,13 @@ fn materialize_moves_detached_head_to_a_rewritten_entrypoint() -> Result<()> {
     )?;
     assert!(repo.head_name()?.is_none());
 
-    let graph =
-        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 

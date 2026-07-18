@@ -285,8 +285,6 @@ impl std::fmt::Debug for GerritMode<'_> {
 pub struct Options<'db> {
     /// Project-scoped metadata used to resolve target refs and push remotes.
     pub project_meta: but_core::ref_metadata::ProjectMeta,
-    /// Control how to traverse the commit-graph as the basis for the workspace conversion.
-    pub traversal: but_graph::init::Options,
     /// Perform expensive computations on a per-commit basis.
     ///
     /// Note that less expensive checks are still performed.
@@ -337,9 +335,8 @@ pub struct Segment {
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` when this projected segment contains the entrypoint of
-    /// [the traversal](but_graph::Graph::from_commit_traversal()) and the
-    /// surrounding workspace is provided for context.
+    /// This is `true` when this projected segment contains the graph entrypoint
+    /// and the surrounding workspace is provided for context.
     ///
     /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
     /// *Note* that this segment can be listed in *multiple stacks* as it's reachable from multiple 'ahead' segments.
@@ -455,11 +452,11 @@ pub fn head_info_and_workspace(
     meta: &impl but_core::RefMetadata,
     opts: Options<'_>,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
-    let graph = Graph::from_head(
+    let graph = Graph::from_repo(
         repo,
         meta,
         opts.project_meta.clone(),
-        opts.traversal.clone(),
+        but_graph::init::Overlay::default(),
     )?;
     let ws = graph.into_workspace()?;
     Ok((graph_to_ref_info(&ws, repo, opts)?, ws))
@@ -481,12 +478,12 @@ pub fn ref_info(
 ) -> anyhow::Result<RefInfo> {
     let id = existing_ref.peel_to_id()?;
     let repo = id.repo;
-    let graph = Graph::from_commit_traversal(
-        id,
-        existing_ref.inner.name,
+    let graph = Graph::from_repo(
+        repo,
         meta,
         opts.project_meta.clone(),
-        opts.traversal.clone(),
+        but_graph::init::Overlay::default()
+            .with_entrypoint(id.detach(), Some(existing_ref.inner.name)),
     )?;
     graph_to_ref_info(&graph.into_workspace()?, repo, opts)
 }
@@ -526,7 +523,7 @@ pub(crate) fn find_ancestor_workspace_commit(
                 pending.extend(node.parents().iter().copied());
             }
             NodeKind::Reference(_) => pending.extend(node.parents().last().copied()),
-            NodeKind::ShallowPoint { .. } => {}
+            NodeKind::Boundary { .. } => {}
         }
     }
     managed_commit_id.and_then(|managed_commit_id| {
@@ -545,9 +542,7 @@ fn refs_pointing_to(graph: &Graph, commit_id: gix::ObjectId) -> Vec<but_graph::R
             NodeKind::Reference(reference) if reference.ref_info.commit_id == Some(commit_id) => {
                 Some(reference.ref_info.clone())
             }
-            NodeKind::Commit { .. } | NodeKind::Reference(_) | NodeKind::ShallowPoint { .. } => {
-                None
-            }
+            NodeKind::Commit { .. } | NodeKind::Reference(_) | NodeKind::Boundary { .. } => None,
         })
         .collect()
 }
@@ -561,12 +556,6 @@ pub fn graph_to_ref_info(
     repo: &gix::Repository,
     opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
-    if workspace.graph.hard_limit_hit() {
-        tracing::warn!(hard_limit=?opts.traversal.hard_limit,
-            "Commit-graph traversal might be incorrect as it was stopped too early due to hard limit",
-        );
-    }
-
     let but_graph::Workspace {
         graph,
         id,
@@ -592,7 +581,14 @@ pub fn graph_to_ref_info(
         WorkspaceKind::AdHoc => (entrypoint_ref_info(graph), false, None),
     };
     let is_entrypoint = match graph.entrypoint() {
-        NodeGraphEntrypoint::Node(entrypoint) => Some(*entrypoint) == *id,
+        NodeGraphEntrypoint::Node(entrypoint) => {
+            let entrypoint_identity = graph
+                .entrypoint_ref()
+                .and_then(|name| graph.node_by_ref_name(name))
+                .map(|(index, _)| index)
+                .unwrap_or(*entrypoint);
+            Some(entrypoint_identity) == *id
+        }
         NodeGraphEntrypoint::Unborn(_) => id.is_none(),
     };
     let mut stacks = stacks
@@ -661,13 +657,10 @@ pub fn graph_to_ref_info(
 fn entrypoint_ref_info(graph: &Graph) -> Option<&but_graph::RefInfo> {
     match graph.entrypoint() {
         NodeGraphEntrypoint::Unborn(reference) => Some(&reference.ref_info),
-        NodeGraphEntrypoint::Node(index) => match graph.nodes().get(*index)?.kind() {
-            NodeKind::Reference(reference) => Some(&reference.ref_info),
-            NodeKind::Commit { .. } | NodeKind::ShallowPoint { .. } => graph
-                .entrypoint_ref()
-                .and_then(|name| graph.node_by_ref_name(name))
-                .map(|(_, reference)| &reference.ref_info),
-        },
+        NodeGraphEntrypoint::Node(_) => graph
+            .entrypoint_ref()
+            .and_then(|name| graph.node_by_ref_name(name))
+            .map(|(_, reference)| &reference.ref_info),
     }
 }
 
@@ -675,7 +668,7 @@ fn workspace_tip_is_managed(graph: &Graph, repo: &gix::Repository, id: NodeIndex
     let Some(commit_id) = graph.nodes().get(id).and_then(|node| match node.kind() {
         NodeKind::Commit { id } => Some(*id),
         NodeKind::Reference(reference) => reference.ref_info.commit_id,
-        NodeKind::ShallowPoint { .. } => None,
+        NodeKind::Boundary { .. } => None,
     }) else {
         return false;
     };

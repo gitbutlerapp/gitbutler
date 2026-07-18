@@ -401,18 +401,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 3,
+                node_index: 4,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 1,
             },
         ),
         lower_bound: Some(
-            0,
+            1,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -483,7 +483,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 2,
+                        id: 3,
                         ref_name: "►S1",
                         remote_tracking_ref_name: "None",
                         commits: [],
@@ -501,18 +501,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 4,
+                node_index: 5,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 1,
             },
         ),
         lower_bound: Some(
-            0,
+            1,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -600,18 +600,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 4,
+                node_index: 5,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 1,
             },
         ),
         lower_bound: Some(
-            0,
+            1,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -660,7 +660,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: 4,
                         ref_name: "►S1",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -680,18 +680,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 4,
+                node_index: 6,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 2,
             },
         ),
         lower_bound: Some(
-            0,
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -762,7 +762,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 6,
+                        id: 4,
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
@@ -782,18 +782,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 4,
+                node_index: 7,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 2,
             },
         ),
         lower_bound: Some(
-            0,
+            2,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -868,7 +868,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 7,
+                        id: 5,
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
@@ -881,7 +881,7 @@ Ok(
                         base: "ba16348",
                     },
                     ref_info::ui::Segment {
-                        id: 8,
+                        id: 6,
                         ref_name: "►origin/S1",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -901,18 +901,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 5,
+                node_index: 8,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 3,
             },
         ),
         lower_bound: Some(
-            0,
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -943,7 +943,7 @@ The new local commit was rewritten after pushing it to the remote
 * 4d23090 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 314cacb (S1) two
 | * 9a2fcdf (origin/S1) two
-|/  
+|/
 * 3234835 one
 * fafd9d0 (origin/main, main) init
 
@@ -986,7 +986,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 8,
+                        id: 5,
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
@@ -1007,18 +1007,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 6,
+                node_index: 9,
                 commits_ahead: 0,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 3,
             },
         ),
         lower_bound: Some(
-            0,
+            3,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1051,11 +1051,11 @@ The remote squash-merges S1 *and* changes the 'file' so it looks entirely differ
 * 4d23090 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 314cacb (S1) two
 | * 9a2fcdf (origin/S1) two
-|/  
+|/
 * 3234835 one
 | * adc9f0c (origin/main) file changed completely afterwards
 | * d110262 squash S1
-|/  
+|/
 * fafd9d0 (main) init
 
 "#]]
@@ -1097,7 +1097,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 10,
+                        id: 7,
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
@@ -1118,18 +1118,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 8,
+                node_index: 10,
                 commits_ahead: 2,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-                node_index: 0,
+                node_index: 4,
             },
         ),
         lower_bound: Some(
-            0,
+            4,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1167,14 +1167,14 @@ The remote was reused and merged once more with more changes.
 | * 16d0628 (origin/S1) add other remote file
 | * 66fe1d7 add remote file
 | * 9a2fcdf two
-|/  
+|/
 * 3234835 one
 | * 35faa22 (origin/main) other remote file changed completely afterwards
 | * 293873a squash origin/S1
 | * 4ac7bc7 avoid merge conflict
 | * adc9f0c (main) file changed completely afterwards
 | * d110262 squash S1
-|/  
+|/
 * fafd9d0 init
 
 "#]]
@@ -1218,7 +1218,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 15,
+                        id: 13,
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
@@ -1242,18 +1242,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 13,
+                node_index: 14,
                 commits_ahead: 5,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(adc9f0cd07bd0a09363ac6536291bf821ca845c4),
-                node_index: 0,
+                node_index: 4,
             },
         ),
         lower_bound: Some(
-            7,
+            10,
         ),
         is_managed_ref: true,
         is_managed_commit: true,
@@ -1285,17 +1285,17 @@ A new multi-segment stack is created without remote and squash merged locally.
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   4da5b24 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 1af5d57 (local) new local file
 | * de02b20 (local-bottom) new local-bottom file
 * | 314cacb (S1) two
 | | * 16d0628 (origin/S1) add other remote file
 | | * 66fe1d7 add remote file
 | | * 9a2fcdf two
-| |/  
-|/|   
+| |/
+|/|
 * | 3234835 one
-|/  
+|/
 | * 350fd89 (origin/main) local file rewritten completely
 | * 2eb07c5 squash local
 | * 35faa22 (main) other remote file changed completely afterwards
@@ -1303,7 +1303,7 @@ A new multi-segment stack is created without remote and squash merged locally.
 | * 4ac7bc7 avoid merge conflict
 | * adc9f0c file changed completely afterwards
 | * d110262 squash S1
-|/  
+|/
 * fafd9d0 init
 
 "#]]
@@ -1348,7 +1348,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 19,
+                        id: 17,
                         ref_name: "►S1",
                         remote_tracking_ref_name: "refs/remotes/origin/S1",
                         commits: [
@@ -1373,7 +1373,7 @@ Ok(
                 ),
                 segments: [
                     ref_info::ui::Segment {
-                        id: 20,
+                        id: 21,
                         ref_name: "►local",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1386,7 +1386,7 @@ Ok(
                         base: "de02b20",
                     },
                     ref_info::ui::Segment {
-                        id: 21,
+                        id: 22,
                         ref_name: "►local-bottom",
                         remote_tracking_ref_name: "None",
                         commits: [
@@ -1406,18 +1406,18 @@ Ok(
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
-                node_index: 17,
+                node_index: 18,
                 commits_ahead: 7,
             },
         ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(35faa22c8d0a01ba45da3971406eab6932b1bbde),
-                node_index: 0,
+                node_index: 3,
             },
         ),
         lower_bound: Some(
-            10,
+            11,
         ),
         is_managed_ref: true,
         is_managed_commit: true,

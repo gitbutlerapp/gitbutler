@@ -12,8 +12,8 @@ pub fn head_info(
     opts.project_meta = meta
         .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
         .project_meta();
-    if opts.traversal.extra_target_commit_id.is_none() {
-        opts.traversal.extra_target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
+    if opts.project_meta.target_commit_id.is_none() {
+        opts.project_meta.target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
     }
     crate::ref_info::head_info(repo, meta, opts)
 }
@@ -26,8 +26,8 @@ pub fn ref_info(
     opts.project_meta = meta
         .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
         .project_meta();
-    if opts.traversal.extra_target_commit_id.is_none() {
-        opts.traversal.extra_target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
+    if opts.project_meta.target_commit_id.is_none() {
+        opts.project_meta.target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
     }
     but_workspace::ref_info(existing_ref, meta, opts)
 }
@@ -194,7 +194,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
         snapbox::str![[r#"
 * fb27086 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * 89cc2d3 (origin/A) change in A
-|/  
+|/
 * d79bba9 (A) new file in A
 * c166d42 (origin/main, origin/HEAD, main) init-integration
 
@@ -260,18 +260,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 5,
+            node_index: 6,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            node_index: 0,
+            node_index: 1,
         },
     ),
     lower_bound: Some(
-        0,
+        1,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -341,18 +341,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 5,
+            node_index: 6,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            node_index: 0,
+            node_index: 1,
         },
     ),
     lower_bound: Some(
-        0,
+        1,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -426,18 +426,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 5,
+            node_index: 6,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            node_index: 0,
+            node_index: 1,
         },
     ),
     lower_bound: Some(
-        0,
+        1,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -462,7 +462,7 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
 * 3ba6995 (B-on-A) change in B
 * f504e38 (A) change after push
 | * ec39463 (origin/B-on-A) change in B
-|/  
+|/
 * 807f596 (origin/A) change in A
 * fafd9d0 (origin/main, main) init
 
@@ -505,7 +505,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 9,
+                    id: 6,
                     ref_name: "►B-on-A",
                     remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                     commits: [
@@ -539,18 +539,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 7,
+            node_index: 12,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 5,
         },
     ),
     lower_bound: Some(
-        0,
+        5,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -647,7 +647,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
 * 3ba6995 (B-on-A) change in B
 * f504e38 (A) change after push
 | * ec39463 (origin/B-on-A) change in B
-|/  
+|/
 * 807f596 (origin/A, base-of-A) change in A
 * fafd9d0 (origin/main, main) init
 
@@ -692,7 +692,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 9,
+                    id: 6,
                     ref_name: "►B-on-A",
                     remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                     commits: [
@@ -705,7 +705,7 @@ RefInfo {
                     base: "f504e38",
                 },
                 ref_info::ui::Segment {
-                    id: 10,
+                    id: 11,
                     ref_name: "►A",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -726,18 +726,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 7,
+            node_index: 13,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 5,
         },
     ),
     lower_bound: Some(
-        0,
+        5,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -760,12 +760,12 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   a455fe7 (origin/main) Merge branch 'A' into new-origin-main
-|\  
+|\
 | | * 4a62dfc (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | | * de11c03 (origin/B-on-A, B-on-A) change in B
-| |/  
+| |/
 | * 0ee3a9e (origin/A, A) change in A
-|/  
+|/
 * fafd9d0 (main) init
 
 "#]]
@@ -808,7 +808,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 10,
+                    id: 9,
                     ref_name: "►B-on-A",
                     remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                     commits: [
@@ -821,7 +821,7 @@ RefInfo {
                     base: "0ee3a9e",
                 },
                 ref_info::ui::Segment {
-                    id: 7,
+                    id: 5,
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -841,18 +841,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 6,
+            node_index: 8,
             commits_ahead: 2,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 4,
         },
     ),
     lower_bound: Some(
-        0,
+        4,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -877,18 +877,18 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   059cc4f (origin/A) Merge branch 'B-on-A' into new-origin-A
-|\  
+|\
 | | *   a455fe7 (origin/main, main) Merge branch 'A' into new-origin-main
-| | |\  
-| |_|/  
-|/| |   
+| | |\
+| |_|/
+|/| |
 | | | * 4a62dfc (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-| | |/  
-| |/|   
+| | |/
+| |/|
 | * | de11c03 (origin/B-on-A, B-on-A) change in B
-|/ /  
+|/ /
 * / 0ee3a9e (A) change in A
-|/  
+|/
 * fafd9d0 init
 
 "#]]
@@ -932,7 +932,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 10,
+                    id: 11,
                     ref_name: "►B-on-A",
                     remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                     commits: [
@@ -945,7 +945,7 @@ RefInfo {
                     base: "None",
                 },
                 ref_info::ui::Segment {
-                    id: 8,
+                    id: 7,
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [],
@@ -966,18 +966,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 7,
+            node_index: 10,
             commits_ahead: 1,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(a455fe761e758d0b6c0aa8966d91f2de32fa7bfc),
-            node_index: 0,
+            node_index: 3,
         },
     ),
     lower_bound: Some(
-        2,
+        1,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -1029,7 +1029,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 10,
+                    id: 11,
                     ref_name: "►B-on-A",
                     remote_tracking_ref_name: "refs/remotes/origin/B-on-A",
                     commits: [
@@ -1042,7 +1042,7 @@ RefInfo {
                     base: "0ee3a9e",
                 },
                 ref_info::ui::Segment {
-                    id: 8,
+                    id: 7,
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -1065,18 +1065,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 7,
+            node_index: 10,
             commits_ahead: 2,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 5,
         },
     ),
     lower_bound: Some(
-        0,
+        5,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -1101,7 +1101,7 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
 | * 4f08b8d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * da597e8 (B) B
 | * 1818c17 (A) A
-|/  
+|/
 * 281456a (main) init
 
 "#]]
@@ -1174,18 +1174,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 7,
+            node_index: 6,
             commits_ahead: 1,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
-            node_index: 0,
+            node_index: 1,
         },
     ),
     lower_bound: Some(
-        0,
+        1,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -1246,14 +1246,14 @@ RefInfo {
                 ref_info::ui::Segment {
                     id: 10,
                     ref_name: "►A",
-                    remote_tracking_ref_name: "refs/remotes/origin/A",
+                    remote_tracking_ref_name: "None",
                     commits: [
                         LocalCommit(1818c17, "A\n", integrated(0b6b861)),
                     ],
                     commits_on_remote: [],
                     commits_outside: None,
                     metadata: "None",
-                    push_status: Integrated,
+                    push_status: CompletelyUnpushed,
                     base: "281456a",
                 },
             ],
@@ -1264,18 +1264,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 7,
+            node_index: 6,
             commits_ahead: 1,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
-            node_index: 0,
+            node_index: 1,
         },
     ),
     lower_bound: Some(
-        0,
+        1,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -1302,10 +1302,10 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
 | * f4ed16f (origin/main) target ahead
 | | * 50d31c8 (origin/A) unique remote
 | | * a9954f1 shared by name
-| |/  
-|/|   
+| |/
+|/|
 * | 872c22f shared local/remote
-|/  
+|/
 * c166d42 (origin/main, origin/HEAD, main) init-integration
 
 "#]]
@@ -1346,7 +1346,7 @@ RefInfo {
             ),
             segments: [
                 👉ref_info::ui::Segment {
-                    id: 11,
+                    id: 12,
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -1371,18 +1371,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 9,
+            node_index: 11,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            node_index: 0,
+            node_index: 2,
         },
     ),
     lower_bound: Some(
-        0,
+        2,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -1404,10 +1404,10 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   7f3248e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * cbc6713 (advanced-lane) change
 * | 93d7eac (advanced-lane-2) change 2
-|/  
+|/
 * fafd9d0 (origin/main, main, lane) init
 
 "#]]
@@ -1454,7 +1454,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 4,
+                    id: 7,
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1475,7 +1475,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 8,
+                    id: 5,
                     ref_name: "►advanced-lane-2",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1498,7 +1498,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 9,
+                    id: 6,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1518,18 +1518,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 6,
+            node_index: 9,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 3,
         },
     ),
     lower_bound: Some(
-        0,
+        3,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -1608,7 +1608,7 @@ RefInfo {
             ),
             segments: [
                 👉ref_info::ui::Segment {
-                    id: 10,
+                    id: 3,
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1621,7 +1621,7 @@ RefInfo {
                     base: "None",
                 },
                 ref_info::ui::Segment {
-                    id: 5,
+                    id: 7,
                     ref_name: "►lane-segment-01",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1632,7 +1632,7 @@ RefInfo {
                     base: "None",
                 },
                 ref_info::ui::Segment {
-                    id: 6,
+                    id: 8,
                     ref_name: "►lane-segment-02",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1653,7 +1653,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 2,
+                    id: 4,
                     ref_name: "►lane-2",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1664,7 +1664,7 @@ RefInfo {
                     base: "None",
                 },
                 ref_info::ui::Segment {
-                    id: 3,
+                    id: 5,
                     ref_name: "►lane-2-segment-01",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1675,7 +1675,7 @@ RefInfo {
                     base: "None",
                 },
                 ref_info::ui::Segment {
-                    id: 4,
+                    id: 6,
                     ref_name: "►lane-2-segment-02",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1693,18 +1693,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 8,
+            node_index: 10,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 1,
         },
     ),
     lower_bound: Some(
-        0,
+        1,
     ),
     is_managed_ref: true,
     is_managed_commit: false,
@@ -1766,7 +1766,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 2,
+                    id: 4,
                     ref_name: "►lane-2",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1777,7 +1777,7 @@ RefInfo {
                     base: "None",
                 },
                 ref_info::ui::Segment {
-                    id: 3,
+                    id: 5,
                     ref_name: "►lane-2-segment-01",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1788,7 +1788,7 @@ RefInfo {
                     base: "None",
                 },
                 ref_info::ui::Segment {
-                    id: 4,
+                    id: 6,
                     ref_name: "►lane-2-segment-02",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1802,52 +1802,19 @@ RefInfo {
         },
         Stack {
             id: Some(
-                00000000-0000-0000-0000-000000000000,
+                00000000-0000-0000-0000-000000000001,
             ),
             base: Some(
                 Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
             ),
             segments: [
                 👉ref_info::ui::Segment {
-                    id: 10,
+                    id: 3,
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [
                         LocalCommit(cbc6713, "change\n", local, ►gitbutler/workspace[🌳]),
                     ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "None",
-                },
-                ref_info::ui::Segment {
-                    id: 2,
-                    ref_name: "►lane-2",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "None",
-                },
-                ref_info::ui::Segment {
-                    id: 3,
-                    ref_name: "►lane-2-segment-01",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "None",
-                },
-                ref_info::ui::Segment {
-                    id: 4,
-                    ref_name: "►lane-2-segment-02",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
                     commits_on_remote: [],
                     commits_outside: None,
                     metadata: Branch,
@@ -1862,18 +1829,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 8,
+            node_index: 10,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 1,
         },
     ),
     lower_bound: Some(
-        0,
+        1,
     ),
     is_managed_ref: true,
     is_managed_commit: false,
@@ -1895,9 +1862,9 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * cbc6713 (advanced-lane) change
-|/  
+|/
 * fafd9d0 (origin/main, main, lane) init
 
 "#]]
@@ -1941,7 +1908,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 7,
+                    id: 4,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -1964,7 +1931,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 3,
+                    id: 5,
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -1982,18 +1949,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 5,
+            node_index: 7,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 2,
         },
     ),
     lower_bound: Some(
-        0,
+        2,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2016,9 +1983,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * cbc6713 (origin/advanced-lane, advanced-lane) change
-|/  
+|/
 * fafd9d0 (origin/main, main, lane) init
 
 "#]]
@@ -2059,7 +2026,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 7,
+                    id: 4,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                     commits: [
@@ -2079,18 +2046,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 5,
+            node_index: 8,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 2,
         },
     ),
     lower_bound: Some(
-        0,
+        2,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2113,9 +2080,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * cbc6713 (origin/advanced-lane, dependent, advanced-lane) change
-|/  
+|/
 * fafd9d0 (origin/main, main, lane) init
 
 "#]]
@@ -2164,7 +2131,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 8,
+                    id: 5,
                     ref_name: "►dependent",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2175,7 +2142,7 @@ RefInfo {
                     base: "cbc6713",
                 },
                 ref_info::ui::Segment {
-                    id: 7,
+                    id: 4,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                     commits: [
@@ -2195,18 +2162,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 5,
+            node_index: 9,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 2,
         },
     ),
     lower_bound: Some(
-        0,
+        2,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2263,7 +2230,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 7,
+                    id: 4,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                     commits: [],
@@ -2274,7 +2241,7 @@ RefInfo {
                     base: "cbc6713",
                 },
                 ref_info::ui::Segment {
-                    id: 8,
+                    id: 5,
                     ref_name: "►dependent",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -2294,18 +2261,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 5,
+            node_index: 9,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 2,
         },
     ),
     lower_bound: Some(
-        0,
+        2,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2376,7 +2343,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 9,
+                    id: 5,
                     ref_name: "►on-top-of-dependent",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2387,7 +2354,7 @@ RefInfo {
                     base: "None",
                 },
                 ref_info::ui::Segment {
-                    id: 8,
+                    id: 4,
                     ref_name: "►dependent",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2398,7 +2365,7 @@ RefInfo {
                     base: "cbc6713",
                 },
                 ref_info::ui::Segment {
-                    id: 7,
+                    id: 3,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                     commits: [
@@ -2418,18 +2385,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 5,
+            node_index: 10,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 2,
         },
     ),
     lower_bound: Some(
-        0,
+        2,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2484,7 +2451,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 8,
+                    id: 4,
                     ref_name: "►dependent",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2495,7 +2462,7 @@ RefInfo {
                     base: "None",
                 },
                 ref_info::ui::Segment {
-                    id: 9,
+                    id: 5,
                     ref_name: "►on-top-of-dependent",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2506,7 +2473,7 @@ RefInfo {
                     base: "cbc6713",
                 },
                 ref_info::ui::Segment {
-                    id: 7,
+                    id: 3,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/advanced-lane",
                     commits: [
@@ -2526,18 +2493,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 5,
+            node_index: 10,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 2,
         },
     ),
     lower_bound: Some(
-        0,
+        2,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2607,7 +2574,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 7,
+                    id: 4,
                     ref_name: "►on-top-of-lane",
                     remote_tracking_ref_name: "refs/remotes/origin/on-top-of-lane",
                     commits: [
@@ -2620,7 +2587,7 @@ RefInfo {
                     base: "cbc6713",
                 },
                 ref_info::ui::Segment {
-                    id: 9,
+                    id: 7,
                     ref_name: "►lane",
                     remote_tracking_ref_name: "refs/remotes/origin/lane",
                     commits: [
@@ -2640,18 +2607,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 5,
+            node_index: 10,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 3,
         },
     ),
     lower_bound: Some(
-        0,
+        3,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2676,7 +2643,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
 * aadad9d (A) shared by name
 * 96a2408 (origin/main) another unrelated
 | * 2b1808c (origin/A) shared by name
-|/  
+|/
 * f15ca75 (integrated) other integrated
 * 9456d79 integrated in target
 * fafd9d0 (main) init
@@ -2721,7 +2688,7 @@ RefInfo {
             ),
             segments: [
                 👉ref_info::ui::Segment {
-                    id: 11,
+                    id: 10,
                     ref_name: "►A",
                     remote_tracking_ref_name: "refs/remotes/origin/A",
                     commits: [
@@ -2763,11 +2730,11 @@ RefInfo {
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 4,
         },
     ),
     lower_bound: Some(
-        0,
+        4,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -2832,23 +2799,12 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 5,
+                    id: 2,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
                         LocalCommit(cbc6713, "change\n", local, ►gitbutler/workspace[🌳]),
                     ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "None",
-                },
-                ref_info::ui::Segment {
-                    id: 2,
-                    ref_name: "►lane",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
                     commits_on_remote: [],
                     commits_outside: None,
                     metadata: Branch,
@@ -2866,7 +2822,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 2,
+                    id: 4,
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2884,18 +2840,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 4,
+            node_index: 6,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 1,
         },
     ),
     lower_bound: Some(
-        0,
+        1,
     ),
     is_managed_ref: true,
     is_managed_commit: false,
@@ -2946,23 +2902,12 @@ RefInfo {
             ),
             segments: [
                 👉ref_info::ui::Segment {
-                    id: 5,
+                    id: 2,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
                         LocalCommit(cbc6713, "change\n", local, ►gitbutler/workspace[🌳]),
                     ],
-                    commits_on_remote: [],
-                    commits_outside: None,
-                    metadata: Branch,
-                    push_status: CompletelyUnpushed,
-                    base: "None",
-                },
-                ref_info::ui::Segment {
-                    id: 2,
-                    ref_name: "►lane",
-                    remote_tracking_ref_name: "None",
-                    commits: [],
                     commits_on_remote: [],
                     commits_outside: None,
                     metadata: Branch,
@@ -2980,7 +2925,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 2,
+                    id: 4,
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -2998,18 +2943,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 4,
+            node_index: 6,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 1,
         },
     ),
     lower_bound: Some(
-        0,
+        1,
     ),
     is_managed_ref: true,
     is_managed_commit: false,
@@ -3034,9 +2979,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   873d056 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 * | cbc6713 (advanced-lane) change
-|/  
+|/
 * fafd9d0 (main, lane) init
 * da83717 (origin/main) disjoint remote target
 
@@ -3079,7 +3024,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 4,
+                    id: 7,
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -3100,7 +3045,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 8,
+                    id: 5,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -3127,11 +3072,11 @@ RefInfo {
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 3,
         },
     ),
     lower_bound: Some(
-        0,
+        3,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -3180,7 +3125,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 4,
+                    id: 7,
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -3201,7 +3146,7 @@ RefInfo {
             ),
             segments: [
                 👉ref_info::ui::Segment {
-                    id: 8,
+                    id: 5,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -3228,11 +3173,11 @@ RefInfo {
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 3,
         },
     ),
     lower_bound: Some(
-        0,
+        3,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -3289,7 +3234,7 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 4,
+            node_index: 6,
             commits_ahead: 1,
         },
     ),
@@ -3350,7 +3295,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 8,
+                    id: 5,
                     ref_name: "►advanced-lane",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -3373,7 +3318,7 @@ RefInfo {
             ),
             segments: [
                 ref_info::ui::Segment {
-                    id: 4,
+                    id: 7,
                     ref_name: "►lane",
                     remote_tracking_ref_name: "None",
                     commits: [],
@@ -3398,11 +3343,11 @@ RefInfo {
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 3,
         },
     ),
     lower_bound: Some(
-        0,
+        3,
     ),
     is_managed_ref: true,
     is_managed_commit: true,
@@ -3463,7 +3408,7 @@ RefInfo {
             base: None,
             segments: [
                 👉ref_info::ui::Segment {
-                    id: 4,
+                    id: 2,
                     ref_name: "►disjoint[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -3483,14 +3428,14 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 3,
+            node_index: 4,
             commits_ahead: 1,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
-            node_index: 0,
+            node_index: 1,
         },
     ),
     lower_bound: None,
@@ -3802,15 +3747,15 @@ fn advanced_workspace_multi_stack() -> anyhow::Result<()> {
 * a7131b1 (HEAD -> gitbutler/workspace) on-top4
 * 4d3831e (intermediate-ref) on-top3
 *   468357f on-top2-merge
-|\  
+|\
 | * d3166f7 (branch-on-top) on-top-sibling
-|/  
+|/
 * 118ddbb on-top1
 *   619d548 GitButler Workspace Commit
-|\  
+|\
 | * 6fdab32 (A) A1
 * | 8a352d5 (B) B1
-|/  
+|/
 * bce0c5e (origin/main, main) M2
 * 3183e43 M1
 
@@ -3844,9 +3789,9 @@ fn advanced_workspace_single_stack() -> anyhow::Result<()> {
 * da912a8 (HEAD -> gitbutler/workspace) on-top4
 * 198eaf8 (intermediate-ref) on-top3
 *   3147997 on-top2-merge
-|\  
+|\
 | * dd7bb9a (branch-on-top) on-top-sibling
-|/  
+|/
 * 9785229 on-top1
 * c58f157 GitButler Workspace Commit
 * 6fdab32 (A) A1
@@ -3881,7 +3826,7 @@ mod legacy;
 
 pub(crate) mod utils {
     use but_core::{RefMetadata, ref_metadata::StackId};
-    use but_graph::init::Options;
+    use but_graph::init::Overlay;
     use but_meta::{
         VirtualBranchesTomlMetadata,
         virtual_branches_legacy_types::{Stack, StackBranch, Target},
@@ -4014,22 +3959,15 @@ pub(crate) mod utils {
             named_writable_scenario_with_args_and_description(name, args)?;
 
         init_meta(&mut meta);
-        let project_meta = meta
+        let mut project_meta = meta
             .workspace(
                 but_core::WORKSPACE_REF_NAME
                     .try_into()
                     .expect("valid workspace ref"),
             )?
             .project_meta();
-        let graph = but_graph::Graph::from_head(
-            &repo,
-            &meta,
-            project_meta,
-            Options {
-                extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
-                ..Options::limited()
-            },
-        )?;
+        project_meta.target_commit_id = repo.rev_parse_single("main").ok().map(|id| id.detach());
+        let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
         Ok((tmp, graph, repo, meta, desc))
     }
 

@@ -274,14 +274,14 @@ impl Snapshot {
             },
             write_on_drop: false,
         });
-        let graph = but_graph::Graph::from_commit_traversal(
-            commit_id,
-            reference.name().to_owned(),
+        let graph = but_graph::Graph::from_repo(
+            repo,
             &*sideeffect_free_meta,
             sideeffect_free_meta
                 .workspace(reference.name())?
                 .project_meta(),
-            but_graph::init::Options::limited(),
+            but_graph::init::Overlay::default()
+                .with_entrypoint(commit_id.detach(), Some(reference.name().to_owned())),
         )?;
         graph.into_workspace()
     }

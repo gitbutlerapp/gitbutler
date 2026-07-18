@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use but_graph::init::Options;
 use but_meta::virtual_branches_legacy_types::Target;
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_workspace::{
@@ -272,14 +271,13 @@ fn workspace_for_stack(
     meta: &but_meta::VirtualBranchesTomlMetadata,
 ) -> Result<but_graph::Workspace> {
     let target_sha = repo.rev_parse_single("main")?.detach();
-    let ws = but_graph::Graph::from_head(
+    let mut project_meta = project_meta(meta)?;
+    project_meta.target_commit_id = Some(target_sha);
+    let ws = but_graph::Graph::from_repo(
         repo,
         meta,
-        project_meta(meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
-        },
+        project_meta,
+        but_graph::init::Overlay::default(),
     )?
     .into_workspace()?;
     Ok(ws)
@@ -288,11 +286,11 @@ fn workspace_for_stack(
 fn entrypoint_commit_id(workspace: &but_graph::Workspace) -> Option<gix::ObjectId> {
     match workspace.graph.entrypoint() {
         but_graph::NodeGraphEntrypoint::Node(index) => {
-            match workspace.graph.nodes().get(*index)?.kind() {
-                but_graph::NodeKind::Commit { id }
-                | but_graph::NodeKind::ShallowPoint { id, .. } => Some(*id),
-                but_graph::NodeKind::Reference(reference) => reference.ref_info.commit_id,
-            }
+            let but_graph::NodeKind::Commit { id } = workspace.graph.nodes().get(*index)?.kind()
+            else {
+                unreachable!("born graph entrypoints are commits")
+            };
+            Some(*id)
         }
         but_graph::NodeGraphEntrypoint::Unborn(_) => None,
     }

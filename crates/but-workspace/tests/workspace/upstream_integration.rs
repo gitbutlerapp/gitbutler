@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
 use but_core::{Commit, RefMetadata};
-use but_graph::init::{Options, Tip};
+use but_graph::init::Overlay;
 use but_meta::virtual_branches_legacy_types::Target;
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_testsupport::{CommandExt, git, graph_workspace, visualize_commit_graph_all};
@@ -36,14 +36,14 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(o1_id),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(o1_id),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -52,18 +52,18 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
 * 61ee5f5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 972cf74 (E) E
 *   9e74c75 (C) C
-|\  
+|\
 | * d6a7004 (D) D
 | | * 7de2393 (origin/master, master) o4
 | | *   7d62953 (o3) o3
-| | |\  
-| |_|/  
-|/| |   
+| | |\
+| |_|/
+|/| |
 * | | ffb801b (B) B
-|/ /  
+|/ /
 * | 448b195 (A) A
 | * d1b2089 o2
-|/  
+|/
 * 85aa44b (o1) o1
 
 "#]]
@@ -92,16 +92,16 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
 * 996b85e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 2eb4a8c (E) E
 *   aecdc68 (C) C
-|\  
+|\
 | * 020d090 (D) D
-|/  
+|/
 * 7de2393 (origin/master, master) o4
 *   7d62953 (o3) o3
-|\  
+|\
 | * ffb801b B
 | * 448b195 A
 * | d1b2089 o2
-|/  
+|/
 * 85aa44b (o1) o1
 
 "#]]
@@ -129,14 +129,14 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(o1_id),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(o1_id),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -145,18 +145,18 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
 * 61ee5f5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 972cf74 (E) E
 *   9e74c75 (C) C
-|\  
+|\
 | * d6a7004 (D) D
 | | * 7de2393 (origin/master, master) o4
 | | *   7d62953 (o3) o3
-| | |\  
-| |_|/  
-|/| |   
+| | |\
+| |_|/
+|/| |
 * | | ffb801b (B) B
-|/ /  
+|/ /
 * | 448b195 (A) A
 | * d1b2089 o2
-|/  
+|/
 * 85aa44b (o1) o1
 
 "#]]
@@ -183,21 +183,21 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         snapbox::str![[r#"
 * 292b0b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 *   ed5f276 (E) Merge refs/remotes/origin/master into merge
-|\  
+|\
 | * 7de2393 (origin/master, master) o4
 | *   7d62953 (o3) o3
-| |\  
+| |\
 | * | d1b2089 o2
 * | | 972cf74 E
 * | |   9e74c75 (C) C
-|\ \ \  
-| |_|/  
-|/| |   
+|\ \ \
+| |_|/
+|/| |
 | * | d6a7004 (D) D
 * | | ffb801b B
-|/ /  
+|/ /
 * / 448b195 A
-|/  
+|/
 * 85aa44b (o1) o1
 
 "#]]
@@ -220,14 +220,14 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(o1_id),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(o1_id),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -236,16 +236,16 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
 * 3e02fbd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * a6588cf (E) E
 *   4827d2f (C) C
-|\  
+|\
 | * d8d0970 (D) D
 * | 3d3bfa7 (B) B
-|/  
+|/
 * f5b02d3 (A) A
 | * 162b064 (origin/master, master) o4
 | * dd87d69 (o3) B
 | * 5c0b375 A
 | * d1b2089 o2
-|/  
+|/
 * 85aa44b (o1) o1
 
 "#]]
@@ -256,9 +256,9 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:15:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/master⇣4 on 85aa44b
-└── ≡📙:16:E on 85aa44b {1}
-    ├── 📙:16:E
+📕🏘️:13:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/master⇣4 on 85aa44b
+└── ≡📙:15:E on 85aa44b {1}
+    ├── 📙:15:E
     │   └── ·a6588cf (🏘️)
     ├── :17:C
     │   └── ·4827d2f (🏘️)
@@ -288,9 +288,9 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
 * 8b48706 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * cb866ec (E) E
 *   c7b32b8 (C) C
-|\  
+|\
 | * e05e7c1 (D) D
-|/  
+|/
 * 162b064 (origin/master, master) o4
 * dd87d69 (o3) B
 * 5c0b375 A
@@ -317,14 +317,14 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(o1_id),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(o1_id),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -333,16 +333,16 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
 * 3e02fbd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * a6588cf (E) E
 *   4827d2f (C) C
-|\  
+|\
 | * d8d0970 (D) D
 * | 3d3bfa7 (B) B
-|/  
+|/
 * f5b02d3 (A) A
 | * 162b064 (origin/master, master) o4
 | * dd87d69 (o3) B
 | * 5c0b375 A
 | * d1b2089 o2
-|/  
+|/
 * 85aa44b (o1) o1
 
 "#]]
@@ -369,19 +369,19 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         snapbox::str![[r#"
 * ebd6fa2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 *   0a395ba (E) Merge refs/remotes/origin/master into merge
-|\  
+|\
 | * 162b064 (origin/master, master) o4
 | * dd87d69 (o3) B
 | * 5c0b375 A
 | * d1b2089 o2
 * | a6588cf E
 * |   4827d2f (C) C
-|\ \  
+|\ \
 | * | d8d0970 (D) D
 * | | 3d3bfa7 B
-|/ /  
+|/ /
 * / f5b02d3 A
-|/  
+|/
 * 85aa44b (o1) o1
 
 "#]]
@@ -405,21 +405,14 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let graph = but_graph::Graph::from_repo(
         &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -427,7 +420,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
         snapbox::str![[r#"
 * e792f40 (HEAD -> A) add A1
 | * 8c8a843 (origin/main) add X1
-|/  
+|/
 * b38b04b (B) add B1
 * 3183e43 (main) M1
 
@@ -438,11 +431,11 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:7:A <> ✓refs/remotes/origin/main⇣2 on 3183e43
-└── ≡👉:7:A[🌳] on 3183e43 {1}
-    ├── 👉:7:A[🌳]
-    │   ├── ·e792f40
-    │   └── ❄b38b04b (✓) ►B
+⌂:6:A <> ✓refs/remotes/origin/main⇣2 on 3183e43
+└── ≡👉:6:A[🌳] on 3183e43 {1}
+    ├── 👉:6:A[🌳]
+    │   ├── ·e792f40 (🏘️)
+    │   └── ❄b38b04b (🏘️|✓) ►B
     └── :4:main <> origin/main →:5:⇣2
         ├── 🟣8c8a843 (✓) ►origin/main
         └── 🟣b38b04b (✓) ►B
@@ -503,21 +496,14 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let graph = but_graph::Graph::from_repo(
         &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
@@ -566,21 +552,14 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let graph = but_graph::Graph::from_repo(
         &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -588,7 +567,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         snapbox::str![[r#"
 * e792f40 (HEAD -> A) add A1
 | * 8c8a843 (origin/main) add X1
-|/  
+|/
 * b38b04b (B) add B1
 * 3183e43 (main) M1
 
@@ -599,11 +578,11 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:7:A <> ✓refs/remotes/origin/main⇣2 on 3183e43
-└── ≡👉:7:A[🌳] on 3183e43 {1}
-    ├── 👉:7:A[🌳]
-    │   ├── ·e792f40
-    │   └── ❄b38b04b (✓) ►B
+⌂:6:A <> ✓refs/remotes/origin/main⇣2 on 3183e43
+└── ≡👉:6:A[🌳] on 3183e43 {1}
+    ├── 👉:6:A[🌳]
+    │   ├── ·e792f40 (🏘️)
+    │   └── ❄b38b04b (🏘️|✓) ►B
     └── :4:main <> origin/main →:5:⇣2
         ├── 🟣8c8a843 (✓) ►origin/main
         └── 🟣b38b04b (✓) ►B
@@ -628,10 +607,10 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   7ce831c (HEAD -> A) Merge refs/remotes/origin/main into merge
-|\  
+|\
 | * 8c8a843 (origin/main) add X1
 * | e792f40 add A1
-|/  
+|/
 * b38b04b add B1
 * 3183e43 (main) M1
 
@@ -673,14 +652,14 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -689,7 +668,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
 * 8fd8fb6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 61c4a24 (A) local change in A 1
 | * f03fc2c (origin/A, new-origin) remote change in A 1
-|/  
+|/
 * 2b73dee (origin/main, main) init-integration
 
 "#]]
@@ -715,10 +694,10 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         snapbox::str![[r#"
 * 379fa91 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 *   9b4efdf (A) [conflict] Merge refs/remotes/origin/A into merge
-|\  
+|\
 | * f03fc2c (origin/A, new-origin) remote change in A 1
 * | 61c4a24 local change in A 1
-|/  
+|/
 * 2b73dee (origin/main, main) init-integration
 
 "#]]
@@ -778,24 +757,24 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   9d7da88 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 905d6e5 (origin/main, A) add A1
 * | b38b04b (B) add B1
-|/  
+|/
 * 3183e43 (main) M1
 
 "#]]
@@ -834,14 +813,14 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_repo(&repo, &meta, project_meta(&meta)?, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
-└── ≡📙:7:B on 905d6e5 {2}
-    └── 📙:7:B
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
+└── ≡📙:6:B on 905d6e5 {2}
+    └── 📙:6:B
         └── ·c932222 (🏘️)
 
 "#]]
@@ -873,14 +852,14 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -916,7 +895,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_repo(&repo, &meta, project_meta(&meta)?, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -951,14 +930,14 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -966,7 +945,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         snapbox::str![[r#"
 * 9de7db5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * 6b20716 (origin/main) add X
-|/  
+|/
 * ffde79e (A) add A
 * 86b55e6 add B
 * 8d5739f (main) add C
@@ -978,9 +957,9 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 8d5739f
-└── ≡📙:7:A on 8d5739f {1}
-    └── 📙:7:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 8d5739f
+└── ≡📙:8:A on 8d5739f {1}
+    └── 📙:8:A
         ├── ❄ffde79e (🏘️|✓)
         └── ❄86b55e6 (🏘️|✓)
 
@@ -998,7 +977,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_repo(&repo, &meta, project_meta(&meta)?, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1035,14 +1014,14 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     let mut workspace = graph.into_workspace()?;
@@ -1072,14 +1051,14 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         repo.try_find_reference("A")?.is_some(),
         "local branch should remain when update selector is not a stack bottom"
     );
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 8d5739f
-└── ≡📙:7:A on 8d5739f {1}
-    └── 📙:7:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣3 on 8d5739f
+└── ≡📙:8:A on 8d5739f {1}
+    └── 📙:8:A
         ├── ❄ffde79e (🏘️|✓)
         └── ❄86b55e6 (🏘️|✓)
 
@@ -1104,14 +1083,14 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -1120,12 +1099,12 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
 * 9de7db5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * f27db86 (origin/main) add X
 | *   4f5589a D
-| |\  
-| |/  
-|/|   
+| |\
+| |/
+|/|
 * | ffde79e (A) add A
 * | 86b55e6 add B
-|/  
+|/
 * 8d5739f (main) add C
 
 "#]]
@@ -1136,7 +1115,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣4 on 8d5739f
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣4 on 8d5739f
 └── ≡📙:9:A on 8d5739f {1}
     └── 📙:9:A
         ├── ·ffde79e (🏘️|✓)
@@ -1156,12 +1135,12 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_repo(&repo, &meta, project_meta(&meta)?, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f27db86
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f27db86
 
 "#]]
     );
@@ -1171,10 +1150,10 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
 * d60856a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * f27db86 (origin/main) add X
 *   4f5589a D
-|\  
+|\
 | * ffde79e add A
 | * 86b55e6 add B
-|/  
+|/
 * 8d5739f (main) add C
 
 "#]]
@@ -1208,14 +1187,14 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
@@ -1304,14 +1283,14 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
@@ -1367,14 +1346,14 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
     integrate_and_materialize(&mut workspace, &mut meta, &repo, vec![])?;
@@ -1400,14 +1379,14 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
     integrate_and_materialize(&mut workspace, &mut meta, &repo, vec![])?;
@@ -1437,25 +1416,25 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   e854d6a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 90d25da (A) add A
 * | 0d97cc1 add C2
-|/  
+|/
 | * 20a5ffc (origin/main, main) add X
-|/  
+|/
 * fe9ae6e (target-sha) add C1
 
 "#]]
@@ -1467,11 +1446,11 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fe9ae6e
-├── ≡📙:9:A on fe9ae6e {1}
-│   └── 📙:9:A
+├── ≡📙:7:A on fe9ae6e {1}
+│   └── 📙:7:A
 │       └── ·90d25da (🏘️)
-└── ≡:3:anon on fe9ae6e
-    └── :3:anon
+└── ≡:4:anon on fe9ae6e
+    └── :4:anon
         └── ·0d97cc1 (🏘️)
 
 "#]]
@@ -1487,17 +1466,17 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_repo(&repo, &meta, project_meta(&meta)?, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fe9ae6e
-├── ≡📙:9:A on 20a5ffc {1}
-│   ├── 📙:9:A
+📕🏘️:5:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1
+├── ≡📙:8:A on 20a5ffc {1}
+│   ├── 📙:8:A
 │   │   └── ·c529875 (🏘️)
-│   └── :5:main <> origin/main →:6:
-└── ≡:3:anon on fe9ae6e
+│   └── :6:main <> origin/main →:7:
+└── ≡:3:anon
     └── :3:anon
         └── ·0d97cc1 (🏘️)
 
@@ -1507,11 +1486,11 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   06beb96 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * c529875 (A) add A
 | * 20a5ffc (origin/main, main) add X
 * | 0d97cc1 add C2
-|/  
+|/
 * fe9ae6e (target-sha) add C1
 
 "#]]
@@ -1539,14 +1518,14 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -1594,14 +1573,14 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -1645,25 +1624,25 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     });
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   cf53402 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 44c9428 (A) add A1
 | * f1e7451 (origin/main, C) add C1
 * | b38b04b (B) add B1
-|/  
+|/
 * 3183e43 (main) M1
 
 "#]]
@@ -1675,13 +1654,13 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-├── ≡📙:10:A on 3183e43 {1}
-│   ├── 📙:10:A
+├── ≡📙:6:A on 3183e43 {1}
+│   ├── 📙:6:A
 │   │   └── ·44c9428 (🏘️)
-│   └── 📙:6:C
+│   └── 📙:9:C
 │       └── ·f1e7451 (🏘️|✓) ►origin/main
-└── ≡📙:9:B on 3183e43 {2}
-    └── 📙:9:B
+└── ≡📙:7:B on 3183e43 {2}
+    └── 📙:7:B
         └── ·b38b04b (🏘️)
 
 "#]]
@@ -1704,14 +1683,14 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_repo(&repo, &meta, project_meta(&meta)?, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f1e7451
-├── ≡📙:9:A on f1e7451 {1}
-│   └── 📙:9:A
+├── ≡📙:6:A on f1e7451 {1}
+│   └── 📙:6:A
 │       └── ·44c9428 (🏘️)
 └── ≡📙:8:B on f1e7451 {2}
     └── 📙:8:B
@@ -1723,10 +1702,10 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   780946b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 44c9428 (A) add A1
 * | a27415e (B) add B1
-|/  
+|/
 * f1e7451 (origin/main) add C1
 * 3183e43 (main) M1
 
@@ -1751,25 +1730,25 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     });
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   cf53402 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 44c9428 (origin/main, A) add A1
 | * f1e7451 (C) add C1
 * | b38b04b (B) add B1
-|/  
+|/
 * 3183e43 (main) M1
 
 "#]]
@@ -1784,10 +1763,10 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
 ├── ≡📙:6:A on 3183e43 {1}
 │   ├── 📙:6:A
 │   │   └── ·44c9428 (🏘️|✓) ►origin/main
-│   └── 📙:8:C
+│   └── 📙:10:C
 │       └── ·f1e7451 (🏘️|✓)
-└── ≡📙:10:B on 3183e43 {2}
-    └── 📙:10:B
+└── ≡📙:8:B on 3183e43 {2}
+    └── 📙:8:B
         └── ·b38b04b (🏘️)
 
 "#]]
@@ -1810,7 +1789,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_repo(&repo, &meta, project_meta(&meta)?, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1851,31 +1830,31 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   9d7da88 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | | *   5f7d45e (origin/main, main) Merging B into base
-| | |\  
-| |_|/  
-|/| |   
+| | |\
+| |_|/
+|/| |
 * | | b38b04b (B) add B1
 | | * 1f7670a Merging A into base
-| |/| 
-|/|/  
+| |/|
+|/|/
 | * 905d6e5 (A) add A1
-|/  
+|/
 * 3183e43 M1
 
 "#]]
@@ -1887,11 +1866,11 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:9:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣4 on 3183e43
-├── ≡📙:10:A on 3183e43 {1}
-│   └── 📙:10:A
+├── ≡📙:8:A on 3183e43 {1}
+│   └── 📙:8:A
 │       └── ·905d6e5 (🏘️|✓)
-└── ≡📙:8:B on 3183e43 {2}
-    └── 📙:8:B
+└── ≡📙:10:B on 3183e43 {2}
+    └── 📙:10:B
         └── ·b38b04b (🏘️|✓)
 
 "#]]
@@ -1914,12 +1893,12 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_repo(&repo, &meta, project_meta(&meta)?, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 5f7d45e
+📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 5f7d45e
 
 "#]]
     );
@@ -1928,14 +1907,14 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
         snapbox::str![[r#"
 * b44fd24 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 *   5f7d45e (origin/main, main) Merging B into base
-|\  
+|\
 | * b38b04b add B1
 * |   1f7670a Merging A into base
-|\ \  
-| |/  
-|/|   
+|\ \
+| |/
+|/|
 | * 905d6e5 add A1
-|/  
+|/
 * 3183e43 M1
 
 "#]]
@@ -1959,14 +1938,14 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2004,14 +1983,14 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2048,14 +2027,14 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2096,14 +2075,14 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2139,25 +2118,25 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "topic", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 * 6b2e0ef (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | *   364a08f (origin/main, main) merge topic
-| |\  
-| |/  
-|/|   
+| |\
+| |/
+|/|
 * | 6ba217e (origin/topic, topic) add topic
-|/  
+|/
 * 563a7fc add base
 
 "#]]
@@ -2168,9 +2147,9 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
-└── ≡📙:6:topic <> origin/topic →:7: on 563a7fc {1}
-    └── 📙:6:topic <> origin/topic →:7:
+📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
+└── ≡📙:7:topic <> origin/topic →:8: on 563a7fc {1}
+    └── 📙:7:topic <> origin/topic →:8:
         └── ❄6ba217e (🏘️|✓) ►origin/topic
 
 "#]]
@@ -2198,12 +2177,12 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         "workspace metadata should no longer expose the integrated empty branch"
     );
     out.rebase.materialize()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
+📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
 └── ≡:4:main <> origin/main →:5: on 563a7fc
     └── :4:main <> origin/main →:5:
         └── ❄364a08f (🏘️|✓) ►origin/main
@@ -2215,9 +2194,9 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         snapbox::str![[r#"
 * cf134fb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 *   364a08f (origin/main, main) merge topic
-|\  
+|\
 | * 6ba217e (origin/topic) add topic
-|/  
+|/
 * 563a7fc add base
 
 "#]]
@@ -2240,14 +2219,14 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "topic", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -2256,11 +2235,11 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
 * bb8f85a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * f1a3cba (topic) add local
 | *   364a08f (origin/main, main) merge topic
-| |\  
-| |/  
-|/|   
+| |\
+| |/
+|/|
 * | 6ba217e (origin/topic) add topic
-|/  
+|/
 * 563a7fc add base
 
 "#]]
@@ -2302,7 +2281,7 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
             .trim_end(),
         "add local",
     );
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -2322,9 +2301,9 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
 * d0cd028 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * f3ceb3d (topic) add local
 *   364a08f (origin/main, main) merge topic
-|\  
+|\
 | * 6ba217e (origin/topic) add topic
-|/  
+|/
 * 563a7fc add base
 
 "#]]
@@ -2347,25 +2326,25 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         push_remote_name: None,
     });
     add_stack_with_segments(&mut meta, 1, "top", StackState::InWorkspace, &["bottom"]);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 * 07e525c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | *   334227d (origin/main, main) merge bottom
-| |\  
-| |/  
-|/|   
+| |\
+| |/
+|/|
 * | 141de4f (origin/top, origin/bottom, top, bottom) add bottom
-|/  
+|/
 * 563a7fc add base
 
 "#]]
@@ -2376,10 +2355,10 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:10:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
-└── ≡📙:7:top <> origin/top →:9: on 563a7fc {1}
-    ├── 📙:7:top <> origin/top →:9:
-    └── 📙:6:bottom <> origin/bottom →:8:
+📕🏘️:4:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
+└── ≡📙:6:top <> origin/top →:8: on 563a7fc {1}
+    ├── 📙:6:top <> origin/top →:8:
+    └── 📙:5:bottom <> origin/bottom →:7:
         └── ❄141de4f (🏘️|✓) ►top, ►origin/bottom, ►origin/top
 
 "#]]
@@ -2415,14 +2394,14 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         "workspace metadata should retain only the unmerged empty top branch"
     );
     out.rebase.materialize()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:9:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 563a7fc
-└── ≡📙:5:top <> origin/top →:8: on 563a7fc {1}
-    └── 📙:5:top <> origin/top →:8:
+└── ≡📙:7:top <> origin/top →:5: on 563a7fc {1}
+    └── 📙:7:top <> origin/top →:5:
         └── ·334227d (🏘️|✓) ►main, ►origin/main
 
 "#]]
@@ -2432,9 +2411,9 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         snapbox::str![[r#"
 * f381153 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 *   334227d (origin/main, top, main) merge bottom
-|\  
+|\
 | * 141de4f (origin/top, origin/bottom) add bottom
-|/  
+|/
 * 563a7fc add base
 
 "#]]
@@ -2457,14 +2436,14 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2507,14 +2486,14 @@ fn orphan_reparent_two_stacks_through_merge_target() -> Result<()> {
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
 
@@ -2556,21 +2535,14 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let graph = but_graph::Graph::from_repo(
         &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
@@ -2619,27 +2591,27 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   b96a78e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * ad1d22b (A) add A2
 | * fe98e29 add A1
 * | b38b04b (B) add B1
-|/  
+|/
 | * 56057f2 (origin/main) squash A
-|/  
+|/
 * 3183e43 (main) M1
 
 "#]]
@@ -2650,9 +2622,9 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-├── ≡📙:10:A on 3183e43 {1}
-│   └── 📙:10:A
+📕🏘️:10:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+├── ≡📙:8:A on 3183e43 {1}
+│   └── 📙:8:A
 │       ├── ·ad1d22b (🏘️)
 │       └── ·fe98e29 (🏘️)
 └── ≡📙:9:B on 3183e43 {2}
@@ -2679,14 +2651,14 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     )?;
     out.rebase.materialize()?;
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡📙:7:B on 3183e43 {2}
-    └── 📙:7:B
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡📙:6:B on 3183e43 {2}
+    └── 📙:6:B
         └── ·b38b04b (🏘️)
 
 "#]]
@@ -2697,7 +2669,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
 * e4abb28 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * b38b04b (B) add B1
 | * 56057f2 (origin/main) squash A
-|/  
+|/
 * 3183e43 (main) M1
 
 "#]]
@@ -2733,21 +2705,14 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let graph = but_graph::Graph::from_repo(
         &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -2755,7 +2720,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
 * ad1d22b (HEAD -> A) add A2
 * fe98e29 add A1
 | * 56057f2 (origin/main) squash A
-|/  
+|/
 * 3183e43 (main) M1
 
 "#]]
@@ -2768,8 +2733,8 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
 ⌂:6:A <> ✓refs/remotes/origin/main⇣1 on 3183e43
 └── ≡👉:6:A[🌳] on 3183e43 {1}
     └── 👉:6:A[🌳]
-        ├── ·ad1d22b
-        └── ·fe98e29
+        ├── ·ad1d22b (🏘️)
+        └── ·fe98e29 (🏘️)
 
 "#]]
     );
@@ -2790,17 +2755,17 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
         }],
     )?;
     out.rebase.materialize()?;
-    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:2:amo-branch-1 <> ✓refs/remotes/origin/main⇣1 on 3183e43
-└── ≡👉:2:amo-branch-1[🌳] on 3183e43 {1}
-    ├── 👉:2:amo-branch-1[🌳]
-    │   └── ❄56057f2 ►origin/main
-    └── :4:main <> origin/main →:3:⇣1
-        └── 🟣56057f2 ►amo-branch-1[🌳], ►origin/main
+⌂:3:amo-branch-1 <> ✓refs/remotes/origin/main⇣1 on 3183e43
+└── ≡👉:3:amo-branch-1[🌳] on 3183e43 {1}
+    ├── 👉:3:amo-branch-1[🌳]
+    │   └── ❄56057f2 (🏘️|✓) ►origin/main
+    └── :2:main <> origin/main →:4:⇣1
+        └── 🟣56057f2 (✓) ►amo-branch-1[🌳], ►origin/main
 
 "#]]
     );
@@ -2842,14 +2807,14 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
         push_remote_name: None,
     });
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_repo(
         &repo,
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -2860,7 +2825,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
 * ad1d22b add A2
 * fe98e29 add A1
 | * e2f5892 (origin/main) squash A1 and A2
-|/  
+|/
 * 3183e43 (main) M1
 
 "#]]
@@ -2870,7 +2835,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:8:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
 └── ≡📙:9:A on 3183e43 {1}
     └── 📙:9:A
         ├── ·f015e95 (🏘️)
@@ -2894,14 +2859,14 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     )?;
 
     let graph =
-        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+        but_graph::Graph::from_repo(&repo, &meta, project_meta(&meta)?, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e2f5892
-└── ≡📙:7:A on e2f5892 {1}
-    └── 📙:7:A
+└── ≡📙:5:A on e2f5892 {1}
+    └── 📙:5:A
         └── ·92f1780 (🏘️)
 
 "#]]
@@ -2935,21 +2900,14 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let graph = but_graph::Graph::from_repo(
         &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
 
     snapbox::assert_data_eq!(
@@ -2959,7 +2917,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
 * ad1d22b add A2
 * fe98e29 add A1
 | * e2f5892 (origin/main) squash A1 and A2
-|/  
+|/
 * 3183e43 (main) M1
 
 "#]]
@@ -2972,9 +2930,9 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
 ⌂:7:A <> ✓refs/remotes/origin/main⇣1 on 3183e43
 └── ≡👉:7:A[🌳] on 3183e43 {1}
     └── 👉:7:A[🌳]
-        ├── ·f015e95
-        ├── ·ad1d22b
-        └── ·fe98e29
+        ├── ·f015e95 (🏘️)
+        ├── ·ad1d22b (🏘️)
+        └── ·fe98e29 (🏘️)
 
 "#]]
     );
@@ -2999,28 +2957,17 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     )?;
     rebase.materialize()?;
 
-    let graph = but_graph::Graph::from_commit_traversal_tips(
-        &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), repo.head_name()?),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
-        &meta,
-        updated_project_meta,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_repo(&repo, &meta, updated_project_meta, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:5:A <> ✓refs/remotes/origin/main on e2f5892
-└── ≡👉:5:A[🌳] on e2f5892 {1}
-    ├── 👉:5:A[🌳]
-    │   └── ·92f1780
-    └── :3:origin/main →:4:
+⌂:4:A <> ✓refs/remotes/origin/main on e2f5892
+└── ≡👉:4:A[🌳] on e2f5892 {1}
+    ├── 👉:4:A[🌳]
+    │   └── ·92f1780 (🏘️)
+    └── :5:origin/main →:3:
 
 "#]]
     );
@@ -3061,21 +3008,14 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         .args(["commit", "-m", "post-review local commit"])
         .run();
 
-    let graph = but_graph::Graph::from_commit_traversal_tips(
+    let graph = but_graph::Graph::from_repo(
         &repo,
-        [
-            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
-            Tip::integrated(
-                repo.rev_parse_single("origin/main")?.detach(),
-                Some("refs/remotes/origin/main".try_into()?),
-            ),
-        ],
         &meta,
-        project_meta(&meta)?,
-        Options {
-            extra_target_commit_id: Some(target_sha),
-            ..Options::limited()
+        but_core::ref_metadata::ProjectMeta {
+            target_commit_id: Some(target_sha),
+            ..project_meta(&meta)?
         },
+        Overlay::default(),
     )?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();

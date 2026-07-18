@@ -51,8 +51,12 @@ pub fn reload_legacy(
         let meta = ctx.meta()?;
         let project_meta = ctx.project_meta()?;
         let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
-        let graph =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, ws.graph.options().clone())?;
+        let graph = but_graph::Graph::from_repo(
+            &repo,
+            &meta,
+            project_meta,
+            but_graph::init::Overlay::default(),
+        )?;
         *ws = graph.into_workspace()?;
     }
 

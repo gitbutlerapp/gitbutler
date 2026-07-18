@@ -80,7 +80,7 @@ fn checkout_returns_head_info_matching_fresh_head_info() -> anyhow::Result<()> {
         snapbox::str![["
 * b720e1f (sibling) sibling
 | * edd8381 (feature) feature
-|/  
+|/
 * 5374caf (HEAD -> main, origin/main) main
 
 "]]
@@ -102,7 +102,7 @@ fn checkout_returns_head_info_matching_fresh_head_info() -> anyhow::Result<()> {
             snapbox::str![["
 * b720e1f (sibling) sibling
 | * edd8381 (HEAD -> feature) feature
-|/  
+|/
 * 5374caf (origin/main, main) main
 
 "]]
@@ -112,11 +112,11 @@ fn checkout_returns_head_info_matching_fresh_head_info() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         crate::support::workspace_graph(&ctx)?,
         snapbox::str![[r#"
-⌂:2:feature <> ✓refs/remotes/origin/main on 5374caf
-└── ≡👉:2:feature[🌳] on 5374caf {1}
-    ├── 👉:2:feature[🌳]
-    │   └── ·edd8381
-    └── :3:main <> origin/main →:4:
+⌂:4:feature <> ✓refs/remotes/origin/main on 5374caf
+└── ≡👉:4:feature[🌳] on 5374caf {1}
+    ├── 👉:4:feature[🌳]
+    │   └── ·edd8381 (🏘️)
+    └── :2:main <> origin/main →:3:
 
 "#]]
     );
@@ -173,7 +173,7 @@ RefInfo {
             ),
             segments: [
                 👉ref_info::ui::Segment {
-                    id: 2,
+                    id: 4,
                     ref_name: "►feature[🌳]",
                     remote_tracking_ref_name: "None",
                     commits: [
@@ -186,7 +186,7 @@ RefInfo {
                     base: "None",
                 },
                 ref_info::ui::Segment {
-                    id: 3,
+                    id: 2,
                     ref_name: "►main",
                     remote_tracking_ref_name: "refs/remotes/origin/main",
                     commits: [],
@@ -204,18 +204,18 @@ RefInfo {
             ref_name: FullName(
                 "refs/remotes/origin/main",
             ),
-            node_index: 4,
+            node_index: 3,
             commits_ahead: 0,
         },
     ),
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(5374caf21933aee76b72bad8d6e30949c7a30e04),
-            node_index: 1,
+            node_index: 0,
         },
     ),
     lower_bound: Some(
-        1,
+        0,
     ),
     is_managed_ref: false,
     is_managed_commit: false,
@@ -255,7 +255,7 @@ fn checkout_new_returns_head_info_matching_fresh_head_info() -> anyhow::Result<(
             snapbox::str![["
 * b720e1f (sibling) sibling
 | * edd8381 (feature) feature
-|/  
+|/
 * 5374caf (HEAD -> new-branch, origin/main, main) main
 
 "]]

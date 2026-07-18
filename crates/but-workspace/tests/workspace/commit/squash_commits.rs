@@ -69,7 +69,7 @@ fn squash_top_commit_into_parent() -> Result<()> {
         snapbox::str![[r#"
 * 38b3243 (HEAD -> three, two) commit two
 | * 16fd221 (origin/two) commit two
-|/  
+|/
 * 8b426d0 (one) commit one
 
 "#]]
@@ -207,7 +207,7 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
         snapbox::str![[r#"
 * 7ec20cb (HEAD -> three) commit three
 | * 16fd221 (origin/two) commit two
-|/  
+|/
 * 8b426d0 (two, one) commit one
 
 "#]]
@@ -471,9 +471,8 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
         })?;
 
     let mut ws = graph.into_workspace()?;
-    let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
     snapbox::assert_data_eq!(
-        normalized,
+        visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   c49e4d8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\
@@ -488,12 +487,12 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:8:A on 85efbe4 {1}
-│   └── 📙:8:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:4:A on 85efbe4 {1}
+│   └── 📙:4:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:7:B on 85efbe4 {2}
-    └── 📙:7:B
+└── ≡📙:8:B on 85efbe4 {2}
+    └── 📙:8:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -522,9 +521,9 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   5eaffd7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 * | a2dc4c7 (B) B
-|/  
+|/
 * 85efbe4 (origin/main, main, A) M
 
 "#]]
@@ -533,9 +532,9 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:3:A on 85efbe4 {1}
-│   └── 📙:3:A
+📕🏘️:3:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:4:A on 85efbe4 {1}
+│   └── 📙:4:A
 └── ≡📙:7:B on 85efbe4 {2}
     └── 📙:7:B
         └── ·a2dc4c7 (🏘️)
@@ -556,9 +555,8 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
 
     let mut ws = graph.into_workspace()?;
 
-    let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
     snapbox::assert_data_eq!(
-        normalized,
+        visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   c49e4d8 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\
@@ -574,12 +572,12 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:8:A on 85efbe4 {1}
-│   └── 📙:8:A
+📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:4:A on 85efbe4 {1}
+│   └── 📙:4:A
 │       └── ·09d8e52 (🏘️)
-└── ≡📙:7:B on 85efbe4 {2}
-    └── 📙:7:B
+└── ≡📙:8:B on 85efbe4 {2}
+    └── 📙:8:B
         └── ·c813d8d (🏘️)
 
 "#]]
@@ -608,9 +606,9 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   2e7b9b5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 80db672 (A) A
-|/  
+|/
 * 85efbe4 (origin/main, main, B) M
 
 "#]]
@@ -619,12 +617,12 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:6:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-├── ≡📙:7:A on 85efbe4 {1}
-│   └── 📙:7:A
+📕🏘️:3:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:4:A on 85efbe4 {1}
+│   └── 📙:4:A
 │       └── ·80db672 (🏘️)
-└── ≡📙:3:B on 85efbe4 {2}
-    └── 📙:3:B
+└── ≡📙:5:B on 85efbe4 {2}
+    └── 📙:5:B
 
 "#]]
     );
@@ -640,9 +638,8 @@ fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()
             add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
         })?;
 
-    let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
     snapbox::assert_data_eq!(
-        normalized,
+        visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   c47834b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\
@@ -709,9 +706,8 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
             add_stack_with_segments(meta, 2, "E", StackState::InWorkspace, &["B", "C"]);
         })?;
 
-    let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
     snapbox::assert_data_eq!(
-        normalized,
+        visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   8cf5961 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\
@@ -745,9 +741,8 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
     let materialized = outcome.rebase.materialize()?;
     let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
 
-    let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
     snapbox::assert_data_eq!(
-        normalized,
+        visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   c9040ff (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\

@@ -30,10 +30,10 @@ mod with_workspace {
             visualize_commit_graph(&repo, "HEAD")?,
             snapbox::str![[r#"
 *   2a6d103 (HEAD -> merge) Merge branch 'A' into merge
-|\  
+|\
 | * 7f389ed (A) add 10 to the beginning
 * | 91ef6f6 (B) add 10 to the end
-|/  
+|/
 * ff045ef (main) init
 
 "#]]
@@ -272,7 +272,7 @@ BranchDetails {
             snapbox::str![[r#"
 * 1a265a4 (HEAD -> A) local change in A
 | * 89cc2d3 (origin/A) change in A
-|/  
+|/
 * d79bba9 new file in A
 * c166d42 (origin/main, origin/HEAD, main) init-integration
 

@@ -36,6 +36,21 @@ pub fn remove_reference(
         keep_metadata,
     }: Options,
 ) -> anyhow::Result<Option<but_graph::Workspace>> {
+    let project_meta = workspace.graph.project_meta().clone();
+    let (mut entrypoint_id, mut entrypoint_ref) = match workspace.graph.entrypoint() {
+        but_graph::NodeGraphEntrypoint::Node(index) => {
+            let Some(node) = workspace.graph.nodes().get(*index) else {
+                unreachable!("born graph entrypoints are valid node indices")
+            };
+            match node.kind() {
+                but_graph::NodeKind::Commit { id } => {
+                    (*id, workspace.graph.entrypoint_ref().map(ToOwned::to_owned))
+                }
+                _ => unreachable!("born graph entrypoints are commits"),
+            }
+        }
+        but_graph::NodeGraphEntrypoint::Unborn(_) => return Ok(None),
+    };
     // We assume the stack-idx can't change by deleting
     let Some((stack, _segment)) = find_segment_and_stack(workspace, ref_name) else {
         return Ok(None);
@@ -64,11 +79,20 @@ pub fn remove_reference(
     if !deleted_ref && !deleted_meta {
         return Ok(None);
     }
+    if entrypoint_ref
+        .as_ref()
+        .is_some_and(|name| name.as_ref() == ref_name)
+    {
+        entrypoint_ref = None;
+    }
 
     let stack_id = stack.id;
-    let mut graph = workspace
-        .graph
-        .redo_traversal_with_overlay(repo, meta, Default::default())?;
+    let mut graph = but_graph::Graph::from_repo(
+        repo,
+        meta,
+        project_meta.clone(),
+        but_graph::init::Overlay::default().with_entrypoint(entrypoint_id, entrypoint_ref.clone()),
+    )?;
     let ws = graph.into_workspace()?;
     if avoid_anonymous_stacks {
         let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
@@ -101,9 +125,18 @@ pub fn remove_reference(
                 PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
                 "move segment reference up to avoid anonymous stack",
             )?;
-            graph = ws
-                .graph
-                .redo_traversal_with_overlay(repo, meta, Default::default())?;
+            if entrypoint_ref
+                .as_ref()
+                .is_some_and(|name| name.as_ref() == name_of_segment_below)
+            {
+                entrypoint_id = commit.id;
+            }
+            graph = but_graph::Graph::from_repo(
+                repo,
+                meta,
+                project_meta,
+                but_graph::init::Overlay::default().with_entrypoint(entrypoint_id, entrypoint_ref),
+            )?;
             Ok(Some(graph.into_workspace()?))
         } else {
             Ok(Some(ws))

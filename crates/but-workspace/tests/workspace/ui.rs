@@ -1,6 +1,5 @@
 mod changes_in_branch {
     use but_core::RefMetadata;
-    use but_graph::init::Options;
     use but_testsupport::visualize_commit_graph_all;
     use but_workspace::ui;
     use snapbox::prelude::*;
@@ -15,19 +14,19 @@ mod changes_in_branch {
             snapbox::str![[r#"
 * fb27086 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * 89cc2d3 (origin/A) change in A
-|/  
+|/
 * d79bba9 (A) new file in A
 * c166d42 (origin/main, origin/HEAD, main) init-integration
 
 "#]]
         );
 
-        let graph = but_graph::Graph::from_head(
+        let graph = but_graph::Graph::from_repo(
             &repo,
             &*meta,
             meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
                 .project_meta(),
-            Options::limited(),
+            but_graph::init::Overlay::default(),
         )?;
         let ws = graph.into_workspace()?;
 

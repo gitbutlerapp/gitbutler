@@ -1,4 +1,4 @@
-use but_core::{RefMetadata, ref_metadata::StackId};
+use but_core::ref_metadata::StackId;
 use but_meta::{
     VirtualBranchesTomlMetadata,
     virtual_branches_legacy_types::{Stack, StackBranch, Target},
@@ -60,42 +60,6 @@ pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
     );
 }
 
-pub fn add_workspace_with_target(
-    meta: &mut VirtualBranchesTomlMetadata,
-    target_commit: impl Into<gix::ObjectId>,
-) {
-    add_stack(
-        meta,
-        usize::MAX,
-        "definitely-outside-of-the-workspace-just-to-have-it",
-        StackState::Inactive,
-    );
-    meta.data_mut()
-        .default_target
-        .as_mut()
-        .expect("set in prior call")
-        .sha = target_commit.into();
-}
-
-pub fn remove_target(meta: &mut VirtualBranchesTomlMetadata) {
-    let mut ws_md = meta
-        .workspace(
-            "refs/heads/gitbutler/workspace"
-                .try_into()
-                .expect("statically known to be valid"),
-        )
-        .unwrap();
-    let mut project_meta = ws_md.project_meta();
-    project_meta.target_ref = None;
-    ws_md.set_project_meta(project_meta);
-    meta.set_workspace(&ws_md).unwrap();
-}
-
-pub fn add_workspace_without_target(meta: &mut VirtualBranchesTomlMetadata) {
-    add_workspace(meta);
-    meta.data_mut().default_target = None;
-}
-
 pub fn add_stack(
     meta: &mut VirtualBranchesTomlMetadata,
     stack_id: usize,
@@ -148,26 +112,3 @@ pub fn add_stack_with_segments(
     }
     stack_id
 }
-
-pub fn standard_options() -> but_graph::init::Options {
-    but_graph::init::Options {
-        collect_tags: true,
-        commits_limit_hint: None,
-        commits_limit_recharge_location: vec![],
-        hard_limit: None,
-        extra_target_commit_id: None,
-        dangerously_skip_postprocessing_for_debugging: false,
-    }
-}
-
-pub fn standard_options_with_extra_target(
-    repo: &gix::Repository,
-    name: &str,
-) -> but_graph::init::Options {
-    but_graph::init::Options {
-        extra_target_commit_id: Some(repo.rev_parse_single(name).expect("present").detach()),
-        ..standard_options()
-    }
-}
-
-pub use but_testsupport::{id_at, id_by_rev};

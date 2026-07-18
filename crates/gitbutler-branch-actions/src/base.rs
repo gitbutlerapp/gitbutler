@@ -345,13 +345,9 @@ pub(crate) fn target_to_base_branch(
         .collect::<Vec<_>>();
     if heads.is_empty()
         && let NodeGraphEntrypoint::Node(entrypoint) = ws.graph.entrypoint()
-        && let Some(id) = match ws.graph.nodes()[*entrypoint].kind() {
-            NodeKind::Commit { id } => Some(*id),
-            NodeKind::Reference(reference) => reference.ref_info.commit_id,
-            NodeKind::ShallowPoint { .. } => None,
-        }
+        && let NodeKind::Commit { id } = ws.graph.nodes()[*entrypoint].kind()
     {
-        heads.push(id);
+        heads.push(*id);
     }
     let mut upstream_commit_ids = heads
         .into_iter()

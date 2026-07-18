@@ -777,10 +777,10 @@ fn checkout_handles_directory_and_file_replacements() -> anyhow::Result<()> {
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 *   2a6d103 (HEAD -> merge) Merge branch 'A' into merge
-|\  
+|\
 | * 7f389ed (A) add 10 to the beginning
 * | 91ef6f6 (B) add 10 to the end
-|/  
+|/
 * ff045ef (main) init
 
 "#]]
@@ -825,10 +825,10 @@ Outcome {
         snapbox::str![[r#"
 * df178e3 (HEAD -> merge) turn file into a directory
 *   2a6d103 Merge branch 'A' into merge
-|\  
+|\
 | * 7f389ed (A) add 10 to the beginning
 * | 91ef6f6 (B) add 10 to the end
-|/  
+|/
 * ff045ef (main) init
 
 "#]]
@@ -873,10 +873,10 @@ Outcome {
 * 94cc54f (HEAD -> merge) turn a directory back into a file
 * df178e3 turn file into a directory
 *   2a6d103 Merge branch 'A' into merge
-|\  
+|\
 | * 7f389ed (A) add 10 to the beginning
 * | 91ef6f6 (B) add 10 to the end
-|/  
+|/
 * ff045ef (main) init
 
 "#]]

@@ -219,6 +219,20 @@ pub(super) mod function {
     ) -> anyhow::Result<Cow<'ws, but_graph::Workspace>> {
         let anchor = anchor.into();
         let order = order.into();
+        let project_meta = workspace.graph.project_meta().clone();
+        let source_entrypoint = match workspace.graph.entrypoint() {
+            but_graph::NodeGraphEntrypoint::Node(index) => {
+                match workspace.graph.nodes()[*index].kind() {
+                    but_graph::NodeKind::Commit { id } => {
+                        (*id, workspace.graph.entrypoint_ref().map(ToOwned::to_owned))
+                    }
+                    _ => unreachable!("born graph entrypoints are commits"),
+                }
+            }
+            but_graph::NodeGraphEntrypoint::Unborn(_) => {
+                anyhow::bail!("cannot create a reference relative to an unborn workspace")
+            }
+        };
 
         let ws_base = workspace.lower_bound;
         // Note that we will never create metadata for a workspace!
@@ -463,11 +477,11 @@ pub(super) mod function {
             }
             if let Some(new_tip) = ad_hoc_new_tip {
                 overlay = overlay.with_entrypoint(ref_target_id, Some(new_tip));
+            } else {
+                overlay = overlay.with_entrypoint(source_entrypoint.0, source_entrypoint.1);
             }
 
-            workspace
-                .graph
-                .redo_traversal_with_overlay(repo, meta, overlay)?
+            but_graph::Graph::from_repo(repo, meta, project_meta, overlay)?
         };
 
         let updated_workspace = graph_with_new_ref.into_workspace()?;

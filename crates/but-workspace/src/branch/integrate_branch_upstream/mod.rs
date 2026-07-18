@@ -252,13 +252,14 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
             .iter()
             .zip(workspace.graph.annotations())
             .filter_map(|(node, flags)| {
-                if !flags.contains(but_graph::CommitFlags::Integrated) {
+                if !flags.contains(but_graph::CommitFlags::TargetSide) {
                     return None;
                 }
                 match node.kind() {
                     but_graph::NodeKind::Commit { id } => Some(*id),
-                    but_graph::NodeKind::Reference(_)
-                    | but_graph::NodeKind::ShallowPoint { .. } => None,
+                    but_graph::NodeKind::Reference(_) | but_graph::NodeKind::Boundary { .. } => {
+                        None
+                    }
                 }
             })
             .collect()

@@ -193,8 +193,8 @@ use crate::{
     commit::merge::Tip,
     ref_info::WorkspaceExt,
     workspace::{
-        find_segment_and_stack, ref_reachable_from_entrypoint, target_matches_branch,
-        workspace_contains_ref, workspace_is_entrypoint, workspace_tip_id,
+        ref_reachable_from_entrypoint, target_matches_branch, workspace_contains_ref,
+        workspace_is_entrypoint, workspace_tip_id,
     },
 };
 
@@ -234,6 +234,7 @@ pub fn apply(
     }: Options,
 ) -> anyhow::Result<Outcome> {
     let ws = workspace;
+    let project_meta = ws.graph.project_meta().clone();
     let new_stack_id = new_stack_id.unwrap_or(generate_new_stack_id);
     let branch_orig = branch;
     let (mut branch_ref, mut incoming_branch_is_remote_tracking_without_local_tracking) =
@@ -274,7 +275,12 @@ pub fn apply(
             conflicting_stacks: Vec::new(),
             applied_branches: Vec::new(),
         });
-    } else if !branch_has_applied_metadata && workspace_contains_ref(&ws, branch.as_ref()) {
+    // Metadata can project an outside branch as a stack. Repair metadata only when the
+    // workspace commit actually reaches the branch tip.
+    } else if !branch_has_applied_metadata
+        && workspace_reaches_branch_target(&ws, branch.as_ref())
+        && workspace_contains_ref(&ws, branch.as_ref())
+    {
         // This means our workspace encloses the desired branch, but it's not checked out yet.
         let commit_to_checkout =
             workspace_tip_id(&ws).context("Workspace must point to a commit to check out")?;
@@ -296,14 +302,13 @@ pub fn apply(
             add_branch_as_stack_forcefully(&mut ws_md, branch.as_ref(), order, new_stack_id);
             persist_metadata_and_gitconfig(meta, &applied_branches, &ws_md, None)?;
         }
-        let ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                repo,
-                meta,
-                Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name.clone()),
-            )?
-            .into_workspace()?;
+        let ws = but_graph::Graph::from_repo(
+            repo,
+            meta,
+            project_meta.clone(),
+            Overlay::default().with_entrypoint(commit_to_checkout, ws_ref_name.clone()),
+        )?
+        .into_workspace()?;
         set_head_to_reference(
             repo,
             commit_to_checkout,
@@ -432,8 +437,9 @@ pub fn apply(
         let projected_refs = matches!(ws.kind, WorkspaceKind::AdHoc).then(|| {
             ws.stacks
                 .iter()
-                .flat_map(|s| s.segments.iter())
-                .filter_map(|seg| seg.ref_name().map(|rn| rn.as_bstr()))
+                .flat_map(|stack| stack.segments.iter())
+                .flat_map(|segment| segment.ref_names())
+                .map(|ref_name| ref_name.as_bstr())
                 .collect::<std::collections::HashSet<_>>()
         });
         for stack in &mut ws_mut.stacks {
@@ -480,6 +486,10 @@ pub fn apply(
 
     let overlay = Overlay::default()
         .with_entrypoint(ws_ref_id, Some(workspace_ref_name_to_update.clone()))
+        .with_references([direct_reference(
+            workspace_ref_name_to_update.clone(),
+            ws_ref_id,
+        )])
         .with_references_if_new(commit_to_create_branch_at.map(|tracking_commit_id| {
             gix::refs::Reference {
                 name: branch.to_owned(),
@@ -489,21 +499,12 @@ pub fn apply(
         }))
         .with_branch_metadata_override(branch_mds)
         .with_workspace_metadata_override(ws_md_override);
-    let ws = ws
-        .graph
-        .redo_traversal_with_overlay(repo, meta, overlay.clone())?
+    let ws = but_graph::Graph::from_repo(repo, meta, project_meta.clone(), overlay.clone())?
         .into_workspace()?;
 
     let all_applied_branches_are_already_visible = branches_to_apply.iter().all(|rn| {
-        find_segment_and_stack(&ws, rn.as_ref()).is_some_and(|(_stack, segment)| {
-            // Outside refs decorate an anonymous in-workspace commit; remote siblings point to refs.
-            !segment.sibling_node_id.is_some_and(|sibling| {
-                ws.graph
-                    .nodes()
-                    .get(sibling)
-                    .is_some_and(|node| matches!(node.kind(), but_graph::NodeKind::Commit { .. }))
-            })
-        })
+        workspace_reaches_branch_target(&ws, rn.as_ref())
+            && workspace_contains_ref(&ws, rn.as_ref())
     });
     let needs_ws_ref_creation = !ws_ref_exists;
     let local_tracking_config_and_ref_info = local_tracking_config_and_ref_info
@@ -523,7 +524,12 @@ pub fn apply(
     // re-root the workspace around the applied branches, which is what legitimately (re)creates the
     // workspace commit.
     let head_id = repo.head_id().context("BUG: we assume HEAD is born here")?;
-    if all_applied_branches_are_already_visible && head_id == ws_ref_id {
+    let must_create_workspace_merge =
+        integration_mode == WorkspaceMerge::AlwaysMerge && !ws.kind.has_managed_commit();
+    if all_applied_branches_are_already_visible
+        && head_id == ws_ref_id
+        && !must_create_workspace_merge
+    {
         persist_metadata_and_gitconfig(
             meta,
             &branches_to_apply,
@@ -536,22 +542,26 @@ pub fn apply(
             head_id.object()?.peel_to_tree()?.id,
         )?;
         let ws_commit_with_new_message = ws_commit_with_new_message.id.detach();
-        let (graph, new_head_id) = if (ws_commit_with_new_message != head_id
-            && ws.kind.has_managed_commit())
-            || needs_workspace_commit_without_remerge(&ws, integration_mode)
-        {
-            let graph = ws.graph.redo_traversal_with_overlay(
-                repo,
-                meta,
-                overlay.with_entrypoint(
-                    ws_commit_with_new_message,
-                    Some(workspace_ref_name_to_update.clone()),
-                ),
-            )?;
-            (graph, ws_commit_with_new_message)
-        } else {
-            (ws.graph, ws_ref_id)
-        };
+        let (graph, new_head_id) =
+            if ws_commit_with_new_message != head_id && ws.kind.has_managed_commit() {
+                let graph = but_graph::Graph::from_repo(
+                    repo,
+                    meta,
+                    project_meta.clone(),
+                    overlay
+                        .with_entrypoint(
+                            ws_commit_with_new_message,
+                            Some(workspace_ref_name_to_update.clone()),
+                        )
+                        .with_references([direct_reference(
+                            workspace_ref_name_to_update.clone(),
+                            ws_commit_with_new_message,
+                        )]),
+                )?;
+                (graph, ws_commit_with_new_message)
+            } else {
+                (ws.graph, ws_ref_id)
+            };
 
         set_head_to_reference(
             repo,
@@ -578,7 +588,7 @@ pub fn apply(
     }
 
     let existing_stacks_superseded_by_branch =
-        find_superseded_stacks(branch.as_ref(), &ws, &mut ws_md);
+        find_superseded_stacks(branch.as_ref(), &branches_to_apply, &ws, &mut ws_md);
     // At this point, the workspace-metadata already knows the new branch(es), but the workspace itself
     // doesn't see one or more of to-be-applied branches (to become stacks).
     // These are, however, part of the graph by now, and we want to try to create a workspace
@@ -620,10 +630,13 @@ pub fn apply(
     let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
     let overlay = overlay
         .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
+        .with_references([direct_reference(
+            workspace_ref_name_to_update.clone(),
+            new_head_id,
+        )])
         .with_workspace_metadata_override(ws_md_override);
-    let graph = ws
-        .graph
-        .redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
+    let graph =
+        but_graph::Graph::from_repo(&in_memory_repo, meta, project_meta.clone(), overlay.clone())?;
 
     let mut ws = graph.into_workspace()?;
     let collect_unapplied_branches = |ws: &but_graph::Workspace| {
@@ -699,7 +712,7 @@ pub fn apply(
         // Redo the merge, with the different stack configuration.
         // Note that this is the exception, typically using stacks will be fine.
         let existing_stacks_superseded_by_branch =
-            find_superseded_stacks(branch.as_ref(), &ws, &mut ws_md);
+            find_superseded_stacks(branch.as_ref(), &branches_to_apply, &ws, &mut ws_md);
         merge_result = WorkspaceCommit::from_new_merge_with_metadata(
             filter_superseded_metadata_stacks(
                 ws_md.stacks.iter(),
@@ -731,16 +744,19 @@ pub fn apply(
         conflicting_stacks = correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
         remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stacks);
         let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
-        ws = ws
-            .graph
-            .redo_traversal_with_overlay(
-                &in_memory_repo,
-                meta,
-                overlay
-                    .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
-                    .with_workspace_metadata_override(ws_md_override),
-            )?
-            .into_workspace()?;
+        ws = but_graph::Graph::from_repo(
+            &in_memory_repo,
+            meta,
+            project_meta,
+            overlay
+                .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
+                .with_references([direct_reference(
+                    workspace_ref_name_to_update.clone(),
+                    new_head_id,
+                )])
+                .with_workspace_metadata_override(ws_md_override),
+        )?
+        .into_workspace()?;
         let unapplied_branches = collect_unapplied_branches(&ws);
 
         if !unapplied_branches.is_empty() {
@@ -793,6 +809,14 @@ pub fn apply(
         conflicting_stacks,
         applied_branches,
     })
+}
+
+fn direct_reference(name: gix::refs::FullName, id: gix::ObjectId) -> gix::refs::Reference {
+    gix::refs::Reference {
+        name,
+        target: Target::Object(id),
+        peeled: Some(id),
+    }
 }
 
 /// Map conflicting merge tips back to workspace stack metadata.
@@ -895,19 +919,34 @@ fn filter_superseded_anon_stacks(
 /// `ws_meta` will be adjusted to indicate that the superseded branches are outside the workspace.
 fn find_superseded_stacks(
     branch: &FullNameRef,
+    branches_to_apply: &[gix::refs::FullName],
     workspace: &but_graph::Workspace,
     ws_meta: &mut ref_metadata::Workspace,
 ) -> Vec<(Option<gix::refs::FullName>, gix::ObjectId)> {
     let graph = &workspace.graph;
-    let superseded = if let Some((branch_node, _)) = graph.node_by_ref_name(branch) {
+    let superseded = if let Some(branch_commit) = graph
+        .node_by_ref_name(branch)
+        .and_then(|(_, reference)| reference.ref_info.commit_id)
+        .and_then(|id| graph.node_by_commit_id(id).map(|(index, _)| index))
+    {
         workspace
             .stacks
             .iter()
-            .filter(|stack| stack.ref_name() != Some(branch))
+            .filter(|stack| {
+                !stack
+                    .segments
+                    .iter()
+                    .flat_map(|segment| segment.ref_names())
+                    .any(|stack_ref| {
+                        branches_to_apply
+                            .iter()
+                            .any(|requested| requested.as_ref() == stack_ref)
+                    })
+            })
             .filter_map(|stack| {
                 let tip = stack.tip_skip_empty()?;
                 let tip_node = graph.node_by_commit_id(tip)?.0;
-                node_reaches(graph, branch_node, tip_node)
+                commit_reaches(graph, branch_commit, tip_node)
                     .then(|| (stack.ref_name().map(ToOwned::to_owned), tip))
             })
             .collect()
@@ -937,7 +976,24 @@ fn find_superseded_stacks(
     superseded
 }
 
-fn node_reaches(
+fn workspace_reaches_branch_target(workspace: &but_graph::Workspace, branch: &FullNameRef) -> bool {
+    let graph = &workspace.graph;
+    let Some(entrypoint_commit) = workspace_tip_id(workspace)
+        .and_then(|id| graph.node_by_commit_id(id).map(|(index, _)| index))
+    else {
+        return false;
+    };
+    let Some(branch_commit) = graph
+        .node_by_ref_name(branch)
+        .and_then(|(_, reference)| reference.ref_info.commit_id)
+        .and_then(|id| graph.node_by_commit_id(id).map(|(index, _)| index))
+    else {
+        return false;
+    };
+    commit_reaches(graph, entrypoint_commit, branch_commit)
+}
+
+fn commit_reaches(
     graph: &but_graph::Graph,
     start: but_graph::NodeIndex,
     wanted: but_graph::NodeIndex,
@@ -949,13 +1005,19 @@ fn node_reaches(
             return true;
         }
         if seen.insert(index) {
-            pending.extend(
-                graph
-                    .nodes()
-                    .get(index)
-                    .into_iter()
-                    .flat_map(|node| node.parents().iter().copied()),
-            );
+            let Some(node) = graph.nodes().get(index) else {
+                continue;
+            };
+            match node.kind() {
+                but_graph::NodeKind::Commit { .. } => pending.extend(node.parents()),
+                but_graph::NodeKind::Reference(reference) => pending.extend(
+                    reference
+                        .ref_info
+                        .commit_id
+                        .and_then(|id| graph.node_by_commit_id(id).map(|(index, _)| index)),
+                ),
+                but_graph::NodeKind::Boundary { .. } => {}
+            }
         }
     }
     false
@@ -1118,23 +1180,6 @@ fn set_head_to_reference(
     };
     repo.edit_references(edits)?;
     Ok(())
-}
-
-fn needs_workspace_commit_without_remerge(
-    ws: &but_graph::Workspace,
-    integration_mode: WorkspaceMerge,
-) -> bool {
-    match integration_mode {
-        WorkspaceMerge::AlwaysMerge => match ws.kind {
-            WorkspaceKind::Managed { .. } => false,
-            WorkspaceKind::AdHoc => {
-                // If it's still ad-hoc, there must be a reason, and we don't try to create a managed commit
-                false
-            }
-            WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => true,
-        },
-        WorkspaceMerge::MergeIfNeeded => false,
-    }
 }
 
 fn generate_new_stack_id(_: &gix::refs::FullNameRef) -> StackId {

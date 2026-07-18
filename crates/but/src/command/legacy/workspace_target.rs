@@ -33,18 +33,21 @@ pub(crate) struct StatusTarget {
 
 impl ResolvedTarget {
     /// Build a resolved target from workspace projection data.
-    pub(crate) fn from_workspace(workspace: &but_graph::Workspace) -> Result<Self> {
+    pub(crate) fn from_workspace(
+        workspace: &but_graph::Workspace,
+        repo: &gix::Repository,
+    ) -> Result<Self> {
         Ok(Self {
             oid: target_oid_from_workspace(workspace)?,
             ref_name: target_ref_name_from_workspace(workspace),
-            push_remote_name: target_push_remote_name_from_workspace(workspace),
+            push_remote_name: target_push_remote_name_from_workspace(workspace, repo),
         })
     }
 
     /// Resolve the effective workspace target while reusing an existing repository permission.
     pub(crate) fn resolve_with_perm(ctx: &Context, perm: &RepoShared) -> Result<Self> {
-        let (_, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
-        Self::from_workspace(&ws)
+        let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
+        Self::from_workspace(&ws, &repo)
     }
 
     /// Return the effective target commit ID.
@@ -134,7 +137,10 @@ fn target_ref_name_from_workspace(workspace: &but_graph::Workspace) -> Option<gi
 }
 
 /// Resolve the effective target push remote name from workspace projection data.
-fn target_push_remote_name_from_workspace(workspace: &but_graph::Workspace) -> Option<String> {
+fn target_push_remote_name_from_workspace(
+    workspace: &but_graph::Workspace,
+    repo: &gix::Repository,
+) -> Option<String> {
     workspace
         .graph
         .project_meta()
@@ -142,11 +148,10 @@ fn target_push_remote_name_from_workspace(workspace: &but_graph::Workspace) -> O
         .clone()
         .or_else(|| {
             let target_ref = workspace.target_ref.as_ref()?;
-            let remote_names = workspace
-                .graph
-                .symbolic_remote_names()
-                .iter()
-                .map(|name| Cow::Borrowed(name.as_str().into()))
+            let remote_names = repo
+                .remote_names()
+                .into_iter()
+                .map(|name| Cow::Owned(name.into_owned()))
                 .collect();
             extract_remote_name_and_short_name(target_ref.ref_name.as_ref(), &remote_names)
                 .map(|(remote_name, _)| remote_name)
@@ -162,7 +167,7 @@ pub(crate) fn merge_base_with_target_with_perm(
     branch_oid: gix::ObjectId,
 ) -> Result<(gix::ObjectId, ResolvedTarget)> {
     let (repo, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
-    let target = ResolvedTarget::from_workspace(&workspace)?;
+    let target = ResolvedTarget::from_workspace(&workspace, &repo)?;
     let merge_base = repo
         .merge_base(branch_oid, target.oid())
         .map(|merge_base| merge_base.detach())

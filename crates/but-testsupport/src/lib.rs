@@ -193,11 +193,13 @@ pub fn visualize_commit_graph(
     refspec: impl ToString,
 ) -> std::io::Result<String> {
     let log = git(repo)
-        .args(["log", "--oneline", "--graph", "--decorate"])
+        .args(["log", "--no-color", "--oneline", "--graph", "--decorate"])
         .arg(refspec.to_string())
         .output()?;
     assert!(log.status.success());
-    Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())
+    Ok(normalize_commit_graph(
+        log.stdout.to_str().expect("no illformed UTF-8"),
+    ))
 }
 
 /// Produce a graph of all commits reachable from all refs.
@@ -209,10 +211,32 @@ pub fn visualize_commit_graph_all(repo: &gix::Repository) -> std::io::Result<Str
 /// of a valid Git repository.
 pub fn visualize_commit_graph_all_from_dir(dir: impl AsRef<Path>) -> std::io::Result<String> {
     let log = git_at_dir(dir)
-        .args(["log", "--oneline", "--graph", "--decorate", "--all"])
+        .args([
+            "log",
+            "--no-color",
+            "--oneline",
+            "--graph",
+            "--decorate",
+            "--all",
+        ])
         .output()?;
     assert!(log.status.success());
-    Ok(log.stdout.to_str().expect("no illformed UTF-8").to_string())
+    Ok(normalize_commit_graph(
+        log.stdout.to_str().expect("no illformed UTF-8"),
+    ))
+}
+
+fn normalize_commit_graph(graph: &str) -> String {
+    let mut normalized = String::with_capacity(graph.len());
+    for line in graph.split_inclusive('\n') {
+        if let Some(line) = line.strip_suffix('\n') {
+            normalized.push_str(line.trim_end());
+            normalized.push('\n');
+        } else {
+            normalized.push_str(line.trim_end());
+        }
+    }
+    normalized
 }
 
 /// Run a condensed status on `repo`.
