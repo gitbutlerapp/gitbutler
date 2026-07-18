@@ -43,6 +43,7 @@ impl Graph {
 
     /// Insert `segment` to the graph so that it's not connected to any other segment, and return its index.
     pub fn insert_segment(&mut self, segment: Segment) -> SegmentIndex {
+        self.invalidate_construction_graph();
         let index = self.inner.add_node(segment);
         self.inner[index].id = index;
         index
@@ -73,6 +74,7 @@ impl Graph {
         dst_commit_id: impl Into<Option<gix::ObjectId>>,
         parent_order: u32,
     ) -> SegmentIndex {
+        self.invalidate_construction_graph();
         let dst = self.inner.add_node(dst);
         self.inner[dst].id = dst;
         self.connect_segments_with_ids(
@@ -857,6 +859,7 @@ impl Graph {
 
     /// Claim that the graph was pruned without regard to the core graph algorithm.
     pub fn set_hard_limit_hit(&mut self) {
+        self.invalidate_construction_graph();
         self.hard_limit_hit = true;
     }
 
@@ -1345,6 +1348,7 @@ impl Index<SegmentIndex> for Graph {
 
 impl IndexMut<SegmentIndex> for Graph {
     fn index_mut(&mut self, index: SegmentIndex) -> &mut Self::Output {
+        self.invalidate_construction_graph();
         &mut self.inner[index]
     }
 }
@@ -1360,6 +1364,7 @@ impl Deref for Graph {
 // This in particular is only for those who know what they are doing.
 impl std::ops::DerefMut for Graph {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        self.invalidate_construction_graph();
         &mut self.inner
     }
 }

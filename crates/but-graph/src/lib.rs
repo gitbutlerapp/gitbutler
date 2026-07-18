@@ -230,10 +230,15 @@ mod debug;
 pub type CommitIndex = usize;
 
 /// A graph of connected segments that represent a section of the actual commit-graph.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Clone)]
 #[must_use]
 pub struct Graph {
     inner: init::PetGraph,
+    /// The construction graph from which this compatibility view was derived.
+    ///
+    /// Any mutation of the segmented graph clears this value because the two
+    /// representations can no longer be assumed to describe the same topology.
+    construction_graph: Option<std::sync::Arc<NodeGraph>>,
     /// From where the graph was created. This is useful if one wants to focus on a subset of the graph.
     ///
     /// This is `None` only for a freshly default-initialized graph, or while a graph is being assembled before
@@ -282,6 +287,25 @@ pub struct Graph {
     pub symbolic_remote_names: Vec<String>,
 }
 
+impl std::fmt::Debug for Graph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Graph")
+            .field("inner", &self.inner)
+            .field("entrypoint", &self.entrypoint)
+            .field("entrypoint_ref", &self.entrypoint_ref)
+            .field("traversal_tips", &self.traversal_tips)
+            .field(
+                "ad_hoc_branch_stack_orders",
+                &self.ad_hoc_branch_stack_orders,
+            )
+            .field("hard_limit_hit", &self.hard_limit_hit)
+            .field("options", &self.options)
+            .field("project_meta", &self.project_meta)
+            .field("symbolic_remote_names", &self.symbolic_remote_names)
+            .finish()
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum EntryPointCommit {
     /// The traversal tip is known.
@@ -316,6 +340,16 @@ impl EntryPointCommit {
 }
 
 impl Graph {
+    /// Return the vector-backed graph used to construct this segmented
+    /// compatibility view, if the graph has not been mutated since construction.
+    pub fn construction_graph(&self) -> Option<std::sync::Arc<NodeGraph>> {
+        self.construction_graph.clone()
+    }
+
+    pub(crate) fn invalidate_construction_graph(&mut self) {
+        self.construction_graph = None;
+    }
+
     /// Return the entrypoint as a segment plus the optional position of its tip commit in that segment.
     ///
     /// The graph stores the tip as an object id so it survives post-processing that moves the entrypoint to

@@ -2,12 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
-use but_graph::{Commit, SegmentIndex};
-use petgraph::{Direction, visit::EdgeRef as _};
+use but_graph::{NodeGraph, NodeGraphEntrypoint, NodeKind, Reference, SegmentMetadata};
 
 use crate::graph_rebase::{
     Checkout, Edge, Editor, Pick, RevisionHistory, Selector, Step, StepGraph, StepGraphIndex,
-    SuccessfulRebase, util,
+    SuccessfulRebase,
 };
 
 #[derive(Clone)]
@@ -15,12 +14,11 @@ use crate::graph_rebase::{
 pub struct GraphEditorOptions {
     /// Determines how cherry-picked commits are signed.
     pub default_sign_commit: SignCommit,
-    /// References whose segment should be forced mutable.
+    /// References whose ancestry should be forced mutable.
     ///
-    /// The editor always contains every segment in the workspace graph, with
+    /// The editor always contains every node in the construction graph, with
     /// only those reachable from `HEAD` being mutable. Use this to force a
-    /// segment that isn't reachable from `HEAD` to be mutable so it can be
-    /// rewritten.
+    /// reference and its ancestry to be mutable so they can be rewritten.
     pub extra_mutable_refs: Vec<gix::refs::FullName>,
 }
 
@@ -51,285 +49,336 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         repo: &gix::Repository,
         options: &GraphEditorOptions,
     ) -> Result<Self> {
-        // This first creates runs of nodes and associates them with the
-        // but-graph segments. We then do a second pass over all the segments
-        // and use the but_graph to connect up the runs. Finally, we validate
-        // that each Pick step's parents match the commit's actual parents,
-        // and if not, we disconnect and rewire directly to the correct
-        // parent commits.
-
-        // TODO(CTO): Look into traversing "in workspace" segments that are not
-        // reachable from the entrypoint TODO(CTO): Look into stopping at the
-        // common base
-        let entrypoint = workspace.graph.entrypoint()?;
-
-        let mut mutable_entrypoints = vec![entrypoint.segment.id];
-
-        for ref_name in &options.extra_mutable_refs {
-            let Some((segment, _)) = workspace
-                .graph
-                .segment_and_commit_by_ref_name(ref_name.as_ref())
-            else {
-                bail!("Failed to find corresponding segment for {ref_name}");
-            };
-            mutable_entrypoints.push(segment.id);
-        }
-
-        // Segments reachable from a mutable entrypoint (following parent edges)
-        // may be rewritten. Every other segment is still included in the
-        // editor, but as immutable.
-        let mut mutable_segments = HashSet::new();
-        for entrypoint in mutable_entrypoints {
-            workspace.graph.visit_all_segments_including_start_until(
-                entrypoint,
-                Direction::Outgoing,
-                |segment| !mutable_segments.insert(segment.id),
+        let graph = workspace.graph.construction_graph().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Editor construction requires an unmodified traversal graph with construction provenance"
+            )
+        })?;
+        let workspace_commit_id = workspace_commit_id(&graph, repo);
+        if workspace_commit_id.is_none()
+            && graph.nodes().iter().any(|node| {
+                matches!(
+                    node.kind(),
+                    NodeKind::Reference(reference)
+                        if matches!(reference.metadata, Some(SegmentMetadata::Workspace(_)))
+                )
+            })
+        {
+            bail!(
+                "Editor construction does not yet support a workspace reference without a managed workspace commit"
             );
         }
+        Self::create_from_node_graph(graph, workspace_commit_id, workspace, meta, repo, options)
+    }
 
-        // The editor contains every commit the graph contains, so we iterate
-        // over all segments rather than only those reachable from an entrypoint.
-        let segments_to_add = workspace.graph.segments().collect::<Vec<_>>();
-
-        let workspace_commit_id = workspace
-            .graph
-            .managed_entrypoint_commit(repo)?
-            .map(|c| c.id);
-
-        let mut commits: Vec<Commit> = vec![];
-        let mut commit_to_idx = HashMap::<gix::ObjectId, SegmentIndex>::new();
-        let mut commit_to_pick_ix = HashMap::<gix::ObjectId, StepGraphIndex>::new();
-        let mut graph = StepGraph::new();
-        let mut head_selectors = vec![];
-        let mut references = vec![];
-        let mut step_reference_names = HashSet::new();
-        struct NodeSegment {
-            nodes: Vec<StepGraphIndex>,
+    fn create_from_node_graph(
+        node_graph: std::sync::Arc<NodeGraph>,
+        workspace_commit_id: Option<gix::ObjectId>,
+        workspace: &'ws mut but_graph::Workspace,
+        meta: &'meta mut M,
+        repo: &gix::Repository,
+        options: &GraphEditorOptions,
+    ) -> Result<Self> {
+        let mut mutable_nodes = HashSet::new();
+        let mut mutable_entrypoints = Vec::new();
+        if let NodeGraphEntrypoint::Node(entrypoint) = node_graph.entrypoint() {
+            mutable_entrypoints.push(*entrypoint);
+        }
+        for ref_name in &options.extra_mutable_refs {
+            let index = node_graph
+                .nodes()
+                .iter()
+                .position(|node| {
+                    matches!(
+                        node.kind(),
+                        NodeKind::Reference(reference)
+                            if reference.ref_info.ref_name == *ref_name
+                    )
+                })
+                .ok_or_else(|| anyhow::anyhow!("Failed to find graph node for {ref_name}"))?;
+            mutable_entrypoints.push(index);
         }
 
-        let mut segments = HashMap::<SegmentIndex, NodeSegment>::new();
-
-        for sid in segments_to_add {
-            let segment = &workspace.graph[sid];
-            let mutable = mutable_segments.contains(&sid);
-            let mut nodes = vec![];
-
-            if let Some(reference) = segment.ref_name() {
-                let refname = reference.to_owned();
-                if !step_reference_names.insert(refname.clone()) {
-                    bail!("BUG: reference {refname} occurs more than once in the workspace graph");
-                }
-                // Only mutable references are tracked for potential deletion.
-                if mutable {
-                    references.push(refname.clone());
-                }
-                let ix = graph.add_node(Step::Reference {
-                    refname: refname.clone(),
-                    mutable,
-                });
-                if Some(reference) == entrypoint.segment.ref_name() {
-                    head_selectors.push(Selector {
-                        id: ix,
-                        revision: 0,
-                    });
-                }
-                nodes.push(ix);
+        // A reference with multiple commit children cannot occupy one NodeGraph parent slot.
+        // Route commit children through the sole local branch to retain Editor segment boundaries.
+        let mut local_refs_by_commit = HashMap::<usize, Vec<usize>>::new();
+        for (index, node) in node_graph.nodes().iter().enumerate() {
+            let NodeKind::Reference(reference) = node.kind() else {
+                continue;
+            };
+            let [target] = node.parents() else {
+                continue;
+            };
+            if reference.ref_info.ref_name.category() == Some(gix::refs::Category::LocalBranch)
+                && matches!(node_graph.nodes()[*target].kind(), NodeKind::Commit { .. })
+            {
+                local_refs_by_commit.entry(*target).or_default().push(index);
             }
-
-            for commit in &segment.commits {
-                commits.push(commit.clone());
-                commit_to_idx.insert(commit.id, segment.id);
-
-                let refs = commit
-                    .refs
+        }
+        let owning_ref_by_commit = local_refs_by_commit
+            .into_iter()
+            .filter_map(|(commit, refs)| (refs.len() == 1).then_some((commit, refs[0])))
+            .collect::<HashMap<_, _>>();
+        let effective_parents = node_graph
+            .nodes()
+            .iter()
+            .map(|node| match node.kind() {
+                NodeKind::Commit { .. } => node
+                    .parents()
                     .iter()
-                    .map(|r| r.ref_name.clone())
-                    .collect::<Vec<_>>();
+                    .map(|parent| owning_ref_by_commit.get(parent).copied().unwrap_or(*parent))
+                    .collect(),
+                NodeKind::Reference(_) | NodeKind::ShallowPoint { .. } => node.parents().to_vec(),
+            })
+            .collect::<Vec<Vec<_>>>();
+        while let Some(index) = mutable_entrypoints.pop() {
+            if mutable_nodes.insert(index) {
+                mutable_entrypoints.extend(&effective_parents[index]);
+            }
+        }
 
-                for reference in refs {
-                    if !step_reference_names.insert(reference.clone()) {
-                        bail!(
-                            "BUG: reference {reference} occurs more than once in the workspace graph"
-                        );
+        let commit_ids = node_graph
+            .nodes()
+            .iter()
+            .filter_map(|node| match node.kind() {
+                NodeKind::Commit { id } => Some(*id),
+                NodeKind::Reference(_) | NodeKind::ShallowPoint { .. } => None,
+            })
+            .collect::<HashSet<_>>();
+
+        let mut graph = StepGraph::new();
+        let mut node_to_step = vec![None; node_graph.nodes().len()];
+        let mut initial_references = Vec::new();
+        let mut step_reference_names = HashSet::new();
+        let unborn_head = match node_graph.entrypoint() {
+            NodeGraphEntrypoint::Unborn(reference) => {
+                let refname = reference.ref_info.ref_name.clone();
+                step_reference_names.insert(refname.clone());
+                initial_references.push(refname.clone());
+                Some(graph.add_node(Step::Reference {
+                    refname,
+                    mutable: true,
+                }))
+            }
+            NodeGraphEntrypoint::Node(_) => None,
+        };
+        for (index, node) in node_graph.nodes().iter().enumerate() {
+            let mutable = mutable_nodes.contains(&index);
+            let step = match node.kind() {
+                NodeKind::Commit { id } => {
+                    let mut pick = if Some(*id) == workspace_commit_id {
+                        Pick::new_workspace_pick(*id)
+                    } else {
+                        let mut pick = Pick::new_pick(*id);
+                        pick.sign_commit = options.default_sign_commit;
+                        pick
+                    };
+                    let parent_ids = repo
+                        .find_commit(*id)?
+                        .parent_ids()
+                        .map(|id| id.detach())
+                        .collect::<Vec<_>>();
+                    let has_shallow_parent = node.parents().iter().any(|parent| {
+                        matches!(
+                            node_graph.nodes()[*parent].kind(),
+                            NodeKind::ShallowPoint { .. }
+                        )
+                    });
+                    if has_shallow_parent || parent_ids.iter().any(|id| !commit_ids.contains(id)) {
+                        pick.preserved_parents = Some(parent_ids);
+                    }
+                    pick.mutable = mutable;
+                    Some(Step::Pick(pick))
+                }
+                NodeKind::Reference(reference) => {
+                    let refname = reference.ref_info.ref_name.clone();
+                    if !step_reference_names.insert(refname.clone()) {
+                        bail!("BUG: reference {refname} occurs more than once in the node graph");
                     }
                     if mutable {
-                        references.push(reference.to_owned());
+                        initial_references.push(refname.clone());
                     }
-                    let ix = graph.add_node(Step::Reference {
-                        refname: reference.clone(),
-                        mutable,
+                    Some(Step::Reference { refname, mutable })
+                }
+                NodeKind::ShallowPoint { .. } => None,
+            };
+            if let Some(step) = step {
+                node_to_step[index] = Some(graph.add_node(step));
+            }
+        }
+
+        let managed_workspace_parents = workspace_commit_id.and_then(|managed_id| {
+            node_graph.nodes().iter().find_map(|node| {
+                let NodeKind::Reference(reference) = node.kind() else {
+                    return None;
+                };
+                if !is_workspace_reference(reference) {
+                    return None;
+                }
+                let (own_target, overlay_parents) = node.parents().split_last()?;
+                matches!(
+                    node_graph.nodes()[*own_target].kind(),
+                    NodeKind::Commit { id } if *id == managed_id
+                )
+                .then(|| overlay_parents.to_vec())
+            })
+        });
+
+        for (index, node) in node_graph.nodes().iter().enumerate() {
+            let Some(source) = node_to_step[index] else {
+                continue;
+            };
+
+            match node.kind() {
+                NodeKind::Commit { id }
+                    if Some(*id) == workspace_commit_id && managed_workspace_parents.is_some() =>
+                {
+                    let overlay_parents =
+                        managed_workspace_parents.as_ref().expect("checked above");
+                    let mut claimed_parent_slots = HashSet::new();
+                    let mut next_parent_order = node.parents().len();
+                    for parent in overlay_parents {
+                        let parent_order = node_target_id(&node_graph, *parent)
+                            .and_then(|id| {
+                                node.parents()
+                                    .iter()
+                                    .enumerate()
+                                    .find_map(|(order, candidate)| {
+                                        (!claimed_parent_slots.contains(&order)
+                                            && node_target_id(&node_graph, *candidate) == Some(id))
+                                        .then_some(order)
+                                    })
+                            })
+                            .unwrap_or_else(|| {
+                                let order = next_parent_order;
+                                next_parent_order += 1;
+                                order
+                            });
+                        claimed_parent_slots.insert(parent_order);
+                        if let Some(target) = node_to_step[*parent] {
+                            graph.add_edge(
+                                source,
+                                target,
+                                Edge {
+                                    order: parent_order,
+                                },
+                            );
+                        }
+                    }
+                    for (order, parent) in node.parents().iter().copied().enumerate() {
+                        if claimed_parent_slots.contains(&order) {
+                            continue;
+                        }
+                        if let Some(target) = node_to_step[parent] {
+                            graph.add_edge(source, target, Edge { order });
+                        }
+                    }
+                }
+                NodeKind::Reference(reference) if is_workspace_reference(reference) => {
+                    let Some((own_target, overlay_parents)) = node.parents().split_last() else {
+                        bail!("BUG: workspace reference node {index} has no target");
+                    };
+                    let target_is_managed = workspace_commit_id.is_some_and(|managed_id| {
+                        matches!(
+                            node_graph.nodes()[*own_target].kind(),
+                            NodeKind::Commit { id } if *id == managed_id
+                        )
                     });
-                    if let Some(previous_ix) = nodes.last() {
-                        graph.add_edge(*previous_ix, ix, Edge { order: 0 });
-                    }
-                    nodes.push(ix);
-                }
-
-                let mut pick = if workspace_commit_id == Some(commit.id) {
-                    Pick::new_workspace_pick(commit.id)
-                } else {
-                    let mut pick = Pick::new_pick(commit.id);
-                    pick.sign_commit = options.default_sign_commit;
-                    pick
-                };
-                pick.mutable = mutable;
-                let ix = graph.add_node(Step::Pick(pick));
-                commit_to_pick_ix.insert(commit.id, ix);
-                if let Some(previous_ix) = nodes.last() {
-                    graph.add_edge(*previous_ix, ix, Edge { order: 0 });
-                }
-                nodes.push(ix);
-            }
-
-            if nodes.is_empty() {
-                tracing::debug!("Empty node added - this is probably impossible");
-                let ix = graph.add_node(Step::None);
-                nodes.push(ix);
-            }
-
-            segments.insert(segment.id, NodeSegment { nodes });
-        }
-
-        let commit_ids = commits.iter().map(|c| c.id).collect::<HashSet<_>>();
-
-        for c in &commits {
-            let has_no_parents = c.parent_ids.is_empty();
-            let missing_parent_steps = c.parent_ids.iter().any(|p| !commit_ids.contains(p));
-
-            // If the commit has parents, but at least one of them is not
-            // in the graph, this means but-graph did a partial traversal
-            // and we want to preserve the commit as it is.
-            if !has_no_parents && missing_parent_steps {
-                let Some(idx) = commit_to_pick_ix.get(&c.id) else {
-                    bail!("BUG: Listed commit does not have corresponding idx.");
-                };
-
-                let Step::Pick(pick) = &mut graph[*idx] else {
-                    bail!("BUG: Listed commit does not have corresponding pick step.");
-                };
-
-                pick.preserved_parents = Some(c.parent_ids.clone());
-            };
-        }
-
-        for sidx in segments.keys() {
-            let Some(source) = segments.get(sidx).and_then(|n| n.nodes.last()) else {
-                continue;
-            };
-
-            let edges = {
-                let mut v = workspace
-                    .graph
-                    .edges_directed(*sidx, Direction::Outgoing)
-                    .collect::<Vec<_>>();
-                // TODO: the code below relies on edges being in reversed order,
-                //       but that changed now and they are in commit-graph order.
-                //       This is the minimal change to make this work,
-                //       even though a second step should be the cleanup of the
-                //       whole ordering business which also compensated for out-of-order
-                //       edges (which is also fixed).
-                v.reverse();
-                v
-            };
-            'inner: for edge in edges {
-                let Some(target) = segments.get(&edge.target()).and_then(|n| n.nodes.first())
-                else {
-                    tracing::warn!(
-                        "Dropping parent edge for segment {sidx:?}: edge target {:?} has no nodes",
-                        edge.target()
+                    let parents = std::iter::once(*own_target).chain(
+                        (!target_is_managed)
+                            .then_some(overlay_parents)
+                            .into_iter()
+                            .flatten()
+                            .copied(),
                     );
-                    continue 'inner;
-                };
-
-                // TODO: does it have relevance when `parent_order()` is `None` for edges to virtual segments?
-                let order = edge.weight().parent_order().unwrap_or(0) as usize;
-                graph.add_edge(*source, *target, Edge { order });
+                    add_parent_edges(&mut graph, source, parents, &node_to_step);
+                }
+                NodeKind::Commit { .. } | NodeKind::Reference(_) => {
+                    add_parent_edges(
+                        &mut graph,
+                        source,
+                        effective_parents[index].iter().copied(),
+                        &node_to_step,
+                    );
+                }
+                NodeKind::ShallowPoint { .. } => unreachable!("shallow points have no step"),
             }
         }
 
-        for c in &commits {
-            if Some(c.id) == workspace_commit_id {
-                continue;
-            }
-
-            let Some(&pick_ix) = commit_to_pick_ix.get(&c.id) else {
-                continue;
-            };
-
-            // Skip commits with preserved parents (partial traversal — already handled above)
-            if let Step::Pick(Pick {
-                preserved_parents: Some(_),
-                ..
-            }) = &graph[pick_ix]
-            {
-                continue;
-            }
-
-            // Resolve what the graph thinks are the parents of this pick
-            let graph_parents = util::collect_ordered_parents(&graph, pick_ix);
-            let graph_parent_ids: Vec<gix::ObjectId> = graph_parents
-                .iter()
-                .filter_map(|idx| match &graph[*idx] {
-                    Step::Pick(Pick { id, .. }) => Some(*id),
-                    _ => None,
+        let checkouts = match node_graph.entrypoint() {
+            NodeGraphEntrypoint::Node(index) => node_to_step[*index]
+                .map(|id| Checkout::Head {
+                    selector: Selector { id, revision: 0 },
+                    merge_base_override: None,
                 })
-                .collect();
-
-            if graph_parent_ids == c.parent_ids {
-                continue;
-            }
-
-            tracing::warn!(
-                "but-graph inconsistent with the commit graph.\nParents for commit {} do not match.\n\nFound:{:?}\nExpected:{:?}\n\nThese IDs may be in memory, but may be helpful for debugging.",
-                c.id,
-                graph_parent_ids
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<_>>(),
-                c.parent_ids
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<_>>(),
-            );
-
-            let outgoing_edge_ids: Vec<_> = graph
-                .edges_directed(pick_ix, Direction::Outgoing)
-                .map(|e| e.id())
-                .collect();
-            for edge_id in outgoing_edge_ids {
-                graph.remove_edge(edge_id);
-            }
-
-            'inner: for (order, parent_id) in c.parent_ids.iter().enumerate() {
-                let Some(&target_ix) = commit_to_pick_ix.get(parent_id) else {
-                    tracing::warn!(
-                        "Dropping parent edge for commit {} (parent fix): parent {parent_id} not found in pick map",
-                        c.id
-                    );
-                    continue 'inner;
-                };
-
-                graph.add_edge(pick_ix, target_ix, Edge { order });
-            }
-        }
+                .into_iter()
+                .collect(),
+            NodeGraphEntrypoint::Unborn(_) => unborn_head
+                .map(|id| Checkout::Head {
+                    selector: Selector { id, revision: 0 },
+                    merge_base_override: None,
+                })
+                .into_iter()
+                .collect(),
+        };
 
         Ok(Self {
             graph,
-            initial_references: references,
-            // TODO(CTO): We need to eventually list all worktrees that we own
-            // here so we can `safe_checkout` them too.
-            checkouts: head_selectors
-                .into_iter()
-                .map(|selector| Checkout::Head {
-                    selector,
-                    merge_base_override: None,
-                })
-                .collect(),
+            initial_references,
+            checkouts,
             repo: repo.clone().with_object_memory(),
             history: RevisionHistory::new(),
             workspace,
             meta,
         })
+    }
+}
+
+fn workspace_commit_id(node_graph: &NodeGraph, repo: &gix::Repository) -> Option<gix::ObjectId> {
+    node_graph.managed_workspace_commit_id().or_else(|| {
+        node_graph.nodes().iter().find_map(|node| {
+            let NodeKind::Reference(reference) = node.kind() else {
+                return None;
+            };
+            if !but_core::is_workspace_ref_name(reference.ref_info.ref_name.as_ref()) {
+                return None;
+            }
+            let own_target = *node.parents().last()?;
+            let NodeKind::Commit { id } = node_graph.nodes()[own_target].kind() else {
+                return None;
+            };
+            let commit = repo.find_commit(*id).ok()?;
+            but_graph::workspace::commit::is_managed_workspace_by_message(
+                commit.message_raw().ok()?,
+            )
+            .then_some(*id)
+        })
+    })
+}
+
+fn is_workspace_reference(reference: &Reference) -> bool {
+    matches!(reference.metadata, Some(SegmentMetadata::Workspace(_)))
+        || but_core::is_workspace_ref_name(reference.ref_info.ref_name.as_ref())
+}
+
+fn node_target_id(node_graph: &NodeGraph, index: usize) -> Option<gix::ObjectId> {
+    match node_graph.nodes()[index].kind() {
+        NodeKind::Commit { id } => Some(*id),
+        NodeKind::Reference(reference) => reference.ref_info.commit_id,
+        NodeKind::ShallowPoint { .. } => None,
+    }
+}
+
+fn add_parent_edges(
+    graph: &mut StepGraph,
+    source: StepGraphIndex,
+    parents: impl IntoIterator<Item = usize>,
+    node_to_step: &[Option<StepGraphIndex>],
+) {
+    for (order, parent) in parents.into_iter().enumerate() {
+        if let Some(target) = node_to_step[parent] {
+            graph.add_edge(source, target, Edge { order });
+        }
     }
 }
 

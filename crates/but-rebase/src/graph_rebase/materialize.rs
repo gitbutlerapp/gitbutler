@@ -1,5 +1,6 @@
 //! Functions for materializing a rebase
 use anyhow::{Context, Result, bail};
+use bstr::{BString, ByteSlice as _};
 use but_core::{
     ObjectStorageExt as _, RefMetadata,
     worktree::{checkout::Options, safe_checkout_from_head},
@@ -21,7 +22,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             memory.persist(self.repo)?;
         }
 
-        let mut head_reference_update = None;
+        let mut head_update = None;
         for checkout in self.checkouts {
             match checkout {
                 Checkout::Head {
@@ -31,9 +32,9 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                     let selector = self.history.normalize_selector(selector)?;
                     let step = self.graph[selector.id].clone();
 
-                    let (new_head, new_head_refname) = match step {
+                    let (new_head, new_head_target) = match step {
                         Step::None => bail!("Checkout selector is pointing to none"),
-                        Step::Pick(Pick { id, .. }) => (id, None),
+                        Step::Pick(Pick { id, .. }) => (id, Target::Object(id)),
                         Step::Reference { refname, .. } => {
                             let parents = collect_ordered_parents(&self.graph, selector.id);
                             let parent_step_id =
@@ -41,10 +42,10 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                             let Step::Pick(Pick { id, .. }) = self.graph[*parent_step_id] else {
                                 bail!("collect_ordered_parents should always return a commit pick");
                             };
-                            (id, Some(refname))
+                            (id, Target::Symbolic(refname))
                         }
                     };
-                    head_reference_update = new_head_refname;
+                    head_update = Some(new_head_target);
 
                     // If the head has changed (which means it's in the
                     // commit mapping), perform a safe checkout.
@@ -62,27 +63,36 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
         }
 
         let mut ref_edits = self.ref_edits.clone();
-        if let Some(refname) = head_reference_update
-            && repo.head_name()?.as_ref() != Some(&refname)
-        {
-            let ref_short_name = refname.shorten().to_owned();
-            ref_edits.push(RefEdit {
-                change: Change::Update {
-                    log: LogChange {
-                        mode: RefLog::AndReference,
-                        force_create_reflog: false,
-                        message: gix::reference::log::message(
-                            "safe checkout",
-                            ref_short_name.as_ref(),
-                            0,
-                        ),
+        if let Some(target) = head_update {
+            let unchanged = match &target {
+                Target::Object(id) => {
+                    repo.head_name()?.is_none() && repo.head_id()?.detach() == *id
+                }
+                Target::Symbolic(refname) => repo.head_name()?.as_ref() == Some(refname),
+            };
+            if !unchanged {
+                let target_description: BString = match &target {
+                    Target::Object(id) => id.to_string().into(),
+                    Target::Symbolic(refname) => refname.shorten().to_owned(),
+                };
+                ref_edits.push(RefEdit {
+                    change: Change::Update {
+                        log: LogChange {
+                            mode: RefLog::AndReference,
+                            force_create_reflog: false,
+                            message: gix::reference::log::message(
+                                "safe checkout",
+                                target_description.as_bstr(),
+                                0,
+                            ),
+                        },
+                        expected: PreviousValue::Any,
+                        new: target,
                     },
-                    expected: PreviousValue::Any,
-                    new: Target::Symbolic(refname),
-                },
-                name: "HEAD".try_into().expect("root refs are always valid"),
-                deref: false,
-            });
+                    name: "HEAD".try_into().expect("root refs are always valid"),
+                    deref: false,
+                });
+            }
         }
         repo.edit_references(ref_edits)?;
 

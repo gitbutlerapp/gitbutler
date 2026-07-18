@@ -52,12 +52,16 @@ Graph {
             Unborn,
         ),
     ),
-    entrypoint_ref: None,
+    entrypoint_ref: Some(
+        FullName(
+            "refs/heads/main",
+        ),
+    ),
     traversal_tips: [],
     ad_hoc_branch_stack_orders: [],
     hard_limit_hit: false,
     options: Options {
-        collect_tags: false,
+        collect_tags: true,
         commits_limit_hint: None,
         commits_limit_recharge_location: [],
         hard_limit: None,

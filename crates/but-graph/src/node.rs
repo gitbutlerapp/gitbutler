@@ -48,6 +48,11 @@ impl NodeGraph {
         &self.context.entrypoint
     }
 
+    /// Return the managed workspace commit discovered during construction, if any.
+    pub fn managed_workspace_commit_id(&self) -> Option<gix::ObjectId> {
+        self.context.managed_workspace_commit_id
+    }
+
     /// Validate the graph and return it unchanged.
     pub fn validated(self) -> Result<Self> {
         self.validate()?;

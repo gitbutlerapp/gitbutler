@@ -149,8 +149,8 @@ impl Step {
     /// Creates a mutable reference step.
     ///
     /// References constructed by edit operations are mutable; immutable
-    /// references only originate from non-`HEAD`-reachable segments during
-    /// [`Editor::create`].
+    /// references only originate outside mutable construction-graph ancestry
+    /// during [`Editor::create`].
     pub fn new_reference(refname: gix::refs::FullName) -> Self {
         Self::Reference {
             refname,

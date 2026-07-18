@@ -10,16 +10,14 @@ use crate::{
 
 impl NodeGraph {
     /// Convert the construction graph into the legacy segmented compatibility view.
-    #[allow(
-        dead_code,
-        reason = "the construction path will call this once the remaining phases are wired"
-    )]
     pub(crate) fn into_segment_graph(self) -> Result<Graph> {
+        let graph = self.validated()?;
+        let construction_graph = std::sync::Arc::new(graph.clone());
         let NodeGraph {
             nodes,
             annotations,
             context,
-        } = self.validated()?;
+        } = graph;
         let ConstructionContext {
             entrypoint,
             entrypoint_ref,
@@ -225,7 +223,9 @@ impl NodeGraph {
             );
         }
         canonicalize_reference_storage(&mut graph)?;
-        graph.validated()
+        let mut graph = graph.validated()?;
+        graph.construction_graph = Some(construction_graph);
+        Ok(graph)
     }
 }
 
@@ -2214,6 +2214,34 @@ mod tests {
         );
         assert!(limited.hard_limit_hit(), "hard-limit context is retained");
 
+        Ok(())
+    }
+
+    #[test]
+    fn segmented_mutations_invalidate_construction_provenance() -> Result<()> {
+        let make_graph = || {
+            let id = oid(1);
+            graph(
+                vec![commit(id, vec![])],
+                NodeGraphEntrypoint::Node(0),
+                vec![init::Tip::entrypoint(id, None)],
+            )
+            .into_segment_graph()
+        };
+
+        let mut compatibility = make_graph()?;
+        assert!(compatibility.construction_graph().is_some());
+        let segment = compatibility.segments().next().expect("one segment");
+        compatibility[segment].generation += 1;
+        assert!(compatibility.construction_graph().is_none());
+
+        let mut compatibility = make_graph()?;
+        compatibility.insert_segment(Segment::default());
+        assert!(compatibility.construction_graph().is_none());
+
+        let mut compatibility = make_graph()?;
+        compatibility.add_node(Segment::default());
+        assert!(compatibility.construction_graph().is_none());
         Ok(())
     }
 

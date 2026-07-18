@@ -9,7 +9,10 @@ use gix::prelude::{ObjectIdExt, ReferenceExt};
 use petgraph::Direction;
 use tracing::instrument;
 
-use crate::{CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata};
+use crate::{
+    CommitIndex, Edge, Graph, NodeGraph, NodeGraphEntrypoint, Reference, Segment, SegmentIndex,
+    SegmentMetadata, node::ConstructionContext,
+};
 
 mod walk;
 use walk::{branch_segment_from_name_and_meta, obtain_workspace_infos, try_refname_to_id};
@@ -536,10 +539,6 @@ impl Graph {
         let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {
-                let mut graph = Graph {
-                    project_meta,
-                    ..Default::default()
-                };
                 // It's OK to default-initialise this here as overlays are only used when redoing
                 // the traversal.
                 let (_repo, meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
@@ -555,13 +554,35 @@ impl Graph {
                     );
                     m
                 };
-                graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
-                    Some((ref_name, None)),
+                let segment = branch_segment_from_name_and_meta(
+                    Some((ref_name.clone(), None)),
                     &meta,
                     None,
                     &wt_by_branch,
-                )?);
-                return Ok(graph);
+                )?;
+                let reference = Reference {
+                    ref_info: segment
+                        .ref_info
+                        .context("BUG: unborn branch segment has no reference")?,
+                    metadata: segment.metadata,
+                    remote_tracking_ref_name: segment.remote_tracking_ref_name,
+                };
+                return NodeGraph {
+                    nodes: Vec::new(),
+                    annotations: Vec::new(),
+                    context: ConstructionContext {
+                        entrypoint: NodeGraphEntrypoint::Unborn(Box::new(reference)),
+                        entrypoint_ref: Some(ref_name),
+                        managed_workspace_commit_id: None,
+                        traversal_tips: Vec::new(),
+                        ad_hoc_branch_stack_orders: Vec::new(),
+                        hard_limit_hit: false,
+                        options,
+                        project_meta,
+                        symbolic_remote_names: Vec::new(),
+                    },
+                }
+                .into_segment_graph();
             }
             gix::head::Kind::Detached { target, peeled } => {
                 is_detached = true;
@@ -744,7 +765,10 @@ impl Graph {
             .entrypoint
             .context("BUG: entrypoint is set after first traversal")?
             .0;
-        let s = &mut self[sidx];
+        let s = self
+            .inner
+            .node_weight_mut(sidx)
+            .context("BUG: entrypoint segment must exist")?;
         if let Some((rn, first_commit)) = s
             .commits
             .first_mut()
@@ -1579,6 +1603,7 @@ impl Graph {
         dst_id: Option<gix::ObjectId>,
         parent_order: u32,
     ) {
+        self.invalidate_construction_graph();
         let src_commit = src_commit.into();
         let dst_commit = dst_commit.into();
         let new_edge_id = self.inner.add_edge(

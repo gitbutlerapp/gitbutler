@@ -9,7 +9,7 @@ use but_graph::workspace::commit::is_managed_workspace_by_message;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{
-        Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector,
+        Editor, GraphEditorOptions, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector,
         mutate::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet},
     },
 };
@@ -206,9 +206,15 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         .map(|reference| reference.ref_name.clone())
         .collect::<HashSet<_>>();
 
-    // The editor contains every segment in the graph; the target ref's segment
-    // is reachable from HEAD and so is mutable by default.
-    let mut editor = Editor::create(workspace, meta, repo)?;
+    let mut editor = Editor::create_with_opts(
+        workspace,
+        meta,
+        repo,
+        &GraphEditorOptions {
+            extra_mutable_refs: operational_local_refs.iter().cloned().collect(),
+            ..Default::default()
+        },
+    )?;
 
     let updates_with_selectors = updates
         .iter()

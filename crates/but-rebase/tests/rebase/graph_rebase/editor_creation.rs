@@ -550,6 +550,8 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
 
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
+    let workspace_ref = gix::refs::FullName::try_from("refs/heads/gitbutler/workspace")?;
+    let workspace_commit = repo.rev_parse_single(workspace_ref.as_ref())?.detach();
 
     {
         let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
@@ -576,6 +578,11 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
 ●  d664be0 Commit B
 ●  fafd9d0 init
 "#]]
+        );
+        let (_, target) = editor.find_reference_target(workspace_ref.as_ref())?;
+        assert_eq!(
+            target.id, workspace_commit,
+            "workspace overlays must not replace the workspace ref's Git target"
         );
     }
 
@@ -789,5 +796,24 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
 "#]]
     );
 
+    Ok(())
+}
+
+#[test]
+fn unborn_head_is_a_single_mutable_reference() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let repo = gix::init(tmp.path())?;
+    let mut meta = std::mem::ManuallyDrop::new(but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?);
+    let head_name = repo.head_name()?.expect("unborn HEAD is symbolic");
+
+    let graph =
+        Graph::from_head(&repo, &*meta, Default::default(), standard_options())?.validated()?;
+    assert!(graph.construction_graph().is_some());
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    assert_eq!(editor.steps_ascii(), format!("◎  {head_name}"));
     Ok(())
 }

@@ -17,6 +17,7 @@ impl Graph {
     ///
     /// Use `remotes` to know how to separate the remote name from the branch name of a short name.
     pub fn anonymize(&mut self, remotes: &gix::remote::Names) -> anyhow::Result<&mut Self> {
+        self.invalidate_construction_graph();
         fn int_to_alpha(mut n: usize) -> String {
             let mut result = String::new();
             while n > 0 {

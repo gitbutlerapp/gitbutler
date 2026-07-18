@@ -452,3 +452,39 @@ fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()>
 
     Ok(())
 }
+
+#[test]
+fn materialize_moves_detached_head_to_a_rewritten_entrypoint() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+    let old_head = repo.head_id()?.detach();
+    but_core::update_head_reference(
+        &repo,
+        gix::refs::Target::Object(old_head),
+        false,
+        "test",
+        bstr::BStr::new(b"detach HEAD"),
+        0,
+    )?;
+    assert!(repo.head_name()?.is_none());
+
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    assert!(
+        graph.construction_graph().is_some(),
+        "detached compatibility cleanup keeps construction provenance"
+    );
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let old_commit = repo.find_commit(old_head)?;
+    let mut rewritten = old_commit.decode()?;
+    rewritten.message = "rewritten detached head".into();
+    let rewritten_id = repo.write_object(rewritten)?.detach();
+    editor.replace(old_head, Step::new_pick(rewritten_id))?;
+    editor.rebase()?.materialize()?;
+
+    assert!(repo.head_name()?.is_none(), "HEAD stays detached");
+    assert_eq!(repo.head_id()?.detach(), rewritten_id);
+    assert_eq!(repo.rev_parse_single("refs/heads/main")?.detach(), old_head);
+    Ok(())
+}
