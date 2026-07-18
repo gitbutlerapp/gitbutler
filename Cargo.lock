@@ -1332,6 +1332,7 @@ dependencies = [
  "gix",
  "itertools",
  "petgraph",
+ "sapling-renderdag",
  "snapbox",
  "tracing",
 ]

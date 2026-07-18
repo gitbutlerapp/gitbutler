@@ -2,10 +2,11 @@ use anyhow::Context;
 use but_graph::{
     CommitFlags, FirstParent, Graph, Segment, SegmentIndex, SegmentRelation, init::Tip,
 };
-use but_testsupport::{graph_tree, visualize_commit_graph_all};
+use but_testsupport::visualize_commit_graph_all;
 use snapbox::IntoData;
 
 use crate::init::{read_only_in_memory_scenario, standard_options};
+use crate::support::graph_dag;
 
 #[test]
 fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> anyhow::Result<()> {
@@ -35,29 +36,28 @@ fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> 
     assert_eq!(graph.find_merge_base_octopus([a, c, merged]), Some(main));
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&graph),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:merged[🌳]
-    └── ·8a6c109 (⌂|1)
-        ├── ►:1[1]:A
-        │   └── ·62b409a (⌂|1)
-        │       ├── ►:3[2]:anon:
-        │       │   └── ·592abec (⌂|1)
-        │       │       └── ►:7[3]:main
-        │       │           └── 🏁·965998b (⌂|1)
-        │       └── ►:4[2]:B
-        │           └── ·f16dddf (⌂|1)
-        │               └── →:7: (main)
-        └── ►:2[1]:C
-            └── ·7ed512a (⌂|1)
-                ├── ►:5[2]:anon:
-                │   └── ·35ee481 (⌂|1)
-                │       └── →:7: (main)
-                └── ►:6[2]:D
-                    └── ·ecb1877 (⌂|1)
-                        └── →:7: (main)
-
+◎  👉merged[🌳]
+●    ·8a6c109 (⌂|1)
+├─╮
+◎ │  A
+● │    ·62b409a (⌂|1)
+├───╮
+● │ │  ·592abec (⌂|1)
+│ │ ◎  B
+│ │ ●  ·f16dddf (⌂|1)
+├───╯
+│ ◎  C
+│ ●    ·7ed512a (⌂|1)
+│ ├─╮
+│ ● │  ·35ee481 (⌂|1)
+├─╯ │
+│   ◎  D
+│   ●  ·ecb1877 (⌂|1)
+├───╯
+◎  main
+●  🏁·965998b (⌂|1)
 "#]]
     );
 
@@ -86,29 +86,28 @@ fn relation_between_matches_merge_base_in_redundant_ancestor_case() -> anyhow::R
     );
     assert_eq!(graph.relation_between(a, c), SegmentRelation::Diverged);
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&graph),
         snapbox::str![[r#"
-
-└── 👉►:0[0]:merged[🌳]
-    └── ·8a6c109 (⌂|1)
-        ├── ►:1[1]:A
-        │   └── ·62b409a (⌂|1)
-        │       ├── ►:3[2]:anon:
-        │       │   └── ·592abec (⌂|1)
-        │       │       └── ►:7[3]:main
-        │       │           └── 🏁·965998b (⌂|1)
-        │       └── ►:4[2]:B
-        │           └── ·f16dddf (⌂|1)
-        │               └── →:7: (main)
-        └── ►:2[1]:C
-            └── ·7ed512a (⌂|1)
-                ├── ►:5[2]:anon:
-                │   └── ·35ee481 (⌂|1)
-                │       └── →:7: (main)
-                └── ►:6[2]:D
-                    └── ·ecb1877 (⌂|1)
-                        └── →:7: (main)
-
+◎  👉merged[🌳]
+●    ·8a6c109 (⌂|1)
+├─╮
+◎ │  A
+● │    ·62b409a (⌂|1)
+├───╮
+● │ │  ·592abec (⌂|1)
+│ │ ◎  B
+│ │ ●  ·f16dddf (⌂|1)
+├───╯
+│ ◎  C
+│ ●    ·7ed512a (⌂|1)
+│ ├─╮
+│ ● │  ·35ee481 (⌂|1)
+├─╯ │
+│   ◎  D
+│   ●  ·ecb1877 (⌂|1)
+├───╯
+◎  main
+●  🏁·965998b (⌂|1)
 "#]]
     );
 
@@ -206,29 +205,28 @@ fn explicit_traversal_tips_include_unnamed_revisions() -> anyhow::Result<()> {
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&graph),
         snapbox::str![[r#"
-
-└── 👉►:2[0]:merged[🌳]
-    └── ·8a6c109 (⌂|1)
-        ├── ►:0[1]:A
-        │   └── ·62b409a (⌂|1)
-        │       ├── ►:3[2]:anon:
-        │       │   └── ·592abec (⌂|1)
-        │       │       └── ►:7[3]:main
-        │       │           └── 🏁·965998b (⌂|1)
-        │       └── ►:4[2]:B
-        │           └── ·f16dddf (⌂|1)
-        │               └── →:7: (main)
-        └── ►:1[1]:C
-            └── ·7ed512a (⌂|1)
-                ├── ►:5[2]:anon:
-                │   └── ·35ee481 (⌂|1)
-                │       └── →:7: (main)
-                └── ►:6[2]:D
-                    └── ·ecb1877 (⌂|1)
-                        └── →:7: (main)
-
+◎  👉merged[🌳]
+●    ·8a6c109 (⌂|1)
+├─╮
+◎ │  A
+● │    ·62b409a (⌂|1)
+├───╮
+● │ │  ·592abec (⌂|1)
+│ │ ◎  B
+│ │ ●  ·f16dddf (⌂|1)
+├───╯
+│ ◎  C
+│ ●    ·7ed512a (⌂|1)
+│ ├─╮
+│ ● │  ·35ee481 (⌂|1)
+├─╯ │
+│   ◎  D
+│   ●  ·ecb1877 (⌂|1)
+├───╯
+◎  main
+●  🏁·965998b (⌂|1)
 "#]]
     );
 
@@ -266,29 +264,28 @@ fn explicit_traversal_prioritizes_integrated_tips_independent_of_input_order() -
     .validated()?;
 
     snapbox::assert_data_eq!(
-        graph_tree(&graph).to_string(),
+        graph_dag(&graph),
         snapbox::str![[r#"
-
-└── 👉►:2[0]:merged[🌳]
-    └── ·8a6c109 (⌂|1)
-        ├── ►:1[1]:A
-        │   └── ·62b409a (⌂|1)
-        │       ├── ►:3[2]:anon:
-        │       │   └── ·592abec (⌂|1)
-        │       │       └── ►:0[3]:main
-        │       │           └── 🏁·965998b (⌂|✓|1)
-        │       └── ►:4[2]:B
-        │           └── ·f16dddf (⌂|1)
-        │               └── →:0: (main)
-        └── ►:5[1]:C
-            └── ·7ed512a (⌂|1)
-                ├── ►:6[2]:anon:
-                │   └── ·35ee481 (⌂|1)
-                │       └── →:0: (main)
-                └── ►:7[2]:D
-                    └── ·ecb1877 (⌂|1)
-                        └── →:0: (main)
-
+◎  👉merged[🌳]
+●    ·8a6c109 (⌂|1)
+├─╮
+◎ │  A
+● │    ·62b409a (⌂|1)
+├───╮
+● │ │  ·592abec (⌂|1)
+│ │ ◎  B
+│ │ ●  ·f16dddf (⌂|1)
+├───╯
+│ ◎  C
+│ ●    ·7ed512a (⌂|1)
+│ ├─╮
+│ ● │  ·35ee481 (⌂|1)
+├─╯ │
+│   ◎  D
+│   ●  ·ecb1877 (⌂|1)
+├───╯
+◎  main
+●  🏁·965998b (⌂|✓|1)
 "#]]
     );
 

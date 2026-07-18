@@ -34,6 +34,7 @@ but-testsupport.workspace = true
 
 gitbutler-reference.workspace = true
 snapbox.workspace = true
+sapling-renderdag.workspace = true
 
 [lints]
 workspace = true
