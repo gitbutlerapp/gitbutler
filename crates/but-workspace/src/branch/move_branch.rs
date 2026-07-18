@@ -106,17 +106,24 @@ pub(super) mod function {
             .select_commit(workspace_head)
             .context("Failed to find the workspace head in the graph.")?;
 
-        let Some(lower_bound_ref) = workspace
+        let Some(lower_bound_segment) = workspace
             .lower_bound_segment_id
             .map(|segment_id| &workspace.graph[segment_id])
-            .and_then(|segment| segment.ref_name())
         else {
             bail!("Tearing off a branch requires a workspace common base");
         };
-
-        let target_selector = editor
-            .select_reference(lower_bound_ref)
-            .context("Failed to find target reference in graph.")?;
+        let target_selector = if let Some(lower_bound_ref) = lower_bound_segment.ref_name() {
+            editor
+                .select_reference(lower_bound_ref)
+                .context("Failed to find target reference in graph.")?
+        } else {
+            let lower_bound = workspace
+                .lower_bound
+                .context("Tearing off a branch requires a workspace common base")?;
+            editor
+                .select_commit(lower_bound)
+                .context("Failed to find target commit in graph.")?
+        };
 
         let DisconnectParameters {
             delimiter: subject_delimiter,

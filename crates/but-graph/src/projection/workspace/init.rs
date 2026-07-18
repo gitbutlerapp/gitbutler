@@ -136,9 +136,6 @@ impl Graph {
         Ok(Some(WorkspaceReconciliationInput {
             id: frame.ws_tip_segment_id,
             stacks,
-            lower_bound_segment_id: frame.lower_bound_segment_id,
-            target_ref: frame.target_ref,
-            target_commit: frame.target_commit,
             metadata,
         }))
     }
@@ -158,7 +155,10 @@ impl Graph {
                     if let Some((maybe_integrated_flags, sidx_of_flags)) = self
                         .resolve_to_unambiguously_pointed_to_commit(ep.segment.id)
                         .map(|(c, sidx)| (c.flags, sidx))
-                        .filter(|(f, _sidx)| f.contains(CommitFlags::InWorkspace))
+                        .filter(|(f, _sidx)| {
+                            f.contains(CommitFlags::InWorkspace)
+                                && !self.options.dangerously_skip_postprocessing_for_debugging
+                        })
                     {
                         // search the (for now just one) workspace upstream and use it instead,
                         // mark this segment as entrypoint.
@@ -406,11 +406,34 @@ impl Graph {
                         {
                             None
                         } else {
-                            Some(Stack::from_base_and_segments(
+                            let reached_lower_bound = *has_seen_base.borrow()
+                                || lowest_base.is_some_and(|base| {
+                                    segments.iter().any(|segment| {
+                                        segment.commits.iter().any(|commit| commit.id == base)
+                                    })
+                                })
+                                || lowest_base_sidx.is_some_and(|base_segment_id| {
+                                    segments.iter().any(|segment| {
+                                        segment.id == base_segment_id
+                                            || segment
+                                                .commits_by_segment
+                                                .iter()
+                                                .any(|(id, _)| *id == base_segment_id)
+                                    })
+                                });
+                            let mut stack = Stack::from_base_and_segments(
                                 &self.inner,
                                 segments,
                                 stack_id.map(|(id, _in_workspace)| id),
-                            ))
+                            );
+                            if reached_lower_bound
+                                && let (Some(base), Some(base_segment_id), Some(bottom)) =
+                                    (lowest_base, lowest_base_sidx, stack.segments.last_mut())
+                            {
+                                bottom.base = Some(base);
+                                bottom.base_segment_id = Some(base_segment_id);
+                            }
+                            Some(stack)
                         }
                     }),
                 );
@@ -460,6 +483,18 @@ impl Graph {
                     "Didn't get a single stack for AdHoc workspace - this is unexpected"
                 );
             }
+        }
+        if let Some(metadata) = frame.metadata.as_ref() {
+            stacks.sort_by_key(|stack| {
+                stack
+                    .id
+                    .and_then(|id| {
+                        metadata
+                            .stacks(AppliedAndUnapplied)
+                            .position(|metadata_stack| metadata_stack.id == id)
+                    })
+                    .unwrap_or(usize::MAX)
+            });
         }
         Ok(stacks)
     }
@@ -1177,6 +1212,7 @@ impl WorkspaceState {
         let keep_if_fully_integrated =
             upstream_advanced_past_target && !matches!(self.kind, WorkspaceKind::AdHoc);
         for stack in &mut self.stacks {
+            let base_before_pruning = stack.base().zip(stack.base_segment_id());
             // Upstream advanced: floor the stack at its fork point but keep a fully-integrated
             // tip in managed workspaces so it survives for `integrate_upstream`. Single-branch
             // mode keeps the branch shell, but prunes integrated target/base commits from it.
@@ -1185,6 +1221,13 @@ impl WorkspaceState {
             if upstream_advanced_past_target {
                 // Pruning moved the stack's bottom; refresh its base to the new fork point.
                 stack.recompute_last_segment_base(&graph.inner);
+                if stack.base().is_none()
+                    && let (Some((base, base_segment_id)), Some(bottom)) =
+                        (base_before_pruning, stack.segments.last_mut())
+                {
+                    bottom.base = Some(base);
+                    bottom.base_segment_id = Some(base_segment_id);
+                }
             }
         }
         self.stacks.retain(|stack| !stack.segments.is_empty());

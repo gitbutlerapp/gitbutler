@@ -195,6 +195,16 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     } else {
         repo.head_name()?
     };
+    let operational_local_refs = workspace
+        .graph
+        .segments()
+        .flat_map(|segment_id| {
+            let segment = &workspace.graph[segment_id];
+            segment.commits.iter().flat_map(|commit| commit.refs.iter())
+        })
+        .filter(|reference| reference.ref_name.category() == Some(gix::refs::Category::LocalBranch))
+        .map(|reference| reference.ref_name.clone())
+        .collect::<HashSet<_>>();
 
     // The editor contains every segment in the graph; the target ref's segment
     // is reachable from HEAD and so is mutable by default.
@@ -210,8 +220,9 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let target_ref_commit_selector = target_ref_commit.detach().to_selector(&editor)?;
 
     let from_target_ref = traverse_nodes(&editor, target_ref_selector)?;
+    let target_sha_references = editor.step_references(target_sha_selector)?;
     let mut from_target_sha = traverse_nodes(&editor, target_sha_selector)?;
-    from_target_sha.extend(editor.step_references(target_sha_selector)?);
+    from_target_sha.extend(target_sha_references.iter().copied());
 
     let mut stacks = collect_stacks(
         head_commit,
@@ -278,6 +289,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
         .then(|| editor.select_commit(head_commit_id))
         .transpose()?;
     let mut fully_integrated_workspace_parents = HashSet::new();
+    let mut selected_integrated_commits = HashSet::new();
     let mut direct_checkout_replacement_ref: Option<(Selector, gix::refs::FullName)> = None;
     for stack in &stacks {
         let is_selected = stack.nodes.values().any(|attrs| attrs.to_rebase)
@@ -289,6 +301,15 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             .nodes
             .values()
             .all(|attrs| attrs.is_integrated() || attrs.reference_integrated.is_some());
+        if is_selected {
+            for (selector, attrs) in &stack.nodes {
+                if attrs.is_integrated()
+                    && let Step::Pick(Pick { id, .. }) = editor.lookup_step(*selector)?
+                {
+                    selected_integrated_commits.insert(id);
+                }
+            }
+        }
         if !is_selected {
             continue;
         }
@@ -341,6 +362,39 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
                 }
             }
         }
+    }
+
+    // Inline local refs are presentation aliases, but remain operational branches. Delete aliases
+    // whose commits were integrated in a selected stack exactly like segment-owned references.
+    for refname in operational_local_refs {
+        if !should_delete_integrated_local_branch(refname.as_ref())
+            || direct_checkout_head_ref_name
+                .as_ref()
+                .is_some_and(|head| head.as_ref() == refname.as_ref())
+        {
+            continue;
+        }
+        let Some(commit_id) = repo
+            .try_find_reference(refname.as_ref())?
+            .map(|mut reference| reference.peel_to_id())
+            .transpose()?
+            .map(|id| id.detach())
+        else {
+            continue;
+        };
+        if !selected_integrated_commits.contains(&commit_id) {
+            continue;
+        }
+        let Some(selector) = editor.try_select_reference(refname.as_ref()) else {
+            continue;
+        };
+        if !matches!(editor.lookup_step(selector)?, Step::Reference { .. }) {
+            continue;
+        }
+        if let Some(ws_meta) = ws_meta.as_mut() {
+            ws_meta.remove_segment(refname.as_ref());
+        }
+        editor.replace(selector, Step::None)?;
     }
 
     // Disconnect all stack heads from the workspace commit, if any.
@@ -625,12 +679,19 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             let Some(node) = stack.nodes.get_mut(r_sel) else {
                 continue;
             };
+            let preserve_empty_local_reference = !traversed_commits
+                && empty_local_reference_has_non_target_local_parent(
+                    editor,
+                    *r_sel,
+                    &reference_nodes,
+                    target_sha,
+                    target_ref_commit,
+                )?;
             let remote_tip_integrated = empty_local_reference_remote_tip_integrated(
                 editor,
                 *r_sel,
                 r_name.as_ref(),
                 &reference_nodes,
-                &from_target_ref,
                 target_sha,
                 target_ref_name,
                 target_ref_commit,
@@ -642,8 +703,9 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                 // branch is not discarded.
                 node.reference_integrated = all_integrated.then_some(r_name.clone());
             } else {
-                node.reference_integrated =
-                    (node.is_integrated() || remote_tip_integrated).then_some(r_name.clone());
+                node.reference_integrated = (!preserve_empty_local_reference
+                    && (node.is_integrated() || remote_tip_integrated))
+                    .then_some(r_name.clone());
             }
         }
     }
@@ -666,7 +728,6 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
     selector: Selector,
     ref_name: &gix::refs::FullNameRef,
     reference_nodes: &HashMap<Selector, gix::refs::FullName>,
-    from_target_ref: &HashSet<Selector>,
     target_sha: gix::ObjectId,
     target_ref_name: &gix::refs::FullNameRef,
     target_ref_commit: gix::ObjectId,
@@ -674,18 +735,13 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
     if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
         return Ok(false);
     }
-    if editor.direct_parents(selector)?.iter().any(|(parent, _)| {
-        reference_nodes.get(parent).is_some_and(|parent_ref| {
-            parent_ref.category() == Some(gix::refs::Category::LocalBranch)
-                && !from_target_ref.contains(parent)
-                && !reference_points_to_target(
-                    editor.repo(),
-                    parent_ref.as_ref(),
-                    target_sha,
-                    target_ref_commit,
-                )
-        })
-    }) {
+    if empty_local_reference_has_non_target_local_parent(
+        editor,
+        selector,
+        reference_nodes,
+        target_sha,
+        target_ref_commit,
+    )? {
         return Ok(false);
     }
 
@@ -712,6 +768,26 @@ fn empty_local_reference_remote_tip_integrated<'ws, 'meta, M: RefMetadata>(
         .repo()
         .merge_base(remote_tip_id, target_ref_commit)
         .is_ok_and(|merge_base| merge_base.detach() == remote_tip_id))
+}
+
+fn empty_local_reference_has_non_target_local_parent<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    selector: Selector,
+    reference_nodes: &HashMap<Selector, gix::refs::FullName>,
+    target_sha: gix::ObjectId,
+    target_ref_commit: gix::ObjectId,
+) -> Result<bool> {
+    Ok(editor.direct_parents(selector)?.iter().any(|(parent, _)| {
+        reference_nodes.get(parent).is_some_and(|parent_ref| {
+            parent_ref.category() == Some(gix::refs::Category::LocalBranch)
+                && !reference_points_to_target(
+                    editor.repo(),
+                    parent_ref.as_ref(),
+                    target_sha,
+                    target_ref_commit,
+                )
+        })
+    }))
 }
 
 /// Return `true` if `ref_name` currently resolves to either the old target

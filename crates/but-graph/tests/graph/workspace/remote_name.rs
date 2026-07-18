@@ -76,14 +76,15 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     snapbox::assert_data_eq!(
         graph_dag(&ws.graph),
         snapbox::str![[r#"
-◎  B
-│ ◎  👉📕gitbutler/workspace[🌳]
+◎  📙A
+│ ◎  B
+│ │ ◎  👉📕gitbutler/workspace[🌳]
+├───╯
 │ │ ◎  origin/main
-│ │ ◎  main <> origin/main
-│ ├─╯
-│ ◎  📙A
+├───╯
+◎ │  main <> origin/main
 ├─╯
-●  ✂·bce0c5e (⌂|🏘|✓|1)
+●  ✂·bce0c5e (⌂|🏘|✓)
 "#]]
     );
 

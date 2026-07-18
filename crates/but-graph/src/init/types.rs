@@ -74,7 +74,7 @@ impl Limit {
     ///
     /// `flags` are used to selectively decrement this limit.
     /// Thanks to flag-propagation there can be no runaways.
-    pub fn is_exhausted_or_decrement(&mut self, flags: CommitFlags, next: &Queue) -> bool {
+    pub fn is_exhausted_or_decrement<S>(&mut self, flags: CommitFlags, next: &Queue<S>) -> bool {
         // Keep going if the goal wasn't seen yet, unlimited gas.
         if let Some(maybe_goal) = self.goal_reachable(flags)
             && (maybe_goal.is_empty() || self.set_single_goal_reached_keep_searching(maybe_goal))
@@ -156,10 +156,14 @@ impl Limit {
     pub fn set_but_keep_goal(&mut self, other: Limit) {
         self.inner = other.inner;
     }
+
+    pub(crate) fn traversal_state(&self) -> (Option<usize>, u32) {
+        (self.inner, self.goal.bits())
+    }
 }
 
 /// Lifecycle
-impl Queue {
+impl<S> Queue<S> {
     pub fn new_with_limit(limit: Option<usize>) -> Self {
         Queue {
             inner: Default::default(),
@@ -174,8 +178,8 @@ impl Queue {
 
 /// A queue to keep track of tips, which additionally counts how much was queued over time.
 #[derive(Debug)]
-pub struct Queue {
-    pub inner: VecDeque<QueueItem>,
+pub struct Queue<S> {
+    pub inner: VecDeque<QueueItem<S>>,
     /// The current number of queued items.
     count: usize,
     /// The maximum number of queuing operations, each representing one commit.
@@ -189,7 +193,7 @@ pub struct Queue {
 }
 
 /// Counted queuing
-impl Queue {
+impl<S> Queue<S> {
     /// Sort the queue items so that young commits come first. This way, the traversal goes
     /// back in time continuously, which helps to avoid having too many graph traversals
     /// in disjoint regions happen at the same time.
@@ -207,14 +211,14 @@ impl Queue {
         }
     }
     #[must_use]
-    pub fn push_back_exhausted(&mut self, item: QueueItem) -> bool {
+    pub fn push_back_exhausted(&mut self, item: QueueItem<S>) -> bool {
         if self.exhausted || self.record_hard_limit_if_exhausted() {
             return true;
         }
         self.push_back_even_if_exhausted(item)
     }
 
-    pub(crate) fn push_back_even_if_exhausted(&mut self, item: QueueItem) -> bool {
+    pub(crate) fn push_back_even_if_exhausted(&mut self, item: QueueItem<S>) -> bool {
         if self.sorted {
             self.insert_sorted(item);
         } else {
@@ -223,7 +227,7 @@ impl Queue {
         self.is_exhausted_after_increment()
     }
     #[must_use]
-    pub fn push_front_exhausted(&mut self, item: QueueItem) -> bool {
+    pub fn push_front_exhausted(&mut self, item: QueueItem<S>) -> bool {
         if self.exhausted || self.record_hard_limit_if_exhausted() {
             return true;
         }
@@ -235,7 +239,7 @@ impl Queue {
         self.is_exhausted_after_increment()
     }
 
-    fn insert_sorted(&mut self, item: QueueItem) {
+    fn insert_sorted(&mut self, item: QueueItem<S>) {
         let index = self
             .inner
             .partition_point(|existing| existing.0.gen_then_time <= item.0.gen_then_time);
@@ -249,6 +253,14 @@ impl Queue {
 
     pub fn is_exhausted(&self) -> bool {
         self.exhausted || self.is_hard_limit_exhausted()
+    }
+
+    /// Return whether `additional` items can still be queued.
+    pub(crate) fn can_accept(&self, additional: usize) -> bool {
+        !self.exhausted
+            && self
+                .max
+                .is_none_or(|max| self.count.saturating_add(additional) <= max)
     }
 
     pub(crate) fn is_hard_limit_exhausted(&self) -> bool {
@@ -269,27 +281,17 @@ impl Queue {
     pub(crate) fn exhaust(&mut self) {
         self.exhausted = true;
     }
-
-    /// Add `goal` as additional goal to `id` or panic if `id` was not found.
-    pub fn add_goal_to(&mut self, id: gix::ObjectId, goal: CommitFlags) {
-        let limit = self
-            .inner
-            .iter_mut()
-            .find_map(|(info, _, _, limit)| (info.id == id).then_some(limit))
-            .unwrap_or_else(|| panic!("BUG: {id} is queued"));
-        *limit = limit.additional_goal(goal);
-    }
 }
 
 /// Various other - good to know what we need though.
-impl Queue {
-    pub fn pop_front(&mut self) -> Option<QueueItem> {
+impl<S> Queue<S> {
+    pub fn pop_front(&mut self) -> Option<QueueItem<S>> {
         self.inner.pop_front()
     }
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut QueueItem> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut QueueItem<S>> {
         self.inner.iter_mut()
     }
-    pub fn iter(&self) -> impl Iterator<Item = &QueueItem> {
+    pub fn iter(&self) -> impl Iterator<Item = &QueueItem<S>> {
         self.inner.iter()
     }
 }
@@ -323,53 +325,7 @@ impl Goals {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum Instruction {
-    /// Contains the segment into which to place this commit.
-    CollectCommit { into: SegmentIndex },
-    /// This is the first commit in a new segment which is below `parent_above` and which should be placed
-    /// at the last commit (at the time) via `at_commit`.
-    ConnectNewSegment {
-        parent_above: SegmentIndex,
-        /// Deliberately not [`CommitIndex`]/`usize`: this instruction is stored in
-        /// the traversal queue, and widening it increases the hot `QueueItem` size.
-        ///
-        /// This limit should never be reached either unless there is a repository with a trunk of 4.3 billion commits.
-        at_commit: u32,
-        /// The position of this parent among the source commit's parents (0-based).
-        /// Deliberately not `usize` for the same traversal-queue layout reason as `at_commit`.
-        ///
-        /// This limit would only be reached if there is a merge with 4.3 billion commits.
-        parent_order: u32,
-    },
-}
-
-impl Instruction {
-    /// Returns any segment index we may be referring to.
-    pub fn segment_idx(&self) -> SegmentIndex {
-        match self {
-            Instruction::CollectCommit { into } => *into,
-            Instruction::ConnectNewSegment { parent_above, .. } => *parent_above,
-        }
-    }
-
-    pub fn with_replaced_sidx(self, sidx: SegmentIndex) -> Self {
-        match self {
-            Instruction::CollectCommit { into: _ } => Instruction::CollectCommit { into: sidx },
-            Instruction::ConnectNewSegment {
-                parent_above: _,
-                at_commit,
-                parent_order,
-            } => Instruction::ConnectNewSegment {
-                parent_above: sidx,
-                at_commit,
-                parent_order,
-            },
-        }
-    }
-}
-
-pub type QueueItem = (super::walk::TraverseInfo, CommitFlags, Instruction, Limit);
+pub type QueueItem<S> = (super::walk::TraverseInfo, CommitFlags, S, Limit);
 
 #[derive(Debug)]
 pub(crate) struct EdgeOwned {
@@ -573,7 +529,7 @@ mod tests {
 
     #[test]
     fn explicit_exhaustion_does_not_count_as_hard_limit_hit() {
-        let mut queue = Queue::new_with_limit(Some(1));
+        let mut queue = Queue::<()>::new_with_limit(Some(1));
 
         queue.exhaust();
 
@@ -590,7 +546,7 @@ mod tests {
 
     #[test]
     fn hard_limit_exhaustion_records_hard_limit_hit() {
-        let mut queue = Queue::new_with_limit(Some(0));
+        let mut queue = Queue::<()>::new_with_limit(Some(0));
 
         assert!(
             queue.record_hard_limit_if_exhausted(),

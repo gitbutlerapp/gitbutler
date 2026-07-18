@@ -39,25 +39,25 @@ fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> 
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉merged[🌳]
-●    ·8a6c109 (⌂|1)
+●    ·8a6c109 (⌂)
 ├─╮
 ◎ │  A
-● │    ·62b409a (⌂|1)
+● │    ·62b409a (⌂)
 ├───╮
-● │ │  ·592abec (⌂|1)
+● │ │  ·592abec (⌂)
 │ │ ◎  B
-│ │ ●  ·f16dddf (⌂|1)
+│ │ ●  ·f16dddf (⌂)
 ├───╯
 │ ◎  C
-│ ●    ·7ed512a (⌂|1)
+│ ●    ·7ed512a (⌂)
 │ ├─╮
-│ ● │  ·35ee481 (⌂|1)
+│ ● │  ·35ee481 (⌂)
 ├─╯ │
 │   ◎  D
-│   ●  ·ecb1877 (⌂|1)
+│   ●  ·ecb1877 (⌂)
 ├───╯
 ◎  main
-●  🏁·965998b (⌂|1)
+●  🏁·965998b (⌂)
 "#]]
     );
 
@@ -89,25 +89,25 @@ fn relation_between_matches_merge_base_in_redundant_ancestor_case() -> anyhow::R
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉merged[🌳]
-●    ·8a6c109 (⌂|1)
+●    ·8a6c109 (⌂)
 ├─╮
 ◎ │  A
-● │    ·62b409a (⌂|1)
+● │    ·62b409a (⌂)
 ├───╮
-● │ │  ·592abec (⌂|1)
+● │ │  ·592abec (⌂)
 │ │ ◎  B
-│ │ ●  ·f16dddf (⌂|1)
+│ │ ●  ·f16dddf (⌂)
 ├───╯
 │ ◎  C
-│ ●    ·7ed512a (⌂|1)
+│ ●    ·7ed512a (⌂)
 │ ├─╮
-│ ● │  ·35ee481 (⌂|1)
+│ ● │  ·35ee481 (⌂)
 ├─╯ │
 │   ◎  D
-│   ●  ·ecb1877 (⌂|1)
+│   ●  ·ecb1877 (⌂)
 ├───╯
 ◎  main
-●  🏁·965998b (⌂|1)
+●  🏁·965998b (⌂)
 "#]]
     );
 
@@ -208,25 +208,25 @@ fn explicit_traversal_tips_include_unnamed_revisions() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉merged[🌳]
-●    ·8a6c109 (⌂|1)
+●    ·8a6c109 (⌂)
 ├─╮
 ◎ │  A
-● │    ·62b409a (⌂|1)
+● │    ·62b409a (⌂)
 ├───╮
-● │ │  ·592abec (⌂|1)
+● │ │  ·592abec (⌂)
 │ │ ◎  B
-│ │ ●  ·f16dddf (⌂|1)
+│ │ ●  ·f16dddf (⌂)
 ├───╯
 │ ◎  C
-│ ●    ·7ed512a (⌂|1)
+│ ●    ·7ed512a (⌂)
 │ ├─╮
-│ ● │  ·35ee481 (⌂|1)
+│ ● │  ·35ee481 (⌂)
 ├─╯ │
 │   ◎  D
-│   ●  ·ecb1877 (⌂|1)
+│   ●  ·ecb1877 (⌂)
 ├───╯
 ◎  main
-●  🏁·965998b (⌂|1)
+●  🏁·965998b (⌂)
 "#]]
     );
 
@@ -266,40 +266,36 @@ fn explicit_traversal_prioritizes_integrated_tips_independent_of_input_order() -
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  👉merged[🌳]
-●    ·8a6c109 (⌂|1)
-├─╮
-◎ │  A
-● │    ·62b409a (⌂|1)
-├───╮
-● │ │  ·592abec (⌂|1)
-│ │ ◎  B
-│ │ ●  ·f16dddf (⌂|1)
-├───╯
-│ ◎  C
-│ ●    ·7ed512a (⌂|1)
-│ ├─╮
-│ ● │  ·35ee481 (⌂|1)
-├─╯ │
-│   ◎  D
-│   ●  ·ecb1877 (⌂|1)
-├───╯
 ◎  main
-●  🏁·965998b (⌂|✓|1)
+│ ◎  👉merged[🌳]
+│ ●    ·8a6c109 (⌂)
+│ ├─╮
+│ ◎ │  A
+│ ● │    ·62b409a (⌂)
+│ ├───╮
+│ ● │ │  ·592abec (⌂)
+├─╯ │ │
+│   │ ◎  B
+│   │ ●  ·f16dddf (⌂)
+├─────╯
+│   ◎  C
+│   ●  ·7ed512a (⌂)
+│ ╭─┤
+│ │ ●  ·35ee481 (⌂)
+├───╯
+│ ◎  D
+│ ●  ·ecb1877 (⌂)
+├─╯
+●  🏁·965998b (⌂|✓)
 "#]]
     );
 
-    let (main_seg, main) = graph
+    let (_, main) = graph
         .segment_and_commit_by_ref_name(ref_name("refs/heads/main")?.as_ref())
         .expect("main segment");
     assert!(
         main.flags.contains(CommitFlags::Integrated),
         "integrated tips should be queued before reachable tips even if the caller provides them last"
-    );
-    assert_eq!(
-        main_seg.id.index(),
-        0,
-        "schedule first, hence the first node"
     );
 
     Ok(())

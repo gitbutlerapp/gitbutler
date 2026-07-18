@@ -1128,7 +1128,6 @@ fn move_empty_branch_onto_non_empty_branch_with_advanced_target() -> anyhow::Res
         "refs/heads/B".try_into()?,
         "refs/heads/A".try_into()?,
     )?;
-
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta.clone();

@@ -206,6 +206,9 @@ pub use segment::{
     WorktreeKind,
 };
 
+mod node;
+pub use node::{Node, NodeGraph, NodeGraphEntrypoint, NodeIndex, NodeKind, Reference};
+
 mod api;
 pub use api::FirstParent;
 /// Produce a graph from a Git repository.
@@ -394,37 +397,12 @@ impl Edge {
     /// For instance, if the source is a merge commit and this edge represents the connection
     /// to the second parent, the output will be `Some(1)`.
     ///
-    /// This is `None` when the edge does not point at a concrete destination commit.
-    /// That happens for synthetic graph structure such as empty virtual segments,
-    /// where there is no Git commit parent for this edge to identify.
+    /// This is `None` when the edge does not start at a concrete source commit.
+    /// That happens for synthetic graph structure between empty virtual segments.
+    /// An edge from a commit to an empty virtual segment still retains its order,
+    /// as the segment stands in for that commit's parent.
     pub fn parent_order(&self) -> Option<u32> {
-        self.dst_id.map(|_| self.parent_order)
-    }
-
-    /// Useful when reusing an edge to assure it doesn't list commits that don't exist in `src_idx` and `dst_idx` anymore.
-    pub(crate) fn adjusted_for(
-        mut self,
-        src_sidx: SegmentIndex,
-        dst_sidx: SegmentIndex,
-        graph: &init::PetGraph,
-    ) -> Self {
-        let commits = &graph[src_sidx].commits;
-        let (id, idx) = commits
-            .last()
-            .map(|c| (Some(c.id), Some(commits.len() - 1)))
-            .unwrap_or_default();
-        self.src_id = id;
-        self.src = idx;
-
-        let commits = &graph[dst_sidx].commits;
-        let (id, idx) = commits
-            .first()
-            .map(|c| (Some(c.id), Some(0)))
-            .unwrap_or_default();
-        self.dst_id = id;
-        self.dst = idx;
-
-        self
+        self.src_id.map(|_| self.parent_order)
     }
 }
 /// An index into the [`Graph`].

@@ -4397,10 +4397,12 @@ fn advanced_workspace_single_stack() -> anyhow::Result<()> {
 
     add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
     let err = head_info(&repo, &meta, standard_options()).unwrap_err();
+    // Count every reachable commit above the managed workspace commit, including
+    // the merge's side parent (`on-top-sibling`), not only the first-parent path.
     snapbox::assert_data_eq!(
         err.to_string(),
         snapbox::str![[r#"
-Found 4 commit(s) on top of the workspace commit.
+Found 5 commit(s) on top of the workspace commit.
 
 Run the following command in your working directory to fix this while leaving your worktree unchanged.
 Worktree changes need to be re-committed manually for now.

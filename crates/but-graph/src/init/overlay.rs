@@ -240,10 +240,6 @@ impl<'repo> OverlayRepo<'repo> {
         Ok(self.inner.find_commit(id)?)
     }
 
-    pub fn for_attach_only(&self) -> &'repo gix::Repository {
-        self.inner
-    }
-
     pub fn for_find_only(&self) -> &'repo gix::Repository {
         self.inner
     }

@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use but_graph::{Commit, Graph, Segment, SegmentIndex, SegmentMetadata};
+use but_graph::{Commit, CommitFlags, Graph, Segment, SegmentIndex, SegmentMetadata};
 use renderdag::{Ancestor, GraphRowRenderer, Renderer as _};
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -165,12 +165,14 @@ fn commit_label(
 ) -> String {
     let mut commit = commit.clone();
     commit.refs.clear();
+    // Traversal goals are construction bookkeeping, not durable graph annotations.
+    commit.flags &= CommitFlags::all();
     graph.commit_debug_string_with_graph_context(
         &commit,
         is_entrypoint,
         stop_condition,
         graph.hard_limit_hit(),
-        graph.max_goals(),
+        None,
     )
 }
 

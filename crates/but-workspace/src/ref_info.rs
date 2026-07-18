@@ -495,9 +495,7 @@ pub(crate) fn find_ancestor_workspace_commit(
     let mut commits_outside = Vec::new();
     let mut sidx_and_cidx = None;
     graph.visit_all_segments_excluding_start_until(workspace_id, Direction::Outgoing, |s| {
-        if sidx_and_cidx.is_some()
-            || lower_bound_generation.is_some_and(|max_gen| s.generation > max_gen)
-        {
+        if lower_bound_generation.is_some_and(|max_gen| s.generation > max_gen) {
             return true;
         }
         for (cidx, graph_commit) in s.commits.iter().enumerate() {
@@ -505,7 +503,7 @@ pub(crate) fn find_ancestor_workspace_commit(
                 continue;
             };
             if commit.is_managed() {
-                sidx_and_cidx = Some((s.id, cidx));
+                sidx_and_cidx.get_or_insert((s.id, cidx));
                 return true;
             }
             commits_outside.push(

@@ -102,6 +102,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         let mut graph = StepGraph::new();
         let mut head_selectors = vec![];
         let mut references = vec![];
+        let mut step_reference_names = HashSet::new();
         struct NodeSegment {
             nodes: Vec<StepGraphIndex>,
         }
@@ -115,6 +116,9 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
 
             if let Some(reference) = segment.ref_name() {
                 let refname = reference.to_owned();
+                if !step_reference_names.insert(refname.clone()) {
+                    bail!("BUG: reference {refname} occurs more than once in the workspace graph");
+                }
                 // Only mutable references are tracked for potential deletion.
                 if mutable {
                     references.push(refname.clone());
@@ -143,6 +147,11 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     .collect::<Vec<_>>();
 
                 for reference in refs {
+                    if !step_reference_names.insert(reference.clone()) {
+                        bail!(
+                            "BUG: reference {reference} occurs more than once in the workspace graph"
+                        );
+                    }
                     if mutable {
                         references.push(reference.to_owned());
                     }

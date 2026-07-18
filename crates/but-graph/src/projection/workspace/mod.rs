@@ -90,51 +90,11 @@ pub(crate) struct WorkspaceReconciliationInput {
     /// Reconciliation uses these paths to discover which already-traversed
     /// segments can receive metadata-defined branch segments.
     pub stacks: Vec<Stack>,
-    /// Segment that owns the computed workspace lower-bound commit, regardless
-    /// of whether that segment is currently part of [`Self::stacks`].
-    ///
-    /// This is the full frame-of-reference lower bound used to decide where
-    /// workspace stack collection stops and which base candidates are relevant.
-    /// It may point to a target/integrated segment outside the workspace paths,
-    /// unlike [`Self::lower_bound_segment_id_in_workspace()`].
-    pub lower_bound_segment_id: Option<SegmentIndex>,
-    /// Resolved target ref for the workspace, if one is available.
-    ///
-    /// Reconciliation uses the target segment to avoid creating independent
-    /// branch segments from target-side history and to identify candidates
-    /// where the target is connected from above.
-    pub target_ref: Option<TargetRef>,
-    /// Resolved target commit for the workspace, if one is available.
-    ///
-    /// This can come from workspace metadata or traversal target context. It is
-    /// used as another lower-bound/candidate anchor when reconciling branches
-    /// against the traversed graph.
-    pub target_commit: Option<TargetCommit>,
     /// Workspace metadata that defines the desired applied/unapplied stacks,
     /// branch order, branch names, and target settings.
     ///
     /// This is the non-Git input reconciliation applies to the traversed graph.
     pub metadata: ref_metadata::Workspace,
-}
-
-impl WorkspaceReconciliationInput {
-    /// Return the lower-bound segment only if it is currently part of one of
-    /// [`Self::stacks`].
-    ///
-    /// This is narrower than [`Self::lower_bound_segment_id`]. Reconciliation
-    /// uses it for the "split lower bound out of a named stack segment" fixup,
-    /// which is only valid when that lower-bound segment is inside the current
-    /// workspace stack paths. If the lower bound comes from the target side or
-    /// another integrated context outside the workspace paths, this returns
-    /// `None` to avoid mutating unrelated graph structure.
-    pub fn lower_bound_segment_id_in_workspace(&self) -> Option<SegmentIndex> {
-        self.lower_bound_segment_id.filter(|lb_sidx| {
-            self.stacks
-                .iter()
-                .flat_map(|s| s.segments.iter().map(|s| s.id))
-                .any(|sid| sid == *lb_sidx)
-        })
-    }
 }
 
 impl Workspace {

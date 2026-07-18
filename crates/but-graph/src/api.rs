@@ -1014,10 +1014,10 @@ impl Graph {
 impl Graph {
     /// Validate the graph for consistency and fail loudly when an issue was found.
     /// Use this before using the graph for anything serious, but particularly in testing.
-    /// Final-graph invariants are skipped if the traversal hit the hard limit,
-    /// as these graphs are explicitly partial.
+    /// Final-graph invariants are skipped if the traversal hit the hard limit or
+    /// postprocessing was disabled, as these graphs are explicitly partial.
     pub fn validated(self) -> anyhow::Result<Self> {
-        if !self.hard_limit_hit {
+        if !self.hard_limit_hit && !self.options.dangerously_skip_postprocessing_for_debugging {
             self.check_entrypoint_invariants()?;
             for segment_index in self.inner.node_indices() {
                 let segment = &self.inner[segment_index];
@@ -1048,7 +1048,7 @@ impl Graph {
 
     /// Validate the graph for consistency and return all errors.
     ///
-    /// If the graph didn't hit the hard limit, this checks:
+    /// If the graph is complete and postprocessed, this checks:
     ///
     /// - The graph entrypoint exists, points to an existing segment, matches the
     ///   remembered entrypoint ref when one exists, and remembers a commit id
@@ -1064,7 +1064,7 @@ impl Graph {
     /// - Edge weights still match the source and destination segment endpoints.
     pub fn validation_errors(&self) -> Vec<anyhow::Error> {
         let mut out = Vec::new();
-        if !self.hard_limit_hit {
+        if !self.hard_limit_hit && !self.options.dangerously_skip_postprocessing_for_debugging {
             out.extend(self.check_entrypoint_invariants().err());
             for segment_index in self.inner.node_indices() {
                 let segment = &self.inner[segment_index];
@@ -1189,6 +1189,12 @@ impl Graph {
         outgoing: usize,
     ) -> anyhow::Result<()> {
         if !segment.commits.is_empty() {
+            return Ok(());
+        }
+
+        if self.entrypoint.is_some_and(|(entrypoint_index, commit)| {
+            entrypoint_index == segment_index && matches!(commit, EntryPointCommit::Unborn)
+        }) {
             return Ok(());
         }
 
