@@ -42,6 +42,14 @@ pub(crate) fn commit_amend_only_impl(
 ) -> anyhow::Result<CommitCreateResult> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+
+    let pre_amend_active_branches: std::collections::HashSet<_> = ws
+        .get_branches()
+        .iter()
+        .filter(|b| b.in_workspace)
+        .map(|b| b.id)
+        .collect();
+
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
     let but_workspace::commit::CommitAmendOutcome {
@@ -53,6 +61,22 @@ pub(crate) fn commit_amend_only_impl(
     let new_commit = commit_selector
         .map(|commit_selector| rebase.lookup_pick(commit_selector))
         .transpose()?;
+
+    let mut rebase = rebase;
+    let preview_workspace = crate::WorkspaceState::from_rebase_preview_with_db(&mut rebase, rebase.history.commit_mappings(), &db)?;
+    let post_amend_active_branches: std::collections::HashSet<_> = preview_workspace
+        .virtual_branches
+        .iter()
+        .filter(|b| b.active)
+        .map(|b| b.id)
+        .collect();
+
+    for branch_id in pre_amend_active_branches {
+        if !post_amend_active_branches.contains(&branch_id) {
+            anyhow::bail!("Amend would silently evict an unrelated stack from the workspace. Please unapply or resolve the other stack first.");
+        }
+    }
+
     let workspace = WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?;
 
     Ok(CommitCreateResult {

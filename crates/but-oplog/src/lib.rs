@@ -112,9 +112,9 @@ mod oplog_snapshot {
     impl UnmaterializedOplogSnapshot {
         /// Call this method only if the main effect succeeded so the snapshot should be added to the operation log,
         /// using `ctx` with granted edit `perm`ission.
-        pub fn commit(self, ctx: &Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
-            let _commit_id = ctx.commit_snapshot(self.tree_id, self.details, perm)?;
-            Ok(())
+        pub fn commit(self, ctx: &but_ctx::Context, perm: &mut RepoExclusive) -> anyhow::Result<gix::ObjectId> {
+            let commit_id = ctx.commit_snapshot(self.tree_id, self.details, perm)?;
+            Ok(commit_id)
         }
     }
 }

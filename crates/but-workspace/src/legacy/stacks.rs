@@ -327,10 +327,10 @@ pub fn stack_details_v3(
             let mut info = head_info(repo, meta, ref_info_options)?;
             if info.is_entrypoint {
                 if info.stacks.len() != 1 {
-                    bail!(
-                        "BUG(opt-stack-id): should have gotten exactly one stack, got {}",
+                    return Err(anyhow::anyhow!(
+                        "Stack ID is required in a multi-branch workspace (expected 1 stack, got {})",
                         info.stacks.len()
-                    );
+                    ));
                 }
                 info.stacks.pop().unwrap()
             } else {
