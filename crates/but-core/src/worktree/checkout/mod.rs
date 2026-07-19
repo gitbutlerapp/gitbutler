@@ -18,6 +18,12 @@ pub struct Options {
     /// conflict workflow instead. Rebase materialization may opt in when it
     /// intentionally created the conflicted commit it is about to materialize.
     pub allow_conflicted_commit_checkout: bool,
+    /// If `true`, proceed when uncommitted worktree changes conflict with the checkout
+    /// destination, writing Git-style conflict markers into the affected files.
+    ///
+    /// The markers become part of the uncommitted changes, without conflict entries in the index.
+    /// By default such a checkout is refused so no conflict markers ever appear on disk.
+    pub allow_worktree_conflicts: bool,
 }
 
 /// The successful outcome of [super::safe_checkout_from_head()] operation.

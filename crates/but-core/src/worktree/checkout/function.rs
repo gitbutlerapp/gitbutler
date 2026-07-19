@@ -17,11 +17,14 @@ use super::{Options, Outcome, utils::merge_worktree_changes_into_destination_or_
 /// `new_head_id^{tree}`.
 ///
 /// If `new_head_id` is a *commit*, we will also set `HEAD` (or the ref it points to if symbolic) to the `new_head_id`.
-/// We will also update the `.git/index` to match the `new_head_id^{tree}`.
+/// We will also update the `.git/index` to match the checked-out tree. Note that this is usually
+/// `new_head_id^{tree}`, but when uncommitted worktree changes are preserved across the checkout
+/// it is a synthesized variant of that tree which carries them.
 /// GitButler-conflicted commits are rejected by default before any worktree, index, or ref update.
 ///
 /// We will always handle changes in the worktree safely to avoid loss of uncommitted information. This also means that deletions
-/// never cause us to conflict. Conflicted files that would be checked out will cause an error.
+/// never cause us to conflict. Conflicted files that would be checked out will cause an error,
+/// unless [`Options::allow_worktree_conflicts`] is set to keep them with conflict markers instead.
 ///
 /// #### Note: No rename tracking
 ///
@@ -36,6 +39,7 @@ pub fn safe_checkout_from_head(
         skip_head_update,
         merge_base_override,
         allow_conflicted_commit_checkout,
+        allow_worktree_conflicts,
     }: Options,
 ) -> anyhow::Result<Outcome> {
     let current_head_id = repo.head_tree_id_or_empty()?.detach();
@@ -67,6 +71,7 @@ pub fn safe_checkout_from_head(
         destination_tree.id,
         &mut opts,
         merge_base_override,
+        allow_worktree_conflicts,
     )?
     .map(|(snapshot_id, new_destination_id)| {
         if let Some(id) = new_destination_id {

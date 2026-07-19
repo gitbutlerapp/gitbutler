@@ -15,7 +15,26 @@ use crate::graph_rebase::{
 
 impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     /// Materializes a history rewrite
-    pub fn materialize(mut self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+    pub fn materialize(self) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+        self.materialize_impl(false)
+    }
+
+    /// Like [`Self::materialize`], but if uncommitted worktree changes conflict with the
+    /// new workspace head, keep them with Git-style conflict markers instead of refusing
+    /// the checkout.
+    ///
+    /// Only use this when the caller has surfaced the conflicting paths to the user first,
+    /// like the upstream integration preview does.
+    pub fn materialize_with_worktree_conflict_markers(
+        self,
+    ) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
+        self.materialize_impl(true)
+    }
+
+    fn materialize_impl(
+        mut self,
+        allow_worktree_conflicts: bool,
+    ) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         let repo = self.repo.clone();
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(self.repo)?;
@@ -55,6 +74,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                             skip_head_update: true,
                             merge_base_override,
                             allow_conflicted_commit_checkout: true,
+                            allow_worktree_conflicts,
                         },
                     )?;
                 }
