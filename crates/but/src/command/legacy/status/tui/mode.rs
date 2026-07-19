@@ -3,10 +3,10 @@ use ratatui::style::Color;
 use crate::{
     command::legacy::status::tui::{
         InlineRewordMode,
-        app::mark::MarksRef,
         app::{
             CommandMode, CommandReturnMode, CommitMode, CommitSource, JumpMode, MoveMode,
             MoveSource, MoveStackMode, NormalMode, PickChangesMode, RubMode, RubSource, StackMode,
+            mark::{Marks, MarksRef},
         },
         render::ModeRender,
     },
@@ -147,9 +147,7 @@ impl<'a> ModeRef<'a> {
                 | CommitSource::Uncommitted(..)
                 | CommitSource::Stack(..) => MarksRef::Empty,
             },
-            ModeRef::PickChanges(pick_uncommitted_mode) => {
-                MarksRef::from_hunk_slice(&pick_uncommitted_mode.marks)
-            }
+            ModeRef::PickChanges(pick_uncommitted_mode) => pick_uncommitted_mode.marks.as_ref(),
             ModeRef::Details(details_mode) => details_mode.return_mode.marks(),
             ModeRef::Command(command_mode) => match &command_mode.return_mode {
                 CommandReturnMode::Normal(normal_mode) => normal_mode.marks.as_ref(),
@@ -174,7 +172,6 @@ pub struct DetailsMode {
 }
 
 #[derive(Debug, Clone)]
-#[expect(clippy::large_enum_variant)]
 pub enum DetailsReturnMode {
     Normal(NormalMode),
     PickChanges(PickChangesMode),
@@ -183,12 +180,19 @@ pub enum DetailsReturnMode {
 impl ModeRender for DetailsMode {}
 
 impl DetailsReturnMode {
-    fn marks(&self) -> MarksRef<'_> {
+    pub fn marks(&self) -> MarksRef<'_> {
         match self {
             DetailsReturnMode::Normal(normal_mode) => normal_mode.marks.as_ref(),
             DetailsReturnMode::PickChanges(pick_uncommitted_mode) => {
-                MarksRef::from_hunk_slice(&pick_uncommitted_mode.marks)
+                pick_uncommitted_mode.marks.as_ref()
             }
+        }
+    }
+
+    pub fn marks_mut(&mut self) -> &mut Marks {
+        match self {
+            DetailsReturnMode::Normal(normal_mode) => &mut normal_mode.marks,
+            DetailsReturnMode::PickChanges(pick_changes_mode) => &mut pick_changes_mode.marks,
         }
     }
 

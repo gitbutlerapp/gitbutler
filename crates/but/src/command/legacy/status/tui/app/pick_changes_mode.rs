@@ -1,11 +1,8 @@
-use crate::{
-    command::legacy::status::tui::{app::mark::SingleSourceMarks, render::ModeRender},
-    id::UncommittedHunkOrFile,
-};
+use crate::command::legacy::status::tui::{app::mark::Marks, render::ModeRender};
 
 #[derive(Debug, Default, Clone)]
 pub struct PickChangesMode {
-    pub marks: SingleSourceMarks<UncommittedHunkOrFile>,
+    pub marks: Marks,
 }
 
 impl ModeRender for PickChangesMode {}

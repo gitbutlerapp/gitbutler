@@ -1189,7 +1189,7 @@ fn unstage_command_validation() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to unstage. Cannot unstage f - it is a commit. Only uncommitted files and hunks can be unstaged.
+Failed to unstage. '1' is a commit but must be an uncommitted file or hunk
 
 "#]]);
 

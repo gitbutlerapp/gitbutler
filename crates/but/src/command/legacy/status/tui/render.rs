@@ -9,7 +9,7 @@ use but_rebase::graph_rebase::mutate::InsertSide;
 use ratatui::{
     Frame,
     prelude::*,
-    widgets::{Block, BorderType, Borders, List, ListItem},
+    widgets::{Block, BorderType, Borders},
 };
 use ratatui_textarea::TextArea;
 use unicode_width::UnicodeWidthStr;
@@ -89,12 +89,9 @@ pub fn render_app(app: &App, frame: &mut Frame) {
     }
 
     if let Some(debug_area) = layout.debug_area {
-        let outer_block = Block::bordered()
-            .border_style(app.theme.border)
-            .border_type(BorderType::Thick)
-            .borders(Borders::LEFT);
-        let inner_area = outer_block.inner(debug_area);
-        frame.render_widget(outer_block, debug_area);
+        let block = debug_block(app);
+        let inner_area = block.inner(debug_area);
+        frame.render_widget(block, debug_area);
         render_debug(app, inner_area, frame);
     }
 
@@ -118,9 +115,11 @@ pub fn render_app(app: &App, frame: &mut Frame) {
 }
 
 fn render_details_pane(app: &App, area: Rect, frame: &mut Frame) {
+    let marks = app.mode.marks_ref();
     app.details.render(
         matches!(app.modal, Some(Modal::Help { .. })),
         app.has_focus,
+        marks,
         area,
         frame,
     );
@@ -145,6 +144,13 @@ fn file_browser_details_block(app: &App) -> Block<'static> {
     Block::bordered()
         .border_style(app.theme.border)
         .border_type(BorderType::Plain)
+        .borders(Borders::LEFT)
+}
+
+fn debug_block(app: &App) -> Block<'static> {
+    Block::bordered()
+        .border_style(app.theme.border)
+        .border_type(BorderType::Thick)
         .borders(Borders::LEFT)
 }
 
@@ -257,6 +263,16 @@ fn app_layout(app: &App, terminal_area: Rect) -> AppLayout {
 
 pub(crate) fn details_content_area_for_app(app: &App, terminal_area: Rect) -> Option<Rect> {
     app_layout(app, terminal_area).details_content_area()
+}
+
+pub(crate) fn debug_content_area_for_app(app: &App, terminal_area: Rect) -> Option<Rect> {
+    if !app.launch_options.debug {
+        return None;
+    }
+
+    app_layout(app, terminal_area)
+        .debug_area
+        .map(|area| debug_block(app).inner(area))
 }
 
 pub fn status_layout(app: &App, area: Rect) -> StatusLayout {
@@ -508,15 +524,23 @@ fn render_status_list_item(
     let mut line = RenderSingleLineSpans::new(frame, area);
 
     // ┊╭┄dp [dp-branch-1]
-    // ^^^ render the connector
+    // ^^^ render the connector, optionally with mark symbol
     if let Some(connector) = connector {
-        if data
-            .cli_id()
-            .is_some_and(|id| app.marks_ref().contains_cli_id(id))
-        {
+        let mark_symbol = data.cli_id().and_then(|id| {
+            let marks = app.marks_ref();
+            if marks.contains_cli_id(id) {
+                Some(&app.theme.sym().mark)
+            } else if marks.contains_child_of(id) {
+                Some(&app.theme.sym().partial_mark)
+            } else {
+                None
+            }
+        });
+
+        if let Some(mark_symbol) = mark_symbol {
             for (idx, span) in connector.iter().enumerate() {
                 if idx == 1 {
-                    line.render(app.theme.sym().mark.span());
+                    line.render(mark_symbol.span());
                 } else if idx == 2 {
                     // after the indicator is a bunch of spaces
                     for (c_idx, c) in span.content.chars().enumerate() {
@@ -1057,63 +1081,82 @@ fn render_toasts(app: &App, area: Rect, frame: &mut Frame) {
 }
 
 fn render_debug(app: &App, area: Rect, frame: &mut Frame) {
-    let renders = once(ListItem::new("FPS").black().on_blue()).chain(once(ListItem::new(format!(
+    let renders = once(Span::raw("FPS").black().on_blue()).chain(once(Span::raw(format!(
         "{} FPS ({} renders)",
         app.fps.fps(),
         app.renders
     ))));
+    let renders_line_count = 2;
 
     let backstack = format!("{:#?}", app.backstack);
-    let backstack = once(ListItem::new("Backstack").black().on_blue()).chain(
-        backstack
-            .lines()
-            .take(100)
-            .map(|line| ListItem::new(line.to_owned())),
-    );
+    let backstack_line_count = 1 + backstack.lines().count();
+    let backstack =
+        once(Span::raw("Backstack").black().on_blue()).chain(backstack.lines().map(Span::raw));
 
     let marks = format!("{:#?}", app.marks_ref());
-    let marks = once(ListItem::new("Marks").black().on_blue()).chain(
-        marks
-            .lines()
-            .take(100)
-            .map(|line| ListItem::new(line.to_owned())),
-    );
+    let marks_line_count = 1 + marks.lines().count();
+    let marks = once(Span::raw("Marks").black().on_blue()).chain(marks.lines().map(Span::raw));
 
-    let details_selection = String::new();
     let details_worker_busy = format!("Worker busy: {}", app.details.worker_is_busy());
     let details_cache_size = format!("Cache size: {} lines", app.details.cache_size());
-    let details_num_marks = format!("Marks: {}", app.details.num_marks());
-    let details_selection = once(ListItem::new("Details").black().on_blue()).chain(
-        details_selection
+    let details_line_count =
+        1 + details_worker_busy.lines().count() + details_cache_size.lines().count();
+    let details = once(Span::raw("Details").black().on_blue()).chain(
+        details_worker_busy
             .lines()
-            .chain(details_worker_busy.lines())
             .chain(details_cache_size.lines())
-            .chain(details_num_marks.lines())
-            .take(100)
-            .map(|line| ListItem::new(line.to_owned())),
+            .map(Span::raw),
+    );
+
+    let details_selection = app
+        .details
+        .selected_section_cli_id()
+        .map(|id| format!("{id:#?}"));
+    let details_selection_line_count = 1 + details_selection
+        .as_deref()
+        .map_or(0, |selection| selection.lines().count());
+    let details_selection = once(Span::raw("Details selection").black().on_blue()).chain(
+        details_selection
+            .as_deref()
+            .into_iter()
+            .flat_map(str::lines)
+            .map(Span::raw),
     );
 
     let status_selection = format!("{:#?}", app.cursor.selected_line(&app.status_lines));
-    let status_selection = once(ListItem::new("Status selection").black().on_blue()).chain(
-        status_selection
-            .lines()
-            .take(100)
-            .map(|line| ListItem::new(line.to_owned())),
-    );
+    let status_selection_line_count = 1 + status_selection.lines().count();
+    let status_selection = once(Span::raw("Status selection").black().on_blue())
+        .chain(status_selection.lines().map(Span::raw));
 
-    let list = List::new(
-        renders
-            .chain(once(ListItem::new("")))
-            .chain(backstack)
-            .chain(once(ListItem::new("")))
-            .chain(marks)
-            .chain(once(ListItem::new("")))
-            .chain(details_selection)
-            .chain(once(ListItem::new("")))
-            .chain(status_selection),
-    );
+    let total_line_count = renders_line_count
+        + backstack_line_count
+        + marks_line_count
+        + details_line_count
+        + details_selection_line_count
+        + status_selection_line_count
+        + 5;
+    let max_scroll_top = total_line_count.saturating_sub(area.height as usize);
+    let scroll_top = app.debug_scroll.top().min(max_scroll_top);
+    app.debug_scroll.set_top(scroll_top);
 
-    frame.render_widget(list, area);
+    let spans = renders
+        .chain(once(Span::raw("")))
+        .chain(backstack)
+        .chain(once(Span::raw("")))
+        .chain(marks)
+        .chain(once(Span::raw("")))
+        .chain(details)
+        .chain(once(Span::raw("")))
+        .chain(details_selection)
+        .chain(once(Span::raw("")))
+        .chain(status_selection);
+
+    for (span, line_area) in spans.skip(scroll_top).zip(available_lines_in_area(area)) {
+        if span.style.bg.is_some() {
+            frame.buffer_mut().set_style(line_area, span.style);
+        }
+        RenderSingleLineSpans::new(frame, line_area).render(span);
+    }
 }
 
 pub fn commit_operation_display(
@@ -1470,13 +1513,17 @@ pub trait ModeRender {
     fn render_hot_bar_content(&self, app: &App, area: Rect, frame: &mut Frame) {
         let mode = ModeDiscriminant::from(&*app.mode);
         let key_binds = app.active_key_binds();
+        let selection = app
+            .cursor
+            .selected_line(&app.status_lines)
+            .and_then(|line| Some(&**line.data.cli_id()?));
         let always_show_count = key_binds
-            .iter_key_binds_available_in_mode(mode)
+            .iter_key_binds_available_in_mode(mode, selection)
             .filter(|key_bind| !key_bind.hide_from_hotbar())
             .filter(|key_bind| key_bind.always_show_in_hot_bar())
             .count();
         let always_show_width_without_separators = key_binds
-            .iter_key_binds_available_in_mode(mode)
+            .iter_key_binds_available_in_mode(mode, selection)
             .filter(|key_bind| !key_bind.hide_from_hotbar())
             .filter(|key_bind| key_bind.always_show_in_hot_bar())
             .map(|key_bind| hot_bar_item_width(key_bind, false))
@@ -1496,7 +1543,7 @@ pub trait ModeRender {
         let mut line = RenderSingleLineSpans::new(frame, area);
 
         for key_bind in key_binds
-            .iter_key_binds_available_in_mode(mode)
+            .iter_key_binds_available_in_mode(mode, selection)
             .filter(|key_bind| !key_bind.hide_from_hotbar())
             .filter(|key_bind| !key_bind.always_show_in_hot_bar())
         {
@@ -1514,7 +1561,7 @@ pub trait ModeRender {
         }
 
         for key_bind in key_binds
-            .iter_key_binds_available_in_mode(mode)
+            .iter_key_binds_available_in_mode(mode, selection)
             .filter(|key_bind| !key_bind.hide_from_hotbar())
             .filter(|key_bind| key_bind.always_show_in_hot_bar())
         {

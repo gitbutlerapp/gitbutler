@@ -7,12 +7,13 @@ use crate::command::legacy::status::tui::{
 
 impl App {
     pub fn handle_unfocus_details(&mut self, messages: &mut Vec<Message>) {
-        if let Mode::Details(DetailsMode { full_screen, .. }) = &*self.mode {
+        if let Mode::Details(DetailsMode { full_screen, .. }) = self
+            .mode
+            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
+        {
             if *full_screen {
                 return;
             }
-
-            self.details.on_unfocus(&mut self.backstack);
 
             self.restore_mode_before_details(messages);
 
@@ -32,6 +33,11 @@ impl App {
         messages: &mut Vec<Message>,
     ) {
         self.mode.update(&mut self.backstack, |backstack, mode| {
+            if let Mode::Details(details_mode) = mode
+                && !details_mode.return_mode.marks().is_empty()
+            {
+                backstack.remove_mark();
+            }
             *mode = Mode::Normal(Default::default());
             backstack.remove_leave_normal_mode();
         });
@@ -68,12 +74,28 @@ impl App {
     }
 
     pub fn handle_focus_details(&mut self, full_screen: bool, messages: &mut Vec<Message>) {
-        if !full_screen
-            && let Mode::Details(DetailsMode {
-                full_screen: false, ..
-            }) = &*self.mode
-        {
-            return;
+        if !full_screen {
+            match &*self.mode {
+                Mode::Details(DetailsMode {
+                    full_screen: false, ..
+                }) => return,
+                Mode::Details(DetailsMode {
+                    full_screen: true, ..
+                }) => {
+                    messages.push(Message::DetailsLayout(DetailsLayoutMessage::SwitchToSplit));
+                    return;
+                }
+                Mode::Normal(..)
+                | Mode::PickChanges(..)
+                | Mode::Rub(..)
+                | Mode::InlineReword(..)
+                | Mode::Command(..)
+                | Mode::Commit(..)
+                | Mode::Move(..)
+                | Mode::MoveStack(..)
+                | Mode::Jump(..)
+                | Mode::Stack(..) => {}
+            }
         }
 
         if full_screen
@@ -104,12 +126,7 @@ impl App {
             messages.push(Message::DetailsLayout(
                 DetailsLayoutMessage::ToggleVisibility,
             ));
-
-            // We can't select the first section on the same frame that we show the detail view.
-            // The incremental diff rendering introduces a one frame delay before the first section
-            // is shown.
-            messages
-                .push(Message::Details(DetailsMessage::SelectFirstSection).with_one_frame_delay());
+            messages.push(Message::Details(DetailsMessage::SelectFirstSection));
 
             self.backstack.push_open_details_view(full_screen);
         }
@@ -139,8 +156,25 @@ impl App {
             });
     }
 
+    pub fn handle_switch_details_to_split(&mut self) {
+        self.mode.update(&mut self.backstack, |backstack, mode| {
+            let Mode::Details(DetailsMode { full_screen, .. }) = mode else {
+                return;
+            };
+            if !*full_screen {
+                return;
+            }
+
+            *full_screen = false;
+            backstack.switch_full_screen_details_to_split();
+        });
+    }
+
     pub fn handle_toggle_details_full_screen(&mut self, messages: &mut Vec<Message>) {
-        match &*self.mode {
+        match self
+            .mode
+            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
+        {
             Mode::Normal(..) | Mode::PickChanges(..) => {
                 messages.push(Message::DetailsLayout(DetailsLayoutMessage::Focus {
                     full_screen: true,
@@ -148,7 +182,6 @@ impl App {
             }
             Mode::Details(DetailsMode { full_screen, .. }) => {
                 if *full_screen {
-                    self.details.on_unfocus(&mut self.backstack);
                     self.restore_mode_before_details(messages);
                 } else {
                     messages.push(Message::DetailsLayout(DetailsLayoutMessage::Focus {

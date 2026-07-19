@@ -391,11 +391,12 @@ Use this for "get latest from main" in a GitButler workspace.
 
 ```bash
 but pull                      # Fetch and rebase applied branches
-but pull --check              # Check if can merge cleanly (no changes)
+but pull --check              # Dry-run preview: report what would happen, change nothing
 ```
 
-Run `but pull --check` first, then `but pull` if clean. Do not use raw
-`git pull` or `git rebase`.
+Run `but pull` directly; its output reports the result and `but undo`
+reverts it. Use `--check` only when you want a preview without updating.
+Do not use raw `git pull` or `git rebase`.
 
 ### `but pr`
 

@@ -14,12 +14,12 @@ use crate::{
         status::{
             output::StatusOutputLineData,
             tui::{
-                App, Message, Mode, ReloadCause, RewordMessage, SelectAfterReload,
+                App, DetailsLayoutMessage, Message, Mode, ReloadCause, RewordMessage,
+                SelectAfterReload,
                 render::{
                     ModeRender, RenderSingleLineSpans, render_commit_operation_target_marker,
                     source_span,
                 },
-                stack_has_assigned_changes,
             },
         },
     },
@@ -27,6 +27,8 @@ use crate::{
     tui::TerminalGuard,
     utils::targeting,
 };
+
+use super::mark::MarksRef;
 
 #[derive(Debug, Clone)]
 pub struct CommitMode {
@@ -161,6 +163,7 @@ impl CommitSource {
 pub enum CommitMessage {
     CreateEmpty,
     Start,
+    StartWithSource(Arc<CliId>),
     ToggleMessageComposer(CommitMessageComposer),
     Confirm,
     CommitToNewBranch,
@@ -181,7 +184,8 @@ impl App {
     {
         match message {
             CommitMessage::CreateEmpty => self.handle_commit_create_empty(ctx, messages)?,
-            CommitMessage::Start => self.handle_commit_start(ctx)?,
+            CommitMessage::Start => self.handle_commit_start(messages),
+            CommitMessage::StartWithSource(source) => self.handle_commit_start_source(source),
             CommitMessage::Confirm => self.handle_commit_confirm(ctx, terminal_guard, messages)?,
             CommitMessage::ToggleMessageComposer(composer) => {
                 self.handle_commit_toggle_message_composer(composer);
@@ -197,107 +201,70 @@ impl App {
         Ok(())
     }
 
-    fn handle_commit_start(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
-        if self.marks_ref().is_empty() {
-            self.handle_commit_start_selection(ctx)?;
-        } else {
-            self.handle_commit_start_marks();
+    fn handle_commit_start(&mut self, messages: &mut Vec<Message>) {
+        match &*self.mode {
+            Mode::Normal(..) => {
+                if self.marks_ref().is_empty() {
+                    let Some(selection) = self
+                        .cursor
+                        .selected_line(&self.status_lines)
+                        .and_then(|selection| selection.data.cli_id())
+                    else {
+                        return;
+                    };
+                    self.handle_commit_start_source(Arc::clone(selection));
+                } else {
+                    self.handle_commit_start_marks();
+                }
+            }
+            Mode::Details(details_mode) => match details_mode.return_mode.marks() {
+                MarksRef::Empty => {
+                    let Some(selection) = self.details.selected_section_cli_id() else {
+                        return;
+                    };
+                    if details_mode.full_screen {
+                        messages.push(Message::DetailsLayout(DetailsLayoutMessage::SwitchToSplit));
+                    }
+                    messages.extend([
+                        Message::UnfocusDetails,
+                        Message::Commit(CommitMessage::StartWithSource(Arc::clone(selection))),
+                    ]);
+                }
+                MarksRef::Hunks { .. } => {
+                    if details_mode.full_screen {
+                        messages.push(Message::DetailsLayout(DetailsLayoutMessage::SwitchToSplit));
+                    }
+                    messages.extend([
+                        Message::UnfocusDetails,
+                        Message::Commit(CommitMessage::Start),
+                    ]);
+                }
+                MarksRef::Commits { .. } | MarksRef::CommittedFiles { .. } => {}
+            },
+            _ => {}
         }
-        Ok(())
     }
 
-    fn handle_commit_start_selection(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
-        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
-            return Ok(());
+    fn handle_commit_start_source(&mut self, cli_id: Arc<CliId>) {
+        let source = match &*cli_id {
+            CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
+                let Some(source) = CommitSource::try_new(Arc::unwrap_or_clone(cli_id)) else {
+                    return;
+                };
+                source
+            }
+            CliId::Branch { .. } | CliId::Commit { .. } => {
+                CommitSource::UncommittedArea(UncommittedAreaCommitSource {
+                    id: UNCOMMITTED.to_string(),
+                })
+            }
+            CliId::PathPrefix { .. } | CliId::CommittedFile { .. } => return,
         };
-
-        let commit_mode = match &selection.data {
-            StatusOutputLineData::UncommittedChanges { cli_id } => {
-                let Some(source) = CommitSource::try_new(Arc::unwrap_or_clone(Arc::clone(cli_id)))
-                else {
-                    return Ok(());
-                };
-                CommitMode {
-                    source: Arc::new(source),
-                    insert_side: InsertSide::Below,
-                    scope_to_stack: None,
-                    message_composer: CommitMessageComposer::default(),
-                }
-            }
-            StatusOutputLineData::UncommittedFile { cli_id }
-            | StatusOutputLineData::StagedChanges { cli_id }
-            | StatusOutputLineData::StagedFile { cli_id } => {
-                let Some(source) = CommitSource::try_new(Arc::unwrap_or_clone(Arc::clone(cli_id)))
-                else {
-                    return Ok(());
-                };
-                CommitMode {
-                    source: Arc::new(source),
-                    insert_side: InsertSide::Below,
-                    scope_to_stack: cli_id.stack_id(),
-                    message_composer: CommitMessageComposer::default(),
-                }
-            }
-            StatusOutputLineData::Commit { stack_id, .. } => {
-                let (source, scope_to_stack) = if let Some(stack_id) = *stack_id
-                    && stack_has_assigned_changes(ctx, stack_id)?
-                {
-                    (
-                        CommitSource::Stack(StackCommitSource { stack_id }),
-                        Some(stack_id),
-                    )
-                } else {
-                    (
-                        CommitSource::UncommittedArea(UncommittedAreaCommitSource {
-                            id: UNCOMMITTED.to_string(),
-                        }),
-                        None,
-                    )
-                };
-                CommitMode {
-                    scope_to_stack,
-                    insert_side: InsertSide::Below,
-                    message_composer: CommitMessageComposer::default(),
-                    source: Arc::new(source),
-                }
-            }
-            StatusOutputLineData::Branch { cli_id, .. } => {
-                let CliId::Branch { stack_id, .. } = &**cli_id else {
-                    return Ok(());
-                };
-                let (source, scope_to_stack) = if let Some(stack_id) = *stack_id
-                    && stack_has_assigned_changes(ctx, stack_id)?
-                {
-                    (
-                        CommitSource::Stack(StackCommitSource { stack_id }),
-                        Some(stack_id),
-                    )
-                } else {
-                    (
-                        CommitSource::UncommittedArea(UncommittedAreaCommitSource {
-                            id: UNCOMMITTED.to_string(),
-                        }),
-                        None,
-                    )
-                };
-                CommitMode {
-                    source: Arc::new(source),
-                    insert_side: InsertSide::Below,
-                    scope_to_stack,
-                    message_composer: CommitMessageComposer::default(),
-                }
-            }
-            StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::Connector
-            | StatusOutputLineData::BetweenStacks
-            | StatusOutputLineData::CommitMessage
-            | StatusOutputLineData::EmptyCommitMessage
-            | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::MergeBase
-            | StatusOutputLineData::UpstreamChanges
-            | StatusOutputLineData::Warning
-            | StatusOutputLineData::Hint
-            | StatusOutputLineData::NoAssignmentsUnstaged => return Ok(()),
+        let commit_mode = CommitMode {
+            source: Arc::new(source),
+            insert_side: InsertSide::Below,
+            scope_to_stack: None,
+            message_composer: CommitMessageComposer::default(),
         };
 
         self.mode
@@ -305,7 +272,7 @@ impl App {
                 *mode = Mode::Commit(commit_mode);
             });
 
-        Ok(())
+        self.ensure_cursor_is_on_selectable_line();
     }
 
     fn handle_commit_start_marks(&mut self) {
@@ -335,6 +302,8 @@ impl App {
                     message_composer: CommitMessageComposer::default(),
                 });
             });
+
+        self.ensure_cursor_is_on_selectable_line();
     }
 
     fn handle_commit_confirm<T>(
@@ -444,7 +413,7 @@ impl App {
     fn handle_commit_toggle_insert_side(&mut self) {
         let Mode::Commit(commit_mode) = self
             .mode
-            .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
+            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
         else {
             return;
         };
@@ -457,7 +426,7 @@ impl App {
     fn handle_commit_toggle_message_composer(&mut self, composer: CommitMessageComposer) {
         if let Mode::Commit(mode) = self
             .mode
-            .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
+            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
         {
             match composer {
                 CommitMessageComposer::Editor => {

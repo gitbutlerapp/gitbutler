@@ -88,7 +88,7 @@ impl<'a> DiffSpecBuilder<'a> {
 
     pub fn push_changes_from_path_prefix(
         &mut self,
-        _id: &ShortId,
+        _id: &str,
         hunk_assignments: &nonempty::NonEmpty<(ShortId, HunkAssignment)>,
     ) -> anyhow::Result<()> {
         self.push_hunk_assignments(
@@ -120,7 +120,7 @@ impl<'a> DiffSpecBuilder<'a> {
     pub fn push_changes_from_branch(
         &mut self,
         name: &str,
-        _id: &ShortId,
+        _id: &str,
         _stack_id: Option<StackId>,
     ) -> anyhow::Result<()> {
         anyhow::bail!("Cannot compute diff specs for branch `{name}`")
@@ -129,7 +129,7 @@ impl<'a> DiffSpecBuilder<'a> {
     pub fn push_changes_from_commit(
         &mut self,
         commit_id: gix::ObjectId,
-        _id: &ShortId,
+        _id: &str,
     ) -> anyhow::Result<()> {
         let specs = self.diff_specs_for_commit(commit_id, "First parent")?;
         self.diff_specs.extend(specs);

@@ -16,7 +16,7 @@ use nonempty::NonEmpty;
 use ratatui::{
     Frame,
     layout::Rect,
-    style::Stylize as _,
+    style::{Color, Stylize as _},
     text::{Line, Span},
     widgets::{Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
@@ -28,7 +28,9 @@ use crate::{
         Message, ReloadCause, SelectAfterReload,
         app::{
             Modal,
-            mark::{MarkStore, SingleSourceMarks, toggle_markables},
+            mark::{
+                MarkStore, MarkableRef, Marks, MarksRef, synthetic_parent_hunk, toggle_markables,
+            },
         },
         backstack::Backstack,
         confirm::Confirm,
@@ -40,7 +42,7 @@ use crate::{
         mode::ModeDiscriminant,
         render::{RenderSingleLineSpans, available_lines_in_area},
     },
-    theme::Theme,
+    theme::{Rgb, Theme},
     utils::{
         DebugAsType,
         diff_rendering::{
@@ -69,7 +71,6 @@ pub enum DetailsMessage {
     Discard,
     DropToBeDiscarded,
     Mark,
-    ClearMarks,
 }
 
 #[derive(Debug)]
@@ -91,7 +92,6 @@ pub struct Details {
     highlights: Highlights<SectionId>,
     worker: Worker,
     to_be_discarded: Vec<SectionId>,
-    marks: SingleSourceMarks<SectionId>,
     clipboard: Clipboard,
 }
 
@@ -139,7 +139,6 @@ impl Details {
             highlights: Default::default(),
             worker: Worker::new(),
             to_be_discarded: Default::default(),
-            marks: Default::default(),
             clipboard,
         }
     }
@@ -170,47 +169,24 @@ impl Details {
         self.cache.num_lines
     }
 
+    pub fn selected_section_cli_id(&self) -> Option<&Arc<CliId>> {
+        let index = self.selected_section.get().index()?;
+        self.sections.get(index)?.cli_id.as_ref()
+    }
+
     pub fn on_hidden(&mut self) {
         self.reset_line_reader();
-    }
-
-    pub fn on_unfocus(&mut self, backstack: &mut Backstack) {
-        if !self.marks.is_empty() {
-            backstack.remove_mark();
-        }
-        self.clear_marks();
-    }
-
-    pub fn clear_marks(&mut self) {
-        self.marks.clear();
-    }
-
-    pub fn num_marks(&self) -> usize {
-        self.marks.len()
-    }
-
-    pub fn to_marked_cli_ids(&self) -> Option<NonEmpty<CliId>> {
-        NonEmpty::from_vec(
-            self.marked_section_cli_ids()
-                .map(Arc::unwrap_or_clone)
-                .collect::<Vec<_>>(),
-        )
     }
 
     pub fn selection(&self) -> Option<&CliId> {
         self.selection.as_ref()
     }
 
-    pub fn clear_selection_for_reload(
-        &mut self,
-        select_first_section_when_available: bool,
-        backstack: &mut Backstack,
-    ) {
+    pub fn clear_selection_for_reload(&mut self, select_first_section_when_available: bool) {
         self.selection = None;
         self.reset_line_reader();
         self.clear_lines();
         self.reset_scroll();
-        self.on_unfocus(backstack);
         if select_first_section_when_available {
             self.pending_section_selection
                 .set(PendingSectionSelection::First);
@@ -588,7 +564,14 @@ impl Details {
         }
     }
 
-    pub fn render(&self, _help_shown: bool, tui_has_focus: bool, area: Rect, frame: &mut Frame) {
+    pub fn render(
+        &self,
+        _help_shown: bool,
+        tui_has_focus: bool,
+        marks: MarksRef<'_>,
+        area: Rect,
+        frame: &mut Frame,
+    ) {
         if !cfg!(test)
             && self.lines.is_empty()
             && let ChannelLineReader::Started { start, .. } = &self.line_reader
@@ -658,6 +641,7 @@ impl Details {
                 &syntax_set,
                 &syntax_theme,
                 &mut highlight_lines,
+                marks,
                 frame,
             );
 
@@ -669,8 +653,8 @@ impl Details {
             }
         }
 
-        if let Some((section_id, range)) = selected_section_visible_range {
-            self.render_selected_section_marker(section_id, area, range, frame);
+        if let Some((section_id, cli_id, range)) = selected_section_visible_range {
+            self.render_selected_section_marker(section_id, cli_id, area, marks, range, frame);
         }
 
         // Draw the scrollbar over the content instead of reserving a column for it.
@@ -685,7 +669,9 @@ impl Details {
     fn render_selected_section_marker(
         &self,
         id: SectionId,
+        cli_id: Option<Arc<CliId>>,
         area: Rect,
+        marks: MarksRef<'_>,
         visible_range: std::ops::Range<usize>,
         frame: &mut Frame,
     ) {
@@ -695,7 +681,9 @@ impl Details {
         for row in visible_range {
             let color = if self.section_is_highlighted(id) {
                 highlight::style().bg.unwrap()
-            } else if self.marks.contains_mark(&id) {
+            } else if let Some(cli_id) = cli_id.as_ref()
+                && marks.contains_cli_id(cli_id)
+            {
                 self.theme.tui_mark.bg.unwrap()
             } else {
                 ModeDiscriminant::Details.bg(self.theme)
@@ -740,6 +728,7 @@ impl Details {
         &mut self,
         msg: DetailsMessage,
         messages: &mut Vec<Message>,
+        marks: Option<&mut Marks>,
         backstack: &mut Backstack,
     ) -> anyhow::Result<()> {
         match msg {
@@ -777,13 +766,19 @@ impl Details {
                     });
             }
             DetailsMessage::SelectFirstSection => {
-                self.selected_section
-                    .set(match self.selected_section.get() {
-                        SelectedSection::None => SelectedSection::Selected(0),
-                        SelectedSection::Selected(n) | SelectedSection::Deselected(n) => {
-                            SelectedSection::Selected(n)
-                        }
-                    });
+                if self.sections.is_empty() {
+                    self.pending_section_selection
+                        .set(PendingSectionSelection::First);
+                } else {
+                    self.clear_pending_first_section_selection();
+                    self.selected_section
+                        .set(match self.selected_section.get() {
+                            SelectedSection::None => SelectedSection::Selected(0),
+                            SelectedSection::Selected(n) | SelectedSection::Deselected(n) => {
+                                SelectedSection::Selected(n)
+                            }
+                        });
+                }
             }
             DetailsMessage::GotoTop => {
                 self.scroll.goto_top();
@@ -806,16 +801,19 @@ impl Details {
                 self.copy_current_hunk()?;
             }
             DetailsMessage::Discard => {
-                self.handle_discard(messages);
+                let Some(marks) = marks else {
+                    return Ok(());
+                };
+                self.handle_discard(messages, marks.as_ref());
             }
             DetailsMessage::DropToBeDiscarded => {
                 self.to_be_discarded.clear();
             }
             DetailsMessage::Mark => {
-                self.handle_mark(messages, backstack)?;
-            }
-            DetailsMessage::ClearMarks => {
-                self.clear_marks();
+                let Some(marks) = marks else {
+                    return Ok(());
+                };
+                self.handle_mark(messages, marks, backstack)?;
             }
         }
 
@@ -833,6 +831,7 @@ impl Details {
         syntax_set: &'a SyntaxSet,
         syntax_theme: &'a syntect::highlighting::Theme,
         highlight_lines: &mut Option<HighlightLines<'a>>,
+        marks: MarksRef<'_>,
         frame: &mut Frame,
     ) -> RenderedLine {
         match line {
@@ -868,14 +867,14 @@ impl Details {
                 }
             }
             DetailsLine::HunkHeader {
-                id,
                 width,
                 line,
-                cli_id: _,
+                cli_id,
+                id: _,
             } => {
                 *highlight_lines = None;
 
-                let is_marked = self.marks.contains_mark(id);
+                let is_marked = cli_id.as_ref().is_some_and(|id| marks.contains_cli_id(id));
 
                 let width = if is_marked { *width + 3 } else { *width };
 
@@ -979,6 +978,27 @@ impl Details {
                         frame.render_widget(crossed_out_line, line_area);
                     } else {
                         frame.render_widget(syntax_highlighted_line, line_area);
+                    }
+
+                    if line
+                        .cli_id
+                        .as_ref()
+                        .is_some_and(|id| marks.contains_cli_id(id))
+                    {
+                        if let Some(color) = line.line_numbers.kind.bg(self.theme) {
+                            if let Color::Rgb(r, g, b) = color {
+                                let base = Rgb(r, g, b);
+                                let mix = Rgb(150, 150, 150);
+                                let weight = 0.3;
+                                frame
+                                    .buffer_mut()
+                                    .set_style(line_area, base.lerp(mix, weight).into_bg_style());
+                            }
+                        } else {
+                            frame
+                                .buffer_mut()
+                                .set_style(line_area, self.theme.tui_details_context_lines_marked);
+                        }
                     }
                 }
             }
@@ -1124,7 +1144,7 @@ impl Details {
         viewport_height: usize,
         layout_cache: &LayoutCache,
         tui_has_focus: bool,
-    ) -> Option<(SectionId, std::ops::Range<usize>)> {
+    ) -> Option<(SectionId, Option<Arc<CliId>>, std::ops::Range<usize>)> {
         if !tui_has_focus {
             return None;
         }
@@ -1137,7 +1157,7 @@ impl Details {
         let start = section_start.max(scroll_top);
         let end = section_end.min(visible_end);
         let range = (start < end).then_some(start - scroll_top..end - scroll_top)?;
-        Some((section.id, range))
+        Some((section.id, section.cli_id.as_ref().map(Arc::clone), range))
     }
 
     fn section_is_highlighted(&self, id: SectionId) -> bool {
@@ -1178,11 +1198,11 @@ impl Details {
         }
     }
 
-    fn handle_discard(&mut self, messages: &mut Vec<Message>) {
-        if self.marks.is_empty() {
+    fn handle_discard(&mut self, messages: &mut Vec<Message>, marks: MarksRef<'_>) {
+        if marks.is_empty() {
             self.handle_discard_selection(messages);
         } else {
-            self.handle_discard_marks(messages);
+            self.handle_discard_marks(messages, marks);
         }
     }
 
@@ -1268,24 +1288,24 @@ impl Details {
         messages.push(Message::ShowModal(Modal::Confirm { confirm }));
     }
 
-    fn marked_section_cli_ids(&self) -> impl Iterator<Item = Arc<CliId>> {
-        self.marks.iter().copied().filter_map(|section_id| {
-            let section = self
-                .sections
-                .iter()
-                .find(|section| section.id == section_id)?;
-            Some(Arc::clone(section.cli_id.as_ref()?))
-        })
-    }
-
-    fn handle_discard_marks(&mut self, messages: &mut Vec<Message>) {
-        let marked_section_cli_ids = self.marked_section_cli_ids().collect::<Vec<_>>();
-
-        if marked_section_cli_ids.is_empty() {
-            return;
+    fn handle_discard_marks(&mut self, messages: &mut Vec<Message>, marks: MarksRef<'_>) {
+        match marks {
+            MarksRef::Hunks { .. } => {}
+            MarksRef::Empty | MarksRef::Commits { .. } | MarksRef::CommittedFiles { .. } => return,
         }
 
-        self.to_be_discarded = self.marks.iter().copied().collect::<Vec<_>>();
+        self.to_be_discarded = self
+            .sections
+            .iter()
+            .filter_map(|section| {
+                let cli_id = section.cli_id.as_deref()?;
+                if marks.contains_cli_id(cli_id) {
+                    Some(section.id)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
 
         // Keep the current section if it remains; otherwise select the first remaining section
         // below it, falling back to the first remaining section above it. Translate that section's
@@ -1296,7 +1316,7 @@ impl Details {
             .index()
             .and_then(|selected_index| {
                 let selected_section = self.sections.get(selected_index)?;
-                let target_index = if !self.marks.contains_mark(&selected_section.id) {
+                let target_index = if !section_is_marked(selected_section, marks) {
                     selected_index
                 } else {
                     self.sections
@@ -1304,7 +1324,7 @@ impl Details {
                         .enumerate()
                         .skip(selected_index + 1)
                         .find_map(|(index, section)| {
-                            (!self.marks.contains_mark(&section.id)).then_some(index)
+                            (!section_is_marked(section, marks)).then_some(index)
                         })
                         .or_else(|| {
                             self.sections
@@ -1313,13 +1333,13 @@ impl Details {
                                 .take(selected_index)
                                 .rev()
                                 .find_map(|(index, section)| {
-                                    (!self.marks.contains_mark(&section.id)).then_some(index)
+                                    (!section_is_marked(section, marks)).then_some(index)
                                 })
                         })?
                 };
                 let index = self.sections[..target_index]
                     .iter()
-                    .filter(|section| !self.marks.contains_mark(&section.id))
+                    .filter(|section| !section_is_marked(section, marks))
                     .count();
                 let direction = if target_index > selected_index {
                     ScrollDirection::Down
@@ -1334,50 +1354,64 @@ impl Details {
             messages,
         );
 
-        let confirm = Confirm::new(
-            NonEmpty::new(
-                Span::raw(if self.marks.len() == 1 {
-                    "Discard hunk?"
-                } else {
-                    "Discard hunks?"
-                })
-                .into(),
-            ),
-            self.theme,
-            move |ctx, messages| {
-                let changes = {
-                    let context_lines = ctx.settings.context_lines;
-                    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-                    let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-                    for id in marked_section_cli_ids {
-                        builder.push_changes_from_id(&id)?;
-                    }
-                    builder.reconcile_worktree_diff_specs()?;
-                    builder.into_diff_specs()
-                };
+        let confirm = {
+            let marks = marks.to_owned();
 
-                if changes.is_empty() {
-                    return Ok(());
-                }
-
-                but_api::legacy::workspace::discard_worktree_changes(ctx, changes)?;
-
-                let select_after_reload = select_after_discard.map(|selection| {
-                    let PendingSectionSelection::Section { index, direction } = selection else {
-                        unreachable!("discard marks can only select a specific details section")
+            Confirm::new(
+                NonEmpty::new(Span::raw("Discard?").into()),
+                self.theme,
+                move |ctx, messages| {
+                    let changes = {
+                        let context_lines = ctx.settings.context_lines;
+                        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+                        let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+                        for mark in marks.iter() {
+                            match mark {
+                                MarkableRef::Uncommitted(hunk) => {
+                                    builder.push_changes_from_uncommitted(hunk)?;
+                                }
+                                MarkableRef::Commit(c) => {
+                                    builder.push_changes_from_commit(c.commit_id, c.id)?;
+                                }
+                                MarkableRef::CommittedFile(c) => {
+                                    builder
+                                        .push_changes_from_committed_file(c.commit_id, c.path)?;
+                                }
+                            }
+                        }
+                        match marks {
+                            Marks::Hunks(..) => {
+                                builder.reconcile_worktree_diff_specs()?;
+                            }
+                            Marks::Empty | Marks::Commits(..) | Marks::CommittedFiles(..) => {}
+                        }
+                        builder.into_diff_specs()
                     };
-                    SelectAfterReload::UncommittedDetailsSection { index, direction }
-                });
-                messages.extend([
-                    Message::Reload(select_after_reload, ReloadCause::Mutation),
-                    Message::Details(DetailsMessage::ClearMarks),
-                ]);
 
-                drop(drop_to_be_discarded);
+                    if changes.is_empty() {
+                        return Ok(());
+                    }
 
-                Ok(())
-            },
-        );
+                    but_api::legacy::workspace::discard_worktree_changes(ctx, changes)?;
+
+                    let select_after_reload = select_after_discard.map(|selection| {
+                        let PendingSectionSelection::Section { index, direction } = selection
+                        else {
+                            unreachable!("discard marks can only select a specific details section")
+                        };
+                        SelectAfterReload::UncommittedDetailsSection { index, direction }
+                    });
+                    messages.extend([
+                        Message::Reload(select_after_reload, ReloadCause::Mutation),
+                        Message::ClearMarks,
+                    ]);
+
+                    drop(drop_to_be_discarded);
+
+                    Ok(())
+                },
+            )
+        };
 
         messages.push(Message::ShowModal(Modal::Confirm { confirm }));
     }
@@ -1385,8 +1419,15 @@ impl Details {
     fn handle_mark(
         &mut self,
         messages: &mut Vec<Message>,
+        marks: &mut Marks,
         backstack: &mut Backstack,
     ) -> anyhow::Result<()> {
+        // we need all the sections to toggle parent marks so dont allow marking until we've
+        // finished streaming the diff
+        if self.is_polling_thread() {
+            return Ok(());
+        }
+
         if !self.selected_uncommitted() {
             return Ok(());
         }
@@ -1397,21 +1438,55 @@ impl Details {
         let Some(section_cli_id) = section.cli_id.as_ref().map(Arc::clone) else {
             return Ok(());
         };
-        let CliId::UncommittedHunkOrFile(_) = &*section_cli_id else {
+        let Some(markable @ MarkableRef::Uncommitted(hunk)) =
+            MarkableRef::try_from_cli_id(section_cli_id.as_ref())
+        else {
             return Ok(());
         };
-        toggle_markables(&mut self.marks, [section.id])?;
 
-        if self.marks.is_empty() {
+        toggle_markables(marks, [markable.to_owned()])?;
+
+        let sections_for_file_cli_ids = self
+            .sections
+            .iter()
+            .filter_map(|section| {
+                let cli_id = section.cli_id.as_deref()?;
+                let CliId::UncommittedHunkOrFile(section_hunk) = cli_id else {
+                    return None;
+                };
+                // the detail view can contain hunks from multiple files, for example if viewing
+                // the uncommitted area, so only check hunks from the marked file
+                if section_hunk.hunk_assignments.head.path_bytes
+                    != hunk.hunk_assignments.head.path_bytes
+                {
+                    return None;
+                }
+                Some(section_hunk)
+            })
+            .collect::<Vec<_>>();
+        if let Some(sections_for_file_cli_ids) = NonEmpty::from_vec(sections_for_file_cli_ids) {
+            let all_sections_marked = sections_for_file_cli_ids
+                .iter()
+                .all(|hunk| marks.contains_mark(*hunk));
+            let parent_hunk = synthetic_parent_hunk(
+                &sections_for_file_cli_ids.head.id,
+                0,
+                sections_for_file_cli_ids.flat_map(|hunk| hunk.hunk_assignments.clone()),
+            );
+            if all_sections_marked {
+                marks.insert_mark(parent_hunk)?;
+            } else {
+                marks.remove_mark(&parent_hunk);
+            }
+        }
+
+        if marks.is_empty() {
             backstack.remove_mark();
         } else {
             backstack.push_mark();
         }
 
-        messages.extend([
-            Message::ClearStatusModeMarks,
-            Message::Details(DetailsMessage::SelectNextSection),
-        ]);
+        messages.push(Message::Details(DetailsMessage::SelectNextSection));
 
         Ok(())
     }
@@ -1877,4 +1952,11 @@ fn format_lines_in_section(lines: &[DetailsLine]) -> String {
     } else {
         text
     }
+}
+
+fn section_is_marked(section: &Section, marks: MarksRef<'_>) -> bool {
+    let Some(cli_id) = section.cli_id.as_deref() else {
+        return false;
+    };
+    marks.contains_cli_id(cli_id)
 }

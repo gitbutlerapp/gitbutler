@@ -147,7 +147,7 @@ impl App {
     fn handle_command_input(&mut self, ev: Event) {
         if let Mode::Command(CommandMode { textarea, .. }) = self
             .mode
-            .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
+            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
         {
             textarea.input(ev);
         }

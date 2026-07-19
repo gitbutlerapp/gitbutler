@@ -211,6 +211,30 @@ fn marks_still_show_in_split_details() {
 }
 
 #[test]
+fn manual_reload_preserves_marks_when_split_details_visible() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "content of one");
+    env.file("two", "content of two");
+
+    let mut tui = test_tui(env);
+
+    tui.input('d');
+    tui.input('j');
+    tui.input(' ')
+        .assert_rendered_contains("┊✔︎  k    A one")
+        .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::OpenSplitDetailsView]);
+
+    tui.input((KeyModifiers::CONTROL, 'r'))
+        .assert_rendered_contains("┊✔︎  k    A one")
+        .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::OpenSplitDetailsView])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/manual_reload_preserves_marks_when_split_details_visible_001.svg"
+        ]);
+}
+
+#[test]
 fn can_only_mark_files_from_one_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);

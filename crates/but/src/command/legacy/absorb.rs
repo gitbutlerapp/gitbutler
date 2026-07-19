@@ -39,13 +39,33 @@ pub(crate) fn handle(
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let source: Option<CliId> = source
-        .and_then(|s| parse_sources(ctx, &id_map, s).ok())
-        .and_then(|s| {
-            s.into_iter().find(|s| {
-                matches!(s, CliId::UncommittedHunkOrFile { .. })
-                    || matches!(s, CliId::Branch { .. })
-            })
-        });
+        .map(|s| -> anyhow::Result<CliId> {
+            // Uncommitted selectors resolve in the uncommitted namespace first
+            // so later commits cannot shadow them; branch selectors resolve in
+            // the full namespace. A selector that names neither is an error —
+            // silently falling back to absorbing everything is never intended.
+            let resolved =
+                match crate::id::parser::resolve_uncommitted_part(ctx, &id_map, s) {
+                    Ok(ids) if !ids.is_empty() => ids,
+                    _ => parse_sources(ctx, &id_map, s)?,
+                };
+            let mut acceptable = resolved.into_iter().filter(|id| {
+                matches!(id, CliId::UncommittedHunkOrFile { .. })
+                    || matches!(id, CliId::Branch { .. })
+            });
+            let first = acceptable.next().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "'{s}' does not name an uncommitted change or branch; refusing to absorb everything"
+                )
+            })?;
+            if acceptable.next().is_some() {
+                anyhow::bail!(
+                    "'{s}' is ambiguous - it matches more than one uncommitted change. Use more characters to disambiguate."
+                );
+            }
+            Ok(first)
+        })
+        .transpose()?;
 
     let target = if let Some(source) = source {
         match source {

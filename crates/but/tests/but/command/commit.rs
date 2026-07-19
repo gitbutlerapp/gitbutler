@@ -1360,6 +1360,33 @@ Error: Invalid file ID(s):
 }
 
 #[test]
+fn commit_with_filename_shadowed_by_branch_of_same_name_succeeds() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.but("branch new notes.txt").assert().success();
+
+    // A dirty file sharing its name with a branch: in the full namespace the
+    // selector would be ambiguous, but `--changes` only takes uncommitted
+    // files, so the filename must keep working.
+    env.file("notes.txt", "content\n");
+
+    env.but("commit A -m 'notes' --changes notes.txt")
+        .assert()
+        .success();
+
+    let status = util::status_json(&env).expect("status should be valid JSON");
+    let remaining = status["uncommittedChanges"]
+        .as_array()
+        .map(Vec::len)
+        .unwrap_or_default();
+    assert_eq!(remaining, 0, "the file should be committed");
+    let messages = branch_commit_messages(&env, "A");
+    assert_eq!(messages[..1], ["notes"]);
+
+    Ok(())
+}
+
+#[test]
 fn commit_with_file_assigned_to_different_stack_fails() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);

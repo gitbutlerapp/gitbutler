@@ -616,7 +616,7 @@ async fn handle_pull(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Resu
                         writeln!(out, "{}", t.important.paint("To resolve conflicts:"))?;
                         writeln!(
                             out,
-                            "  1. Run {} on a conflicted commit listed above — oldest first (they are listed bottom-up)",
+                            "  1. Run {} on a conflicted commit listed above — oldest first (they are listed bottom-up). Worktree files show no conflict markers until this checks the commit out",
                             t.command_suggestion.paint("`but resolve <commit>`")
                         )?;
                         writeln!(out, "  2. Edit files to resolve the conflicts")?;

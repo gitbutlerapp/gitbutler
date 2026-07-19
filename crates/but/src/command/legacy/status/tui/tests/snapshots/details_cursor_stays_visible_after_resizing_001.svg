@@ -105,13 +105,10 @@
     <text x="266 274 282 290" y="186" style="fill:#CCCCCC;opacity:0.75;">prev</text>
     <text x="306 314 322 330" y="186" style="fill:#CCCCCC;opacity:0.75;">hunk</text>
     <text x="346" y="186" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="362 370 378 386 394 402 410 418 426" y="186" style="fill:#0000AA;">shift+↑/k</text>
-    <text x="442 450" y="186" style="fill:#CCCCCC;opacity:0.75;">up</text>
-    <text x="466" y="186" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="482" y="186" style="fill:#0000AA;">?</text>
-    <text x="498 506 514 522" y="186" style="fill:#CCCCCC;opacity:0.75;">help</text>
-    <text x="538" y="186" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="554" y="186" style="fill:#0000AA;">q</text>
-    <text x="570 578 586 594" y="186" style="fill:#CCCCCC;opacity:0.75;">quit</text>
+    <text x="362" y="186" style="fill:#0000AA;">?</text>
+    <text x="378 386 394 402" y="186" style="fill:#CCCCCC;opacity:0.75;">help</text>
+    <text x="418" y="186" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="434" y="186" style="fill:#0000AA;">q</text>
+    <text x="450 458 466 474" y="186" style="fill:#CCCCCC;opacity:0.75;">quit</text>
   </g>
 </svg>

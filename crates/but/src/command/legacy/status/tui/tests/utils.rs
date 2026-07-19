@@ -6,7 +6,7 @@ use gitbutler_operating_modes::OperatingMode;
 use ratatui::{
     Terminal,
     backend::TestBackend,
-    style::{Color, Modifier},
+    style::{Color, Modifier, Style},
 };
 use temp_env::with_vars;
 
@@ -20,14 +20,12 @@ use crate::{
             copy_selection_picker::Clipboard, render_loop_once,
         },
     },
+    theme::Paint,
     tui::TerminalGuard,
     utils::{OutputChannel, WriteWithUtils},
 };
 
-use super::super::{
-    mode::Mode,
-    render::{details_content_area_for_app, status_layout},
-};
+use super::super::{mode::Mode, render::status_layout};
 
 pub struct TestTui {
     app: App,
@@ -65,14 +63,7 @@ impl Default for TestTuiOptions {
 }
 
 pub fn test_tui(env: Sandbox) -> TestTui {
-    test_tui_with_options(
-        env,
-        TestTuiOptions {
-            width: 100,
-            height: 20,
-            ..Default::default()
-        },
-    )
+    test_tui_with_options(env, TestTuiOptions::default())
 }
 
 pub fn test_tui_with_options(env: Sandbox, options: TestTuiOptions) -> TestTui {
@@ -339,53 +330,26 @@ impl TestTuiInputThenRenderResult<'_> {
             return rendered_line.to_owned();
         }
 
-        let selected_bg = self
-            .0
-            .app
-            .theme
-            .selection_highlight
-            .bg
-            .expect("background must be set on selection_highlight");
-        let details_area = details_content_area_for_app(&self.0.app, area);
-        let selected_status_row = self.selected_status_row();
-        let highlight_cell = |x, y| {
-            if selected_status_row.is_some_and(|row| row == y) {
-                return buffer[(x, y)].bg == selected_bg;
-            }
-            if matches!(&*self.0.app.mode, Mode::Details(..))
-                && details_area.is_some_and(|area| {
-                    x >= area.x
-                        && x < area.x.saturating_add(area.width)
-                        && y >= area.y
-                        && y < area.y.saturating_add(area.height)
-                })
-            {
-                return buffer[(x, y)].bg == selected_bg;
-            }
-            false
-        };
-
         let mut rendered = String::new();
-        let mut highlighted = String::new();
-        let mut plain = String::new();
-        let mut highlighting = false;
+        let mut segment = String::new();
+        let mut segment_style = None;
 
         colored::control::set_override(true);
         for x in area.x..area.x.saturating_add(area.width) {
-            let symbol = buffer[(x, y)].symbol();
-            let cell_is_highlighted = highlight_cell(x, y);
-            if cell_is_highlighted != highlighting {
-                flush_highlighted_debug_line_segment(&mut rendered, &mut plain, &mut highlighted);
-                highlighting = cell_is_highlighted;
+            let cell = &buffer[(x, y)];
+            let style = Style::default()
+                .fg(cell.fg)
+                .bg(cell.bg)
+                .add_modifier(cell.modifier);
+            if segment_style.is_some_and(|current| current != style) {
+                flush_styled_debug_line_segment(&mut rendered, &mut segment, segment_style);
+                segment_style = Some(style);
+            } else if segment_style.is_none() {
+                segment_style = Some(style);
             }
-
-            if highlighting {
-                highlighted.push_str(symbol);
-            } else {
-                plain.push_str(symbol);
-            }
+            segment.push_str(cell.symbol());
         }
-        flush_highlighted_debug_line_segment(&mut rendered, &mut plain, &mut highlighted);
+        flush_styled_debug_line_segment(&mut rendered, &mut segment, segment_style);
         colored::control::unset_override();
 
         rendered.trim_end().to_owned()
@@ -481,27 +445,14 @@ impl TestTuiInputThenRenderResult<'_> {
     }
 }
 
-fn flush_highlighted_debug_line_segment(
+fn flush_styled_debug_line_segment(
     rendered: &mut String,
-    plain: &mut String,
-    highlighted: &mut String,
+    segment: &mut String,
+    style: Option<Style>,
 ) {
-    use colored::Colorize;
-
-    rendered.push_str(plain);
-    plain.clear();
-
-    if !highlighted.is_empty() {
-        rendered.push_str(
-            &highlighted
-                .on_custom_color(colored::CustomColor {
-                    r: 69,
-                    g: 71,
-                    b: 90,
-                })
-                .to_string(),
-        );
-        highlighted.clear();
+    if let Some(style) = style {
+        rendered.push_str(&style.paint(&*segment).to_string());
+        segment.clear();
     }
 }
 

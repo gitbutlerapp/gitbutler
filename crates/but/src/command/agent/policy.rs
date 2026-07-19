@@ -199,9 +199,9 @@ pub(super) fn render_managed_policy_block(answers: &WizardAnswers) -> String {
             &mut body,
             "Update from the target branch automatically",
             &[
-                "When GitButler status shows new changes on the target branch, run `but pull --check`.",
-                "If the check is clean and the update affects only this session's branches, update the workspace with `but pull`.",
-                "If the check reports conflicts or the update would affect another agent's branch, ask before updating.",
+                "When GitButler status shows new changes on the target branch and the workspace holds only this session's branches, update with `but pull` directly — its output reports the result and `but undo` reverts it.",
+                "If an update you started on your own initiative reports conflicted commits, stop and ask before resolving them (`but undo` reverts the pull if the user prefers).",
+                "When other agents' branches are applied, run `but pull --check` first and ask before updating if it reports conflicts or their branches would move.",
                 "If the user asks you to handle update conflicts, use GitButler's conflict tools. Ask before resolving semantic conflicts, dependency updates, generated files, or conflicts involving another person's work.",
             ],
         );

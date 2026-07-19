@@ -14,7 +14,7 @@ use gitbutler_oplog::{
 
 use crate::{
     CliId, IdMap,
-    id::parser::parse_sources,
+    id::parser::parse_uncommitted_sources,
     utils::{OutputChannel, diff_specs},
 };
 
@@ -28,8 +28,8 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // Resolve the ID to get file information
-    let resolved_ids =
-        parse_sources(ctx, &id_map, id).with_context(|| format!("Could not resolve ID '{id}'"))?;
+    let resolved_ids = parse_uncommitted_sources(ctx, &id_map, id)
+        .with_context(|| format!("Could not resolve ID '{id}'"))?;
 
     if resolved_ids.is_empty() {
         bail!("No entity found for the given ID");

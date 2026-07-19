@@ -27,7 +27,10 @@ use nonempty::NonEmpty;
 use crate::{
     CliError, CliId, IdMap, bad_input,
     command::legacy::rub::assign::stack_id_to_branch_name,
-    id::parser::{IdResolutionError, parse_sources_with_disambiguation, prompt_for_disambiguation},
+    id::parser::{
+        IdResolutionError, parse_sources_with_disambiguation,
+        parse_uncommitted_sources_with_disambiguation, prompt_for_disambiguation,
+    },
     utils::{OutputChannel, diff_specs::DiffSpecBuilder, shorten_object_id},
 };
 
@@ -303,6 +306,7 @@ impl<'a> UncommittedToCommitOperation<'a> {
             let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
             let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
             builder.push_hunk_assignments(self.hunk_assignments.iter().copied().cloned())?;
+            builder.reconcile_worktree_diff_specs()?;
             builder.into_diff_specs()
         };
         but_api::commit::amend::commit_amend(ctx, self.oid, changes, DryRun::No)
@@ -1664,7 +1668,7 @@ pub(crate) fn handle_amend(
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let mut files = Vec::new();
     for file_str in file_strs {
-        files.extend(parse_sources_with_disambiguation(
+        files.extend(parse_uncommitted_sources_with_disambiguation(
             ctx, &id_map, file_str, out,
         )?);
     }
@@ -1802,8 +1806,8 @@ pub(crate) fn handle_stage(
 ) -> anyhow::Result<()> {
     let t = theme::get();
     let id_map = IdMap::legacy_new_from_context(ctx, None)?;
-    let files =
-        parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out).map_err(|err| {
+    let files = parse_uncommitted_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)
+        .map_err(|err| {
             stage_resolution_error(err, |err| {
                 StageBadInput::file_or_hunk(file_or_hunk_str, err)
             })
@@ -1987,7 +1991,7 @@ pub(crate) fn handle_unstage(
 ) -> anyhow::Result<()> {
     let t = theme::get();
     let id_map = IdMap::legacy_new_from_context(ctx, None)?;
-    let files = parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
+    let files = parse_uncommitted_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
 
     // Validate that all files are uncommitted or a path prefix
     for file in &files {
@@ -2022,12 +2026,16 @@ pub(crate) fn handle_unstage(
         }
     }
 
-    // Call the main rub handler with "zz" as target to unassign
-    handle(
+    // Unassign the already-resolved files directly; re-parsing the raw string
+    // through the full namespace could hit the very shadowing the scoped
+    // resolution above just avoided.
+    let target = id_map.uncommitted().clone();
+    handle_resolved(
         ctx,
+        &id_map,
         out,
-        file_or_hunk_str,
-        "zz",
+        files,
+        target,
         MessageCombinationStrategy::KeepBoth,
     )
 }

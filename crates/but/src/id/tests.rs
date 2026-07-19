@@ -2526,6 +2526,145 @@ branches: [ no ]
 }
 
 #[test]
+fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<()> {
+    let changed_paths_fn = || {
+        Box::new(
+            |commit_id: gix::ObjectId,
+             parent_id: Option<gix::ObjectId>|
+             -> anyhow::Result<Vec<but_core::TreeChange>> {
+                bail!("unexpected IDs {commit_id} {parent_id:?}");
+            },
+        )
+    };
+
+    // Discover the ID the file gets while no commit competes with it — the ID
+    // an agent copies from `but diff` before committing.
+    let commitless = IdMap::new(
+        vec![stack([segment("not-important", [], None, [])])],
+        vec![hunk_assignment("README.md", None)],
+        gix::hashtable::HashMap::default(),
+    )?;
+    let file_id = commitless
+        .all_ids()
+        .into_iter()
+        .find_map(|cli_id| match cli_id {
+            CliId::UncommittedHunkOrFile(uncommitted) => Some(uncommitted.id.clone()),
+            _ => None,
+        })
+        .expect("one uncommitted file");
+
+    // A commit is created whose random change ID starts with that file ID.
+    let id1 = id(1);
+    let colliding_change_id = ChangeId::from(BString::from(format!(
+        "{file_id}{}",
+        "z".repeat(32 - file_id.len())
+    )));
+    let commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId> =
+        [(id1, colliding_change_id)].into_iter().collect();
+    let id_map = IdMap::new(
+        vec![stack([segment("not-important", [id1], None, [])])],
+        vec![hunk_assignment("README.md", None)],
+        commit_id_to_change_id,
+    )?;
+
+    // In the full namespace the commit shadows the previously issued file ID.
+    let full = id_map.parse(&file_id, changed_paths_fn())?;
+    assert!(
+        matches!(full.as_slice(), [CliId::Commit { .. }]),
+        "the commit change ID shadows the file ID in the full namespace: {full:?}"
+    );
+
+    // Scoped to uncommitted files, the same selector still finds the file.
+    let scoped = id_map.parse_uncommitted(&file_id, changed_paths_fn())?;
+    match scoped.as_slice() {
+        [CliId::UncommittedHunkOrFile(uncommitted)] => {
+            assert_eq!(
+                uncommitted.hunk_assignments.first().path_bytes,
+                "README.md",
+                "the selector resolves to the file it was issued for"
+            );
+        }
+        other => panic!("expected the uncommitted file, got {other:?}"),
+    }
+
+    // Hunk selectors under the file keep working too.
+    let hunk = id_map.parse_uncommitted(&format!("{file_id}:q"), changed_paths_fn())?;
+    assert!(
+        matches!(hunk.as_slice(), [CliId::UncommittedHunkOrFile(_)]),
+        "hunk selector resolves in the scoped namespace: {hunk:?}"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn uncommitted_scope_resolves_a_file_literally_named_zz() -> anyhow::Result<()> {
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        bail!("unexpected IDs {commit_id} {parent_id:?}");
+    };
+    let id_map = IdMap::new(
+        vec![stack([segment("not-important", [], None, [])])],
+        vec![hunk_assignment("zz", None)],
+        gix::hashtable::HashMap::default(),
+    )?;
+
+    // The full parser returns the filename match before considering the `zz`
+    // sentinel; the scoped parser must agree instead of reporting an
+    // ambiguity the full parser does not have.
+    let scoped = id_map.parse_uncommitted("zz", Box::new(changed_paths_fn))?;
+    match scoped.as_slice() {
+        [CliId::UncommittedHunkOrFile(uncommitted)] => {
+            assert_eq!(uncommitted.hunk_assignments.first().path_bytes, "zz");
+        }
+        other => panic!("expected exactly the file named zz, got {other:?}"),
+    }
+    Ok(())
+}
+
+#[test]
+fn uncommitted_scope_does_not_prefix_match_a_branch_short_id() -> anyhow::Result<()> {
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        bail!("unexpected IDs {commit_id} {parent_id:?}");
+    };
+    // File "foo242" gets reverse-hex ID "kpo…"; a branch literally named "kp"
+    // takes short ID "kp", which the ID assigner deliberately allows to be a
+    // prefix of the file's ID (branches win in the full namespace).
+    let id_map = IdMap::new(
+        vec![stack([segment("kp", [id(1)], None, [])])],
+        vec![hunk_assignment("foo242", None)],
+        gix::hashtable::HashMap::default(),
+    )?;
+
+    let full = id_map.parse("kp", Box::new(changed_paths_fn))?;
+    assert!(
+        matches!(full.as_slice(), [CliId::Branch { .. }]),
+        "precondition: the full namespace resolves 'kp' to the branch: {full:?}"
+    );
+
+    // The scoped parser must NOT silently resolve the displayed branch ID to
+    // the file by hex-prefix accident — an empty result lets callers produce
+    // the targeted "is a branch" error via their full-namespace fallback.
+    let scoped = id_map.parse_uncommitted("kp", Box::new(changed_paths_fn))?;
+    assert_eq!(
+        scoped,
+        vec![],
+        "a displayed branch ID never resolves to a file in the uncommitted scope"
+    );
+
+    // A longer prefix that no branch owns still resolves the file.
+    let scoped = id_map.parse_uncommitted("kpo", Box::new(changed_paths_fn))?;
+    assert!(
+        matches!(scoped.as_slice(), [CliId::UncommittedHunkOrFile(_)]),
+        "file prefixes beyond the branch ID keep resolving: {scoped:?}"
+    );
+    Ok(())
+}
+
+#[test]
 fn change_ids_are_disambiguated_on_collision() {
     let id1 = id(1);
     let id2 = id(2);

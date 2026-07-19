@@ -230,7 +230,7 @@ impl App {
     fn handle_move_toggle_insert_side(&mut self) {
         let Mode::Move(move_mode) = self
             .mode
-            .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
+            .get_mut_and_i_promise_not_to_switch_to_a_different_state()
         else {
             return;
         };

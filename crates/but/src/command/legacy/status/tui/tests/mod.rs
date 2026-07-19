@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use but_testsupport::Sandbox;
 use crossterm::event::*;
-use snapbox::{file, str};
+use snapbox::{ToDebug, file, str};
 use temp_env::with_var;
 
 use crate::CliId;
@@ -1080,10 +1080,41 @@ fn pick_changes_mode() {
         _ => panic!("unexpected outcome {outcome:#?}"),
     };
 
-    for id in &cli_ids {
-        assert!(matches!(dbg!(id), CliId::UncommittedHunkOrFile(..)));
-    }
-    assert_eq!(cli_ids.len(), 1);
+    let actual = cli_ids
+        .into_iter()
+        .map(|id| {
+            if let CliId::UncommittedHunkOrFile(hunk) = id {
+                hunk
+            } else {
+                panic!("expected hunk, got {id:#?}")
+            }
+        })
+        .map(|hunk| {
+            (
+                hunk.id,
+                hunk.hunk_assignments.head.path,
+                hunk.is_entire_file,
+            )
+        })
+        .collect::<Vec<_>>();
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+[
+    (
+        "k",
+        "one",
+        true,
+    ),
+    (
+        "k:synthetic-id-0",
+        "one",
+        false,
+    ),
+]
+
+"#]]
+    );
 }
 
 #[test]
@@ -1140,10 +1171,41 @@ fn stays_in_pick_change_mode_after_full_screen_details() {
         _ => panic!("unexpected outcome {outcome:#?}"),
     };
 
-    for id in &cli_ids {
-        assert!(matches!(dbg!(id), CliId::UncommittedHunkOrFile(..)));
-    }
-    assert_eq!(cli_ids.len(), 1);
+    let actual = cli_ids
+        .into_iter()
+        .map(|id| {
+            if let CliId::UncommittedHunkOrFile(hunk) = id {
+                hunk
+            } else {
+                panic!("expected hunk, got {id:#?}")
+            }
+        })
+        .map(|hunk| {
+            (
+                hunk.id,
+                hunk.hunk_assignments.head.path,
+                hunk.is_entire_file,
+            )
+        })
+        .collect::<Vec<_>>();
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+[
+    (
+        "k",
+        "one",
+        true,
+    ),
+    (
+        "k:synthetic-id-0",
+        "one",
+        false,
+    ),
+]
+
+"#]]
+    );
 }
 
 #[test]

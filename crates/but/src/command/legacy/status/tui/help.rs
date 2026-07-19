@@ -66,7 +66,9 @@ impl Help {
                     items: Vec::new(),
                 });
 
-                for key_bind in key_binds.iter_key_binds_available_in_mode(mode) {
+                for key_bind in
+                    key_binds.iter_key_binds_available_in_mode_regardless_of_conditions(mode)
+                {
                     if key_bind.show_only_in_normal_mode_help_section()
                         && mode != ModeDiscriminant::Normal
                     {

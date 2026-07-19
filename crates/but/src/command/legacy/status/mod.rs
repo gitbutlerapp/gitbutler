@@ -691,9 +691,9 @@ fn print_hint(
 
     if status_ctx.is_agent_invocation {
         let id_hint = if status_ctx.flags.verbose {
-            "Hint: the first token on each line is the ID to use in commands. The sha in parentheses is informational and changes on every amend."
+            "Hint: commits are listed newest first. The first token on each line is the ID to use in commands. The sha in parentheses is informational and changes on every amend."
         } else {
-            "Hint: the first token on each line is the ID to use in commands."
+            "Hint: commits are listed newest first. The first token on each line is the ID to use in commands."
         };
         output.hint(Vec::from([Span::styled(id_hint, crate::theme::get().hint)]))?;
     }

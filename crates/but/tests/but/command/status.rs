@@ -1178,7 +1178,7 @@ This notice repeats until the skill is installed. If it still appears after inst
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: ◐ means rewritten locally vs upstream.
-Hint: the first token on each line is the ID to use in commands.
+Hint: commits are listed newest first. The first token on each line is the ID to use in commands.
 
 "#]]);
 
@@ -1196,7 +1196,7 @@ Hint: the first token on each line is the ID to use in commands.
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: ◐ means rewritten locally vs upstream.
-Hint: the first token on each line is the ID to use in commands.
+Hint: commits are listed newest first. The first token on each line is the ID to use in commands.
 
 "#]]);
 }

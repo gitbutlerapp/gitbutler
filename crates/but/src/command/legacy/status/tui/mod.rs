@@ -37,7 +37,6 @@ use crate::{
             help::HelpMessage,
             key_bind::{KeyBinds, fuzzy_picker_key_binds},
             mode::{Mode, ModeDiscriminant},
-            operations::stack_has_assigned_changes,
             toast::ToastKind,
         },
     },
@@ -279,7 +278,6 @@ where
 
     // handle messages
     let mut did_reload = false;
-    messages.append(&mut app.delayed_messages);
     loop {
         if messages.is_empty() {
             break;
@@ -364,7 +362,12 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
     match ev {
         Event::Key(key) => {
             let mut handled = false;
-            for key_bind in key_binds.iter_key_binds_available_in_mode(ModeDiscriminant::from(mode))
+            let selection = app
+                .cursor
+                .selected_line(&app.status_lines)
+                .and_then(|line| Some(&**line.data.cli_id()?));
+            for key_bind in
+                key_binds.iter_key_binds_available_in_mode(ModeDiscriminant::from(mode), selection)
             {
                 if key_bind.matches(&key) {
                     messages.push(key_bind.message());
@@ -445,17 +448,21 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
         }
         Event::Mouse(event) => match event.kind {
             MouseEventKind::ScrollDown => {
-                if app.modal.is_none()
-                    && mouse_is_over_details(app, terminal_area, event.column, event.row)
-                {
-                    messages.push(Message::Details(DetailsMessage::ScrollDown(3)));
+                if app.modal.is_none() {
+                    if mouse_is_over_debug(app, terminal_area, event.column, event.row) {
+                        messages.push(Message::DebugScrollDown(3));
+                    } else if mouse_is_over_details(app, terminal_area, event.column, event.row) {
+                        messages.push(Message::Details(DetailsMessage::ScrollDown(3)));
+                    }
                 }
             }
             MouseEventKind::ScrollUp => {
-                if app.modal.is_none()
-                    && mouse_is_over_details(app, terminal_area, event.column, event.row)
-                {
-                    messages.push(Message::Details(DetailsMessage::ScrollUp(3)));
+                if app.modal.is_none() {
+                    if mouse_is_over_debug(app, terminal_area, event.column, event.row) {
+                        messages.push(Message::DebugScrollUp(3));
+                    } else if mouse_is_over_details(app, terminal_area, event.column, event.row) {
+                        messages.push(Message::Details(DetailsMessage::ScrollUp(3)));
+                    }
                 }
             }
             MouseEventKind::Moved
@@ -466,6 +473,11 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
             | MouseEventKind::ScrollRight => {}
         },
     }
+}
+
+fn mouse_is_over_debug(app: &App, terminal_area: Rect, column: u16, row: u16) -> bool {
+    render::debug_content_area_for_app(app, terminal_area)
+        .is_some_and(|area| area.contains(Position { x: column, y: row }))
 }
 
 fn mouse_is_over_details(app: &App, terminal_area: Rect, column: u16, row: u16) -> bool {
@@ -559,6 +571,8 @@ enum Message {
     DropToBeDiscarded,
     GrowDetails,
     ShrinkDetails,
+    DebugScrollUp(usize),
+    DebugScrollDown(usize),
     SetHasFocus(bool),
     Back,
     UnfocusDetails,
@@ -590,7 +604,7 @@ enum Message {
     NewBranch,
     ToggleHelp,
     Mark,
-    ClearStatusModeMarks,
+    ClearMarks,
     Undo,
     Redo,
     ShowModal(Modal),
@@ -601,7 +615,6 @@ enum Message {
     CopyToClipboard(String),
     #[expect(clippy::enum_variant_names)]
     RegisterOutOfBandMessage(Receiver<Message>),
-    WithOneFrameDelay(Box<Message>),
     AndThen {
         lhs: Box<Message>,
         rhs: Box<Message>,
@@ -617,11 +630,6 @@ fn message_is_send() {
 }
 
 impl Message {
-    /// Delay a message so it wont be handled until the next frame.
-    pub fn with_one_frame_delay(self) -> Self {
-        Self::WithOneFrameDelay(Box::new(self))
-    }
-
     /// Send another message only if handling the first succeeds.
     #[expect(dead_code)]
     pub fn and_then(self, other: Self) -> Self {
@@ -641,6 +649,8 @@ enum DetailsLayoutMessage {
     Focus { full_screen: bool },
     /// Toggle between split details and full-screen details.
     ToggleFullScreen,
+    /// Switch full-screen details to the focused split details view.
+    SwitchToSplit,
     /// Show or hide the details view without necessarily focusing it.
     ToggleVisibility,
     /// Close the full-screen details view if active, otherwise toggle details visibility.
@@ -732,7 +742,6 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
     fn is_repo_mutation(m: &Message) -> bool {
         match m {
             Message::AndThen { lhs, rhs } => is_repo_mutation(lhs) || is_repo_mutation(rhs),
-            Message::WithOneFrameDelay(m) => is_repo_mutation(m),
             Message::Reload(_, cause) => match cause {
                 ReloadCause::Mutation
                 | ReloadCause::Watcher { .. }
@@ -748,12 +757,14 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 | CommitMessage::Confirm
                 | CommitMessage::CommitToNewBranch => true,
                 CommitMessage::Start
+                | CommitMessage::StartWithSource(..)
                 | CommitMessage::ToggleMessageComposer(_)
                 | CommitMessage::ToggleInsertSide => false,
             },
             Message::Rub(message) => match message {
                 RubMessage::Confirm => true,
                 RubMessage::Start
+                | RubMessage::StartWithSource(..)
                 | RubMessage::StartReverse
                 | RubMessage::UseTargetMessage
                 | RubMessage::UseSourceMessage => false,
@@ -794,12 +805,12 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
                 | DetailsMessage::GotoBottom
                 | DetailsMessage::Discard
                 | DetailsMessage::Mark
-                | DetailsMessage::ClearMarks
                 | DetailsMessage::DropToBeDiscarded => false,
             },
             Message::DetailsLayout(message) => match message {
                 DetailsLayoutMessage::Focus { .. }
                 | DetailsLayoutMessage::ToggleFullScreen
+                | DetailsLayoutMessage::SwitchToSplit
                 | DetailsLayoutMessage::ToggleVisibility
                 | DetailsLayoutMessage::Dismiss => false,
             },
@@ -842,6 +853,8 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             | Message::DropToBeDiscarded
             | Message::GrowDetails
             | Message::ShrinkDetails
+            | Message::DebugScrollUp(_)
+            | Message::DebugScrollDown(_)
             | Message::SetHasFocus(_)
             | Message::Back
             | Message::UnfocusDetails
@@ -855,7 +868,7 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             | Message::SelectBranch(..)
             | Message::ToggleHelp
             | Message::Mark
-            | Message::ClearStatusModeMarks
+            | Message::ClearMarks
             | Message::CopySelection
             | Message::CopySelectionPicker
             | Message::CopyToClipboard(..)

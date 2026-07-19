@@ -284,6 +284,41 @@ fn agent_skill_notice_reports_a_stale_local_skill_despite_a_current_global_copy(
 }
 
 #[test]
+fn skill_check_update_repairs_a_stale_local_skill() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("skill install --path .codex/skills/gitbutler")
+        .assert()
+        .success();
+    std::fs::write(
+        env.projects_root().join(".codex/skills/gitbutler/SKILL.md"),
+        "---\nname: but\nversion: old\n---\n",
+    )
+    .unwrap();
+
+    // The staleness notice tells agents to run exactly this command; it must
+    // converge instead of failing (it used to bail about a relative --path the
+    // agent never passed when the repository was discovered from a relative
+    // working directory).
+    env.but("skill check --update")
+        .env("AI_AGENT", "codex")
+        .assert()
+        .success();
+
+    // The local copy is current again, so the notice stops.
+    let output = env
+        .but("alias list")
+        .env("AI_AGENT", "codex")
+        .output()
+        .expect("alias list runs");
+    assert!(
+        !String::from_utf8_lossy(&output.stdout).contains("AGENT ACTION REQUIRED"),
+        "the suggested remediation must clear the notice"
+    );
+}
+
+#[test]
 fn agent_skill_notice_repairs_another_agents_stale_global_skill() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);

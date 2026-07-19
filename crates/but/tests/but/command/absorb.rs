@@ -15,6 +15,49 @@ fn find_uncommitted_cli_id(status: &serde_json::Value, path: &str) -> Option<Str
 }
 
 #[test]
+fn unresolvable_source_errors_instead_of_absorbing_everything() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // A source that resolves to nothing must fail loudly. It used to be
+    // swallowed, silently degrading `absorb <id>` to absorb-everything.
+    env.but("absorb zq").assert().failure();
+
+    // The worktree change is untouched.
+    let status = util::status_json(&env).expect("status should be valid JSON");
+    assert!(
+        find_uncommitted_cli_id(&status, "a.txt").is_some(),
+        "nothing was absorbed by the failed command"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn ambiguous_source_errors_instead_of_absorbing_an_arbitrary_match() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+    // "foo23" and "foo242" share the reverse-hex ID prefix "kp".
+    env.file("foo23", "data\n");
+    env.file("foo242", "data\n");
+
+    env.but("absorb kp").assert().failure();
+
+    // Nothing was absorbed by the ambiguous selector.
+    let status = util::status_json(&env).expect("status should be valid JSON");
+    assert!(
+        find_uncommitted_cli_id(&status, "a.txt").is_some(),
+        "the ambiguous command must not touch any commit"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn uncommitted_file() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
@@ -38,7 +81,7 @@ fn uncommitted_file() -> anyhow::Result<()> {
 ...
 "#]]);
 
-    env.but("absorb i0")
+    env.but("absorb")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -332,7 +375,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "mes
 
 "#]]);
 
-    env.but("absorb i0")
+    env.but("absorb")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -462,7 +505,7 @@ fn dry_run_shows_plan_without_changes() -> anyhow::Result<()> {
         .stdout;
 
     // Run absorb with dry-run flag
-    env.but("absorb i0 --dry-run")
+    env.but("absorb --dry-run")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -493,7 +536,7 @@ Dry run complete. No changes were made.
     let repo = env.open_repo();
     let ws_id = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
     // Re-run dry-run and confirm workspace is still the same
-    env.but("absorb i0 --dry-run").assert().success();
+    env.but("absorb --dry-run").assert().success();
     let ws_id_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
     assert_eq!(ws_id, ws_id_after, "dry-run must not touch workspace HEAD");
 
@@ -553,7 +596,7 @@ fn workspace_head_is_refreshed_after_absorb() -> anyhow::Result<()> {
     let repo = env.open_repo();
     let ws_before = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
 
-    env.but("absorb i0").assert().success().stderr_eq(str![""]);
+    env.but("absorb").assert().success().stderr_eq(str![""]);
 
     // After absorb the workspace commit must have changed.
     let ws_after = repo.rev_parse_single(b"gitbutler/workspace")?.detach();

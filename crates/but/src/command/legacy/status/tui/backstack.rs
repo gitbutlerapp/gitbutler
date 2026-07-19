@@ -46,6 +46,14 @@ impl Backstack {
         self.remove(BackstackEntry::OpenFullScreenDetailsView);
     }
 
+    pub fn switch_full_screen_details_to_split(&mut self) {
+        for entry in &mut self.stack {
+            if *entry == BackstackEntry::OpenFullScreenDetailsView {
+                *entry = BackstackEntry::OpenSplitDetailsView;
+            }
+        }
+    }
+
     pub fn push_mark(&mut self) {
         self.remove_mark();
         self.push_front(BackstackEntry::Mark);
@@ -132,9 +140,7 @@ impl<T> RememberToUpdateBackstack<T> {
     /// This method should only be used if you're mutating a part of the state and not replacing it
     /// outright.
     #[inline]
-    pub fn get_mut_without_updating_backstack_and_i_promise_not_to_change_state(
-        &mut self,
-    ) -> &mut T {
+    pub fn get_mut_and_i_promise_not_to_switch_to_a_different_state(&mut self) -> &mut T {
         &mut self.0
     }
 }

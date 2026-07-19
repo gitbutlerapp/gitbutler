@@ -250,10 +250,19 @@ fn resolve_file_ids(
     let mut errors = Vec::new();
 
     for file_id in file_ids {
-        let cli_ids = match id_map.parse_using_context(file_id, ctx) {
+        // Resolve in the uncommitted namespace (with the shared full-namespace
+        // fallback for container selectors), so a commit or branch ID minted
+        // after the file ID was printed cannot shadow it.
+        let cli_ids = match crate::id::parser::resolve_uncommitted_part(ctx, id_map, file_id) {
             Ok(ids) => ids,
             Err(e) => {
-                errors.push(format!("'{file_id}': {e}"));
+                if e.downcast_ref::<crate::id::parser::IdResolutionError>()
+                    .is_some()
+                {
+                    errors.push(format!("{e}"));
+                } else {
+                    errors.push(format!("'{file_id}': {e}"));
+                }
                 continue;
             }
         };

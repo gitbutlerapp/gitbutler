@@ -438,7 +438,7 @@ impl App {
 
                 drop(drop_to_be_discarded);
                 messages.extend([
-                    Message::ClearStatusModeMarks,
+                    Message::ClearMarks,
                     Message::Reload(select_after_reload, ReloadCause::Mutation),
                 ]);
                 Ok(())

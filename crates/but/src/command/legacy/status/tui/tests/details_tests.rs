@@ -6,6 +6,7 @@ use temp_env::with_var;
 use crate::command::legacy::status::{
     TuiRunOptions,
     tui::{
+        DetailsLayoutMessage, Message,
         backstack::BackstackEntry,
         tests::utils::{TestTuiOptions, test_tui, test_tui_with_options},
     },
@@ -54,7 +55,7 @@ fn details_view_updates_with_selection_changes() {
             "snapshots/details_view_updates_with_selection_changes_002.svg"
         ]);
 
-    tui.input((KeyModifiers::SHIFT, 'J'))
+    tui.input(binds::NEXT_HUNK)
         .assert_rendered_term_svg_eq(file![
             "snapshots/details_view_updates_with_selection_changes_003.svg"
         ]);
@@ -511,6 +512,84 @@ fn toggle_full_screen_details_view() {
 }
 
 #[test]
+fn switch_full_screen_details_to_split() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "content of one");
+    env.file("two", "content of two");
+    env.file("three", "content of three");
+
+    let mut tui = test_tui(env);
+
+    tui.input((KeyModifiers::SHIFT, 'D'));
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ').assert_backstack_eq([
+        BackstackEntry::Mark,
+        BackstackEntry::LeaveNormalMode,
+        BackstackEntry::OpenFullScreenDetailsView,
+    ]);
+
+    tui.render_with_messages(
+        None,
+        vec![Message::DetailsLayout(DetailsLayoutMessage::SwitchToSplit)],
+    )
+    .assert_backstack_eq([
+        BackstackEntry::Mark,
+        BackstackEntry::LeaveNormalMode,
+        BackstackEntry::OpenSplitDetailsView,
+    ])
+    .assert_rendered_term_svg_eq(file![
+        "snapshots/switch_full_screen_details_to_split_001.svg"
+    ]);
+
+    tui.input((KeyModifiers::SHIFT, 'D')).assert_backstack_eq([
+        BackstackEntry::Mark,
+        BackstackEntry::LeaveNormalMode,
+        BackstackEntry::OpenSplitDetailsView,
+    ]);
+    tui.render_with_messages(
+        None,
+        vec![Message::DetailsLayout(DetailsLayoutMessage::SwitchToSplit)],
+    )
+    .assert_backstack_eq([
+        BackstackEntry::Mark,
+        BackstackEntry::LeaveNormalMode,
+        BackstackEntry::OpenSplitDetailsView,
+    ])
+    .assert_rendered_term_svg_eq(file![
+        "snapshots/switch_full_screen_details_to_split_002.svg"
+    ]);
+}
+
+#[test]
+fn back_from_details_switched_to_split_unfocuses_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file("file.txt", "content");
+
+    let mut tui = test_tui(env);
+
+    tui.input((KeyModifiers::SHIFT, 'D')).assert_backstack_eq([
+        BackstackEntry::LeaveNormalMode,
+        BackstackEntry::OpenFullScreenDetailsView,
+    ]);
+    tui.render_with_messages(
+        None,
+        vec![Message::DetailsLayout(DetailsLayoutMessage::SwitchToSplit)],
+    )
+    .assert_backstack_eq([
+        BackstackEntry::LeaveNormalMode,
+        BackstackEntry::OpenSplitDetailsView,
+    ]);
+    tui.input(KeyCode::Esc)
+        .assert_backstack_eq([BackstackEntry::OpenSplitDetailsView])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/back_from_details_switched_to_split_unfocuses_details_001.svg"
+        ]);
+}
+
+#[test]
 fn details_view_with_no_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
@@ -691,10 +770,10 @@ fn discard_hunk_from_detail_view_via_file() {
 
     let mut tui = test_tui(env);
 
-    tui.input('j');
-    tui.input('j');
-    tui.input('j');
-    tui.input('j');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(binds::SCROLL_DOWN);
     tui.input('c');
     tui.input('e');
     tui.input('b');
@@ -707,12 +786,13 @@ fn discard_hunk_from_detail_view_via_file() {
     ]);
 
     tui.input('g');
-    tui.input('j');
-    tui.input('j');
-    tui.input('j');
-    tui.input('j').assert_rendered_term_svg_eq(file![
-        "snapshots/discard_hunk_from_detail_view_via_file_002.svg"
-    ]);
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(binds::SCROLL_DOWN)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/discard_hunk_from_detail_view_via_file_002.svg"
+        ]);
     tui.input('d');
     tui.input('l');
 
@@ -756,7 +836,7 @@ fn marking_and_discarding_multiple_uncommitted_hunks() {
 
     tui.input('d');
     tui.input('l');
-    tui.input('j');
+    tui.input(binds::SCROLL_DOWN);
     tui.input(' ').assert_rendered_term_svg_eq(file![
         "snapshots/marking_and_discarding_multiple_uncommitted_hunks_001.svg"
     ]);
@@ -789,7 +869,7 @@ fn detail_marks_use_the_backstack() {
 
     tui.input('d');
     tui.input('l');
-    tui.input('j')
+    tui.input(binds::SCROLL_DOWN)
         .assert_backstack_eq([
             BackstackEntry::LeaveNormalMode,
             BackstackEntry::OpenSplitDetailsView,
@@ -813,7 +893,7 @@ fn detail_marks_use_the_backstack() {
 }
 
 #[test]
-fn detail_marks_clear_when_leaving_detail_mode() {
+fn detail_marks_stay_when_leaving_detail_mode() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
@@ -825,7 +905,7 @@ fn detail_marks_clear_when_leaving_detail_mode() {
 
     tui.input('d');
     tui.input('l');
-    tui.input('j').assert_backstack_eq([
+    tui.input(binds::SCROLL_DOWN).assert_backstack_eq([
         BackstackEntry::LeaveNormalMode,
         BackstackEntry::OpenSplitDetailsView,
     ]);
@@ -836,14 +916,14 @@ fn detail_marks_clear_when_leaving_detail_mode() {
         BackstackEntry::OpenSplitDetailsView,
     ]);
     tui.input('h')
-        .assert_backstack_eq([BackstackEntry::OpenSplitDetailsView])
+        .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::OpenSplitDetailsView])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/detail_marks_clear_when_leaving_detail_mode_001.svg"
+            "snapshots/detail_marks_stay_when_leaving_detail_mode_001.svg"
         ]);
 }
 
 #[test]
-fn detail_marks_clear_when_closing_detail_view() {
+fn detail_marks_stay_when_closing_detail_view() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
@@ -855,7 +935,7 @@ fn detail_marks_clear_when_closing_detail_view() {
 
     tui.input('d');
     tui.input('l');
-    tui.input('j').assert_backstack_eq([
+    tui.input(binds::SCROLL_DOWN).assert_backstack_eq([
         BackstackEntry::LeaveNormalMode,
         BackstackEntry::OpenSplitDetailsView,
     ]);
@@ -865,14 +945,16 @@ fn detail_marks_clear_when_closing_detail_view() {
         BackstackEntry::LeaveNormalMode,
         BackstackEntry::OpenSplitDetailsView,
     ]);
-    tui.input('d').assert_backstack_eq([]);
-    tui.input('d').assert_rendered_term_svg_eq(file![
-        "snapshots/detail_marks_clear_when_closing_detail_view_001.svg"
-    ]);
+    tui.input('d').assert_backstack_eq([BackstackEntry::Mark]);
+    tui.input('d')
+        .assert_backstack_eq([BackstackEntry::OpenSplitDetailsView, BackstackEntry::Mark])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/detail_marks_stay_when_closing_detail_view_001.svg"
+        ]);
 }
 
 #[test]
-fn detail_marks_clear_when_closing_full_screen_detail_view() {
+fn detail_marks_stay_when_closing_full_screen_detail_view() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
@@ -884,7 +966,7 @@ fn detail_marks_clear_when_closing_full_screen_detail_view() {
 
     tui.input((KeyModifiers::SHIFT, 'D'));
     tui.render_with_messages(None, Vec::new());
-    tui.input('j');
+    tui.input(binds::SCROLL_DOWN);
     tui.input(' ');
     tui.input(' ')
         .assert_backstack_eq([
@@ -893,16 +975,21 @@ fn detail_marks_clear_when_closing_full_screen_detail_view() {
             BackstackEntry::OpenFullScreenDetailsView,
         ])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/detail_marks_clear_when_closing_full_screen_detail_view_001.svg"
+            "snapshots/detail_marks_stay_when_closing_full_screen_detail_view_001.svg"
         ]);
     tui.input((KeyModifiers::SHIFT, 'D'))
-        .assert_backstack_eq([])
+        .assert_backstack_eq([BackstackEntry::Mark])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/detail_marks_clear_when_closing_full_screen_detail_view_002.svg"
+            "snapshots/detail_marks_stay_when_closing_full_screen_detail_view_002.svg"
         ]);
     tui.input((KeyModifiers::SHIFT, 'D'))
+        .assert_backstack_eq([
+            BackstackEntry::LeaveNormalMode,
+            BackstackEntry::OpenFullScreenDetailsView,
+            BackstackEntry::Mark,
+        ])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/detail_marks_clear_when_closing_full_screen_detail_view_003.svg"
+            "snapshots/detail_marks_stay_when_closing_full_screen_detail_view_003.svg"
         ]);
 }
 
@@ -919,7 +1006,7 @@ fn marks_stay_when_going_straight_from_split_to_fullscreen() {
 
     tui.input('d');
     tui.input('l');
-    tui.input('j');
+    tui.input(binds::SCROLL_DOWN);
     tui.input(' ').assert_backstack_eq([
         BackstackEntry::Mark,
         BackstackEntry::LeaveNormalMode,
@@ -938,16 +1025,16 @@ fn marks_stay_when_going_straight_from_split_to_fullscreen() {
             "snapshots/marks_stay_when_going_straight_from_split_to_fullscreen_001.svg"
         ]);
 
-    // closing the full screen details should also clear the marks and backstack
+    // Closing full screen details should retain the marks.
     tui.input((KeyModifiers::SHIFT, 'D'))
-        .assert_backstack_eq([])
+        .assert_backstack_eq([BackstackEntry::Mark])
         .assert_rendered_term_svg_eq(file![
             "snapshots/marks_stay_when_going_straight_from_split_to_fullscreen_002.svg"
         ]);
 }
 
 #[test]
-fn discards_normal_mode_marks_when_marking_details() {
+fn normal_and_detail_marks_coexist_in_split_details() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
@@ -957,7 +1044,8 @@ fn discards_normal_mode_marks_when_marking_details() {
 
     let mut tui = test_tui(env);
 
-    tui.input('j').assert_rendered_contains("┊   k    A one");
+    tui.input(binds::SCROLL_DOWN)
+        .assert_rendered_contains("┊   k    A one");
     tui.input(' ')
         .assert_backstack_eq([BackstackEntry::Mark])
         .assert_rendered_contains("┊✔︎  k    A one");
@@ -973,25 +1061,25 @@ fn discards_normal_mode_marks_when_marking_details() {
             BackstackEntry::Mark,
         ])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/discards_normal_mode_marks_when_marking_details_001.svg"
+            "snapshots/normal_and_detail_marks_coexist_in_split_details_001.svg"
         ]);
 
-    // but marking from the details view clears the normal mode marks
-    tui.input('j');
+    // Marking from the details view retains the normal mode marks.
+    tui.input(binds::SCROLL_DOWN);
     tui.input(' ')
-        .assert_rendered_contains("┊   k    A one")
+        .assert_rendered_contains("┊✔︎  k    A one")
         .assert_backstack_eq([
             BackstackEntry::Mark,
             BackstackEntry::LeaveNormalMode,
             BackstackEntry::OpenSplitDetailsView,
         ])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/discards_normal_mode_marks_when_marking_details_002.svg"
+            "snapshots/normal_and_detail_marks_coexist_in_split_details_002.svg"
         ]);
 }
 
 #[test]
-fn discards_normal_mode_marks_when_marking_full_screen_details() {
+fn normal_and_detail_marks_coexist_in_full_screen_details() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
 
@@ -1001,7 +1089,7 @@ fn discards_normal_mode_marks_when_marking_full_screen_details() {
 
     let mut tui = test_tui(env);
 
-    tui.input('j');
+    tui.input(binds::SCROLL_DOWN);
     tui.input(' ')
         .assert_backstack_eq([BackstackEntry::Mark])
         .assert_rendered_contains("┊✔︎  k    A one");
@@ -1014,7 +1102,7 @@ fn discards_normal_mode_marks_when_marking_full_screen_details() {
             BackstackEntry::Mark,
         ]);
 
-    tui.input('j');
+    tui.input(binds::SCROLL_DOWN);
     tui.input(' ')
         .assert_backstack_eq([
             BackstackEntry::Mark,
@@ -1022,58 +1110,14 @@ fn discards_normal_mode_marks_when_marking_full_screen_details() {
             BackstackEntry::OpenFullScreenDetailsView,
         ])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/discards_normal_mode_marks_when_marking_full_screen_details_001.svg"
+            "snapshots/normal_and_detail_marks_coexist_in_full_screen_details_001.svg"
         ]);
 
     tui.input((KeyModifiers::SHIFT, 'D'))
-        .assert_rendered_contains("┊   k    A one")
-        .assert_backstack_eq([])
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/discards_normal_mode_marks_when_marking_full_screen_details_002.svg"
-        ]);
-}
-
-#[test]
-fn discards_pick_changes_marks_when_marking_details() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    env.setup_metadata(&[]);
-
-    env.file("one", "content of one");
-    env.file("two", "content of two");
-    env.file("three", "content of three");
-
-    let mut tui = test_tui_with_options(
-        env,
-        TestTuiOptions {
-            run_options: TuiRunOptions::PickChanges,
-            ..Default::default()
-        },
-    );
-
-    tui.reload();
-    tui.input(' ')
-        .assert_backstack_eq([BackstackEntry::Mark])
-        .assert_rendered_contains("┊✔︎  k    A one");
-
-    tui.input('l')
         .assert_rendered_contains("┊✔︎  k    A one")
-        .assert_backstack_eq([
-            BackstackEntry::LeaveNormalMode,
-            BackstackEntry::OpenSplitDetailsView,
-            BackstackEntry::Mark,
-        ]);
-
-    tui.input('g');
-    tui.input('j');
-    tui.input(' ')
-        .assert_backstack_eq([
-            BackstackEntry::Mark,
-            BackstackEntry::LeaveNormalMode,
-            BackstackEntry::OpenSplitDetailsView,
-        ])
-        .assert_rendered_contains("┊   k    A one")
+        .assert_backstack_eq([BackstackEntry::Mark])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/discards_pick_changes_marks_when_marking_details_001.svg"
+            "snapshots/normal_and_detail_marks_coexist_in_full_screen_details_002.svg"
         ]);
 }
 
@@ -1119,9 +1163,9 @@ fn leaving_command_mode_from_details_puts_you_back_in_details() {
 
     tui.input('d');
     tui.input('l');
-    tui.input('j');
+    tui.input(binds::SCROLL_DOWN);
     tui.input(' ');
-    tui.input('k');
+    tui.input(binds::SCROLL_UP);
 
     tui.input(':').assert_backstack_eq([
         BackstackEntry::LeaveCommandMode,
@@ -1165,8 +1209,428 @@ fn shows_synthetic_change_id() {
 
     let mut tui = test_tui(env);
 
-    tui.input('j');
-    tui.input('j');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(binds::SCROLL_DOWN);
     tui.input('d')
         .assert_rendered_term_svg_eq(file!["snapshots/shows_synthetic_change_id_001.svg"]);
+}
+
+#[test]
+fn marking_file_marks_all_hunks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file", "line\n".repeat(10));
+
+    let mut tui = test_tui(env);
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('b');
+
+    tui.env().prepend_file("file", "top");
+    tui.env().append_file("file", "bottom");
+
+    tui.reload();
+
+    // marking the file in the status also marks both hunks in the detail view
+    tui.input('g');
+    tui.input('d');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ')
+        .assert_rendered_term_svg_eq(file!["snapshots/marking_file_marks_all_hunks_001.svg"]);
+
+    // unmarking the file in the status removes all marks from detail view
+    tui.input(' ')
+        .assert_rendered_term_svg_eq(file!["snapshots/marking_file_marks_all_hunks_002.svg"]);
+
+    // marking a file in the detail view then clearing marks from the status also clears the detail
+    // marks
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ');
+    tui.input('g')
+        .assert_rendered_term_svg_eq(file!["snapshots/marking_file_marks_all_hunks_003.svg"]);
+    tui.input('h');
+    tui.input(' ')
+        .assert_rendered_term_svg_eq(file!["snapshots/marking_file_marks_all_hunks_004.svg"]);
+    tui.input(' ')
+        .assert_rendered_term_svg_eq(file!["snapshots/marking_file_marks_all_hunks_005.svg"]);
+}
+
+#[test]
+fn marking_all_hunks_marks_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file", "line\n".repeat(10));
+
+    let mut tui = test_tui(env);
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('b');
+
+    tui.env().prepend_file("file", "top");
+    tui.env().append_file("file", "bottom");
+
+    tui.reload();
+
+    tui.input('g');
+    tui.input('d');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input('l')
+        .assert_rendered_term_svg_eq(file!["snapshots/marking_all_hunks_marks_file_001.svg"]);
+
+    // marking both hunks in the detail view should also mark the file in the status
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ');
+    tui.input(' ');
+    tui.input('g')
+        .assert_rendered_term_svg_eq(file!["snapshots/marking_all_hunks_marks_file_002.svg"]);
+
+    // unmarking a hunk in the details view also unmarks it in the status
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ');
+    tui.input('g')
+        .assert_rendered_term_svg_eq(file!["snapshots/marking_all_hunks_marks_file_003.svg"]);
+}
+
+#[test]
+fn marking_all_hunks_marks_file_with_multiple_files_changed() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file", "line\n".repeat(10));
+
+    let mut tui = test_tui(env);
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('b');
+
+    tui.env().prepend_file("file", "top");
+    tui.env().append_file("file", "bottom");
+
+    tui.env().file("new-file", "content");
+
+    tui.reload();
+
+    tui.input('g');
+    tui.input('d').assert_rendered_term_svg_eq(file![
+        "snapshots/marking_all_hunks_marks_file_with_multiple_files_changed_001.svg"
+    ]);
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ');
+    tui.input(' ');
+    tui.input('g').assert_rendered_term_svg_eq(file![
+        "snapshots/marking_all_hunks_marks_file_with_multiple_files_changed_002.svg"
+    ]);
+    tui.input((KeyModifiers::SHIFT, 'G'))
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_all_hunks_marks_file_with_multiple_files_changed_003.svg"
+        ]);
+    tui.input(binds::SCROLL_UP);
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/marking_all_hunks_marks_file_with_multiple_files_changed_004.svg"
+    ]);
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/marking_all_hunks_marks_file_with_multiple_files_changed_005.svg"
+    ]);
+}
+
+#[test]
+fn marking_zz_marks_all_hunks_in_detail_view() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file", "line\n".repeat(10));
+
+    let mut tui = test_tui(env);
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('b');
+
+    tui.env().prepend_file("file", "top");
+    tui.env().append_file("file", "bottom");
+
+    tui.env().file("new-file", "content");
+
+    tui.reload();
+
+    tui.input('g');
+    tui.input('d');
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/marking_zz_marks_all_hunks_in_detail_view_001.svg"
+    ]);
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/marking_zz_marks_all_hunks_in_detail_view_002.svg"
+    ]);
+}
+
+#[test]
+fn marking_file_in_pick_changes_marks_hunks_in_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file", "content");
+
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            run_options: TuiRunOptions::PickChanges,
+            ..Default::default()
+        },
+    );
+
+    tui.input('d');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/marking_file_in_pick_changes_marks_hunks_in_details_001.svg"
+    ]);
+}
+
+#[test]
+fn marking_and_discarding_all_hunks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file", "line\n".repeat(10));
+
+    let mut tui = test_tui(env);
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('b');
+
+    tui.env().prepend_file("file", "top");
+    tui.env().append_file("file", "bottom");
+
+    tui.env().file("new-file", "content");
+
+    tui.reload();
+
+    // mark both hunks in file
+    tui.input('g');
+    tui.input('d');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ');
+    tui.input(' ');
+    tui.input('g')
+        .assert_rendered_term_svg_eq(file!["snapshots/marking_and_discarding_all_hunks_001.svg"]);
+
+    tui.input('x');
+    tui.input('y')
+        .assert_rendered_term_svg_eq(file!["snapshots/marking_and_discarding_all_hunks_002.svg"]);
+}
+
+#[test]
+fn rubbing_marks_from_split_details_view() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("one", "line");
+    env.file("two", "line");
+
+    let mut tui = test_tui(env);
+
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ');
+    tui.input(' ');
+    tui.input('d');
+    tui.input('l').assert_rendered_term_svg_eq(file![
+        "snapshots/rubbing_marks_from_split_details_view_001.svg"
+    ]);
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/rubbing_marks_from_split_details_view_002.svg"
+    ]);
+    tui.input(binds::SCROLL_DOWN)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/rubbing_marks_from_split_details_view_003.svg"
+        ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/rubbing_marks_from_split_details_view_004.svg"
+    ]);
+}
+
+#[test]
+fn rubbing_marks_from_full_screen_details_view() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("one", "line");
+    env.file("two", "line");
+
+    let mut tui = test_tui(env);
+
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ');
+    tui.input(' ');
+    tui.input((KeyModifiers::SHIFT, 'D'))
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/rubbing_marks_from_full_screen_details_view_001.svg"
+        ]);
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/rubbing_marks_from_full_screen_details_view_002.svg"
+    ]);
+    tui.input(binds::SCROLL_DOWN)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/rubbing_marks_from_full_screen_details_view_003.svg"
+        ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/rubbing_marks_from_full_screen_details_view_004.svg"
+    ]);
+}
+
+#[test]
+fn rubbing_selection_from_split_details_view() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("one", "line");
+    env.file("two", "line");
+
+    let mut tui = test_tui(env);
+
+    tui.input(binds::SCROLL_DOWN);
+    tui.input('d');
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/rubbing_selection_from_split_details_view_001.svg"
+        ]);
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/rubbing_selection_from_split_details_view_002.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/rubbing_selection_from_split_details_view_003.svg"
+    ]);
+}
+
+#[test]
+fn rubbing_selection_from_full_screen_details_view() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("one", "line");
+    env.file("two", "line");
+
+    let mut tui = test_tui(env);
+
+    tui.input(binds::SCROLL_DOWN);
+    tui.input((KeyModifiers::SHIFT, 'D'));
+    tui.input(binds::SCROLL_DOWN)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/rubbing_selection_from_full_screen_details_view_001.svg"
+        ]);
+    tui.input('r').assert_rendered_term_svg_eq(file![
+        "snapshots/rubbing_selection_from_full_screen_details_view_002.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/rubbing_selection_from_full_screen_details_view_003.svg"
+    ]);
+}
+
+#[test]
+fn committing_selection_from_split_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("one", "line");
+    env.file("two", "line");
+
+    let mut tui = test_tui(env);
+
+    tui.input('l');
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_selection_from_split_details_001.svg"
+    ]);
+    tui.input('c').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_selection_from_split_details_002.svg"
+    ]);
+    tui.input('e');
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/committing_selection_from_split_details_003.svg"
+    ]);
+}
+
+#[test]
+fn committing_selection_from_full_screen_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("one", "line");
+    env.file("two", "line");
+
+    let mut tui = test_tui(env);
+
+    tui.input((KeyModifiers::SHIFT, 'D'));
+    tui.input('j').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_selection_from_full_screen_details_001.svg"
+    ]);
+    tui.input('c').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_selection_from_full_screen_details_002.svg"
+    ]);
+    tui.input('e');
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/committing_selection_from_full_screen_details_003.svg"
+    ]);
+}
+
+#[test]
+fn committing_hunks_from_split_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("one", "line");
+    env.file("two", "line");
+
+    let mut tui = test_tui(env);
+
+    tui.input('l');
+    tui.input('j');
+    tui.input(' ');
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_hunks_from_split_details_001.svg"
+    ]);
+    tui.input('c').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_hunks_from_split_details_002.svg"
+    ]);
+    tui.input('j');
+    tui.input('j');
+    tui.input('e');
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/committing_hunks_from_split_details_003.svg"
+    ]);
+}
+
+#[test]
+fn committing_hunks_from_full_screen_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("one", "line");
+    env.file("two", "line");
+
+    let mut tui = test_tui(env);
+
+    tui.input((KeyModifiers::SHIFT, 'D'));
+    tui.input('j');
+    tui.input(' ');
+    tui.input(' ').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_hunks_from_full_screen_details_001.svg"
+    ]);
+    tui.input('c');
+    tui.input('j');
+    tui.input('j');
+    tui.input('e').assert_rendered_term_svg_eq(file![
+        "snapshots/committing_hunks_from_full_screen_details_002.svg"
+    ]);
+    tui.input(KeyCode::Enter).assert_rendered_term_svg_eq(file![
+        "snapshots/committing_hunks_from_full_screen_details_003.svg"
+    ]);
 }

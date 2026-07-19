@@ -1805,7 +1805,19 @@ async fn target_config(
                             t.hint.paint("SHA"),
                             target_branch.base_sha
                         )?;
-                        writeln!(out, "\n{}:", t.hint.paint("To change target branch"))?;
+                        writeln!(
+                            out,
+                            "\n{}",
+                            t.hint.paint(
+                                "New commits on the remote arrive via `but pull` — the target setting is not what makes the workspace current."
+                            )
+                        )?;
+                        writeln!(
+                            out,
+                            "{}:",
+                            t.hint
+                                .paint("To point the workspace at a different branch entirely")
+                        )?;
                         writeln!(
                             out,
                             "  {}",

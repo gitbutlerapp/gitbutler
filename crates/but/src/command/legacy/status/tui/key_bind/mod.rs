@@ -3,13 +3,16 @@ use std::{borrow::Cow, collections::HashMap};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use strum::IntoEnumIterator;
 
-use crate::command::legacy::status::tui::{
-    CommandMessage, ConfirmMessage, DetailsLayoutMessage, FuzzyPickerMessage, JumpMessage, Message,
-    RubMessage, StackMessage,
-    app::{CommitMessageComposer, RewordMessage},
-    details::DetailsMessage,
-    help::HelpMessage,
-    mode::ModeDiscriminant,
+use crate::{
+    CliId,
+    command::legacy::status::tui::{
+        CommandMessage, ConfirmMessage, DetailsLayoutMessage, FuzzyPickerMessage, JumpMessage,
+        Message, RubMessage, StackMessage,
+        app::{CommitMessageComposer, RewordMessage},
+        details::DetailsMessage,
+        help::HelpMessage,
+        mode::ModeDiscriminant,
+    },
 };
 
 use super::{CommandModeKind, CommitMessage, FilesMessage, MoveMessage, ReloadCause};
@@ -67,8 +70,17 @@ pub fn default_key_binds() -> KeyBinds {
                 builder.details_scroll_up().register();
                 builder.details_scroll_down().register();
 
-                builder.details_mark().register();
+                builder
+                    .commit()
+                    .condition(KeyBindCondition::SelectionIsUncommitted)
+                    .register();
+                builder
+                    .rub()
+                    .condition(KeyBindCondition::SelectionIsUncommitted)
+                    .register();
                 builder.details_discard().register();
+
+                builder.details_mark().register();
 
                 builder.details_jump_up().register();
                 builder.details_jump_down().register();
@@ -346,6 +358,24 @@ impl KeyBinds {
     pub fn iter_key_binds_available_in_mode(
         &self,
         mode: ModeDiscriminant,
+        selection: Option<&CliId>,
+    ) -> impl Iterator<Item = &KeyBind> {
+        self.mode_to_key_binds
+            .get(&mode)
+            .into_iter()
+            .flatten()
+            .copied()
+            .map(|KeyBindId(idx)| &self.all_key_binds[idx])
+            .filter(move |key_bind| {
+                key_bind
+                    .condition
+                    .is_none_or(|condition| condition.matches(selection))
+            })
+    }
+
+    pub fn iter_key_binds_available_in_mode_regardless_of_conditions(
+        &self,
+        mode: ModeDiscriminant,
     ) -> impl Iterator<Item = &KeyBind> {
         self.mode_to_key_binds
             .get(&mode)
@@ -379,6 +409,7 @@ impl KeyBindsBuilder<'_> {
             hide_from_hotbar: false,
             show_only_in_normal_mode_help_section: false,
             always_show_in_hot_bar: false,
+            condition: None,
         }
     }
 
@@ -896,7 +927,7 @@ impl KeyBindsBuilder<'_> {
 
     fn details_scroll_up(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
-            "up",
+            "scroll up",
             press()
                 .shift()
                 .code(KeyCode::Char('K'))
@@ -907,7 +938,7 @@ impl KeyBindsBuilder<'_> {
 
     fn details_scroll_down(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
-            "down",
+            "scroll down",
             press()
                 .shift()
                 .code(KeyCode::Char('J'))
@@ -920,12 +951,14 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("mark", press().code(KeyCode::Char(' ')), || {
             Message::Details(DetailsMessage::Mark)
         })
+        .condition(KeyBindCondition::SelectionIsUncommitted)
     }
 
     fn details_discard(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("discard", press().code(KeyCode::Char('x')), || {
             Message::Details(DetailsMessage::Discard)
         })
+        .condition(KeyBindCondition::SelectionIsUncommitted)
     }
 
     fn details_jump_up(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -1089,6 +1122,7 @@ struct KeyBindsInModesBuilder<'a> {
     hide_from_hotbar: bool,
     show_only_in_normal_mode_help_section: bool,
     always_show_in_hot_bar: bool,
+    condition: Option<KeyBindCondition>,
 }
 
 impl KeyBindsInModesBuilder<'_> {
@@ -1126,6 +1160,11 @@ impl KeyBindsInModesBuilder<'_> {
         self
     }
 
+    fn condition(mut self, condition: KeyBindCondition) -> Self {
+        self.condition = Some(condition);
+        self
+    }
+
     fn register(self) -> KeyBindId {
         let KeyBindsInModesBuilder {
             key_binds,
@@ -1137,6 +1176,7 @@ impl KeyBindsInModesBuilder<'_> {
             hide_from_hotbar,
             show_only_in_normal_mode_help_section,
             always_show_in_hot_bar,
+            condition,
         } = self;
 
         key_binds.register(KeyBind {
@@ -1149,6 +1189,7 @@ impl KeyBindsInModesBuilder<'_> {
             hide_from_hotbar,
             show_only_in_normal_mode_help_section,
             always_show_in_hot_bar,
+            condition,
         })
     }
 }
@@ -1164,6 +1205,7 @@ pub struct KeyBind {
     hide_from_hotbar: bool,
     show_only_in_normal_mode_help_section: bool,
     always_show_in_hot_bar: bool,
+    condition: Option<KeyBindCondition>,
 }
 
 impl KeyBind {
@@ -1353,5 +1395,30 @@ fn normalize_char_for_display(ch: char, shifted: bool) -> char {
         ch.to_ascii_lowercase()
     } else {
         ch
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum KeyBindCondition {
+    SelectionIsUncommitted,
+}
+
+impl KeyBindCondition {
+    fn matches(self, selection: Option<&CliId>) -> bool {
+        match self {
+            KeyBindCondition::SelectionIsUncommitted => {
+                let Some(selection) = selection else {
+                    return false;
+                };
+                match selection {
+                    CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => true,
+                    CliId::PathPrefix { .. }
+                    | CliId::CommittedFile { .. }
+                    | CliId::Branch { .. }
+                    | CliId::Commit { .. }
+                    | CliId::Stack { .. } => false,
+                }
+            }
+        }
     }
 }

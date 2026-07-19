@@ -1,16 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
-  <rect x="10" y="10" width="400" height="18" fill="#313244" />
+  <rect x="10" y="10" width="400" height="18" fill="#45475A" />
+  <rect x="18" y="28" width="16" height="18" fill="#0000AA" />
+  <rect x="18" y="46" width="16" height="18" fill="#0000AA" />
   <rect x="426" y="64" width="16" height="18" fill="#0000AA" />
-  <rect x="418" y="154" width="392" height="18" fill="#004100" />
-  <rect x="418" y="298" width="392" height="18" fill="#004100" />
-  <rect x="10" y="352" width="88" height="18" fill="#FFA500" />
+  <rect x="418" y="154" width="392" height="18" fill="#2D5B2D" />
+  <rect x="426" y="208" width="16" height="18" fill="#0000AA" />
+  <rect x="418" y="298" width="392" height="18" fill="#2D5B2D" />
+  <rect x="10" y="352" width="80" height="18" fill="#555555" />
   <g font-family="Menlo, Monaco, 'Courier New', monospace" font-size="14" xml:space="preserve">
-    <text x="10 18" y="24" style="fill:#CCCCCC;">╭┄</text>
+    <text x="10 18" y="24" style="fill:#FFFFFF;font-weight:bold;">╭┄</text>
     <text x="26 34" y="24" style="fill:#0000AA;font-weight:bold;">zz</text>
-    <text x="50" y="24" style="fill:#CCCCCC;">[</text>
-    <text x="58 66 74 82 90 98 106 114 122 130 138" y="24" style="fill:#00AAAA;">uncommitted</text>
-    <text x="146" y="24" style="fill:#CCCCCC;">]</text>
+    <text x="50" y="24" style="fill:#FFFFFF;font-weight:bold;">[</text>
+    <text x="58 66 74 82 90 98 106 114 122 130 138" y="24" style="fill:#00AAAA;font-weight:bold;">uncommitted</text>
+    <text x="146" y="24" style="fill:#FFFFFF;font-weight:bold;">]</text>
     <text x="410" y="24" style="fill:#555555;">│</text>
     <text x="418" y="24" style="fill:#CCCCCC;">3</text>
     <text x="434 442 450 458 466" y="24" style="fill:#CCCCCC;">files</text>
@@ -19,12 +22,14 @@
     <text x="578 586" y="24" style="fill:#AA0000;">-0</text>
     <text x="802" y="24" style="fill:#555555;">█</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
+    <text x="18" y="42" style="fill:#000000;">✔︎</text>
     <text x="42" y="42" style="fill:#0000AA;font-weight:bold;">k</text>
     <text x="82" y="42" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114" y="42" style="fill:#00AA00;">one</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="802" y="42" style="fill:#555555;">█</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
+    <text x="18" y="60" style="fill:#000000;">✔︎</text>
     <text x="42 50" y="60" style="fill:#0000AA;font-weight:bold;">or</text>
     <text x="82" y="60" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114 122 130" y="60" style="fill:#00AA00;">three</text>
@@ -71,27 +76,25 @@
     <text x="802" y="168" style="fill:#555555;">█</text>
     <text x="410" y="186" style="fill:#555555;">│</text>
     <text x="802" y="186" style="fill:#555555;">█</text>
-    <text x="410" y="204" style="fill:#FFA500;">▌</text>
-    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514" y="204" style="fill:#555555;">────────────╮</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538" y="204" style="fill:#555555;">│───────────────╮</text>
     <text x="802" y="204" style="fill:#555555;">█</text>
-    <text x="410" y="222" style="fill:#FFA500;">▌</text>
-    <text x="426 434 442 450" y="222" style="fill:#0000AA;">or:f</text>
-    <text x="466 474 482 490 498" y="222" style="fill:#CCCCCC;">three</text>
-    <text x="514" y="222" style="fill:#555555;">│</text>
+    <text x="410" y="222" style="fill:#555555;">│</text>
+    <text x="426" y="222" style="fill:#000000;">✔︎</text>
+    <text x="450 458 466 474" y="222" style="fill:#0000AA;">or:f</text>
+    <text x="490 498 506 514 522" y="222" style="fill:#CCCCCC;">three</text>
+    <text x="538" y="222" style="fill:#555555;">│</text>
     <text x="802" y="222" style="fill:#555555;">█</text>
-    <text x="410" y="240" style="fill:#FFA500;">▌</text>
-    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514" y="240" style="fill:#555555;">────────────╯</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538" y="240" style="fill:#555555;">│───────────────╯</text>
     <text x="802" y="240" style="fill:#555555;">█</text>
-    <text x="410" y="258" style="fill:#FFA500;">▌</text>
+    <text x="410" y="258" style="fill:#555555;">│</text>
     <text x="802" y="258" style="fill:#555555;">█</text>
-    <text x="410" y="276" style="fill:#FFA500;">▌</text>
+    <text x="410" y="276" style="fill:#555555;">│</text>
     <text x="418 426" y="276" style="fill:#CCCCCC;opacity:0.75;">@@</text>
     <text x="442 450 458 466" y="276" style="fill:#CCCCCC;opacity:0.75;">-1,0</text>
     <text x="482 490 498 506" y="276" style="fill:#CCCCCC;opacity:0.75;">+1,1</text>
     <text x="522 530" y="276" style="fill:#CCCCCC;opacity:0.75;">@@</text>
-    <text x="410" y="294" style="fill:#FFA500;">▌</text>
-    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="294" style="fill:#555555;">───────────────</text>
-    <text x="410" y="312" style="fill:#FFA500;">▌</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="294" style="fill:#555555;">│───────────────</text>
+    <text x="410" y="312" style="fill:#555555;">│</text>
     <text x="434" y="312" style="fill:#555555;">┊</text>
     <text x="450" y="312" style="fill:#00AA00;">1</text>
     <text x="466" y="312" style="fill:#555555;">│</text>
@@ -101,25 +104,29 @@
     <text x="578 586 594 602 610" y="312" style="fill:#F8F8F2;">three</text>
     <text x="410" y="330" style="fill:#555555;">│</text>
     <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514" y="348" style="fill:#555555;">│────────────╮</text>
-    <text x="26 34 42 50 58 66 74" y="366" style="fill:#000000;">details</text>
-    <text x="106 114 122" y="366" style="fill:#0000AA;">↓/j</text>
-    <text x="138 146 154 162" y="366" style="fill:#CCCCCC;opacity:0.75;">next</text>
-    <text x="178 186 194 202" y="366" style="fill:#CCCCCC;opacity:0.75;">hunk</text>
-    <text x="218" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="234 242 250" y="366" style="fill:#0000AA;">↑/k</text>
-    <text x="266 274 282 290" y="366" style="fill:#CCCCCC;opacity:0.75;">prev</text>
-    <text x="306 314 322 330" y="366" style="fill:#CCCCCC;opacity:0.75;">hunk</text>
-    <text x="346" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="362 370 378 386 394 402 410 418 426" y="366" style="fill:#0000AA;">shift+↑/k</text>
-    <text x="442 450" y="366" style="fill:#CCCCCC;opacity:0.75;">up</text>
+    <text x="26 34 42 50 58 66" y="366" style="fill:#FFFFFF;">normal</text>
+    <text x="98 106 114" y="366" style="fill:#0000AA;">↑/k</text>
+    <text x="130 138" y="366" style="fill:#CCCCCC;opacity:0.75;">up</text>
+    <text x="154" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="170 178 186" y="366" style="fill:#0000AA;">↓/j</text>
+    <text x="202 210 218 226" y="366" style="fill:#CCCCCC;opacity:0.75;">down</text>
+    <text x="242" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="258" y="366" style="fill:#0000AA;">r</text>
+    <text x="274 282 290" y="366" style="fill:#CCCCCC;opacity:0.75;">rub</text>
+    <text x="306" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="322" y="366" style="fill:#0000AA;">c</text>
+    <text x="338 346 354 362 370 378" y="366" style="fill:#CCCCCC;opacity:0.75;">commit</text>
+    <text x="394" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="410" y="366" style="fill:#0000AA;">m</text>
+    <text x="426 434 442 450" y="366" style="fill:#CCCCCC;opacity:0.75;">move</text>
     <text x="466" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="482 490 498 506 514 522 530 538 546" y="366" style="fill:#0000AA;">shift+↓/j</text>
-    <text x="562 570 578 586" y="366" style="fill:#CCCCCC;opacity:0.75;">down</text>
-    <text x="602" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="618" y="366" style="fill:#0000AA;">?</text>
-    <text x="634 642 650 658" y="366" style="fill:#CCCCCC;opacity:0.75;">help</text>
-    <text x="674" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
-    <text x="690" y="366" style="fill:#0000AA;">q</text>
-    <text x="706 714 722 730" y="366" style="fill:#CCCCCC;opacity:0.75;">quit</text>
+    <text x="482" y="366" style="fill:#0000AA;">d</text>
+    <text x="498 506 514 522 530 538 546" y="366" style="fill:#CCCCCC;opacity:0.75;">details</text>
+    <text x="562" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="578" y="366" style="fill:#0000AA;">?</text>
+    <text x="594 602 610 618" y="366" style="fill:#CCCCCC;opacity:0.75;">help</text>
+    <text x="634" y="366" style="fill:#CCCCCC;opacity:0.75;">•</text>
+    <text x="650" y="366" style="fill:#0000AA;">q</text>
+    <text x="666 674 682 690" y="366" style="fill:#CCCCCC;opacity:0.75;">quit</text>
   </g>
 </svg>

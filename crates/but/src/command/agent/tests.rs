@@ -323,8 +323,8 @@ fn generated_policy_expands_selected_tuning_recipes() {
     assert!(policy.contains("Keep tests with the behavior they verify"));
     assert!(policy.contains("Use `but move` for branch stacking and restacking"));
     assert!(policy.contains("create pull requests with `but pr`, not `gh`"));
-    assert!(policy.contains("run `but pull --check`"));
-    assert!(policy.contains("update the workspace with `but pull`"));
+    assert!(policy.contains("update with `but pull` directly"));
+    assert!(policy.contains("run `but pull --check` first and ask before updating"));
     assert!(policy.contains("create it as a draft with GitButler"));
     assert!(
         policy
