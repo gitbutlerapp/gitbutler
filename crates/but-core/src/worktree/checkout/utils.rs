@@ -66,11 +66,13 @@ pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
     };
     let worktree_changes = crate::diff::worktree_changes_no_renames(repo)?;
     if !worktree_changes.changes.is_empty() || !worktree_changes.ignored_changes.is_empty() {
-        let actual_head_tree_id = repo.head_tree_id_or_empty()?;
-        if actual_head_tree_id != source_tree_id {
-            bail!(
-                "Specified HEAD {source_tree_id} didn't match actual HEAD^{{tree}} {actual_head_tree_id}"
-            )
+        if merge_base_override.is_none() {
+            let actual_head_tree_id = repo.head_tree_id_or_empty()?;
+            if actual_head_tree_id != source_tree_id {
+                bail!(
+                    "Specified HEAD {source_tree_id} didn't match actual HEAD^{{tree}} {actual_head_tree_id}"
+                )
+            }
         }
         let mut checkout_deletions_lut = super::tree::Lut::default();
         let mut checkout_writes_lut = super::tree::Lut::default();

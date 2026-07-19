@@ -528,11 +528,24 @@ pub fn workspace_integrate_upstream_with_perm(
         dry_run,
     );
 
+    let maybe_snapshot_commit_id = maybe_oplog_entry.and_then(|snapshot| {
+        snapshot.commit(ctx, perm).map_err(|err| {
+            tracing::warn!(?err, "failed to commit oplog snapshot before upstream integration");
+        }).ok()
+    });
+
     let result = workspace_integrate_upstream_only_with_perm(ctx, updates, dry_run, perm);
-    if let Some(snapshot) = maybe_oplog_entry
-        && result.is_ok()
-    {
-        snapshot.commit(ctx, perm).ok();
+
+    if result.is_err() {
+        if let Some(snapshot_commit_id) = maybe_snapshot_commit_id {
+            if let Err(e) = ctx.restore_snapshot(
+                snapshot_commit_id,
+                but_oplog::RestoreKind::ExplicitRestoreFromSnapshot,
+                perm,
+            ) {
+                tracing::error!(?e, "failed to rollback after upstream integration error");
+            }
+        }
     }
 
     result
