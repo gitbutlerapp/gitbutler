@@ -1058,7 +1058,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "m",
+            id: "n",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1092,7 +1092,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "m",
+            id: "n",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -2598,6 +2598,140 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
 }
 
 #[test]
+fn uncommitted_file_id_survives_stack_assignment() -> anyhow::Result<()> {
+    let changed_paths_fn = || {
+        Box::new(
+            |commit_id: gix::ObjectId,
+             parent_id: Option<gix::ObjectId>|
+             -> anyhow::Result<Vec<but_core::TreeChange>> {
+                bail!("unexpected IDs {commit_id} {parent_id:?}");
+            },
+        )
+    };
+
+    // The ID the file gets while unassigned — the ID an agent copies from
+    // `but diff` before committing.
+    let unassigned = IdMap::new(
+        vec![stack([segment("not-important", [], None, [])])],
+        vec![hunk_assignment("tests/lead.test.ts", None)],
+        gix::hashtable::HashMap::default(),
+    )?;
+    let file_id = unassigned
+        .all_ids()
+        .into_iter()
+        .find_map(|cli_id| match cli_id {
+            CliId::UncommittedHunkOrFile(uncommitted) if uncommitted.is_entire_file => {
+                Some(uncommitted.id.clone())
+            }
+            _ => None,
+        })
+        .expect("one uncommitted file");
+
+    // Committing part of the file assigns the remainder to the stack. The
+    // file's identity must not change with its assignment.
+    let stack_id = StackId::from_number_for_testing(1);
+    let assigned = IdMap::new(
+        vec![Stack {
+            id: Some(stack_id),
+            ..stack([segment("not-important", [], None, [])])
+        }],
+        vec![hunk_assignment("tests/lead.test.ts", Some(stack_id))],
+        gix::hashtable::HashMap::default(),
+    )?;
+    let scoped = assigned.parse_uncommitted(&file_id, changed_paths_fn())?;
+    match scoped.as_slice() {
+        [CliId::UncommittedHunkOrFile(uncommitted)] => {
+            assert_eq!(
+                uncommitted.hunk_assignments.first().path_bytes,
+                "tests/lead.test.ts",
+                "the previously issued ID still resolves to the file"
+            );
+        }
+        other => {
+            panic!("expected the ID issued before assignment to keep resolving, got {other:?}")
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn same_path_partitioned_across_stacks_disambiguates_by_index() -> anyhow::Result<()> {
+    let changed_paths_fn = || {
+        Box::new(
+            |commit_id: gix::ObjectId,
+             parent_id: Option<gix::ObjectId>|
+             -> anyhow::Result<Vec<but_core::TreeChange>> {
+                bail!("unexpected IDs {commit_id} {parent_id:?}");
+            },
+        )
+    };
+
+    // Hunks of one file split between a stack and the uncommitted area form
+    // two partitions of the same path.
+    let stack_id = StackId::from_number_for_testing(1);
+    let id_map = IdMap::new(
+        vec![Stack {
+            id: Some(stack_id),
+            ..stack([segment("gggg", [], None, [])])
+        }],
+        vec![
+            HunkAssignment {
+                hunk_header: Some(hunk_header("-1,2", "+1,2")),
+                ..hunk_assignment("shared.ts", None)
+            },
+            HunkAssignment {
+                hunk_header: Some(hunk_header("-3,2", "+3,2")),
+                ..hunk_assignment("shared.ts", Some(stack_id))
+            },
+        ],
+        gix::hashtable::HashMap::default(),
+    )?;
+
+    let file_ids: Vec<String> = id_map
+        .all_ids()
+        .into_iter()
+        .filter_map(|cli_id| match cli_id {
+            CliId::UncommittedHunkOrFile(uncommitted) if uncommitted.is_entire_file => {
+                Some(uncommitted.id.clone())
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(file_ids.len(), 2, "each partition keeps its own identity");
+
+    // Identity is derived from the path alone, so the partitions share their
+    // ID and are told apart by a collision index.
+    let prefixes: Vec<&str> = file_ids
+        .iter()
+        .map(|id| id.split('#').next().unwrap())
+        .collect();
+    assert_eq!(
+        prefixes[0], prefixes[1],
+        "both partitions share the path-derived ID: {file_ids:?}"
+    );
+
+    // Each displayed ID resolves to exactly its own partition.
+    for file_id in &file_ids {
+        let scoped = id_map.parse_uncommitted(file_id, changed_paths_fn())?;
+        assert_eq!(
+            scoped.len(),
+            1,
+            "indexed ID {file_id} resolves to exactly one partition: {scoped:?}"
+        );
+    }
+
+    // The bare prefix matches both partitions, surfacing an honest ambiguity
+    // instead of silently picking one.
+    let scoped = id_map.parse_uncommitted(prefixes[0], changed_paths_fn())?;
+    assert_eq!(
+        scoped.len(),
+        2,
+        "the bare prefix is ambiguous across partitions: {scoped:?}"
+    );
+    Ok(())
+}
+
+#[test]
 fn uncommitted_scope_resolves_a_file_literally_named_zz() -> anyhow::Result<()> {
     let changed_paths_fn = |commit_id: gix::ObjectId,
                             parent_id: Option<gix::ObjectId>|
@@ -2913,6 +3047,7 @@ mod util {
                 .chain(
                     uncommitted_files
                         .values()
+                        .flatten()
                         .map(|uncommitted_file| uncommitted_file.short_id.clone()),
                 )
                 .chain(uncommitted_hunks.keys().cloned())
@@ -2947,6 +3082,7 @@ mod util {
                 "uncommitted_files",
                 uncommitted_files
                     .values()
+                    .flatten()
                     .map(|uncommitted_file| uncommitted_file.short_id.clone())
                     .sorted(),
             )?;

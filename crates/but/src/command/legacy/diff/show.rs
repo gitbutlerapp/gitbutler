@@ -30,12 +30,12 @@ pub(crate) fn worktree(
             match &filter {
                 None => true,
                 Some(Filter::UncommittedArea) => a.stack_id.is_none(),
+                // Match the selection's own assignments rather than its path:
+                // when one path is partitioned across stacks, an entire-file
+                // selection names one partition and must not pull in the
+                // other partition's hunks.
                 Some(Filter::Uncommitted(id)) => {
-                    if id.is_entire_file {
-                        a.path_bytes == id.hunk_assignments.first().path_bytes
-                    } else {
-                        a.eq(id.hunk_assignments.first())
-                    }
+                    id.hunk_assignments.iter().any(|selected| a.eq(selected))
                 }
                 Some(Filter::Stack(stack_id)) => a.stack_id.as_ref() == Some(stack_id),
             }

@@ -28,6 +28,51 @@ u:d prefix/b│
 }
 
 #[test]
+fn partitioned_file_diff_honors_collision_index() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+
+    env.setup_metadata(&["A", "B"]);
+    crate::command::util::commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Split a.txt's hunks between stack A and the uncommitted area: the two
+    // partitions share the path-derived ID and carry collision indices.
+    env.but("stage a.txt A").assert().success();
+    env.but("unstage nk:2").assert().success();
+
+    // Each indexed file ID shows only its own partition's hunks.
+    env.but("diff nkn#0")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+─────────────╮
+nkn#0:2 a.txt│
+─────────────╯
+   1  │-first
+     1│+firsta
+   2 2│ line
+   3 3│ line
+   4 4│ line
+
+"#]]);
+    env.but("diff nkn#1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+─────────────╮
+nkn#1:e a.txt│
+─────────────╯
+    6  6│ line
+    7  7│ line
+    8  8│ line
+    9   │-last
+       9│+lasta
+
+"#]]);
+}
+
+#[test]
 fn json_no_target_empty_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.setup_metadata(&[]);
@@ -532,7 +577,7 @@ fn json_target_stack() {
 ┊   n A unassigned.txt
 ┊
 ┊  ╭┄k0 [staged to A]
-┊  │ s A assigned.txt
+┊  │ x A assigned.txt
 ┊  │
 ┊╭┄g0 [A]
 ┊●   tpm add A
@@ -561,7 +606,7 @@ Hint: run `but diff` to see uncommitted changes and `but commit <branch> -m "mes
 {
   "changes": [
     {
-      "id": "s:8",
+      "id": "x:8",
       "path": "assigned.txt",
       "status": "modified",
       "diff": {

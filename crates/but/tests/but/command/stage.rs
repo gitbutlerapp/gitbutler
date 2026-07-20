@@ -22,7 +22,7 @@ fn assign_uncommitted_file() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 ─────────╮
-k:c a.txt│
+n:c a.txt│
 ─────────╯
      1│+arbitrary text
 
@@ -117,7 +117,7 @@ Staged a hunk in a.txt in the uncommitted area → [A].
 {
   "uncommittedChanges": [
     {
-      "cliId": "n",
+      "cliId": "n#0",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -127,7 +127,7 @@ Staged a hunk in a.txt in the uncommitted area → [A].
       "cliId": "k0",
       "assignedChanges": [
         {
-          "cliId": "k",
+          "cliId": "n#1",
           "filePath": "a.txt",
           "changeType": "modified"
         }
@@ -186,7 +186,7 @@ fn stage_command() -> anyhow::Result<()> {
       "cliId": "j0",
       "assignedChanges": [
         {
-          "cliId": "k",
+          "cliId": "n",
           "filePath": "a.txt",
           "changeType": "modified"
         }

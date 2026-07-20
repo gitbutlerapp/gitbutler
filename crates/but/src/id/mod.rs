@@ -114,20 +114,17 @@ impl UnqualifiedHunkId {
     }
 }
 
-/// Create a CLI ID for the given staged file (if `stack_id` is `Some`) or the
-/// given unstaged file or committed file (if `stack_id` is `None`).
-fn create_reverse_hex_id(
-    path_bytes: &[u8],
-    stack_id: Option<&StackId>,
-) -> anyhow::Result<ChangeId> {
+/// Create a CLI ID for the given uncommitted or committed file.
+///
+/// The ID is derived from the path alone so that it stays stable when the
+/// file's stack assignment changes; same-path partitions are told apart by
+/// collision indices instead.
+fn create_reverse_hex_id(path_bytes: &[u8]) -> anyhow::Result<ChangeId> {
     let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
     hasher.update(path_bytes);
-    if let Some(stack_id) = stack_id {
-        hasher.update(stack_id.0.as_bytes());
-    }
     let object_id = hasher.try_finalize()?;
     let mut change_id = ChangeId::from_bytes(object_id.as_bytes());
-    if stack_id.is_none() && path_bytes.iter().all(|c| b'k' <= *c && *c <= b'z') {
+    if path_bytes.iter().all(|c| b'k' <= *c && *c <= b'z') {
         change_id.prefix_with(path_bytes.iter().copied());
     }
     Ok(change_id)
@@ -203,11 +200,7 @@ fn short_ids_from_tree_changes(
     let FileInfo { changes } = FileInfo::from_tree_changes(tree_changes)?;
     let mut short_ids: Vec<(NonEmpty<but_core::TreeChange>, ChangeId, ShortId)> = Vec::new();
     for (path, changes) in changes {
-        short_ids.push((
-            changes,
-            create_reverse_hex_id(&path, None)?,
-            ShortId::default(),
-        ));
+        short_ids.push((changes, create_reverse_hex_id(&path)?, ShortId::default()));
     }
     let mut reverse_hex_short_ids = BTreeMap::<ChangeId, Vec<_>>::new();
 
@@ -532,7 +525,7 @@ impl<'a> Node<'a> for &'a StackWithId {
         if element.ends_with('/') {
             return Ok(id_map.parse_uncommitted_path_prefix(self.id, element));
         }
-        for uncommitted_file in id_map.uncommitted_files.values() {
+        for uncommitted_file in id_map.uncommitted_files.values().flatten() {
             let hunk_assignments = uncommitted_file.hunk_assignments();
             let hunk_assignment = hunk_assignments.first();
             // TODO once the set of allowed CLI IDs is determined and the
@@ -584,9 +577,11 @@ pub struct IdMap {
     /// The ID representing the uncommitted area, i.e. uncommitted files that aren't assigned to a stack.
     uncommitted: CliId,
 
-    /// Maps full reverse hex IDs to uncommitted files.
-    /// It's public for convenience in `but rub` currently.
-    pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
+    /// Maps full reverse hex IDs to uncommitted files. Same-path partitions
+    /// (hunks assigned to different stacks) share one ID and are listed in
+    /// partition order; their short IDs carry a collision index to tell them
+    /// apart.
+    pub uncommitted_files: BTreeMap<ChangeId, Vec<UncommittedFile>>,
     /// Uncommitted hunks.
     pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
 }
@@ -618,14 +613,10 @@ impl IdMap {
             &commit_id_to_change_id,
         )?;
 
-        let mut uncommitted_files: BTreeMap<ChangeId, UncommittedFile> = BTreeMap::new();
+        let mut uncommitted_files: BTreeMap<ChangeId, Vec<UncommittedFile>> = BTreeMap::new();
         for hunk_assignments in partitioned_hunks {
-            let HunkAssignment {
-                path_bytes,
-                stack_id,
-                ..
-            } = hunk_assignments.first();
-            let reverse_hex = create_reverse_hex_id(path_bytes, stack_id.as_ref())?;
+            let HunkAssignment { path_bytes, .. } = hunk_assignments.first();
+            let reverse_hex = create_reverse_hex_id(path_bytes)?;
             // Ensure that uncommitted files do not collide with CLI IDs generated after
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
                 id_usage.mark_used(uint_id);
@@ -633,22 +624,24 @@ impl IdMap {
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..3]) {
                 id_usage.mark_used(uint_id);
             }
-            uncommitted_files.insert(
-                reverse_hex,
-                UncommittedFile {
+            uncommitted_files
+                .entry(reverse_hex)
+                .or_default()
+                .push(UncommittedFile {
                     short_id: ShortId::default(),
                     short_id_hunk_assignments: hunk_assignments
                         .map(|hunk_assignment| (UnqualifiedHunkId::default(), hunk_assignment)),
-                },
-            );
+                });
             // Skip an ID for stability of other IDs below with respect to older
             // versions of the GitButler CLI.
             id_usage.next_available()?;
         }
         let mut reverse_hex_short_ids: Vec<(ChangeId, Option<&mut ShortId>)> = uncommitted_files
             .iter_mut()
-            .map(|(reverse_hex, uncommitted_file)| {
-                (reverse_hex.clone(), Some(&mut uncommitted_file.short_id))
+            .flat_map(|(reverse_hex, files)| {
+                files.iter_mut().map(move |uncommitted_file| {
+                    (reverse_hex.clone(), Some(&mut uncommitted_file.short_id))
+                })
             })
             .collect();
         // Ensure that uncommitted file revers hexes do not collide short IDs that have already been allocated
@@ -685,7 +678,7 @@ impl IdMap {
         assign_short_ids(mapped_reverse_hex_short_ids)?;
 
         let mut uncommitted_hunks = HashMap::new();
-        for uncommitted_file in uncommitted_files.values_mut() {
+        for uncommitted_file in uncommitted_files.values_mut().flatten() {
             {
                 Self::assign_content_based_hunk_ids(
                     uncommitted_file.short_id_hunk_assignments.iter_mut(),
@@ -895,7 +888,7 @@ impl IdMap {
         element: &str,
     ) -> Vec<Box<dyn Node<'a> + 'a>> {
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
-        for uncommitted_file in self.uncommitted_files.values() {
+        for uncommitted_file in self.uncommitted_files.values().flatten() {
             let hunk_assignments = uncommitted_file.hunk_assignments();
             let hunk_assignment = hunk_assignments.first();
             // TODO once the set of allowed CLI IDs is determined and the
@@ -954,20 +947,46 @@ impl IdMap {
     }
 
     /// All uncommitted files whose full reverse-hex ID starts with `element`.
+    ///
+    /// Same-path partitions share a full ID and are told apart by a collision
+    /// index (`<id>#<index>`): an element carrying one selects only that
+    /// partition, while a bare prefix matches all of them so the ambiguity
+    /// surfaces instead of silently picking one.
     fn uncommitted_file_id_prefix_matches<'a>(
         &'a self,
         element: &str,
     ) -> Vec<Box<dyn Node<'a> + 'a>> {
+        let (id_prefix, collision_index) = match element.split_once(INDEX_SEPARATOR) {
+            Some((id_prefix, index)) => match index.parse::<usize>() {
+                Ok(index) => (id_prefix, Some(index)),
+                Err(_) => return Vec::new(),
+            },
+            None => (element, None),
+        };
+        if id_prefix.is_empty() {
+            return Vec::new();
+        }
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
-        let element_bstring = BString::from(element);
-        for (reverse_hex, uncommitted_file) in self
+        let prefix_bstring = BString::from(id_prefix);
+        for (reverse_hex, files) in self
             .uncommitted_files
-            .range(ChangeId::from(element_bstring.clone())..)
+            .range(ChangeId::from(prefix_bstring.clone())..)
         {
-            if !reverse_hex.starts_with(&element_bstring) {
+            if !reverse_hex.starts_with(&prefix_bstring) {
                 break;
             }
-            matches.push(Box::new(uncommitted_file));
+            match collision_index {
+                Some(index) => matches.extend(
+                    files
+                        .get(index)
+                        .map(|file| Box::new(file) as Box<dyn Node<'a> + 'a>),
+                ),
+                None => matches.extend(
+                    files
+                        .iter()
+                        .map(|file| Box::new(file) as Box<dyn Node<'a> + 'a>),
+                ),
+            }
         }
         matches
     }

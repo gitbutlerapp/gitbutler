@@ -25,7 +25,7 @@ pub(crate) struct FileAssignment {
 impl FileAssignment {
     pub fn get_assignments_by_file(id_map: &IdMap) -> BTreeMap<BString, Self> {
         let mut assignments_by_file: BTreeMap<BString, FileAssignment> = BTreeMap::new();
-        for uncommitted_file in id_map.uncommitted_files.values() {
+        for uncommitted_file in id_map.uncommitted_files.values().flatten() {
             let path = uncommitted_file.path();
             let assignments = if let Some(file_assignment) = assignments_by_file.get_mut(path) {
                 &mut file_assignment.assignments

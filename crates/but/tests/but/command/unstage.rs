@@ -53,14 +53,16 @@ fn shorthand_uncommitted_hunk_to_uncommitted_area() -> anyhow::Result<()> {
     // Assign the change to A.
     env.but("stage a.txt A").assert().success();
 
-    // Verify that the first hunk is j0, and move it to uncommitted.
+    // Verify the displayed hunk IDs, then move the first hunk to uncommitted
+    // using a shorter prefix than the displayed padded ID — the padding is
+    // cosmetic and any unambiguous prefix of the full ID resolves.
     env.but("diff A@{stack}:a.txt")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 ─────────╮
-k:2 a.txt│
+n:2 a.txt│
 ─────────╯
    1  │-first
      1│+firsta
@@ -68,7 +70,7 @@ k:2 a.txt│
    3 3│ line
    4 4│ line
 ─────────╮
-k:e a.txt│
+n:e a.txt│
 ─────────╯
     6  6│ line
     7  7│ line
@@ -77,7 +79,7 @@ k:e a.txt│
        9│+lasta
 
 "#]]);
-    env.but("unstage km:2")
+    env.but("unstage nk:2")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -97,7 +99,7 @@ Unstaged a hunk in a.txt in a stack
 {
   "uncommittedChanges": [
     {
-      "cliId": "n",
+      "cliId": "n#0",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -107,7 +109,7 @@ Unstaged a hunk in a.txt in a stack
       "cliId": "k0",
       "assignedChanges": [
         {
-          "cliId": "k",
+          "cliId": "n#1",
           "filePath": "a.txt",
           "changeType": "modified"
         }
@@ -146,7 +148,7 @@ fn unstage_command() -> anyhow::Result<()> {
       "cliId": "j0",
       "assignedChanges": [
         {
-          "cliId": "k",
+          "cliId": "n",
           "filePath": "a.txt",
           "changeType": "modified"
         }

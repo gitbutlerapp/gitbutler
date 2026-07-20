@@ -198,6 +198,7 @@ fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::
     let mut positioned_files: Vec<(usize, &BStr, CliId)> = id_map
         .uncommitted_files
         .values()
+        .flatten()
         .flat_map(|uncommitted_file| {
             let position = match uncommitted_file.stack_id() {
                 Some(stack_id) => stack_ids.iter().position(|e| *e == Some(stack_id))?,
