@@ -343,13 +343,6 @@ impl From<but_core::ui::WorktreeChanges> for WorktreeChanges {
     }
 }
 
-impl From<but_core::WorktreeChanges> for WorktreeChanges {
-    fn from(worktree_changes: but_core::WorktreeChanges) -> Self {
-        let ui_changes: but_core::ui::WorktreeChanges = worktree_changes.into();
-        ui_changes.into()
-    }
-}
-
 impl HunkAssignmentRequest {
     pub fn matches_assignment(&self, assignment: &HunkAssignment) -> bool {
         self.path_bytes == assignment.path_bytes && self.hunk_header == assignment.hunk_header

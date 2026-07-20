@@ -2922,6 +2922,15 @@ export type WorktreeChanges = {
   changes: Array<TreeChange>;
   /** Changes that were in the index that we can't handle. The user can see them and interact with them to clear them out before a commit can be made. */
   ignoredChanges: Array<IgnoredWorktreeChange>;
+  /**
+   * Paths of `changes` whose current worktree content contains Git conflict markers,
+   * e.g. after updating the workspace over conflicting uncommitted changes.
+   *
+   * These are ordinary committable changes - clients can display them as conflicted,
+   * and editing the markers away clears the flag. Populated only in responses of the
+   * worktree-changes API; empty in all other contexts.
+   */
+  conflictMarkerPaths: Array<string>;
   assignments: Array<HunkAssignment>;
   assignmentsError: SerdeError | null;
   dependencies: HunkDependencies | null;

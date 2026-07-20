@@ -34,6 +34,10 @@ pub(crate) struct WorkspaceStatus {
     /// Uncommitted files with unresolved merge conflicts in the index; not committable until resolved.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     conflicted_files: Vec<String>,
+    /// Uncommitted files whose content contains Git conflict markers; committable, but the
+    /// markers should be edited away first.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    files_with_conflict_markers: Vec<String>,
     /// The stacks that are applied in the current workspace
     stacks: Vec<Stack>,
     /// The most recent common merge base between all applied stacks and the target upstream branch
@@ -55,24 +59,6 @@ pub(crate) struct UpstreamState {
     /// List of upstream commits (only populated when requested with --upstream flag)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upstream_commits: Option<Vec<Commit>>,
-}
-
-impl WorkspaceStatus {
-    pub fn new(
-        uncommitted_changes: Vec<FileChange>,
-        conflicted_files: Vec<String>,
-        stacks: Vec<Stack>,
-        merge_base: Commit,
-        upstream_state: UpstreamState,
-    ) -> Self {
-        Self {
-            uncommitted_changes,
-            conflicted_files,
-            stacks,
-            merge_base,
-            upstream_state,
-        }
-    }
 }
 
 /// Represents a stack of branches applied in the current workspace
@@ -714,11 +700,16 @@ pub(super) fn build_workspace_status_json(
         }
     };
 
-    Ok(WorkspaceStatus::new(
-        json_uncommitted_changes,
-        status_ctx.conflicted_paths.clone(),
-        json_stacks,
-        merge_base_commit,
-        upstream_state_json,
-    ))
+    Ok(WorkspaceStatus {
+        uncommitted_changes: json_uncommitted_changes,
+        conflicted_files: status_ctx.conflicted_paths.clone(),
+        files_with_conflict_markers: status_ctx
+            .conflict_marker_paths
+            .iter()
+            .map(|path| path.to_string())
+            .collect(),
+        stacks: json_stacks,
+        merge_base: merge_base_commit,
+        upstream_state: upstream_state_json,
+    })
 }

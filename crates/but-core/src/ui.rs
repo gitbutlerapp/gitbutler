@@ -81,6 +81,17 @@ pub struct WorktreeChanges {
     pub changes: Vec<TreeChange>,
     /// Changes that were in the index that we can't handle. The user can see them and interact with them to clear them out before a commit can be made.
     pub ignored_changes: Vec<IgnoredWorktreeChange>,
+    /// Paths of `changes` whose current worktree content contains Git conflict markers,
+    /// e.g. after updating the workspace over conflicting uncommitted changes.
+    ///
+    /// These are ordinary committable changes - clients can display them as conflicted,
+    /// and editing the markers away clears the flag. Populated only in responses of the
+    /// worktree-changes API; empty in all other contexts.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_lossy_vec")
+    )]
+    pub conflict_marker_paths: Vec<BStringForFrontend>,
 }
 
 impl WorktreeChanges {
@@ -90,6 +101,40 @@ impl WorktreeChanges {
         context_lines: u32,
     ) -> anyhow::Result<BString> {
         changes_to_unidiff(self.changes.clone(), repo, context_lines)
+    }
+
+    /// Fill [`Self::conflict_marker_paths`] by scanning the current worktree content of
+    /// `changes` for Git conflict markers.
+    ///
+    /// The scan is best-effort display metadata: unreadable, non-blob, or oversized files
+    /// are skipped rather than failing the whole listing.
+    pub fn with_conflict_marker_paths(mut self, repo: &gix::Repository) -> Self {
+        /// Larger files are assumed not to be hand-edited conflict resolutions.
+        const MAX_SCAN_SIZE: u64 = 8 * 1024 * 1024;
+        self.conflict_marker_paths = self
+            .changes
+            .iter()
+            .filter(|change| {
+                matches!(
+                    &change.status,
+                    TreeStatus::Addition { state, .. }
+                        | TreeStatus::Modification { state, .. }
+                        | TreeStatus::Rename { state, .. }
+                    if matches!(state.kind, EntryKind::Blob | EntryKind::BlobExecutable)
+                )
+            })
+            .filter(|change| {
+                let Some(path) = repo.workdir_path(&change.path_bytes) else {
+                    return false;
+                };
+                std::fs::symlink_metadata(&path)
+                    .is_ok_and(|md| md.is_file() && md.len() <= MAX_SCAN_SIZE)
+                    && std::fs::read(&path)
+                        .is_ok_and(|content| crate::worktree::contains_conflict_markers(&content))
+            })
+            .map(|change| change.path.clone())
+            .collect();
+        self
     }
 }
 
@@ -105,6 +150,7 @@ impl From<crate::WorktreeChanges> for WorktreeChanges {
         WorktreeChanges {
             changes: changes.into_iter().map(Into::into).collect(),
             ignored_changes,
+            conflict_marker_paths: Vec::new(),
         }
     }
 }

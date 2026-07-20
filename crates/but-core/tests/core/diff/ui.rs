@@ -366,7 +366,8 @@ fn worktree_changes() -> anyhow::Result<()> {
       "path": "removed-in-index-changed-in-worktree",
       "status": "TreeIndex"
     }
-  ]
+  ],
+  "conflictMarkerPaths": []
 }
 "#]]
     );

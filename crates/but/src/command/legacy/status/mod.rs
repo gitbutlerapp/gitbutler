@@ -189,6 +189,9 @@ struct StatusContext<'a> {
     worktree_changes: Vec<ui::TreeChange>,
     /// Uncommitted files with unresolved merge conflicts in the index; not committable until resolved.
     conflicted_paths: Vec<String>,
+    /// Uncommitted files whose content contains Git conflict markers; committable, but the
+    /// markers should be edited away first.
+    conflict_marker_paths: Vec<but_serde::BStringForFrontend>,
     common_merge_base_data: CommonMergeBase,
     target_tip_id: gix::ObjectId,
     upstream_state: Option<UpstreamState>,
@@ -417,6 +420,10 @@ fn build_status_context<'a>(
         .map(|change| change.path.to_string())
         .collect();
     conflicted_paths.sort();
+    let conflict_marker_paths = worktree_changes
+        .worktree_changes
+        .conflict_marker_paths
+        .clone();
 
     let id_map = IdMap::new(
         stacks,
@@ -555,6 +562,7 @@ fn build_status_context<'a>(
         stack_details,
         worktree_changes: worktree_changes.worktree_changes.changes,
         conflicted_paths,
+        conflict_marker_paths,
         common_merge_base_data,
         target_tip_id,
         upstream_state,
@@ -636,14 +644,19 @@ fn print_conflicted_files_warning(
     status_ctx: &StatusContext<'_>,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
-    if status_ctx.conflicted_paths.is_empty() {
-        return Ok(());
-    }
     let t = crate::theme::get();
-    output.warning(Vec::from([Span::styled(
-        "⚠ Uncommitted file conflicts: choose the desired file state, then run `git add -- <path>`.",
-        t.attention,
-    )]))?;
+    if !status_ctx.conflicted_paths.is_empty() {
+        output.warning(Vec::from([Span::styled(
+            "⚠ Uncommitted file conflicts: choose the desired file state, then run `git add -- <path>`.",
+            t.attention,
+        )]))?;
+    }
+    if !status_ctx.conflict_marker_paths.is_empty() {
+        output.warning(Vec::from([Span::styled(
+            "⚠ Files marked {conflict markers} contain conflict markers: edit the files to resolve, then commit.",
+            t.attention,
+        )]))?;
+    }
     Ok(())
 }
 
@@ -1164,6 +1177,16 @@ fn print_assignments(
 
         let status = state.as_ref().map(status_letter_ui).unwrap_or_default();
 
+        let mut path_spans = Vec::from([path]);
+        if status_ctx
+            .conflict_marker_paths
+            .iter()
+            .any(|marked| **marked == fa.path)
+        {
+            path_spans.push(Span::raw(" "));
+            path_spans.push(Span::styled("{conflict markers}", t.error));
+        }
+
         let first_assignment = &fa.assignments[0];
         let cli_id = &first_assignment.cli_id;
         let id_padding = " ".repeat(max_id_width.saturating_sub(cli_id.len()) + 1);
@@ -1182,7 +1205,7 @@ fn print_assignments(
                 Span::raw(id_padding),
             ]),
             status: Vec::from([Span::raw(status.to_string()), Span::raw(" ")]),
-            path: Vec::from([path]),
+            path: path_spans,
         };
 
         if unstaged {

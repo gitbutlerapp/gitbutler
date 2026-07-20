@@ -142,7 +142,9 @@ pub fn changes_in_worktree_with_perm(
 
     if !compute_deps_and_assignments {
         let repo = ctx.repo.get()?;
-        return Ok(but_core::diff::worktree_changes(&repo)?.into());
+        let changes: but_core::ui::WorktreeChanges =
+            but_core::diff::worktree_changes(&repo)?.into();
+        return Ok(changes.with_conflict_marker_paths(&repo).into());
     }
 
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
@@ -167,10 +169,11 @@ pub fn changes_in_worktree_with_perm(
     };
 
     trans.commit()?;
+    let changes = but_core::ui::WorktreeChanges::from(changes).with_conflict_marker_paths(&repo);
     drop((repo, ws, db));
 
     Ok(WorktreeChanges {
-        worktree_changes: changes.into(),
+        worktree_changes: changes,
         assignments,
         assignments_error: assignments_error.map(|err| serde_error::Error::new(&*err)),
         dependencies: dependencies.as_ref().ok().cloned(),
