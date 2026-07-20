@@ -1,5 +1,5 @@
 import { Toast } from "@base-ui/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import {
 	type CommitAmendParams,
@@ -12,16 +12,16 @@ import {
 	CommitSquashParams,
 	CommitUncommitParams,
 } from "#electron/ipc.ts";
-import type { QueryKey } from "#ui/api/queries.ts";
+import { headInfoQueryOptions, type QueryKey } from "#ui/api/queries.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/toastOptions.tsx";
 import { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { Operand, operandEquals, operandFileParent } from "#ui/operands.ts";
 import { resolveDiffSpecs, useResolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { useAppDispatch } from "#ui/store.ts";
 import { useParams } from "@tanstack/react-router";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { syncCoreCaches } from "#ui/api/mutations.ts";
+import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 
 type CommitAmendOperation = Omit<CommitAmendParams, "dryRun" | "projectId" | "changes"> & {
 	source: Operand;
@@ -223,13 +223,16 @@ const runOperation = async ({
 export const useDryRunOperation = ({
 	projectId,
 	operation,
+	headInfoIndex,
 }: {
 	projectId: string;
 	operation?: Operation;
+	headInfoIndex: HeadInfoIndex;
 }) => {
 	const changes = useResolveDiffSpecs({
 		projectId,
 		operand: operation && "source" in operation ? operation.source : undefined,
+		headInfoIndex,
 	});
 
 	return useQuery({
@@ -251,21 +254,25 @@ export const useDryRunOperation = ({
 
 export const useRunOperation = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
 	const queryClient = useQueryClient();
 	const toastManager = Toast.useToastManager();
+	const { data: headInfoIndex } = useSuspenseQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 
 	return useMutation({
 		mutationFn: (operation: Operation) =>
 			runOperation({
 				projectId,
 				operation,
-				resolveChanges: (source) => resolveDiffSpecs({ projectId, queryClient, source }),
+				resolveChanges: (source) =>
+					resolveDiffSpecs({ projectId, queryClient, source, headInfoIndex }),
 				dryRun: false,
 			}),
 		onSuccess: async (response, _input, _ctx, { client }) => {
 			if (response) {
-				syncCoreCaches(client, dispatch, projectId, response);
+				syncCoreCaches(client, projectId, response);
 
 				if ("rejectedChanges" in response && response.rejectedChanges.length > 0) {
 					toastManager.add(
@@ -301,19 +308,32 @@ export const useRunOperation = () => {
 const squashOperation = ({
 	sources,
 	target,
+	headInfoIndex,
 }: {
 	sources: Array<Operand>;
 	target: Operand;
+	headInfoIndex: HeadInfoIndex;
 }): OperationWithLabel | null => {
 	if (
 		target._tag === "Commit" &&
 		sources.length > 0 &&
 		sources.every((source) => source._tag === "Commit")
 	) {
+		const destinationCommitId = headInfoIndex.commitContextById(target.changeId)?.commit.id;
+		if (destinationCommitId === undefined) return null;
+
+		const sourceCommitIds: Array<string> = [];
+		for (const source of sources) {
+			const subject = headInfoIndex.commitContextById(source.changeId)?.commit.id;
+			if (subject === undefined) return null;
+
+			sourceCommitIds.push(subject);
+		}
+
 		return {
 			operation: commitSquashOperation({
-				sourceCommitIds: sources.map((source) => source.commitId),
-				destinationCommitId: target.commitId,
+				sourceCommitIds,
+				destinationCommitId,
 			}),
 			label: "Squash",
 		};
@@ -326,7 +346,10 @@ const squashOperation = ({
 	) {
 		return {
 			operation: commitUncommitOperation({
-				subjectCommitIds: sources.map((source) => source.commitId),
+				subjectCommitIds: sources.flatMap((source) => {
+					const subject = headInfoIndex.commitContextById(source.changeId)?.commit.id;
+					return subject !== undefined ? [subject] : [];
+				}),
 				assignTo: null,
 			}),
 			label: "Uncommit",
@@ -337,46 +360,65 @@ const squashOperation = ({
 	if (!source || rest.length > 0) return null;
 
 	return Match.value({ source, sourceFileParent: operandFileParent(source), target }).pipe(
+		Match.withReturnType<OperationWithLabel | null>(),
 		Match.when(
 			{
 				sourceFileParent: { _tag: "UncommittedChanges" },
 				target: { _tag: "Commit" },
 			},
-			({ source, target }): OperationWithLabel => ({
-				operation: commitAmendOperation({
-					commitId: target.commitId,
-					source,
-				}),
-				label: "Amend",
-			}),
+			({ source, target }) => {
+				const commitId = headInfoIndex.commitContextById(target.changeId)?.commit.id;
+				if (commitId === undefined) return null;
+
+				return {
+					operation: commitAmendOperation({
+						commitId,
+						source,
+					}),
+					label: "Amend",
+				};
+			},
 		),
 		Match.when(
 			{
 				sourceFileParent: { _tag: "Commit" },
 				target: { _tag: "UncommittedChanges" },
 			},
-			({ source, sourceFileParent }): OperationWithLabel => ({
-				operation: commitUncommitChangesOperation({
-					commitId: sourceFileParent.commitId,
-					assignTo: null,
-					source,
-				}),
-				label: "Uncommit",
-			}),
+			({ source, sourceFileParent }) => {
+				const commitId = headInfoIndex.commitContextById(sourceFileParent.changeId)?.commit.id;
+				if (commitId === undefined) return null;
+
+				return {
+					operation: commitUncommitChangesOperation({
+						commitId,
+						assignTo: null,
+						source,
+					}),
+					label: "Uncommit",
+				};
+			},
 		),
 		Match.when(
 			{
 				sourceFileParent: { _tag: "Commit" },
 				target: { _tag: "Commit" },
 			},
-			({ source, sourceFileParent, target }): OperationWithLabel => ({
-				operation: commitMoveChangesBetweenOperation({
-					sourceCommitId: sourceFileParent.commitId,
-					destinationCommitId: target.commitId,
-					source,
-				}),
-				label: "Amend",
-			}),
+			({ source, sourceFileParent, target }) => {
+				const sourceCommitId = headInfoIndex.commitContextById(sourceFileParent.changeId)?.commit
+					.id;
+				if (sourceCommitId === undefined) return null;
+				const destinationCommitId = headInfoIndex.commitContextById(target.changeId)?.commit.id;
+				if (destinationCommitId === undefined) return null;
+
+				return {
+					operation: commitMoveChangesBetweenOperation({
+						sourceCommitId,
+						destinationCommitId,
+						source,
+					}),
+					label: "Amend",
+				};
+			},
 		),
 		Match.orElse(() => null),
 	);
@@ -385,11 +427,13 @@ const squashOperation = ({
 const intoOperation = ({
 	sources,
 	target,
+	headInfoIndex,
 }: {
 	sources: Array<Operand>;
 	target: Operand;
+	headInfoIndex: HeadInfoIndex;
 }): OperationWithLabel | null => {
-	const squash = squashOperation({ sources, target });
+	const squash = squashOperation({ sources, target, headInfoIndex });
 	if (squash) return squash;
 
 	if (
@@ -399,7 +443,10 @@ const intoOperation = ({
 	) {
 		return {
 			operation: commitMoveOperation({
-				subjectCommitIds: sources.map((source) => source.commitId),
+				subjectCommitIds: sources.flatMap((source) => {
+					const subject = headInfoIndex.commitContextById(source.changeId)?.commit.id;
+					return subject !== undefined ? [subject] : [];
+				}),
 				relativeTo: { type: "referenceBytes", subject: target.branchRef },
 				side: "below",
 			}),
@@ -435,16 +482,24 @@ const moveOperation = ({
 	sources,
 	target,
 	side,
+	headInfoIndex,
 }: {
 	sources: Array<Operand>;
 	target: Operand;
 	side: InsertSide;
+	headInfoIndex: HeadInfoIndex;
 }): OperationWithLabel | null => {
 	const relativeTo: RelativeTo | null = Match.value({ target, side }).pipe(
-		Match.when({ target: { _tag: "Commit" } }, ({ target }): RelativeTo | null => ({
-			type: "commit",
-			subject: target.commitId,
-		})),
+		Match.withReturnType<RelativeTo | null>(),
+		Match.when({ target: { _tag: "Commit" } }, ({ target }) => {
+			const subject = headInfoIndex.commitContextById(target.changeId)?.commit.id;
+			return subject !== undefined
+				? {
+						type: "commit",
+						subject,
+					}
+				: null;
+		}),
 		Match.when(
 			{
 				target: { _tag: "Branch" },
@@ -454,15 +509,18 @@ const moveOperation = ({
 				// "below"` won't work as expected.
 				side: "above",
 			},
-			({ target }): RelativeTo | null => ({ type: "referenceBytes", subject: target.branchRef }),
+			({ target }) => ({ type: "referenceBytes", subject: target.branchRef }),
 		),
-		Match.orElse((): RelativeTo | null => null),
+		Match.orElse(() => null),
 	);
 
 	if (relativeTo && sources.length > 0 && sources.every((source) => source._tag === "Commit")) {
 		return {
 			operation: commitMoveOperation({
-				subjectCommitIds: sources.map((source) => source.commitId),
+				subjectCommitIds: sources.flatMap((source) => {
+					const subject = headInfoIndex.commitContextById(source.changeId)?.commit.id;
+					return subject !== undefined ? [subject] : [];
+				}),
 				relativeTo,
 				side,
 			}),
@@ -500,38 +558,38 @@ const moveOperation = ({
 	if (!relativeTo) return null;
 
 	return Match.value({ source, sourceFileParent: operandFileParent(source) }).pipe(
-		Match.when(
-			{ sourceFileParent: { _tag: "UncommittedChanges" } },
-			({ source }): OperationWithLabel => ({
-				operation: commitCreateOperation({
-					relativeTo,
-					side,
-					source,
-					message: "",
-				}),
-				label: Match.value(side).pipe(
-					Match.when("above", () => "Commit above"),
-					Match.when("below", () => "Commit below"),
-					Match.exhaustive,
-				),
+		Match.withReturnType<OperationWithLabel | null>(),
+		Match.when({ sourceFileParent: { _tag: "UncommittedChanges" } }, ({ source }) => ({
+			operation: commitCreateOperation({
+				relativeTo,
+				side,
+				source,
+				message: "",
 			}),
-		),
-		Match.when(
-			{ sourceFileParent: { _tag: "Commit" } },
-			({ source, sourceFileParent }): OperationWithLabel => ({
-				operation: commitSplitOperation({
-					sourceCommitId: sourceFileParent.commitId,
-					relativeTo,
-					side,
-					source,
-				}),
-				label: Match.value(side).pipe(
-					Match.when("above", () => "Commit above"),
-					Match.when("below", () => "Commit below"),
-					Match.exhaustive,
-				),
-			}),
-		),
+			label: Match.value(side).pipe(
+				Match.when("above", () => "Commit above"),
+				Match.when("below", () => "Commit below"),
+				Match.exhaustive,
+			),
+		})),
+		Match.when({ sourceFileParent: { _tag: "Commit" } }, ({ source, sourceFileParent }) => {
+			const sourceCommitId = headInfoIndex.commitContextById(sourceFileParent.changeId)?.commit.id;
+			return sourceCommitId !== undefined
+				? {
+						operation: commitSplitOperation({
+							sourceCommitId,
+							relativeTo,
+							side,
+							source,
+						}),
+						label: Match.value(side).pipe(
+							Match.when("above", () => "Commit above"),
+							Match.when("below", () => "Commit below"),
+							Match.exhaustive,
+						),
+					}
+				: null;
+		}),
 		Match.orElse(() => null),
 	);
 };
@@ -546,7 +604,11 @@ const isOperationSourceEnabled = (source: Operand): boolean =>
 
 export type OperationsByType = Record<OperationType, OperationWithLabel | null>;
 
-export const getOperations = (sources: Array<Operand>, target: Operand): OperationsByType => {
+export const getOperations = (
+	sources: Array<Operand>,
+	target: Operand,
+	headInfoIndex: HeadInfoIndex,
+): OperationsByType => {
 	if (
 		sources.length === 0 ||
 		sources.some((source) => operandEquals(source, target)) ||
@@ -559,9 +621,9 @@ export const getOperations = (sources: Array<Operand>, target: Operand): Operati
 		};
 	}
 	return {
-		into: intoOperation({ sources, target }),
-		above: moveOperation({ sources, target, side: "above" }),
-		below: moveOperation({ sources, target, side: "below" }),
+		into: intoOperation({ sources, target, headInfoIndex }),
+		above: moveOperation({ sources, target, side: "above", headInfoIndex }),
+		below: moveOperation({ sources, target, side: "below", headInfoIndex }),
 	};
 };
 
@@ -569,4 +631,6 @@ export const getOperation = (x: {
 	sources: Array<Operand>;
 	target: Operand;
 	operationType: OperationType;
-}): OperationWithLabel | null => getOperations(x.sources, x.target)[x.operationType];
+	headInfoIndex: HeadInfoIndex;
+}): OperationWithLabel | null =>
+	getOperations(x.sources, x.target, x.headInfoIndex)[x.operationType];

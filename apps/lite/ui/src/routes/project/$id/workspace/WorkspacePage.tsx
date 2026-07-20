@@ -53,6 +53,7 @@ import { OperationControls } from "#ui/routes/project/$id/workspace/OperationCon
 import { WorkspacePageErrorBoundary } from "./WorkspacePageErrorBoundary.tsx";
 import { Settings } from "./Settings.tsx";
 import type { OutlineMode } from "#ui/outline/mode.ts";
+import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 
 // This must be unique as to not collide with other IDs, and stable because it's
 // stored in local storage.
@@ -180,8 +181,12 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	]);
 };
 
-const hasAnyOperation = (sources: Array<Operand>, target: Operand) => {
-	const operations = getOperations(sources, target);
+const hasAnyOperation = (
+	sources: Array<Operand>,
+	target: Operand,
+	headInfoIndex: HeadInfoIndex,
+) => {
+	const operations = getOperations(sources, target, headInfoIndex);
 	return !!operations.into || !!operations.above || !!operations.below;
 };
 
@@ -197,11 +202,11 @@ const buildUncommittedFilesNavigationIndex = ({
 const buildOutlineNavigationIndex = ({
 	headInfo,
 	outlineMode,
-	absorptionTargetCommitIds,
+	absorptionTargetChangeIds,
 }: {
 	headInfo: RefInfo | undefined;
 	outlineMode: OutlineMode;
-	absorptionTargetCommitIds: ReadonlySet<string>;
+	absorptionTargetChangeIds: ReadonlySet<string>;
 }): NavigationIndex<Operand> => {
 	const allItems = (): Array<Operand> =>
 		headInfo?.stacks
@@ -212,7 +217,7 @@ const buildOutlineNavigationIndex = ({
 						...(segment.refName
 							? [branchOperand({ branchRef: segment.refName.fullNameBytes })]
 							: []),
-						...segment.commits.map((commit) => commitOperand({ commitId: commit.id })),
+						...segment.commits.map((commit) => commitOperand({ changeId: commit.changeId })),
 					],
 				),
 			) ?? [];
@@ -225,14 +230,15 @@ const buildOutlineNavigationIndex = ({
 					(operand) =>
 						operandEquals(operand, activeMode.source) ||
 						operandContains(operand, activeMode.source) ||
-						(operand._tag === "Commit" && absorptionTargetCommitIds.has(operand.commitId)),
+						(operand._tag === "Commit" && absorptionTargetChangeIds.has(operand.changeId)),
 				),
 			Transfer: ({ value: activeMode }) =>
 				allItems().filter(
 					(operand) =>
 						activeMode.sources.some(
 							(source) => operandEquals(operand, source) || operandContains(operand, source),
-						) || hasAnyOperation(activeMode.sources, operand),
+						) ||
+						(headInfo && hasAnyOperation(activeMode.sources, operand, getHeadInfoIndex(headInfo))),
 				),
 			RenameBranch: (x) => [branchOperand(x.operand)],
 			RewordCommit: (x) => [commitOperand(x.operand)],
@@ -389,19 +395,25 @@ const WorkspacePage: FC = () => {
 		Match.orElse(() => null),
 	);
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const headInfoIndex = headInfo ? getHeadInfoIndex(headInfo) : undefined;
 	const [absorptionPlanQuery] = useQueries({
 		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
 			absorptionPlanQueryOptions({ projectId, target }),
 		),
 	});
-	const absorptionTargetCommitIds = new Set(
-		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
+	const absorptionTargetChangeIds = new Set(
+		headInfoIndex && absorptionPlanQuery?.data
+			? absorptionPlanQuery.data.flatMap(({ commitId }) => {
+					const changeId = headInfoIndex.commitContextById(commitId)?.commit.changeId;
+					return changeId !== undefined ? [changeId] : [];
+				})
+			: [],
 	);
 
 	const outlineNavigationIndex = buildOutlineNavigationIndex({
 		headInfo,
 		outlineMode,
-		absorptionTargetCommitIds,
+		absorptionTargetChangeIds,
 	});
 	const outlineSelection = useAppSelector((state) =>
 		projectSlice.selectors.selectSelectionOutline(state, projectId, outlineNavigationIndex),
@@ -476,7 +488,7 @@ const WorkspacePage: FC = () => {
 							project={selectedProject}
 							navigationIndex={outlineNavigationIndex}
 							uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
-							absorptionTargetCommitIds={absorptionTargetCommitIds}
+							absorptionTargetChangeIds={absorptionTargetChangeIds}
 						/>
 					</Panel>
 					<Separator className={styles.resizeHandle} />

@@ -64,7 +64,7 @@ export const useOutlineTreeHotkeys = ({
 	navigationIndex: NavigationIndex<Operand>;
 	projectId: string;
 	ref: RefObject<HTMLElement | null>;
-	checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
+	checkCommit: (evt: { changeId: string; shiftKey: boolean }) => void;
 }) => {
 	const { data: headInfoIndex } = useQuery({
 		...headInfoQueryOptions(projectId),
@@ -83,7 +83,7 @@ export const useOutlineTreeHotkeys = ({
 		Match.tags({
 			Stack: (stack) => headInfoIndex?.stackContextById(stack.stackId)?.stack,
 			Branch: (branch) => headInfoIndex?.branchContextByRefBytes(branch.branchRef)?.stack,
-			Commit: (commit) => headInfoIndex?.commitContextById(commit.commitId)?.stack,
+			Commit: (commit) => headInfoIndex?.commitContextById(commit.changeId)?.stack,
 		}),
 		Match.orElse(() => undefined),
 	);
@@ -95,13 +95,13 @@ export const useOutlineTreeHotkeys = ({
 	const selectedBranchCommitsChecked = useAppSelector((state) =>
 		selectedBranchSegment && selectedBranchSegment.commits.length > 0
 			? selectedBranchSegment.commits.every((commit) =>
-					projectSlice.selectors.selectCommitChecked(state, projectId, commit.id),
+					projectSlice.selectors.selectCommitChecked(state, projectId, commit.changeId),
 				)
 			: false,
 	);
 	const selectedCommit =
 		selection?._tag === "Commit"
-			? (headInfoIndex?.commitContextById(selection.commitId) ?? null)?.commit
+			? (headInfoIndex?.commitContextById(selection.changeId) ?? null)?.commit
 			: null;
 	const selectedCommitForgeUrl =
 		selectedCommit && forgeInfo ? commitForgeUrl(selectedCommit, forgeInfo) : null;
@@ -133,17 +133,17 @@ export const useOutlineTreeHotkeys = ({
 	};
 
 	const amendCommit = () => {
-		if (selection?._tag !== "Commit") return;
+		if (!selectedCommit) return;
 
-		commitAmend({ commitId: selection.commitId });
+		commitAmend({ commitId: selectedCommit.id });
 	};
 
-	const setCommitTarget = (relativeTo: RelativeTo) => {
-		dispatch(projectSlice.actions.setCommitTarget({ projectId, commitTarget: relativeTo }));
+	const setCommitTarget = (commitTarget: Operand) => {
+		dispatch(projectSlice.actions.setCommitTarget({ projectId, commitTarget }));
 	};
 
-	const composeCommitHere = (relativeTo: RelativeTo) => {
-		setCommitTarget(relativeTo);
+	const composeCommitHere = (commitTarget: Operand) => {
+		setCommitTarget(commitTarget);
 		focusCommitMessageInput();
 	};
 
@@ -152,12 +152,18 @@ export const useOutlineTreeHotkeys = ({
 
 		type Placement = { relativeTo: RelativeTo; side: InsertSide };
 		const placement = Match.value(selection).pipe(
+			Match.withReturnType<Placement | null>(),
 			Match.tags({
-				Commit: (selection): Placement => ({
-					relativeTo: { type: "commit", subject: selection.commitId },
-					side: "above",
-				}),
-				Branch: (selection): Placement => ({
+				Commit: (selection) => {
+					const ctx = headInfoIndex?.commitContextById(selection.changeId);
+					return ctx
+						? {
+								relativeTo: { type: "commit", subject: ctx.commit.id },
+								side: "above",
+							}
+						: null;
+				},
+				Branch: (selection) => ({
 					relativeTo: {
 						type: "referenceBytes",
 						subject: selection.branchRef,
@@ -214,7 +220,7 @@ export const useOutlineTreeHotkeys = ({
 		event.preventDefault();
 		event.stopPropagation();
 		checkCommit({
-			commitId: selection.commitId,
+			changeId: selection.changeId,
 			shiftKey: event.shiftKey,
 		});
 	};
@@ -225,7 +231,7 @@ export const useOutlineTreeHotkeys = ({
 		dispatch(
 			projectSlice.actions.checkCommits({
 				projectId,
-				commitIds: selectedBranchSegment.commits.map((commit) => commit.id),
+				changeIds: selectedBranchSegment.commits.map((commit) => commit.changeId),
 				checked: !selectedBranchCommitsChecked,
 			}),
 		);
@@ -242,9 +248,13 @@ export const useOutlineTreeHotkeys = ({
 		if (!nextItem) return;
 
 		const relativeTo = Match.value(nextItem).pipe(
+			Match.withReturnType<RelativeTo | null>(),
 			Match.tags({
-				Commit: ({ commitId }): RelativeTo => ({ type: "commit", subject: commitId }),
-				Branch: ({ branchRef }): RelativeTo => ({
+				Commit: ({ changeId }) => {
+					const ctx = headInfoIndex?.commitContextById(changeId);
+					return ctx ? { type: "commit", subject: ctx.commit.id } : null;
+				},
+				Branch: ({ branchRef }) => ({
 					type: "referenceBytes",
 					subject: branchRef,
 				}),
@@ -253,9 +263,11 @@ export const useOutlineTreeHotkeys = ({
 		);
 		if (!relativeTo) return;
 
+		const selectionCtx = headInfoIndex?.commitContextById(selection.changeId);
+		if (!selectionCtx) return;
 		commitMove({
 			projectId,
-			subjectCommitIds: [selection.commitId],
+			subjectCommitIds: [selectionCtx.commit.id],
 			relativeTo,
 			side: offset === -1 ? "above" : "below",
 			dryRun: false,
@@ -265,31 +277,27 @@ export const useOutlineTreeHotkeys = ({
 	const deleteSelectedCommit = () => {
 		if (!selection || selection._tag !== "Commit") return;
 
+		const selectionCtx = headInfoIndex?.commitContextById(selection.changeId);
+		if (!selectionCtx) return;
+
 		const selectionAfterDiscard = selectAfterDiscardedCommit({
 			navigationIndex,
-			commit: { commitId: selection.commitId },
+			commit: { changeId: selection.changeId },
 			headInfoIndex,
 		});
 
 		commitDiscard(
 			{
 				projectId,
-				subjectCommitId: selection.commitId,
+				subjectCommitId: selectionCtx.commit.id,
 				dryRun: false,
 			},
 			{
-				onSuccess: (response) => {
-					const newId =
-						selectionAfterDiscard?._tag === "Commit"
-							? response.workspace.replacedCommits[selectionAfterDiscard.commitId]
-							: undefined;
-					const latestSelectionAfterDiscard =
-						newId === undefined ? selectionAfterDiscard : commitOperand({ commitId: newId });
-
+				onSuccess: () => {
 					dispatch(
 						projectSlice.actions.selectOutline({
 							projectId,
-							selection: latestSelectionAfterDiscard,
+							selection: selectionAfterDiscard,
 						}),
 					);
 				},
@@ -301,7 +309,7 @@ export const useOutlineTreeHotkeys = ({
 		selection?._tag === "Branch"
 			? headInfoIndex?.branchContextByRefBytes(selection.branchRef)?.segmentIndex
 			: selection?._tag === "Commit"
-				? headInfoIndex?.commitContextById(selection.commitId)?.segmentIndex
+				? headInfoIndex?.commitContextById(selection.changeId)?.segmentIndex
 				: undefined;
 
 	const selectedPushContext =
@@ -570,9 +578,13 @@ export const useOutlineTreeHotkeys = ({
 			},
 		},
 		...Match.value(selection).pipe(
+			Match.withReturnType<RelativeTo | null>(),
 			Match.tags({
-				Commit: (selection): RelativeTo => ({ type: "commit", subject: selection.commitId }),
-				Branch: (selection): RelativeTo => ({
+				Commit: (selection) => {
+					const ctx = headInfoIndex?.commitContextById(selection.changeId);
+					return ctx ? { type: "commit", subject: ctx.commit.id } : null;
+				},
+				Branch: (selection) => ({
 					type: "referenceBytes",
 					subject: selection.branchRef,
 				}),
@@ -594,7 +606,8 @@ export const useOutlineTreeHotkeys = ({
 							} satisfies UseHotkeyDefinition,
 							{
 								hotkey: outlineHotkeys.composeCommitHere.hotkey,
-								callback: () => composeCommitHere(relativeTo),
+								// oxlint-disable-next-line typescript/no-non-null-assertion
+								callback: () => composeCommitHere(selection!),
 								options: {
 									conflictBehavior: "allow",
 									enabled: defaultOutlineHotkeysEnabled,
@@ -603,7 +616,8 @@ export const useOutlineTreeHotkeys = ({
 							} satisfies UseHotkeyDefinition,
 							{
 								hotkey: outlineHotkeys.setCommitTarget.hotkey,
-								callback: () => setCommitTarget(relativeTo),
+								// oxlint-disable-next-line typescript/no-non-null-assertion
+								callback: () => setCommitTarget(selection!),
 								options: {
 									conflictBehavior: "allow",
 									enabled: defaultOutlineHotkeysEnabled,

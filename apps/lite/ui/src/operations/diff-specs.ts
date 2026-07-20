@@ -13,6 +13,7 @@ import {
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import { diffSpecHunkHeadersForLineSelection } from "#ui/hunk.ts";
+import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 
 export const createDiffSpec = (change: TreeChange, hunkHeaders: Array<HunkHeader>): DiffSpec => ({
 	pathBytes: change.pathBytes,
@@ -84,12 +85,12 @@ const resolvedDiffSpecsFromOperand = ({
 		Match.orElse(() => null),
 	);
 
-const commitIdFromParent = (parent: FileParent) =>
+const changeIdFromParent = (parent: FileParent) =>
 	Match.value(parent).pipe(
 		Match.withReturnType<string | null>(),
 		Match.tagsExhaustive({
 			UncommittedChanges: () => null,
-			Commit: ({ commitId }) => commitId,
+			Commit: ({ changeId }) => changeId,
 			Branch: () => null,
 		}),
 	);
@@ -98,17 +99,22 @@ export const resolveDiffSpecs = async ({
 	source,
 	projectId,
 	queryClient,
+	headInfoIndex,
 }: {
 	source: Operand;
 	projectId: string;
 	queryClient: QueryClient;
+	headInfoIndex: HeadInfoIndex;
 }) => {
 	const fileParent = operandFileParent(source);
-	const commitId = fileParent ? commitIdFromParent(fileParent) : null;
+	const changeId = fileParent ? changeIdFromParent(fileParent) : null;
+	const commitCtx = changeId !== null ? headInfoIndex.commitContextById(changeId) : null;
 	const [worktreeChanges, commitDetails] = await Promise.all([
 		queryClient.fetchQuery(changesInWorktreeQueryOptions(projectId)),
-		commitId !== null
-			? queryClient.fetchQuery(commitDetailsWithLineStatsQueryOptions({ projectId, commitId }))
+		commitCtx != null
+			? queryClient.fetchQuery(
+					commitDetailsWithLineStatsQueryOptions({ projectId, commitId: commitCtx.commit.id }),
+				)
 			: Promise.resolve(undefined),
 	]);
 
@@ -122,16 +128,19 @@ export const resolveDiffSpecs = async ({
 export const useResolveDiffSpecs = ({
 	operand,
 	projectId,
+	headInfoIndex,
 }: {
 	operand?: Operand;
 	projectId: string;
+	headInfoIndex: HeadInfoIndex;
 }) => {
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
 	const fileParent = operand ? operandFileParent(operand) : null;
-	const commitId = fileParent ? commitIdFromParent(fileParent) : null;
+	const changeId = fileParent ? changeIdFromParent(fileParent) : null;
+	const commitCtx = changeId !== null ? headInfoIndex.commitContextById(changeId) : null;
 	const commitDetails = useQueries({
-		queries: (commitId !== null ? [commitId] : []).map((commitId) =>
+		queries: (commitCtx != null ? [commitCtx.commit.id] : []).map((commitId) =>
 			commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 		),
 		combine: ([result]) => result?.data,

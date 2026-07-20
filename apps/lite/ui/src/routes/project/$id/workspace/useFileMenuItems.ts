@@ -23,17 +23,20 @@ import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Match } from "effect";
+import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 
 export const useFileMenuItems = ({
 	projectId,
 	operand,
 	path,
 	change,
+	headInfoIndex,
 }: {
 	projectId: string;
 	operand: FileOperand;
 	path: string;
 	change?: TreeChange;
+	headInfoIndex?: HeadInfoIndex;
 }): Array<NativeMenuItem> => {
 	const dispatch = useAppDispatch();
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
@@ -127,22 +130,29 @@ export const useFileMenuItems = ({
 			? Match.value(operand).pipe(
 					Match.withReturnType<Array<Array<NativeMenuItem>>>(),
 					Match.when({ parent: { _tag: "Commit" } }, (operand) => {
-						const uncommit = () =>
-							commitUncommitChanges({
+						const parentCtx = headInfoIndex?.commitContextById(operand.parent.changeId);
+
+						const uncommit = () => {
+							if (!parentCtx) return;
+
+							return commitUncommitChanges({
 								projectId,
-								commitId: operand.parent.commitId,
+								commitId: parentCtx.commit.id,
 								assignTo: null,
 								changes: [createDiffSpec(change, [])],
 								dryRun: false,
 							});
-						const discard = () =>
-							commitDiscardChanges({
+						};
+						const discard = () => {
+							if (!parentCtx) return;
+
+							return commitDiscardChanges({
 								projectId,
-								commitId: operand.parent.commitId,
+								commitId: parentCtx.commit.id,
 								changes: [createDiffSpec(change, [])],
 								dryRun: false,
 							});
-
+						};
 						return [
 							[
 								nativeMenuItem({

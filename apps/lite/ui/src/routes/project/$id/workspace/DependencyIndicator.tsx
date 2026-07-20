@@ -7,13 +7,13 @@ import { ComponentProps, FC } from "react";
 export const DependencyIndicator: FC<
 	{
 		projectId: string;
-		commitIds: Array<string>;
-		branchNameByCommitId: (commitId: string) => string | undefined;
+		changeIds: Array<string>;
+		branchNameByChangeId: (commitId: string) => string | undefined;
 	} & ComponentProps<"button">
-> = ({ projectId, commitIds, branchNameByCommitId, ...restProps }) => {
+> = ({ projectId, changeIds, branchNameByChangeId, ...restProps }) => {
 	const dispatch = useAppDispatch();
 	const branchNames = new Set(
-		commitIds.flatMap((commitId) => branchNameByCommitId(commitId) ?? []),
+		changeIds.flatMap((changeId) => branchNameByChangeId(changeId) ?? []),
 	);
 	const tooltip =
 		branchNames.size > 0
@@ -21,14 +21,14 @@ export const DependencyIndicator: FC<
 			: "Unknown dependencies";
 	const highlightCommitIds = () => {
 		dispatch(
-			projectSlice.actions.setHighlightedCommitIds({
+			projectSlice.actions.setHighlightedChangeIds({
 				projectId,
-				commitIds,
+				changeIds,
 			}),
 		);
 	};
 	const clearHighlightedCommitIds = () => {
-		dispatch(projectSlice.actions.setHighlightedCommitIds({ projectId, commitIds: null }));
+		dispatch(projectSlice.actions.setHighlightedChangeIds({ projectId, changeIds: null }));
 	};
 
 	return (

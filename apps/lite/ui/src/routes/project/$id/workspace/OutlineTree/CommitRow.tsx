@@ -27,7 +27,7 @@ import { branchOperand, commitOperand, operandEquals, type CommitOperand } from 
 import { projectSlice } from "#ui/projects/state.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { RelativeTo, type Commit } from "@gitbutler/but-sdk";
+import type { Commit } from "@gitbutler/but-sdk";
 import { Toast, Toolbar, Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { ComponentProps, FC, use, useOptimistic, useTransition } from "react";
@@ -52,23 +52,23 @@ export const CommitRow: FC<
 		projectId: string;
 		isCommitTarget: boolean;
 		dryRunCommit: Commit | null;
-		checkCommit: (evt: { commitId: string; shiftKey: boolean }) => void;
+		checkCommit: (evt: { changeId: string; shiftKey: boolean }) => void;
 	} & ComponentProps<"div">
 > = ({ commit, projectId, isCommitTarget, dryRunCommit, checkCommit, ...restProps }) => {
 	const { data: forgeInfo } = useQuery(forgeInfoOptions(projectId));
 	const mforgeUrl = forgeInfo && commitForgeUrl(commit, forgeInfo);
 
 	const isHighlighted = useAppSelector((state) =>
-		projectSlice.selectors.selectHighlightedCommitIds(state, projectId).includes(commit.id),
+		projectSlice.selectors.selectHighlightedChangeIds(state, projectId).includes(commit.changeId),
 	);
 	const isChecked = useAppSelector((state) =>
-		projectSlice.selectors.selectCommitChecked(state, projectId, commit.id),
+		projectSlice.selectors.selectCommitChecked(state, projectId, commit.changeId),
 	);
 
 	const dispatch = useAppDispatch();
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const commitOperandV: CommitOperand = {
-		commitId: commit.id,
+		changeId: commit.changeId,
 	};
 	const operand = commitOperand(commitOperandV);
 	const isDefaultMode = useAppSelector(
@@ -156,18 +156,11 @@ export const CommitRow: FC<
 				dryRun: false,
 			},
 			{
-				onSuccess: (response) => {
-					const newId =
-						selectionAfterDiscard?._tag === "Commit"
-							? response.workspace.replacedCommits[selectionAfterDiscard.commitId]
-							: undefined;
-					const latestSelectionAfterDiscard =
-						newId === undefined ? selectionAfterDiscard : commitOperand({ commitId: newId });
-
+				onSuccess: () => {
 					dispatch(
 						projectSlice.actions.selectOutline({
 							projectId,
-							selection: latestSelectionAfterDiscard,
+							selection: selectionAfterDiscard,
 						}),
 					);
 				},
@@ -224,14 +217,12 @@ export const CommitRow: FC<
 		});
 	};
 
-	const relativeTo: RelativeTo = { type: "commit", subject: commit.id };
-
 	const amendCommit = () => {
 		commitAmend({ commitId: commit.id });
 	};
 
 	const setCommitTarget = () => {
-		dispatch(projectSlice.actions.setCommitTarget({ projectId, commitTarget: relativeTo }));
+		dispatch(projectSlice.actions.setCommitTarget({ projectId, commitTarget: operand }));
 	};
 
 	const composeCommitHere = () => {
@@ -377,7 +368,7 @@ export const CommitRow: FC<
 							const shiftKey =
 								(event instanceof MouseEvent || event instanceof KeyboardEvent) &&
 								event.shiftKey === true;
-							checkCommit({ commitId: commit.id, shiftKey });
+							checkCommit({ changeId: commit.changeId, shiftKey });
 						}}
 					/>
 					<Tooltip.Portal>

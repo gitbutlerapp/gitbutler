@@ -1,8 +1,7 @@
 import uiStyles from "#ui/components/ui.module.css";
 import { useCommitAmend, useCommitCreate } from "#ui/api/mutations.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
-import { relativeToEquals, relativeToKey } from "#ui/api/relative-to.ts";
-import { getHeadInfoIndex, resolveRelativeTo } from "#ui/api/ref-info.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -23,10 +22,11 @@ import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { type FC, type SubmitEventHandler, useRef, useState } from "react";
 import styles from "./CommitForm.module.css";
+import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
 
 export type CommitTargetComboboxItem = {
 	label: string;
-	relativeTo: RelativeTo;
+	operand: Operand;
 };
 
 // oxlint-disable-next-line react/only-export-components -- TODO: move
@@ -45,7 +45,7 @@ const CommitTargetComboboxPopup: FC = () => (
 		<Combobox.List className={styles.targetList}>
 			{(item: CommitTargetComboboxItem) => (
 				<Combobox.Item
-					key={relativeToKey(item.relativeTo)}
+					key={operandIdentityKey(item.operand)}
 					value={item}
 					className={styles.targetItem}
 				>
@@ -89,7 +89,10 @@ export const CommitForm: FC<{
 		worktreeChanges &&
 		worktreeChanges.changes.length > 0 &&
 		headInfoIndex &&
-		resolveRelativeTo({ headInfoIndex, relativeTo: commitTarget.relativeTo }) !== null;
+		((commitTarget.operand._tag === "Branch" &&
+			!!headInfoIndex.branchContextByRefBytes(commitTarget.operand.branchRef)) ||
+			(commitTarget.operand._tag === "Commit" &&
+				!!headInfoIndex.commitContextById(commitTarget.operand.changeId)));
 
 	const [open, setOpen] = useState(false);
 
@@ -97,19 +100,28 @@ export const CommitForm: FC<{
 		dispatch(
 			projectSlice.actions.setCommitTarget({
 				projectId,
-				commitTarget: option?.relativeTo ?? null,
+				commitTarget: option?.operand ?? null,
 			}),
 		);
 		setOpen(false);
 	};
 
 	const createCommit = () => {
-		if (!commitTarget) return;
+		let relativeTo: RelativeTo | null = null;
+		if (commitTarget?.operand._tag === "Commit") {
+			const subject = headInfoIndex?.commitContextById(commitTarget.operand.changeId)?.commit.id;
+			if (subject === undefined) throw new Error("Could not find commit subject");
+			relativeTo = { type: "commit", subject };
+		} else if (commitTarget?.operand._tag === "Branch") {
+			relativeTo = { type: "referenceBytes", subject: commitTarget.operand.branchRef };
+		}
+
+		if (!relativeTo) throw new Error("Invalid commit target");
 
 		commitCreate(
 			{
 				message: commitTextareaRef.current?.value ?? "",
-				relativeTo: commitTarget.relativeTo,
+				relativeTo,
 			},
 			{
 				onSuccess: (response) => {
@@ -121,13 +133,15 @@ export const CommitForm: FC<{
 	};
 
 	const amendCommit = () => {
-		if (!commitTarget || !headInfoIndex) return;
+		let commitId;
+		if (commitTarget?.operand._tag === "Commit") {
+			commitId = headInfoIndex?.commitContextById(commitTarget.operand.changeId)?.commit.id;
+		} else if (commitTarget?.operand._tag === "Branch") {
+			commitId = headInfoIndex?.branchContextByRefBytes(commitTarget.operand.branchRef)?.segment
+				.commits[0]?.id;
+		}
 
-		const commitId = resolveRelativeTo({
-			headInfoIndex,
-			relativeTo: commitTarget.relativeTo,
-		});
-		if (commitId === null) throw new Error("No commit to amend.");
+		if (commitId === undefined) throw new Error("Could not find commit to amend into");
 
 		commitAmend({ commitId });
 	};
@@ -211,8 +225,8 @@ export const CommitForm: FC<{
 					value={commitTarget ?? null}
 					onValueChange={selectBranch}
 					itemToStringLabel={(x) => x.label}
-					itemToStringValue={(x) => relativeToKey(x.relativeTo)}
-					isItemEqualToValue={(a, b) => relativeToEquals(a.relativeTo, b.relativeTo)}
+					itemToStringValue={(x) => operandIdentityKey(x.operand)}
+					isItemEqualToValue={(a, b) => operandEquals(a.operand, b.operand)}
 					autoHighlight
 					disabled={!isDefaultMode || isCommitOrAmendPending}
 				>

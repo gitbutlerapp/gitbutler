@@ -300,7 +300,7 @@ const TransferKeyboardOperationControls: FC<{
 	const target = getTransferTarget(keyboardTransferMode(mode), selection, detailsSelectionScope);
 	if (!target) return null;
 
-	const operations = getOperations(mode.sources, target);
+	const operations = getOperations(mode.sources, target, headInfoIndex);
 	const operation = operations[mode.operationType];
 
 	const run = () => {

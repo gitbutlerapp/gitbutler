@@ -85,14 +85,14 @@ const FetchFromRemotesButton: FC<{
 
 export const Outline: FC<
 	{
-		absorptionTargetCommitIds: ReadonlySet<string>;
+		absorptionTargetChangeIds: Set<string>;
 		navigationIndex: NavigationIndex<Operand>;
 		uncommittedFilesNavigationIndex: NavigationIndex<string>;
 		project: ProjectForFrontend;
 		projectId: string;
 	} & ComponentProps<"div">
 > = ({
-	absorptionTargetCommitIds,
+	absorptionTargetChangeIds,
 	navigationIndex,
 	uncommittedFilesNavigationIndex,
 	project,
@@ -368,7 +368,7 @@ export const Outline: FC<
 				className={styles.outlineTree}
 				navigationIndex={navigationIndex}
 				uncommittedFilesNavigationIndex={uncommittedFilesNavigationIndex}
-				absorptionTargetCommitIds={absorptionTargetCommitIds}
+				absorptionTargetChangeIds={absorptionTargetChangeIds}
 				projectId={projectId}
 			/>
 		</div>

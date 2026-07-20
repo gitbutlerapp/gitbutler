@@ -1,8 +1,8 @@
-import { relativeToEquals } from "#ui/api/relative-to.ts";
 import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { commitTitle } from "#ui/commit.ts";
-import type { RefInfo, RelativeTo } from "@gitbutler/but-sdk";
+import type { RefInfo } from "@gitbutler/but-sdk";
 import type { CommitTargetComboboxItem } from "../CommitForm.tsx";
+import { branchOperand, operandEquals, type Operand } from "#ui/operands.ts";
 
 export const buildCommitTargetComboboxItems = ({
 	headInfo,
@@ -11,19 +11,19 @@ export const buildCommitTargetComboboxItems = ({
 }: {
 	headInfo: RefInfo | undefined;
 	headInfoIndex: HeadInfoIndex | undefined;
-	commitTargetState: RelativeTo | null;
+	commitTargetState: Operand | null;
 }): Array<CommitTargetComboboxItem> => {
 	const commitTarget =
-		commitTargetState?.type === "commit"
-			? headInfoIndex?.commitContextById(commitTargetState.subject)?.commit
+		commitTargetState?._tag === "Commit"
+			? headInfoIndex?.commitContextById(commitTargetState.changeId)?.commit
 			: null;
 
 	return [
-		...(commitTarget
+		...(commitTargetState && commitTarget
 			? ([
 					{
 						label: `Commit: ${commitTitle(commitTarget.message) ?? "(no message)"}`,
-						relativeTo: { type: "commit", subject: commitTarget.id },
+						operand: commitTargetState,
 					},
 				] satisfies Array<CommitTargetComboboxItem>)
 			: []),
@@ -37,7 +37,7 @@ export const buildCommitTargetComboboxItems = ({
 							return [
 								{
 									label: refName.displayName,
-									relativeTo: { type: "referenceBytes", subject: refName.fullNameBytes },
+									operand: branchOperand({ branchRef: refName.fullNameBytes }),
 								},
 							];
 						}),
@@ -51,9 +51,8 @@ export const selectCommitTargetComboboxItem = ({
 	commitTargetState,
 }: {
 	items: Array<CommitTargetComboboxItem>;
-	commitTargetState: RelativeTo | null;
+	commitTargetState: Operand | null;
 }): CommitTargetComboboxItem | null =>
-	(commitTargetState &&
-		items.find((item) => relativeToEquals(item.relativeTo, commitTargetState))) ??
+	(commitTargetState && items.find((item) => operandEquals(item.operand, commitTargetState))) ??
 	items[0] ??
 	null;

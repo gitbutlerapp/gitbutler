@@ -200,7 +200,7 @@ export const FilesTree: FC<
 											onSelect={() => onFileSelection(item.path)}
 											projectId={projectId}
 											fileParent={fileParent}
-											branchNameByCommitId={(cid) =>
+											branchNameByChangeId={(cid) =>
 												headInfoIndex?.commitContextById(cid)?.segment.refName?.displayName
 											}
 										/>

@@ -1,5 +1,5 @@
-import { encodeBytes, bytesEqual } from "#ui/api/bytes.ts";
-import type { Commit, RefInfo, RelativeTo, Segment, Stack } from "@gitbutler/but-sdk";
+import { bytesEqual } from "#ui/api/bytes.ts";
+import type { Commit, RefInfo, Segment, Stack } from "@gitbutler/but-sdk";
 
 type StackIndex = {
 	stack: Stack;
@@ -19,7 +19,9 @@ type CommitIndex = {
 export type HeadInfoIndex = {
 	stackContextById: (stackId: string) => StackIndex | undefined;
 	branchContextByRefBytes: (ref: Array<number>) => (StackIndex & SegmentIndex) | undefined;
-	commitContextById: (commitId: string) => (StackIndex & SegmentIndex & CommitIndex) | undefined;
+	commitContextById: (
+		changeOrCommitId: string,
+	) => (StackIndex & SegmentIndex & CommitIndex) | undefined;
 };
 
 const headInfoIndexCache = new WeakMap<RefInfo, HeadInfoIndex>();
@@ -45,22 +47,25 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 			}
 
 			for (const [commitIndex, commit] of segment.commits.entries()) {
-				commitContextById.set(commit.id, {
+				const ctx = {
 					stack,
 					stackIndex,
 					segment,
 					segmentIndex,
 					commit,
 					commitIndex,
-				});
+				};
+
+				commitContextById.set(commit.changeId, ctx);
+				commitContextById.set(commit.id, ctx);
 			}
 		}
 	}
 
 	return {
-		stackContextById: (id: string) => stackContextById.get(id),
+		stackContextById: (stackId: string) => stackContextById.get(stackId),
 		branchContextByRefBytes: (ref: Array<number>) => branchContextByRef.get(branchRefKey(ref)),
-		commitContextById: (id: string) => commitContextById.get(id),
+		commitContextById: (changeOrCommitId: string) => commitContextById.get(changeOrCommitId),
 	};
 };
 
@@ -101,25 +106,3 @@ export const renameBranchInHeadInfo = ({
 		}),
 	})),
 });
-
-export const resolveRelativeTo = ({
-	headInfoIndex,
-	relativeTo,
-}: {
-	headInfoIndex: HeadInfoIndex;
-	relativeTo: RelativeTo;
-}): string | null => {
-	switch (relativeTo.type) {
-		case "commit":
-			return relativeTo.subject;
-		case "referenceBytes":
-			return (
-				headInfoIndex.branchContextByRefBytes(relativeTo.subject)?.segment.commits[0]?.id ?? null
-			);
-		case "reference":
-			return (
-				headInfoIndex.branchContextByRefBytes(encodeBytes(relativeTo.subject))?.segment.commits[0]
-					?.id ?? null
-			);
-	}
-};

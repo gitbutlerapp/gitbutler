@@ -1,20 +1,21 @@
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
 import type { TreeChange, WorktreeChanges } from "@gitbutler/but-sdk";
+import type { HeadInfoIndex } from "#ui/api/ref-info.ts";
 
 type ChangeFileRowItem = {
 	change: TreeChange;
-	dependencyCommitIds: Array<string>;
+	dependencyChangeIds: Array<string>;
 	path: string;
 };
 
 export const changeFileRowItem = ({
 	change,
-	dependencyCommitIds,
+	dependencyChangeIds,
 	path,
 }: ChangeFileRowItem): FileRowItem => ({
 	_tag: "Change",
 	change,
-	dependencyCommitIds,
+	dependencyChangeIds,
 	path,
 });
 
@@ -27,7 +28,10 @@ export const conflictFileRowItem = ({ path }: ConflictFileRowItem): FileRowItem 
 	path,
 });
 
-export const getChangesFileRowItems = (worktreeChanges: WorktreeChanges): Array<FileRowItem> => {
+export const getChangesFileRowItems = (
+	worktreeChanges: WorktreeChanges,
+	headInfoIndex: HeadInfoIndex,
+): Array<FileRowItem> => {
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
@@ -37,10 +41,14 @@ export const getChangesFileRowItems = (worktreeChanges: WorktreeChanges): Array<
 		const dependencyCommitIds = hunkDependencyDiffs
 			? getDependencyCommitIds({ hunkDependencyDiffs })
 			: [];
+		const dependencyChangeIds = dependencyCommitIds.flatMap((commitId) => {
+			const changeId = headInfoIndex.commitContextById(commitId)?.commit.changeId;
+			return changeId !== undefined ? [changeId] : [];
+		});
 
 		return changeFileRowItem({
 			change,
-			dependencyCommitIds,
+			dependencyChangeIds,
 			path: change.path,
 		});
 	});

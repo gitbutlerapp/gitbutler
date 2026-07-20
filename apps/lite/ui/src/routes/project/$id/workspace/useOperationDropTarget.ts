@@ -15,6 +15,9 @@ import {
 import { Match } from "effect";
 import { useEffect, useEffectEvent, useRef } from "react";
 import { parseDragData } from "./DragData.ts";
+import { useQuery } from "@tanstack/react-query";
+import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 
 type DropTargetParams = Parameters<typeof dropTargetForElements>[0];
 type GetDataArgs = Parameters<NonNullable<DropTargetParams["getData"]>>[0];
@@ -48,11 +51,16 @@ export const useOperationDropTarget = ({
 	const { mutate: runOperation } = useRunOperation();
 	const dropRef = useRef<HTMLElement>(null);
 
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
+
 	const getData = useEffectEvent(({ input, element, source }: GetDataArgs) => {
 		const dragData = parseDragData(source.data);
-		if (!dragData) return {};
+		if (!headInfoIndex || !dragData) return {};
 
-		const { into, above, below } = getOperations(dragData.sources, target);
+		const { into, above, below } = getOperations(dragData.sources, target, headInfoIndex);
 		return attachInstruction(
 			{},
 			{
@@ -111,11 +119,12 @@ export const useOperationDropTarget = ({
 				const dragData = parseDragData(args.source.data);
 				const operationType = getOperationTypeFromData(args.self.data);
 				const operation =
-					dragData && operationType !== null
+					headInfoIndex && dragData && operationType !== null
 						? getOperation({
 								sources: dragData.sources,
 								target,
 								operationType,
+								headInfoIndex,
 							})
 						: null;
 
@@ -128,7 +137,7 @@ export const useOperationDropTarget = ({
 				runOperation(operation.operation);
 			},
 		});
-	}, [dispatch, projectId, runOperation, target]);
+	}, [dispatch, projectId, runOperation, target, headInfoIndex]);
 
 	return dropRef;
 };

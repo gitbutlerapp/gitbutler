@@ -44,7 +44,7 @@ export const OperationSourceC: FC<
 		const isCheckedCommit = projectSlice.selectors.selectCommitChecked(
 			state,
 			projectId,
-			source.commitId,
+			source.changeId,
 		);
 		if (!isCheckedCommit) return source;
 

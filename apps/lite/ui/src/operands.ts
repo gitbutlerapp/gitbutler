@@ -20,7 +20,7 @@ export type BranchOperand = {
 };
 
 export type CommitOperand = {
-	commitId: string;
+	changeId: string;
 };
 
 export type FileOperand = {
@@ -47,9 +47,9 @@ export const branchOperand = ({ branchRef }: BranchOperand): Operand => ({
 	branchRef,
 });
 
-export const commitOperand = ({ commitId }: CommitOperand): Operand => ({
+export const commitOperand = ({ changeId }: CommitOperand): Operand => ({
 	_tag: "Commit",
-	commitId,
+	changeId,
 });
 
 export const fileOperand = ({ parent, path }: FileOperand): Operand => ({
@@ -78,9 +78,9 @@ export const branchFileParent = ({ branchRef }: BranchOperand): FileParent => ({
 	branchRef,
 });
 
-export const commitFileParent = ({ commitId }: CommitOperand): FileParent => ({
+export const commitFileParent = ({ changeId }: CommitOperand): FileParent => ({
 	_tag: "Commit",
-	commitId,
+	changeId,
 });
 
 export const operandIdentityKey = (operand: Operand): string =>
@@ -90,7 +90,7 @@ export const operandIdentityKey = (operand: Operand): string =>
 			File: (x) => JSON.stringify(["File", x.parent, x.path]),
 			Stack: (x) => JSON.stringify(["Stack", x.stackId]),
 			Branch: (x) => JSON.stringify(["Branch", x.branchRef]),
-			Commit: (x) => JSON.stringify(["Commit", x.commitId]),
+			Commit: (x) => JSON.stringify(["Commit", x.changeId]),
 			Hunk: (x) =>
 				JSON.stringify([
 					"Hunk",

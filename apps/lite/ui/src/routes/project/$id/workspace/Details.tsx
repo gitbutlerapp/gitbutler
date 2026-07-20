@@ -76,6 +76,7 @@ import {
 	type RefObject,
 	SubmitEventHandler,
 	Suspense,
+	useDeferredValue,
 	useId,
 	useLayoutEffect,
 	useRef,
@@ -163,7 +164,7 @@ const getCommitFileRowItems = ({
 				changeFileRowItem({
 					change,
 					path: change.path,
-					dependencyCommitIds: [],
+					dependencyChangeIds: [],
 				}),
 			),
 	];
@@ -174,7 +175,7 @@ const getBranchFileRowItems = ({ branchDiff }: { branchDiff: TreeChanges }): Arr
 		changeFileRowItem({
 			change,
 			path: change.path,
-			dependencyCommitIds: [],
+			dependencyChangeIds: [],
 		}),
 	);
 
@@ -688,10 +689,11 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 const Title: FC<{
 	bodyCollapsed: boolean;
 	bodyId: string;
+	commitId: string | null;
 	onBodyCollapsedChange: (collapsed: boolean) => void;
 	projectId: string;
 	selection: Operand;
-}> = ({ bodyCollapsed, bodyId, onBodyCollapsedChange, projectId, selection }) =>
+}> = ({ bodyCollapsed, bodyId, commitId, onBodyCollapsedChange, projectId, selection }) =>
 	Match.value(selection).pipe(
 		Match.tags({
 			Branch: ({ branchRef }) => (
@@ -717,49 +719,53 @@ const Title: FC<{
 					<h3 className={classes("text-15", "text-semibold")}>{path}</h3>
 				</div>
 			),
-			Commit: ({ commitId }) => (
-				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-					{({ data: commitDetails }) => (
-						<div className={styles.title}>
-							<Icon name="commit" />
-							<h3 className={classes(styles.titleContentWrapper, "text-15", "text-semibold")}>
-								<span className={styles.titleContent}>
-									{commitTitle(commitDetails.commit.message) ?? "(no message)"}
-								</span>
-								{commitDetails.commit.hasConflicts && " ⚠️"}
-								{commitBody(commitDetails.commit.message) !== undefined && (
-									<Tooltip.Root>
-										<Tooltip.Trigger
-											aria-controls={bodyId}
-											aria-expanded={!bodyCollapsed}
-											aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-											aria-pressed={!bodyCollapsed}
-											className={classes(
-												getButtonClassName({
-													variant: bodyCollapsed ? "outline" : "gray",
-													iconOnly: true,
-													size: "small",
-												}),
-												styles.commitBodyToggle,
-											)}
-											onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
-										>
-											<Icon name="kebab" />
-										</Tooltip.Trigger>
-										<Tooltip.Portal>
-											<Tooltip.Positioner sideOffset={4}>
-												<Tooltip.Popup render={<TooltipPopup />}>
-													{bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
-												</Tooltip.Popup>
-											</Tooltip.Positioner>
-										</Tooltip.Portal>
-									</Tooltip.Root>
-								)}
-							</h3>
-						</div>
-					)}
-				</SuspenseQuery>
-			),
+			Commit: () => {
+				if (commitId === null) return;
+
+				return (
+					<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
+						{({ data: commitDetails }) => (
+							<div className={styles.title}>
+								<Icon name="commit" />
+								<h3 className={classes(styles.titleContentWrapper, "text-15", "text-semibold")}>
+									<span className={styles.titleContent}>
+										{commitTitle(commitDetails.commit.message) ?? "(no message)"}
+									</span>
+									{commitDetails.commit.hasConflicts && " ⚠️"}
+									{commitBody(commitDetails.commit.message) !== undefined && (
+										<Tooltip.Root>
+											<Tooltip.Trigger
+												aria-controls={bodyId}
+												aria-expanded={!bodyCollapsed}
+												aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+												aria-pressed={!bodyCollapsed}
+												className={classes(
+													getButtonClassName({
+														variant: bodyCollapsed ? "outline" : "gray",
+														iconOnly: true,
+														size: "small",
+													}),
+													styles.commitBodyToggle,
+												)}
+												onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
+											>
+												<Icon name="kebab" />
+											</Tooltip.Trigger>
+											<Tooltip.Portal>
+												<Tooltip.Positioner sideOffset={4}>
+													<Tooltip.Popup render={<TooltipPopup />}>
+														{bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+													</Tooltip.Popup>
+												</Tooltip.Positioner>
+											</Tooltip.Portal>
+										</Tooltip.Root>
+									)}
+								</h3>
+							</div>
+						)}
+					</SuspenseQuery>
+				);
+			},
 		}),
 		Match.orElseAbsurd,
 	);
@@ -982,7 +988,7 @@ const Diff: FC<{
 		Match.tags({
 			Branch: ({ branchRef }) => decodeBytes(branchRef),
 			File: ({ path }) => path,
-			Commit: ({ commitId }) => commitId,
+			Commit: ({ changeId }) => changeId,
 		}),
 		Match.orElseAbsurd,
 	);
@@ -990,7 +996,7 @@ const Diff: FC<{
 		Match.tags({
 			Branch: ({ branchRef }) => branchFileParent({ branchRef }),
 			File: ({ parent }) => parent,
-			Commit: ({ commitId }) => commitFileParent({ commitId }),
+			Commit: ({ changeId }) => commitFileParent({ changeId }),
 		}),
 		Match.orElseAbsurd,
 	);
@@ -1512,13 +1518,17 @@ export const Details: FC<
 	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
 	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
 	const commitBodyId = useId();
+	const resolvedCommitId =
+		outlineSelection?._tag === "Commit"
+			? (headInfoIndex?.commitContextById(outlineSelection.changeId)?.commit.id ?? null)
+			: null;
+	const deferredCommitId = useDeferredValue(resolvedCommitId);
 
 	const selectFile = (selection: string) => {
 		dispatch(projectSlice.actions.selectFiles({ projectId, selection }));
 	};
 
 	if (!outlineSelection) return;
-
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
 			<div className={styles.headerWrap}>
@@ -1528,6 +1538,7 @@ export const Details: FC<
 					<Title
 						bodyCollapsed={commitBodyCollapsed}
 						bodyId={commitBodyId}
+						commitId={deferredCommitId}
 						onBodyCollapsedChange={setCommitBodyCollapsed}
 						projectId={projectId}
 						selection={outlineSelection}
@@ -1585,12 +1596,12 @@ export const Details: FC<
 					</div>
 				)}
 
-				{outlineSelection._tag === "Commit" && (
+				{deferredCommitId !== null && (
 					<CommitDetailsContent
 						bodyCollapsed={commitBodyCollapsed}
 						bodyId={commitBodyId}
 						projectId={projectId}
-						commitId={outlineSelection.commitId}
+						commitId={deferredCommitId}
 					/>
 				)}
 			</div>
@@ -1616,30 +1627,37 @@ export const Details: FC<
 					);
 					return Match.value(outlineSelection).pipe(
 						Match.tags({
-							Commit: (commit) => (
-								<SuspenseQuery
-									{...commitDetailsWithLineStatsQueryOptions({
-										projectId,
-										commitId: commit.commitId,
-									})}
-								>
-									{({ data: commitDetails }) =>
-										renderDiff({
-											changes: commitDetails.changes,
-											filesItems: getCommitFileRowItems({ commitDetails }),
-										})
-									}
-								</SuspenseQuery>
-							),
+							Commit: () => {
+								if (deferredCommitId === null) return null;
+
+								return (
+									<SuspenseQuery
+										{...commitDetailsWithLineStatsQueryOptions({
+											projectId,
+											commitId: deferredCommitId,
+										})}
+									>
+										{({ data: commitDetails }) =>
+											renderDiff({
+												changes: commitDetails.changes,
+												filesItems: getCommitFileRowItems({ commitDetails }),
+											})
+										}
+									</SuspenseQuery>
+								);
+							},
 							File: (file) => {
 								if (file.parent._tag !== "UncommittedChanges") return null;
 
 								return (
 									<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
 										{({ data: worktreeChanges }) => {
-											const filesItems = getChangesFileRowItems(worktreeChanges).filter(
-												(item) => item.path === file.path,
-											);
+											if (!headInfoIndex) return null;
+
+											const filesItems = getChangesFileRowItems(
+												worktreeChanges,
+												headInfoIndex,
+											).filter((item) => item.path === file.path);
 											const changes = filesItems.flatMap((item) =>
 												item._tag === "Change" ? [item.change] : [],
 											);

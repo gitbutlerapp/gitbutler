@@ -23,10 +23,10 @@ export const FileRow: FC<
 		item: FileRowItem;
 		projectId: string;
 		fileParent: FileParent;
-		branchNameByCommitId: (commitId: string) => string | undefined;
+		branchNameByChangeId: (commitId: string) => string | undefined;
 		headInfoIndex: HeadInfoIndex | undefined;
 	} & Omit<ComponentProps<typeof Row>, "projectId">
-> = ({ item, projectId, fileParent, branchNameByCommitId, headInfoIndex, id, ...restProps }) => {
+> = ({ item, projectId, fileParent, branchNameByChangeId, headInfoIndex, id, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const isDefaultMode = useAppSelector(
@@ -115,14 +115,14 @@ export const FileRow: FC<
 				{isDefaultMode &&
 					item._tag === "Change" &&
 					fileParent._tag === "UncommittedChanges" &&
-					item.dependencyCommitIds.length > 0 && (
+					item.dependencyChangeIds.length > 0 && (
 						<Toolbar.Root aria-label="File actions" render={<RowToolbar forceVisible />}>
 							<Toolbar.Button
 								render={
 									<DependencyIndicator
 										projectId={projectId}
-										commitIds={item.dependencyCommitIds}
-										branchNameByCommitId={branchNameByCommitId}
+										changeIds={item.dependencyChangeIds}
+										branchNameByChangeId={branchNameByChangeId}
 										className={getRowButtonClassName({ iconOnly: true })}
 									/>
 								}
