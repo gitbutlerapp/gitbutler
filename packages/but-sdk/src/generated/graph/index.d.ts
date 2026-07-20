@@ -41,7 +41,8 @@ export declare function applyBranchIntegration(projectId: string, branch: string
  * Applies `existing_branch` by stacking it on top of the applied `onto_branch`.
  *
  * This acquires exclusive worktree access, rebases the incoming branch's entire unapplied stack,
- * and records one oplog snapshot if the stacked apply is persisted.
+ * and records one oplog snapshot if the stacked apply is persisted. Incoming histories containing
+ * merge commits are rejected.
  */
 export declare function applyStacked(projectId: string, existingBranch: string, ontoBranch: string): Promise<ApplyOutcome>
 

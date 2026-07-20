@@ -708,7 +708,8 @@ pub fn apply_with_perm(
 /// Applies `existing_branch` by stacking it on top of the applied `onto_branch`.
 ///
 /// This acquires exclusive worktree access, rebases the incoming branch's entire unapplied stack,
-/// and records one oplog snapshot if the stacked apply is persisted.
+/// and records one oplog snapshot if the stacked apply is persisted. Incoming histories containing
+/// merge commits are rejected.
 #[but_api(napi, json::ApplyOutcome)]
 #[instrument(err(Debug))]
 pub fn apply_stacked(

@@ -5478,6 +5478,99 @@ fn a_local_only_conflicting_branch_can_be_applied_onto_an_existing_stack() -> an
 }
 
 #[test]
+fn stacked_apply_rejects_an_incoming_merge_without_mutation() -> anyhow::Result<()> {
+    let (_tmp, _graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "one-fork-with-conflicting-sibling",
+            |_meta| {},
+        )?;
+    git(&repo).args(["checkout", "main"]).run();
+    git(&repo).args(["checkout", "-b", "source-main"]).run();
+    std::fs::write(
+        repo.workdir_path("source-main").expect("non-bare"),
+        "source main\n",
+    )?;
+    git(&repo).args(["add", "source-main"]).run();
+    git(&repo).args(["commit", "-m", "add source main"]).run();
+    git(&repo)
+        .args(["checkout", "-b", "source-side", "main"])
+        .run();
+    std::fs::write(
+        repo.workdir_path("source-side").expect("non-bare"),
+        "source side\n",
+    )?;
+    git(&repo).args(["add", "source-side"]).run();
+    git(&repo).args(["commit", "-m", "add source side"]).run();
+    git(&repo).args(["checkout", "source-main"]).run();
+    git(&repo)
+        .args(["merge", "--no-ff", "source-side", "-m", "merge source side"])
+        .run();
+    git(&repo).args(["checkout", "main"]).run();
+
+    let graph = Graph::from_head(&repo, &meta, project_meta(&meta), Options::limited())?;
+    let destination = but_workspace::branch::apply(
+        r("refs/heads/A"),
+        graph.into_workspace()?,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+    let destination_before = id_by_rev(&repo, "A");
+    let source_before = id_by_rev(&repo, "source-main");
+    let side_before = id_by_rev(&repo, "source-side");
+    let refs_before = visualize_commit_graph_all(&repo)?;
+    let head_before = repo.head_id()?.detach();
+    let worktree_before =
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?
+            .to_string();
+    let metadata_before = sanitize_uuids_and_timestamps(format!(
+        "{:#?}",
+        &*meta.workspace(r("refs/heads/gitbutler/workspace"))?
+    ));
+
+    let error = but_workspace::branch::apply_stacked(
+        r("refs/heads/source-main"),
+        r("refs/heads/A"),
+        destination.workspace,
+        &repo,
+        &mut meta,
+    )
+    .expect_err("merge histories must be rejected before graph materialization");
+
+    assert!(
+        error
+            .to_string()
+            .contains("history contains a merge commit"),
+        "unexpected error: {error:#}"
+    );
+    assert_eq!(id_by_rev(&repo, "A"), destination_before);
+    assert_eq!(id_by_rev(&repo, "source-main"), source_before);
+    assert_eq!(
+        id_by_rev(&repo, "source-side"),
+        side_before,
+        "a side branch merged by the incoming tip must not move"
+    );
+    assert_eq!(visualize_commit_graph_all(&repo)?, refs_before);
+    assert_eq!(repo.head_id()?.detach(), head_before);
+    assert_eq!(
+        visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?
+            .to_string(),
+        worktree_before,
+        "rejecting the merge must leave the worktree unchanged"
+    );
+    assert_eq!(
+        sanitize_uuids_and_timestamps(format!(
+            "{:#?}",
+            &*meta.workspace(r("refs/heads/gitbutler/workspace"))?
+        )),
+        metadata_before,
+        "rejecting the merge must leave workspace metadata unchanged"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn remote_only_conflicting_branch_is_created_locally_only_after_stacked_apply_succeeds()
 -> anyhow::Result<()> {
     let (_tmp, graph, mut repo, mut meta, _description) =
@@ -5537,14 +5630,8 @@ fn remote_only_conflicting_branch_is_created_locally_only_after_stacked_apply_su
     repo.reload()?;
     let config = repo.config_snapshot();
     let section = config.section("branch", Some("remote-A".into()))?;
-    assert_eq!(
-        section.value("remote").as_deref(),
-        Some("origin".as_bytes().as_bstr())
-    );
-    assert_eq!(
-        section.value("merge").as_deref(),
-        Some("refs/heads/remote-A".as_bytes().as_bstr())
-    );
+    assert_eq!(section.value("remote"), Some("origin".into()));
+    assert_eq!(section.value("merge"), Some("refs/heads/remote-A".into()));
     let ws_md = meta.workspace(r("refs/heads/gitbutler/workspace"))?;
     let source = ws_md
         .find_owner_indexes_by_name(r("refs/heads/remote-A"), StackKind::Applied)

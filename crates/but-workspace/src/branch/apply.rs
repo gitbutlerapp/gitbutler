@@ -793,8 +793,9 @@ pub fn apply(
 /// refs, metadata, or the worktree are changed. Rebase conflicts are materialized as GitButler
 /// conflicted commits.
 ///
-/// The incoming branch must be a stack tip without dependent child branches. The destination must
-/// be the tip of an applied managed stack, or the symbolic `HEAD` branch in an ad-hoc workspace.
+/// The incoming branch must be a linear stack tip without dependent child branches. Incoming
+/// histories containing merge commits are rejected. The destination must be the tip of an applied
+/// managed stack, or the symbolic `HEAD` branch in an ad-hoc workspace.
 #[instrument(skip(workspace, repo, meta), err(Debug))]
 pub fn apply_stacked(
     branch: &FullNameRef,
@@ -1236,6 +1237,17 @@ fn rebase_stacked_source<'workspace, 'meta, M: RefMetadata>(
     let bottom_branch = incoming_branches
         .last()
         .context("Incoming stack must contain a bottom branch")?;
+    let incoming_contains_merge = incoming_branches
+        .iter()
+        .filter_map(|branch| workspace.graph.segment_by_ref_name(branch.as_ref()))
+        .flat_map(|segment| &segment.commits)
+        .any(|commit| commit.parent_ids.len() > 1);
+    if incoming_contains_merge {
+        bail_precondition!(
+            "Cannot apply '{}' by stacking because its history contains a merge commit",
+            branch.shorten()
+        );
+    }
     let bottom_segment = workspace
         .graph
         .segment_by_ref_name(bottom_branch.as_ref())
