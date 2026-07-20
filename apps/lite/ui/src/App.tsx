@@ -1,4 +1,4 @@
-import { Toast, ToastManager, Tooltip } from "@base-ui/react";
+import { Toast, ToastManager } from "@base-ui/react";
 import { useWorkerPool, WorkerPoolContextProvider } from "@pierre/diffs/react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -45,17 +45,21 @@ export const App: FC<{
 		<Provider store={store}>
 			<QueryClientProvider client={queryClient}>
 				<Toast.Provider toastManager={toastManager}>
-					<Tooltip.Provider>
-						<WorkerPoolContextProvider
-							poolOptions={{ workerFactory }}
-							highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
-						>
-							<SyntaxThemeSync />
-							<RouterProvider router={router} />
-							<AskpassPromptDialog />
-							<Toasts />
-						</WorkerPoolContextProvider>
-					</Tooltip.Provider>
+					{/*
+						No Tooltip.Provider on purpose: it wraps everything in Base UI's
+						FloatingDelayGroup, which zeroes the open delay while any tooltip is
+						visible so adjacent ones open instantly. That made tooltips follow the
+						cursor across rows. Without the provider each tooltip waits its own delay.
+					*/}
+					<WorkerPoolContextProvider
+						poolOptions={{ workerFactory }}
+						highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
+					>
+						<SyntaxThemeSync />
+						<RouterProvider router={router} />
+						<AskpassPromptDialog />
+						<Toasts />
+					</WorkerPoolContextProvider>
 				</Toast.Provider>
 				<ReactQueryDevtools />
 			</QueryClientProvider>
