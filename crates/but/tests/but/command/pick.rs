@@ -74,7 +74,7 @@ fn pick_duplicate_sources_outputs_each_commit_once() {
 #[test]
 fn pick_commit_to_new_branch_outputs_json() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A", "B"]);
+    env.setup_metadata(&["A"]);
 
     env.but("unapply A").assert().success();
 
@@ -132,7 +132,7 @@ Hint: run `but help` for all commands
 #[test]
 fn pick_commit_to_new_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A", "B"]);
+    env.setup_metadata(&["A"]);
 
     env.but("unapply A").assert().success();
 

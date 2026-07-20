@@ -49,7 +49,7 @@ fn assert_num_snapshots(ctx: &Context, expected: usize) {
 #[test]
 fn squashing_three_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
@@ -102,7 +102,7 @@ fn squashing_three_commits() {
 #[test]
 fn rollback() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
@@ -148,7 +148,7 @@ fn rollback() {
 #[test]
 fn create_reference_without_creating_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -282,7 +282,7 @@ fn create_reference_rolls_back_branch_stack_order_in_single_branch_mode() {
 #[test]
 fn create_reference_relative_to_various_anchors() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, two, base] = find_commits(&env, ["1e25c58", "9b3b3d5", "6674d4f"]);
 
@@ -349,7 +349,7 @@ fn create_reference_relative_to_various_anchors() {
 #[test]
 fn create_reference_then_remove_it_in_same_transaction() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -392,7 +392,7 @@ fn create_reference_then_remove_it_in_same_transaction() {
 #[test]
 fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, base] = find_commits(&env, ["1e25c58", "6674d4f"]);
 
@@ -515,7 +515,7 @@ fn cherry_pick_then_reword_copied_commit() {
 #[test]
 fn move_commits_then_commit_relative_to_moved_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, one] = find_commits(&env, ["1e25c58", "dbdbcea"]);
 
@@ -571,7 +571,7 @@ fn move_commits_then_commit_relative_to_moved_commit() {
 #[test]
 fn move_commits_reorders_multiple_subjects() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
@@ -613,7 +613,7 @@ fn move_commits_reorders_multiple_subjects() {
 #[test]
 fn create_reference_then_commit_relative_to_it() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -660,7 +660,7 @@ fn create_reference_then_commit_relative_to_it() {
 #[test]
 fn create_reference_is_removed_on_rollback() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three] = find_commits(&env, ["1e25c58"]);
 
@@ -703,7 +703,7 @@ fn create_reference_is_removed_on_rollback() {
 #[test]
 fn dynamic_rollback() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [three, two, one] = find_commits(&env, ["1e25c58", "9b3b3d5", "dbdbcea"]);
 
@@ -755,7 +755,7 @@ fn dynamic_rollback() {
 #[test]
 fn discarding_three_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     snapbox::assert_data_eq!(
         env.git_log(),
@@ -811,7 +811,7 @@ fn discarding_three_commits() {
 #[test]
 fn discard_changes_from_commit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     let [two] = find_commits(&env, ["9b3b3d5"]);
 
@@ -868,7 +868,7 @@ fn discard_changes_from_commit() {
 #[test]
 fn remove_references() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    env.setup_metadata(&["A"]);
+    env.setup_metadata(&["branch"]);
 
     snapbox::assert_data_eq!(
         env.git_log(),

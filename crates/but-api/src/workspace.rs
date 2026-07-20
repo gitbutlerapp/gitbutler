@@ -231,13 +231,6 @@ pub fn set_target_ref_and_init_project(
         but_workspace::init::set_target_ref_and_init_project(&repo, target_ref, push_remote)?;
     }
     ctx.invalidate_workspace_cache()?;
-    #[cfg(feature = "legacy")]
-    {
-        let mut guard = guard;
-        crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission())
-            .ok();
-    }
-    #[cfg(not(feature = "legacy"))]
     drop(guard);
     Ok(())
 }
@@ -255,13 +248,6 @@ pub fn set_push_remote(ctx: &mut but_ctx::Context, push_remote: String) -> anyho
         but_workspace::init::set_push_remote(&repo, push_remote)?;
     }
     ctx.invalidate_workspace_cache()?;
-    #[cfg(feature = "legacy")]
-    {
-        let mut guard = guard;
-        crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission())
-            .ok();
-    }
-    #[cfg(not(feature = "legacy"))]
     drop(guard);
     Ok(())
 }

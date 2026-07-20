@@ -132,7 +132,9 @@ impl Context {
     /// This is helping to prevent races with mutable instances.
     // TODO: For a correct implementation, this would also have to hold on to `_read_only`.
     pub fn legacy_meta(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
-        self.meta_inner_reconcile_on_drop()
+        but_meta::VirtualBranchesTomlMetadata::from_path(
+            self.project_data_dir().join("virtual_branches.toml"),
+        )
     }
 
     /// Return a wrapper for metadata for read and write access when presented with the project wide permission
@@ -144,12 +146,6 @@ impl Context {
     pub fn legacy_meta_mut(
         &mut self,
         _exclusive: &RepoExclusive,
-    ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
-        self.meta_inner_reconcile_on_drop()
-    }
-
-    fn meta_inner_reconcile_on_drop(
-        &self,
     ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
         but_meta::VirtualBranchesTomlMetadata::from_path(
             self.project_data_dir().join("virtual_branches.toml"),

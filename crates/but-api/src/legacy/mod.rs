@@ -8,7 +8,6 @@ pub mod cli;
 pub mod config;
 pub mod forge;
 pub mod git;
-pub mod meta;
 pub mod modes;
 pub mod oplog;
 pub mod projects;

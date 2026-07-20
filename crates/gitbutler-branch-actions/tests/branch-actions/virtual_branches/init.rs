@@ -247,8 +247,6 @@ fn bootstrap_missing_target_preserves_existing_workspace_ref() -> anyhow::Result
         .expect("workspace ref should exist")
         .peel_to_id()?
         .detach();
-    let expected_stack_name = stack_details(ctx)[0].1.derived_name.clone();
-
     edit_config(Some(&repo), gix::config::Source::Local, |config| {
         set_config_value(
             config,
@@ -269,12 +267,8 @@ fn bootstrap_missing_target_preserves_existing_workspace_ref() -> anyhow::Result
         "the freshly selected storage location has no project target"
     );
 
-    let mut guard = reopened.exclusive_worktree_access();
+    let guard = reopened.exclusive_worktree_access();
     assert!(gitbutler_branch_actions::base::bootstrap_default_target_if_missing(&reopened)?);
-    let meta = reopened.legacy_meta_mut(guard.write_permission())?;
-    let repo = reopened.repo.get()?;
-    meta.write_reconciled(&repo)?;
-    drop(repo);
     drop(guard);
 
     let workspace_ref_target_after_activation = reopened
@@ -289,8 +283,5 @@ fn bootstrap_missing_target_preserves_existing_workspace_ref() -> anyhow::Result
         original_workspace_ref_target
     );
 
-    let stacks = stack_details(&reopened);
-    assert_eq!(stacks.len(), 1);
-    assert_eq!(stacks[0].1.derived_name, expected_stack_name);
     Ok(())
 }

@@ -1,6 +1,9 @@
 use anyhow::Context;
 use bstr::BStr;
-use but_core::{RefMetadata, extract_remote_name_and_short_name, ref_metadata::StackId};
+use but_core::{
+    RefMetadata, extract_remote_name_and_short_name,
+    ref_metadata::{ProjectedWorkspaceStack, StackId},
+};
 use petgraph::Direction;
 use tracing::instrument;
 
@@ -74,6 +77,25 @@ impl Workspace {
 
 /// Utilities
 impl Workspace {
+    /// Reconcile workspace metadata with the stacks in this projection using
+    /// [`metadata.reconcile_projected_stacks()`](but_core::ref_metadata::Workspace::reconcile_projected_stacks).
+    pub fn reconcile_metadata(
+        &self,
+        metadata: &mut but_core::ref_metadata::Workspace,
+    ) -> anyhow::Result<()> {
+        metadata.reconcile_projected_stacks(
+            self.stacks.iter().map(|stack| ProjectedWorkspaceStack {
+                id: stack.id,
+                branches: stack
+                    .segments
+                    .iter()
+                    .filter_map(|segment| segment.ref_name().map(ToOwned::to_owned))
+                    .collect(),
+            }),
+            |_| StackId::generate(),
+        )
+    }
+
     /// Return the name of the remote most closely associated with this workspace.
     /// In order, we try:
     /// - The remote name of the [Self::target_ref].
