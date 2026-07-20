@@ -2,7 +2,9 @@ use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::tests::utils::test_status_tui;
+use crate::command::legacy::status::tui::tests::utils::{
+    setup_two_stacks_one_single_and_one_double, test_status_tui,
+};
 
 #[test]
 fn unapply_stack() {
@@ -149,7 +151,7 @@ fn escape_moves_cursor_back_to_valid_position() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     );
-    env.setup_metadata(&["A", "B"]);
+    setup_two_stacks_one_single_and_one_double(&env);
 
     let mut tui = test_status_tui(env);
 
@@ -168,7 +170,7 @@ fn maintains_cursor_position_if_on_source() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     );
-    env.setup_metadata(&["A", "B"]);
+    setup_two_stacks_one_single_and_one_double(&env);
 
     let mut tui = test_status_tui(env);
 

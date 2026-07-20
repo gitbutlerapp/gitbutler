@@ -755,6 +755,7 @@ pub fn apply(
             ..Default::default()
         },
     )?;
+    ws.reconcile_metadata(&mut ws_md)?;
     persist_metadata_and_gitconfig(
         meta,
         &branches_to_apply,

@@ -193,7 +193,6 @@ pub fn switch_back_to_workspace_with_perm(
         .context("Invalid branch name")?;
 
     gitbutler_branch_actions::set_base_branch(ctx, &branch_name, perm)?;
-    crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, perm).ok();
 
     Ok(base_branch)
 }
@@ -252,10 +251,6 @@ pub fn set_base_branch_with_perm(
         }
         ctx.invalidate_workspace_cache()?;
     }
-    {
-        crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, perm).ok();
-    }
-
     Ok(base_branch)
 }
 

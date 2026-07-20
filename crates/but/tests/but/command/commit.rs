@@ -554,7 +554,6 @@ fn newly_created_branches_are_included_in_json_output() {
 #[test]
 fn empty_flag_to_force_empty_commit_when_changes_exist() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    env.setup_metadata(&["A"]);
 
     env.file(
         "changes",

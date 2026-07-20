@@ -144,14 +144,11 @@ fn delete_project_at_app_data_dir(
 
 /// Prepare an already-known project for activation in the UI or server.
 ///
-/// This repairs missing target metadata in freshly selected storage locations and then reconciles
-/// the legacy metadata view with the workspace currently present in Git. It is safe for activation
-/// paths because it avoids rewriting `gitbutler/workspace`.
+/// This repairs missing target metadata in freshly selected storage locations.
 pub fn prepare_project_for_activation(ctx: &mut Context) -> Result<()> {
     assure_repo_ownership(&*ctx.repo.get()?)?;
-    let mut guard = ctx.exclusive_worktree_access();
+    let _guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::base::bootstrap_default_target_if_missing(ctx)?;
-    super::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission()).ok();
     Ok(())
 }
 

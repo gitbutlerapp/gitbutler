@@ -95,7 +95,6 @@ filepath='/[..]/first.txt' filepath='/[..]/second.txt'
 #[test]
 fn open_uncommitted_hunk() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    env.setup_metadata(&["A"]);
 
     let original_content = "this\nis\nsome\ncontent\nto\ndiff\nwith\nadded\nlines\n";
     env.file("file-with-additions.txt", original_content);
