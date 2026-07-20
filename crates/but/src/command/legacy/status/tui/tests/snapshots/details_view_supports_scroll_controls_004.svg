@@ -28,9 +28,10 @@
     <text x="802" y="24" style="fill:#555555;">█</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="42" style="fill:#0000AA;font-weight:bold;">s</text>
-    <text x="58" y="42" style="fill:#CCCCCC;">A</text>
-    <text x="74 82 90 98 106" y="42" style="fill:#00AA00;">first</text>
-    <text x="122 130 138 146 154 162 170 178" y="42" style="fill:#00AA00;">file.txt</text>
+    <text x="50 58" y="42" style="fill:#CCCCCC;opacity:0.75;">uu</text>
+    <text x="74" y="42" style="fill:#CCCCCC;">A</text>
+    <text x="90 98 106 114 122" y="42" style="fill:#00AA00;">first</text>
+    <text x="138 146 154 162 170 178 186 194" y="42" style="fill:#00AA00;">file.txt</text>
     <text x="410" y="42" style="fill:#FFA500;">▌</text>
     <text x="434" y="42" style="fill:#555555;">┊</text>
     <text x="466" y="42" style="fill:#00AA00;">5</text>
@@ -39,9 +40,10 @@
     <text x="506 514 522 530 538 546 554 562" y="42" style="fill:#F8F8F2;">line-005</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="60" style="fill:#0000AA;font-weight:bold;">q</text>
-    <text x="58" y="60" style="fill:#CCCCCC;">A</text>
-    <text x="74 82 90 98 106 114" y="60" style="fill:#00AA00;">second</text>
-    <text x="130 138 146 154 162 170 178 186" y="60" style="fill:#00AA00;">file.txt</text>
+    <text x="50 58" y="60" style="fill:#CCCCCC;opacity:0.75;">ry</text>
+    <text x="74" y="60" style="fill:#CCCCCC;">A</text>
+    <text x="90 98 106 114 122 130" y="60" style="fill:#00AA00;">second</text>
+    <text x="146 154 162 170 178 186 194 202" y="60" style="fill:#00AA00;">file.txt</text>
     <text x="410" y="60" style="fill:#FFA500;">▌</text>
     <text x="434" y="60" style="fill:#555555;">┊</text>
     <text x="466" y="60" style="fill:#00AA00;">6</text>

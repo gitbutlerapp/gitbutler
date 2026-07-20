@@ -6,7 +6,7 @@ use but_hunk_assignment::HunkAssignment;
 
 use super::{
     JsonChange, JsonDiff, JsonDiffOutput, JsonHunk,
-    display::{DiffDisplay, TreeChangeWithPatch},
+    display::{DiffDisplay, HeaderId, TreeChangeWithPatch},
 };
 use crate::{IdMap, id::UncommittedHunkOrFile, utils::OutputChannel};
 
@@ -22,7 +22,7 @@ pub(crate) fn worktree(
     out: &mut OutputChannel,
     filter: Option<Filter>,
 ) -> anyhow::Result<()> {
-    let short_id_assignment_pairs: Vec<(&str, &HunkAssignment)> = id_map
+    let id_assignment_pairs: Vec<(HeaderId<'_>, &HunkAssignment)> = id_map
         .uncommitted_hunks
         .iter()
         .filter(|(_, uncommitted_hunk)| {
@@ -40,27 +40,43 @@ pub(crate) fn worktree(
                 Some(Filter::Stack(stack_id)) => a.stack_id.as_ref() == Some(stack_id),
             }
         })
-        .map(|(short_id, uncommitted_hunk)| (short_id.as_str(), &uncommitted_hunk.hunk_assignment))
+        .map(|(short_id, uncommitted_hunk)| {
+            (
+                HeaderId {
+                    id: short_id.as_str(),
+                    hint_range: uncommitted_hunk.id_hint_range.clone(),
+                },
+                &uncommitted_hunk.hunk_assignment,
+            )
+        })
         .collect();
-    print_short_id_assignment_pairs(short_id_assignment_pairs, out)
+    print_id_assignment_pairs(id_assignment_pairs, out)
 }
 
 pub(crate) fn hunk_assignments<'a>(
     hunk_assignments: impl IntoIterator<Item = &'a (String, HunkAssignment)>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let short_id_assignment_pairs: Vec<(&str, &HunkAssignment)> = hunk_assignments
+    let id_assignment_pairs: Vec<(HeaderId<'_>, &HunkAssignment)> = hunk_assignments
         .into_iter()
-        .map(|(short_id, hunk_assignment)| (short_id.as_str(), hunk_assignment))
+        .map(|(short_id, hunk_assignment)| {
+            (
+                HeaderId {
+                    id: short_id.as_str(),
+                    hint_range: 0..0,
+                },
+                hunk_assignment,
+            )
+        })
         .collect();
-    print_short_id_assignment_pairs(short_id_assignment_pairs, out)
+    print_id_assignment_pairs(id_assignment_pairs, out)
 }
 
-fn print_short_id_assignment_pairs<'a>(
-    mut short_id_assignment_pairs: Vec<(&'a str, &'a HunkAssignment)>,
+fn print_id_assignment_pairs<'a>(
+    mut id_assignment_pairs: Vec<(HeaderId<'a>, &'a HunkAssignment)>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    short_id_assignment_pairs.sort_by(|(_, a_assignment), (_, b_assignment)| {
+    id_assignment_pairs.sort_by(|(_, a_assignment), (_, b_assignment)| {
         a_assignment
             .stack_id
             .cmp(&b_assignment.stack_id)
@@ -72,7 +88,7 @@ fn print_short_id_assignment_pairs<'a>(
             })
     });
 
-    if short_id_assignment_pairs.is_empty() {
+    if id_assignment_pairs.is_empty() {
         if let Some(json_out) = out.for_json() {
             let output = JsonDiffOutput { changes: vec![] };
             json_out.write_value(output)?;
@@ -80,16 +96,16 @@ fn print_short_id_assignment_pairs<'a>(
             writeln!(out, "No diffs to show.")?;
         }
     } else if let Some(json_out) = out.for_json() {
-        let changes: Vec<JsonChange> = short_id_assignment_pairs
+        let changes: Vec<JsonChange> = id_assignment_pairs
             .into_iter()
-            .map(|(short_id, assignment)| hunk_assignment_to_json(Some(short_id), assignment))
+            .map(|(header_id, assignment)| hunk_assignment_to_json(Some(header_id.id), assignment))
             .collect();
 
         let output = JsonDiffOutput { changes };
         json_out.write_value(output)?;
     } else if let Some(out) = out.for_human_or_shell() {
-        for (short_id, assignment) in short_id_assignment_pairs {
-            write!(out, "{}", assignment.print_diff(Some(short_id)))?;
+        for (header_id, assignment) in id_assignment_pairs {
+            write!(out, "{}", assignment.print_diff(Some(header_id)))?;
         }
     }
     Ok(())

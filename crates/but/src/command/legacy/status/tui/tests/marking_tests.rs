@@ -58,16 +58,16 @@ fn marking_uncommitted_toggles_all_uncommitted_files() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊✔︎  n A a.txt"]);
+        .assert_current_line_eq(str!["┊✔︎  nkn A a.txt"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊✔︎  p A b.txt"]);
+        .assert_current_line_eq(str!["┊✔︎  pnl A b.txt"]);
 
     tui.input('g');
     tui.input(' ');
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   n A a.txt"]);
+        .assert_current_line_eq(str!["┊   nkn A a.txt"]);
 }
 
 #[test]
@@ -171,7 +171,7 @@ fn marks_still_show_in_split_details() {
     // mark some things
     tui.input('j');
     tui.input(' ')
-        .assert_rendered_contains("┊✔︎  k    A one")
+        .assert_rendered_contains("┊✔︎  klz  A one")
         .assert_rendered_contains("┊   twop A two")
         .assert_backstack_eq([BackstackEntry::Mark])
         .assert_rendered_term_svg_eq(file!["snapshots/marks_still_show_in_split_details_001.svg"]);
@@ -179,7 +179,7 @@ fn marks_still_show_in_split_details() {
     // open details view and still see the marks
     tui.input('d')
         .assert_rendered_contains("+content of two")
-        .assert_rendered_contains("┊✔︎  k    A one")
+        .assert_rendered_contains("┊✔︎  klz  A one")
         .assert_rendered_contains("┊   twop A two")
         .assert_backstack_eq([BackstackEntry::OpenSplitDetailsView, BackstackEntry::Mark])
         .assert_rendered_term_svg_eq(file!["snapshots/marks_still_show_in_split_details_002.svg"]);
@@ -191,7 +191,7 @@ fn marks_still_show_in_split_details() {
     tui.input('l')
         .assert_rendered_contains("details")
         .assert_rendered_contains("+content of two")
-        .assert_rendered_contains("┊✔︎  k    A one")
+        .assert_rendered_contains("┊✔︎  klz  A one")
         .assert_rendered_contains("┊   twop A two")
         .assert_backstack_eq([
             BackstackEntry::LeaveNormalMode,
@@ -204,7 +204,7 @@ fn marks_still_show_in_split_details() {
     tui.input('h')
         .assert_rendered_contains("normal")
         .assert_rendered_contains("+content of two")
-        .assert_rendered_contains("┊✔︎  k    A one")
+        .assert_rendered_contains("┊✔︎  klz  A one")
         .assert_rendered_contains("┊   twop A two")
         .assert_backstack_eq([BackstackEntry::OpenSplitDetailsView, BackstackEntry::Mark])
         .assert_rendered_term_svg_eq(file!["snapshots/marks_still_show_in_split_details_005.svg"]);
@@ -223,11 +223,11 @@ fn manual_reload_preserves_marks_when_split_details_visible() {
     tui.input('d');
     tui.input('j');
     tui.input(' ')
-        .assert_rendered_contains("┊✔︎  k    A one")
+        .assert_rendered_contains("┊✔︎  klz  A one")
         .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::OpenSplitDetailsView]);
 
     tui.input((KeyModifiers::CONTROL, 'r'))
-        .assert_rendered_contains("┊✔︎  k    A one")
+        .assert_rendered_contains("┊✔︎  klz  A one")
         .assert_backstack_eq([BackstackEntry::Mark, BackstackEntry::OpenSplitDetailsView])
         .assert_rendered_term_svg_eq(file![
             "snapshots/manual_reload_preserves_marks_when_split_details_visible_001.svg"

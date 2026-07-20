@@ -21,7 +21,7 @@ fn rub_api_uncommitted_to_commit() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -30,10 +30,10 @@ fn rub_api_uncommitted_to_commit() {
         .assert_current_line_eq(str!["┊●   1 (no commit message) (no changes)"]);
 
     tui.input([KeyCode::Up, KeyCode::Up])
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> 1 (no commit message) (no changes)"]);
@@ -59,10 +59,10 @@ fn rub_api_uncommitted_to_commit_preserves_global_file_list() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> tpm add A"]);
@@ -87,13 +87,13 @@ fn rub_api_cannot_unassign_uncommitted_operation() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input(KeyCode::Up)
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 }
 
 // Tests RubOperation::UncommittedToCommit.
@@ -110,10 +110,10 @@ fn rub_api_uncommitted_to_commit_operation() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   << amend >> lrm add B"]);
@@ -418,10 +418,10 @@ fn rub_api_uncommitted_area_to_stack_operation() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   n A a.txt"]);
+        .assert_current_line_eq(str!["┊   nkn A a.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> n A a.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> nkn A a.txt"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> tpm add A"]);
@@ -445,10 +445,10 @@ fn rub_api_uncommitted_hunk_to_stack_operation() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   n A a.txt"]);
+        .assert_current_line_eq(str!["┊   nkn A a.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> n A a.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> nkn A a.txt"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> tpm add A"]);
@@ -471,10 +471,10 @@ fn rub_api_stack_to_uncommitted_operation() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> tpm add A"]);
@@ -498,10 +498,10 @@ fn rub_api_stack_to_stack_operation() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   tm M A"]);
+        .assert_current_line_eq(str!["┊   tmn M A"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> tm M A"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> tmn M A"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> tpm add A"]);
@@ -521,10 +521,10 @@ fn rub_api_stack_to_stack_operation() {
     .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   p M B"]);
+        .assert_current_line_eq(str!["┊   plv M B"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> p M B"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> plv M B"]);
 
     tui.input([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   << amend >> lrm add B"]);

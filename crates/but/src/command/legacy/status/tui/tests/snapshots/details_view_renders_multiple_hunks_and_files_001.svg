@@ -25,28 +25,30 @@
     <text x="802" y="24" style="fill:#555555;">█</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="42" style="fill:#0000AA;font-weight:bold;">x</text>
-    <text x="58" y="42" style="fill:#CCCCCC;">A</text>
-    <text x="74 82 90 98 106 114 122 130 138" y="42" style="fill:#00AA00;">alpha.txt</text>
+    <text x="50 58" y="42" style="fill:#CCCCCC;opacity:0.75;">zy</text>
+    <text x="74" y="42" style="fill:#CCCCCC;">A</text>
+    <text x="90 98 106 114 122 130 138 146 154" y="42" style="fill:#00AA00;">alpha.txt</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="802" y="42" style="fill:#555555;">█</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="60" style="fill:#0000AA;font-weight:bold;">v</text>
-    <text x="58" y="60" style="fill:#CCCCCC;">A</text>
-    <text x="74 82 90 98 106 114 122 130" y="60" style="fill:#00AA00;">beta.txt</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538" y="60" style="fill:#555555;">│───────────────╮</text>
+    <text x="50 58" y="60" style="fill:#CCCCCC;opacity:0.75;">qr</text>
+    <text x="74" y="60" style="fill:#CCCCCC;">A</text>
+    <text x="90 98 106 114 122 130 138 146" y="60" style="fill:#00AA00;">beta.txt</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546 554" y="60" style="fill:#555555;">│─────────────────╮</text>
     <text x="802" y="60" style="fill:#555555;">█</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="410" y="78" style="fill:#555555;">│</text>
-    <text x="426 434 442" y="78" style="fill:#0000AA;">x:c</text>
-    <text x="458 466 474 482 490 498 506 514 522" y="78" style="fill:#CCCCCC;">alpha.txt</text>
-    <text x="538" y="78" style="fill:#555555;">│</text>
+    <text x="426 434 442 450 458" y="78" style="fill:#0000AA;">xzy:c</text>
+    <text x="474 482 490 498 506 514 522 530 538" y="78" style="fill:#CCCCCC;">alpha.txt</text>
+    <text x="554" y="78" style="fill:#555555;">│</text>
     <text x="802" y="78" style="fill:#555555;">█</text>
     <text x="10 18 26" y="96" style="fill:#CCCCCC;">┊╭┄</text>
     <text x="34 42" y="96" style="fill:#0000AA;font-weight:bold;">g0</text>
     <text x="58" y="96" style="fill:#CCCCCC;">[</text>
     <text x="66" y="96" style="fill:#00AA00;">A</text>
     <text x="74" y="96" style="fill:#CCCCCC;">]</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538" y="96" style="fill:#555555;">│───────────────╯</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546 554" y="96" style="fill:#555555;">│─────────────────╯</text>
     <text x="802" y="96" style="fill:#555555;">█</text>
     <text x="10 18" y="114" style="fill:#CCCCCC;">┊●</text>
     <text x="50" y="114" style="fill:#AA00AA;">t</text>
@@ -130,12 +132,12 @@
     <text x="802" y="294" style="fill:#555555;">█</text>
     <text x="410" y="312" style="fill:#555555;">│</text>
     <text x="802" y="312" style="fill:#555555;">█</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="330" style="fill:#555555;">│──────────────╮</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546" y="330" style="fill:#555555;">│────────────────╮</text>
     <text x="410" y="348" style="fill:#555555;">│</text>
-    <text x="426 434 442" y="348" style="fill:#0000AA;">v:f</text>
-    <text x="458 466 474 482 490 498 506 514" y="348" style="fill:#CCCCCC;">beta.txt</text>
-    <text x="530" y="348" style="fill:#555555;">│</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="366" style="fill:#555555;">│──────────────╯</text>
+    <text x="426 434 442 450 458" y="348" style="fill:#0000AA;">vqr:f</text>
+    <text x="474 482 490 498 506 514 522 530" y="348" style="fill:#CCCCCC;">beta.txt</text>
+    <text x="546" y="348" style="fill:#555555;">│</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546" y="366" style="fill:#555555;">│────────────────╯</text>
     <text x="410" y="384" style="fill:#555555;">│</text>
     <text x="410" y="402" style="fill:#555555;">│</text>
     <text x="418 426" y="402" style="fill:#CCCCCC;opacity:0.75;">@@</text>

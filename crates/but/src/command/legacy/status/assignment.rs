@@ -13,6 +13,9 @@ pub struct CLIHunkAssignment {
     pub inner: HunkAssignment,
     /// The CLI ID representation of this assignment
     pub cli_id: String,
+    /// The byte range of `cli_id` holding cosmetic padding, rendered dimmed.
+    #[serde(skip)]
+    pub id_hint_range: std::ops::Range<usize>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -42,6 +45,7 @@ impl FileAssignment {
                 assignments.push(CLIHunkAssignment {
                     inner: hunk_assignment.clone(),
                     cli_id: uncommitted_file.short_id.clone(),
+                    id_hint_range: uncommitted_file.id_hint_range.clone(),
                 });
             }
         }

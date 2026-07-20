@@ -37,8 +37,9 @@
     <text x="802" y="24" style="fill:#66D9EF;">l</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="42" style="fill:#0000AA;font-weight:bold;">k</text>
-    <text x="58" y="42" style="fill:#CCCCCC;">A</text>
-    <text x="74 82 90 98 106 114 122 130 138" y="42" style="fill:#00AA00;">syntax.rs</text>
+    <text x="50 58" y="42" style="fill:#CCCCCC;opacity:0.75;">nz</text>
+    <text x="74" y="42" style="fill:#CCCCCC;">A</text>
+    <text x="90 98 106 114 122 130 138 146 154" y="42" style="fill:#00AA00;">syntax.rs</text>
     <text x="410" y="42" style="fill:#FFA500;">▌</text>
     <text x="434" y="42" style="fill:#555555;">┊</text>
     <text x="466" y="42" style="fill:#00AA00;">4</text>

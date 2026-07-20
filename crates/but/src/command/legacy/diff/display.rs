@@ -28,7 +28,14 @@ pub(crate) trait DiffDisplay {
     ///
     /// This method generates a nicely formatted diff with colored output.
     /// If `cli_id` is provided, it will be displayed first in the output.
-    fn print_diff(&self, short_id: Option<&str>) -> String;
+    fn print_diff(&self, short_id: Option<HeaderId<'_>>) -> String;
+}
+
+/// A CLI ID as displayed in a diff box header. `hint_range` marks the
+/// cosmetic padding characters, which are rendered dimmed.
+pub(crate) struct HeaderId<'a> {
+    pub id: &'a str,
+    pub hint_range: std::ops::Range<usize>,
 }
 
 #[derive(Debug)]
@@ -44,7 +51,7 @@ impl TreeChangeWithPatch {
 }
 
 impl DiffDisplay for TreeChangeWithPatch {
-    fn print_diff(&self, _cli_id: Option<&str>) -> String {
+    fn print_diff(&self, _cli_id: Option<HeaderId<'_>>) -> String {
         let t = crate::theme::get();
         // Note: CLI IDs are per-hunk, so we don't display them for TreeChangeWithPatch
         // which shows file-level diffs with potentially multiple hunks.
@@ -195,22 +202,27 @@ fn fmt_hunk(hunk: &DiffHunk) -> String {
 }
 
 impl DiffDisplay for HunkAssignment {
-    fn print_diff(&self, short_id: Option<&str>) -> String {
+    fn print_diff(&self, short_id: Option<HeaderId<'_>>) -> String {
         let t = crate::theme::get();
         let mut output = String::new();
 
         // Calculate the width needed for the box (id + space + filename)
-        let content_width = short_id.as_ref().map_or(0, |s| s.len() + 1) + self.path.len();
+        let content_width = short_id.as_ref().map_or(0, |s| s.id.len() + 1) + self.path.len();
 
         // Render box-style header:
         // ─────────╮
         // <id> file│
         // ─────────╯
         output.push_str(&format!("{}╮\n", t.hint.paint("─".repeat(content_width))));
-        if let Some(id) = &short_id {
+        if let Some(HeaderId { id, hint_range }) = &short_id {
+            // The unambiguous ID prefix is highlighted; the cosmetic padding
+            // after it is dimmed.
+            let (prefix, hint, suffix) = crate::id::split_id_hint(id, hint_range);
             output.push_str(&format!(
-                "{} {}│\n",
-                t.cli_id.paint(id),
+                "{}{}{} {}│\n",
+                t.cli_id.paint(prefix),
+                t.hint.paint(hint),
+                t.cli_id.paint(suffix),
                 t.important.paint(&self.path)
             ));
         } else {

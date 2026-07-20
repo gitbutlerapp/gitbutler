@@ -194,6 +194,49 @@ fn assign_short_ids(
     Ok(())
 }
 
+/// Pad the assigned file short IDs to [`theme::MIN_DISPLAYED_CHANGE_ID_CHARS`]
+/// with further characters of the full ID, keeping any collision index at the
+/// end, matching how commit change IDs are displayed. The padding is cosmetic
+/// — any prefix of the full ID resolves — and each file's
+/// [`UncommittedFile::id_hint_range`] marks it so renderers can dim it.
+fn pad_uncommitted_file_short_ids(
+    uncommitted_files: &mut BTreeMap<ChangeId, Vec<UncommittedFile>>,
+) {
+    for (reverse_hex, files) in uncommitted_files.iter_mut() {
+        for uncommitted_file in files.iter_mut() {
+            let (id_part, index_suffix) =
+                match uncommitted_file.short_id.split_once(INDEX_SEPARATOR) {
+                    Some((id_part, suffix)) => (id_part.to_owned(), Some(suffix.to_owned())),
+                    None => (uncommitted_file.short_id.clone(), None),
+                };
+            let full = reverse_hex.to_string();
+            let padding = full
+                .get(id_part.len()..theme::MIN_DISPLAYED_CHANGE_ID_CHARS.min(full.len()))
+                .unwrap_or_default();
+            uncommitted_file.id_hint_range = id_part.len()..id_part.len() + padding.len();
+            let mut display = id_part;
+            display.push_str(padding);
+            if let Some(suffix) = index_suffix {
+                display.push(INDEX_SEPARATOR);
+                display.push_str(&suffix);
+            }
+            uncommitted_file.short_id = display;
+        }
+    }
+}
+
+/// Split a displayed ID into `(prefix, hint, suffix)`, where `hint` is the
+/// cosmetic padding marked by `hint_range`. Renderers style the prefix and
+/// suffix as the ID and dim the hint.
+pub(crate) fn split_id_hint<'a>(
+    id: &'a str,
+    hint_range: &std::ops::Range<usize>,
+) -> (&'a str, &'a str, &'a str) {
+    let (prefix, rest) = id.split_at(hint_range.start.min(id.len()));
+    let (hint, suffix) = rest.split_at(hint_range.len().min(rest.len()));
+    (prefix, hint, suffix)
+}
+
 fn short_ids_from_tree_changes(
     tree_changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<Vec<(NonEmpty<but_core::TreeChange>, ChangeId, ShortId)>> {
@@ -629,6 +672,7 @@ impl IdMap {
                 .or_default()
                 .push(UncommittedFile {
                     short_id: ShortId::default(),
+                    id_hint_range: 0..0,
                     short_id_hunk_assignments: hunk_assignments
                         .map(|hunk_assignment| (UnqualifiedHunkId::default(), hunk_assignment)),
                 });
@@ -676,6 +720,7 @@ impl IdMap {
                 .push(short_id);
         }
         assign_short_ids(mapped_reverse_hex_short_ids)?;
+        pad_uncommitted_file_short_ids(&mut uncommitted_files);
 
         let mut uncommitted_hunks = HashMap::new();
         for uncommitted_file in uncommitted_files.values_mut().flatten() {
@@ -690,6 +735,7 @@ impl IdMap {
                     format!("{}:{}", uncommitted_file.short_id, hunk_id.short_id()),
                     UncommittedHunk {
                         hunk_assignment: hunk_assignment.clone(),
+                        id_hint_range: uncommitted_file.id_hint_range.clone(),
                     },
                 );
             }
@@ -1610,8 +1656,13 @@ impl CliId {
 /// Internal representation of an uncommitted file.
 #[derive(Debug, Clone)]
 pub struct UncommittedFile {
-    /// The shortest ID that can be used to unambiguously refer to this file.
+    /// The displayed ID of this file: the shortest unambiguous prefix, padded
+    /// to the minimum displayed width with further characters of the full ID.
     pub short_id: ShortId,
+    /// The byte range of [`Self::short_id`] holding the cosmetic padding,
+    /// rendered dimmed. Empty when the unambiguous prefix already fills the
+    /// displayed width.
+    pub id_hint_range: std::ops::Range<usize>,
     /// Every element has the same [HunkAssignment::stack_id] and [HunkAssignment::path_bytes],
     /// so the first assignment can be used to obtain both.
     short_id_hunk_assignments: NonEmpty<(UnqualifiedHunkId, HunkAssignment)>,
@@ -1704,6 +1755,10 @@ impl<'a> Node<'a> for &'a UncommittedFile {
 pub struct UncommittedHunk {
     /// The hunk assignment.
     pub hunk_assignment: HunkAssignment,
+    /// The byte range of the displayed `<file>:<hunk>` ID holding the file
+    /// ID's cosmetic padding, rendered dimmed. See
+    /// [`UncommittedFile::id_hint_range`].
+    pub id_hint_range: std::ops::Range<usize>,
 }
 
 impl<'a> Node<'a> for &'a UncommittedHunk {

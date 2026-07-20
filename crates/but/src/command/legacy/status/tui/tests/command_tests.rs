@@ -36,15 +36,15 @@ fn leaving_command_mode_from_normal_preserves_marks() {
     tui.input('j');
     tui.input(' ')
         .assert_backstack_eq([BackstackEntry::Mark])
-        .assert_rendered_contains("┊✔︎  k    A one");
+        .assert_rendered_contains("┊✔︎  klz  A one");
 
     tui.input(':')
         .assert_backstack_eq([BackstackEntry::LeaveCommandMode, BackstackEntry::Mark])
-        .assert_rendered_contains("┊✔︎  k    A one");
+        .assert_rendered_contains("┊✔︎  klz  A one");
 
     tui.input(KeyCode::Esc)
         .assert_backstack_eq([BackstackEntry::Mark])
-        .assert_rendered_contains("┊✔︎  k    A one");
+        .assert_rendered_contains("┊✔︎  klz  A one");
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn command_parse_error_preserves_status_marks() {
     tui.input('\'');
     tui.input(KeyCode::Enter)
         .assert_rendered_contains("but '")
-        .assert_rendered_contains("┊✔︎  k    A one");
+        .assert_rendered_contains("┊✔︎  klz  A one");
 }
 
 #[test]

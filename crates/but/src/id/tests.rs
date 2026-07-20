@@ -306,8 +306,8 @@ fn branches_avoid_uncommitted_filenames() -> anyhow::Result<()> {
         snapbox::str![[r#"
 workspace_and_remote_commits_count: 1
 branches: [ ij ]
-uncommitted_files: [ n, y ]
-uncommitted_hunks: [ n:q, y:q ]
+uncommitted_files: [ nxx, yzv ]
+uncommitted_hunks: [ nxx:q, yzv:q ]
 
 
 "#]]
@@ -390,8 +390,8 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
         snapbox::str![[r#"
 workspace_and_remote_commits_count: 1
 branches: [ h0 ]
-uncommitted_files: [ k, r ]
-uncommitted_hunks: [ k:q, r:q#0-2, r:q#1-2 ]
+uncommitted_files: [ kvs, roo ]
+uncommitted_hunks: [ kvs:q, roo:q#0-2, roo:q#1-2 ]
 stacks: [ j0 ]
 
 
@@ -419,7 +419,7 @@ stacks: [ j0 ]
     },
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "k",
+            id: "kvs",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -439,7 +439,7 @@ stacks: [ j0 ]
     ),
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "k:q",
+            id: "kvs:q",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -459,7 +459,7 @@ stacks: [ j0 ]
     ),
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r",
+            id: "roo",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -495,7 +495,7 @@ stacks: [ j0 ]
     ),
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:q#0-2",
+            id: "roo:q#0-2",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -517,7 +517,7 @@ stacks: [ j0 ]
     ),
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:q#1-2",
+            id: "roo:q#1-2",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -564,8 +564,8 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
         snapbox::str![[r#"
 workspace_and_remote_commits_count: 1
 branches: [ h0 ]
-uncommitted_files: [ l ]
-uncommitted_hunks: [ l:q ]
+uncommitted_files: [ lnm ]
+uncommitted_hunks: [ lnm:q ]
 
 
 "#]]
@@ -615,7 +615,7 @@ uncommitted_hunks: [ l:q ]
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "l",
+            id: "lnm",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -903,7 +903,7 @@ fn longer_id_is_ok() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "k",
+            id: "kpr",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -951,7 +951,7 @@ fn reverse_hex_filename_is_its_own_id() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "k",
+            id: "klm",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1006,7 +1006,7 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
     },
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "zo",
+            id: "zol",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1058,7 +1058,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "n",
+            id: "nvv",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1092,7 +1092,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "n",
+            id: "nvv",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1126,7 +1126,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "p",
+            id: "pvk",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1178,7 +1178,7 @@ fn uncommitted_path() -> anyhow::Result<()> {
         id: "prefix/",
         hunk_assignments: NonEmpty {
             head: (
-                "y:q",
+                "yzy:q",
                 HunkAssignment {
                     id: None,
                     hunk_header: None,
@@ -1193,7 +1193,7 @@ fn uncommitted_path() -> anyhow::Result<()> {
             ),
             tail: [
                 (
-                    "u:q",
+                    "uol:q",
                     HunkAssignment {
                         id: None,
                         hunk_header: None,
@@ -1351,7 +1351,7 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "ky",
+            id: "kyw",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1466,7 +1466,7 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:q#0-2",
+            id: "roo:q#0-2",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1499,7 +1499,7 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:q#0-2",
+            id: "roo:q#0-2",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1532,7 +1532,7 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:q#0-2",
+            id: "roo:q#0-2",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1612,7 +1612,7 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:3",
+            id: "roo:3",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1646,7 +1646,7 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:f",
+            id: "roo:f",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1680,7 +1680,7 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:1",
+            id: "roo:1",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1717,7 +1717,7 @@ fn uncommitted_hunks_by_id() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "w:q",
+            id: "wpy:q",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1785,7 +1785,7 @@ fn uncommitted_hunks_by_id_increase_id_length_as_necessary() -> anyhow::Result<(
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:78",
+            id: "roo:78",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1821,7 +1821,7 @@ fn uncommitted_hunks_by_id_increase_id_length_as_necessary() -> anyhow::Result<(
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:79",
+            id: "roo:79",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1892,7 +1892,7 @@ fn uncommitted_hunks_overspecifying_id_prefix() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:7",
+            id: "roo:7",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -1969,7 +1969,7 @@ fn uncommitted_hunks_overspecifying_id_prefix_with_collision_disambiguation() ->
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:3#0-2",
+            id: "roo:3#0-2",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -2050,7 +2050,7 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:78#0-2",
+            id: "roo:78#0-2",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -2074,7 +2074,7 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
     ),
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:79",
+            id: "roo:79",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -2098,7 +2098,7 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
     ),
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:78#1-2",
+            id: "roo:78#1-2",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -2135,7 +2135,7 @@ fn underspecifying_hunk_ids() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:78#0-2",
+            id: "roo:78#0-2",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -2229,7 +2229,7 @@ fn uncommitted_hunks_by_id_collision_handling() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:3#0-2",
+            id: "roo:3#0-2",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,
@@ -2265,7 +2265,7 @@ fn uncommitted_hunks_by_id_collision_handling() -> anyhow::Result<()> {
 [
     UncommittedHunkOrFile(
         UncommittedHunkOrFile {
-            id: "r:3#1-2",
+            id: "roo:3#1-2",
             hunk_assignments: NonEmpty {
                 head: HunkAssignment {
                     id: None,

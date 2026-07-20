@@ -56,13 +56,13 @@
     <text x="90 98 106 114 122 130 138 146" y="150" style="fill:#F8F8F2;">alpha-08</text>
     <text x="802" y="150" style="fill:#555555;">█</text>
     <text x="10" y="186" style="fill:#FFA500;">▌</text>
-    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138 146" y="186" style="fill:#555555;">────────────────╮</text>
+    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138 146 154" y="186" style="fill:#555555;">─────────────────╮</text>
     <text x="10" y="204" style="fill:#FFA500;">▌</text>
-    <text x="26 34 42 50" y="204" style="fill:#0000AA;">zm:1</text>
-    <text x="66 74 82 90 98 106 114 122 130" y="204" style="fill:#CCCCCC;">bravo.txt</text>
-    <text x="146" y="204" style="fill:#555555;">│</text>
+    <text x="26 34 42 50 58" y="204" style="fill:#0000AA;">zmv:1</text>
+    <text x="74 82 90 98 106 114 122 130 138" y="204" style="fill:#CCCCCC;">bravo.txt</text>
+    <text x="154" y="204" style="fill:#555555;">│</text>
     <text x="10" y="222" style="fill:#FFA500;">▌</text>
-    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138 146" y="222" style="fill:#555555;">────────────────╯</text>
+    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138 146 154" y="222" style="fill:#555555;">─────────────────╯</text>
     <text x="10" y="240" style="fill:#FFA500;">▌</text>
     <text x="10" y="258" style="fill:#FFA500;">▌</text>
     <text x="18 26" y="258" style="fill:#CCCCCC;opacity:0.75;">@@</text>

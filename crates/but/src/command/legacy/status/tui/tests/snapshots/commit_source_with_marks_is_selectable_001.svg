@@ -31,6 +31,7 @@
     <text x="170 178 186 194" y="42" style="fill:#000000;font-weight:bold;">noop</text>
     <text x="210 218" y="42" style="fill:#000000;font-weight:bold;">&gt;&gt;</text>
     <text x="234" y="42" style="fill:#0000AA;font-weight:bold;">k</text>
+    <text x="242 250" y="42" style="fill:#FFFFFF;font-weight:bold;opacity:0.75;">lz</text>
     <text x="274" y="42" style="fill:#FFFFFF;font-weight:bold;">A</text>
     <text x="290 298 306" y="42" style="fill:#00AA00;font-weight:bold;">one</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
@@ -38,19 +39,19 @@
     <text x="42 50 58 66" y="60" style="fill:#0000AA;font-weight:bold;opacity:0.75;">twop</text>
     <text x="82" y="60" style="fill:#CCCCCC;opacity:0.75;">A</text>
     <text x="98 106 114" y="60" style="fill:#00AA00;opacity:0.75;">two</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514" y="60" style="fill:#555555;">│────────────╮</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="60" style="fill:#555555;">│──────────────╮</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="410" y="78" style="fill:#555555;">│</text>
     <text x="426" y="78" style="fill:#000000;">✔︎</text>
-    <text x="450 458 466" y="78" style="fill:#0000AA;">k:c</text>
-    <text x="482 490 498" y="78" style="fill:#CCCCCC;">one</text>
-    <text x="514" y="78" style="fill:#555555;">│</text>
+    <text x="450 458 466 474 482" y="78" style="fill:#0000AA;">klz:c</text>
+    <text x="498 506 514" y="78" style="fill:#CCCCCC;">one</text>
+    <text x="530" y="78" style="fill:#555555;">│</text>
     <text x="10 18 26" y="96" style="fill:#CCCCCC;">┊╭┄</text>
     <text x="34 42" y="96" style="fill:#0000AA;font-weight:bold;">g0</text>
     <text x="58" y="96" style="fill:#CCCCCC;">[</text>
     <text x="66" y="96" style="fill:#00AA00;">A</text>
     <text x="74" y="96" style="fill:#CCCCCC;">]</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514" y="96" style="fill:#555555;">│────────────╯</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="96" style="fill:#555555;">│──────────────╯</text>
     <text x="10 18" y="114" style="fill:#CCCCCC;">┊●</text>
     <text x="50 58" y="114" style="fill:#AA00AA;">tp</text>
     <text x="66" y="114" style="fill:#CCCCCC;opacity:0.75;">m</text>

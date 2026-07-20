@@ -17,12 +17,14 @@
     <text x="250" y="24" style="fill:#CCCCCC;">]</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42 50" y="42" style="fill:#0000AA;font-weight:bold;opacity:0.75;">vn</text>
-    <text x="66" y="42" style="fill:#CCCCCC;opacity:0.75;">A</text>
-    <text x="82 90 98 106 114 122 130 138 146" y="42" style="fill:#00AA00;opacity:0.75;">editor.sh</text>
+    <text x="58" y="42" style="fill:#CCCCCC;opacity:0.75;">x</text>
+    <text x="74" y="42" style="fill:#CCCCCC;opacity:0.75;">A</text>
+    <text x="90 98 106 114 122 130 138 146 154" y="42" style="fill:#00AA00;opacity:0.75;">editor.sh</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="42 50" y="60" style="fill:#0000AA;font-weight:bold;opacity:0.75;">vo</text>
-    <text x="66" y="60" style="fill:#CCCCCC;opacity:0.75;">A</text>
-    <text x="82 90 98 106 114 122 130 138" y="60" style="fill:#00AA00;opacity:0.75;">test.txt</text>
+    <text x="58" y="60" style="fill:#CCCCCC;opacity:0.75;">t</text>
+    <text x="74" y="60" style="fill:#CCCCCC;opacity:0.75;">A</text>
+    <text x="90 98 106 114 122 130 138 146" y="60" style="fill:#00AA00;opacity:0.75;">test.txt</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="10 18 26" y="96" style="fill:#CCCCCC;">┊╭┄</text>
     <text x="34 42" y="96" style="fill:#0000AA;font-weight:bold;">g0</text>

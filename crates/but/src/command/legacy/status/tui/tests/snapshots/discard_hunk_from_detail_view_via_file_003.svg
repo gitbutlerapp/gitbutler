@@ -18,29 +18,32 @@
     <text x="570 578" y="24" style="fill:#AA0000;">-1</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="42" style="fill:#0000AA;font-weight:bold;">k</text>
+    <text x="50 58" y="42" style="fill:#CCCCCC;opacity:0.75;">lz</text>
     <text x="82" y="42" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114" y="42" style="fill:#00AA00;">one</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="42 50" y="60" style="fill:#0000AA;font-weight:bold;">or</text>
+    <text x="58" y="60" style="fill:#CCCCCC;opacity:0.75;">z</text>
     <text x="82" y="60" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114 122 130" y="60" style="fill:#00AA00;">three</text>
     <text x="410" y="60" style="fill:#FFA500;">▌</text>
-    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514" y="60" style="fill:#555555;">────────────╮</text>
+    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="60" style="fill:#555555;">──────────────╮</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="42 50 58 66" y="78" style="fill:#0000AA;font-weight:bold;">twop</text>
     <text x="82" y="78" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114" y="78" style="fill:#00AA00;">two</text>
     <text x="410" y="78" style="fill:#FFA500;">▌</text>
-    <text x="426 434 442" y="78" style="fill:#0000AA;">p:e</text>
-    <text x="458 466 474 482 490 498" y="78" style="fill:#CCCCCC;">x-file</text>
-    <text x="514" y="78" style="fill:#555555;">│</text>
+    <text x="426 434 442 450 458" y="78" style="fill:#0000AA;">pxw:e</text>
+    <text x="474 482 490 498 506 514" y="78" style="fill:#CCCCCC;">x-file</text>
+    <text x="530" y="78" style="fill:#555555;">│</text>
     <text x="10" y="96" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="96" style="fill:#0000AA;font-weight:bold;">p</text>
+    <text x="50 58" y="96" style="fill:#CCCCCC;opacity:0.75;">xw</text>
     <text x="82" y="96" style="fill:#CCCCCC;">M</text>
     <text x="98 106 114 122 130 138" y="96" style="fill:#AA5500;">x-file</text>
     <text x="410" y="96" style="fill:#FFA500;">▌</text>
-    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514" y="96" style="fill:#555555;">────────────╯</text>
+    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="96" style="fill:#555555;">──────────────╯</text>
     <text x="10" y="114" style="fill:#CCCCCC;">┊</text>
     <text x="410" y="114" style="fill:#FFA500;">▌</text>
     <text x="10 18 26" y="132" style="fill:#CCCCCC;">┊╭┄</text>

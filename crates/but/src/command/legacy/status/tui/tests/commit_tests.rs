@@ -356,10 +356,10 @@ fn commit_mode_from_staged_changes_stays_within_current_stack() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> tpm add A"]);
@@ -507,7 +507,7 @@ fn commit_moved_file_from_file_line() {
 
     // commit the moved file via the file list, not [uncommitted]
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   y R moved-test.txt"]);
+        .assert_current_line_eq(str!["┊   ywz R moved-test.txt"]);
     tui.input('c');
     tui.input(KeyCode::Down);
     tui.input('i');

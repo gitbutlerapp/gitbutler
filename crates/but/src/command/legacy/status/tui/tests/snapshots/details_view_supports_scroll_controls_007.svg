@@ -14,25 +14,27 @@
     <text x="58 66 74 82 90 98 106 114 122 130 138" y="24" style="fill:#00AAAA;">uncommitted</text>
     <text x="146" y="24" style="fill:#CCCCCC;">]</text>
     <text x="410" y="24" style="fill:#FFA500;">▌</text>
-    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546 554 562 570 578" y="24" style="fill:#555555;">────────────────────╮</text>
+    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546 554 562 570 578 586 594" y="24" style="fill:#555555;">──────────────────────╮</text>
     <text x="802" y="24" style="fill:#555555;">█</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="42" style="fill:#0000AA;font-weight:bold;">s</text>
-    <text x="58" y="42" style="fill:#CCCCCC;">A</text>
-    <text x="74 82 90 98 106" y="42" style="fill:#00AA00;">first</text>
-    <text x="122 130 138 146 154 162 170 178" y="42" style="fill:#00AA00;">file.txt</text>
+    <text x="50 58" y="42" style="fill:#CCCCCC;opacity:0.75;">uu</text>
+    <text x="74" y="42" style="fill:#CCCCCC;">A</text>
+    <text x="90 98 106 114 122" y="42" style="fill:#00AA00;">first</text>
+    <text x="138 146 154 162 170 178 186 194" y="42" style="fill:#00AA00;">file.txt</text>
     <text x="410" y="42" style="fill:#FFA500;">▌</text>
-    <text x="426 434 442" y="42" style="fill:#0000AA;">s:3</text>
-    <text x="458 466 474 482 490" y="42" style="fill:#CCCCCC;">first</text>
-    <text x="506 514 522 530 538 546 554 562" y="42" style="fill:#CCCCCC;">file.txt</text>
-    <text x="578" y="42" style="fill:#555555;">│</text>
+    <text x="426 434 442 450 458" y="42" style="fill:#0000AA;">suu:3</text>
+    <text x="474 482 490 498 506" y="42" style="fill:#CCCCCC;">first</text>
+    <text x="522 530 538 546 554 562 570 578" y="42" style="fill:#CCCCCC;">file.txt</text>
+    <text x="594" y="42" style="fill:#555555;">│</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="60" style="fill:#0000AA;font-weight:bold;">q</text>
-    <text x="58" y="60" style="fill:#CCCCCC;">A</text>
-    <text x="74 82 90 98 106 114" y="60" style="fill:#00AA00;">second</text>
-    <text x="130 138 146 154 162 170 178 186" y="60" style="fill:#00AA00;">file.txt</text>
+    <text x="50 58" y="60" style="fill:#CCCCCC;opacity:0.75;">ry</text>
+    <text x="74" y="60" style="fill:#CCCCCC;">A</text>
+    <text x="90 98 106 114 122 130" y="60" style="fill:#00AA00;">second</text>
+    <text x="146 154 162 170 178 186 194 202" y="60" style="fill:#00AA00;">file.txt</text>
     <text x="410" y="60" style="fill:#FFA500;">▌</text>
-    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546 554 562 570 578" y="60" style="fill:#555555;">────────────────────╯</text>
+    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514 522 530 538 546 554 562 570 578 586 594" y="60" style="fill:#555555;">──────────────────────╯</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="410" y="78" style="fill:#FFA500;">▌</text>
     <text x="10 18 26" y="96" style="fill:#CCCCCC;">┊╭┄</text>

@@ -1639,9 +1639,9 @@ fn can_overspecify_hunk_id() {
         .success()
         // Full ID is qs:3c81ccd4449094b2becf2b846fc69cfdfcaa613c
         .stdout_eq(str![[r#"
-────────╮
-q:3 file│
-────────╯
+──────────╮
+qsy:3 file│
+──────────╯
      1│+hello
 
 "#]]);
@@ -1718,9 +1718,9 @@ hellooooo
     );
 
     env.but("diff").assert().success().stdout_eq(str![[r#"
-─────────╮
-q:79 file│
-─────────╯
+───────────╮
+qsy:79 file│
+───────────╯
    2 2│ 1
    3 3│ 2
    4 4│ 3
@@ -1728,9 +1728,9 @@ q:79 file│
    5 6│ 4
    6 7│ 5
    7 8│ 6
-─────────╮
-q:78 file│
-─────────╯
+───────────╮
+qsy:78 file│
+───────────╯
     9 10│ 1
    10 11│ 2
    11 12│ 3

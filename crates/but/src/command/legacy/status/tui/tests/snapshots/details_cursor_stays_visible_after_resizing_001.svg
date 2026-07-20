@@ -11,22 +11,24 @@
     <text x="50" y="24" style="fill:#CCCCCC;">[</text>
     <text x="58 66 74 82 90 98 106 114 122 130" y="24" style="fill:#00AAAA;">uncommitte</text>
     <text x="138" y="24" style="fill:#FFA500;">▌</text>
-    <text x="146 154 162 170 178 186 194 202 210 218 226 234 242 250 258 266" y="24" style="fill:#555555;">───────────────╮</text>
+    <text x="146 154 162 170 178 186 194 202 210 218 226 234 242 250 258 266 274 282" y="24" style="fill:#555555;">─────────────────╮</text>
     <text x="642" y="24" style="fill:#555555;">█</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="42" style="fill:#0000AA;font-weight:bold;">x</text>
-    <text x="58" y="42" style="fill:#CCCCCC;">A</text>
-    <text x="74 82 90 98 106 114 122 130" y="42" style="fill:#00AA00;">alpha.tx</text>
+    <text x="50 58" y="42" style="fill:#CCCCCC;opacity:0.75;">zy</text>
+    <text x="74" y="42" style="fill:#CCCCCC;">A</text>
+    <text x="90 98 106 114 122 130" y="42" style="fill:#00AA00;">alpha.</text>
     <text x="138" y="42" style="fill:#FFA500;">▌</text>
-    <text x="154 162 170" y="42" style="fill:#0000AA;">x:9</text>
-    <text x="186 194 202 210 218 226 234 242 250" y="42" style="fill:#CCCCCC;">alpha.txt</text>
-    <text x="266" y="42" style="fill:#555555;">│</text>
+    <text x="154 162 170 178 186" y="42" style="fill:#0000AA;">xzy:9</text>
+    <text x="202 210 218 226 234 242 250 258 266" y="42" style="fill:#CCCCCC;">alpha.txt</text>
+    <text x="282" y="42" style="fill:#555555;">│</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="60" style="fill:#0000AA;font-weight:bold;">v</text>
-    <text x="58" y="60" style="fill:#CCCCCC;">A</text>
-    <text x="74 82 90 98 106 114 122 130" y="60" style="fill:#00AA00;">beta.txt</text>
+    <text x="50 58" y="60" style="fill:#CCCCCC;opacity:0.75;">qr</text>
+    <text x="74" y="60" style="fill:#CCCCCC;">A</text>
+    <text x="90 98 106 114 122 130" y="60" style="fill:#00AA00;">beta.t</text>
     <text x="138" y="60" style="fill:#FFA500;">▌</text>
-    <text x="146 154 162 170 178 186 194 202 210 218 226 234 242 250 258 266" y="60" style="fill:#555555;">───────────────╯</text>
+    <text x="146 154 162 170 178 186 194 202 210 218 226 234 242 250 258 266 274 282" y="60" style="fill:#555555;">─────────────────╯</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="138" y="78" style="fill:#FFA500;">▌</text>
     <text x="10 18 26" y="96" style="fill:#CCCCCC;">┊╭┄</text>

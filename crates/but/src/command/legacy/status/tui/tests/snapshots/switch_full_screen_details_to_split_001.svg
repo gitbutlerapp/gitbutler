@@ -22,15 +22,17 @@
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="18" y="42" style="fill:#000000;">✔︎</text>
     <text x="42" y="42" style="fill:#0000AA;font-weight:bold;">k</text>
+    <text x="50 58" y="42" style="fill:#CCCCCC;opacity:0.75;">lz</text>
     <text x="82" y="42" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114" y="42" style="fill:#00AA00;">one</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="802" y="42" style="fill:#555555;">█</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
     <text x="42 50" y="60" style="fill:#0000AA;font-weight:bold;">or</text>
+    <text x="58" y="60" style="fill:#CCCCCC;opacity:0.75;">z</text>
     <text x="82" y="60" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114 122 130" y="60" style="fill:#00AA00;">three</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514" y="60" style="fill:#555555;">│────────────╮</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="60" style="fill:#555555;">│──────────────╮</text>
     <text x="802" y="60" style="fill:#555555;">█</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="42 50 58 66" y="78" style="fill:#0000AA;font-weight:bold;">twop</text>
@@ -38,12 +40,12 @@
     <text x="98 106 114" y="78" style="fill:#00AA00;">two</text>
     <text x="410" y="78" style="fill:#555555;">│</text>
     <text x="426" y="78" style="fill:#000000;">✔︎</text>
-    <text x="450 458 466" y="78" style="fill:#0000AA;">k:f</text>
-    <text x="482 490 498" y="78" style="fill:#CCCCCC;">one</text>
-    <text x="514" y="78" style="fill:#555555;">│</text>
+    <text x="450 458 466 474 482" y="78" style="fill:#0000AA;">klz:f</text>
+    <text x="498 506 514" y="78" style="fill:#CCCCCC;">one</text>
+    <text x="530" y="78" style="fill:#555555;">│</text>
     <text x="802" y="78" style="fill:#555555;">█</text>
     <text x="10" y="96" style="fill:#CCCCCC;">┊</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514" y="96" style="fill:#555555;">│────────────╯</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="96" style="fill:#555555;">│──────────────╯</text>
     <text x="802" y="96" style="fill:#555555;">█</text>
     <text x="10" y="114" style="fill:#CCCCCC;">┴</text>
     <text x="26 34 42 50 58 66 74" y="114" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
@@ -74,15 +76,15 @@
     <text x="410" y="186" style="fill:#555555;">│</text>
     <text x="802" y="186" style="fill:#555555;">█</text>
     <text x="410" y="204" style="fill:#FFA500;">▌</text>
-    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514" y="204" style="fill:#555555;">────────────╮</text>
+    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514 522" y="204" style="fill:#555555;">─────────────╮</text>
     <text x="802" y="204" style="fill:#555555;">█</text>
     <text x="410" y="222" style="fill:#FFA500;">▌</text>
-    <text x="426 434 442 450" y="222" style="fill:#0000AA;">or:f</text>
-    <text x="466 474 482 490 498" y="222" style="fill:#CCCCCC;">three</text>
-    <text x="514" y="222" style="fill:#555555;">│</text>
+    <text x="426 434 442 450 458" y="222" style="fill:#0000AA;">orz:f</text>
+    <text x="474 482 490 498 506" y="222" style="fill:#CCCCCC;">three</text>
+    <text x="522" y="222" style="fill:#555555;">│</text>
     <text x="802" y="222" style="fill:#555555;">█</text>
     <text x="410" y="240" style="fill:#FFA500;">▌</text>
-    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514" y="240" style="fill:#555555;">────────────╯</text>
+    <text x="418 426 434 442 450 458 466 474 482 490 498 506 514 522" y="240" style="fill:#555555;">─────────────╯</text>
     <text x="802" y="240" style="fill:#555555;">█</text>
     <text x="410" y="258" style="fill:#FFA500;">▌</text>
     <text x="802" y="258" style="fill:#555555;">█</text>

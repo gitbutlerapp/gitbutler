@@ -558,8 +558,16 @@ pub fn render_uncommitted(
         out.write_section_separator()?;
     }
 
-    for (pos, (raw_id, cli_id, UncommittedHunk { hunk_assignment })) in
-        uncommitted_hunks.into_iter().with_position()
+    for (
+        pos,
+        (
+            raw_id,
+            cli_id,
+            UncommittedHunk {
+                hunk_assignment, ..
+            },
+        ),
+    ) in uncommitted_hunks.into_iter().with_position()
     {
         let id = id_gen.new_id(raw_id);
 
@@ -607,8 +615,16 @@ pub fn render_uncommitted_hunk(
         out.write_section_separator()?;
     }
 
-    for (pos, (raw_id, cli_id, UncommittedHunk { hunk_assignment })) in
-        uncommitted_hunks.into_iter().with_position()
+    for (
+        pos,
+        (
+            raw_id,
+            cli_id,
+            UncommittedHunk {
+                hunk_assignment, ..
+            },
+        ),
+    ) in uncommitted_hunks.into_iter().with_position()
     {
         let id = id_gen.new_id(raw_id);
 

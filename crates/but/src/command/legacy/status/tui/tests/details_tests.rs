@@ -732,7 +732,7 @@ fn discard_hunk_from_detail_view_via_uncommitted() {
     ]);
 
     tui.input('x')
-        .assert_rendered_contains("Discard hunk or:f three?")
+        .assert_rendered_contains("Discard hunk orz:f three?")
         .assert_rendered_term_svg_eq(file![
             "snapshots/discard_hunk_from_detail_view_via_uncommitted_004.svg"
         ]);
@@ -741,7 +741,7 @@ fn discard_hunk_from_detail_view_via_uncommitted() {
     ]);
 
     tui.input('x')
-        .assert_rendered_contains("Discard hunk k:f one?")
+        .assert_rendered_contains("Discard hunk klz:f one?")
         .assert_rendered_term_svg_eq(file![
             "snapshots/discard_hunk_from_detail_view_via_uncommitted_006.svg"
         ]);
@@ -798,7 +798,7 @@ fn discard_hunk_from_detail_view_via_file() {
 
     tui.input((KeyModifiers::SHIFT, 'G'));
     tui.input('x')
-        .assert_rendered_contains("Discard hunk p:0 x-file?");
+        .assert_rendered_contains("Discard hunk pxw:0 x-file?");
     tui.input('y').assert_rendered_term_svg_eq(file![
         "snapshots/discard_hunk_from_detail_view_via_file_003.svg"
     ]);
@@ -1045,16 +1045,16 @@ fn normal_and_detail_marks_coexist_in_split_details() {
     let mut tui = test_tui(env);
 
     tui.input(binds::SCROLL_DOWN)
-        .assert_rendered_contains("┊   k    A one");
+        .assert_rendered_contains("┊   klz  A one");
     tui.input(' ')
         .assert_backstack_eq([BackstackEntry::Mark])
-        .assert_rendered_contains("┊✔︎  k    A one");
+        .assert_rendered_contains("┊✔︎  klz  A one");
 
     tui.input('d');
 
     // focusing the details should preserve the marks
     tui.input('l')
-        .assert_rendered_contains("┊✔︎  k    A one")
+        .assert_rendered_contains("┊✔︎  klz  A one")
         .assert_backstack_eq([
             BackstackEntry::LeaveNormalMode,
             BackstackEntry::OpenSplitDetailsView,
@@ -1067,7 +1067,7 @@ fn normal_and_detail_marks_coexist_in_split_details() {
     // Marking from the details view retains the normal mode marks.
     tui.input(binds::SCROLL_DOWN);
     tui.input(' ')
-        .assert_rendered_contains("┊✔︎  k    A one")
+        .assert_rendered_contains("┊✔︎  klz  A one")
         .assert_backstack_eq([
             BackstackEntry::Mark,
             BackstackEntry::LeaveNormalMode,
@@ -1092,7 +1092,7 @@ fn normal_and_detail_marks_coexist_in_full_screen_details() {
     tui.input(binds::SCROLL_DOWN);
     tui.input(' ')
         .assert_backstack_eq([BackstackEntry::Mark])
-        .assert_rendered_contains("┊✔︎  k    A one");
+        .assert_rendered_contains("┊✔︎  klz  A one");
 
     tui.input((KeyModifiers::SHIFT, 'D'));
     tui.render_with_messages(None, Vec::new())
@@ -1114,7 +1114,7 @@ fn normal_and_detail_marks_coexist_in_full_screen_details() {
         ]);
 
     tui.input((KeyModifiers::SHIFT, 'D'))
-        .assert_rendered_contains("┊✔︎  k    A one")
+        .assert_rendered_contains("┊✔︎  klz  A one")
         .assert_backstack_eq([BackstackEntry::Mark])
         .assert_rendered_term_svg_eq(file![
             "snapshots/normal_and_detail_marks_coexist_in_full_screen_details_002.svg"
@@ -1703,7 +1703,7 @@ fn commit_source_with_partial_marks_is_selectable() {
     tui.input('j');
     tui.input(' ');
     tui.input('c')
-        .assert_current_line_eq(str![["┊—  << source >> << noop >> q M file[..]"]]);
+        .assert_current_line_eq(str!["┊—  << source >> << noop >> qsy M file            │                                                █"]);
 }
 
 #[test]

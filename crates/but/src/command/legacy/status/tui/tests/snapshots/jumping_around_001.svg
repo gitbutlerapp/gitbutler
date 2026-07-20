@@ -34,6 +34,7 @@
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="78" style="fill:#000000;">o</text>
     <text x="50" y="78" style="fill:#0000AA;font-weight:bold;">r</text>
+    <text x="58" y="78" style="fill:#CCCCCC;opacity:0.75;">z</text>
     <text x="82" y="78" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114 122 130" y="78" style="fill:#00AA00;">three</text>
     <text x="10" y="96" style="fill:#CCCCCC;">┊</text>

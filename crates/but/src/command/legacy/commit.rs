@@ -311,6 +311,7 @@ fn resolve_file_ids(
                     .map(|ha| CLIHunkAssignment {
                         inner: ha.clone(),
                         cli_id: file_id.to_owned(),
+                        id_hint_range: 0..0,
                     })
                     .collect();
 

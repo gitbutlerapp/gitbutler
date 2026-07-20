@@ -2473,7 +2473,7 @@ fn cannot_move_from_uncommitted() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted]
-┊   q A file
+┊   qsy A file
 ┊
 ┊╭┄g0 [A]
 ┊●   tpm add A

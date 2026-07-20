@@ -18,6 +18,7 @@
     <text x="98 106 114" y="60" style="fill:#00AA00;">one</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="42 50" y="78" style="fill:#0000AA;font-weight:bold;">or</text>
+    <text x="58" y="78" style="fill:#CCCCCC;opacity:0.75;">z</text>
     <text x="82" y="78" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114 122 130" y="78" style="fill:#00AA00;">three</text>
     <text x="10" y="96" style="fill:#CCCCCC;">┊</text>

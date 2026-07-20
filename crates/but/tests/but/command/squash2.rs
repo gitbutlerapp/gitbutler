@@ -931,8 +931,8 @@ fn amend_uncommitted_files_into_commit() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted]
-┊   k    A one
-┊   or   A three
+┊   klz  A one
+┊   orz  A three
 ┊   twop A two
 ┊
 ┊╭┄br [a-branch-1]
@@ -958,7 +958,7 @@ Amended 7adb8e6 to create d2f176a
         .success()
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted]
-┊   o A three
+┊   orz A three
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   1 (no commit message)
@@ -982,8 +982,8 @@ fn amend_all_uncommitted_changes_into_commit() {
         .success()
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted]
-┊   k    A one
-┊   or   A three
+┊   klz  A one
+┊   orz  A three
 ┊   twop A two
 ┊
 ┊╭┄br [a-branch-1]
@@ -1043,16 +1043,16 @@ fn amend_uncommitted_hunks_into_commits() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────╮
-q:9 file│
-────────╯
+──────────╮
+qsy:9 file│
+──────────╯
      1│+topline
    1 2│ line
    2 3│ line
    3 4│ line
-────────╮
-q:d file│
-────────╯
+──────────╮
+qsy:d file│
+──────────╯
     7  8│ line
     8  9│ line
     9 10│ line
@@ -1073,9 +1073,9 @@ Amended bcf07e2 to create cb08f3a
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-────────╮
-q:d file│
-────────╯
+──────────╮
+qsy:d file│
+──────────╯
     8  8│ line
     9  9│ line
    10 10│ line
@@ -1309,7 +1309,7 @@ Error: --target cannot be an empty branch
         .success()
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted]
-┊   q A file
+┊   qsy A file
 ┊
 ┊╭┄mi [middle] (no commits)
 ┊│
@@ -1367,7 +1367,7 @@ Uncommitted f55169f
         .success()
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted]
-┊   o A three
+┊   orz A three
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   1#0 add two
@@ -1428,7 +1428,7 @@ Uncommitted from f55169f
         .success()
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted]
-┊   o A three
+┊   orz A three
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   1#0 add three (no changes)
@@ -1615,7 +1615,7 @@ fn committed_file_to_uncommitted_area() -> anyhow::Result<()> {
 {
   "uncommittedChanges": [
     {
-      "cliId": "p",
+      "cliId": "pnl",
       "filePath": "b.txt",
       "changeType": "modified"
     }
@@ -1716,7 +1716,7 @@ fn uncommitted_hunk_to_commit() -> anyhow::Result<()> {
 {
   "uncommittedChanges": [
     {
-      "cliId": "n",
+      "cliId": "nkn",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -2211,8 +2211,8 @@ Hint: run `but help` for all commands
         .success()
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted]
-┊   q M file
-┊   k D file-2
+┊   qsy M file
+┊   kwk D file-2
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   1 add files

@@ -24,7 +24,7 @@
   <text xml:space="preserve" class="container fg">
     <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="fg-blue bold">zz</tspan><tspan> [</tspan><tspan class="fg-cyan">uncommitted</tspan><tspan>]</tspan>
 </tspan>
-    <tspan x="10px" y="46px"><tspan>┊   </tspan><tspan class="fg-blue bold">x</tspan><tspan> A </tspan><tspan class="fg-green">new-file.txt</tspan>
+    <tspan x="10px" y="46px"><tspan>┊   </tspan><tspan class="fg-blue bold">x</tspan><tspan class="dimmed">kq</tspan><tspan> A </tspan><tspan class="fg-green">new-file.txt</tspan>
 </tspan>
     <tspan x="10px" y="64px"><tspan>┊</tspan>
 </tspan>

@@ -23,11 +23,12 @@
     <text x="570 578" y="24" style="fill:#AA0000;">-0</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="42" style="fill:#0000AA;font-weight:bold;">s</text>
-    <text x="58" y="42" style="fill:#CCCCCC;">A</text>
-    <text x="74 82 90 98 106 114" y="42" style="fill:#00AA00;">one.py</text>
+    <text x="50 58" y="42" style="fill:#CCCCCC;opacity:0.75;">xk</text>
+    <text x="74" y="42" style="fill:#CCCCCC;">A</text>
+    <text x="90 98 106 114 122 130" y="42" style="fill:#00AA00;">one.py</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
     <text x="10" y="60" style="fill:#CCCCCC;">┊</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514" y="60" style="fill:#555555;">│────────────╮</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="60" style="fill:#555555;">│──────────────╮</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┴</text>
     <text x="26 34 42 50 58 66 74" y="78" style="fill:#CCCCCC;opacity:0.75;">0dc3733</text>
     <text x="90 98 106 114 122 130 138" y="78" style="fill:#CCCCCC;">(common</text>
@@ -36,10 +37,10 @@
     <text x="290 298 306" y="78" style="fill:#CCCCCC;">add</text>
     <text x="322" y="78" style="fill:#CCCCCC;">M</text>
     <text x="410" y="78" style="fill:#555555;">│</text>
-    <text x="426 434 442" y="78" style="fill:#0000AA;">s:e</text>
-    <text x="458 466 474 482 490 498" y="78" style="fill:#CCCCCC;">one.py</text>
-    <text x="514" y="78" style="fill:#555555;">│</text>
-    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514" y="96" style="fill:#555555;">│────────────╯</text>
+    <text x="426 434 442 450 458" y="78" style="fill:#0000AA;">sxk:e</text>
+    <text x="474 482 490 498 506 514" y="78" style="fill:#CCCCCC;">one.py</text>
+    <text x="530" y="78" style="fill:#555555;">│</text>
+    <text x="410 418 426 434 442 450 458 466 474 482 490 498 506 514 522 530" y="96" style="fill:#555555;">│──────────────╯</text>
     <text x="410" y="114" style="fill:#555555;">│</text>
     <text x="410" y="132" style="fill:#555555;">│</text>
     <text x="418 426" y="132" style="fill:#CCCCCC;opacity:0.75;">@@</text>

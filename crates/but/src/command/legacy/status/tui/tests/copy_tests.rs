@@ -175,7 +175,7 @@ fn copies_every_uncommitted_file_value() {
     tui.input(KeyCode::Down);
 
     tui.input(COPY_MORE);
-    tui.input(KeyCode::Enter).assert_copied_text_eq("r");
+    tui.input(KeyCode::Enter).assert_copied_text_eq("ryk");
 
     tui.input(COPY_MORE);
     tui.input(KeyCode::Down);

@@ -73,7 +73,7 @@ fn uncommitted_file() -> anyhow::Result<()> {
 {
   "uncommittedChanges": [
     {
-      "cliId": "n",
+      "cliId": "nkn",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -146,17 +146,17 @@ fn uncommitted_hunk() -> anyhow::Result<()> {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-─────────╮
-n:2 a.txt│
-─────────╯
+───────────╮
+nkn:2 a.txt│
+───────────╯
    1  │-first
      1│+firsta
    2 2│ line
    3 3│ line
    4 4│ line
-─────────╮
-n:e a.txt│
-─────────╯
+───────────╮
+nkn:e a.txt│
+───────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -209,7 +209,7 @@ last
 {
   "uncommittedChanges": [
     {
-      "cliId": "n",
+      "cliId": "nkn",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -233,17 +233,17 @@ fn committed_hunk() -> anyhow::Result<()> {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-─────────╮
-n:2 a.txt│
-─────────╯
+───────────╮
+nkn:2 a.txt│
+───────────╯
    1  │-first
      1│+firsta
    2 2│ line
    3 3│ line
    4 4│ line
-─────────╮
-n:e a.txt│
-─────────╯
+───────────╮
+nkn:e a.txt│
+───────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -270,9 +270,9 @@ n:e a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-─────────╮
-n:f a.txt│
-─────────╯
+───────────╮
+nkn:f a.txt│
+───────────╯
    1  │-firsta
      1│+first
    2 2│ line
@@ -297,9 +297,9 @@ n:f a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-─────────╮
-n:1 a.txt│
-─────────╯
+───────────╮
+nkn:1 a.txt│
+───────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -324,17 +324,17 @@ n:1 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-─────────╮
-n:b a.txt│
-─────────╯
+───────────╮
+nkn:b a.txt│
+───────────╯
    1  │-first
      1│+first new
    2 2│ line
    3 3│ line
    4 4│ line
-─────────╮
-n:5 a.txt│
-─────────╯
+───────────╮
+nkn:5 a.txt│
+───────────╯
     6  6│ line
     7  7│ line
     8  8│ line
@@ -349,7 +349,7 @@ n:5 a.txt│
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [uncommitted]
-┊   n M a.txt
+┊   nkn M a.txt
 ┊
 ┊╭┄g0 [A]
 ┊●   1#0 partial change to a.txt 3
@@ -569,7 +569,7 @@ last
 {
   "uncommittedChanges": [
     {
-      "cliId": "n",
+      "cliId": "nkn",
       "filePath": "a.txt",
       "changeType": "modified"
     }

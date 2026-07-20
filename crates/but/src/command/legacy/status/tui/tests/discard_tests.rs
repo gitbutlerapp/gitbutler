@@ -153,10 +153,10 @@ fn discard_stack_confirm_yes_discards_staged_changes() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> tpm add A"]);
@@ -294,7 +294,8 @@ fn mark_and_discard_uncommitted_files() {
     tui.input(' ');
 
     tui.input('x');
-    tui.input('y').assert_current_line_eq(str!["┊   o A three"]);
+    tui.input('y')
+        .assert_current_line_eq(str!["┊   orz A three"]);
 
     tui.reload().assert_rendered_term_svg_eq(file![
         "snapshots/mark_and_discard_uncommitted_files_final.svg"

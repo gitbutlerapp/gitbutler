@@ -682,13 +682,13 @@ fn esc_leaves_rub_mode() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input(KeyCode::Esc)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 }
 
 #[test]
@@ -703,16 +703,16 @@ fn mode_key_r_enters_and_escape_leaves_rub_mode() {
     tui.reload();
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
         .assert_rendered_term_svg_eq(file![
             "snapshots/mode_toggle_key_r_enters_and_leaves_rub_mode_001.svg"
         ])
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input(KeyCode::Esc)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 }
 
 #[test]
@@ -727,10 +727,10 @@ fn rub_mode_shift_j_lands_on_first_selectable_in_next_branch() {
     tui.reload();
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊●   << amend >> tpm add A"]);
@@ -748,10 +748,10 @@ fn rub_mode_shift_j_can_jump_between_branches() {
     tui.reload();
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊●   << amend >> tpm add A"]);
@@ -772,10 +772,10 @@ fn rub_mode_shift_k_jumps_to_first_selectable_in_previous_branch() {
     tui.reload();
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊●   << amend >> tpm add A"]);
@@ -860,7 +860,7 @@ fn rubbing() {
         .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -869,10 +869,10 @@ fn rubbing() {
         .assert_current_line_eq(str!["┊●   1 (no commit message) (no changes)"]);
 
     tui.input([KeyCode::Up, KeyCode::Up])
-        .assert_current_line_eq(str!["┊   v A test.txt"]);
+        .assert_current_line_eq(str!["┊   vot A test.txt"]);
 
     tui.input('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> v A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vot A test.txt"]);
 
     tui.input(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> 1 (no commit message) (no changes)"]);
@@ -1142,12 +1142,12 @@ fn pick_changes_mode() {
         snapbox::str![[r#"
 [
     (
-        "k",
+        "klz",
         "one",
         true,
     ),
     (
-        "k:synthetic-id-0",
+        "klz:synthetic-id-0",
         "one",
         false,
     ),
@@ -1233,12 +1233,12 @@ fn stays_in_pick_change_mode_after_full_screen_details() {
         snapbox::str![[r#"
 [
     (
-        "k",
+        "klz",
         "one",
         true,
     ),
     (
-        "k:synthetic-id-0",
+        "klz:synthetic-id-0",
         "one",
         false,
     ),

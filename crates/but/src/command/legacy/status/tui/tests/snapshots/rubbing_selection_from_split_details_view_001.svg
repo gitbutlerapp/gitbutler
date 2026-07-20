@@ -17,6 +17,7 @@
     <text x="570 578" y="24" style="fill:#AA0000;">-0</text>
     <text x="10" y="42" style="fill:#CCCCCC;">┊</text>
     <text x="42" y="42" style="fill:#0000AA;font-weight:bold;">k</text>
+    <text x="50 58" y="42" style="fill:#CCCCCC;opacity:0.75;">lz</text>
     <text x="82" y="42" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114" y="42" style="fill:#00AA00;">one</text>
     <text x="410" y="42" style="fill:#555555;">│</text>
@@ -25,19 +26,19 @@
     <text x="82" y="60" style="fill:#CCCCCC;">A</text>
     <text x="98 106 114" y="60" style="fill:#00AA00;">two</text>
     <text x="410" y="60" style="fill:#FFA500;">▌</text>
-    <text x="418 426 434 442 450 458 466 474 482 490" y="60" style="fill:#555555;">─────────╮</text>
+    <text x="418 426 434 442 450 458 466 474 482 490 498 506" y="60" style="fill:#555555;">───────────╮</text>
     <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
     <text x="410" y="78" style="fill:#FFA500;">▌</text>
-    <text x="426 434 442" y="78" style="fill:#0000AA;">k:c</text>
-    <text x="458 466 474" y="78" style="fill:#CCCCCC;">one</text>
-    <text x="490" y="78" style="fill:#555555;">│</text>
+    <text x="426 434 442 450 458" y="78" style="fill:#0000AA;">klz:c</text>
+    <text x="474 482 490" y="78" style="fill:#CCCCCC;">one</text>
+    <text x="506" y="78" style="fill:#555555;">│</text>
     <text x="10 18 26" y="96" style="fill:#CCCCCC;">┊╭┄</text>
     <text x="34 42" y="96" style="fill:#0000AA;font-weight:bold;">g0</text>
     <text x="58" y="96" style="fill:#CCCCCC;">[</text>
     <text x="66" y="96" style="fill:#00AA00;">A</text>
     <text x="74" y="96" style="fill:#CCCCCC;">]</text>
     <text x="410" y="96" style="fill:#FFA500;">▌</text>
-    <text x="418 426 434 442 450 458 466 474 482 490" y="96" style="fill:#555555;">─────────╯</text>
+    <text x="418 426 434 442 450 458 466 474 482 490 498 506" y="96" style="fill:#555555;">───────────╯</text>
     <text x="10 18" y="114" style="fill:#CCCCCC;">┊●</text>
     <text x="50 58" y="114" style="fill:#AA00AA;">tp</text>
     <text x="66" y="114" style="fill:#CCCCCC;opacity:0.75;">m</text>

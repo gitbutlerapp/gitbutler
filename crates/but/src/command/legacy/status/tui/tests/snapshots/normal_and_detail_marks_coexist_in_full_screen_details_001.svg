@@ -10,14 +10,14 @@
     <text x="146 154" y="24" style="fill:#00AA00;">+1</text>
     <text x="170 178" y="24" style="fill:#AA0000;">-0</text>
     <text x="10" y="60" style="fill:#0000AA;">▌</text>
-    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138" y="60" style="fill:#555555;">───────────────╮</text>
+    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138 146" y="60" style="fill:#555555;">────────────────╮</text>
     <text x="10" y="78" style="fill:#0000AA;">▌</text>
     <text x="26" y="78" style="fill:#000000;">✔︎</text>
-    <text x="50 58 66 74" y="78" style="fill:#0000AA;">or:f</text>
-    <text x="90 98 106 114 122" y="78" style="fill:#CCCCCC;">three</text>
-    <text x="138" y="78" style="fill:#555555;">│</text>
+    <text x="50 58 66 74 82" y="78" style="fill:#0000AA;">orz:f</text>
+    <text x="98 106 114 122 130" y="78" style="fill:#CCCCCC;">three</text>
+    <text x="146" y="78" style="fill:#555555;">│</text>
     <text x="10" y="96" style="fill:#0000AA;">▌</text>
-    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138" y="96" style="fill:#555555;">───────────────╯</text>
+    <text x="18 26 34 42 50 58 66 74 82 90 98 106 114 122 130 138 146" y="96" style="fill:#555555;">────────────────╯</text>
     <text x="10" y="114" style="fill:#0000AA;">▌</text>
     <text x="10" y="132" style="fill:#0000AA;">▌</text>
     <text x="18 26" y="132" style="fill:#CCCCCC;opacity:0.75;">@@</text>

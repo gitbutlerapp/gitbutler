@@ -1176,9 +1176,15 @@ fn print_assignments(
             "uncommitted file",
         )?;
 
+        // The unambiguous ID prefix is highlighted; the cosmetic padding after
+        // it is dimmed, matching how commit change IDs are displayed.
+        let (prefix, hint, suffix) =
+            crate::id::split_id_hint(cli_id, &first_assignment.id_hint_range);
         let file_line = FileLineContent {
             id: Vec::from([
-                Span::styled(cli_id.to_string(), t.cli_id),
+                Span::styled(prefix.to_string(), t.cli_id),
+                Span::styled(hint.to_string(), t.hint),
+                Span::styled(suffix.to_string(), t.cli_id),
                 Span::raw(id_padding),
             ]),
             status: Vec::from([Span::raw(status.to_string()), Span::raw(" ")]),
