@@ -46,6 +46,7 @@ mod with_workspace {
         ref_info::with_workspace_commit::utils::{
             StackState, add_stack_with_segments, named_read_only_in_memory_scenario,
             named_writable_scenario, named_writable_scenario_with_description,
+            named_writable_scenario_with_description_and_graph,
         },
         utils::{r, rc},
     };
@@ -1271,6 +1272,157 @@ Single commit, target, no ws commit, but ws-reference
 
 "#]]
         );
+        Ok(())
+    }
+
+    /// Two applied stacks share the underlying branch `foo`. Anchoring a new branch at `foo`
+    /// (by segment, commit, or reference) has no unambiguous stack to place it in, and used to
+    /// silently replace `foo` in the projection of both stacks. It must refuse instead.
+    #[test]
+    fn no_anchor_on_branch_shared_by_multiple_stacks() -> anyhow::Result<()> {
+        let (_tmp, graph, repo, mut meta, _desc) =
+            named_writable_scenario_with_description_and_graph(
+                "two-stacks-shared-branch",
+                |meta| {
+                    add_stack_with_segments(meta, 0, "bar-one", StackState::InWorkspace, &["foo"]);
+                    add_stack_with_segments(meta, 1, "bar-two", StackState::InWorkspace, &["foo"]);
+                },
+            )?;
+        snapbox::assert_data_eq!(
+            visualize_commit_graph_all(&repo)?,
+            snapbox::str![[r#"
+*   f8a0ddc (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 5f347cd (bar-two) B2
+* | 2fd178b (bar-one) B1
+|/  
+* d03b217 (foo) F1
+* 3183e43 (origin/main, main) M1
+
+"#]]
+            .raw()
+        );
+
+        // The `foo` segment is projected into both stacks.
+        let ws = graph.into_workspace()?;
+        snapbox::assert_data_eq!(
+            graph_workspace(&ws).to_string(),
+            snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+├── ≡📙:3:bar-one on 3183e43 {0}
+│   ├── 📙:3:bar-one
+│   │   └── ·2fd178b (🏘️)
+│   └── 📙:4:foo
+│       └── ·d03b217 (🏘️)
+└── ≡📙:5:bar-two on 3183e43 {1}
+    ├── 📙:5:bar-two
+    │   └── ·5f347cd (🏘️)
+    └── 📙:4:foo
+        └── ·d03b217 (🏘️)
+
+"#]]
+        );
+
+        let foo_id = id_by_rev(&repo, ":/F1").detach();
+        let anchors_and_expected_subjects = [
+            (
+                Anchor::at_segment(r("refs/heads/foo"), Above),
+                "Branch 'foo'".to_string(),
+            ),
+            (
+                Anchor::at_segment(r("refs/heads/foo"), Below),
+                "Branch 'foo'".to_string(),
+            ),
+            (Anchor::at_id(foo_id, Above), format!("Commit {foo_id}")),
+            // `Below` the only commit of `foo` resolves to the workspace base and would
+            // otherwise fall back to placement in whichever stack owns the segment first.
+            (Anchor::at_id(foo_id, Below), format!("Commit {foo_id}")),
+            (
+                Anchor::at_reference(r("refs/heads/foo"), Above),
+                "Branch 'foo'".to_string(),
+            ),
+        ];
+        for (anchor, expected_subject) in anchors_and_expected_subjects {
+            let err = but_workspace::branch::create_reference(
+                r("refs/heads/mybranch"),
+                anchor,
+                &repo,
+                &ws,
+                &mut meta,
+                stack_id_for_name,
+                None,
+            )
+            .unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                format!(
+                    "{expected_subject} is part of 2 applied stacks. Creating a branch \
+                     relative to it is ambiguous - unapply the other stacks that contain \
+                     it and try again"
+                )
+            );
+        }
+        // Nothing was created or altered.
+        assert!(repo.try_find_reference("mybranch")?.is_none());
+        Ok(())
+    }
+
+    /// Like [`no_anchor_on_branch_shared_by_multiple_stacks`], but the shared commit is
+    /// unnamed and thus aggregated into the differently-named segment of each stack.
+    /// Sharing must still be detected through the commit itself, not segment identity.
+    #[test]
+    fn no_anchor_on_unnamed_commit_shared_by_multiple_stacks() -> anyhow::Result<()> {
+        let (_tmp, graph, repo, mut meta, _desc) =
+            named_writable_scenario_with_description_and_graph(
+                "workspace-shared-commit",
+                |meta| {
+                    add_stack_with_segments(meta, 0, "stack-x", StackState::InWorkspace, &[]);
+                    add_stack_with_segments(meta, 1, "stack-y", StackState::InWorkspace, &[]);
+                },
+            )?;
+        // The shared commit `S` is owned by both stacks, without a segment of its own.
+        let ws = graph.into_workspace()?;
+        snapbox::assert_data_eq!(
+            graph_workspace(&ws).to_string(),
+            snapbox::str![[r#"
+📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 965998b
+├── ≡📙:3:stack-x on 965998b {0}
+│   └── 📙:3:stack-x
+│       ├── ·9f0269c (🏘️)
+│       └── ·d2bff94 (🏘️)
+└── ≡📙:4:stack-y on 965998b {1}
+    └── 📙:4:stack-y
+        ├── ·e6d5410 (🏘️)
+        └── ·d2bff94 (🏘️)
+
+"#]]
+        );
+
+        let shared_id = id_by_rev(&repo, ":/S").detach();
+        for anchor in [
+            Anchor::at_id(shared_id, Above),
+            Anchor::at_id(shared_id, Below),
+        ] {
+            let err = but_workspace::branch::create_reference(
+                r("refs/heads/mybranch"),
+                anchor,
+                &repo,
+                &ws,
+                &mut meta,
+                stack_id_for_name,
+                None,
+            )
+            .unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                format!(
+                    "Commit {shared_id} is part of 2 applied stacks. Creating a branch \
+                     relative to it is ambiguous - unapply the other stacks that contain \
+                     it and try again"
+                )
+            );
+        }
+        assert!(repo.try_find_reference("mybranch")?.is_none());
         Ok(())
     }
 
