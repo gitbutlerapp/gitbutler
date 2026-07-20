@@ -271,6 +271,7 @@ fn node_label(graph: &Graph, index: NodeIndex) -> (&'static str, String) {
         }
         NodeKind::Reference(reference) => ("◎", reference_label(graph, reference, is_entrypoint)),
         NodeKind::Boundary { .. } => unreachable!("boundaries are not rendered"),
+        NodeKind::None => ("◌", "no-op".into()),
     }
 }
 
@@ -345,7 +346,7 @@ fn has_multiple_worktrees(graph: &Graph) -> bool {
         .iter()
         .filter_map(|node| match node.kind() {
             NodeKind::Reference(reference) => reference.ref_info.worktree.as_ref(),
-            NodeKind::Commit { .. } | NodeKind::Boundary { .. } => None,
+            NodeKind::Commit { .. } | NodeKind::Boundary { .. } | NodeKind::None => None,
         })
         .any(|worktree| {
             if let Some(first) = first {
@@ -421,6 +422,9 @@ fn compare_nodes(graph: &Graph, left: NodeIndex, right: NodeIndex) -> Ordering {
         (NodeKind::Reference(_), NodeKind::Commit { .. }) => Ordering::Greater,
         (NodeKind::Boundary { .. }, _) | (_, NodeKind::Boundary { .. }) => {
             unreachable!("shallow points are not ordered")
+        }
+        (NodeKind::None, _) | (_, NodeKind::None) => {
+            unreachable!("placeholders are not ordered")
         }
     }
 }

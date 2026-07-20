@@ -4,7 +4,6 @@ use std::collections::HashSet;
 
 use anyhow::Result;
 use but_core::RefMetadata;
-use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{Editor, Selector, Step, StepGraph, StepGraphIndex, ToSelector};
 
@@ -20,7 +19,7 @@ pub struct AheadBehind {
 /// Count the `Pick` steps (i.e. commits) among `steps`.
 fn count_picks(graph: &StepGraph, steps: impl Iterator<Item = StepGraphIndex>) -> usize {
     steps
-        .filter(|ix| matches!(graph[*ix], Step::Pick(_)))
+        .filter(|ix| matches!(graph.step(*ix), Step::Pick(_)))
         .count()
 }
 
@@ -54,11 +53,7 @@ impl Iterator for Traversal<'_> {
             if self.excluded.contains(&n) || !self.seen.insert(n) {
                 continue;
             }
-            self.tips.extend(
-                self.graph
-                    .edges_directed(n, Direction::Outgoing)
-                    .map(|e| e.target()),
-            );
+            self.tips.extend(self.graph.parents(n).iter().copied());
             return Some(n);
         }
         None
@@ -173,7 +168,7 @@ mod test {
     use std::{collections::HashSet, str::FromStr as _};
 
     use super::{a_not_b, all_until_optional_limit, count_picks, reachable_from};
-    use crate::graph_rebase::{Edge, Step, StepGraph, StepGraphIndex};
+    use crate::graph_rebase::{Step, StepGraph, StepGraphIndex};
 
     fn pick(graph: &mut StepGraph) -> StepGraphIndex {
         let id = gix::ObjectId::from_str("1000000000000000000000000000000000000000").unwrap();
@@ -189,9 +184,9 @@ mod test {
         let b = pick(&mut g);
         let base = pick(&mut g);
         let c = pick(&mut g);
-        g.add_edge(a, b, Edge { order: 0 });
-        g.add_edge(b, base, Edge { order: 0 });
-        g.add_edge(c, base, Edge { order: 0 });
+        *g.parents_mut(a) = vec![b];
+        *g.parents_mut(b) = vec![base];
+        *g.parents_mut(c) = vec![base];
 
         assert_eq!(
             a_not_b(&g, a, c).collect::<HashSet<_>>(),
@@ -219,10 +214,10 @@ mod test {
         let b = pick(&mut g);
         let base = pick(&mut g);
         let c = pick(&mut g);
-        g.add_edge(a, none, Edge { order: 0 });
-        g.add_edge(none, b, Edge { order: 0 });
-        g.add_edge(b, base, Edge { order: 0 });
-        g.add_edge(c, base, Edge { order: 0 });
+        *g.parents_mut(a) = vec![none];
+        *g.parents_mut(none) = vec![b];
+        *g.parents_mut(b) = vec![base];
+        *g.parents_mut(c) = vec![base];
 
         assert_eq!(count_picks(&g, a_not_b(&g, a, c)), 2);
         assert_eq!(count_picks(&g, a_not_b(&g, c, a)), 1);

@@ -8,14 +8,8 @@ use std::{
 
 use anyhow::Result;
 use but_core::RefMetadata;
-use petgraph::{
-    dot::{Config, Dot},
-    visit::{EdgeRef, IntoEdgeReferences},
-};
 use renderdag::{Ancestor, GraphRowRenderer, Renderer as _};
 
-#[cfg(test)]
-use crate::graph_rebase::Edge;
 use crate::graph_rebase::{
     Editor, Pick, Selector, Step, StepGraph, StepGraphIndex, SuccessfulRebase, workspace::Subgraph,
 };
@@ -57,23 +51,26 @@ impl<M: RefMetadata> TestingDot for SuccessfulRebase<'_, '_, M> {
 
 impl TestingDot for StepGraph {
     fn steps_dot(&self) -> String {
-        format!(
-            "{:?}",
-            Dot::with_attr_getters(
-                &self,
-                &[Config::EdgeNoLabel, Config::NodeNoLabel],
-                &|_, v| format!("label=\"order: {}\"", v.weight().order),
-                &|_, (_, step)| {
-                    match step {
-                        Step::Pick(Pick { id, .. }) => format!("label=\"pick: {id}\""),
-                        Step::Reference { refname, .. } => {
-                            format!("label=\"reference: {}\"", refname.as_bstr())
-                        }
-                        Step::None => "label=\"none\"".into(),
-                    }
-                },
-            )
-        )
+        use std::fmt::Write as _;
+        let mut out = String::from("digraph {\n");
+        for index in self.indices() {
+            let label = match self.step(index) {
+                Step::Pick(Pick { id, .. }) => format!("pick: {id}"),
+                Step::Reference { refname, .. } => {
+                    format!("reference: {}", refname.as_bstr())
+                }
+                Step::None => "none".into(),
+            };
+            writeln!(out, "    {index} [ label=\"{label}\" ]").expect("infallible");
+        }
+        for index in self.indices() {
+            for (order, parent) in self.parents(index).iter().enumerate() {
+                writeln!(out, "    {index} -> {parent} [ label=\"order: {order}\" ]")
+                    .expect("infallible");
+            }
+        }
+        out.push('}');
+        out
     }
 }
 
@@ -124,30 +121,18 @@ fn format_step(step: &Step, title: Option<String>) -> String {
 
 /// Find head nodes (no incoming edges)
 fn find_heads(graph: &StepGraph) -> Vec<StepGraphIndex> {
-    let mut has_incoming: HashSet<StepGraphIndex> = HashSet::new();
-    for edge in graph.edge_references() {
-        has_incoming.insert(edge.target());
-    }
-    graph
-        .node_indices()
-        .filter(|idx| !has_incoming.contains(idx))
-        .collect()
+    graph.child_most()
 }
 
-/// Get parents sorted by edge order
+/// Get parents in slot order
 fn get_sorted_parents(graph: &StepGraph, node: StepGraphIndex) -> Vec<StepGraphIndex> {
-    let mut parents: Vec<_> = graph
-        .edges(node)
-        .map(|e| (e.weight().order, e.target()))
-        .collect();
-    parents.sort_by_key(|(order, _)| *order);
-    parents.into_iter().map(|(_, p)| p).collect()
+    graph.parents(node).to_vec()
 }
 
 /// A deterministic ordering for the head nodes so snapshots are stable: picks
 /// before references, then by id / refname.
 fn compare_heads(graph: &StepGraph, a: StepGraphIndex, b: StepGraphIndex) -> Ordering {
-    match (&graph[a], &graph[b]) {
+    match (&graph.step(a), &graph.step(b)) {
         (
             Step::Reference { refname, .. },
             Step::Reference {
@@ -254,8 +239,8 @@ where
 
     let mut out = String::new();
     for node in topological_order(graph, nodes, &heads) {
-        let step = &graph[node];
-        let title = match step {
+        let step = graph.step(node);
+        let title = match &step {
             Step::Pick(Pick { id, .. }) => get_title(*id),
             _ => None,
         };
@@ -268,7 +253,7 @@ where
             node,
             parents,
             step.to_symbol().to_string(),
-            format_step(step, title),
+            format_step(&step, title),
         ));
     }
     out.trim_end().to_string()
@@ -279,8 +264,22 @@ pub(crate) fn render_ascii_graph<F>(graph: &StepGraph, get_title: F) -> String
 where
     F: FnMut(gix::ObjectId) -> Option<String>,
 {
-    let nodes: HashSet<StepGraphIndex> = graph.node_indices().collect();
-    let heads = find_heads(graph);
+    let nodes: HashSet<StepGraphIndex> = graph
+        .indices()
+        .filter(|index| {
+            !matches!(
+                graph.nodes()[*index].kind(),
+                but_graph::NodeKind::Boundary {
+                    reason: but_graph::BoundaryKind::Shallow,
+                    ..
+                }
+            )
+        })
+        .collect();
+    let heads = find_heads(graph)
+        .into_iter()
+        .filter(|head| nodes.contains(head))
+        .collect::<Vec<_>>();
     render_step_graph(graph, &nodes, &heads, get_title)
 }
 
@@ -349,9 +348,11 @@ mod tests {
         Step::new_reference(gix::refs::FullName::try_from(format!("refs/heads/{name}")).unwrap())
     }
 
-    /// Helper to build a graph and add edges with order
+    /// Helper to build a graph and add parent edges at a given slot
     fn add_edge(graph: &mut StepGraph, from: StepGraphIndex, to: StepGraphIndex, order: usize) {
-        graph.add_edge(from, to, Edge { order });
+        let parents = graph.parents_mut(from);
+        let position = order.min(parents.len());
+        parents.insert(position, to);
     }
 
     #[test]

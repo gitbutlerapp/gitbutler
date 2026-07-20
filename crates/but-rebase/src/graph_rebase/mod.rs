@@ -15,7 +15,7 @@ use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
 use gix::refs::transaction::RefEdit;
 
-use crate::graph_rebase::util::collect_ordered_parents;
+use crate::graph_rebase::util::resolve_to_commit;
 
 use crate::graph_rebase::cherry_pick::{PickMode, TreeMergeMode};
 pub mod cherry_pick;
@@ -24,6 +24,7 @@ pub mod materialize;
 pub mod merge_commit_changes;
 pub mod mutate;
 pub mod ordering;
+pub(crate) mod step_graph;
 pub(crate) mod util;
 pub mod workspace;
 pub use workspace::{GraphWorkspace, Subgraph};
@@ -123,9 +124,10 @@ pub enum Step {
         refname: gix::refs::FullName,
         /// Whether the editor may move or delete this reference.
         ///
-        /// Only references reachable from a mutable entrypoint (e.g. `HEAD`)
-        /// are updated during materialization. When `false`, the reference is
-        /// kept in the graph for traversal but never written.
+        /// Only local branches reachable from a mutable entrypoint (e.g. `HEAD`)
+        /// are updated during materialization; remote-tracking branches, tags,
+        /// and custom references are never written. When `false`, the reference
+        /// is kept in the graph for traversal but never written.
         mutable: bool,
     },
     /// Used as a placeholder after removing a pick or reference
@@ -159,18 +161,7 @@ impl Step {
     }
 }
 
-/// Used to represent a connection between a given commit.
-#[derive(Debug, Clone)]
-pub(crate) struct Edge {
-    /// Represents in which order the `parent` fields should be written out
-    ///
-    /// A child commit should have edges that all have unique orders. In order
-    /// to achive that we can employ the following semantics.
-    order: usize,
-}
-
-type StepGraphIndex = petgraph::stable_graph::NodeIndex;
-type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
+pub(crate) use step_graph::{StepGraph, StepGraphIndex};
 
 /// Convert a structure to a selector for a particular editor.
 ///
@@ -215,7 +206,7 @@ pub struct Selector {
 impl ToCommitSelector for Selector {
     fn to_commit_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         let selector = editor.history.normalize_selector(*self)?;
-        let step = &editor.graph[selector.id];
+        let step = editor.graph.step(selector.id);
         if !matches!(step, Step::Pick(_)) {
             bail!("Expected selector for {step:?} to refer to a commit");
         }
@@ -227,7 +218,7 @@ impl ToCommitSelector for Selector {
 impl ToReferenceSelector for Selector {
     fn to_reference_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         let selector = editor.history.normalize_selector(*self)?;
-        let step = &editor.graph[selector.id];
+        let step = editor.graph.step(selector.id);
         if !matches!(step, Step::Reference { .. }) {
             bail!("Expected selector for {step:?} to refer to a reference");
         }
@@ -321,19 +312,17 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     pub fn reference_target(&self, ref_name: &gix::refs::FullNameRef) -> Result<gix::ObjectId> {
         let reference = self
             .graph
-            .node_indices()
+            .indices()
             .find(|node| {
                 matches!(
-                    &self.graph[*node],
+                    self.graph.step(*node),
                     Step::Reference { refname, .. } if refname.as_ref() == ref_name
                 )
             })
             .with_context(|| format!("Could not find reference '{ref_name}' in rebase result"))?;
-        let parent = collect_ordered_parents(&self.graph, reference)
-            .into_iter()
-            .next()
+        let parent = resolve_to_commit(&self.graph, reference)
             .context("Reference has no target commit in rebase result")?;
-        match self.graph[parent] {
+        match self.graph.step(parent) {
             Step::Pick(Pick { id, .. }) => Ok(id),
             _ => bail!("Reference target in rebase result is not a commit"),
         }
@@ -380,17 +369,12 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             .filter_map(|checkout| match checkout {
                 Checkout::Head { selector, .. } => {
                     let selector = self.history.normalize_selector(*selector).ok()?;
-                    let step = &self.graph[selector.id];
-
-                    match step {
+                    match self.graph.step(selector.id) {
                         Step::None => None,
-                        Step::Pick(Pick { id, .. }) => Some((*id, None)),
+                        Step::Pick(Pick { id, .. }) => Some((id, None)),
                         Step::Reference { refname, .. } => {
-                            let parents = collect_ordered_parents(&self.graph, selector.id);
-
-                            if let Some(to_reference) = parents.first()
-                                && let Step::Pick(Pick { id, .. }) = self.graph[*to_reference]
-                            {
+                            let target = resolve_to_commit(&self.graph, selector.id)?;
+                            if let Step::Pick(Pick { id, .. }) = self.graph.step(target) {
                                 Some((id, Some(refname.clone())))
                             } else {
                                 None
@@ -476,7 +460,7 @@ impl<M: RefMetadata> LookupStep for MaterializeOutcome<'_, '_, M> {
 
 fn lookup_step(graph: &StepGraph, history: &RevisionHistory, selector: Selector) -> Result<Step> {
     let normalized = history.normalize_selector(selector)?;
-    Ok(graph[normalized.id].clone())
+    Ok(graph.step(normalized.id))
 }
 
 /// Provides data about how the editor instance was transformed.

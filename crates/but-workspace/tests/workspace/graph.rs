@@ -457,14 +457,11 @@ fn overlapping_stacks_merge_into_one() -> Result<()> {
 ◎  0 refs/heads/stack-1
 ●  1 2169646 Commit D
 ●  2 46ef828 Commit C
-◎  3 refs/heads/stack-2
-●  4 f555940 Commit A
-●  5 d664be0 Commit B
-●  6 fafd9d0 init
-  linear    ref=0  rows=[0, 1, 2]
-  linear    ref=3  rows=[3, 4, 5, 6]
-  reference ref=0  rows=[0, 1, 2]
-  reference ref=3  rows=[3, 4, 5, 6]
+●  3 f555940 Commit A
+●  4 d664be0 Commit B
+●  5 fafd9d0 init
+  linear    ref=0  rows=[0, 1, 2, 3, 4, 5]
+  reference ref=0  rows=[0, 1, 2, 3, 4, 5]
 "#]]
     );
     Ok(())
@@ -527,23 +524,22 @@ fn divergent_stacks_sharing_base_merge() -> Result<()> {
 │ ●  4 afc3f8f B2
 │ ●  5 b3ee99c B1
 ├─╯
-◎  6 refs/heads/main
-●  7 965998b base
+●  6 965998b base
   linear    ref=0  rows=[0, 1, 2]
   linear    ref=3  rows=[3, 4, 5]
-  linear    ref=6  rows=[6, 7]
-  reference ref=0  rows=[0, 1, 2]
-  reference ref=3  rows=[3, 4, 5]
-  reference ref=6  rows=[6, 7]
+  linear    ref=-  rows=[6]
+  reference ref=0  rows=[0, 1, 2, 6]
+  reference ref=3  rows=[3, 4, 5, 6]
 "#]]
     );
     Ok(())
 }
 
 /// The same divergent fixture bounded by a target at `main` (which sits at
-/// `base`).
+/// `base`): the shared base is excluded and the refs at it hang beside the
+/// ancestry, so the stacks stay separate.
 #[test]
-fn divergent_stacks_sharing_base_merge_with_target() -> Result<()> {
+fn divergent_stacks_with_target_stay_separate() -> Result<()> {
     let (_repo, detailed) = detailed("workspace-two-stacks", Some("refs/remotes/origin/main"))?;
     snapbox::assert_data_eq!(
         render(&detailed),
@@ -552,17 +548,15 @@ fn divergent_stacks_sharing_base_merge_with_target() -> Result<()> {
 ◎  0 refs/heads/stack-a
 ●  1 49c06ff A2
 ●  2 ff76d2f A1
-│ ◎  3 refs/heads/stack-b
-│ ●  4 afc3f8f B2
-│ ●  5 b3ee99c B1
-├─╯
-◎  6 refs/heads/main
   linear    ref=0  rows=[0, 1, 2]
-  linear    ref=3  rows=[3, 4, 5]
-  linear    ref=6  rows=[6]
   reference ref=0  rows=[0, 1, 2]
-  reference ref=3  rows=[3, 4, 5]
-  reference ref=6  rows=[6]
+
+# Stack 1
+◎  0 refs/heads/stack-b
+●  1 afc3f8f B2
+●  2 b3ee99c B1
+  linear    ref=0  rows=[0, 1, 2]
+  reference ref=0  rows=[0, 1, 2]
 "#]]
     );
     Ok(())
@@ -746,9 +740,10 @@ fn stacked_dependent_branches_with_target() -> Result<()> {
 }
 
 /// A stack whose branch sits above an internal merge: `feature` reaches the
-/// whole diamond `M -> {P, Q}` before the walk stops at `main`, so its
-/// `reference_segment` is non-linear (`[feature, M, P, Q]`), while `base` below
-/// `main` belongs to `main`.
+/// whole diamond `M -> {P, Q}` down to `base`, so its `reference_segment` is
+/// non-linear (`[feature, M, P, Q, base]`). `main` hangs beside `base` (a
+/// reference with several commit children is never inline) and is not part of
+/// the stack.
 #[test]
 fn non_linear_reference_segment_with_internal_merge() -> Result<()> {
     let (repo, detailed) = detailed("workspace-merge-in-stack", None)?;
@@ -776,14 +771,12 @@ fn non_linear_reference_segment_with_internal_merge() -> Result<()> {
 ● │  2 6339d5b P
 │ ●  3 ed2a973 Q
 ├─╯
-◎  4 refs/heads/main
-●  5 965998b base
+●  4 965998b base
   linear    ref=0  rows=[0]
   linear    ref=-  rows=[1]
   linear    ref=-  rows=[2, 3]
-  linear    ref=4  rows=[4, 5]
-  reference ref=0  rows=[0, 1, 2, 3]
-  reference ref=4  rows=[4, 5]
+  linear    ref=-  rows=[4]
+  reference ref=0  rows=[0, 1, 2, 3, 4]
 "#]]
     );
     Ok(())
@@ -833,9 +826,9 @@ fn shared_commit_belongs_to_both_reference_segments() -> Result<()> {
     Ok(())
 }
 
-/// Push status: `main` matches its remote `origin/main` (both at `base`), so it
-/// has nothing to push; `stack-a`/`stack-b` have no remote-tracking branch, so
-/// they are completely unpushed.
+/// Push status: `stack-a`/`stack-b` have no remote-tracking branch, so they are
+/// completely unpushed. The target's local `main` hangs beside the excluded
+/// base commit and is not part of the projection, so it gets no status.
 ///
 /// The divergent (force/unpushed) statuses are covered by the
 /// `combined_status_escalates_from_force_parent` and `push_status_mapping` unit
@@ -850,8 +843,8 @@ fn push_status_nothing_to_push_and_unpushed() -> Result<()> {
         snapbox::str![[r#"
 # Stack 0
 refs/heads/stack-a push=CompletelyUnpushed             combined=CompletelyUnpushed             remote=-
+# Stack 1
 refs/heads/stack-b push=CompletelyUnpushed             combined=CompletelyUnpushed             remote=-
-refs/heads/main push=NothingToPush                  combined=NothingToPush                  remote=refs/remotes/origin/main
 "#]]
     );
     Ok(())
@@ -864,11 +857,9 @@ refs/heads/main push=NothingToPush                  combined=NothingToPush      
 /// workspace metadata (a `default_target`) for the projection to know what it
 /// integrates into.
 ///
-/// Note the force statuses in the snapshot: `origin/main` was advanced past
-/// local `main` (it now contains `A1`), so `main` is *behind* its remote and
-/// reports `UnpushedCommitsRequiringForce`. `B` sits above `main` in the stack,
-/// so its `combined` status escalates to force even though its own push status
-/// is `CompletelyUnpushed`.
+/// The target's local `main` is not part of the projection (it hangs beside
+/// the excluded base), so its behind-the-remote force status no longer leaks
+/// into the stack branches' `combined` statuses.
 #[test]
 fn integration_status_marks_fully_integrated_branch() -> Result<()> {
     let (_tmp, detailed) = detailed_writable(
@@ -885,9 +876,9 @@ fn integration_status_marks_fully_integrated_branch() -> Result<()> {
         render_push_status(&detailed),
         snapbox::str![[r#"
 # Stack 0
+refs/heads/B   push=CompletelyUnpushed             combined=CompletelyUnpushed             remote=-
+# Stack 1
 refs/heads/A   push=Integrated                     combined=Integrated                     remote=-
-refs/heads/B   push=CompletelyUnpushed             combined=UnpushedCommitsRequiringForce  remote=-
-refs/heads/main push=UnpushedCommitsRequiringForce  combined=UnpushedCommitsRequiringForce  remote=refs/remotes/origin/main
 "#]]
     );
     // `add A1` (== origin/main) is integrated; `add B1` is local-only.
@@ -895,8 +886,9 @@ refs/heads/main push=UnpushedCommitsRequiringForce  combined=UnpushedCommitsRequ
         render_commit_state(&detailed),
         snapbox::str![[r#"
 # Stack 0
-905d6e5 add A1   state=integrated
 b38b04b add B1   state=local
+# Stack 1
+905d6e5 add A1   state=integrated
 "#]]
     );
     Ok(())
@@ -979,15 +971,16 @@ fn integration_status_marks_partially_integrated_multi_branch_stack() -> Result<
         render_statuses(&detailed),
         snapbox::str![[r#"
 # Stack 0
-refs/heads/A   push=CompletelyUnpushed             combined=UnpushedCommitsRequiringForce  remote=-
+refs/heads/B   push=CompletelyUnpushed             combined=CompletelyUnpushed             remote=-
+# Stack 1
+refs/heads/A   push=CompletelyUnpushed             combined=CompletelyUnpushed             remote=-
 refs/heads/C   push=Integrated                     combined=Integrated                     remote=-
-refs/heads/B   push=CompletelyUnpushed             combined=UnpushedCommitsRequiringForce  remote=-
-refs/heads/main push=UnpushedCommitsRequiringForce  combined=UnpushedCommitsRequiringForce  remote=refs/remotes/origin/main
 
 # Stack 0
+b38b04b add B1   state=local
+# Stack 1
 44c9428 add A1   state=local
 f1e7451 add C1   state=integrated
-b38b04b add B1   state=local
 "#]]
     );
     Ok(())
@@ -1011,15 +1004,16 @@ fn integration_status_marks_fully_integrated_multi_branch_stack() -> Result<()> 
         render_statuses(&detailed),
         snapbox::str![[r#"
 # Stack 0
+refs/heads/B   push=CompletelyUnpushed             combined=CompletelyUnpushed             remote=-
+# Stack 1
 refs/heads/A   push=Integrated                     combined=Integrated                     remote=-
 refs/heads/C   push=Integrated                     combined=Integrated                     remote=-
-refs/heads/B   push=CompletelyUnpushed             combined=UnpushedCommitsRequiringForce  remote=-
-refs/heads/main push=UnpushedCommitsRequiringForce  combined=UnpushedCommitsRequiringForce  remote=refs/remotes/origin/main
 
 # Stack 0
+b38b04b add B1   state=local
+# Stack 1
 44c9428 add A1   state=integrated
 f1e7451 add C1   state=integrated
-b38b04b add B1   state=local
 "#]]
     );
     Ok(())
@@ -1043,14 +1037,14 @@ fn integration_status_marks_fully_integrated_two_stacks() -> Result<()> {
         render_statuses(&detailed),
         snapbox::str![[r#"
 # Stack 0
-refs/heads/A   push=Integrated                     combined=Integrated                     remote=-
-# Stack 1
 refs/heads/B   push=Integrated                     combined=Integrated                     remote=-
+# Stack 1
+refs/heads/A   push=Integrated                     combined=Integrated                     remote=-
 
 # Stack 0
-905d6e5 add A1   state=integrated
-# Stack 1
 b38b04b add B1   state=integrated
+# Stack 1
+905d6e5 add A1   state=integrated
 "#]]
     );
     Ok(())

@@ -17,7 +17,6 @@ use but_core::{
 };
 use but_graph::workspace::commit::is_managed_workspace_by_message;
 use gix::prelude::ObjectIdExt;
-use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
     Checkout, Editor, LookupStep, Pick, Selector, Step, StepGraph, StepGraphIndex,
@@ -72,23 +71,13 @@ pub struct GraphWorkspace {
     /// If we're outside of the workspace branch, there will be one stack that
     /// contains all commits in the rev-set `HEAD ^target_sha`.
     ///
-    /// # Known limitation: stacks sharing a target segment collapse into one
+    /// # Known limitation: stacks sharing unbounded history collapse into one
     ///
-    /// Today, stacks that converge on a shared segment - most importantly the
-    /// target (`origin/main`) segment every real workspace stack sits on - get
-    /// merged into a single stack instead of staying separate. This is a
-    /// consequence of how the editor's step graph is built, *not* of the rebase
-    /// topology, so a fixture can look like N obviously-distinct stacks and
-    /// still come back as one.
-    ///
-    /// The segment's head reference becomes its first node (see `Editor::create`
-    /// in `creation.rs`), and each child stack attaches to that node. So when
-    /// two stacks share the target segment, they both point at its ref node and
-    /// the split treats them as one. A target doesn't help: it excludes the
-    /// target *commit*, but the ref node sits above that commit and survives.
-    ///
-    /// In this scenario, the but graph really ought to be providing a graph
-    /// that doesn't let us put the node there.
+    /// Stacks that reach a shared node merge into one. Without a target to
+    /// bound the traversal, stacks that branch off common history all reach
+    /// the shared base commit and collapse, so a fixture can look like N
+    /// obviously-distinct stacks and still come back as one. With a target,
+    /// the shared history is excluded and distinct stacks stay separate.
     pub stacks: Vec<Subgraph>,
 
     /// Per-reference push and integration status for every local-branch
@@ -197,8 +186,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
         let ws_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
         let on_workspace = matches!(
-            &self.graph[entrypoint_ix],
-            Step::Reference { refname, .. } if *refname == ws_ref
+            self.graph.step(entrypoint_ix),
+            Step::Reference { refname, .. } if refname == ws_ref
         );
 
         let target_ix = self.target_selector().map(|s| s.id);
@@ -210,10 +199,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
             // The workspace commit, if present, lives somewhere in `HEAD ^target`.
             let workspace_commit = head_not_target_commit.nodes.iter().copied().find_map(|ix| {
-                let Step::Pick(Pick { id, .. }) = &self.graph[ix] else {
+                let Step::Pick(Pick { id, .. }) = self.graph.step(ix) else {
                     return None;
                 };
-                let gix_commit = self.repo.find_commit(*id).ok()?;
+                let gix_commit = self.repo.find_commit(id).ok()?;
                 is_managed_workspace_by_message(gix_commit.message_raw().ok()?).then_some(ix)
             });
 
@@ -661,22 +650,23 @@ fn divide_workspace_into_stacks(
 ) -> (NodeSet, Vec<NodeSet>) {
     // Each parent of the workspace commit seeds a stack.
     let mut initial_stacks = graph
-        .edges_directed(workspace_commit_ix, Direction::Outgoing)
-        .map(|edge| NodeSet {
-            heads: vec![edge.target()],
-            nodes: [edge.target()].into(),
+        .parents(workspace_commit_ix)
+        .iter()
+        .map(|parent| NodeSet {
+            heads: vec![*parent],
+            nodes: [*parent].into(),
         })
         .collect::<Vec<_>>();
 
     for stack in &mut initial_stacks {
         let mut tips = stack.heads.clone();
         while let Some(tip) = tips.pop() {
-            for edge in graph.edges_directed(tip, Direction::Outgoing) {
-                if !head_not_target.nodes.contains(&edge.target()) {
+            for parent in graph.parents(tip) {
+                if !head_not_target.nodes.contains(parent) {
                     continue;
                 }
-                if stack.nodes.insert(edge.target()) {
-                    tips.push(edge.target());
+                if stack.nodes.insert(*parent) {
+                    tips.push(*parent);
                 }
             }
         }
@@ -684,11 +674,10 @@ fn divide_workspace_into_stacks(
 
     // Merge stacks that share any node (they aren't actually distinct).
     //
-    // NOTE: a shared node here includes *reference* nodes, not just commits.
-    // A segment's head ref is its first node (see `creation.rs`), so stacks that
-    // converge on a shared segment - typically the target's - both point at its
-    // ref node and collapse into one, even when a target excludes the segment's
-    // commit. This is the known limitation documented on `GraphWorkspace::stacks`.
+    // NOTE: a shared node here includes *reference* nodes, not just commits,
+    // so an inline reference on both ancestries merges its stacks even when
+    // the commit below it is excluded by the target.
+    initial_stacks.reverse();
     let mut deduplicated = vec![];
     while let Some(mut out) = initial_stacks.pop() {
         for bix in (0..initial_stacks.len()).rev() {
@@ -698,7 +687,7 @@ fn divide_workspace_into_stacks(
                 .iter()
                 .any(|o| initial_stacks[bix].nodes.contains(o))
             {
-                let b = initial_stacks.swap_remove(bix);
+                let b = initial_stacks.remove(bix);
                 out.nodes.extend(b.nodes);
                 out.heads.extend(b.heads);
             }

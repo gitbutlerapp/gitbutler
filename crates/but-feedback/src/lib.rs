@@ -107,6 +107,7 @@ fn anonymous_dot(graph: &Graph) -> String {
             NodeKind::Boundary { id, reason } => {
                 format!("{}{} shallow", reason.debug_string(), id.to_hex_with_len(7),)
             }
+            NodeKind::None => "no-op".into(),
         };
         writeln!(out, "  {index} [label=\"{label}\"];").expect("writing to a string cannot fail");
         for (order, parent) in node.parents().iter().enumerate() {

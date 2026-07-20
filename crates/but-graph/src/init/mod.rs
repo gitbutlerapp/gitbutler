@@ -224,7 +224,7 @@ fn apply_annotations(graph: &mut NodeGraph, plan: &SeedPlan) {
         .enumerate()
         .filter_map(|(index, node)| match node.kind {
             NodeKind::Commit { id } => Some((id, index)),
-            NodeKind::Reference(_) | NodeKind::Boundary { .. } => None,
+            NodeKind::Reference(_) | NodeKind::Boundary { .. } | NodeKind::None => None,
         })
         .collect::<HashMap<_, _>>();
     mark_reachable(
@@ -272,7 +272,7 @@ fn managed_workspace_commit_id(
         .enumerate()
         .filter_map(|(index, node)| match node.kind {
             NodeKind::Commit { id } => Some((id, index)),
-            NodeKind::Reference(_) | NodeKind::Boundary { .. } => None,
+            NodeKind::Reference(_) | NodeKind::Boundary { .. } | NodeKind::None => None,
         })
         .collect::<HashMap<_, _>>();
     let mut pending = roots

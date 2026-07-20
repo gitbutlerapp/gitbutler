@@ -173,7 +173,7 @@ mod tests {
             .iter()
             .filter_map(|node| match node.kind {
                 NodeKind::Commit { id } => Some(id),
-                NodeKind::Reference(_) | NodeKind::Boundary { .. } => None,
+                NodeKind::Reference(_) | NodeKind::Boundary { .. } | NodeKind::None => None,
             })
             .collect()
     }

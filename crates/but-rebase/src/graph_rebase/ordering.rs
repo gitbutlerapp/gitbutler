@@ -4,7 +4,6 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
 use but_core::RefMetadata;
-use petgraph::Direction;
 
 use crate::graph_rebase::{Editor, Pick, Selector, Step, StepGraphIndex, ToCommitSelector, util};
 
@@ -89,11 +88,8 @@ fn step_graph_parent_to_child_rank<M: RefMetadata>(
     let mut next_rank = 0usize;
     let mut seen = HashSet::<StepGraphIndex>::new();
 
-    let mut roots = editor
-        .graph
-        .externals(Direction::Incoming)
-        .collect::<Vec<StepGraphIndex>>();
-    roots.sort_unstable_by_key(|idx| idx.index());
+    let mut roots = editor.graph.child_most();
+    roots.sort_unstable();
 
     // Traverse from all child-most entrypoints (graph nodes without children), assigning
     // rank in post-order so parent commits always rank before descendants. Parents are
@@ -112,7 +108,7 @@ fn step_graph_parent_to_child_rank<M: RefMetadata>(
             }
 
             if expanded {
-                if let Step::Pick(Pick { id, .. }) = editor.graph[node]
+                if let Step::Pick(Pick { id, .. }) = editor.graph.step(node)
                     && selected_ids.contains(&id)
                 {
                     rank_by_id.entry(id).or_insert_with(|| {

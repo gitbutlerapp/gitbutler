@@ -1016,7 +1016,7 @@ fn commit_reaches(
                         .commit_id
                         .and_then(|id| graph.node_by_commit_id(id).map(|(index, _)| index)),
                 ),
-                but_graph::NodeKind::Boundary { .. } => {}
+                but_graph::NodeKind::Boundary { .. } | but_graph::NodeKind::None => {}
             }
         }
     }

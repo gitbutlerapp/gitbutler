@@ -422,12 +422,8 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
-    let m_reference = "refs/heads/M".try_into()?;
     let child_one = repo.rev_parse_single("C1")?.detach();
     let parent_one = "refs/heads/P1".try_into()?;
-    let m_reference_selector = editor
-        .select_reference(m_reference)
-        .context("Failed to find P1 reference in editor graph")?;
     let merge_commit_selector = editor
         .select_commit(merge)
         .context("Failed to find merge commit M in editor graph")?;
@@ -439,7 +435,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         .context("Failed to find P1 reference in editor graph")?;
 
     let delimiter = mutate::SegmentDelimiter {
-        child: m_reference_selector,
+        child: merge_commit_selector,
         parent: merge_commit_selector,
     };
 

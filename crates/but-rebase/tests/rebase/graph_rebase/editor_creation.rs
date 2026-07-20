@@ -94,16 +94,17 @@ fn merge_in_the_middle() -> Result<()> {
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
         snapbox::str![[r#"
-◎  refs/heads/with-inner-merge
-●  e8ee978 on top of inner merge
-●    2fc288c Merge branch 'B' into with-inner-merge
-├─╮
-◎ │  refs/heads/A
-● │  add59d2 A: 10 lines on top
-│ ◎  refs/heads/B
-│ ●  984fd1c C: new file with 10 lines
-├─╯
 ◎  refs/heads/main
+│ ◎  refs/heads/with-inner-merge
+│ ●  e8ee978 on top of inner merge
+│ ●    2fc288c Merge branch 'B' into with-inner-merge
+│ ├─╮
+│ ◎ │  refs/heads/A
+│ ● │  add59d2 A: 10 lines on top
+├─╯ │
+│   ◎  refs/heads/B
+│   ●  984fd1c C: new file with 10 lines
+├───╯
 ●  8f0d338 base
 "#]]
     );
@@ -289,18 +290,19 @@ fn first_parent_leg_long() -> Result<()> {
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
         snapbox::str![[r#"
-◎  refs/heads/with-inner-merge
-●  6ac5745 on top of inner merge
-●    d20f547 Merge branch 'B' into with-inner-merge
-├─╮
-◎ │  refs/heads/A
-● │  198d2e4 A: 10 more more lines on top
-● │  7325853 A: 10 more lines on top
-● │  add59d2 A: 10 lines on top
-│ ◎  refs/heads/B
-│ ●  984fd1c C: new file with 10 lines
-├─╯
 ◎  refs/heads/main
+│ ◎  refs/heads/with-inner-merge
+│ ●  6ac5745 on top of inner merge
+│ ●    d20f547 Merge branch 'B' into with-inner-merge
+│ ├─╮
+│ ◎ │  refs/heads/A
+│ ● │  198d2e4 A: 10 more more lines on top
+│ ● │  7325853 A: 10 more lines on top
+│ ● │  add59d2 A: 10 lines on top
+├─╯ │
+│   ◎  refs/heads/B
+│   ●  984fd1c C: new file with 10 lines
+├───╯
 ●  8f0d338 base
 "#]]
     );
@@ -364,18 +366,19 @@ fn second_parent_leg_long() -> Result<()> {
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
         snapbox::str![[r#"
-◎  refs/heads/with-inner-merge
-●  a6775ea on top of inner merge
-●    b85214b Merge branch 'B' into with-inner-merge
-├─╮
-◎ │  refs/heads/A
-● │  add59d2 A: 10 lines on top
-│ ◎  refs/heads/B
-│ ●  f87f875 C: 10 more more lines on top
-│ ●  cb181a0 C: 10 more lines on top
-│ ●  984fd1c C: new file with 10 lines
-├─╯
 ◎  refs/heads/main
+│ ◎  refs/heads/with-inner-merge
+│ ●  a6775ea on top of inner merge
+│ ●    b85214b Merge branch 'B' into with-inner-merge
+│ ├─╮
+│ ◎ │  refs/heads/A
+│ ● │  add59d2 A: 10 lines on top
+├─╯ │
+│   ◎  refs/heads/B
+│   ●  f87f875 C: 10 more more lines on top
+│   ●  cb181a0 C: 10 more lines on top
+│   ●  984fd1c C: new file with 10 lines
+├───╯
 ●  8f0d338 base
 "#]]
     );
@@ -443,18 +446,19 @@ fn workspace_with_empty_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
         snapbox::str![[r#"
-◎  refs/heads/gitbutler/workspace
-●    74bcc92 GitButler Workspace Commit
-├─╮
+◎      refs/heads/gitbutler/workspace
+├─┬─╮
+│ │ ●  74bcc92 GitButler Workspace Commit
+╭─┬─╯
 ◎ │  refs/heads/stack-1
 ● │  2169646 Commit D
 ● │  46ef828 Commit C
+│ ◎  refs/heads/stack-2
 ├─╯
 │ ◎  refs/remotes/origin/main (immutable)
 │ ◎  refs/heads/main (immutable)
 │ ●  a0f2ac5 Commit X
 ├─╯
-◎  refs/heads/stack-2
 ●  f555940 Commit A
 ●  d664be0 Commit B
 "#]]
@@ -517,14 +521,15 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
         snapbox::str![[r#"
-◎  refs/heads/gitbutler/workspace
-●      a26ae77 GitButler Workspace Commit
-├─┬─╮
-◎ │ │  refs/heads/stack-1
-│ ◎ │  refs/heads/stack-2
-├─╯ │
-│   ◎  refs/heads/stack-3
-├───╯
+◎        refs/heads/gitbutler/workspace
+├─┬─┬─╮
+│ ◎ │ │  refs/heads/stack-2
+│ │ ◎ │  refs/heads/stack-3
+│ ├─╯ │
+│ │   ●  a26ae77 GitButler Workspace Commit
+├─────╯
+◎ │  refs/heads/stack-1
+├─╯
 │ ◎  refs/remotes/origin/main (immutable)
 │ ◎  refs/heads/main (immutable)
 │ ●  1cf9cf4 Commit X
@@ -612,18 +617,19 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
         snapbox::assert_data_eq!(
             editor.steps_ascii(),
             snapbox::str![[r#"
-◎  refs/heads/gitbutler/workspace
-●    74bcc92 GitButler Workspace Commit
-├─╮
+◎      refs/heads/gitbutler/workspace
+├─┬─╮
+│ │ ●  74bcc92 GitButler Workspace Commit
+╭─┬─╯
 ◎ │  refs/heads/stack-1
 ● │  2169646 Commit D
 ● │  46ef828 Commit C
+│ ◎  refs/heads/stack-2
 ├─╯
 │ ◎  refs/remotes/origin/main (immutable)
 │ ◎  refs/heads/main (immutable)
 │ ●  a0f2ac5 Commit X
 ├─╯
-◎  refs/heads/stack-2
 ●  f555940 Commit A
 ●  d664be0 Commit B
 "#]]
@@ -657,18 +663,19 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
         snapbox::assert_data_eq!(
             editor.steps_ascii(),
             snapbox::str![[r#"
-◎  refs/heads/gitbutler/workspace
-●    74bcc92 GitButler Workspace Commit
-├─╮
+◎      refs/heads/gitbutler/workspace
+├─┬─╮
+│ │ ●  74bcc92 GitButler Workspace Commit
+╭─┬─╯
 ◎ │  refs/heads/stack-1
 ● │  2169646 Commit D
 ● │  46ef828 Commit C
+│ ◎  refs/heads/stack-2
 ├─╯
 │ ◎  refs/remotes/origin/main (immutable)
 │ ◎  refs/heads/main
 │ ●  a0f2ac5 Commit X
 ├─╯
-◎  refs/heads/stack-2
 ●  f555940 Commit A
 ●  d664be0 Commit B
 "#]]
@@ -747,7 +754,8 @@ fn merge_first_parent_older_than_second() -> Result<()> {
 │ ●  553bbf7 new commit 2 on second-parent
 │ ●  72614bb new commit 1 on second-parent
 ├─╯
-◎  refs/heads/main
+│ ◎  refs/heads/main
+├─╯
 ●  793a434 base
 "#]]
     );
@@ -849,5 +857,97 @@ fn unborn_head_is_a_single_mutable_reference() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     assert_eq!(editor.steps_ascii(), format!("◎  {head_name}"));
+    Ok(())
+}
+
+/// A metadata-backed workspace reference whose tip is a plain commit rather
+/// than a managed workspace commit still creates an editor: the workspace ref
+/// is an ordinary mutable reference above its actual target.
+#[test]
+fn workspace_reference_without_managed_commit() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-without-managed-commit")?;
+    add_stack_with_segments(&mut meta, 1, "main", StackState::InWorkspace, &[]);
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 1b78c63 (HEAD -> gitbutler/workspace) just a normal commit
+* 4d41a5c (origin/main, main) one
+* 965998b base
+
+"#]]
+    );
+
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    snapbox::assert_data_eq!(
+        editor.steps_ascii(),
+        snapbox::str![[r#"
+◎    refs/heads/gitbutler/workspace
+├─╮
+│ ●  1b78c63 just a normal commit
+├─╯
+│ ◎  refs/remotes/origin/main (immutable)
+├─╯
+◎  refs/heads/main
+●  4d41a5c one
+●  965998b base
+"#]]
+    );
+    let workspace_ref = gix::refs::FullName::try_from("refs/heads/gitbutler/workspace")?;
+    let (_, target) = editor.find_reference_target(workspace_ref.as_ref())?;
+    assert_eq!(
+        target.id,
+        repo.rev_parse_single("gitbutler/workspace")?.detach(),
+        "the workspace ref targets its actual commit, not a stack overlay"
+    );
+
+    Ok(())
+}
+
+/// A remote-tracking reference placed inline on the HEAD ancestry (its remote
+/// is behind the local branch) is reachable from the mutable entrypoint, but
+/// must never become mutable itself.
+#[test]
+fn inline_remote_ref_on_head_ancestry_stays_immutable() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+    let behind = repo.rev_parse_single("main~2")?.detach();
+    repo.reference(
+        "refs/remotes/origin/main",
+        behind,
+        gix::refs::transaction::PreviousValue::Any,
+        "remote behind local",
+    )?;
+
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    snapbox::assert_data_eq!(
+        editor.steps_ascii(),
+        snapbox::str![[r#"
+◎  refs/heads/main
+●  120e3a9 c
+●  a96434e b
+◎  refs/remotes/origin/main (immutable)
+●  d591dfe a
+●  35b8235 base
+"#]]
+    );
+
     Ok(())
 }

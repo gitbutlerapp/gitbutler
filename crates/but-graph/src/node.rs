@@ -154,7 +154,8 @@ impl NodeGraph {
                     }
                     NodeKind::Commit { .. }
                     | NodeKind::Reference(_)
-                    | NodeKind::Boundary { .. } => None,
+                    | NodeKind::Boundary { .. }
+                    | NodeKind::None => None,
                 })
             {
                 ensure!(
@@ -213,6 +214,9 @@ impl NodeGraph {
                         annotation.is_empty(),
                         "BUG: reference node {index} has commit annotations"
                     );
+                }
+                NodeKind::None => {
+                    bail!("BUG: validated graphs must not contain None node {index}");
                 }
                 NodeKind::Boundary { id, reason } => {
                     ensure!(
@@ -352,6 +356,9 @@ impl NodeGraph {
                             "BUG: reference node {index} targets {expected_id}, but its parent chain reaches a shallow boundary"
                         );
                     }
+                    NodeKind::None => {
+                        bail!("BUG: validated graphs must not contain None node {parent}");
+                    }
                 }
             }
         }
@@ -408,14 +415,29 @@ pub struct Node {
 }
 
 impl Node {
+    /// Create a node from its data and ordered parent indexes.
+    pub fn new(kind: NodeKind, parents: Vec<NodeIndex>) -> Self {
+        Self { kind, parents }
+    }
+
     /// Return the data stored at this node.
     pub fn kind(&self) -> &NodeKind {
         &self.kind
     }
 
+    /// Replace the data stored at this node.
+    pub fn set_kind(&mut self, kind: NodeKind) -> NodeKind {
+        std::mem::replace(&mut self.kind, kind)
+    }
+
     /// Return ordered parent indexes.
     pub fn parents(&self) -> &[NodeIndex] {
         &self.parents
+    }
+
+    /// Return mutable access to the ordered parent indexes.
+    pub fn parents_mut(&mut self) -> &mut Vec<NodeIndex> {
+        &mut self.parents
     }
 }
 
@@ -439,6 +461,11 @@ pub enum NodeKind {
         /// Why traversal stopped here.
         reason: BoundaryKind,
     },
+    /// A placeholder left behind when an editor removes a commit or reference.
+    ///
+    /// Traversal resolves through it to its parents. Graph construction never
+    /// produces this kind, and validated graphs must not contain it.
+    None,
 }
 
 impl NodeKind {
@@ -457,7 +484,8 @@ impl NodeKind {
             | NodeKind::Boundary {
                 reason: BoundaryKind::Shallow,
                 ..
-            } => None,
+            }
+            | NodeKind::None => None,
         }
     }
 }

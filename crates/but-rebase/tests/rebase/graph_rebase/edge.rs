@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use but_core::Commit;
-use but_rebase::graph_rebase::{Editor, Step, testing::Testing as _};
+use but_rebase::graph_rebase::{Editor, LookupStep as _, Step, testing::Testing as _};
 use gix::prelude::ObjectIdExt;
 
 use crate::utils::{fixture, fixture_writable};
@@ -57,7 +57,7 @@ fn adding_a_step_returns_a_selector_that_can_be_connected_into_the_graph() -> Re
 }
 
 #[test]
-fn adding_an_existing_edge_causes_an_error() -> Result<()> {
+fn adding_an_edge_at_an_occupied_slot_inserts_before_it() -> Result<()> {
     let (repo, mut meta) = fixture("four-commits")?;
 
     let graph = but_graph::Graph::from_repo(
@@ -71,17 +71,20 @@ fn adding_an_existing_edge_causes_an_error() -> Result<()> {
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
-    let a = repo.rev_parse_single("HEAD~2")?.detach();
+    let base = repo.rev_parse_single("HEAD~3")?.detach();
     let b_selector = editor.select_commit(b)?;
-    let a_selector = editor.select_commit(a)?;
+    let base_selector = editor.select_commit(base)?;
 
-    let err = editor
-        .add_edge(b_selector, a_selector, 0)
-        .expect_err("adding an existing edge order should fail");
+    // `b` already has `a` as its sole parent; inserting `base` at slot 0
+    // shifts `a` to the second parent slot.
+    editor.add_edge(b_selector, base_selector, 0)?;
 
+    let parents = editor.direct_parents(b_selector)?;
+    assert_eq!(parents.len(), 2, "the existing parent is kept");
     assert_eq!(
-        err.to_string(),
-        "An edge with desired order 0 already exists"
+        editor.lookup_pick(parents[0].0)?,
+        base,
+        "the new parent takes the requested slot"
     );
 
     Ok(())
@@ -140,18 +143,18 @@ fn adding_a_valid_edge_is_successful() -> Result<()> {
     snapbox::assert_data_eq!(
         editor.steps_ascii(),
         snapbox::str![[r#"
-◎  refs/heads/with-inner-merge
-●  e8ee978 on top of inner merge
-●    2fc288c Merge branch 'B' into with-inner-merge
-├─╮
-◎ │  refs/heads/A
-● │    add59d2 A: 10 lines on top
-├───╮
-│ ◎ │  refs/heads/B
+◎  refs/heads/main
+│ ◎  refs/heads/with-inner-merge
+│ ●  e8ee978 on top of inner merge
+│ ●    2fc288c Merge branch 'B' into with-inner-merge
+│ ├─╮
+│ ◎ │  refs/heads/A
+│ ● │  add59d2 A: 10 lines on top
+╭─┤ │
+│ │ ◎  refs/heads/B
 │ ├─╯
 │ ●  984fd1c C: new file with 10 lines
 ├─╯
-◎  refs/heads/main
 ●  8f0d338 base
 "#]]
     );

@@ -5,7 +5,6 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{Context, Result, bail};
 use but_core::{RefMetadata, commit::tree_expression::TreeExpression};
 use gix::prelude::ObjectIdExt;
-use petgraph::Direction;
 
 use crate::graph_rebase::{Editor, Pick, Step, StepGraphIndex, util::collect_ordered_parents};
 
@@ -244,11 +243,8 @@ fn traverse_graph_for_planning<M: RefMetadata>(
     let mut seen_normal = HashSet::<StepGraphIndex>::new();
     let mut seen_target_ancestor_walk = HashSet::<StepGraphIndex>::new();
 
-    let mut roots = editor
-        .graph
-        .externals(Direction::Incoming)
-        .collect::<Vec<StepGraphIndex>>();
-    roots.sort_unstable_by_key(|idx| idx.index());
+    let mut roots = editor.graph.child_most();
+    roots.sort_unstable();
 
     for root in roots {
         let mut stack = vec![(root, false, TraversalMode::Normal)];
@@ -256,7 +252,7 @@ fn traverse_graph_for_planning<M: RefMetadata>(
             match mode {
                 TraversalMode::Normal => {
                     if expanded {
-                        if let Step::Pick(Pick { id, .. }) = editor.graph[node] {
+                        if let Step::Pick(Pick { id, .. }) = editor.graph.step(node) {
                             if let Some(first_parent_metadata) =
                                 get_first_parent_metadata(editor, id, selected_commit_ids)?
                             {
@@ -297,7 +293,7 @@ fn traverse_graph_for_planning<M: RefMetadata>(
                         continue;
                     }
 
-                    if let Step::Pick(Pick { id, .. }) = editor.graph[node] {
+                    if let Step::Pick(Pick { id, .. }) = editor.graph.step(node) {
                         traversal.target_ancestor_commit_ids.insert(id);
                     }
 

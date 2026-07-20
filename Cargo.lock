@@ -1536,7 +1536,6 @@ dependencies = [
  "but-testsupport",
  "gitbutler-reference",
  "gix",
- "petgraph",
  "sapling-renderdag",
  "schemars 1.2.1",
  "serde",
@@ -7636,7 +7635,6 @@ dependencies = [
  "fixedbitset 0.5.7",
  "hashbrown 0.15.5",
  "indexmap 2.14.0",
- "serde",
 ]
 
 [[package]]

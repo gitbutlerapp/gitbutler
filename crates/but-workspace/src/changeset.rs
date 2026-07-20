@@ -337,7 +337,7 @@ fn first_parent_contains_commit(
                 }
                 node.parents().last().copied()
             }
-            but_graph::NodeKind::Boundary { .. } => None,
+            but_graph::NodeKind::Boundary { .. } | but_graph::NodeKind::None => None,
         };
     }
     false
@@ -366,7 +366,7 @@ fn collect_reachable_commit_ids(
                 out.push(*id);
                 pending.extend(node.parents().iter().rev().copied());
             }
-            but_graph::NodeKind::Reference(_) => {
+            but_graph::NodeKind::Reference(_) | but_graph::NodeKind::None => {
                 pending.extend(node.parents().iter().rev().copied());
             }
             but_graph::NodeKind::Boundary { .. } => {}
@@ -398,7 +398,7 @@ fn commit_id_at(graph: &but_graph::Graph, start: but_graph::NodeIndex) -> Option
     match graph.nodes().get(start)?.kind() {
         but_graph::NodeKind::Commit { id } => Some(*id),
         but_graph::NodeKind::Reference(reference) => reference.ref_info.commit_id,
-        but_graph::NodeKind::Boundary { .. } => None,
+        but_graph::NodeKind::Boundary { .. } | but_graph::NodeKind::None => None,
     }
 }
 

@@ -257,9 +257,9 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
                 }
                 match node.kind() {
                     but_graph::NodeKind::Commit { id } => Some(*id),
-                    but_graph::NodeKind::Reference(_) | but_graph::NodeKind::Boundary { .. } => {
-                        None
-                    }
+                    but_graph::NodeKind::Reference(_)
+                    | but_graph::NodeKind::Boundary { .. }
+                    | but_graph::NodeKind::None => None,
                 }
             })
             .collect()

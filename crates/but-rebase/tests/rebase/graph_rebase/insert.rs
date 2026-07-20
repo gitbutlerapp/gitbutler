@@ -322,3 +322,67 @@ fn insert_above_commit_with_two_children() -> Result<()> {
 fn inserts_violating_fp_protection_should_cause_rebase_failure() -> Result<()> {
     panic!("Branch protection hasn't been implemented yet");
 }
+
+/// Inserting below a workspace reference only interposes on its target edge;
+/// stack-overlay parent edges stay on the reference instead of turning the
+/// inserted commit into an octopus merge.
+#[test]
+fn insert_below_workspace_ref_keeps_overlay_edges_on_the_ref() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-three-empty-stacks")?;
+    crate::graph_rebase::add_stack_with_segments(
+        &mut meta,
+        1,
+        "stack-1",
+        but_testsupport::StackState::InWorkspace,
+        &[],
+    );
+    crate::graph_rebase::add_stack_with_segments(
+        &mut meta,
+        2,
+        "stack-2",
+        but_testsupport::StackState::InWorkspace,
+        &[],
+    );
+    crate::graph_rebase::add_stack_with_segments(
+        &mut meta,
+        3,
+        "stack-3",
+        but_testsupport::StackState::InWorkspace,
+        &[],
+    );
+
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let workspace_ref = gix::refs::FullName::try_from("refs/heads/gitbutler/workspace")?;
+    let workspace_ref_selector = editor.select_reference(workspace_ref.as_ref())?;
+    let overlay_legs = editor.direct_parents(workspace_ref_selector)?.len() - 1;
+    assert!(overlay_legs > 0, "the workspace ref carries overlay edges");
+    let workspace_commit = repo.rev_parse_single("gitbutler/workspace")?.detach();
+
+    let inserted = editor.insert(
+        workspace_ref_selector,
+        Step::new_untracked_pick(workspace_commit),
+        InsertSide::Below,
+    )?;
+
+    assert_eq!(
+        editor.direct_parents(inserted)?.len(),
+        1,
+        "the inserted step only interposes on the reference's target edge"
+    );
+    assert_eq!(
+        editor.direct_parents(workspace_ref_selector)?.len(),
+        1 + overlay_legs,
+        "the reference keeps its overlay edges plus the edge to the inserted step"
+    );
+
+    Ok(())
+}

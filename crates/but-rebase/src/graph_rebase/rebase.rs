@@ -1,76 +1,46 @@
 //! Perform the actual rebase operations
 
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    fmt::Write as _,
-};
+use std::{collections::VecDeque, fmt::Write as _};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Result, bail};
 use but_core::RefMetadata;
 use gix::refs::{
     Target,
     transaction::{Change, LogChange, PreviousValue, RefEdit},
 };
-use petgraph::{Direction, visit::EdgeRef};
 
 use crate::graph_rebase::{
     Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase,
     cherry_pick::{CherryPickOutcome, cherry_pick},
-    util::collect_ordered_parents,
+    util::{collect_ordered_parents, resolve_to_commit},
 };
 
 impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
     /// Perform the rebase
     pub fn rebase(self) -> Result<SuccessfulRebase<'ws, 'graph, M>> {
-        // First we want to get a list of nodes that can be reached by
-        // traversing downwards from the heads that we care about.
-        // Usually there would be just one "head" which is an index to access
-        // the reference step for `gitbutler/workspace`, but there could be
-        // multiple.
-
         let mut ref_edits = vec![];
-        // Every external (a node with no children) seeds the traversal so the
-        // output graph keeps every commit - immutable picks are copied verbatim
-        // rather than cherry-picked.
-        let rebase_heads = self
-            .graph
-            .externals(Direction::Incoming)
-            .collect::<Vec<_>>();
-        let steps_to_pick = order_steps_picking(&self.graph, &rebase_heads);
-
-        // A 1 to 1 mapping between the incoming graph and the output graph
-        let mut graph_mapping: HashMap<StepGraphIndex, StepGraphIndex> = HashMap::new();
-        // The step graph with updated commit oids
-        let mut output_graph = StepGraph::new();
         let mut unchanged_references = vec![];
-
         let mut history = self.history;
 
-        for step_idx in steps_to_pick {
-            // Do the frikkin rebase man!
-            let step = self.graph[step_idx].clone();
-            let new_idx = match step {
-                Step::Pick(pick) if !pick.mutable => {
-                    // Immutable picks are copied verbatim: the commit keeps its
-                    // id, so there's no cherry-pick to run and nothing to record
-                    // in the history mapping.
-                    output_graph.add_node(Step::Pick(pick))
-                }
+        // The output graph shares the input's indexes; only commit ids change.
+        let mut output_graph = self.graph.clone();
+
+        // Process parents before children so every pick lands on already
+        // rewritten parents.
+        for step_idx in topological_order(&self.graph)? {
+            match self.graph.step(step_idx) {
+                // Immutable picks are copied verbatim: the commit keeps its
+                // id, so there's no cherry-pick to run and nothing to record
+                // in the history mapping.
+                Step::Pick(pick) if !pick.mutable => {}
                 Step::Pick(pick) => {
-                    let graph_parents = collect_ordered_parents(&self.graph, step_idx);
                     let ontos = match pick.preserved_parents.clone() {
                         Some(ontos) => ontos,
-                        None => graph_parents
-                            .iter()
-                            .map(|idx| {
-                                let Some(new_idx) = graph_mapping.get(idx) else {
-                                    bail!("A matching parent can't be found in the output graph");
-                                };
-
-                                match output_graph[*new_idx] {
-                                    Step::Pick(Pick { id, .. }) => Ok(id),
-                                    _ => bail!("A parent in the output graph is not a pick"),
-                                }
+                        None => collect_ordered_parents(&output_graph, step_idx)
+                            .into_iter()
+                            .map(|parent| match output_graph.step(parent) {
+                                Step::Pick(Pick { id, .. }) => Ok(id),
+                                _ => bail!("A parent in the output graph is not a pick"),
                             })
                             .collect::<Result<Vec<_>>>()?,
                     };
@@ -99,13 +69,10 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                         | CherryPickOutcome::Identity(new_id) => {
                             let mut new_pick = pick.clone();
                             new_pick.id = new_id;
-                            let new_idx = output_graph.add_node(Step::Pick(new_pick));
-                            graph_mapping.insert(step_idx, new_idx);
+                            output_graph.set_step(step_idx, Step::Pick(new_pick));
                             if !pick.exclude_from_tracking {
                                 history.update_mapping(pick.id, new_id);
                             }
-
-                            new_idx
                         }
                         CherryPickOutcome::FailedToMergeBases {
                             base_merge_failed,
@@ -127,79 +94,61 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                 Step::Reference { refname, mutable } => {
                     // Immutable references are kept in the graph for traversal
                     // but never moved, created, or deleted.
-                    if mutable {
-                        let graph_parents = collect_ordered_parents(&self.graph, step_idx);
-                        let first_parent_idx = graph_parents
-                            .first()
-                            .context("References should have at least one parent")?;
-                        let Some(new_idx) = graph_mapping.get(first_parent_idx) else {
-                            bail!("A matching parent can't be found in the output graph");
-                        };
+                    if !mutable {
+                        continue;
+                    }
+                    if refname.category() != Some(gix::refs::Category::LocalBranch) {
+                        bail!(
+                            "BUG: only local branches may be moved or created, but {refname} is marked mutable"
+                        );
+                    }
+                    let Some(target) = resolve_to_commit(&output_graph, step_idx) else {
+                        bail!("References should have at least one parent");
+                    };
+                    let Step::Pick(Pick { id: to_reference, .. }) = output_graph.step(target)
+                    else {
+                        bail!("A parent in the output graph is not a pick");
+                    };
 
-                        let to_reference = match output_graph[*new_idx] {
-                            Step::Pick(Pick { id, .. }) => id,
-                            _ => bail!("A parent in the output graph is not a pick"),
-                        };
+                    let reference = self.repo.try_find_reference(&refname)?;
 
-                        let reference = self.repo.try_find_reference(&refname)?;
-
-                        if let Some(reference) = reference {
-                            let target = reference.target();
-                            match target {
-                                gix::refs::TargetRef::Object(id) => {
-                                    if id == to_reference {
-                                        unchanged_references.push(refname.clone());
-                                    } else {
-                                        ref_edits.push(RefEdit {
-                                            name: refname.clone(),
-                                            change: Change::Update {
-                                                log: LogChange::default(),
-                                                expected: PreviousValue::MustExistAndMatch(
-                                                    target.into(),
-                                                ),
-                                                new: Target::Object(to_reference),
-                                            },
-                                            deref: false,
-                                        });
-                                    }
-                                }
-                                gix::refs::TargetRef::Symbolic(name) => {
-                                    bail!("Attempted to update the symbolic reference {name}");
+                    if let Some(reference) = reference {
+                        let target = reference.target();
+                        match target {
+                            gix::refs::TargetRef::Object(id) => {
+                                if id == to_reference {
+                                    unchanged_references.push(refname.clone());
+                                } else {
+                                    ref_edits.push(RefEdit {
+                                        name: refname.clone(),
+                                        change: Change::Update {
+                                            log: LogChange::default(),
+                                            expected: PreviousValue::MustExistAndMatch(
+                                                target.into(),
+                                            ),
+                                            new: Target::Object(to_reference),
+                                        },
+                                        deref: false,
+                                    });
                                 }
                             }
-                        } else {
-                            ref_edits.push(RefEdit {
-                                name: refname.clone(),
-                                change: Change::Update {
-                                    log: LogChange::default(),
-                                    expected: PreviousValue::MustNotExist,
-                                    new: Target::Object(to_reference),
-                                },
-                                deref: false,
-                            });
+                            gix::refs::TargetRef::Symbolic(name) => {
+                                bail!("Attempted to update the symbolic reference {name}");
+                            }
                         }
+                    } else {
+                        ref_edits.push(RefEdit {
+                            name: refname.clone(),
+                            change: Change::Update {
+                                log: LogChange::default(),
+                                expected: PreviousValue::MustNotExist,
+                                new: Target::Object(to_reference),
+                            },
+                            deref: false,
+                        });
                     }
-
-                    output_graph.add_node(Step::Reference { refname, mutable })
                 }
-                Step::None => output_graph.add_node(Step::None),
-            };
-
-            graph_mapping.insert(step_idx, new_idx);
-
-            let mut edges = self
-                .graph
-                .edges_directed(step_idx, petgraph::Direction::Outgoing)
-                .collect::<Vec<_>>();
-            edges.sort_by_key(|e| e.weight().order);
-            edges.reverse();
-
-            for e in edges {
-                let Some(new_parent) = graph_mapping.get(&e.target()) else {
-                    bail!("Failed to find corresponding parent");
-                };
-
-                output_graph.add_edge(new_idx, *new_parent, e.weight().clone());
+                Step::None => {}
             }
         }
 
@@ -224,7 +173,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             }
         }
 
-        history.add_revision(graph_mapping);
+        history.add_revision(self.graph.indices().map(|index| (index, index)).collect());
 
         Ok(SuccessfulRebase {
             repo: self.repo,
@@ -240,59 +189,38 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
     }
 }
 
-/// Creates a list of step indicies ordered in the dependency order.
-///
-/// We do this by first doing a breadth-first traversal down from the heads
-/// (which would usually be the `gitbutler/workspace` reference step) in order
-/// to determine which steps are reachable, and what the bottom most steps are.
-///
-/// Then, we do a second traversal up from those bottom most
-/// steps.
-///
-/// This second traversal ensures that all the parents of any given node have
-/// been seen, before traversing it.
-fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<StepGraphIndex> {
-    let mut heads = heads.to_vec();
-    let mut seen = heads.iter().cloned().collect::<HashSet<StepGraphIndex>>();
-    // Reachable nodes with no outgoing nodes.
-    let mut bases = VecDeque::new();
-
-    while let Some(head) = heads.pop() {
-        let edges = graph.edges_directed(head, petgraph::Direction::Outgoing);
-
-        if edges.clone().count() == 0 {
-            bases.push_back(head);
-            continue;
+/// All step indexes ordered parents-first, so every node is visited only after
+/// all of its parents.
+fn topological_order(graph: &StepGraph) -> Result<Vec<StepGraphIndex>> {
+    let mut remaining_parents = graph
+        .indices()
+        .map(|index| graph.parents(index).len())
+        .collect::<Vec<_>>();
+    let mut children: Vec<Vec<StepGraphIndex>> = vec![Vec::new(); graph.len()];
+    for index in graph.indices() {
+        for parent in graph.parents(index) {
+            children[*parent].push(index);
         }
+    }
 
-        for edge in edges {
-            let t = edge.target();
-            if seen.insert(t) {
-                heads.push(t);
+    let mut ready = graph
+        .indices()
+        .filter(|index| remaining_parents[*index] == 0)
+        .collect::<VecDeque<_>>();
+    let mut ordered = Vec::with_capacity(graph.len());
+    while let Some(index) = ready.pop_front() {
+        ordered.push(index);
+        for child in &children[index] {
+            remaining_parents[*child] -= 1;
+            if remaining_parents[*child] == 0 {
+                ready.push_back(*child);
             }
         }
     }
-
-    // Now we want to create a vector that contains all the steps in
-    // dependency order.
-    let mut ordered = bases.clone();
-    let mut retraversed = bases.iter().cloned().collect::<HashSet<_>>();
-
-    while let Some(base) = bases.pop_front() {
-        for edge in graph.edges_directed(base, petgraph::Direction::Incoming) {
-            // We only want to queue nodes for traversing that have had all of their parents traversed.
-            let s = edge.source();
-            let mut outgoing_edges = graph.edges_directed(s, petgraph::Direction::Outgoing);
-            let all_parents_seen = outgoing_edges.clone().count() == 0
-                || outgoing_edges.all(|e| retraversed.contains(&e.target()));
-            if all_parents_seen && seen.contains(&s) && retraversed.insert(s) {
-                bases.push_back(s);
-                ordered.push_back(s);
-            };
-        }
+    if ordered.len() != graph.len() {
+        bail!("BUG: the step graph contains a cycle");
     }
-
-    ordered
+    Ok(ordered)
 }
 
 fn format_base_merge_error(
@@ -342,208 +270,80 @@ fn format_base_merge_error(
 
 #[cfg(test)]
 mod test {
-    mod order_steps_picking {
+    mod topological_order {
         use std::str::FromStr;
 
         use anyhow::Result;
 
         use crate::graph_rebase::{
-            Edge, Step, StepGraph, rebase::order_steps_picking, testing::render_ascii_graph,
+            Step, StepGraph, rebase::topological_order, testing::render_ascii_graph,
         };
 
-        #[test]
-        fn basic_scenario() -> Result<()> {
-            let mut graph = StepGraph::new();
-            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "1000000000000000000000000000000000000000",
-            )?));
-            let b = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "2000000000000000000000000000000000000000",
-            )?));
-            let c = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "3000000000000000000000000000000000000000",
-            )?));
+        fn pick(graph: &mut StepGraph, byte: u8) -> usize {
+            let id =
+                gix::ObjectId::from_str(&format!("{byte:040x}")).expect("valid test object id");
+            graph.add_node(Step::new_pick(id))
+        }
 
-            graph.add_edge(a, b, Edge { order: 0 });
-            graph.add_edge(b, c, Edge { order: 0 });
+        #[test]
+        fn parents_come_before_children() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a = pick(&mut graph, 0x10);
+            let b = pick(&mut graph, 0x20);
+            let c = pick(&mut graph, 0x30);
+
+            *graph.parents_mut(a) = vec![b];
+            *graph.parents_mut(b) = vec![c];
 
             snapbox::assert_data_eq!(
                 render_ascii_graph(&graph, |_| None),
                 snapbox::str![[r#"
-●  1000000
-●  2000000
-●  3000000
+●  0000000
+●  0000000
+●  0000000
 "#]]
             );
 
-            let ordered_from_a = order_steps_picking(&graph, &[a]);
-            assert_eq!(&ordered_from_a, &[c, b, a]);
-            let ordered_from_b = order_steps_picking(&graph, &[b]);
-            assert_eq!(&ordered_from_b, &[c, b]);
-            let ordered_from_c = order_steps_picking(&graph, &[c]);
-            assert_eq!(&ordered_from_c, &[c]);
-
+            let ordered = topological_order(&graph)?;
+            assert_eq!(&ordered, &[c, b, a]);
             Ok(())
         }
 
         #[test]
-        fn complex_scenario() -> Result<()> {
+        fn merge_parents_come_before_the_merge() -> Result<()> {
             let mut graph = StepGraph::new();
-            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "1000000000000000000000000000000000000000",
-            )?));
-            let b = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "2000000000000000000000000000000000000000",
-            )?));
-            let c = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "3000000000000000000000000000000000000000",
-            )?));
-            let d = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "4000000000000000000000000000000000000000",
-            )?));
-            let e = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "5000000000000000000000000000000000000000",
-            )?));
-            let f = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "6000000000000000000000000000000000000000",
-            )?));
-            let g = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "7000000000000000000000000000000000000000",
-            )?));
-            let h = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "8000000000000000000000000000000000000000",
-            )?));
-            let i = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "9000000000000000000000000000000000000000",
-            )?));
-            let j = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "1100000000000000000000000000000000000000",
-            )?));
+            let merge = pick(&mut graph, 0x10);
+            let left = pick(&mut graph, 0x20);
+            let right = pick(&mut graph, 0x30);
+            let base = pick(&mut graph, 0x40);
 
-            graph.add_edge(a, b, Edge { order: 0 });
-            graph.add_edge(b, c, Edge { order: 0 });
-            graph.add_edge(c, d, Edge { order: 0 });
-            graph.add_edge(d, e, Edge { order: 0 });
+            *graph.parents_mut(merge) = vec![left, right];
+            *graph.parents_mut(left) = vec![base];
+            *graph.parents_mut(right) = vec![base];
 
-            graph.add_edge(f, g, Edge { order: 0 });
-            graph.add_edge(g, c, Edge { order: 0 });
-
-            graph.add_edge(h, d, Edge { order: 0 });
-
-            graph.add_edge(i, j, Edge { order: 0 });
-
-            snapbox::assert_data_eq!(
-                render_ascii_graph(&graph, |_| None),
-                snapbox::str![[r#"
-●  1000000
-●  2000000
-│ ●  6000000
-│ ●  7000000
-├─╯
-●  3000000
-│ ●  8000000
-├─╯
-●  4000000
-●  5000000
-●  9000000
-●  1100000
-"#]]
-            );
-
-            let ordered_from_a = order_steps_picking(&graph, &[f, h]);
-            assert_eq!(&ordered_from_a, &[e, d, h, c, g, f]);
-
+            let ordered = topological_order(&graph)?;
+            let position = |index: usize| {
+                ordered
+                    .iter()
+                    .position(|candidate| *candidate == index)
+                    .expect("every node is ordered")
+            };
+            assert!(position(base) < position(left));
+            assert!(position(base) < position(right));
+            assert!(position(left) < position(merge));
+            assert!(position(right) < position(merge));
             Ok(())
         }
 
         #[test]
-        fn merge_scenario() -> Result<()> {
+        fn a_cycle_is_an_error() {
             let mut graph = StepGraph::new();
-            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "1000000000000000000000000000000000000000",
-            )?));
-            let b = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "2000000000000000000000000000000000000000",
-            )?));
-            let c = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "3000000000000000000000000000000000000000",
-            )?));
-            let d = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "4000000000000000000000000000000000000000",
-            )?));
-            let e = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "5000000000000000000000000000000000000000",
-            )?));
+            let a = pick(&mut graph, 0x10);
+            let b = pick(&mut graph, 0x20);
+            *graph.parents_mut(a) = vec![b];
+            *graph.parents_mut(b) = vec![a];
 
-            graph.add_edge(a, b, Edge { order: 0 });
-            graph.add_edge(b, c, Edge { order: 0 });
-
-            graph.add_edge(a, d, Edge { order: 1 });
-            graph.add_edge(d, e, Edge { order: 0 });
-            graph.add_edge(e, b, Edge { order: 0 });
-
-            snapbox::assert_data_eq!(
-                render_ascii_graph(&graph, |_| None),
-                snapbox::str![[r#"
-●    1000000
-├─╮
-│ ●  4000000
-│ ●  5000000
-├─╯
-●  2000000
-●  3000000
-"#]]
-            );
-
-            let ordered_from_a = order_steps_picking(&graph, &[a]);
-            assert_eq!(&ordered_from_a, &[c, b, e, d, a]);
-
-            Ok(())
-        }
-
-        #[test]
-        fn merge_flipped_scenario() -> Result<()> {
-            let mut graph = StepGraph::new();
-            let a = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "1000000000000000000000000000000000000000",
-            )?));
-            let b = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "2000000000000000000000000000000000000000",
-            )?));
-            let c = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "3000000000000000000000000000000000000000",
-            )?));
-            let d = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "4000000000000000000000000000000000000000",
-            )?));
-            let e = graph.add_node(Step::new_pick(gix::ObjectId::from_str(
-                "5000000000000000000000000000000000000000",
-            )?));
-
-            graph.add_edge(a, d, Edge { order: 0 });
-            graph.add_edge(d, e, Edge { order: 0 });
-            graph.add_edge(e, b, Edge { order: 0 });
-            graph.add_edge(b, c, Edge { order: 0 });
-
-            graph.add_edge(a, b, Edge { order: 1 });
-
-            snapbox::assert_data_eq!(
-                render_ascii_graph(&graph, |_| None),
-                snapbox::str![[r#"
-●    1000000
-├─╮
-● │  4000000
-● │  5000000
-├─╯
-●  2000000
-●  3000000
-"#]]
-            );
-
-            let ordered_from_a = order_steps_picking(&graph, &[a]);
-            assert_eq!(&ordered_from_a, &[c, b, e, d, a]);
-
-            Ok(())
+            assert!(topological_order(&graph).is_err());
         }
     }
 }

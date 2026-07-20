@@ -130,6 +130,7 @@ fn emit_statistics(graph: &but_graph::Graph, err: &mut dyn io::Write) -> Result<
             but_graph::NodeKind::Commit { .. } => commits += 1,
             but_graph::NodeKind::Reference(_) => references += 1,
             but_graph::NodeKind::Boundary { .. } => shallow_points += 1,
+            but_graph::NodeKind::None => {}
         }
     }
     let edges = graph
@@ -166,6 +167,7 @@ pub(super) fn node_graph_dot(graph: &but_graph::Graph) -> String {
             but_graph::NodeKind::Boundary { id, reason } => {
                 format!("{} {}", id.to_hex_with_len(7), reason.debug_string())
             }
+            but_graph::NodeKind::None => "no-op".into(),
         };
         writeln!(out, "  {index} [label={label:?}];").expect("writing to a string cannot fail");
         for (order, parent) in node.parents().iter().enumerate() {

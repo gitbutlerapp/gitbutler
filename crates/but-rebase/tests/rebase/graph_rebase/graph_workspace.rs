@@ -146,7 +146,6 @@ fn overlapping_stacks_merge_into_one() -> Result<()> {
 ◎  refs/heads/stack-1
 ●  2169646 Commit D
 ●  46ef828 Commit C
-◎  refs/heads/stack-2
 ●  f555940 Commit A
 ●  d664be0 Commit B
 ●  fafd9d0 init
@@ -189,12 +188,12 @@ fn three_stacks_same_base_collapse() -> Result<()> {
 
 /// Two divergent branches sharing `base`, bounded by a target at `base`.
 ///
-/// They still merge into a single stack: the target excludes the base *commit*,
-/// but the `main`/`origin/main` *ref node* sitting just above it survives and is
-/// reachable from both branches, so they share a node and collapse. A target
-/// alone does not separate stacks that branch off a common ref.
+/// The target excludes the base commit, and the `main`/`origin/main` ref nodes
+/// hang beside it rather than sitting on either branch's ancestry (a reference
+/// with several commit children is never inline), so the stacks share no node
+/// and stay separate.
 #[test]
-fn divergent_stacks_sharing_base_merge_with_target() -> Result<()> {
+fn divergent_stacks_with_target_stay_separate() -> Result<()> {
     let (repo, _tmp, _meta) = fixture_writable("workspace-two-stacks")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -225,11 +224,11 @@ fn divergent_stacks_sharing_base_merge_with_target() -> Result<()> {
 ◎  refs/heads/stack-a
 ●  49c06ff A2
 ●  ff76d2f A1
-│ ◎  refs/heads/stack-b
-│ ●  afc3f8f B2
-│ ●  b3ee99c B1
-├─╯
-◎  refs/heads/main
+
+# Stack 1
+◎  refs/heads/stack-b
+●  afc3f8f B2
+●  b3ee99c B1
 "#]]
     );
     Ok(())
@@ -256,7 +255,6 @@ fn divergent_stacks_sharing_base_merge() -> Result<()> {
 │ ●  afc3f8f B2
 │ ●  b3ee99c B1
 ├─╯
-◎  refs/heads/main
 ●  965998b base
 "#]]
     );
@@ -368,11 +366,9 @@ fn disjoint_stacks_stay_separate() -> Result<()> {
     Ok(())
 }
 
-/// The direct contrast to `divergent_stacks_sharing_base_merge_with_target`:
-/// the *same* target (`main`), but the two stacks share no node, so they stay
-/// separate. This is the shape that sidesteps the known limitation documented on
-/// `GraphWorkspace::stacks` - the target trims `base` off `stack-a` without the
-/// shared `main` ref node collapsing the two stacks together.
+/// The same target (`main`) on genuinely disjoint stacks: the target trims
+/// `base` off `stack-a`, and the orphan `stack-b` shares nothing with it, so
+/// the stacks stay separate.
 #[test]
 fn disjoint_stacks_stay_separate_with_target() -> Result<()> {
     snapbox::assert_data_eq!(

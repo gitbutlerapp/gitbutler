@@ -2,13 +2,12 @@
 
 use std::collections::HashSet;
 
-use anyhow::{Context as _, Result, anyhow, bail};
+use anyhow::{Result, anyhow, bail};
 use but_core::RefMetadata;
-use petgraph::{Direction, visit::EdgeRef};
 use serde::{Deserialize, Serialize};
 
 use crate::graph_rebase::{
-    Edge, Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector, ToSelector,
+    Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector, ToSelector,
 };
 
 /// Describes where relative to the selector a step should be inserted
@@ -254,8 +253,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
     /// Get a selector to a particular commit in the graph
     pub fn try_select_commit(&self, target: gix::ObjectId) -> Option<Selector> {
-        for node_idx in self.graph.node_indices() {
-            if let Step::Pick(Pick { id, .. }) = self.graph[node_idx]
+        for node_idx in self.graph.indices() {
+            if let Step::Pick(Pick { id, .. }) = self.graph.step(node_idx)
                 && id == target
             {
                 return Some(self.new_selector(node_idx));
@@ -267,8 +266,8 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
     /// Get a selector to a particular reference in the graph
     pub fn try_select_reference(&self, target: &gix::refs::FullNameRef) -> Option<Selector> {
-        for node_idx in self.graph.node_indices() {
-            if let Step::Reference { refname, .. } = &self.graph[node_idx]
+        for node_idx in self.graph.indices() {
+            if let Step::Reference { refname, .. } = self.graph.step(node_idx)
                 && target == refname.as_ref()
             {
                 return Some(self.new_selector(node_idx));
@@ -285,20 +284,23 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let target = self.history.normalize_selector(target.to_selector(self)?)?;
         Ok(self
             .graph
-            .edges_directed(target.id, Direction::Incoming)
-            .map(|edge| (self.new_selector(edge.source()), edge.weight().order))
+            .children(target.id)
+            .into_iter()
+            .map(|(child, slot)| (self.new_selector(child), slot))
             .collect())
     }
 
     /// Returns all direct parents of `target` together with their edge order.
     ///
-    /// Parents are represented as outgoing edges from `target` in the step graph.
+    /// Parents are represented as parent-slot positions in the step graph.
     pub fn direct_parents(&self, target: impl ToSelector) -> Result<Vec<(Selector, usize)>> {
         let target = self.history.normalize_selector(target.to_selector(self)?)?;
         Ok(self
             .graph
-            .edges_directed(target.id, Direction::Outgoing)
-            .map(|edge| (self.new_selector(edge.target()), edge.weight().order))
+            .parents(target.id)
+            .iter()
+            .enumerate()
+            .map(|(slot, parent)| (self.new_selector(*parent), slot))
             .collect())
     }
 
@@ -313,19 +315,18 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let mut tips = vec![target.id];
 
         while let Some(tip) = tips.pop() {
-            for edge in self.graph.edges_directed(tip, Direction::Incoming) {
-                let child = edge.source();
+            for (child, _slot) in self.graph.children(tip) {
                 if !seen.insert(child) {
                     continue;
                 }
 
-                match &self.graph[child] {
+                match self.graph.step(child) {
                     Step::None => tips.push(child),
                     Step::Reference { .. } => {
                         references.push(self.new_selector(child));
                         tips.push(child);
                     }
-                    _ => {}
+                    Step::Pick(_) => {}
                 }
             }
         }
@@ -340,16 +341,15 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// new object id.
     ///
     /// Returns the replaced step.
-    pub fn replace(&mut self, target: impl ToSelector, mut step: Step) -> Result<Step> {
+    pub fn replace(&mut self, target: impl ToSelector, step: Step) -> Result<Step> {
         let target = self.history.normalize_selector(target.to_selector(self)?)?;
-        if let (Step::Pick(from), Step::Pick(to)) = (&self.graph[target.id], &step)
+        if let (Step::Pick(from), Step::Pick(to)) = (self.graph.step(target.id), &step)
             && !from.exclude_from_tracking
             && !to.exclude_from_tracking
         {
             self.history.update_mapping(from.id, to.id);
         };
-        std::mem::swap(&mut self.graph[target.id], &mut step);
-        Ok(step)
+        Ok(self.graph.set_step(target.id, step))
     }
 
     /// Disconnect a segment from a parent segment.
@@ -423,28 +423,17 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             ),
         };
 
-        // Edges to children.
-        let incoming_edges = self
-            .graph
-            .edges_directed(target_child.id, Direction::Incoming)
-            .map(|e| (e.id(), e.weight().to_owned(), e.source()))
-            .collect::<Vec<_>>();
+        // Child edges pointing at the segment's child-most node.
+        let incoming_edges = self.graph.children(target_child.id);
 
-        // Edges to parents.
-        let outgoing_edges = self
-            .graph
-            .edges_directed(target_parent.id, Direction::Outgoing)
-            .map(|e| (e.id(), e.weight().to_owned(), e.target()))
-            .collect::<Vec<_>>();
+        // The segment's parent-most node's parents.
+        let outgoing_parents = self.graph.parents(target_parent.id).to_vec();
 
         // All available parents
-        let available_parents = outgoing_edges
-            .iter()
-            .map(|(_, _, edge_target)| *edge_target)
-            .collect::<HashSet<_>>();
+        let available_parents = outgoing_parents.iter().copied().collect::<HashSet<_>>();
         let available_children = incoming_edges
             .iter()
-            .map(|(_, _, edge_source)| *edge_source)
+            .map(|(child, _)| *child)
             .collect::<HashSet<_>>();
 
         // 1. Verify that all parents and children to disconnect are directly connected to the target segment.
@@ -475,29 +464,58 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             .as_ref()
             .map(|children| children.iter().map(|s| s.id).collect::<HashSet<_>>());
 
-        let mut disconnected_parent_edges = Vec::new();
-        // 2. Disconnect parents.
-        for (edge_id, edge_weight, edge_target) in outgoing_edges {
-            let should_disconnect = parent_ids_to_disconnect
-                .as_ref()
-                .is_none_or(|ids| ids.contains(&edge_target));
-            if should_disconnect {
-                self.graph.remove_edge(edge_id);
-                disconnected_parent_edges.push((edge_weight, edge_target));
+        // 2. Disconnect parents, keeping the disconnected ones in slot order.
+        let mut disconnected_parents = Vec::new();
+        {
+            let parents = self.graph.parents_mut(target_parent.id);
+            let mut kept = Vec::with_capacity(parents.len());
+            for parent in parents.iter().copied() {
+                let should_disconnect = parent_ids_to_disconnect
+                    .as_ref()
+                    .is_none_or(|ids| ids.contains(&parent));
+                if should_disconnect {
+                    disconnected_parents.push(parent);
+                } else {
+                    kept.push(parent);
+                }
             }
+            *parents = kept;
         }
 
-        // 3. Disconnect children and reconnect to the disconnected parents.
-        for (edge_id, _, edge_source) in incoming_edges {
+        // 3. Disconnect children, splicing the disconnected parents into the
+        // slot the removed edge occupied.
+        let mut slots_by_child = std::collections::BTreeMap::<_, Vec<usize>>::new();
+        for (child, slot) in incoming_edges {
             let should_disconnect = child_ids_to_disconnect
                 .as_ref()
-                .is_none_or(|ids| ids.contains(&edge_source));
+                .is_none_or(|ids| ids.contains(&child));
             if should_disconnect {
-                // Remove the child edge.
-                self.graph.remove_edge(edge_id);
-                // Reconnect the child node to all the disconnected parents.
-                if !skip_reconnect_step {
-                    self.reconnect_edges_to_parents(&disconnected_parent_edges, edge_source);
+                slots_by_child.entry(child).or_default().push(slot);
+            }
+        }
+        for (child, mut slots) in slots_by_child {
+            slots.sort_unstable();
+            // A reference stands on a single commit, so it follows the first
+            // (git first-parent) disconnected parent; commit children adopt
+            // every disconnected parent in order.
+            let reconnect_parents = if matches!(self.graph.step(child), Step::Reference { .. }) {
+                &disconnected_parents[..disconnected_parents.len().min(1)]
+            } else {
+                &disconnected_parents[..]
+            };
+            // Remove by value: when the delimiter's parent is itself a child of
+            // the delimiter's child, step 2 already dropped the shared edge and
+            // the recorded slots are stale.
+            let parents = self.graph.parents_mut(child);
+            let first_slot = parents
+                .iter()
+                .position(|parent| *parent == target_child.id)
+                .unwrap_or_else(|| slots[0].min(parents.len()));
+            parents.retain(|parent| *parent != target_child.id);
+            if !skip_reconnect_step {
+                for (offset, parent) in reconnect_parents.iter().enumerate() {
+                    let position = (first_slot + offset).min(parents.len());
+                    parents.insert(position, *parent);
                 }
             }
         }
@@ -505,57 +523,28 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         Ok(())
     }
 
-    /// Remove the child edge, and reconnect to the right parents.
-    fn reconnect_edges_to_parents(
-        &mut self,
-        disconnected_parent_edges: &[(Edge, petgraph::prelude::NodeIndex)],
-        child_node: petgraph::prelude::NodeIndex,
-    ) {
-        // Reconnect the child node to all the disconnected parents.
-        for (parent_edge_weight, edge_target) in disconnected_parent_edges {
-            self.graph
-                .add_edge(child_node, *edge_target, parent_edge_weight.clone());
-        }
-    }
-
     fn add_edges_to_parents(
         &mut self,
-        child_node: petgraph::prelude::NodeIndex,
-        new_parent_nodes: impl IntoIterator<Item = petgraph::prelude::NodeIndex>,
+        child_node: crate::graph_rebase::StepGraphIndex,
+        new_parent_nodes: impl IntoIterator<Item = crate::graph_rebase::StepGraphIndex>,
         parent_reparenting_order: ParentReparentingOrder,
     ) {
-        let mut existing_parent_edges = self
-            .graph
-            .edges_directed(child_node, Direction::Outgoing)
-            .map(|edge| (edge.id(), edge.weight().order, edge.target()))
-            .collect::<Vec<_>>();
-        existing_parent_edges.sort_by_key(|(_, order, _)| *order);
-
-        for (edge_id, _, _) in &existing_parent_edges {
-            self.graph.remove_edge(*edge_id);
-        }
-
+        let parents = self.graph.parents_mut(child_node);
+        let existing = std::mem::take(parents);
         let new_parent_nodes = new_parent_nodes.into_iter().collect::<Vec<_>>();
-        let existing_parent_nodes = existing_parent_edges
-            .into_iter()
-            .map(|(_, _, parent_node)| parent_node);
-        let parent_nodes = match parent_reparenting_order {
-            ParentReparentingOrder::Prepend => new_parent_nodes
-                .into_iter()
-                .chain(existing_parent_nodes)
-                .collect::<Vec<_>>(),
-            ParentReparentingOrder::Append => existing_parent_nodes
-                .chain(new_parent_nodes)
-                .collect::<Vec<_>>(),
+        let combined: Vec<_> = match parent_reparenting_order {
+            ParentReparentingOrder::Prepend => {
+                new_parent_nodes.into_iter().chain(existing).collect()
+            }
+            ParentReparentingOrder::Append => {
+                existing.into_iter().chain(new_parent_nodes).collect()
+            }
         };
         let mut seen = HashSet::new();
-        for (order, parent_node) in parent_nodes
+        *parents = combined
             .into_iter()
-            .filter(|parent_node| seen.insert(*parent_node))
-            .enumerate()
-        {
-            self.graph.add_edge(child_node, parent_node, Edge { order });
-        }
+            .filter(|parent| seen.insert(*parent))
+            .collect();
     }
 
     /// Insert a segment relative to a selector.
@@ -603,54 +592,19 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
         match side {
             InsertSide::Above => {
-                // Find the child node of the highest order from the child-most node in the segment being inserted.
-                let chubbiest_grand_child = self
-                    .graph
-                    .edges_directed(child.id, Direction::Incoming)
-                    .map(|e| (e.id(), e.weight().to_owned(), e.source()))
-                    .max_by_key(|gc| gc.1.order);
-
                 if let Some(nodes_to_connect) = nodes_to_connect {
                     // If there were nodes to connect defined, create edges from them into the child node of the segment
                     // being inserted.
-                    for (index, any_selector) in nodes_to_connect.as_slice().iter().enumerate() {
+                    for any_selector in nodes_to_connect.as_slice() {
                         let selector = any_selector.to_selector(self)?;
                         let node = self.history.normalize_selector(selector)?;
-                        // Avoid weight collision by adding the order value of the highest order child plus one,
-                        // accommodating for order 0.
-                        let new_weight = if let Some((_, grand_child_weight, _)) =
-                            chubbiest_grand_child.as_ref()
-                        {
-                            Edge {
-                                order: index + grand_child_weight.order + 1,
-                            }
-                        } else {
-                            Edge { order: index }
-                        };
-                        self.graph.add_edge(node.id, child.id, new_weight);
+                        self.graph.parents_mut(node.id).push(child.id);
                     }
                 } else {
-                    let edges = self
-                        .graph
-                        .edges_directed(target.id, Direction::Incoming)
-                        .map(|e| (e.id(), e.weight().to_owned(), e.source()))
-                        .collect::<Vec<_>>();
-
-                    // Connect all target's children with the child-most node in the given segment.
-                    for (edge_id, edge_weight, edge_source) in edges {
-                        self.graph.remove_edge(edge_id);
-                        // Avoid weight collision by adding the order value of the highest order child plus one,
-                        // accommodating for order 0.
-                        let new_weight = if let Some((_, grand_child_weight, _)) =
-                            chubbiest_grand_child.as_ref()
-                        {
-                            Edge {
-                                order: edge_weight.order + grand_child_weight.order + 1,
-                            }
-                        } else {
-                            edge_weight
-                        };
-                        self.graph.add_edge(edge_source, child.id, new_weight);
+                    // Repoint all target's child slots at the child-most node in
+                    // the given segment, keeping each child's parent order.
+                    for (child_node, slot) in self.graph.children(target.id) {
+                        self.graph.parents_mut(child_node)[slot] = child.id;
                     }
                 }
 
@@ -668,40 +622,13 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     }
                     nodes
                 } else {
-                    let mut edges = self
-                        .graph
-                        .edges_directed(target.id, Direction::Outgoing)
-                        .map(|e| (e.id(), e.weight().order, e.target()))
-                        .collect::<Vec<_>>();
-                    edges.sort_by_key(|(_, order, _)| *order);
-
-                    let mut nodes = Vec::with_capacity(edges.len());
-                    for (edge_id, _, edge_target) in edges {
-                        self.graph.remove_edge(edge_id);
-                        nodes.push(edge_target);
-                    }
-                    nodes
+                    std::mem::take(self.graph.parents_mut(target.id))
                 };
 
                 self.add_edges_to_parents(parent.id, parents_to_add, parent_reparenting_order);
 
-                // Find the child node of the highest order from the child-most node in the segment being inserted.
-                let chubbiest_grand_child = self
-                    .graph
-                    .edges_directed(child.id, Direction::Incoming)
-                    .map(|e| (e.id(), e.weight().to_owned(), e.source()))
-                    .max_by_key(|gc| gc.1.order);
-
-                let new_weight =
-                    if let Some((_, grand_child_weight, _)) = chubbiest_grand_child.as_ref() {
-                        Edge {
-                            order: grand_child_weight.order + 1,
-                        }
-                    } else {
-                        Edge { order: 0 }
-                    };
                 // Connect the target to the child-most node in the given segment.
-                self.graph.add_edge(target.id, child.id, new_weight);
+                self.graph.parents_mut(target.id).push(child.id);
             }
         }
 
@@ -765,35 +692,33 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let target = self.history.normalize_selector(target.to_selector(self)?)?;
         match side {
             InsertSide::Above => {
-                let edges = self
-                    .graph
-                    .edges_directed(target.id, Direction::Incoming)
-                    .map(|e| (e.id(), e.weight().to_owned(), e.source()))
-                    .collect::<Vec<_>>();
-
                 let new_idx = self.graph.add_node(step);
-                self.graph.add_edge(new_idx, target.id, Edge { order: 0 });
-
-                for (edge_id, edge_weight, edge_source) in edges {
-                    self.graph.remove_edge(edge_id);
-                    self.graph.add_edge(edge_source, new_idx, edge_weight);
+                for (child_node, slot) in self.graph.children(target.id) {
+                    self.graph.parents_mut(child_node)[slot] = new_idx;
                 }
+                *self.graph.parents_mut(new_idx) = vec![target.id];
 
                 Ok(self.new_selector(new_idx))
             }
             InsertSide::Below => {
-                let edges = self
-                    .graph
-                    .edges_directed(target.id, Direction::Outgoing)
-                    .map(|e| (e.id(), e.weight().to_owned(), e.target()))
-                    .collect::<Vec<_>>();
-
                 let new_idx = self.graph.add_node(step);
-                self.graph.add_edge(target.id, new_idx, Edge { order: 0 });
-
-                for (edge_id, edge_weight, edge_target) in edges {
-                    self.graph.remove_edge(edge_id);
-                    self.graph.add_edge(new_idx, edge_target, edge_weight);
+                // A reference stands on its target (its last parent); any other
+                // parent slots (a workspace ref's stack overlays) are annotations
+                // that stay on the reference.
+                let is_reference =
+                    matches!(self.graph.step(target.id), Step::Reference { .. });
+                let parents = self.graph.parents_mut(target.id);
+                if is_reference {
+                    if let Some(slot) = parents.last_mut() {
+                        let moved = *slot;
+                        *slot = new_idx;
+                        *self.graph.parents_mut(new_idx) = vec![moved];
+                    } else {
+                        parents.push(new_idx);
+                    }
+                } else {
+                    let moved = std::mem::replace(parents, vec![new_idx]);
+                    *self.graph.parents_mut(new_idx) = moved;
                 }
 
                 Ok(self.new_selector(new_idx))
@@ -801,10 +726,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
     }
 
-    /// Add an edge to the graph with a desired order.
+    /// Add an edge to the graph at the desired parent slot.
     ///
-    /// Bails if there is already an edge from the child to the parent with the
-    /// same order.
+    /// The parent is inserted at `desired_order` (clamped to the number of
+    /// existing parents), shifting later slots.
     pub fn add_edge(
         &mut self,
         child: impl ToSelector,
@@ -819,11 +744,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             let mut tips = vec![parent.id];
 
             while let Some(tip) = tips.pop() {
-                for parent in self
-                    .graph
-                    .edges_directed(tip, Direction::Outgoing)
-                    .map(|e| e.target())
-                {
+                for parent in self.graph.parents(tip).to_vec() {
                     if seen.insert(parent) {
                         tips.push(parent);
                     }
@@ -835,21 +756,9 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             }
         }
 
-        if self
-            .graph
-            .edges_directed(child.id, Direction::Outgoing)
-            .any(|edge| edge.weight().order == desired_order)
-        {
-            bail!("An edge with desired order {desired_order} already exists");
-        }
-
-        self.graph.add_edge(
-            child.id,
-            parent.id,
-            Edge {
-                order: desired_order,
-            },
-        );
+        let parents = self.graph.parents_mut(child.id);
+        let position = desired_order.min(parents.len());
+        parents.insert(position, parent.id);
 
         Ok(())
     }
@@ -863,21 +772,17 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let child = self.history.normalize_selector(child.to_selector(self)?)?;
         let parent = self.history.normalize_selector(parent.to_selector(self)?)?;
 
-        let edges = self
-            .graph
-            .edges_directed(child.id, Direction::Outgoing)
-            .filter_map(|e| (e.target() == parent.id).then_some(e.id()))
-            .collect::<Vec<_>>();
-
+        let parents = self.graph.parents_mut(child.id);
         let mut orders = vec![];
-        for edge in edges {
-            let weight = self
-                .graph
-                .remove_edge(edge)
-                .context("BUG: Failed to remove edge")?;
-
-            orders.push(weight.order);
-        }
+        let mut slot = 0;
+        parents.retain(|candidate| {
+            let keep = *candidate != parent.id;
+            if !keep {
+                orders.push(slot);
+            }
+            slot += 1;
+            keep
+        });
 
         Ok(orders)
     }

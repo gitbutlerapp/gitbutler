@@ -230,7 +230,7 @@ impl Workspace {
         let (kind, metadata) = containing_workspace
             .and_then(|index| match graph.nodes()[index].kind() {
                 NodeKind::Reference(reference) => Some((index, reference.as_ref())),
-                NodeKind::Commit { .. } | NodeKind::Boundary { .. } => None,
+                NodeKind::Commit { .. } | NodeKind::Boundary { .. } | NodeKind::None => None,
             })
             .map(|(_index, reference)| {
                 let metadata = match &reference.metadata {
@@ -810,7 +810,7 @@ impl StackProjectionContext<'_> {
                     }
                     cursor = parent;
                 }
-                NodeKind::Boundary { .. } => {
+                NodeKind::Boundary { .. } | NodeKind::None => {
                     if let Some(segment) = current.as_mut() {
                         segment.base = None;
                     }
@@ -1184,6 +1184,7 @@ fn commit_index_at(graph: &Graph, start: NodeIndex) -> anyhow::Result<NodeIndex>
                     .context("reference node has no target")?;
             }
             NodeKind::Boundary { .. } => anyhow::bail!("boundary has no commit node"),
+            NodeKind::None => anyhow::bail!("a placeholder has no commit node"),
         }
     }
     anyhow::bail!("reference target cycle")
@@ -1192,7 +1193,7 @@ fn commit_index_at(graph: &Graph, start: NodeIndex) -> anyhow::Result<NodeIndex>
 fn commit_id_at(graph: &Graph, index: NodeIndex) -> Option<gix::ObjectId> {
     match graph.nodes()[index].kind() {
         NodeKind::Commit { id } => Some(*id),
-        NodeKind::Boundary { .. } => None,
+        NodeKind::Boundary { .. } | NodeKind::None => None,
         NodeKind::Reference(reference) => reference.ref_info.commit_id,
     }
 }
@@ -1271,6 +1272,7 @@ mod tests {
                 .commit_id
                 .expect("born reference entrypoint has a target"),
             NodeKind::Boundary { .. } => panic!("a boundary cannot be an entrypoint"),
+            NodeKind::None => panic!("a placeholder cannot be an entrypoint"),
         };
         let commit_entrypoint = nodes
             .iter()

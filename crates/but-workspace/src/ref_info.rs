@@ -523,7 +523,7 @@ pub(crate) fn find_ancestor_workspace_commit(
                 pending.extend(node.parents().iter().copied());
             }
             NodeKind::Reference(_) => pending.extend(node.parents().last().copied()),
-            NodeKind::Boundary { .. } => {}
+            NodeKind::Boundary { .. } | NodeKind::None => {}
         }
     }
     managed_commit_id.and_then(|managed_commit_id| {
@@ -542,7 +542,10 @@ fn refs_pointing_to(graph: &Graph, commit_id: gix::ObjectId) -> Vec<but_graph::R
             NodeKind::Reference(reference) if reference.ref_info.commit_id == Some(commit_id) => {
                 Some(reference.ref_info.clone())
             }
-            NodeKind::Commit { .. } | NodeKind::Reference(_) | NodeKind::Boundary { .. } => None,
+            NodeKind::Commit { .. }
+            | NodeKind::Reference(_)
+            | NodeKind::Boundary { .. }
+            | NodeKind::None => None,
         })
         .collect()
 }
@@ -668,7 +671,7 @@ fn workspace_tip_is_managed(graph: &Graph, repo: &gix::Repository, id: NodeIndex
     let Some(commit_id) = graph.nodes().get(id).and_then(|node| match node.kind() {
         NodeKind::Commit { id } => Some(*id),
         NodeKind::Reference(reference) => reference.ref_info.commit_id,
-        NodeKind::Boundary { .. } => None,
+        NodeKind::Boundary { .. } | NodeKind::None => None,
     }) else {
         return false;
     };

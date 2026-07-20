@@ -574,3 +574,88 @@ fn materialize_moves_detached_head_to_a_rewritten_entrypoint() -> Result<()> {
     assert_eq!(repo.rev_parse_single("refs/heads/main")?.detach(), old_head);
     Ok(())
 }
+
+/// A remote-tracking ref inline on the rewritten ancestry (its remote is
+/// behind the local branch) must survive materialization untouched, while the
+/// local branch above it moves — even when the very commit it points at is
+/// dropped from the rewritten history.
+#[test]
+fn materialize_leaves_inline_remote_ref_alone() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+    let b = repo.rev_parse_single("main~1")?.detach();
+    let remote_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    repo.reference(
+        remote_ref.clone(),
+        b,
+        gix::refs::transaction::PreviousValue::Any,
+        "remote behind local",
+    )?;
+    let old_tip = repo.head_id()?.detach();
+
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    // Drop 'b', the commit the remote ref points at.
+    let b_selector = editor.select_commit(b)?;
+    editor.replace(b_selector, Step::None)?;
+    editor.rebase()?.materialize()?;
+
+    let rewritten_tip = repo.head_id()?.detach();
+    assert_ne!(rewritten_tip, old_tip, "the local tip must be rewritten");
+    assert_eq!(
+        repo.rev_parse_single("main")?.detach(),
+        rewritten_tip,
+        "the local branch follows the rewrite"
+    );
+    assert_eq!(
+        repo.rev_parse_single(remote_ref.as_bstr())?.detach(),
+        b,
+        "the remote-tracking ref must not move, even off a dropped commit"
+    );
+
+    Ok(())
+}
+
+/// Force-marking a non-local reference mutable (e.g. by replacing its step) is
+/// a bug, and the rebase surfaces it instead of writing the ref.
+#[test]
+fn rebase_rejects_mutable_non_local_reference() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+    let behind = repo.rev_parse_single("main~2")?.detach();
+    let remote_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    repo.reference(
+        remote_ref.clone(),
+        behind,
+        gix::refs::transaction::PreviousValue::Any,
+        "remote behind local",
+    )?;
+
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        project_meta(&*meta),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    // `Step::new_reference` hardcodes mutability, laundering the immutable step.
+    let remote_selector = editor.select_reference(remote_ref.as_ref())?;
+    editor.replace(remote_selector, Step::new_reference(remote_ref.clone()))?;
+
+    let err = editor.rebase().expect_err("non-local refs are never written");
+    assert!(
+        err.to_string().contains("only local branches"),
+        "unexpected error: {err}"
+    );
+
+    Ok(())
+}

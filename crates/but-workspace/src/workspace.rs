@@ -52,7 +52,7 @@ pub(crate) fn node_commit_id(
     match graph.nodes().get(index)?.kind() {
         but_graph::NodeKind::Commit { id } => Some(*id),
         but_graph::NodeKind::Reference(reference) => reference.ref_info.commit_id,
-        but_graph::NodeKind::Boundary { .. } => None,
+        but_graph::NodeKind::Boundary { .. } | but_graph::NodeKind::None => None,
     }
 }
 

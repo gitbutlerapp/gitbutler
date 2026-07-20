@@ -309,7 +309,7 @@ fn incoming_target_commit_ids(
                 commit_ids.push(*id);
             }
             but_graph::NodeKind::Reference(_) => {}
-            but_graph::NodeKind::Boundary { .. } => continue,
+            but_graph::NodeKind::Boundary { .. } | but_graph::NodeKind::None => continue,
         }
         pending.extend(node.parents().iter().rev());
     }

@@ -60,7 +60,7 @@ pub(super) fn apply_reference_groups(
         .enumerate()
         .filter_map(|(index, node)| match &node.kind {
             NodeKind::Reference(reference) => Some((reference.ref_info.ref_name.clone(), index)),
-            NodeKind::Commit { .. } | NodeKind::Boundary { .. } => None,
+            NodeKind::Commit { .. } | NodeKind::Boundary { .. } | NodeKind::None => None,
         })
         .collect::<BTreeMap<_, _>>();
     let first_references = groups
@@ -128,7 +128,7 @@ fn validate_groups(graph: &NodeGraph, groups: &[ReferenceGroup]) -> Result<()> {
         .iter()
         .filter_map(|node| match &node.kind {
             NodeKind::Reference(reference) => Some(reference.ref_info.ref_name.clone()),
-            NodeKind::Commit { .. } | NodeKind::Boundary { .. } => None,
+            NodeKind::Commit { .. } | NodeKind::Boundary { .. } | NodeKind::None => None,
         })
         .collect::<BTreeSet<_>>();
     let mut claimed_slots = BTreeSet::new();
