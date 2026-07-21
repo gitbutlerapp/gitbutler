@@ -132,13 +132,28 @@ impl RefInfo {
                         local.relation = LocalCommitRelation::LocalAndRemote(*remote_commit_id);
                     }
                 }
+            }
 
+            // Drop remote commits already embodied by a local commit of this
+            // segment or any segment below it — mirroring the this-and-lower
+            // scope the remote reachability difference was computed with:
+            // after a conflicted pull, the rebased counterpart of a lower
+            // branch's commit lives in that lower segment, while the raw
+            // difference still lists the old commit for every segment above.
+            // A match in a *higher* segment must not hide the commit: the
+            // lower branch's remote genuinely still holds it, and it would be
+            // lost on force-push.
+            let mut used_in_this_and_lower = HashSet::<gix::ObjectId>::new();
+            for segment in stack.segments.iter_mut().rev() {
+                used_in_this_and_lower.extend(segment.commits.iter().filter_map(
+                    |c| match c.relation {
+                        LocalCommitRelation::LocalAndRemote(rid)
+                        | LocalCommitRelation::Integrated(rid) => Some(rid),
+                        LocalCommitRelation::LocalOnly => None,
+                    },
+                ));
                 segment.commits_on_remote.retain(|rc| {
-                    let is_used_in_local_commits = segment.commits.iter().any(|c| {
-                        matches!(c.relation,  LocalCommitRelation::LocalAndRemote(rid)| LocalCommitRelation::Integrated(rid)
-                                              if rid == rc.id)
-                    });
-                    !is_used_in_local_commits
+                    !used_in_this_and_lower.contains(&rc.id)
                         // It shouldn't be integrated (by rebase) either.
                         && lookup_similar(&upstream_lut, rc,
                                           changeset_identifier(repo, expensive.then_some(rc), &mut time_used).ok().flatten().as_ref(),
