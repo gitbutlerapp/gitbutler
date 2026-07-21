@@ -12,7 +12,7 @@ import { writable } from "svelte/store";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { QueryOptions } from "$lib/state/butlerModule";
 import type { PostHogWrapper } from "$lib/telemetry/posthog";
-import type { ReviewMergeStatus } from "@gitbutler/but-sdk";
+import type { ForgeReviewUpdate, ReviewMergeStatus } from "@gitbutler/but-sdk";
 import type { StartQueryActionCreatorOptions } from "@reduxjs/toolkit/query";
 
 export const PR_SERVICE = new InjectionToken<PrService>("PrService");
@@ -174,6 +174,15 @@ export class PrService {
 	async setDraft(projectId: string, reviewId: number, draft: boolean) {
 		await this.backendApi.endpoints.setDraft.mutate({ projectId, reviewId, draft });
 	}
+
+	/**
+	 * Sync stack info for the given reviews: description footers and target
+	 * branches, or GitHub's native stacks where the repo has them enabled.
+	 * `reviews` must describe a single stack, ordered bottom-to-top.
+	 */
+	async updateFooters(projectId: string, reviews: ForgeReviewUpdate[]) {
+		await this.backendApi.endpoints.updateReviewFooters.mutate({ projectId, reviews });
+	}
 }
 
 function injectBackendEndpoints(api: BackendApi) {
@@ -245,6 +254,15 @@ function injectBackendEndpoints(api: BackendApi) {
 				extraOptions: { command: "get_review_base_repo_url" },
 				query: (args) => args,
 				providesTags: (_result, _error, args) => providesItem(ReduxTag.PullRequests, args.reviewId),
+			}),
+			updateReviewFooters: build.mutation<
+				void,
+				{ projectId: string; reviews: ForgeReviewUpdate[] }
+			>({
+				extraOptions: { command: "update_review_footers" },
+				query: (args) => args,
+				invalidatesTags: (_res, _err, { reviews }) =>
+					reviews.map((review) => invalidatesItem(ReduxTag.PullRequests, review.number)),
 			}),
 			updateReview: build.mutation<
 				void,
