@@ -10,8 +10,8 @@ use but_core::{
     sync::{RepoExclusive, RepoShared},
 };
 use but_forge::ForgeReview;
+use but_graph::edit::RelativeTo;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_serde::BStringForFrontend;
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, IntegrateUpstreamOutcome, ReviewIntegrationHint,
@@ -28,11 +28,8 @@ pub fn get_workspace(
     ctx: &but_ctx::Context,
     perm: &RepoShared,
 ) -> anyhow::Result<but_workspace::ui::workspace::DetailedGraphWorkspace> {
-    let mut meta = ctx.meta()?;
     let (repo, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
-    let mut workspace = workspace.clone();
-    but_workspace::workspace::detailed_graph_workspace(&mut workspace, &mut meta, &repo)
-        .map(Into::into)
+    but_workspace::workspace::detailed_graph_workspace(&workspace, &repo).map(Into::into)
 }
 
 /// Make `target_ref` the project's default target without applying branches or entering
@@ -423,12 +420,11 @@ pub fn workspace_integrate_upstream_only_with_perm(
             }
         };
         let IntegrateUpstreamOutcome {
-            mut rebase,
+            rebase,
             ws_meta,
             project_meta,
         } = but_workspace::integrate_upstream_with_hints(
-            &mut ws,
-            &mut meta,
+            &ws,
             project_meta,
             &repo,
             updates,
@@ -437,33 +433,42 @@ pub fn workspace_integrate_upstream_only_with_perm(
         let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 
         if dry_run.into() {
-            let replaced_commits = rebase.history.commit_mappings();
-            let workspace_state =
-                WorkspaceState::from_rebase_preview_with_db(&mut rebase, replaced_commits, &db)?;
+            let replaced_commits = rebase.commit_mappings();
+            let workspace_state = WorkspaceState::from_rebase_preview_with_db(
+                &rebase,
+                &mut meta,
+                replaced_commits,
+                &db,
+            )?;
             return Ok(WorkspaceIntegrateUpstreamOutcome {
                 workspace_state,
                 worktree_conflicts,
             });
         }
 
-        let materialized = rebase.materialize()?;
+        let materialized =
+            rebase.materialize_changes(&meta, but_graph::edit::MaterializeOptions::default())?;
         project_meta.persist_to_local_config(&repo)?;
 
         if let Some(ref_name) = materialized.workspace.ref_name()
             && let Some(ws_meta) = ws_meta
             && is_workspace_ref_name(ref_name)
         {
-            let mut md = materialized.meta.workspace(ref_name)?;
+            let mut md = meta.workspace(ref_name)?;
             *md = ws_meta;
             md.set_project_meta(project_meta);
-            materialized.meta.set_workspace(&md)?;
+            meta.set_workspace(&md)?;
         }
 
+        // The old editor refreshed the cached workspace in place after
+        // materializing; assign it back explicitly so context reads stay current.
+        *ws = materialized.workspace;
+
         let workspace_state = WorkspaceState::from_workspace_with_db(
-            materialized.workspace,
-            materialized.meta,
+            &*ws,
+            &mut meta,
             &repo,
-            materialized.history.commit_mappings(),
+            materialized.commit_mappings,
             &db,
         )?;
         (workspace_state, worktree_conflicts)

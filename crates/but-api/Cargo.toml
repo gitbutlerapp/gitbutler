@@ -40,10 +40,10 @@ path-bytes = []
 ## Generate JSON schemas for TypeScript type generation via schemars.
 export-schema = [
     "but-error/export-schema",
+    "but-graph/export-schema",
     "but-workspace/export-schema",
     "but-hunk-assignment/export-schema",
     "gitbutler-project/export-schema",
-    "but-rebase/export-schema",
     "gitbutler-operating-modes/export-schema",
     "gitbutler-branch/export-schema",
     "gitbutler-branch-actions/export-schema",
@@ -92,7 +92,6 @@ but-ctx.workspace = true
 but-workspace.workspace = true
 but-settings.workspace = true
 but-secret.workspace = true
-but-rebase.workspace = true
 but-db.workspace = true
 but-forge.workspace = true
 but-forge-storage.workspace = true

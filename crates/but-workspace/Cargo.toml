@@ -38,7 +38,6 @@ export-schema = ["dep:schemars", "dep:but-schemars", "but-core/export-schema"]
 but-core.workspace = true
 but-db.workspace = true
 but-graph.workspace = true
-but-rebase.workspace = true
 but-error.workspace = true
 but-serde.workspace = true
 but-meta = { workspace = true, features = ["legacy"], optional = true }

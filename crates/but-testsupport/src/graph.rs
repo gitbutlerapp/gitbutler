@@ -413,18 +413,25 @@ fn topological_order(graph: &Graph) -> Vec<NodeIndex> {
 }
 
 fn compare_nodes(graph: &Graph, left: NodeIndex, right: NodeIndex) -> Ordering {
+    /// A total order over node kinds: commits, then references, then
+    /// boundaries, then placeholders (which edit graphs keep as tombstones).
+    fn rank(kind: &NodeKind) -> u8 {
+        match kind {
+            NodeKind::Commit { .. } => 0,
+            NodeKind::Reference(_) => 1,
+            NodeKind::Boundary { .. } => 2,
+            NodeKind::None => 3,
+        }
+    }
     match (graph.nodes()[left].kind(), graph.nodes()[right].kind()) {
         (NodeKind::Commit { id: left }, NodeKind::Commit { id: right }) => left.cmp(right),
         (NodeKind::Reference(left), NodeKind::Reference(right)) => {
             left.ref_info.ref_name.cmp(&right.ref_info.ref_name)
         }
-        (NodeKind::Commit { .. }, NodeKind::Reference(_)) => Ordering::Less,
-        (NodeKind::Reference(_), NodeKind::Commit { .. }) => Ordering::Greater,
-        (NodeKind::Boundary { .. }, _) | (_, NodeKind::Boundary { .. }) => {
-            unreachable!("shallow points are not ordered")
+        (NodeKind::Boundary { id: left, .. }, NodeKind::Boundary { id: right, .. }) => {
+            left.cmp(right)
         }
-        (NodeKind::None, _) | (_, NodeKind::None) => {
-            unreachable!("placeholders are not ordered")
-        }
+        (NodeKind::None, NodeKind::None) => left.cmp(&right),
+        (left, right) => rank(left).cmp(&rank(right)),
     }
 }

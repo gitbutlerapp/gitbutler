@@ -5,21 +5,21 @@ use std::collections::hash_map::Entry;
 
 use anyhow::{Result, bail};
 use bstr::BString;
-use but_core::{DiffSpec, RefMetadata};
-use but_rebase::{
-    commit::DateMode,
-    graph_rebase::{Editor, LookupStep, Selector, Step, SuccessfulRebase, ToCommitSelector},
+use but_core::{DiffSpec, commit::write::DateMode};
+use but_graph::{
+    MutableNodeGraph, NodeIndex, Rebased,
+    edit::{Pick, ToCommitSelector},
 };
 
 use crate::tree_manipulation::{ChangesSource, create_tree_without_diff};
 
 /// The result of an uncommit_changes operation.
 #[derive(Debug)]
-pub struct UncommitChangesOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct UncommitChangesOutcome {
     /// The successful rebase result
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
-    /// Selector pointing to the modified commit (with changes removed)
-    pub commit_selector: Selector,
+    pub rebase: Rebased,
+    /// Node index pointing to the modified commit (with changes removed)
+    pub commit_selector: NodeIndex,
 }
 
 /// A source entry for uncommitting changes from a commit.
@@ -47,9 +47,9 @@ pub struct UncommitChangesFailure {
 
 /// The result of uncommitting changes from multiple commits.
 #[derive(Debug)]
-pub struct UncommitChangesFromCommitsOutcome<'ws, 'meta, M: RefMetadata> {
+pub struct UncommitChangesFromCommitsOutcome {
     /// The successful rebase result, present when at least one source was uncommitted.
-    pub rebase: Option<SuccessfulRebase<'ws, 'meta, M>>,
+    pub rebase: Option<Rebased>,
     /// Sources that could not be uncommitted.
     pub failures: Vec<UncommitChangesFailure>,
 }
@@ -64,17 +64,17 @@ struct GroupedUncommitChanges {
 ///
 /// The changes are removed from the commit's tree, effectively "uncommitting"
 /// them so they appear in the working directory as uncommitted changes.
-pub fn uncommit_changes<'ws, 'meta, M: RefMetadata>(
-    editor: Editor<'ws, 'meta, M>,
+pub fn uncommit_changes(
+    graph: MutableNodeGraph,
     commit: impl ToCommitSelector,
     changes: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> Result<UncommitChangesOutcome<'ws, 'meta, M>> {
-    let (editor, commit_selector) =
-        uncommit_changes_no_rebase(editor, commit, changes, context_lines)
+) -> Result<UncommitChangesOutcome> {
+    let (graph, commit_selector) =
+        uncommit_changes_no_rebase(graph, commit, changes, context_lines)
             .map_err(|err| err.error)?;
 
-    let rebase = editor.rebase()?;
+    let rebase = graph.rebase()?;
 
     Ok(UncommitChangesOutcome {
         rebase,
@@ -88,11 +88,11 @@ pub fn uncommit_changes<'ws, 'meta, M: RefMetadata>(
 /// Invalid or inapplicable grouped sources are collected in `failures`. When at
 /// least one source succeeds, all successful replacements are rebased once at
 /// the end. When no source succeeds, `rebase` is `None`.
-pub fn uncommit_changes_from_commits<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn uncommit_changes_from_commits(
+    mut graph: MutableNodeGraph,
     sources: impl IntoIterator<Item = UncommitChangesSource>,
     context_lines: u32,
-) -> Result<UncommitChangesFromCommitsOutcome<'ws, 'meta, M>> {
+) -> Result<UncommitChangesFromCommitsOutcome> {
     let groups = group_sources_by_commit(sources);
     if groups.is_empty() {
         bail!("No changes were provided to uncommit")
@@ -110,9 +110,9 @@ pub fn uncommit_changes_from_commits<'ws, 'meta, M: RefMetadata>(
     let mut failures = Vec::new();
     let mut valid_commit_ids = Vec::new();
     for group in &groups {
-        match editor.find_selectable_commit(group.commit_id) {
+        match graph.find_selectable_commit(group.commit_id) {
             Ok((_selector, commit)) => {
-                if commit.clone().attach(editor.repo()).is_conflicted() {
+                if commit.clone().attach(graph.repo()).is_conflicted() {
                     failures.push(failure(
                         group,
                         "Cannot uncommit changes from a conflicted commit",
@@ -125,10 +125,19 @@ pub fn uncommit_changes_from_commits<'ws, 'meta, M: RefMetadata>(
         }
     }
 
-    let ordered_selectors = editor.order_commit_selectors_by_parentage(valid_commit_ids)?;
+    let ordered_selectors = graph.order_commit_selectors_by_parentage(valid_commit_ids)?;
     let mut ordered_ids = ordered_selectors
         .iter()
-        .map(|selector| editor.lookup_pick(*selector))
+        .map(|selector| {
+            // `pick_at` also covers convergence boundaries, which are
+            // selectable for selectors resolved from commit ids.
+            graph.pick_at(*selector).map(|pick| pick.id).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Expected selector to point to a pick, got {:?}",
+                    graph.nodes()[*selector].kind()
+                )
+            })
+        })
         .collect::<Result<Vec<_>>>()?;
     ordered_ids.reverse();
 
@@ -141,14 +150,14 @@ pub fn uncommit_changes_from_commits<'ws, 'meta, M: RefMetadata>(
             continue;
         };
 
-        match uncommit_changes_no_rebase(editor, commit_id, group.changes.clone(), context_lines) {
-            Ok((updated_editor, _selector)) => {
-                editor = updated_editor;
+        match uncommit_changes_no_rebase(graph, commit_id, group.changes.clone(), context_lines) {
+            Ok((updated_graph, _selector)) => {
+                graph = updated_graph;
                 success_count += 1;
             }
             Err(err) => {
                 failures.push(failure(group, err.to_string()));
-                editor = err.into_editor;
+                graph = err.into_graph;
             }
         }
     }
@@ -156,61 +165,58 @@ pub fn uncommit_changes_from_commits<'ws, 'meta, M: RefMetadata>(
     let rebase = if success_count == 0 {
         None
     } else {
-        Some(editor.rebase()?)
+        Some(graph.rebase()?)
     };
 
     Ok(UncommitChangesFromCommitsOutcome { rebase, failures })
 }
 
-struct UncommitChangesNoRebaseError<'ws, 'meta, M: RefMetadata> {
-    into_editor: Editor<'ws, 'meta, M>,
+struct UncommitChangesNoRebaseError {
+    into_graph: MutableNodeGraph,
     error: anyhow::Error,
 }
 
-impl<M: RefMetadata> std::fmt::Display for UncommitChangesNoRebaseError<'_, '_, M> {
+impl std::fmt::Display for UncommitChangesNoRebaseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.error.fmt(f)
     }
 }
 
-impl<M: RefMetadata> std::fmt::Debug for UncommitChangesNoRebaseError<'_, '_, M> {
+impl std::fmt::Debug for UncommitChangesNoRebaseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.error.fmt(f)
     }
 }
 
-fn uncommit_changes_no_rebase<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+fn uncommit_changes_no_rebase(
+    mut graph: MutableNodeGraph,
     commit: impl ToCommitSelector,
     changes: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> std::result::Result<
-    (Editor<'ws, 'meta, M>, Selector),
-    UncommitChangesNoRebaseError<'ws, 'meta, M>,
-> {
-    match uncommit_changes_no_rebase_inner(&mut editor, commit, changes, context_lines) {
-        Ok(selector) => Ok((editor, selector)),
+) -> std::result::Result<(MutableNodeGraph, NodeIndex), UncommitChangesNoRebaseError> {
+    match uncommit_changes_no_rebase_inner(&mut graph, commit, changes, context_lines) {
+        Ok(selector) => Ok((graph, selector)),
         Err(error) => Err(UncommitChangesNoRebaseError {
-            into_editor: editor,
+            into_graph: graph,
             error,
         }),
     }
 }
 
-fn uncommit_changes_no_rebase_inner<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+fn uncommit_changes_no_rebase_inner(
+    graph: &mut MutableNodeGraph,
     commit: impl ToCommitSelector,
     changes: impl IntoIterator<Item = DiffSpec>,
     context_lines: u32,
-) -> Result<Selector> {
-    let (commit_selector, commit) = editor.find_selectable_commit(commit)?;
+) -> Result<NodeIndex> {
+    let (commit_selector, commit) = graph.find_selectable_commit(commit)?;
 
-    if commit.clone().attach(editor.repo()).is_conflicted() {
+    if commit.clone().attach(graph.repo()).is_conflicted() {
         bail!("Cannot uncommit changes from a conflicted commit")
     }
 
     let (tree_without_changes, dropped_diffs) = create_tree_without_diff(
-        editor.repo(),
+        graph.repo(),
         ChangesSource::Commit { id: commit.id },
         changes,
         context_lines,
@@ -223,10 +229,10 @@ fn uncommit_changes_no_rebase_inner<M: RefMetadata>(
     let new_commit_id = {
         let mut new_commit = commit.clone();
         new_commit.tree = tree_without_changes;
-        editor.new_commit(new_commit, DateMode::CommitterUpdateAuthorKeep)?
+        graph.new_commit(new_commit, DateMode::CommitterUpdateAuthorKeep)?
     };
 
-    editor.replace(commit_selector, Step::new_pick(new_commit_id))?;
+    graph.replace_commit(commit_selector, Pick::new_pick(new_commit_id))?;
     Ok(commit_selector)
 }
 

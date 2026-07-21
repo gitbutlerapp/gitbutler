@@ -3,7 +3,7 @@ use std::fmt::Display;
 use bstr::{BString, ByteSlice};
 use but_core::{DiffSpec, DryRun, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::RelativeTo;
+use but_graph::edit::RelativeTo;
 use but_transaction::Transaction;
 use but_workspace::branch::create_reference::Anchor;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};

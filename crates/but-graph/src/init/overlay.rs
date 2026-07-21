@@ -40,7 +40,7 @@ impl Overlay {
     /// A list of references that should not be picked up anymore in the
     /// re-traversal.
     ///
-    /// For example, if the `but_rebase::graph_rebase::Editor` converts a
+    /// For example, if the graph editor converts a
     /// `Reference` step to a `None` step which is the equivalent of running
     /// `git update-ref -d`, it should no longer be part of the
     /// [`crate::Graph`], so we would list the particular reference as a dropped

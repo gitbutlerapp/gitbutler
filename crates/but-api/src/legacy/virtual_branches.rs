@@ -10,11 +10,8 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_error::bail_precondition;
+use but_graph::edit::{InsertSide, RelativeToRef};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::{
-    Editor,
-    mutate::{InsertSide, RelativeToRef},
-};
 use but_workspace::branch::unapply::WorkspaceDisposition;
 use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
@@ -660,9 +657,9 @@ fn commit_assigned_diffspec(
         return Ok(());
     }
 
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let meta = ctx.meta()?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let outcome = but_workspace::commit::commit_create(
         editor,
         assigned_diffspec,
@@ -678,7 +675,9 @@ fn commit_assigned_diffspec(
         );
     }
     if outcome.commit_selector.is_some() {
-        outcome.rebase.materialize()?;
+        outcome
+            .rebase
+            .materialize_changes(&meta, but_graph::edit::MaterializeOptions::default())?;
         drop((repo, ws));
         ctx.reload_repo_and_invalidate_workspace(perm)?;
     }

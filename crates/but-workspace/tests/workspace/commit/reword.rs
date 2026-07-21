@@ -1,7 +1,7 @@
+use crate::utils::TestMaterializeExt as _;
 use anyhow::Result;
 use but_core::RefMetadata;
 use but_graph::init::Overlay;
-use but_rebase::graph_rebase::Editor;
 use but_testsupport::visualize_commit_graph_all;
 use but_workspace::commit::reword;
 
@@ -12,7 +12,7 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 #[test]
 fn reword_head_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -26,11 +26,11 @@ fn reword_head_commit() -> Result<()> {
 
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("three")?;
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     reword(editor, id.detach(), b"New name".into())?
         .0
-        .materialize()?;
+        .materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -49,7 +49,7 @@ fn reword_head_commit() -> Result<()> {
 
 #[test]
 fn reword_middle_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -63,11 +63,11 @@ fn reword_middle_commit() -> Result<()> {
 
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("two")?;
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     reword(editor, id.detach(), b"New name".into())?
         .0
-        .materialize()?;
+        .materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -88,7 +88,7 @@ fn reword_middle_commit() -> Result<()> {
 
 #[test]
 fn reword_base_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -102,11 +102,11 @@ fn reword_base_commit() -> Result<()> {
 
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("one")?;
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     reword(editor, id.detach(), b"New name".into())?
         .0
-        .materialize()?;
+        .materialize(&meta)?;
 
     // We end up with two divergent histories here. This is to be expected if we
     // rewrite the very bottom commit in a repository.
@@ -129,7 +129,7 @@ fn reword_base_commit() -> Result<()> {
 
 #[test]
 fn reword_base_moves_local_aliases_but_not_immutable_aliases() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) =
+    let (_tmp, repo, meta, _description) =
         named_writable_scenario_with_description("reword-three-commits")?;
     let old_base = repo.rev_parse_single("one")?.detach();
     let local_alias: gix::refs::FullName = "refs/heads/local-alias".try_into()?;
@@ -149,11 +149,11 @@ fn reword_base_moves_local_aliases_but_not_immutable_aliases() -> Result<()> {
         .project_meta();
     project_meta.target_commit_id = repo.rev_parse_single("main").ok().map(|id| id.detach());
     let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     reword(editor, old_base, b"New name".into())?
         .0
-        .materialize()?;
+        .materialize(&meta)?;
 
     let new_base = repo.rev_parse_single("one")?.detach();
     assert_ne!(new_base, old_base);

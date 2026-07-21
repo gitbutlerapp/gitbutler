@@ -1,5 +1,5 @@
+use crate::utils::TestMaterializeExt as _;
 use but_core::{RefMetadata, ref_metadata::StackId};
-use but_rebase::graph_rebase::Editor;
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 use snapbox::IntoData;
 
@@ -49,7 +49,7 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     // Tear off C from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -60,7 +60,7 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
@@ -143,7 +143,7 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     // Tear off B from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -154,7 +154,7 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
@@ -237,7 +237,7 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     // Tear off A from the stack. Should be a no-op.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -248,7 +248,7 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
@@ -319,7 +319,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     // Tear off B from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -330,7 +330,7 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
@@ -398,7 +398,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     // Tear off A from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -409,7 +409,7 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
@@ -477,7 +477,7 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     // Tear off B from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -488,7 +488,7 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
@@ -554,7 +554,7 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     // Tear off A from the stack.
     let but_workspace::branch::move_branch::Outcome {
         rebase, ws_meta, ..
@@ -565,7 +565,7 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;

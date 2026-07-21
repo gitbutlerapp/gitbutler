@@ -1,0 +1,245 @@
+//! Exercises the step option for whether a step should be allowed to enter a conflicted state.
+
+use anyhow::{Result, bail};
+use but_core::commit::write::DateMode;
+use but_graph::edit::mutate::InsertSide;
+use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
+use snapbox::prelude::*;
+
+use crate::utils::fixture_writable;
+
+#[test]
+fn by_default_conflicts_are_allowed() -> Result<()> {
+    let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* f37690f (HEAD -> main, c) c
+* 3b3bd41 (b) b
+* 5e0ba46 (a) a
+* 6155f21 (base) base
+
+"#]]
+    );
+
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
+
+    let mut editor = graph.into_mut(&repo)?;
+
+    // Replacing b with none will cause c to conflict
+    let b = repo.rev_parse_single("b")?;
+    let b_sel = editor.select_commit(b.detach())?;
+    editor.remove(b_sel)?;
+
+    let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.workspace()?.graph).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
+◎  c
+│ ◎  main[🌳]
+├─╯
+●  👉·04d1892 (→)
+◎  b
+◌  no-op
+◎  a
+●  ·5e0ba46 (→)
+◎  base
+●  🏁·6155f21 (→)
+
+"#]]
+    );
+    let outcome =
+        outcome.materialize_changes(&*meta, but_graph::edit::MaterializeOptions::default())?;
+    // The re-traversed post-materialize workspace, unlike the preview
+    // (a direct projection of the sealed edit graph), contains no
+    // tombstones and re-segments references from disk.
+    snapbox::assert_data_eq!(
+        graph_tree(&outcome.workspace.graph).to_string(),
+        snapbox::str![[r#"
+◎  a
+│ ◎  b
+├─╯
+│ ◎  c
+│ │ ◎  main[🌳]
+│ ├─╯
+│ ●  👉·04d1892 (→)
+├─╯
+●  ·5e0ba46 (→)
+◎  base
+●  🏁·6155f21 (→)
+
+"#]]
+    );
+
+    // We expect to see conflicted headers
+    snapbox::assert_data_eq!(
+        cat_commit(&repo, "c")?,
+        snapbox::str![[r#"
+tree d935c009623a61ebde94512baef22c76c5ccbaef
+parent 5e0ba4636be91de6216903697b269915d3db6c53
+author author <author@example.com> 946684800 +0000
+committer Committer (Memory Override) <committer@example.com> 946771200 +0000
+gitbutler-headers-version 2
+change-id ulsktwtuywxwowluzmmxlqrqnyxktwuz
+
+[conflict] c
+
+GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are auto-resolved
+   using the "ours" side. The commit tree contains additional directories:
+     .conflict-side-0  — our tree
+     .conflict-side-1  — their tree
+     .conflict-base-0  — the merge base tree
+     .auto-resolution  — the auto-resolved tree
+     .conflict-files   — metadata about conflicted files
+   To manually resolve, check out this commit, remove the directories
+   listed above, resolve the conflicts, and amend the commit.
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_error_is_raised()
+-> Result<()> {
+    let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* f37690f (HEAD -> main, c) c
+* 3b3bd41 (b) b
+* 5e0ba46 (a) a
+* 6155f21 (base) base
+
+"#]]
+    );
+
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
+
+    let mut editor = graph.into_mut(&repo)?;
+
+    // Replacing b with none will cause c to conflict
+    let b = repo.rev_parse_single("b")?;
+    let b_sel = editor.select_commit(b.detach())?;
+    editor.remove(b_sel)?;
+
+    // Set c to disallow conflicts
+    let c = repo.rev_parse_single("c")?;
+    let c_sel = editor.select_commit(c.detach())?;
+    let Some(mut c_pick) = editor.pick_at(c_sel) else {
+        bail!("c_sel should be a pick");
+    };
+    c_pick.conflictable = false;
+    editor.replace_commit(c_sel, c_pick)?;
+
+    // We should see an error given saying C ended up being conflicted
+    snapbox::assert_data_eq!(
+        editor.rebase().to_debug(),
+        snapbox::str![[r#"
+Err(
+    "Commit f37690fa0ac6f48391974bb0a7cdc4c8a6c6fe7a was marked as not conflictable, but resulted in a conflicted state",
+)
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_result_is_ok()
+-> Result<()> {
+    let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
+
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* f37690f (HEAD -> main, c) c
+* 3b3bd41 (b) b
+* 5e0ba46 (a) a
+* 6155f21 (base) base
+
+"#]]
+    );
+
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        but_graph::init::Overlay::default(),
+    )?
+    .validated()?;
+
+    let mut editor = graph.into_mut(&repo)?;
+
+    // Insert an empty commit above b to cause c to get cherry picked with out a conflict
+    let b = repo.rev_parse_single("b")?;
+    let b_sel = editor.select_commit(b.detach())?;
+    let mut empty = editor.empty_commit()?;
+    empty.message = b"I'm a new commit! Hello there".into();
+    let empty_id = editor.new_commit(empty, DateMode::CommitterKeepAuthorKeep)?;
+    editor.insert_commit(b_sel, empty_id, InsertSide::Above)?;
+
+    // Set c to disallow conflicts
+    let c = repo.rev_parse_single("c")?;
+    let c_sel = editor.select_commit(c.detach())?;
+    let Some(mut c_pick) = editor.pick_at(c_sel) else {
+        bail!("c_sel should be a pick");
+    };
+    c_pick.conflictable = false;
+    editor.replace_commit(c_sel, c_pick)?;
+
+    let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.workspace()?.graph).to_string();
+    snapbox::assert_data_eq!(
+        &overlayed,
+        snapbox::str![[r#"
+◎  c
+│ ◎  main[🌳]
+├─╯
+●  👉·8b4d335 (→)
+◎  b
+●  ·7762cf9 (→)
+●  ·3b3bd41 (→)
+◎  a
+●  ·5e0ba46 (→)
+◎  base
+●  🏁·6155f21 (→)
+
+"#]]
+    );
+    let outcome =
+        outcome.materialize_changes(&*meta, but_graph::edit::MaterializeOptions::default())?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+
+    // The rebase is successful because `c` remained unconflicted
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 8b4d335 (HEAD -> main, c) c
+* 7762cf9 (b) I'm a new commit! Hello there
+* 3b3bd41 b
+* 5e0ba46 (a) a
+* 6155f21 (base) base
+
+"#]]
+    );
+
+    Ok(())
+}

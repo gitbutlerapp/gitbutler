@@ -1,7 +1,7 @@
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
+use but_graph::edit::{InsertSide, RelativeTo};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use tracing::instrument;
 
 use crate::WorkspaceState;
@@ -52,12 +52,14 @@ pub fn commit_move_only_with_perm(
 ) -> anyhow::Result<CommitMoveResult> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let rebase =
         but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
 
     Ok(CommitMoveResult {
-        workspace: WorkspaceState::from_successful_rebase_with_db(rebase, &repo, dry_run, &db)?,
+        workspace: WorkspaceState::from_successful_rebase_with_db(
+            rebase, &mut ws, &repo, &mut meta, dry_run, &db,
+        )?,
     })
 }
 

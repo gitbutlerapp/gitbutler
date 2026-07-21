@@ -14,9 +14,9 @@ fn single_branch() -> anyhow::Result<()> {
         snapbox::str![[r"
     * bf53300 (A) add A
     | * b1540e5 (HEAD -> main) M
-    |/  
+    |/
     | * 0e391b2 (origin/B) add B
-    |/  
+    |/
     * e31e6ca (origin/main, origin/HEAD) add init
     "]]
     );
@@ -48,12 +48,12 @@ Applied branch 'A' to workspace
         env.git_log(),
         snapbox::str![[r"
     *   d87b903 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
+    |\
     | * bf53300 (A) add A
     * | b1540e5 (main) M
-    |/  
+    |/
     | * 0e391b2 (origin/B) add B
-    |/  
+    |/
     * e31e6ca (origin/main, origin/HEAD) add init
     "]]
         .raw()
@@ -88,12 +88,12 @@ Applied remote branch 'origin/B' to workspace
         env.git_log(),
         snapbox::str![[r"
     *-.   7bcf528 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\ \  
+    |\ \
     | | * 0e391b2 (origin/B, B) add B
     | * | bf53300 (A) add A
-    | |/  
+    | |/
     * / b1540e5 (main) M
-    |/  
+    |/
     * e31e6ca (origin/main, origin/HEAD) add init
     "]]
         .raw()
@@ -162,10 +162,10 @@ workspace_ref_created=false
         env.git_log(),
         snapbox::str![[r#"
 *   9d5d9e5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 9f9d5a6 (feature-branch) Add feature
 * | 9477ae7 (A) add A
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -242,10 +242,10 @@ fn local_branch_with_json_output() {
         env.git_log(),
         snapbox::str![[r#"
 *   9d5d9e5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 9f9d5a6 (feature-branch) Add feature
 * | 9477ae7 (A) add A
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -325,10 +325,10 @@ Applied remote branch 'origin/remote-feature' to workspace
         env.git_log(),
         snapbox::str![[r#"
 *   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
 * | 9477ae7 (A) add A
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -376,10 +376,10 @@ Applied remote branch 'origin/remote-feature' to workspace
         env.git_log(),
         snapbox::str![[r#"
 *   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
 * | 9477ae7 (A) add A
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -436,10 +436,10 @@ Applied remote branch 'origin/remote-feature' to workspace
         env.git_log(),
         snapbox::str![[r#"
 *   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * ba02e5f (upstream/remote-feature, origin/remote-feature, remote-feature) Add remote feature
 * | 9477ae7 (A) add A
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -556,12 +556,12 @@ Applied branch 'feature-2' to workspace
         env.git_log(),
         snapbox::str![[r#"
 *-.   7044ae9 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\ \  
+|\ \
 | | * 4e81b31 (feature-2) Add feature 2
 | * | 9c2fe5c (feature-1) Add feature 1
-| |/  
+| |/
 * / 9477ae7 (A) add A
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]

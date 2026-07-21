@@ -137,14 +137,16 @@ impl NodeGraph {
                 "BUG: entrypoint node {index} is out of bounds for {} nodes",
                 self.nodes.len()
             );
+            // Edits can drop the entrypoint onto a convergence boundary — a
+            // real, addressable commit — so any commit-like node is legal.
             ensure!(
-                matches!(self.nodes[index].kind, NodeKind::Commit { .. }),
+                is_commit_like(&self.nodes, index),
                 "BUG: born entrypoint node {index} is not a commit"
             );
-            let NodeKind::Commit { id: entrypoint_id } = &self.nodes[index].kind else {
-                unreachable!("checked above")
-            };
-            let entrypoint_id = *entrypoint_id;
+            let entrypoint_id = self.nodes[index]
+                .kind
+                .addressable_commit_id()
+                .expect("commit-like nodes are addressable");
             if let Some(entrypoint_ref) = self.context.entrypoint_ref.as_ref()
                 && let Some(reference) = self.nodes.iter().find_map(|node| match &node.kind {
                     NodeKind::Reference(reference)
@@ -216,7 +218,12 @@ impl NodeGraph {
                     );
                 }
                 NodeKind::None => {
-                    bail!("BUG: validated graphs must not contain None node {index}");
+                    // Tombstones left behind by graph edits are legal: traversal
+                    // resolves through them to their parents.
+                    ensure!(
+                        annotation.is_empty(),
+                        "BUG: tombstone node {index} has commit annotations"
+                    );
                 }
                 NodeKind::Boundary { id, reason } => {
                     ensure!(
@@ -356,8 +363,10 @@ impl NodeGraph {
                             "BUG: reference node {index} targets {expected_id}, but its parent chain reaches a shallow boundary"
                         );
                     }
+                    // Tombstones are transparent; a reference resolves through a
+                    // tombstone's first parent slot, matching [`resolve_to_commit`].
                     NodeKind::None => {
-                        bail!("BUG: validated graphs must not contain None node {parent}");
+                        parents.extend(self.nodes[parent].parents.first().copied());
                     }
                 }
             }
@@ -365,6 +374,158 @@ impl NodeGraph {
 
         Ok(())
     }
+}
+
+/// Whether the node at `index` stands for an addressable commit
+/// (a materialized commit or a convergence boundary).
+pub fn is_commit_like(nodes: &[Node], index: NodeIndex) -> bool {
+    matches!(
+        nodes[index].kind,
+        NodeKind::Commit { .. }
+            | NodeKind::Boundary {
+                reason: BoundaryKind::Convergence,
+                ..
+            }
+    )
+}
+
+/// The parent slots a transparent node stands on: the target (last) parent for
+/// a reference, every parent for a tombstone, nothing for a shallow boundary.
+pub fn expansion_slots(nodes: &[Node], index: NodeIndex) -> &[NodeIndex] {
+    match &nodes[index].kind {
+        NodeKind::Reference(_) => {
+            let parents = nodes[index].parents();
+            if parents.is_empty() {
+                &[]
+            } else {
+                &parents[parents.len() - 1..]
+            }
+        }
+        NodeKind::None => nodes[index].parents(),
+        NodeKind::Commit { .. }
+        | NodeKind::Boundary {
+            reason: BoundaryKind::Convergence,
+            ..
+        } => unreachable!("commit-like nodes are never expanded"),
+        NodeKind::Boundary {
+            reason: BoundaryKind::Shallow,
+            ..
+        } => &[],
+    }
+}
+
+/// Find the commit-like parents of a given node, in parent-slot order.
+///
+/// Non-commit nodes are transparent: a reference stands on its target (its
+/// *last* parent), a tombstone expands into all of its parents in order, and a
+/// shallow boundary contributes nothing. Commits reachable through several
+/// paths are emitted once, at their first encounter.
+pub fn collect_ordered_parents(nodes: &[Node], target: NodeIndex) -> Vec<NodeIndex> {
+    let mut pending = nodes[target].parents().to_vec();
+    pending.reverse();
+    let mut seen = pending.iter().copied().collect::<HashSet<_>>();
+    let mut parents = Vec::new();
+
+    while let Some(candidate) = pending.pop() {
+        if is_commit_like(nodes, candidate) {
+            parents.push(candidate);
+            // Don't pursue the commit's own parents.
+            continue;
+        }
+        for slot in expansion_slots(nodes, candidate).iter().rev() {
+            if seen.insert(*slot) {
+                pending.push(*slot);
+            }
+        }
+    }
+
+    parents
+}
+
+/// Resolve `index` itself to the commit-like node it stands on, following
+/// transparent nodes.
+///
+/// For a reference this is its target commit; for a tombstone the first
+/// commit its ordered parents resolve to.
+pub fn resolve_to_commit(nodes: &[Node], index: NodeIndex) -> Option<NodeIndex> {
+    let mut pending = vec![index];
+    let mut seen = HashSet::new();
+    while let Some(candidate) = pending.pop() {
+        if !seen.insert(candidate) {
+            continue;
+        }
+        if is_commit_like(nodes, candidate) {
+            return Some(candidate);
+        }
+        for slot in expansion_slots(nodes, candidate).iter().rev() {
+            pending.push(*slot);
+        }
+    }
+    None
+}
+
+/// All `(child, parent_slot)` pairs naming `index` as a parent.
+pub fn children_of(nodes: &[Node], index: NodeIndex) -> Vec<(NodeIndex, usize)> {
+    let mut out = Vec::new();
+    for (child, node) in nodes.iter().enumerate() {
+        for (slot, parent) in node.parents().iter().enumerate() {
+            if *parent == index {
+                out.push((child, slot));
+            }
+        }
+    }
+    out
+}
+
+/// All nodes that no other node names as a parent.
+pub fn child_most(nodes: &[Node]) -> Vec<NodeIndex> {
+    let mut has_child = vec![false; nodes.len()];
+    for node in nodes {
+        for parent in node.parents() {
+            has_child[*parent] = true;
+        }
+    }
+    has_child
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, has_child)| (!has_child).then_some(index))
+        .collect()
+}
+
+/// All node indexes ordered parents-first, so every node is visited only after
+/// all of its parents. Errors when the graph contains a cycle.
+pub fn topological_order(nodes: &[Node]) -> Result<Vec<NodeIndex>> {
+    let mut remaining_parents = nodes
+        .iter()
+        .map(|node| node.parents().len())
+        .collect::<Vec<_>>();
+    let mut children: Vec<Vec<NodeIndex>> = vec![Vec::new(); nodes.len()];
+    for (index, node) in nodes.iter().enumerate() {
+        for parent in node.parents() {
+            children[*parent].push(index);
+        }
+    }
+
+    let mut ready = remaining_parents
+        .iter()
+        .enumerate()
+        .filter_map(|(index, count)| (*count == 0).then_some(index))
+        .collect::<VecDeque<_>>();
+    let mut ordered = Vec::with_capacity(nodes.len());
+    while let Some(index) = ready.pop_front() {
+        ordered.push(index);
+        for child in &children[index] {
+            remaining_parents[*child] -= 1;
+            if remaining_parents[*child] == 0 {
+                ready.push_back(*child);
+            }
+        }
+    }
+    ensure!(
+        ordered.len() == nodes.len(),
+        "BUG: the node graph contains a cycle"
+    );
+    Ok(ordered)
 }
 
 fn node_reaches(nodes: &[Node], start: NodeIndex, wanted: NodeIndex) -> bool {

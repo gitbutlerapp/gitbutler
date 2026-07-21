@@ -9,6 +9,74 @@ pub use but_testsupport::{
     writable_scenario, writable_scenario_slow, writable_scenario_with_args,
 };
 
+/// Test-only convenience: materialize a [`but_graph::Rebased`] with default
+/// options, mirroring the old editor's `materialize()`/`materialize_without_checkout()`.
+pub trait TestMaterializeExt: Sized {
+    fn materialize(
+        self,
+        meta: &impl but_core::RefMetadata,
+    ) -> anyhow::Result<but_graph::edit::MaterializeOutcome>;
+    fn materialize_without_checkout(
+        self,
+        meta: &impl but_core::RefMetadata,
+    ) -> anyhow::Result<but_graph::edit::MaterializeOutcome>;
+}
+
+impl TestMaterializeExt for but_graph::Rebased {
+    fn materialize(
+        self,
+        meta: &impl but_core::RefMetadata,
+    ) -> anyhow::Result<but_graph::edit::MaterializeOutcome> {
+        self.materialize_changes(meta, but_graph::edit::MaterializeOptions::default())
+    }
+    fn materialize_without_checkout(
+        self,
+        meta: &impl but_core::RefMetadata,
+    ) -> anyhow::Result<but_graph::edit::MaterializeOutcome> {
+        self.materialize_changes(
+            meta,
+            but_graph::edit::MaterializeOptions { checkout: false },
+        )
+    }
+}
+
+/// Test-only convenience mirroring the old `LookupStep` trait over the various
+/// stages of the edit lifecycle, keyed by stable [`but_graph::NodeIndex`].
+pub trait TestLookupExt {
+    fn lookup_pick(&self, index: but_graph::NodeIndex) -> anyhow::Result<gix::ObjectId>;
+}
+
+impl TestLookupExt for but_graph::Rebased {
+    fn lookup_pick(&self, index: but_graph::NodeIndex) -> anyhow::Result<gix::ObjectId> {
+        self.pick_at(index)
+            .map(|pick| pick.id)
+            .ok_or_else(|| anyhow::anyhow!("Expected selector {index} to point to a pick"))
+    }
+}
+
+impl TestLookupExt for but_graph::MutableNodeGraph {
+    fn lookup_pick(&self, index: but_graph::NodeIndex) -> anyhow::Result<gix::ObjectId> {
+        self.pick_at(index)
+            .map(|pick| pick.id)
+            .ok_or_else(|| anyhow::anyhow!("Expected selector {index} to point to a pick"))
+    }
+}
+
+impl TestLookupExt for but_graph::edit::MaterializeOutcome {
+    fn lookup_pick(&self, index: but_graph::NodeIndex) -> anyhow::Result<gix::ObjectId> {
+        match self.graph.nodes()[index].kind() {
+            but_graph::NodeKind::Commit { id } => Ok(*id),
+            // Unlike `pick_at`, this sealed-graph lookup reads ANY boundary
+            // (shallow included) as a pick of its id — preserved verbatim from
+            // the old nodes-based `lookup_step` mapping.
+            but_graph::NodeKind::Boundary { id, .. } => Ok(*id),
+            kind @ (but_graph::NodeKind::Reference(_) | but_graph::NodeKind::None) => {
+                anyhow::bail!("Expected selector {index} to point to a pick, got {kind:?}")
+            }
+        }
+    }
+}
+
 pub fn refresh_workspace_from_head(
     workspace: &mut but_graph::Workspace,
     repo: &gix::Repository,

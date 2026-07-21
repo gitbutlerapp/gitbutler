@@ -5,7 +5,7 @@ use std::{
 };
 
 use but_core::ref_metadata::StackId;
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_graph::edit::InsertSide;
 use ratatui::{
     Frame,
     prelude::*,

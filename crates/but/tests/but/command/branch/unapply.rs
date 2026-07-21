@@ -33,10 +33,10 @@ fn single_branch() {
         env.git_log(),
         snapbox::str![[r#"
 *   9d5d9e5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 9f9d5a6 (feature-branch) Add feature
 * | 9477ae7 (A) add A
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -61,7 +61,7 @@ Unapplied stack with branches 'feature-branch' from workspace
 * 9f9d5a6 (feature-branch) Add feature
 | * 0bbfbfd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * 9477ae7 (A) add A
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -103,7 +103,7 @@ fn unapply_with_json_output() {
 * 9f9d5a6 (feature-branch) Add feature
 | * 0bbfbfd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 | * 9477ae7 (A) add A
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -238,10 +238,10 @@ fn unapply_remote_tracking_branch() {
         env.git_log(),
         snapbox::str![[r#"
 *   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
 * | 9477ae7 (A) add A
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -265,7 +265,7 @@ Unapplied stack with branches 'remote-feature' from workspace
 * 0bbfbfd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 * 9477ae7 (A) add A
 | * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]

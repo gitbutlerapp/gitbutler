@@ -1,17 +1,16 @@
 //! Move a commit within or across branches and stacks.
 
 use anyhow::bail;
-use but_core::RefMetadata;
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _, SuccessfulRebase, ToCommitSelector, ToSelector,
-    mutate::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet},
+use but_graph::{
+    MutableNodeGraph, Rebased,
+    edit::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet, ToCommitSelector, ToSelector},
 };
 
 use crate::graph_manipulation::determine_parent_selector;
 
 /// Move a commit.
 ///
-/// `editor` is assumed to be aligned with the graph being mutated.
+/// `graph` is assumed to be aligned with the graph being mutated.
 ///
 /// `subject_commit` - The commit to be moved.
 ///
@@ -21,35 +20,44 @@ use crate::graph_manipulation::determine_parent_selector;
 ///
 /// The subject commit will be detached from the source segment, and inserted relative
 /// to a given anchor (branch or commit).
-pub fn move_commit<'ws, 'meta, M: RefMetadata>(
-    editor: Editor<'ws, 'meta, M>,
+pub fn move_commit(
+    graph: MutableNodeGraph,
     subject_commit: impl ToCommitSelector,
     anchor: impl ToSelector,
     side: InsertSide,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
-    let editor = move_commit_no_rebase(editor, subject_commit, anchor, side)?;
-    editor.rebase()
+) -> anyhow::Result<Rebased> {
+    let graph = move_commit_no_rebase(graph, subject_commit, anchor, side)?;
+    graph.rebase()
 }
 
 /// Move multiple commits.
 ///
 /// The commits are ordered by parentage before moving so callers do not need to
 /// provide them in graph order.
-pub fn move_commits<'ws, 'meta, M: RefMetadata>(
-    editor: Editor<'ws, 'meta, M>,
+pub fn move_commits(
+    graph: MutableNodeGraph,
     subject_commit_ids: impl IntoIterator<Item = gix::ObjectId>,
     relative_to: RelativeTo,
     side: InsertSide,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> anyhow::Result<Rebased> {
     let subject_commit_ids = subject_commit_ids.into_iter().collect::<Vec<_>>();
     if subject_commit_ids.is_empty() {
         bail!("No commits were provided to move")
     }
 
-    let ordered_selectors = editor.order_commit_selectors_by_parentage(subject_commit_ids)?;
+    let ordered_selectors = graph.order_commit_selectors_by_parentage(subject_commit_ids)?;
     let mut ordered_ids = ordered_selectors
         .iter()
-        .map(|selector| editor.lookup_pick(*selector))
+        .map(|selector| {
+            // `pick_at` also covers convergence boundaries, which are
+            // selectable for selectors resolved from commit ids.
+            graph.pick_at(*selector).map(|pick| pick.id).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Expected selector to point to a pick, got {:?}",
+                    graph.nodes()[*selector].kind()
+                )
+            })
+        })
         .collect::<anyhow::Result<Vec<_>>>()?;
 
     let ordered_ids = if matches!(side, InsertSide::Above) {
@@ -64,18 +72,18 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
         .next()
         .expect("non-empty commit list always has a first subject");
 
-    let mut editor = move_commit_no_rebase(editor, first_subject, relative_to.clone(), side)?;
+    let mut graph = move_commit_no_rebase(graph, first_subject, relative_to.clone(), side)?;
 
     for subject_id in subjects {
-        editor = move_commit_no_rebase(editor, subject_id, relative_to.clone(), side)?;
+        graph = move_commit_no_rebase(graph, subject_id, relative_to.clone(), side)?;
     }
 
-    editor.rebase()
+    graph.rebase()
 }
 
 /// Move a commit without rebasing.
 ///
-/// `editor` is assumed to be aligned with the graph being mutated.
+/// `graph` is assumed to be aligned with the graph being mutated.
 ///
 /// `subject_commit` - The commit to be moved.
 ///
@@ -86,14 +94,14 @@ pub fn move_commits<'ws, 'meta, M: RefMetadata>(
 /// The subject commit will be detached from the source segment, and inserted relative
 /// to a given anchor (branch or commit).
 ///
-/// This function mutates the editor graph but does not execute a rebase.
-pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+/// This function mutates the graph but does not execute a rebase.
+pub fn move_commit_no_rebase(
+    mut graph: MutableNodeGraph,
     subject_commit: impl ToCommitSelector,
     anchor: impl ToSelector,
     side: InsertSide,
-) -> anyhow::Result<Editor<'ws, 'meta, M>> {
-    let (subject_commit_selector, _) = editor.find_selectable_commit(subject_commit)?;
+) -> anyhow::Result<MutableNodeGraph> {
+    let (subject_commit_selector, _) = graph.find_selectable_commit(subject_commit)?;
 
     let commit_delimiter = SegmentDelimiter {
         child: subject_commit_selector,
@@ -101,10 +109,10 @@ pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
     };
 
     // Step 1: Determine the parents to disconnect.
-    let parent_to_disconnect = determine_parent_selector(&editor, subject_commit_selector)?;
+    let parent_to_disconnect = determine_parent_selector(&graph, subject_commit_selector)?;
 
     // Step 2: Disconnect
-    editor.disconnect_segment_from(
+    graph.disconnect_segment_from(
         commit_delimiter.clone(),
         SelectorSet::All,
         parent_to_disconnect,
@@ -112,6 +120,6 @@ pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
     )?;
 
     // Step 3: Insert
-    editor.insert_segment(anchor, commit_delimiter, side)?;
-    Ok(editor)
+    graph.insert_segment(anchor, commit_delimiter, side)?;
+    Ok(graph)
 }

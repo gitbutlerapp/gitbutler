@@ -23,8 +23,10 @@
 //!   - otherwise, it can be applied anywhere
 #![expect(
     deprecated,
-    reason = "calls but_workspace::legacy::stacks_v3, stack_ext::StackExt, and legacy stack methods; these should be replaced with ctx.workspace_* helpers"
+    reason = "calls but_workspace::legacy::stacks_v3 and legacy stack methods; these should be replaced with ctx.workspace_* helpers"
 )]
+
+use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, bail};
 use but_core::{RepositoryExt, ref_metadata::StackId};
@@ -32,10 +34,9 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_rebase::Rebase;
-use but_workspace::legacy::{StacksFilter, stack_ext::StackExt, stacks_v3};
-use gitbutler_branch_actions::{stack::get_stack, update_workspace_commit};
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
+use but_graph::edit::{InsertSide, MaterializeOptions};
+use but_workspace::legacy::{StacksFilter, stacks_v3};
+use gitbutler_branch_actions::stack::get_stack;
 use gix::{ObjectId, Repository};
 use serde::Serialize;
 
@@ -110,7 +111,6 @@ pub fn cherry_apply(
     subject: ObjectId,
     target: StackId,
 ) -> Result<()> {
-    let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let status = cherry_apply_status(ctx, perm.read_permission(), subject)?;
     // Has the frontend told us to do something naughty?
     match status {
@@ -132,29 +132,53 @@ pub fn cherry_apply(
 
     let repo = ctx.repo.get()?.clone().for_tree_diffing()?;
     let mut stack = get_stack(ctx, target)?;
-    let mut steps = stack.as_rebase_steps(ctx)?;
-    // Insert before the head references (len - 1)
-    steps.insert(
-        steps.len() - 1,
-        but_rebase::RebaseStep::Pick {
-            commit_id: subject,
-            new_message: None,
-        },
-    );
-    let mut rebase = Rebase::new(&repo, stack.merge_base(ctx)?, None)?;
-    rebase.steps(steps)?;
-    rebase.rebase_noops(false);
-    let output = rebase.rebase()?;
-    stack.set_heads_from_rebase_output(ctx, output.references)?;
 
-    {
-        let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-        update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
+    let meta = ctx.legacy_meta()?;
+    let graph = but_graph::Graph::from_repo(
+        &repo,
+        &meta,
+        ctx.project_meta()?,
+        but_graph::init::Overlay::default(),
+    )?;
+    let mut mutable = graph.into_mut(&repo)?;
+
+    // Insert the pick directly below the stack's top head reference so it
+    // becomes the new topmost commit of the stack, right underneath the
+    // (managed) workspace commit.
+    let top_head_ref = full_head_ref_name(
+        stack
+            .heads
+            .iter()
+            .filter(|head| !head.archived)
+            .next_back()
+            .context("Stacks always have a head")?,
+    )?;
+    mutable.insert_commit(top_head_ref, subject, InsertSide::Below)?;
+    let rebased = mutable.rebase()?;
+
+    let mut new_heads = HashMap::new();
+    for head in stack.heads.iter().filter(|head| !head.archived) {
+        let ref_name = full_head_ref_name(head)?;
+        let commit_id = rebased.reference_target(ref_name.as_ref())?;
+        new_heads.insert(head.name().to_string(), commit_id);
     }
 
-    update_workspace_commit(ctx, false)?;
+    // Persists the new commits, updates the references (including the
+    // workspace commit) and safely checks out the rewritten `HEAD`, carrying
+    // over uncommitted changes.
+    rebased.materialize_changes(&meta, MaterializeOptions::default())?;
+
+    // Sync the legacy stack metadata with the rewritten heads.
+    stack.set_heads_by_name(ctx, new_heads)?;
 
     Ok(())
+}
+
+fn full_head_ref_name(head: &gitbutler_stack::StackBranch) -> Result<gix::refs::FullName> {
+    Ok(gix::refs::FullName::try_from(format!(
+        "refs/heads/{}",
+        head.name()
+    ))?)
 }
 
 // Can a given commit be cleanly cherry picked onto another commit

@@ -9,14 +9,14 @@ fn worktrees() {
         env.git_log(),
         snapbox::str![[r#"
 *   063d8c1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 3e01e28 (B) B
 * | 4c4624e (A) A
-|/  
+|/
 | * 8dc508f (origin/main, origin/HEAD, main) M-advanced
-|/  
+|/
 | * 197ddce (origin/A) A-remote
-|/  
+|/
 * 081bae9 M-base
 * 3183e43 M1
 
@@ -682,6 +682,9 @@ fn status_marks_empty_remote_branch_merged_upstream_when_tip_matches_target() {
 Applied remote branch 'origin/document-but-pr-skill' to workspace
 
 "#]]);
+    if std::env::var("KEEP_SANDBOX").is_ok() {
+        env.debug();
+    }
 
     let output = env
         .but("status")

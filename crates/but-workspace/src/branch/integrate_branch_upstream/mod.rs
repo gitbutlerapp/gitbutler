@@ -4,10 +4,10 @@ use std::{
 };
 
 use anyhow::{Result, bail};
-use but_core::{RefMetadata, commit::Headers};
-use but_rebase::graph_rebase::{
-    Editor, LookupStep, SuccessfulRebase,
-    mutate::{SegmentDelimiter, SelectorSet},
+use but_core::commit::Headers;
+use but_graph::{
+    Rebased,
+    edit::{SegmentDelimiter, SelectorSet},
 };
 
 use crate::graph_manipulation::{EdgeSelection, connect_segment_to_edges, selected_edges_from_set};
@@ -17,7 +17,7 @@ use crate::{
     },
     divergence::{
         BranchMergeBaseCommits, classify_selectors_against_target_commits,
-        commit_ids_from_selectors, get_commits_until_merge_base,
+        commit_ids_from_selectors, get_commits_until_merge_base, pick_id,
     },
 };
 use crate::{graph_manipulation::determine_parent_selector, resolve_tracking_branch_ref_name};
@@ -110,19 +110,18 @@ pub struct InitialBranchIntegration {
 ///
 /// `steps` - The vector of steps in the application order (parent to child) that describe the actions to perform
 ///   for the integration of the changes.
-pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
+pub fn integrate_branch_with_steps(
     ref_name: &gix::refs::FullNameRef,
     integration: InteractiveIntegration,
-    workspace: &'ws mut but_graph::Workspace,
-    meta: &'meta mut M,
+    workspace: &but_graph::Workspace,
     repo: &gix::Repository,
-) -> Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> Result<Rebased> {
     if integration.steps.is_empty() {
         bail!("Integration steps cannot be empty")
     }
-    // The editor maps every segment in the graph, including the remote
+    // The mutable graph maps every segment in the graph, including the remote
     // reference of the branch we're integrating.
-    let mut editor = Editor::create(workspace, meta, repo)?;
+    let mut editor = workspace.graph.clone().into_mut(repo)?;
     // Step 1: We prepare the steps before building.
     // At this point, we construct the commits for the squash steps in memory.
     let prepared_steps = prepare_integration_steps_for_editor(&editor, &integration.steps)?;
@@ -155,7 +154,7 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
     let integration_commit_ids = integration_step_commit_ids(&integration.steps);
     let children_to_reconnect = children_to_reconnect
         .into_iter()
-        .filter(|(selector, _)| match editor.lookup_pick(*selector) {
+        .filter(|(selector, _)| match pick_id(&editor, *selector) {
             Ok(commit_id) => !integration_commit_ids.contains(&commit_id),
             Err(_) => true,
         })
@@ -225,19 +224,16 @@ fn integration_step_commit_ids(steps: &[InteractiveIntegrationStep]) -> HashSet<
 ///
 /// `repo` - The repository handle.
 ///
-/// `workspace` - The current workspace graph projection used to construct the editor.
-///
-/// `meta` - Reference metadata used while constructing the editor.
+/// `workspace` - The current workspace graph projection used to construct the mutable graph.
 ///
 /// Returns the initial integration script and current divergence display state.
-pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
+pub fn get_initial_integration_steps_for_branch(
     ref_name: &gix::refs::FullNameRef,
     strategy: BranchIntegrationStrategy,
-    workspace: &mut but_graph::Workspace,
-    meta: &mut M,
+    workspace: &but_graph::Workspace,
     repo: &gix::Repository,
 ) -> Result<InitialBranchIntegration> {
-    // Step 1: Preserve target reachability by commit identity before the editor maps the graph.
+    // Step 1: Preserve target reachability by commit identity before the mutable graph maps the graph.
     let upstream_ref_name = resolve_tracking_branch_ref_name(ref_name, repo)?;
     let target_reachable_commits = if workspace
         .target_ref
@@ -265,9 +261,9 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
             .collect()
     };
 
-    let editor = Editor::create(workspace, meta, repo)?;
+    let editor = workspace.graph.clone().into_mut(repo)?;
 
-    // Step 2: We traverse the editor graph and determine the divergence between the local and remote branch.
+    // Step 2: We traverse the graph and determine the divergence between the local and remote branch.
     let BranchMergeBaseCommits {
         local_commits: local_commit_selectors,
         upstream_commits: upstream_commit_selectors,
@@ -276,7 +272,7 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
     let local_commits = commit_ids_from_selectors(&editor, local_commit_selectors.iter().copied())?;
     let upstream_commits =
         commit_ids_from_selectors(&editor, upstream_commit_selectors.iter().copied())?;
-    let merge_base = editor.lookup_pick(merge_base_selector)?;
+    let merge_base = pick_id(&editor, merge_base_selector)?;
 
     // Step 3: We determine the integration state of all the relevant commits, to know which are editable
     // and for display purposes.

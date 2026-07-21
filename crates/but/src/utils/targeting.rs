@@ -2,7 +2,7 @@
 
 use std::fmt::Display;
 
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_graph::edit::InsertSide;
 use but_workspace::branch::create_reference::Position;
 
 #[derive(Clone, Copy)]

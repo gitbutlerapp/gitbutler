@@ -6,7 +6,7 @@ use but_core::{
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_graph::edit::{InsertSide, RelativeTo};
 use but_transaction::{IntermediateCommitCreateResult, Transaction};
 use but_workspace::{RefInfo, branch::create_reference::Anchor};
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};

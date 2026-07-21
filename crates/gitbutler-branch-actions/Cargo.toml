@@ -52,7 +52,6 @@ but-schemars = { workspace = true, optional = true }
 [dev-dependencies]
 but-askpass.workspace = true
 but-project-handle.workspace = true
-but-rebase.workspace = true
 but-settings.workspace = true
 git2.workspace = true
 pretty_assertions = "1.4"

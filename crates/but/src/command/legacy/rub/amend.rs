@@ -1,7 +1,8 @@
+use anyhow::bail;
 use but_core::DiffSpec;
 use but_ctx::{Context, access::RepoExclusive};
+use but_graph::edit::MaterializeOptions;
 use but_hunk_assignment::HunkAssignment;
-use but_rebase::graph_rebase::{Editor, LookupStep as _};
 use gitbutler_branch_actions::update_workspace_commit;
 use gix::ObjectId;
 use nonempty::NonEmpty;
@@ -52,9 +53,9 @@ fn amend_diff_specs(
     oid: ObjectId,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<(Option<ObjectId>, Vec<rejection::RejectedChange>)> {
-    let mut meta = ctx.meta()?;
+    let meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let outcome = but_workspace::commit::commit_amend(
         editor,
         oid,
@@ -68,12 +69,21 @@ fn amend_diff_specs(
     }
     let new_commit = outcome
         .commit_selector
-        .map(|selector| outcome.rebase.lookup_pick(selector))
+        .map(|selector| match outcome.rebase.pick_at(selector) {
+            Some(pick) => Ok(pick.id),
+            None => bail!(
+                "Expected a pick for the amended commit, got {:?}",
+                outcome.rebase.graph.nodes()[selector].kind()
+            ),
+        })
         .transpose()?;
-    outcome.rebase.materialize()?;
+    let materialized = outcome
+        .rebase
+        .materialize_changes(&meta, MaterializeOptions::default())?;
+    *ws = materialized.workspace;
 
-    // `materialize()` released the workspace borrow, so we can now look up why
-    // the rejected changes were locked and to which branch each one depends on.
+    // Look up why the rejected changes were locked and to which branch each
+    // one depends on, against the freshly materialized workspace.
     let rejected = rejection::explain_rejections(&repo, &ws, &rejected_specs);
     Ok((new_commit, rejected))
 }

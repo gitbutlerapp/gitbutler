@@ -1,18 +1,17 @@
-//! Shared graph editor traversal and edge-manipulation helpers.
+//! Shared graph traversal and edge-manipulation helpers.
 
 use anyhow::{Context, Result, bail};
-use but_core::RefMetadata;
 use but_graph::workspace::{Stack, StackSegment};
-use but_rebase::graph_rebase::{
-    Editor, LookupStep, Selector, Step, ToSelector,
-    mutate::{SegmentDelimiter, SelectorSet, SomeSelectors},
+use but_graph::{
+    MutableNodeGraph, NodeIndex, NodeKind,
+    edit::{Pick, SegmentDelimiter, SelectorSet, SomeSelectors, ToSelector},
 };
 use std::collections::HashSet;
 
 /// Payload containing information about how to disconnect a segment in the graph.
 pub struct DisconnectParameters {
     /// The bounds of the segment to disconnect.
-    pub(crate) delimiter: SegmentDelimiter<Selector, Selector>,
+    pub(crate) delimiter: SegmentDelimiter<NodeIndex, NodeIndex>,
     /// The children of the child-most segment bound to disconnect.
     pub(crate) children_to_disconnect: SelectorSet,
     /// The parents of the parent-most segment bound to disconnect.
@@ -23,8 +22,8 @@ pub struct DisconnectParameters {
 ///
 /// This function determines which are the right parents and children to disconnect,
 /// as well as the right segment delimiter to move.
-pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
+pub fn get_disconnect_parameters(
+    graph: &MutableNodeGraph,
     source_stack: &Stack,
     subject_segment: &StackSegment,
     workspace_head: Option<gix::ObjectId>,
@@ -38,11 +37,11 @@ pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
     let subject_segment_ref_name = subject_segment
         .ref_name()
         .context("Subject segment doesn't have a ref name.")?;
-    let delimiter_child = editor
+    let delimiter_child = graph
         .select_reference(subject_segment_ref_name)
         .context("Failed to find subject reference in graph.")?;
     let delimiter_parent = match subject_segment.commits.last() {
-        Some(last_commit) => editor
+        Some(last_commit) => graph
             .select_commit(last_commit.id)
             .context("Failed to find last commit in subject segment in graph.")?,
         None => {
@@ -62,12 +61,12 @@ pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
     // Disconnect the subject from the base directly below its parent-delimiter — the branch's last
     // commit, or its reference when the branch is empty. The base is the first-parent edge (lowest
     // edge order); if the bottom commit is a merge, its higher-order parents must travel with the
-    // subject rather than be cut. We read this from the rebase editor graph (which
+    // subject rather than be cut. We read this from the mutable graph (which
     // `disconnect_segment_from` validates against) rather than the workspace projection: when the
     // target is ahead of the merge base the projection's base segment is anonymous and resolves to
-    // the base commit, while the editor graph keeps the target reference node between the branch and
-    // that commit, so only the editor-graph first parent matches the edge being checked.
-    let parents_to_disconnect = match editor
+    // the base commit, while the mutable graph keeps the target reference node between the branch and
+    // that commit, so only the mutable-graph first parent matches the edge being checked.
+    let parents_to_disconnect = match graph
         .direct_parents(delimiter.parent)?
         .into_iter()
         .min_by_key(|(_, order)| *order)
@@ -81,7 +80,7 @@ pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
         // workspaces do not have such a child, so there is no child edge to disconnect there.
         let children_to_disconnect = workspace_head
             .map(|workspace_head| -> anyhow::Result<SelectorSet> {
-                let workspace_head_selector = editor
+                let workspace_head_selector = graph
                     .select_commit(workspace_head)
                     .context("Failed to find workspace head in graph.")?;
                 Ok(SelectorSet::Some(SomeSelectors::new(vec![
@@ -107,7 +106,7 @@ pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
     // the reference from it.
     // Otherwise, disconnect the last commit on the segment.
     let child_selector = match child_segment.commits.last() {
-        Some(last_commit) => editor
+        Some(last_commit) => graph
             .select_commit(last_commit.id)
             .context("Failed to find last commit of child segment in graph."),
         None => {
@@ -115,7 +114,7 @@ pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
             let child_segment_ref_name = child_segment
                 .ref_name()
                 .context("Child segment doesn't have a ref name.")?;
-            editor
+            graph
                 .select_reference(child_segment_ref_name)
                 .context("Failed to find child segment reference in graph.")
         }
@@ -137,19 +136,19 @@ pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
 /// - If no commit parent edge is found, fall back to a `Reference` parent.
 ///
 /// If no explicit parent candidate exists, return `SelectorSet::All` as a safe fallback.
-pub fn determine_parent_selector<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
-    subject_commit_selector: Selector,
+pub fn determine_parent_selector(
+    graph: &MutableNodeGraph,
+    subject_commit_selector: NodeIndex,
 ) -> anyhow::Result<SelectorSet> {
-    let mut parents = editor.direct_parents(subject_commit_selector)?;
+    let mut parents = graph.direct_parents(subject_commit_selector)?;
     parents.sort_by_key(|(_, order)| *order);
 
     let preferred = parents
         .iter()
-        .find(|(selector, _)| matches!(editor.lookup_step(*selector), Ok(Step::Pick(_))))
+        .find(|(selector, _)| graph.pick_at(*selector).is_some())
         .or_else(|| {
             parents.iter().find(|(selector, _)| {
-                matches!(editor.lookup_step(*selector), Ok(Step::Reference { .. }))
+                matches!(graph.nodes()[*selector].kind(), NodeKind::Reference(_))
             })
         })
         .map(|(selector, _)| *selector);
@@ -174,17 +173,17 @@ pub(crate) enum EdgeSelection {
 
 /// Disconnect all parent edges from a single selector without reconnecting them.
 ///
-/// `editor` is the mutable graph editor whose connectivity will be updated.
+/// `graph` is the mutable graph whose connectivity will be updated.
 ///
 /// `selector` is the node whose parent edges should be removed.
 ///
 /// Returns `Ok(())` after all direct parent edges of `selector` have been
-/// removed from the editor graph.
-pub(crate) fn disconnect_selector_from_all_parents<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
-    selector: Selector,
+/// removed from the graph.
+pub(crate) fn disconnect_selector_from_all_parents(
+    graph: &mut MutableNodeGraph,
+    selector: NodeIndex,
 ) -> Result<()> {
-    editor.disconnect_segment_from(
+    graph.disconnect_segment_from(
         SegmentDelimiter {
             child: selector,
             parent: selector,
@@ -199,7 +198,7 @@ pub(crate) fn disconnect_selector_from_all_parents<M: RefMetadata>(
 
 /// Resolve concrete direct edges selected by a selector set, preserving edge order.
 ///
-/// `editor` provides the direct parent or child edges that can be selected.
+/// `graph` provides the direct parent or child edges that can be selected.
 ///
 /// `target` is the node whose adjacent edges should be filtered.
 ///
@@ -211,15 +210,15 @@ pub(crate) fn disconnect_selector_from_all_parents<M: RefMetadata>(
 ///
 /// Returns the selected neighboring selectors paired with their existing edge
 /// order values.
-pub(crate) fn selected_edges_from_set<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    target: Selector,
+pub(crate) fn selected_edges_from_set(
+    graph: &MutableNodeGraph,
+    target: NodeIndex,
     selectors: &SelectorSet,
     edge_selection: EdgeSelection,
-) -> Result<Vec<(Selector, usize)>> {
+) -> Result<Vec<(NodeIndex, usize)>> {
     let available = match edge_selection {
-        EdgeSelection::Children => editor.direct_children(target)?,
-        EdgeSelection::Parents => editor.direct_parents(target)?,
+        EdgeSelection::Children => graph.direct_children(target)?,
+        EdgeSelection::Parents => graph.direct_parents(target)?,
     };
 
     match selectors {
@@ -228,7 +227,7 @@ pub(crate) fn selected_edges_from_set<M: RefMetadata>(
         SelectorSet::Some(some_selectors) => {
             let mut selected = Vec::new();
             for selector in some_selectors.as_slice() {
-                let selector = selector.to_selector(editor)?;
+                let selector = selector.to_selector(graph)?;
                 let Some((_, order)) = available
                     .iter()
                     .find(|(candidate, _)| *candidate == selector)
@@ -244,7 +243,7 @@ pub(crate) fn selected_edges_from_set<M: RefMetadata>(
 
 /// Reconnect a rebuilt segment to previously selected children and parents.
 ///
-/// `editor` is the mutable graph editor whose edges will be recreated.
+/// `graph` is the mutable graph whose edges will be recreated.
 ///
 /// `delimiter` identifies the rebuilt segment's child-most and parent-most
 /// selectors.
@@ -263,24 +262,24 @@ pub(crate) fn selected_edges_from_set<M: RefMetadata>(
 ///
 /// Returns `Ok(())` after the captured child and parent edges have been
 /// reattached to the rebuilt segment.
-pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
-    delimiter: SegmentDelimiter<Selector, Selector>,
-    children: &[(Selector, usize)],
-    parents: &[(Selector, usize)],
+pub(crate) fn connect_segment_to_edges(
+    graph: &mut MutableNodeGraph,
+    delimiter: SegmentDelimiter<NodeIndex, NodeIndex>,
+    children: &[(NodeIndex, usize)],
+    parents: &[(NodeIndex, usize)],
 ) -> Result<()> {
     for (child, order) in children {
-        let direct_parents = editor.direct_parents(*child)?;
+        let direct_parents = graph.direct_parents(*child)?;
         if direct_parents
             .iter()
             .any(|(parent, _)| *parent == delimiter.child)
         {
             continue;
         }
-        editor.add_edge(*child, delimiter.child, *order)?;
+        graph.add_edge(*child, delimiter.child, *order)?;
     }
 
-    let parent_order_offset = editor
+    let parent_order_offset = graph
         .direct_parents(delimiter.parent)?
         .into_iter()
         .map(|(_, order)| order)
@@ -289,7 +288,7 @@ pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
         .unwrap_or(0);
 
     for (parent, order) in parents {
-        let direct_parents = editor.direct_parents(delimiter.parent)?;
+        let direct_parents = graph.direct_parents(delimiter.parent)?;
         if direct_parents
             .iter()
             .any(|(existing_parent, _)| *existing_parent == *parent)
@@ -297,99 +296,88 @@ pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
             continue;
         }
         let _ = direct_parents;
-        editor.add_edge(delimiter.parent, *parent, parent_order_offset + *order)?;
+        graph.add_edge(delimiter.parent, *parent, parent_order_offset + *order)?;
     }
 
     Ok(())
 }
 
-/// Return a direct parent of `child` when `step` refers to a pick that is already connected.
+/// Return a direct parent of `child` when `pick` refers to a commit that is already connected.
 ///
-/// This is useful when rebuilding an editor segment and we want to reuse an existing
+/// This is useful when rebuilding a graph segment and we want to reuse an existing
 /// pick node without adding a duplicate edge to the same commit.
 ///
-/// `editor` provides access to the current parent edges and commit selectors.
+/// `graph` provides access to the current parent edges and commit selectors.
 ///
 /// `child` is the node whose direct parents should be inspected.
 ///
-/// `step` is the candidate step whose pick commit should be matched against the
+/// `pick` is the candidate pick whose commit should be matched against the
 /// already-connected parents of `child`.
 ///
-/// Returns the matching direct parent selector when `step` already corresponds
+/// Returns the matching direct parent selector when `pick` already corresponds
 /// to an attached pick parent, or `None` otherwise.
-pub(crate) fn already_connected_parent_for_step<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    child: Selector,
-    step: &Step,
-) -> Result<Option<Selector>> {
-    let Step::Pick(pick) = step else {
+pub(crate) fn already_connected_parent_for_pick(
+    graph: &MutableNodeGraph,
+    child: NodeIndex,
+    pick: &Pick,
+) -> Result<Option<NodeIndex>> {
+    let Some(existing_pick) = graph.try_select_commit(pick.id) else {
         return Ok(None);
     };
 
-    let Some(existing_pick) = editor.try_select_commit(pick.id) else {
-        return Ok(None);
-    };
-
-    let direct_parents = editor.direct_parents(child)?;
+    let direct_parents = graph.direct_parents(child)?;
     Ok(direct_parents
         .into_iter()
         .find_map(|(parent, _)| (parent == existing_pick).then_some(parent)))
 }
 
-/// Connect `child` to `parent_step`, reusing an existing pick node when possible.
+/// Connect `child` to `pick`, reusing an existing pick node when possible.
 ///
 /// The new edge becomes the child's first parent, keeping the connected chain
 /// on the first-parent path while extra parents shift after it.
 ///
-/// `editor` is the mutable graph editor that may reuse an existing pick or add a
-/// new step before creating the edge.
+/// `graph` is the mutable graph that may reuse an existing pick or add a
+/// new commit node before creating the edge.
 ///
 /// `child` is the selector that should gain a new direct parent.
 ///
-/// `parent_step` describes the parent node to connect, either by reusing an
-/// existing pick/reference selector or by inserting a new pick step first.
+/// `pick` describes the parent commit to connect, either by reusing an
+/// existing pick selector or by adding a new commit node first.
 ///
 /// Returns the selector of the connected parent node.
-pub(crate) fn connect_parent_step<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
-    child: Selector,
-    parent_step: Step,
-) -> Result<Selector> {
-    let parent = match parent_step {
-        Step::Pick(pick) => {
-            if let Some(existing_pick) = editor.try_select_commit(pick.id) {
-                existing_pick
-            } else {
-                editor.add_step(Step::Pick(pick))?
-            }
-        }
-        Step::Reference { ref refname, .. } => editor.select_reference(refname.as_ref())?,
-        Step::None => bail!("BUG: trying to connect to none"),
+pub(crate) fn connect_parent_pick(
+    graph: &mut MutableNodeGraph,
+    child: NodeIndex,
+    pick: Pick,
+) -> Result<NodeIndex> {
+    let parent = match graph.try_select_commit(pick.id) {
+        Some(existing) => existing,
+        None => graph.add_commit(pick),
     };
 
     // The chain parent is the first-parent path; any pre-existing parents
     // (e.g. a synthetic merge's second parent) shift after it.
-    editor.add_edge(child, parent, 0)?;
+    graph.add_edge(child, parent, 0)?;
     Ok(parent)
 }
 
 /// Find all parent-reachable nodes from and including the provided tip.
 ///
-/// `editor` provides the parent-edge traversal used for the walk.
+/// `graph` provides the parent-edge traversal used for the walk.
 ///
 /// `tip` is the starting selector whose ancestors should be collected.
 ///
 /// Returns the set containing `tip` and every selector reachable from it by
 /// repeatedly following direct parent edges.
-pub(crate) fn traverse_nodes<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    tip: Selector,
-) -> Result<HashSet<Selector>> {
+pub(crate) fn traverse_nodes(
+    graph: &MutableNodeGraph,
+    tip: NodeIndex,
+) -> Result<HashSet<NodeIndex>> {
     let mut seen = HashSet::from([tip]);
     let mut tips = vec![tip];
 
     while let Some(tip) = tips.pop() {
-        for (parent, _) in editor.direct_parents(tip)? {
+        for (parent, _) in graph.direct_parents(tip)? {
             if seen.insert(parent) {
                 tips.push(parent);
             }

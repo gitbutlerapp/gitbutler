@@ -1,8 +1,10 @@
 //! Shared helpers for branch/upstream divergence discovery.
 
-use anyhow::{Context as _, Result};
-use but_core::RefMetadata;
-use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Selector, Step, ToSelector};
+use anyhow::{Context as _, Result, bail};
+use but_graph::{
+    MutableNodeGraph, NodeIndex,
+    edit::{Pick, ToSelector},
+};
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -12,11 +14,11 @@ use std::{
 #[derive(Debug)]
 pub(crate) struct BranchMergeBaseCommits {
     /// Local branch first-parent commits from tip down to, but excluding, the merge base.
-    pub(crate) local_commits: Vec<Selector>,
+    pub(crate) local_commits: Vec<NodeIndex>,
     /// Upstream branch first-parent commits from tip down to, but excluding, the merge base.
-    pub(crate) upstream_commits: Vec<Selector>,
+    pub(crate) upstream_commits: Vec<NodeIndex>,
     /// Shared merge base between the local branch and its upstream.
-    pub(crate) merge_base: Selector,
+    pub(crate) merge_base: NodeIndex,
 }
 
 /// How a candidate commit relates to a comparison target branch.
@@ -38,6 +40,18 @@ impl TargetCommitRelation {
     }
 }
 
+/// Return the commit id of the pick at `index`, or an error when the node is
+/// not a pick.
+pub(crate) fn pick_id(graph: &MutableNodeGraph, index: NodeIndex) -> Result<gix::ObjectId> {
+    match graph.pick_at(index) {
+        Some(Pick { id, .. }) => Ok(id),
+        None => bail!(
+            "Expected selector to point to a pick, got {:?}",
+            graph.nodes()[index].kind()
+        ),
+    }
+}
+
 /// Compute local and upstream commit lists together with their merge base.
 ///
 /// `ref_name` is the local branch whose first-parent-only divergence should be
@@ -45,38 +59,38 @@ impl TargetCommitRelation {
 ///
 /// `upstream_ref_name` is the effective tracking ref paired with `ref_name`.
 ///
-/// `editor` provides the in-memory graph view used to walk refs, picks, and
+/// `graph` provides the in-memory graph view used to walk refs, picks, and
 /// preserved parentage consistently within the current operation.
 ///
-/// Returns the local-only selectors, upstream-only selectors, and the selector
-/// for their shared merge base.
-pub(crate) fn get_commits_until_merge_base<'a, M: RefMetadata>(
+/// Returns the local-only node indexes, upstream-only node indexes, and the
+/// node index for their shared merge base.
+pub(crate) fn get_commits_until_merge_base<'a>(
     ref_name: &'a gix::refs::FullNameRef,
     upstream_ref_name: Cow<'a, gix::refs::FullNameRef>,
-    editor: &Editor<'_, '_, M>,
+    graph: &MutableNodeGraph,
 ) -> Result<BranchMergeBaseCommits> {
-    let local_tip = tip_for_ref(editor, ref_name, editor.repo())
+    let local_tip = tip_for_ref(graph, ref_name, graph.repo())
         .with_context(|| format!("Could not determine tip commit for '{ref_name}'"))?;
-    let upstream_tip = tip_for_ref(editor, upstream_ref_name.as_ref(), editor.repo())
-        .with_context(|| {
+    let upstream_tip =
+        tip_for_ref(graph, upstream_ref_name.as_ref(), graph.repo()).with_context(|| {
             format!("Could not determine tip commit for upstream '{upstream_ref_name}'")
         })?;
-    let upstream_ancestor_ids = traverse_pick_ancestor_ids(editor, upstream_tip)?;
-    let merge_base = find_first_parent_merge_base(editor, local_tip, &upstream_ancestor_ids)?
+    let upstream_ancestor_ids = traverse_pick_ancestor_ids(graph, upstream_tip)?;
+    let merge_base = find_first_parent_merge_base(graph, local_tip, &upstream_ancestor_ids)?
         .ok_or_else(|| {
             anyhow::anyhow!(
                 "No merge-base found between '{ref_name}' and its tracking branch '{upstream_ref_name}'"
             )
         })?;
-    let merge_base_selector = editor.select_commit(merge_base)?;
-    let local_commits = first_parent_path_until(editor, local_tip, |selector| {
-        editor.lookup_pick(*selector).ok() == Some(merge_base)
+    let merge_base_selector = graph.select_commit(merge_base)?;
+    let local_commits = first_parent_path_until(graph, local_tip, |selector| {
+        pick_id(graph, *selector).ok() == Some(merge_base)
     })?
     .into_iter()
     .take_while(|selector| *selector != merge_base_selector)
     .collect::<Vec<_>>();
-    let upstream_commits = first_parent_path_until(editor, upstream_tip, |selector| {
-        editor.lookup_pick(*selector).ok() == Some(merge_base)
+    let upstream_commits = first_parent_path_until(graph, upstream_tip, |selector| {
+        pick_id(graph, *selector).ok() == Some(merge_base)
     })?
     .into_iter()
     .take_while(|selector| *selector != merge_base_selector)
@@ -88,47 +102,47 @@ pub(crate) fn get_commits_until_merge_base<'a, M: RefMetadata>(
     })
 }
 
-/// Convert selectors into their current picked commit ids.
+/// Convert node indexes into their current picked commit ids.
 ///
-/// `editor` provides the graph lookup used to resolve each selector to its
+/// `graph` provides the graph lookup used to resolve each index to its
 /// current picked commit id.
 ///
-/// `selectors` is the sequence of graph selectors to convert.
+/// `selectors` is the sequence of graph node indexes to convert.
 ///
-/// Returns the commit ids for all provided selectors in iteration order.
-pub(crate) fn commit_ids_from_selectors<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    selectors: impl IntoIterator<Item = Selector>,
+/// Returns the commit ids for all provided indexes in iteration order.
+pub(crate) fn commit_ids_from_selectors(
+    graph: &MutableNodeGraph,
+    selectors: impl IntoIterator<Item = NodeIndex>,
 ) -> Result<Vec<gix::ObjectId>> {
     selectors
         .into_iter()
-        .map(|selector| editor.lookup_pick(selector))
+        .map(|selector| pick_id(graph, selector))
         .collect()
 }
 
-/// Classify candidate selectors by whether the target branch reaches their commits.
+/// Classify candidate node indexes by whether the target branch reaches their commits.
 ///
-/// `editor` provides the graph traversal and pick lookup operations used during
+/// `graph` provides the graph traversal and pick lookup operations used during
 /// classification.
 ///
 /// `target_reachable_commits` contains the commit ids reachable from the target
 /// branch.
 ///
-/// `candidate_selectors` are the selectors to classify against the target
+/// `candidate_selectors` are the node indexes to classify against the target
 /// branch reachability set.
 ///
 /// Returns a map keyed by candidate commit id describing whether each candidate
 /// is historically integrated into the target branch.
-pub(crate) fn classify_selectors_against_target_commits<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+pub(crate) fn classify_selectors_against_target_commits(
+    graph: &MutableNodeGraph,
     target_reachable_commits: &HashSet<gix::ObjectId>,
-    candidate_selectors: &[Selector],
+    candidate_selectors: &[NodeIndex],
 ) -> Result<HashMap<gix::ObjectId, TargetCommitRelation>> {
     candidate_selectors
         .iter()
         .copied()
         .map(|candidate_selector| {
-            let candidate_commit_id = editor.lookup_pick(candidate_selector)?;
+            let candidate_commit_id = pick_id(graph, candidate_selector)?;
             let relation = if target_reachable_commits.contains(&candidate_commit_id) {
                 TargetCommitRelation::HistoricallyIntegrated {
                     target_commit_id: candidate_commit_id,
@@ -141,48 +155,43 @@ pub(crate) fn classify_selectors_against_target_commits<M: RefMetadata>(
         .collect()
 }
 
-fn first_pick_parent<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    selector: Selector,
-) -> Result<Selector> {
-    let mut adjacent = editor.direct_parents(selector)?;
-    adjacent.extend(editor.direct_children(selector)?);
+fn first_pick_parent(graph: &MutableNodeGraph, selector: NodeIndex) -> Result<NodeIndex> {
+    let mut adjacent = graph.direct_parents(selector)?;
+    adjacent.extend(graph.direct_children(selector)?);
     adjacent.sort_by_key(|(_, order)| *order);
     adjacent
         .into_iter()
-        .find_map(|(candidate, _)| {
-            matches!(editor.lookup_step(candidate).ok()?, Step::Pick(_)).then_some(candidate)
-        })
+        .find_map(|(candidate, _)| graph.pick_at(candidate).is_some().then_some(candidate))
         .ok_or_else(|| anyhow::anyhow!("Expected reference selector to point to a commit"))
 }
 
-fn tip_for_ref<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn tip_for_ref(
+    graph: &MutableNodeGraph,
     ref_name: &gix::refs::FullNameRef,
     repo: &gix::Repository,
-) -> Result<Selector> {
-    let reference_selector = ref_name.to_selector(editor)?;
+) -> Result<NodeIndex> {
+    let reference_selector = ref_name.to_selector(graph)?;
     let head_id = repo.head_id()?.detach();
     if let Some(child_on_head_path) =
-        child_on_head_first_parent_path(editor, reference_selector, head_id)?
+        child_on_head_first_parent_path(graph, reference_selector, head_id)?
     {
         return Ok(child_on_head_path);
     }
-    first_pick_parent(editor, reference_selector).or_else(|_| {
+    first_pick_parent(graph, reference_selector).or_else(|_| {
         let tip = repo.find_reference(ref_name)?.id().detach();
-        editor.select_commit(tip)
+        graph.select_commit(tip)
     })
 }
 
-fn child_on_head_first_parent_path<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    reference_selector: Selector,
+fn child_on_head_first_parent_path(
+    graph: &MutableNodeGraph,
+    reference_selector: NodeIndex,
     head_id: gix::ObjectId,
-) -> Result<Option<Selector>> {
-    let head_selector = editor.select_commit(head_id)?;
+) -> Result<Option<NodeIndex>> {
+    let head_selector = graph.select_commit(head_id)?;
     let mut current = Some(head_selector);
     while let Some(selector) = current {
-        let mut parents = editor.direct_parents(selector)?;
+        let mut parents = graph.direct_parents(selector)?;
         parents.sort_by_key(|(_, order)| *order);
         if parents
             .iter()
@@ -190,23 +199,23 @@ fn child_on_head_first_parent_path<M: RefMetadata>(
         {
             return Ok((selector != head_selector).then_some(selector));
         }
-        current = first_parent(editor, selector)?;
+        current = first_parent(graph, selector)?;
     }
     Ok(None)
 }
 
-fn find_first_parent_merge_base<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    local_tip: Selector,
-    upstream_ancestors: &HashMap<gix::ObjectId, Selector>,
+fn find_first_parent_merge_base(
+    graph: &MutableNodeGraph,
+    local_tip: NodeIndex,
+    upstream_ancestors: &HashMap<gix::ObjectId, NodeIndex>,
 ) -> Result<Option<gix::ObjectId>> {
     let mut current = Some(local_tip);
     while let Some(selector) = current {
-        let Step::Pick(Pick {
+        let Some(Pick {
             id,
             preserved_parents,
             ..
-        }) = editor.lookup_step(selector)?
+        }) = graph.pick_at(selector)
         else {
             return Ok(None);
         };
@@ -220,7 +229,7 @@ fn find_first_parent_merge_base<M: RefMetadata>(
                 }
             }
         }
-        if let Some(parent) = first_parent(editor, selector)? {
+        if let Some(parent) = first_parent(graph, selector)? {
             current = Some(parent);
         } else {
             return Ok(None);
@@ -229,17 +238,17 @@ fn find_first_parent_merge_base<M: RefMetadata>(
     Ok(None)
 }
 
-fn traverse_pick_ancestor_ids<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    tip: Selector,
-) -> Result<HashMap<gix::ObjectId, Selector>> {
+fn traverse_pick_ancestor_ids(
+    graph: &MutableNodeGraph,
+    tip: NodeIndex,
+) -> Result<HashMap<gix::ObjectId, NodeIndex>> {
     let mut out = HashMap::new();
     let mut seen = std::collections::HashSet::from([tip]);
     let mut tips = vec![tip];
 
     while let Some(tip) = tips.pop() {
-        let preserved_parents = match editor.lookup_step(tip)? {
-            Step::Pick(Pick {
+        let preserved_parents = match graph.pick_at(tip) {
+            Some(Pick {
                 id,
                 preserved_parents,
                 ..
@@ -247,10 +256,10 @@ fn traverse_pick_ancestor_ids<M: RefMetadata>(
                 out.entry(id).or_insert(tip);
                 preserved_parents
             }
-            Step::Reference { .. } | Step::None => None,
+            None => None,
         };
 
-        for (parent, _) in editor.direct_parents(tip)? {
+        for (parent, _) in graph.direct_parents(tip)? {
             if seen.insert(parent) {
                 tips.push(parent);
             }
@@ -259,7 +268,7 @@ fn traverse_pick_ancestor_ids<M: RefMetadata>(
         if let Some(preserved_parents) = preserved_parents {
             for parent_id in preserved_parents {
                 out.entry(parent_id).or_insert(tip);
-                if let Some(parent) = editor.try_select_commit(parent_id)
+                if let Some(parent) = graph.try_select_commit(parent_id)
                     && seen.insert(parent)
                 {
                     tips.push(parent);
@@ -271,27 +280,22 @@ fn traverse_pick_ancestor_ids<M: RefMetadata>(
     Ok(out)
 }
 
-fn first_parent<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    selector: Selector,
-) -> Result<Option<Selector>> {
-    let mut parents = editor.direct_parents(selector)?;
+fn first_parent(graph: &MutableNodeGraph, selector: NodeIndex) -> Result<Option<NodeIndex>> {
+    let mut parents = graph.direct_parents(selector)?;
     parents.sort_by_key(|(_, order)| *order);
     for (parent, _) in parents {
-        match editor.lookup_step(parent)? {
-            Step::Pick(_) => return Ok(Some(parent)),
-            Step::Reference { .. } | Step::None => {
-                if let Some(parent) = first_parent(editor, parent)? {
-                    return Ok(Some(parent));
-                }
-            }
+        if graph.pick_at(parent).is_some() {
+            return Ok(Some(parent));
+        }
+        if let Some(parent) = first_parent(graph, parent)? {
+            return Ok(Some(parent));
         }
     }
 
-    let Step::Pick(Pick {
+    let Some(Pick {
         preserved_parents: Some(parents),
         ..
-    }) = editor.lookup_step(selector)?
+    }) = graph.pick_at(selector)
     else {
         return Ok(None);
     };
@@ -299,14 +303,14 @@ fn first_parent<M: RefMetadata>(
     Ok(parents
         .first()
         .copied()
-        .and_then(|parent| editor.try_select_commit(parent)))
+        .and_then(|parent| graph.try_select_commit(parent)))
 }
 
-fn first_parent_path_until<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    tip: Selector,
-    mut stop: impl FnMut(&Selector) -> bool,
-) -> Result<Vec<Selector>> {
+fn first_parent_path_until(
+    graph: &MutableNodeGraph,
+    tip: NodeIndex,
+    mut stop: impl FnMut(&NodeIndex) -> bool,
+) -> Result<Vec<NodeIndex>> {
     let mut path = Vec::new();
     let mut current = Some(tip);
     while let Some(selector) = current {
@@ -314,7 +318,7 @@ fn first_parent_path_until<M: RefMetadata>(
         if stop(&selector) {
             return Ok(path);
         }
-        current = first_parent(editor, selector)?;
+        current = first_parent(graph, selector)?;
     }
     Ok(path)
 }

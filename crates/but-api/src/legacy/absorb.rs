@@ -4,6 +4,7 @@ use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
+use but_graph::edit::{InsertSide, RelativeTo};
 use but_hunk_assignment::{
     AbsorptionReason, AbsorptionTarget, CommitAbsorption, CommitMap, FileAbsorption,
     GroupedChanges, HunkAssignment, convert_assignments_to_diff_specs,
@@ -12,7 +13,6 @@ use but_hunk_dependency::ui::{
     HunkDependencies, HunkLock, HunkLockTarget,
     hunk_dependencies_for_workspace_changes_by_worktree_dir,
 };
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_workspace::ui::{BranchDetails, StackDetails};
 use gitbutler_oplog::{
     OplogExt,

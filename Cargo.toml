@@ -30,7 +30,6 @@ members = [
     # Partial or incomplete documentation.
     # Tests for core capabilities.
     # 👉Could be exemplary once older supporting code is removed, and it was actually reviewed.
-    "crates/but-rebase", # 📄Alter commit-graphs in various ways
     # 👉needs impl based on `but_core::snapshot`; shouldn't use `but-ctx`.
     "crates/but-oplog", # 📄A sketch of a modern `gitbutler-oplog`
     # 👉mostly powered by legacy, but will help to transition to `but-db` backing.
@@ -145,7 +144,6 @@ but-debug = { path = "crates/but-debug" }
 but = { path = "crates/but" }
 but-debugging = { path = "crates/but-debugging" }
 but-testsupport = { path = "crates/but-testsupport" }
-but-rebase = { path = "crates/but-rebase" }
 but-core = { path = "crates/but-core" }
 but-ctx = { path = "crates/but-ctx" }
 but-workspace = { path = "crates/but-workspace" }

@@ -59,7 +59,6 @@ but-update.workspace = true
 but-installer.workspace = true
 but-path.workspace = true
 but-ctx.workspace = true
-but-rebase.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
 but-bitbucket.workspace = true

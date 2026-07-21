@@ -1,13 +1,12 @@
-use but_core::RefMetadata;
-use but_rebase::graph_rebase::SuccessfulRebase;
+use but_graph::Rebased;
 
 /// Outcome of moving branches between or out of stacks.
 ///
 /// Returned by [function::move_branch()].
 #[derive(Debug)]
-pub struct Outcome<'ws, 'meta, M: RefMetadata> {
+pub struct Outcome {
     /// A successful rebase result for continuing operations.
-    pub rebase: SuccessfulRebase<'ws, 'meta, M>,
+    pub rebase: Rebased,
     /// The updated workspace metadata that accompanies the move operation.
     /// It should replace the actual workspace metadata to configure moved 'virtual' branches segments, if `Some()`.
     pub ws_meta: Option<but_core::ref_metadata::Workspace>,
@@ -18,7 +17,7 @@ pub struct Outcome<'ws, 'meta, M: RefMetadata> {
     /// [`create_reference`](crate::branch::create_reference())). `None` when the tip is unchanged.
     pub new_tip: Option<gix::refs::FullName>,
     /// In single-branch (ad-hoc) mode, the reordered tip-to-base branch chain that the caller should
-    /// persist with [`RefMetadata::set_branch_stack_order`].
+    /// persist with [`RefMetadata::set_branch_stack_order`](but_core::RefMetadata::set_branch_stack_order).
     /// It is returned rather than written here so callers can apply it only for real runs and skip
     /// persistence for dry-run previews. `None` outside single-branch mode.
     pub branch_stack_order: Option<Vec<gix::refs::FullName>>,
@@ -28,7 +27,7 @@ pub(super) mod function {
 
     use but_core::RefMetadata;
     use but_core::ref_metadata::StackId;
-    use but_rebase::graph_rebase::mutate::SomeSelectors;
+    use but_graph::edit::SomeSelectors;
 
     use crate::graph_manipulation::DisconnectParameters;
     use crate::graph_manipulation::get_disconnect_parameters;
@@ -38,17 +37,13 @@ pub(super) mod function {
     use anyhow::Context;
     use anyhow::bail;
     use but_graph::workspace::WorkspaceKind;
-    use but_rebase::graph_rebase::Editor;
-    use but_rebase::graph_rebase::SuccessfulRebase;
+    use but_graph::{MutableNodeGraph, Rebased};
     use gix::refs::FullNameRef;
 
     /// Remove a branch out of a stack, creating a new stack out of it, in memory.
     ///
-    /// `editor` is assumed to have been generated from the given `workspace`
+    /// `graph` is assumed to have been generated from the current workspace
     /// and therefore aligned.
-    ///
-    /// `workspace` - Used for getting the surrounding context of the branch being torn off.
-    ///     In the future, we should not rely on the projection and do it fully on the graph.
     ///
     /// `subject_branch_name` - The branch to take out of a stack.
     ///
@@ -56,14 +51,14 @@ pub(super) mod function {
     ///     Mainly used for testing purposes.
     ///
     /// Returns the in memory update [outcome](Outcome) that can then used for materialisation.
-    pub fn tear_off_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn tear_off_branch(
+        graph: MutableNodeGraph,
         subject_branch_name: &FullNameRef,
         stack_id_override: Option<StackId>,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
-        let successful_rebase = editor.rebase()?;
-        let workspace = successful_rebase.overlayed_workspace()?;
-        let mut editor = successful_rebase.into_editor();
+    ) -> anyhow::Result<Outcome> {
+        let successful_rebase = graph.rebase()?;
+        let workspace = successful_rebase.workspace()?;
+        let mut graph = successful_rebase.into_mut();
         let Some(source) = find_segment_and_stack(&workspace, subject_branch_name) else {
             bail!(
                 "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
@@ -93,7 +88,7 @@ pub(super) mod function {
         if source_stack.segments.len() == 1 {
             // There's only one branch in the source stack. Nothing to do.
             return Ok(Outcome {
-                rebase: editor.rebase()?,
+                rebase: graph.rebase()?,
                 ws_meta,
                 new_tip: None,
                 branch_stack_order: None,
@@ -103,14 +98,14 @@ pub(super) mod function {
         let Some(workspace_head) = workspace_tip_id(&workspace) else {
             bail!("Couldn't find workspace head.")
         };
-        let head_selector = editor
+        let head_selector = graph
             .select_commit(workspace_head)
             .context("Failed to find the workspace head in the graph.")?;
 
         let lower_bound = workspace
             .lower_bound
             .context("Tearing off a branch requires a workspace common base")?;
-        let target_selector = editor
+        let target_selector = graph
             .select_commit(lower_bound)
             .context("Failed to find target commit in graph.")?;
 
@@ -118,14 +113,9 @@ pub(super) mod function {
             delimiter: subject_delimiter,
             children_to_disconnect,
             parents_to_disconnect,
-        } = get_disconnect_parameters(
-            &editor,
-            source_stack,
-            subject_segment,
-            Some(workspace_head),
-        )?;
+        } = get_disconnect_parameters(&graph, source_stack, subject_segment, Some(workspace_head))?;
 
-        editor.disconnect_segment_from(
+        graph.disconnect_segment_from(
             subject_delimiter.clone(),
             children_to_disconnect,
             parents_to_disconnect,
@@ -134,12 +124,12 @@ pub(super) mod function {
 
         let selectors = SomeSelectors::new(vec![head_selector])?;
 
-        editor.insert_segment_into(
+        graph.insert_segment_into(
             target_selector,
             subject_delimiter,
-            but_rebase::graph_rebase::mutate::InsertSide::Above,
+            but_graph::edit::InsertSide::Above,
             Some(selectors),
-            but_rebase::graph_rebase::mutate::ParentReparentingOrder::Prepend,
+            but_graph::edit::ParentReparentingOrder::Prepend,
         )?;
 
         // Update the workspace meta in order to create a new stack containing the
@@ -155,20 +145,20 @@ pub(super) mod function {
         };
 
         Ok(Outcome {
-            rebase: editor.rebase()?,
+            rebase: graph.rebase()?,
             ws_meta,
             new_tip: None,
             branch_stack_order: None,
         })
     }
 
-    /// Move a branch between stacks in the `workspace`.
+    /// Move a branch between stacks in the workspace.
     ///
-    /// `editor` is assumed to have been generated from the given `workspace`
+    /// `graph` is assumed to have been generated from the current workspace
     /// and therefore aligned.
     ///
-    /// `workspace` - Used for getting the surrounding context of the branch being moved.
-    ///     In the future, we should not rely on the projection and do it fully on the graph.
+    /// `meta` - Metadata used to read (not write) the ad-hoc branch stack order in
+    ///     single-branch mode.
     ///
     /// `subject_branch_name` is the full reference name of the branch to move.
     ///
@@ -176,17 +166,18 @@ pub(super) mod function {
     /// branch on top of.
     ///
     /// Returns an [outcome](Outcome) for potential materialisation.
-    pub fn move_branch<'ws, 'meta, M: RefMetadata>(
-        editor: Editor<'ws, 'meta, M>,
+    pub fn move_branch(
+        graph: MutableNodeGraph,
+        meta: &impl RefMetadata,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome> {
         if subject_branch_name == target_branch_name {
             bail!("Cannot move branch {subject_branch_name} onto itself");
         }
 
-        let successful_rebase = editor.rebase()?;
-        let workspace = successful_rebase.overlayed_workspace()?;
+        let successful_rebase = graph.rebase()?;
+        let workspace = successful_rebase.workspace()?;
 
         let (source, destination) =
             retrieve_branches_and_containers(&workspace, subject_branch_name, target_branch_name)?;
@@ -196,6 +187,7 @@ pub(super) mod function {
         match &workspace.kind {
             WorkspaceKind::AdHoc => move_branch_in_single_branch_mode(
                 successful_rebase,
+                meta,
                 workspace,
                 source,
                 destination,
@@ -224,14 +216,15 @@ pub(super) mod function {
     /// a graph rewrite. The reordered chain is returned in [`Outcome::branch_stack_order`] for the
     /// caller to persist (via [`RefMetadata::set_branch_stack_order`]) rather than being written
     /// here, so callers can skip persistence for dry-run previews.
-    fn move_branch_in_single_branch_mode<'ws, 'meta, M: RefMetadata>(
-        mut successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
+    fn move_branch_in_single_branch_mode(
+        successful_rebase: Rebased,
+        meta: &impl RefMetadata,
         workspace: but_graph::Workspace,
         source: WorkspaceSegmentContext,
         destination: WorkspaceSegmentContext,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome> {
         let (source_stack, subject_segment) = &source;
         let (destination_stack, _) = &destination;
         let entrypoint = workspace.ref_name().map(ToOwned::to_owned);
@@ -242,7 +235,6 @@ pub(super) mod function {
             bail!("Moving a non-empty branch in single-branch mode is not yet supported");
         }
         let existing_order = {
-            let (_repo, meta) = successful_rebase.repo_and_meta_mut();
             if !meta.can_persist_branch_stack_order() {
                 bail!(
                     "Cannot reorder '{subject_branch_name}' in single-branch mode without branch order metadata"
@@ -293,8 +285,8 @@ pub(super) mod function {
             let target_segment_ref_name = target_segment
                 .ref_name()
                 .context("Target segment doesn't have a ref")?;
-            let mut editor = successful_rebase.into_editor();
-            let target_selector = editor
+            let mut graph = successful_rebase.into_mut();
+            let target_selector = graph
                 .select_reference(target_segment_ref_name)
                 .context("Failed to find target reference in graph.")?;
 
@@ -302,22 +294,22 @@ pub(super) mod function {
                 delimiter: subject_delimiter,
                 children_to_disconnect,
                 parents_to_disconnect,
-            } = get_disconnect_parameters(&editor, source_stack, subject_segment, None)?;
+            } = get_disconnect_parameters(&graph, source_stack, subject_segment, None)?;
 
-            editor.disconnect_segment_from(
+            graph.disconnect_segment_from(
                 subject_delimiter.clone(),
                 children_to_disconnect,
                 parents_to_disconnect,
                 false,
             )?;
-            editor.insert_segment(
+            graph.insert_segment(
                 target_selector,
                 subject_delimiter,
-                but_rebase::graph_rebase::mutate::InsertSide::Above,
+                but_graph::edit::InsertSide::Above,
             )?;
 
             return Ok(Outcome {
-                rebase: editor.rebase()?,
+                rebase: graph.rebase()?,
                 ws_meta: None,
                 new_tip,
                 branch_stack_order: Some(new_order),
@@ -333,14 +325,14 @@ pub(super) mod function {
     }
 
     /// Move a branch within a managed workspace (one backed by a workspace commit).
-    fn move_branch_in_managed_workspace<'ws, 'meta, M: RefMetadata>(
-        successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
+    fn move_branch_in_managed_workspace(
+        successful_rebase: Rebased,
         workspace: but_graph::Workspace,
         source: WorkspaceSegmentContext,
         destination: WorkspaceSegmentContext,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+    ) -> anyhow::Result<Outcome> {
         let Some(workspace_head) = workspace_tip_id(&workspace) else {
             bail!("Couldn't find workspace head.")
         };
@@ -367,11 +359,11 @@ pub(super) mod function {
             });
         }
 
-        let mut editor = successful_rebase.into_editor();
+        let mut graph = successful_rebase.into_mut();
         let target_segment_ref_name = target_segment
             .ref_name()
             .context("Target segment doesn't have a ref")?;
-        let target_selector = editor
+        let target_selector = graph
             .select_reference(target_segment_ref_name)
             .context("Failed to find target reference in graph.")?;
 
@@ -380,23 +372,23 @@ pub(super) mod function {
             children_to_disconnect,
             parents_to_disconnect,
         } = get_disconnect_parameters(
-            &editor,
+            &graph,
             &source_stack,
             &subject_segment,
             Some(workspace_head),
         )?;
 
         let skip_reconnect_step = source_stack.segments.len() == 1;
-        editor.disconnect_segment_from(
+        graph.disconnect_segment_from(
             subject_delimiter.clone(),
             children_to_disconnect,
             parents_to_disconnect,
             skip_reconnect_step,
         )?;
-        editor.insert_segment(
+        graph.insert_segment(
             target_selector,
             subject_delimiter,
-            but_rebase::graph_rebase::mutate::InsertSide::Above,
+            but_graph::edit::InsertSide::Above,
         )?;
 
         // Keep workspace metadata aligned with the graph move outcome for all move cases.
@@ -406,7 +398,7 @@ pub(super) mod function {
         };
 
         Ok(Outcome {
-            rebase: editor.rebase()?,
+            rebase: graph.rebase()?,
             ws_meta,
             new_tip: None,
             branch_stack_order: None,

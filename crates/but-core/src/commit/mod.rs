@@ -820,6 +820,7 @@ pub use conflict::{
     rewrite_conflict_markers_on_message_change, strip_conflict_markers,
 };
 pub mod tree_expression;
+pub mod write;
 
 /// Write a GitButler conflicted tree that wraps `resolved_tree_id` together
 /// with the conflict base trees, the conflict side trees, and the conflict

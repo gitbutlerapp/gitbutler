@@ -2,7 +2,6 @@ use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::Editor;
 use tracing::instrument;
 
 use super::types::MoveChangesResult;
@@ -54,7 +53,7 @@ pub fn commit_move_changes_between_only_with_perm(
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
 
     let outcome = but_workspace::commit::move_changes_between_commits(
         editor,
@@ -63,8 +62,14 @@ pub fn commit_move_changes_between_only_with_perm(
         changes,
         context_lines,
     )?;
-    let workspace =
-        WorkspaceState::from_successful_rebase_with_db(outcome.rebase, &repo, dry_run, &db)?;
+    let workspace = WorkspaceState::from_successful_rebase_with_db(
+        outcome.rebase,
+        &mut ws,
+        &repo,
+        &mut meta,
+        dry_run,
+        &db,
+    )?;
 
     Ok(MoveChangesResult { workspace })
 }

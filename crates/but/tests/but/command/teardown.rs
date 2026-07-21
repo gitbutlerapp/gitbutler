@@ -63,10 +63,10 @@ fn multiple_branches_preserves_state() {
         env.git_log(),
         snapbox::str![[r#"
 *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 9477ae7 (A) add A
 * | d3e2ba3 (B) add B
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
 "#]]
@@ -285,10 +285,10 @@ fn two_dangling_commits_different_branches() -> anyhow::Result<()> {
 * fc13bfb (HEAD -> gitbutler/workspace) add FileForB
 * 091c8f9 add FileForA
 *   c128bce GitButler Workspace Commit
-|\  
+|\
 | * 9477ae7 (A) add A
 * | d3e2ba3 (B) add B
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
 "#]]

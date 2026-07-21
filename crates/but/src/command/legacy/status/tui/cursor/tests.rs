@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use bstr::BString;
 use but_core::{ChangeId, HunkHeader, ref_metadata::StackId};
+use but_graph::edit::InsertSide;
 use but_hunk_assignment::HunkAssignment;
-use but_rebase::graph_rebase::mutate::InsertSide;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use nonempty::NonEmpty;
 use ratatui_textarea::TextArea;

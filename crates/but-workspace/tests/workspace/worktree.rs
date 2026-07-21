@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
+use but_graph::edit::RelativeTo;
 use but_meta::virtual_branches_legacy_types::Target;
-use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, integrate_upstream, worktree_conflicts_for_rebase,
 };
@@ -18,17 +18,16 @@ fn project_meta(meta: &impl but_core::RefMetadata) -> Result<but_core::ref_metad
 
 #[test]
 fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = upstream_conflict_fixture()?;
+    let (_tmp, repo, meta, _description) = upstream_conflict_fixture()?;
     std::fs::write(
         repo.workdir_path("shared.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -63,12 +62,11 @@ fn conflict_preview_uses_direct_stack_checkout() -> Result<()> {
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     git(&repo, ["checkout", "A"])?;
     std::fs::write(repo.workdir_path("B.txt").expect("non-bare"), "dirty\n")?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -78,7 +76,7 @@ fn conflict_preview_uses_direct_stack_checkout() -> Result<()> {
     )?
     .rebase;
 
-    let preview_workspace = rebase.overlayed_workspace()?;
+    let preview_workspace = rebase.workspace()?;
     let entrypoint = entrypoint_commit_id(&preview_workspace)
         .context("direct checkout should have a preview entrypoint commit")?;
     let containing_workspace = crate::utils::workspace_tip_id(&preview_workspace)
@@ -107,7 +105,7 @@ fn conflict_preview_uses_direct_stack_checkout() -> Result<()> {
 
 #[test]
 fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = upstream_conflict_fixture()?;
+    let (_tmp, repo, meta, _description) = upstream_conflict_fixture()?;
     std::fs::write(
         repo.workdir_path("shared.txt").expect("non-bare"),
         "staged\n",
@@ -117,12 +115,11 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
         repo.workdir_path("unrelated.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -144,17 +141,16 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
 
 #[test]
 fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = upstream_conflict_fixture()?;
+    let (_tmp, repo, meta, _description) = upstream_conflict_fixture()?;
     std::fs::write(
         repo.workdir_path("shared.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -164,7 +160,7 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
     )?
     .rebase;
 
-    let preview_workspace = rebase.overlayed_workspace()?;
+    let preview_workspace = rebase.workspace()?;
     let preview_head = crate::utils::workspace_tip_id(&preview_workspace)
         .context("preview workspace should have a head commit")?;
     assert!(
@@ -184,17 +180,16 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
 
 #[test]
 fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = upstream_conflict_fixture()?;
+    let (_tmp, repo, meta, _description) = upstream_conflict_fixture()?;
     std::fs::write(
         repo.workdir_path("unrelated.txt").expect("non-bare"),
         "dirty\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -215,18 +210,17 @@ fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result
 
 #[test]
 fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<()> {
-    let (_tmp, repo, mut meta, _description) = upstream_conflict_fixture()?;
+    let (_tmp, repo, meta, _description) = upstream_conflict_fixture()?;
     std::fs::write(repo.git_dir().join("info/exclude"), "ignored.txt\n")?;
     std::fs::write(
         repo.workdir_path("ignored.txt").expect("non-bare"),
         "ignored\n",
     )?;
-    let mut workspace = workspace_for_stack(&repo, &meta)?;
+    let workspace = workspace_for_stack(&repo, &meta)?;
 
     let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {

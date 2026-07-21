@@ -1,14 +1,41 @@
 //! The machinery used to alter and mutate commits in various ways whilst adjusting descendant commits within a workspace.
 
 use anyhow::bail;
+use but_core::commit::write::DateMode;
 use but_core::{
     DiffSpec, RepositoryExt,
     commit::{Headers, SignCommit},
     ref_metadata::StackId,
     tree::{CreateTreeOutcome, create_tree, create_tree::RejectionReason},
 };
-use but_rebase::{RebaseOutput, commit::DateMode};
 use gix::prelude::ObjectIdExt as _;
+
+/// A reference that is an output of a rebase operation.
+/// This is simply a marker for where the actual reference should point to after the rebase operation.
+#[derive(Debug, Clone)]
+pub struct ReferenceSpec {
+    /// A literal reference, useful only to the caller.
+    pub reference: but_core::Reference,
+    /// The commit it now points to.
+    pub commit_id: gix::ObjectId,
+    /// The commit it previously pointed to (as per pick-list).
+    /// Useful for reference-transactions that validate the current value before changing it to the new one.
+    pub previous_commit_id: gix::ObjectId,
+}
+
+/// The output of a rebase operation, kept as a legacy data-transfer shape.
+#[derive(Debug, Clone)]
+pub struct RebaseOutput {
+    /// The id of the most recently created commit in the rebase operation.
+    pub top_commit: gix::ObjectId,
+    /// The list of references along with their new locations, ordered from the least recent to the most recent.
+    pub references: Vec<ReferenceSpec>,
+    /// A listing of all commits `(base, old, new)`, with its base followed by
+    /// the initial commit hash on the left and the rewritten version of it on the right side of each tuple.
+    ///
+    /// That way programmatic users may perform their own remapping without having to deal with references.
+    pub commit_mapping: Vec<(Option<gix::ObjectId>, gix::ObjectId, gix::ObjectId)>,
+}
 
 /// Utilities for synchronizing the on-disk index with a tree.
 pub mod index;
@@ -193,7 +220,7 @@ pub fn create_commit(
                     commit.message = message.into();
                 }
                 let change_id = commit.change_id();
-                Some(but_rebase::commit::create(
+                Some(but_core::commit::write::create(
                     repo,
                     commit.inner,
                     DateMode::CommitterUpdateAuthorKeep,
@@ -236,7 +263,7 @@ fn create_possibly_signed_commit(
         parents: parents.into_iter().map(Into::into).collect(),
         extra_headers: (&commit_headers).into(),
     };
-    but_rebase::commit::create(
+    but_core::commit::write::create(
         repo,
         commit,
         DateMode::CommitterKeepAuthorKeep,

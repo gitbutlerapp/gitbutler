@@ -235,10 +235,10 @@ fn commit_with_branch_hint() {
         env.git_log(),
         snapbox::str![[r#"
 *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 9477ae7 (A) add A
 * | d3e2ba3 (B) add B
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
 "#]]
@@ -270,10 +270,10 @@ fn commit_with_nonexistent_branch_fails() {
         env.git_log(),
         snapbox::str![[r#"
 *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 9477ae7 (A) add A
 * | d3e2ba3 (B) add B
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
 "#]]
@@ -300,10 +300,10 @@ fn commit_with_create_flag_creates_new_branch() {
         env.git_log(),
         snapbox::str![[r#"
 *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 9477ae7 (A) add A
 * | d3e2ba3 (B) add B
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
 "#]]
@@ -1946,8 +1946,15 @@ mod concurrent_commits {
         env.file("src/c/new.ts", "export const c = true;");
 
         commit_matching_change(&env, "A", "commit-a", "a/new")?;
+        eprintln!("=== after commit-a ===\n{}", util::status_json(&env)?);
         commit_matching_change(&env, "branchB", "commit-b", "b/new")?;
+        eprintln!("=== after commit-b ===\n{}", util::status_json(&env)?);
         commit_matching_change(&env, "branchC", "commit-c", "c/new")?;
+        eprintln!("=== after commit-c ===\n{}", util::status_json(&env)?);
+        eprintln!(
+            "=== git log ===\n{}",
+            env.invoke_git("log --all --graph --oneline --decorate")
+        );
 
         let remaining = uncommitted_file_count(&env);
         assert_eq!(

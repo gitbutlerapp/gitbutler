@@ -26,7 +26,7 @@ pub fn store_author_globally_if_unset(
     name: String,
     email: String,
 ) -> Result<()> {
-    but_rebase::commit::save_author_if_unset_in_repo(
+    but_core::commit::write::save_author_if_unset_in_repo(
         &*ctx.repo.get()?,
         gix::config::Source::User,
         name.as_str(),

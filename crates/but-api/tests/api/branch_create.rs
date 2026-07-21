@@ -1,5 +1,5 @@
 use but_core::RefMetadata;
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_graph::edit::InsertSide;
 
 use crate::support::{assert_workspace_ref, repo_with_feature_branch};
 

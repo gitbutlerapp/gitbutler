@@ -1,25 +1,25 @@
 //! Insertion of a blank commit
 
 use anyhow::Result;
-use but_core::RefMetadata;
-use but_rebase::{
-    commit::DateMode,
-    graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToSelector, mutate::InsertSide},
+use but_core::commit::write::DateMode;
+use but_graph::{
+    MutableNodeGraph, NodeIndex, Rebased,
+    edit::{InsertSide, Pick, ToSelector},
 };
 
 /// Inserts a blank commit relative to either a reference or a commit
-pub fn insert_blank_commit<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+pub fn insert_blank_commit(
+    mut graph: MutableNodeGraph,
     side: InsertSide,
     relative_to: impl ToSelector,
-) -> Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
-    let commit = editor.empty_commit()?;
-    let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorUpdate)?;
+) -> Result<(Rebased, NodeIndex)> {
+    let commit = graph.empty_commit()?;
+    let new_id = graph.new_commit(commit, DateMode::CommitterUpdateAuthorUpdate)?;
 
     let blank_commit_selector =
-        editor.insert(relative_to, Step::new_untracked_pick(new_id), side)?;
+        graph.insert_commit_with(relative_to, Pick::new_untracked_pick(new_id), side)?;
 
-    let outcome = editor.rebase()?;
+    let outcome = graph.rebase()?;
 
     Ok((outcome, blank_commit_selector))
 }

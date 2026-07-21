@@ -10,8 +10,8 @@ use but_api::commit::types::{
 };
 use but_core::{DiffSpec, DryRun, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
+use but_graph::edit::{InsertSide, RelativeTo};
 use but_hunk_assignment::{HunkAssignment, HunkAssignmentRequest, HunkAssignmentTarget};
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 mod amend;
 mod assign;
 pub(crate) mod squash;

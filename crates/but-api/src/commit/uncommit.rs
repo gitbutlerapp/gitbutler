@@ -4,9 +4,9 @@ use crate::WorkspaceState;
 use anyhow::Context as _;
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
+use but_graph::edit::MaterializeOptions;
 use but_hunk_assignment::{HunkAssignmentRequest, HunkAssignmentTarget};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::Editor;
 use tracing::instrument;
 
 use super::types::{
@@ -139,40 +139,36 @@ pub fn commit_uncommit_only_with_perm(
         None
     };
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
 
-    let mut rebase =
-        but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())
-            .with_context(|| {
-                format!(
-                    "failed to uncommit commits: {}",
-                    subject_commit_ids
-                        .iter()
-                        .map(|id| id.to_hex().to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            })?;
+    let rebase = but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())
+        .with_context(|| {
+            format!(
+                "failed to uncommit commits: {}",
+                subject_commit_ids
+                    .iter()
+                    .map(|id| id.to_hex().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })?;
 
-    let mut preview_workspace = if dry_run.into() {
-        Some(rebase.overlayed_workspace()?)
+    let preview_workspace = if dry_run.into() {
+        Some(rebase.workspace()?)
     } else {
         None
     };
-    let (workspace, replaced_commits, repo, meta) =
-        if let Some(workspace) = preview_workspace.as_mut() {
-            let replaced_commits = rebase.history.commit_mappings();
-            let (repo, meta) = rebase.repo_and_meta_mut();
-            (workspace, replaced_commits, repo, meta)
-        } else {
-            let materialized = rebase.materialize_without_checkout()?;
-            (
-                materialized.workspace,
-                materialized.history.commit_mappings(),
-                &*repo,
-                materialized.meta,
-            )
-        };
+    let (workspace, replaced_commits, repo) = if let Some(workspace) = preview_workspace.as_ref() {
+        let replaced_commits = rebase.commit_mappings();
+        (workspace, replaced_commits, rebase.repo())
+    } else {
+        let materialized =
+            rebase.materialize_changes(&meta, MaterializeOptions { checkout: false })?;
+        // The old editor refreshed the cached workspace in place after
+        // materializing; assign it back explicitly so context reads stay current.
+        *ws = materialized.workspace;
+        (&*ws, materialized.commit_mappings, &*repo)
+    };
 
     if let (Some(before_assignments), Some(assign_to)) = (before_assignments, assign_to) {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -219,7 +215,7 @@ pub fn commit_uncommit_only_with_perm(
         uncommitted_ids: subject_commit_ids,
         workspace: WorkspaceState::from_workspace_with_db(
             workspace,
-            meta,
+            &mut meta,
             repo,
             replaced_commits,
             &db,
@@ -292,29 +288,27 @@ pub fn commit_uncommit_changes_only_with_perm(
         None
     };
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
-    let mut outcome =
+    let editor = ws.graph.clone().into_mut(&repo)?;
+    let outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
-    let mut preview_workspace = if dry_run.into() {
-        Some(outcome.rebase.overlayed_workspace()?)
+    let rebase = outcome.rebase;
+    let preview_workspace = if dry_run.into() {
+        Some(rebase.workspace()?)
     } else {
         None
     };
-    let (workspace, replaced_commits, repo, meta) =
-        if let Some(workspace) = preview_workspace.as_mut() {
-            let replaced_commits = outcome.rebase.history.commit_mappings();
-            let (repo, meta) = outcome.rebase.repo_and_meta_mut();
-            (workspace, replaced_commits, repo, meta)
-        } else {
-            let materialized = outcome.rebase.materialize_without_checkout()?;
-            (
-                materialized.workspace,
-                materialized.history.commit_mappings(),
-                &*repo,
-                materialized.meta,
-            )
-        };
+    let (workspace, replaced_commits, repo) = if let Some(workspace) = preview_workspace.as_ref() {
+        let replaced_commits = rebase.commit_mappings();
+        (workspace, replaced_commits, rebase.repo())
+    } else {
+        let materialized =
+            rebase.materialize_changes(&meta, MaterializeOptions { checkout: false })?;
+        // The old editor refreshed the cached workspace in place after
+        // materializing; assign it back explicitly so context reads stay current.
+        *ws = materialized.workspace;
+        (&*ws, materialized.commit_mappings, &*repo)
+    };
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -358,7 +352,7 @@ pub fn commit_uncommit_changes_only_with_perm(
     Ok(MoveChangesResult {
         workspace: WorkspaceState::from_workspace_with_db(
             workspace,
-            meta,
+            &mut meta,
             repo,
             replaced_commits,
             &db,
@@ -485,7 +479,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         None
     };
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let workspace_sources = sources
         .into_iter()
         .map(|source| but_workspace::commit::UncommitChangesSource {
@@ -508,38 +502,34 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
         })
         .collect::<Vec<_>>();
 
-    let mut rebase = outcome.rebase;
-    let mut preview_workspace = if dry_run.into() {
+    let rebase = outcome.rebase;
+    let preview_workspace = if dry_run.into() {
         rebase
             .as_ref()
-            .map(|rebase| rebase.overlayed_workspace())
+            .map(|rebase| rebase.workspace())
             .transpose()?
     } else {
         None
     };
-    let (workspace, replaced_commits, repo, meta) = if dry_run.into() {
-        if let Some(rebase) = rebase.as_mut() {
-            let replaced_commits = rebase.history.commit_mappings();
-            let (repo, meta) = rebase.repo_and_meta_mut();
+    let (workspace, replaced_commits, repo) = if dry_run.into() {
+        if let Some(rebase) = rebase.as_ref() {
             (
-                preview_workspace.as_mut().expect("set above"),
-                replaced_commits,
-                repo,
-                meta,
+                preview_workspace.as_ref().expect("set above"),
+                rebase.commit_mappings(),
+                rebase.repo(),
             )
         } else {
-            (&mut *ws, BTreeMap::new(), &*repo, &mut meta)
+            (&*ws, BTreeMap::new(), &*repo)
         }
     } else if let Some(rebase) = rebase {
-        let materialized = rebase.materialize_without_checkout()?;
-        (
-            materialized.workspace,
-            materialized.history.commit_mappings(),
-            &*repo,
-            materialized.meta,
-        )
+        let materialized =
+            rebase.materialize_changes(&meta, MaterializeOptions { checkout: false })?;
+        // The old editor refreshed the cached workspace in place after
+        // materializing; assign it back explicitly so context reads stay current.
+        *ws = materialized.workspace;
+        (&*ws, materialized.commit_mappings, &*repo)
     } else {
-        (&mut *ws, BTreeMap::new(), &*repo, &mut meta)
+        (&*ws, BTreeMap::new(), &*repo)
     };
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
@@ -584,7 +574,7 @@ pub fn commit_uncommit_changes_from_commits_only_with_perm(
     Ok(UncommitChangesFromCommitsResult {
         workspace: WorkspaceState::from_workspace_with_db(
             workspace,
-            meta,
+            &mut meta,
             repo,
             replaced_commits,
             &db,

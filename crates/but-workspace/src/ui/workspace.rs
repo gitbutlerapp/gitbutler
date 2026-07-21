@@ -182,8 +182,8 @@ pub struct DetailedGraphReferenceStatus {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(DetailedGraphReferenceStatus);
 
-impl From<but_rebase::graph_rebase::workspace::ReferenceStatus> for DetailedGraphReferenceStatus {
-    fn from(value: but_rebase::graph_rebase::workspace::ReferenceStatus) -> Self {
+impl From<but_graph::workspace::ReferenceStatus> for DetailedGraphReferenceStatus {
+    fn from(value: but_graph::workspace::ReferenceStatus) -> Self {
         Self {
             remote_ref: value.remote_ref.map(Into::into),
             push_status: value.push_status,

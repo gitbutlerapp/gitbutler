@@ -43,9 +43,10 @@ vendored, or fixture data unless the task is specifically about that code.
   graph/history/ref-placement mutations, use `crates/WORKSPACE_MODEL.md` as the
   reference. In short: prefer commit IDs and refs at API boundaries, convert to
   operation-local selectors inside editor-backed operations, use
-  `but_graph::Graph` for relationship/reachability questions, use
-  `but_rebase::graph_rebase::Editor` for Git graph/history/ref rewrites where an
-  editor model exists, and treat `but_graph::Workspace` and
+  `but_graph::Graph` for relationship/reachability questions, use the
+  `but_graph::MutableNodeGraph` edit lifecycle (`NodeGraph::into_mut` ->
+  mutate -> `rebase()` -> `materialize_changes`) for Git graph/history/ref
+  rewrites, and treat `but_graph::Workspace` and
   `but_workspace::RefInfo` as lossy presentation/compatibility views unless an
   existing workspace-shaped boundary requires them.
 

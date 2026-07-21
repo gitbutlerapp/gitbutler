@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use anyhow::{Context as _, anyhow};
 use but_core::{DiffSpec, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
 use but_db::DbHandle;
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _,
-    mutate::{InsertSide, RelativeToRef},
-};
+use but_graph::edit::{InsertSide, MaterializeOptions, RelativeToRef};
 
 use crate::Outcome;
 
@@ -114,9 +111,9 @@ pub(crate) fn handle_changes(
         let full_ref_name: gix::refs::FullName =
             format!("refs/heads/{stack_branch_name}").try_into()?;
 
-        let editor = Editor::create(ws, meta, repo)?;
+        let graph = ws.graph.clone().into_mut(repo)?;
         let outcome = but_workspace::commit::commit_create(
-            editor,
+            graph,
             diff_specs,
             RelativeToRef::Reference(full_ref_name.as_ref()),
             InsertSide::Below,
@@ -133,10 +130,18 @@ pub(crate) fn handle_changes(
 
         if let Some(new_commit) = outcome
             .commit_selector
-            .map(|selector| outcome.rebase.lookup_pick(selector))
+            .map(|selector| match outcome.rebase.pick_at(selector) {
+                Some(pick) => Ok(pick.id),
+                None => Err(anyhow!(
+                    "BUG: created commit selector did not resolve to a pick"
+                )),
+            })
             .transpose()?
         {
-            outcome.rebase.materialize()?;
+            *ws = outcome
+                .rebase
+                .materialize_changes(&*meta, MaterializeOptions::default())?
+                .workspace;
             updated_branches.push(crate::UpdatedBranch {
                 stack_id,
                 branch_name: stack_branch_name,

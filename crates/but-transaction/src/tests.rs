@@ -1,8 +1,8 @@
 use but_api::WorkspaceState;
 use but_core::{DiffSpec, DryRun};
 use but_ctx::Context;
+use but_graph::edit::{InsertSide, RelativeTo};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_testsupport::Sandbox;
 use but_workspace::{
     branch::create_reference::{Anchor, Position},

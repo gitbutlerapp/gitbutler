@@ -5,20 +5,16 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{Context as _, Result, bail};
 use bstr::BStr;
 use but_core::{
-    ChangeId, RefMetadata, RepositoryExt,
-    commit::{add_conflict_markers, write_conflicted_tree},
+    ChangeId, RepositoryExt,
+    commit::{add_conflict_markers, write::DateMode, write_conflicted_tree},
 };
-use but_rebase::{
-    commit::DateMode,
-    graph_rebase::{
-        Editor, LookupStep, Selector, Step,
-        merge_commit_changes::MergeCommitChangesOutcome,
-        mutate::{SegmentDelimiter, SelectorSet},
-    },
+use but_graph::{
+    MutableNodeGraph, NodeIndex,
+    edit::{MergeCommitChangesOutcome, Pick, SegmentDelimiter, SelectorSet},
 };
 
 use crate::graph_manipulation::{
-    already_connected_parent_for_step, connect_parent_step, disconnect_selector_from_all_parents,
+    already_connected_parent_for_pick, connect_parent_pick, disconnect_selector_from_all_parents,
 };
 use crate::{divergence::TargetCommitRelation, graph_manipulation::determine_parent_selector};
 
@@ -209,8 +205,8 @@ pub(super) enum PreparedIntegrationStep {
 /// order.
 ///
 /// Returns the normalized execution plan used by later graph-building helpers.
-pub(super) fn prepare_integration_steps_for_editor<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+pub(super) fn prepare_integration_steps_for_editor(
+    editor: &MutableNodeGraph,
     steps: &[InteractiveIntegrationStep],
 ) -> Result<Vec<PreparedIntegrationStep>> {
     steps
@@ -233,8 +229,8 @@ pub(super) fn prepare_integration_steps_for_editor<M: RefMetadata>(
 
 /// Precompute the squash payload from the current editor/repository state,
 /// before later integration graph mutations can rewire step-graph ancestry.
-fn prepare_squash_step_for_editor<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
+fn prepare_squash_step_for_editor(
+    editor: &MutableNodeGraph,
     commit_ids: &[gix::ObjectId],
     message: Option<&str>,
 ) -> Result<gix::ObjectId> {
@@ -335,14 +331,14 @@ fn apply_merge_commit_changes_outcome(
 ///
 /// Returns the delimiter spanning from the reference node to the deepest
 /// inserted parent.
-pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
+pub(crate) fn integration_steps_into_segment_nodes(
+    editor: &mut MutableNodeGraph,
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
-) -> Result<SegmentDelimiter<Selector, Selector>> {
-    // Step 1: We interpret the integration steps and transform them into graph steps disconnected from their parents.
+) -> Result<SegmentDelimiter<NodeIndex, NodeIndex>> {
+    // Step 1: We interpret the integration steps and transform them into graph picks disconnected from their parents.
     // We disconnect them in order to be able to allow for reordering.
-    let segment_steps = integration_steps_to_segment_steps_for_editor(editor, ref_name, steps)?;
+    let segment_picks = integration_steps_to_segment_picks_for_editor(editor, steps)?;
 
     // Step 2. We build the new local branch out of the steps.
     // We start by disconnecting all the parents of the local branch reference step, as we will connect it to the new
@@ -351,15 +347,15 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
     disconnect_selector_from_all_parents(editor, child_most)?;
     let mut parent_most = child_most;
 
-    for step in segment_steps.into_iter().skip(1) {
+    for pick in segment_picks {
         if let Some(existing_parent) =
-            already_connected_parent_for_step(editor, parent_most, &step)?
+            already_connected_parent_for_pick(editor, parent_most, &pick)?
         {
             parent_most = existing_parent;
             continue;
         }
 
-        parent_most = connect_parent_step(editor, parent_most, step)?;
+        parent_most = connect_parent_pick(editor, parent_most, pick)?;
     }
 
     Ok(SegmentDelimiter {
@@ -368,53 +364,58 @@ pub(crate) fn integration_steps_into_segment_nodes<M: RefMetadata>(
     })
 }
 
-/// Convert user-provided integration steps into graph steps in insertion order.
+/// Convert user-provided integration steps into graph picks in insertion order.
 ///
 /// `editor` is the mutable graph editor used to reuse existing picks, create
-/// synthetic merge steps, and detach reusable commits from their current parent
+/// synthetic merge picks, and detach reusable commits from their current parent
 /// edges.
-///
-/// `ref_name` is the branch reference that anchors the rebuilt segment.
 ///
 /// `steps` is the prepared integration plan in execution order.
 ///
-/// Returns the graph steps to insert, starting with a reference step and then
-/// the parent chain steps in insertion order.
-fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
-    ref_name: &gix::refs::FullNameRef,
+/// Returns the parent-chain picks to insert in insertion order. The reference
+/// node anchoring the segment is looked up separately by the caller (the old
+/// leading reference step was always skipped).
+fn integration_steps_to_segment_picks_for_editor(
+    editor: &mut MutableNodeGraph,
     steps: &[PreparedIntegrationStep],
-) -> Result<Vec<Step>> {
-    let mut out = vec![Step::new_reference(ref_name.to_owned())];
+) -> Result<Vec<Pick>> {
+    let mut out = Vec::new();
 
     for step in steps.iter().rev() {
         match step {
             PreparedIntegrationStep::Pick { commit_id, .. } => {
-                out.push(existing_or_new_pick_step(editor, *commit_id)?);
+                out.push(existing_or_new_pick(editor, *commit_id)?);
             }
             PreparedIntegrationStep::Merge { commit_id } => {
                 let mut merge_commit = editor.empty_commit()?;
                 merge_commit.message = format!("Merge {commit_id} into previous commit").into();
-                let merge_commit = editor.new_commit(
-                    merge_commit,
-                    but_rebase::commit::DateMode::CommitterKeepAuthorKeep,
-                )?;
-                let preserved_parents = editor
-                    .find_commit(*commit_id)?
-                    .inner
-                    .parents
-                    .iter()
-                    .copied()
-                    .collect::<Vec<_>>();
-                let mut commit_to_merge = Step::new_untracked_pick(*commit_id);
-                let Step::Pick(pick) = &mut commit_to_merge else {
-                    bail!("BUG: expected merge side parent to be a pick step");
+                let merge_commit =
+                    editor.new_commit(merge_commit, DateMode::CommitterKeepAuthorKeep)?;
+                // Reuse the existing node for the merged-in commit: a commit may
+                // only appear once in the graph, and upstream commits are
+                // usually already present under their remote reference.
+                let commit_to_merge = match editor.try_select_commit(*commit_id) {
+                    Some(existing) => existing,
+                    None => {
+                        let preserved_parents = editor
+                            .find_commit(*commit_id)?
+                            .inner
+                            .parents
+                            .iter()
+                            .copied()
+                            .collect::<Vec<_>>();
+                        let mut commit_to_merge = Pick::new_untracked_pick(*commit_id);
+                        commit_to_merge.preserved_parents = Some(preserved_parents);
+                        editor.add_commit(commit_to_merge)
+                    }
                 };
-                pick.preserved_parents = Some(preserved_parents);
-                let commit_to_merge = editor.add_step(commit_to_merge)?;
-                let merge_commit = editor.add_step(Step::new_untracked_pick(merge_commit))?;
+                let merge_commit = editor.add_commit(Pick::new_untracked_pick(merge_commit));
                 editor.add_edge(merge_commit, commit_to_merge, 1)?;
-                out.push(editor.lookup_step(merge_commit)?);
+                out.push(
+                    editor
+                        .pick_at(merge_commit)
+                        .expect("freshly added commit node reads as a pick"),
+                );
             }
         }
     }
@@ -422,21 +423,18 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
     Ok(out)
 }
 
-/// Produce a pick step for `commit_id`, detaching selected parent edges when needed.
+/// Produce a pick for `commit_id`, detaching selected parent edges when needed.
 ///
 /// `editor` is the mutable graph editor used to inspect or detach an existing
 /// selectable commit.
 ///
-/// `commit_id` is the commit that should be represented as a pick step in the
+/// `commit_id` is the commit that should be represented as a pick in the
 /// rebuilt integration segment.
 ///
-/// Returns either the existing pick step for `commit_id` after detaching the
-/// selected parent edges, or a brand-new pick step when the commit is not yet
+/// Returns either the existing pick for `commit_id` after detaching the
+/// selected parent edges, or a brand-new pick when the commit is not yet
 /// selectable in the editor.
-fn existing_or_new_pick_step<M: RefMetadata>(
-    editor: &mut Editor<'_, '_, M>,
-    commit_id: gix::ObjectId,
-) -> Result<Step> {
+fn existing_or_new_pick(editor: &mut MutableNodeGraph, commit_id: gix::ObjectId) -> Result<Pick> {
     if let Some(existing) = editor.try_select_commit(commit_id) {
         let parents_to_disconnect = determine_parent_selector(editor, existing)?;
         editor.disconnect_segment_from(
@@ -452,15 +450,15 @@ fn existing_or_new_pick_step<M: RefMetadata>(
         // The integration rebuilds this commit onto new parents, so it must be
         // cherry-picked. Reused upstream commits live in immutable segments
         // (they aren't reachable from HEAD), so force them mutable here.
-        let mut step = editor.lookup_step(existing)?;
-        if let Step::Pick(pick) = &mut step
-            && !pick.mutable
-        {
+        let mut pick = editor
+            .pick_at(existing)
+            .expect("try_select_commit only yields nodes that read as picks");
+        if !pick.mutable {
             pick.mutable = true;
-            editor.replace(existing, step.clone())?;
+            editor.replace_commit(existing, pick.clone())?;
         }
-        return Ok(step);
+        return Ok(pick);
     }
 
-    Ok(Step::new_pick(commit_id))
+    Ok(Pick::new_pick(commit_id))
 }

@@ -12,10 +12,10 @@ fn journey_new_list_integrate() -> anyhow::Result<()> {
         env.git_log(),
         snapbox::str![[r#"
 *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 9477ae7 (A) add A
 * | d3e2ba3 (B) add B
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
 "#]]

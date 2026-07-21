@@ -31,11 +31,11 @@ fn integrate_pull_rebase_applies_and_snapshots_before_and_after() -> anyhow::Res
         env.git_log(),
         snapbox::str![[r#"
 *   a952a0b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 643ade3 (A) add only-on-local
-|/  
+|/
 | * 28baf9a (origin/A) add only-on-remote
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
 "#]]
@@ -91,10 +91,10 @@ Updated branch A.
         env.git_log(),
         snapbox::str![[r#"
 *   6a3496e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 74faa12 (A) add only-on-local
 | * 28baf9a (origin/A) add only-on-remote
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -150,7 +150,7 @@ fn integrate_smart_squash_applies_matching_change_ids() -> anyhow::Result<()> {
         snapbox::str![[r#"
 * 2662ee8 (HEAD -> gitbutler/workspace, A) add only-on-local
 | * c42227a (origin/A) add only-on-remote
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
 "#]]
@@ -181,7 +181,7 @@ Updated branch A.
         snapbox::str![[r#"
 * bf02b24 (HEAD -> gitbutler/workspace, A) add only-on-remote
 | * c42227a (origin/A) add only-on-remote
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -225,11 +225,11 @@ o 0dc3733
         &before_log,
         snapbox::str![[r#"
 *   a952a0b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 643ade3 (A) add only-on-local
-|/  
+|/
 | * 28baf9a (origin/A) add only-on-remote
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main) add M
 
 "#]]
@@ -364,10 +364,10 @@ Updated branch A.
         env.git_log(),
         snapbox::str![[r#"
 *   6a3496e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | * 74faa12 (A) add only-on-local
 | * 28baf9a (origin/A) add only-on-remote
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
@@ -436,14 +436,14 @@ EOF
         env.git_log(),
         snapbox::str![[r#"
 *   9e0c28c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-|\  
+|\
 | *   30a8d17 (A) Merge 28baf9a2794d7722ceff84f2967b5186545b8a48 into previous commit
-| |\  
+| |\
 | | * 28baf9a (origin/A) add only-on-remote
-| |/  
-|/|   
+| |/
+|/|
 | * 643ade3 add only-on-local
-|/  
+|/
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]

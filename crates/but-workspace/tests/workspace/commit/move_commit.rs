@@ -1,5 +1,6 @@
+use crate::utils::TestMaterializeExt as _;
 use bstr::ByteSlice;
-use but_rebase::graph_rebase::{Editor, mutate::InsertSide};
+use but_graph::edit::InsertSide;
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 use snapbox::IntoData;
 
@@ -56,7 +57,7 @@ fn assert_empty_reference_segment(workspace: &but_graph::Workspace, name: &str) 
 
 #[test]
 fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -96,7 +97,7 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -112,8 +113,8 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let materialization = rebase.materialize(&meta)?;
+    let commit_mapping = materialization.commit_mappings.clone();
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
@@ -168,7 +169,7 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -208,7 +209,7 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -224,8 +225,8 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let materialization = rebase.materialize(&meta)?;
+    let commit_mapping = materialization.commit_mappings.clone();
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
@@ -282,7 +283,7 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -322,7 +323,7 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -338,8 +339,8 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let materialization = rebase.materialize(&meta)?;
+    let commit_mapping = materialization.commit_mappings.clone();
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
@@ -394,7 +395,7 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -434,7 +435,7 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -450,8 +451,8 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let materialization = rebase.materialize(&meta)?;
+    let commit_mapping = materialization.commit_mappings.clone();
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
@@ -508,7 +509,7 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
 
 #[test]
 fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -548,7 +549,7 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let c_commit = repo.rev_parse_single("C")?.detach();
@@ -563,8 +564,8 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let materialization = rebase.materialize(&meta)?;
+    let commit_mapping = materialization.commit_mappings.clone();
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
@@ -613,7 +614,7 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -653,7 +654,7 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_commit = repo.rev_parse_single("B")?.detach();
@@ -669,8 +670,8 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
-    let commit_mapping = materialization.history.commit_mappings();
+    let materialization = rebase.materialize(&meta)?;
+    let commit_mapping = materialization.commit_mappings.clone();
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
@@ -727,7 +728,7 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_commit_to_empty_branch() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph("ws-with-empty-stack", |meta| {
             add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
             add_stack_with_segments(meta, 2, "B", StackState::InWorkspace, &["B"]);
@@ -759,7 +760,7 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let a_commit = repo.rev_parse_single("A")?.detach();
     let a_commit_selector = editor.select_commit(a_commit)?;
     let b_ref_name = "refs/heads/B".try_into()?;
@@ -774,7 +775,7 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
@@ -816,7 +817,7 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
 
 #[test]
 fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -846,7 +847,7 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let three_commit = repo.rev_parse_single("three")?.detach();
     let three_commit_selector = editor.select_commit(three_commit)?;
     let two_ref_name = "refs/heads/two".try_into()?;
@@ -861,7 +862,7 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
@@ -908,7 +909,7 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 
 #[test]
 fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph("gb-1525-reorder-merge-commit", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -945,7 +946,7 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let merge_commit = repo.rev_parse_single("M")?.detach();
     let merge_commit_selector = editor.select_commit(merge_commit)?;
     let c1_commit = repo.rev_parse_single("C1")?.detach();
@@ -958,7 +959,7 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
         InsertSide::Above,
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
@@ -994,7 +995,7 @@ fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()
 
 #[test]
 fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph("gb-1525-reorder-merge-commit", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -1031,7 +1032,7 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let merge_commit = repo.rev_parse_single("M")?.detach();
     let merge_commit_selector = editor.select_commit(merge_commit)?;
     let main_commit = repo.rev_parse_single("main")?.detach();
@@ -1044,7 +1045,7 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
         InsertSide::Below,
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 
@@ -1079,7 +1080,7 @@ fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()
 
 #[test]
 fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -1109,7 +1110,7 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 "#]]
     );
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let three_commit = repo.rev_parse_single("three")?.detach();
     let three_commit_selector = editor.select_commit(three_commit)?;
     let two_commit = repo.rev_parse_single("two")?.detach();
@@ -1124,8 +1125,8 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     )?;
 
     // Materialize the operation
-    let materialization = rebase.materialize()?;
-    let commit_mappings = materialization.history.commit_mappings();
+    let materialization = rebase.materialize(&meta)?;
+    let commit_mappings = materialization.commit_mappings.clone();
     let project_meta = ws.graph.project_meta().clone();
     crate::utils::refresh_workspace_from_head(&mut ws, &repo, &meta, project_meta)?;
 

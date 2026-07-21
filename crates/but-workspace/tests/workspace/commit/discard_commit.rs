@@ -1,5 +1,5 @@
+use crate::utils::TestMaterializeExt as _;
 use anyhow::Result;
-use but_rebase::graph_rebase::Editor;
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 use but_workspace::commit::discard_commits;
 use snapbox::IntoData;
@@ -10,7 +10,7 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 #[test]
 fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -27,11 +27,11 @@ fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
     let two = repo.rev_parse_single("two")?;
     let three = repo.rev_parse_single("three")?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let outcome = discard_commits(editor, [two.detach()])?;
 
-    outcome.materialize()?;
+    outcome.materialize(&meta)?;
 
     let tip_of_two = repo.rev_parse_single("two")?;
     assert_eq!(tip_of_two, one, "The tip of two should now point to one");
@@ -73,7 +73,7 @@ fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
 
 #[test]
 fn discard_tip_commit_in_workspace_stack() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -100,7 +100,7 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     let b = repo.rev_parse_single("B")?;
     let c = repo.rev_parse_single("C")?;
 
-    let mut ws = graph.into_workspace()?;
+    let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -116,12 +116,12 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let outcome = discard_commits(editor, [c.detach()])?;
 
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(&meta)?;
     snapbox::assert_data_eq!(
-        graph_workspace(outcome.workspace).to_string(),
+        graph_workspace(&outcome.workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:7:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
 ├── ≡📙:4:A on 85efbe4 {1}
@@ -157,7 +157,7 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
 
 #[test]
 fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -185,7 +185,7 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     let c = repo.rev_parse_single("C")?;
     let main = repo.rev_parse_single("main")?;
 
-    let mut ws = graph.into_workspace()?;
+    let ws = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
@@ -201,12 +201,12 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
 
 "#]]
     );
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let outcome = discard_commits(editor, [b.detach()])?;
 
-    let outcome = outcome.materialize()?;
+    let outcome = outcome.materialize(&meta)?;
     snapbox::assert_data_eq!(
-        graph_workspace(outcome.workspace).to_string(),
+        graph_workspace(&outcome.workspace).to_string(),
         snapbox::str![[r#"
 📕🏘️:9:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
 ├── ≡📙:4:A on 85efbe4 {1}
@@ -254,7 +254,7 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
 
 #[test]
 fn can_discard_conflicted_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -268,11 +268,11 @@ fn can_discard_conflicted_commit() -> Result<()> {
 
     let conflicted = repo.rev_parse_single("conflicted")?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     let outcome = discard_commits(editor, [conflicted.detach()])?;
 
-    outcome.materialize()?;
+    outcome.materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -288,7 +288,7 @@ fn can_discard_conflicted_commit() -> Result<()> {
 
 #[test]
 fn discard_multiple_commits_in_single_rebase() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph("reword-three-commits", |_| {})?;
 
     snapbox::assert_data_eq!(
@@ -305,12 +305,12 @@ fn discard_multiple_commits_in_single_rebase() -> Result<()> {
     let two = repo.rev_parse_single("two")?;
     let three = repo.rev_parse_single("three")?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     // Discard both two and three in a single operation.
     let outcome = discard_commits(editor, [two.into(), three.into()])?;
 
-    outcome.materialize()?;
+    outcome.materialize(&meta)?;
 
     let tip_of_two = repo.rev_parse_single("two")?;
     assert_eq!(tip_of_two, one, "two should now point to one");
@@ -349,7 +349,7 @@ fn discard_multiple_commits_in_single_rebase() -> Result<()> {
 
 #[test]
 fn discard_both_commits_in_workspace_stack() -> Result<()> {
-    let (_tmp, graph, repo, mut meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         named_writable_scenario_with_description_and_graph(
             "ws-ref-ws-commit-single-stack-double-stack",
             |meta| {
@@ -377,12 +377,12 @@ fn discard_both_commits_in_workspace_stack() -> Result<()> {
     let c = repo.rev_parse_single("C")?;
     let main = repo.rev_parse_single("main")?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     // Discard both B and C in one rebase.
     let outcome = discard_commits(editor, [b.into(), c.into()])?;
 
-    outcome.materialize()?;
+    outcome.materialize(&meta)?;
 
     let tip_of_b = repo.rev_parse_single("B")?;
     assert_eq!(tip_of_b, main, "B should now point to main");

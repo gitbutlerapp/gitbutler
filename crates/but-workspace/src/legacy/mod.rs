@@ -26,8 +26,6 @@ pub use stacks::{
 pub mod ui;
 
 /// High level Stack functions that use primitives from this crate (`but-workspace`)
-pub mod stack_ext;
-
 pub mod push;
 pub use push::workspace_branch_and_ancestors_push;
 

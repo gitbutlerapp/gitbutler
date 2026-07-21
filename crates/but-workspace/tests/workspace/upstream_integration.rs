@@ -1,9 +1,10 @@
+use crate::utils::TestMaterializeExt as _;
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
 use but_core::{Commit, RefMetadata};
+use but_graph::edit::RelativeTo;
 use but_graph::init::Overlay;
 use but_meta::virtual_branches_legacy_types::Target;
-use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_testsupport::{CommandExt, git, graph_workspace, visualize_commit_graph_all};
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, ReviewIntegrationHint, integrate_upstream,
@@ -70,12 +71,11 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         .raw()
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     let remote_tip_before = repo.rev_parse_single("origin/master")?.detach();
     let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -84,7 +84,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -163,11 +163,10 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         .raw()
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -176,7 +175,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -252,7 +251,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         .raw()
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
@@ -270,8 +269,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     );
     let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -280,7 +278,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -349,11 +347,10 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         .raw()
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -362,7 +359,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -427,7 +424,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
 "#]]
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
@@ -444,8 +441,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
     );
     let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -454,7 +450,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -505,12 +501,11 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
         },
         Overlay::default(),
     )?;
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -518,7 +513,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
             selector: RelativeTo::Commit(integrated_bottom_commit),
         }],
     )?;
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
 
     assert!(
         repo.try_find_reference("B")?.is_none(),
@@ -574,7 +569,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
 "#]]
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
@@ -591,8 +586,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     );
     let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -601,7 +595,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -674,11 +668,10 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
 "#]]
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -687,7 +680,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         }],
     )?;
 
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1024,11 +1017,10 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         Overlay::default(),
     )?;
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     let project_meta = project_meta(&meta)?;
     let out = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta.clone(),
         &repo,
         vec![BottomUpdate {
@@ -1045,7 +1037,7 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         1,
         "non-bottom update selectors should not mark integrated stacks as selected for pruning"
     );
-    out.rebase.materialize()?;
+    out.rebase.materialize(&meta)?;
 
     assert!(
         repo.try_find_reference("A")?.is_some(),
@@ -1196,12 +1188,11 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         },
         Overlay::default(),
     )?;
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -1210,7 +1201,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
         }],
     )?;
 
-    let preview = rebase.overlayed_workspace()?;
+    let preview = rebase.workspace()?;
     assert_eq!(
         preview.ref_name(),
         Some(branch_2.as_ref()),
@@ -1222,7 +1213,7 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
     );
     drop(preview);
 
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
 
     assert!(
         repo.try_find_reference("A")?.is_none(),
@@ -1292,12 +1283,11 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         },
         Overlay::default(),
     )?;
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
 
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -1306,7 +1296,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
         }],
     )?;
 
-    let preview = rebase.overlayed_workspace()?;
+    let preview = rebase.workspace()?;
     assert_eq!(
         preview.ref_name(),
         Some(branch_2.as_ref()),
@@ -1314,7 +1304,7 @@ fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() 
     );
     drop(preview);
 
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
 
     assert!(
         repo.try_find_reference("A")?.is_none(),
@@ -1527,13 +1517,12 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
         },
         Overlay::default(),
     )?;
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
 
     std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
     let project_meta = project_meta(&meta)?;
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -1582,7 +1571,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
         },
         Overlay::default(),
     )?;
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
 
     std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
     git(&repo).args(["add", "shared.txt"]).run();
@@ -1590,8 +1579,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
 
     let project_meta = project_meta(&meta)?;
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -2143,7 +2131,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         .raw()
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
@@ -2159,8 +2147,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
 
     let project_meta = project_meta(&meta)?;
     let out = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta.clone(),
         &repo,
         vec![BottomUpdate {
@@ -2176,7 +2163,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         ws_meta.stacks.is_empty(),
         "workspace metadata should no longer expose the integrated empty branch"
     );
-    out.rebase.materialize()?;
+    out.rebase.materialize(&meta)?;
     let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -2351,7 +2338,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         .raw()
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
@@ -2367,8 +2354,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     let bottom_bottom_commit = repo.rev_parse_single("bottom")?.object()?.id;
     let project_meta = project_meta(&meta)?;
     let out = integrate_upstream(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta.clone(),
         &repo,
         vec![BottomUpdate {
@@ -2393,7 +2379,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         vec!["top"],
         "workspace metadata should retain only the unmerged empty top branch"
     );
-    out.rebase.materialize()?;
+    out.rebase.materialize(&meta)?;
     let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -2544,12 +2530,11 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
         },
         Overlay::default(),
     )?;
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
 
     let out = integrate_upstream_with_hints(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -2560,7 +2545,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
             head_commit_at_merge: review_head,
         }],
     )?;
-    out.rebase.materialize()?;
+    out.rebase.materialize(&meta)?;
 
     assert!(
         repo.try_find_reference("A")?.is_none(),
@@ -2618,7 +2603,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
         .raw()
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
@@ -2637,8 +2622,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     let project_meta = workspace.graph.project_meta().clone();
 
     let out = integrate_upstream_with_hints(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta.clone(),
         &repo,
         vec![BottomUpdate {
@@ -2649,7 +2633,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
             head_commit_at_merge: review_head,
         }],
     )?;
-    out.rebase.materialize()?;
+    out.rebase.materialize(&meta)?;
 
     let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let workspace = graph.into_workspace()?;
@@ -2726,7 +2710,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
 "#]]
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
@@ -2742,8 +2726,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     let project_meta = workspace.graph.project_meta().clone();
 
     let out = integrate_upstream_with_hints(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta.clone(),
         &repo,
         vec![BottomUpdate {
@@ -2754,7 +2737,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
             head_commit_at_merge: review_head,
         }],
     )?;
-    out.rebase.materialize()?;
+    out.rebase.materialize(&meta)?;
     let graph = but_graph::Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
@@ -2923,7 +2906,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
 "#]]
     );
 
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
@@ -2943,8 +2926,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
         project_meta: updated_project_meta,
         ..
     } = integrate_upstream_with_hints(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         current_project_meta,
         &repo,
         vec![BottomUpdate {
@@ -2955,7 +2937,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
             head_commit_at_merge: review_head,
         }],
     )?;
-    rebase.materialize()?;
+    rebase.materialize(&meta)?;
 
     let graph =
         but_graph::Graph::from_repo(&repo, &meta, updated_project_meta, Overlay::default())?;
@@ -3017,12 +2999,11 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
         },
         Overlay::default(),
     )?;
-    let mut workspace = graph.into_workspace()?;
+    let workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta().clone();
 
     let out = integrate_upstream_with_hints(
-        &mut workspace,
-        &mut meta,
+        &workspace,
         project_meta,
         &repo,
         vec![BottomUpdate {
@@ -3033,7 +3014,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
             head_commit_at_merge: review_head,
         }],
     )?;
-    out.rebase.materialize()?;
+    out.rebase.materialize(&meta)?;
 
     assert!(
         repo.try_find_reference("A")?.is_some(),
@@ -3065,17 +3046,17 @@ fn integrate_and_materialize<M: RefMetadata>(
         rebase,
         ws_meta,
         project_meta,
-    } = integrate_upstream(workspace, meta, project_meta(&*meta)?, repo, updates)?;
-    let materialized = rebase.materialize()?;
+    } = integrate_upstream(workspace, project_meta(&*meta)?, repo, updates)?;
+    let materialized = rebase.materialize(&*meta)?;
     if let Some(ref_name) = materialized.workspace.ref_name()
         && let Some(ws_meta) = ws_meta
     {
-        let mut md = materialized.meta.workspace(ref_name)?;
+        let mut md = meta.workspace(ref_name)?;
         *md = ws_meta;
         md.set_project_meta(project_meta);
-        materialized.meta.set_workspace(&md)?;
+        meta.set_workspace(&md)?;
     }
-    drop(materialized);
+    *workspace = materialized.workspace;
 
     Ok(())
 }
@@ -3093,22 +3074,21 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         project_meta,
     } = integrate_upstream_with_hints(
         workspace,
-        meta,
         project_meta(&*meta)?,
         repo,
         updates,
         review_hints,
     )?;
-    let materialized = rebase.materialize()?;
+    let materialized = rebase.materialize(&*meta)?;
     if let Some(ref_name) = materialized.workspace.ref_name()
         && let Some(ws_meta) = ws_meta
     {
-        let mut md = materialized.meta.workspace(ref_name)?;
+        let mut md = meta.workspace(ref_name)?;
         *md = ws_meta;
         md.set_project_meta(project_meta);
-        materialized.meta.set_workspace(&md)?;
+        meta.set_workspace(&md)?;
     }
-    drop(materialized);
+    *workspace = materialized.workspace;
 
     Ok(())
 }

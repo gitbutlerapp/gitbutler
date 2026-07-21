@@ -12,8 +12,8 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
+use but_graph::edit::{MaterializeOptions, Pick};
 use but_oxidize::{ObjectIdExt as _, gix_to_git2_index};
-use but_rebase::graph_rebase::{Editor, Pick, Step};
 use git2::build::CheckoutBuilder;
 use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
@@ -306,13 +306,13 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         head_commit.id
     } else {
         let commit = gix::objs::Commit::try_from(decoded_head_commit.clone())?;
-        but_rebase::commit::create(
+        but_core::commit::write::create(
             repo,
             gix::objs::Commit {
                 tree: tree_id,
                 ..commit
             },
-            but_rebase::commit::DateMode::CommitterUpdateAuthorKeep,
+            but_core::commit::write::DateMode::CommitterUpdateAuthorKeep,
             SignCommit::IfSignCommitsEnabled,
             None,
         )?
@@ -321,8 +321,8 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let workspace_commit = repo
         .find_reference(WORKSPACE_BRANCH_REF)?
         .peel_to_commit()?;
-    let mut meta = ctx.meta()?;
-    let mut workspace = but_graph::Graph::from_repo(
+    let meta = ctx.meta()?;
+    let workspace = but_graph::Graph::from_repo(
         &repo,
         &meta,
         ctx.project_meta()?,
@@ -332,7 +332,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         ),
     )?
     .into_workspace()?;
-    let mut editor = Editor::create(&mut workspace, &mut meta, repo)?;
+    let mut editor = workspace.graph.into_mut(repo)?;
     let (target_selector, _commit) =
         editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
 
@@ -341,14 +341,14 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     // edit_mode_metadata.commit_oid
     pick.preserved_parents = Some(decoded_head_commit.parents().collect());
 
-    editor.replace(target_selector, Step::Pick(pick))?;
+    editor.replace_commit(target_selector, pick)?;
     let outcome = editor.rebase()?;
     // HEAD is EDIT_BRANCH_REF and we do not need to re-checkout it (we
     // are checking out WORKSPACE_BRANCH_REF after this). As for needing to
     // "cherry pick" uncommitted changes from the old HEAD, we do not need to,
     // because there are none (they have been written to a tree earlier in this
-    // function). Therefore, use `materialize_without_checkout`.
-    outcome.materialize_without_checkout()?;
+    // function). Therefore, materialize without a checkout.
+    outcome.materialize_changes(&meta, MaterializeOptions { checkout: false })?;
     ctx.invalidate_workspace_cache()?;
 
     // Switch branch to gitbutler/workspace

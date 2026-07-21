@@ -6,7 +6,7 @@ use crate::{
 use anyhow::bail;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_graph::edit::{InsertSide, RelativeTo};
 
 pub(crate) fn handle_resolved_with_perm(
     ctx: &mut Context,

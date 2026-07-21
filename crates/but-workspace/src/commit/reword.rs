@@ -2,29 +2,29 @@
 
 use anyhow::Result;
 use bstr::BStr;
-use but_core::RefMetadata;
-use but_rebase::{
-    commit::DateMode,
-    graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector},
+use but_core::commit::write::DateMode;
+use but_graph::{
+    MutableNodeGraph, NodeIndex, Rebased,
+    edit::{Pick, ToCommitSelector},
 };
 
 /// This action will rewrite a commit and any relevant history so it uses
 /// the new name.
 ///
-/// Returns a selector to the rewritten commit
-pub fn reword<'ws, 'meta, M: RefMetadata>(
-    mut editor: Editor<'ws, 'meta, M>,
+/// Returns a node index to the rewritten commit
+pub fn reword(
+    mut graph: MutableNodeGraph,
     commit: impl ToCommitSelector,
     new_message: &BStr,
-) -> Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
-    let (target_selector, mut commit) = editor.find_selectable_commit(commit)?;
+) -> Result<(Rebased, NodeIndex)> {
+    let (target_selector, mut commit) = graph.find_selectable_commit(commit)?;
 
     commit.message = new_message.to_owned();
-    let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?;
+    let new_id = graph.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?;
 
-    editor.replace(target_selector, Step::new_pick(new_id))?;
+    graph.replace_commit(target_selector, Pick::new_pick(new_id))?;
 
-    let outcome = editor.rebase()?;
+    let outcome = graph.rebase()?;
 
     Ok((outcome, target_selector))
 }

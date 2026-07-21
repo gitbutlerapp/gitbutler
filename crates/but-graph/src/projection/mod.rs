@@ -5,8 +5,10 @@
 //!
 //! These types are not for direct consumption, but should be processed further for consumption by the user.
 
+mod graph_workspace;
 mod node_workspace;
 mod stack;
+pub use graph_workspace::{GraphWorkspace, ReferenceStatus, Subgraph};
 pub use node_workspace::{Stack, StackSegment, TargetCommit, TargetRef, Workspace, WorkspaceKind};
 pub use stack::{StackCommit, StackCommitDebugFlags, StackCommitFlags};
 

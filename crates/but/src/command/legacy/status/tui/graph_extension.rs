@@ -1,4 +1,4 @@
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_graph::edit::InsertSide;
 use ratatui::text::Span;
 
 /// Direction in which to extend a graph connector line.

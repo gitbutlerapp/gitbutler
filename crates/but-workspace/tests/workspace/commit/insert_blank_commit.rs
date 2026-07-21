@@ -1,8 +1,6 @@
+use crate::utils::TestMaterializeExt as _;
 use anyhow::Result;
-use but_rebase::graph_rebase::{
-    Editor,
-    mutate::{InsertSide, RelativeToRef},
-};
+use but_graph::edit::{InsertSide, RelativeToRef};
 use but_testsupport::visualize_commit_graph_all;
 use but_workspace::commit::insert_blank_commit;
 
@@ -10,7 +8,7 @@ use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_
 
 #[test]
 fn insert_below_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -25,15 +23,15 @@ fn insert_below_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("two")?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Below,
         RelativeToRef::Commit(id.detach()),
     )?
     .0
-    .materialize()?;
+    .materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -55,7 +53,7 @@ fn insert_below_commit() -> Result<()> {
 
 #[test]
 fn insert_above_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -70,15 +68,15 @@ fn insert_above_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("two")?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Above,
         RelativeToRef::Commit(id.detach()),
     )?
     .0
-    .materialize()?;
+    .materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -98,7 +96,7 @@ fn insert_above_commit() -> Result<()> {
 
 #[test]
 fn insert_below_reference() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -113,15 +111,15 @@ fn insert_below_reference() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let reference = repo.find_reference("two")?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Below,
         RelativeToRef::Reference(reference.name()),
     )?
     .0
-    .materialize()?;
+    .materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -141,7 +139,7 @@ fn insert_below_reference() -> Result<()> {
 
 #[test]
 fn insert_above_reference() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
+    let (_tmp, graph, repo, meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -156,15 +154,15 @@ fn insert_above_reference() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let reference = repo.find_reference("two")?;
 
-    let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let editor = ws.graph.clone().into_mut(&repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Above,
         RelativeToRef::Reference(reference.name()),
     )?
     .0
-    .materialize()?;
+    .materialize(&meta)?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,

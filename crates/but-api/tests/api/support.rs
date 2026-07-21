@@ -1,5 +1,5 @@
 use but_core::ref_metadata::ProjectMeta;
-use but_rebase::graph_rebase::mutate::InsertSide;
+use but_graph::edit::InsertSide;
 use but_testsupport::gix_testtools::tempfile::TempDir;
 use but_testsupport::{CommandExt, git_at_dir, open_repo};
 

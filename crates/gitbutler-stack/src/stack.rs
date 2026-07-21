@@ -8,7 +8,6 @@ pub(crate) use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_error::bail_precondition;
 use but_meta::virtual_branches_legacy_types;
-use but_rebase::ReferenceSpec;
 use gitbutler_reference::{Refname, RemoteRefname, VirtualRefname, normalize_branch_name};
 use gix::validate::reference::name_partial;
 use itertools::Itertools;
@@ -371,17 +370,15 @@ impl Stack {
         Ok(())
     }
 
-    /// Sets the stack heads according to the output from the rebase of a `but-rebase` rebase operation
-    pub fn set_heads_from_rebase_output(
+    /// Sets the stack heads to the provided commits, keyed by the head's short name
+    /// (i.e. `StackBranch::name()`, without the `refs/heads/` prefix).
+    ///
+    /// All non-archived heads must be present as keys.
+    pub fn set_heads_by_name(
         &mut self,
         ctx: &Context,
-        references: Vec<ReferenceSpec>,
+        new_heads: HashMap<String, gix::ObjectId>,
     ) -> anyhow::Result<()> {
-        let mut new_heads: HashMap<String, gix::ObjectId> = HashMap::new();
-        for spec in &references {
-            new_heads.insert(spec.reference.to_string(), spec.commit_id);
-        }
-
         self.set_all_heads(&*ctx.repo.get()?, &ctx.project_data_dir(), new_heads)
     }
 }

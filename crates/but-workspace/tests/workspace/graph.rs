@@ -50,7 +50,7 @@ fn detailed_with_target(
     target_commit: Option<&str>,
 ) -> Result<(gix::Repository, DetailedGraphWorkspace)> {
     let repo = crate::utils::read_only_in_memory_scenario(fixture)?;
-    let mut meta = VirtualBranchesTomlMetadata::from_path(
+    let meta = VirtualBranchesTomlMetadata::from_path(
         repo.path()
             .join(".git")
             .join("should-never-be-written.toml"),
@@ -65,8 +65,8 @@ fn detailed_with_target(
         ..Default::default()
     };
     let graph = Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
-    let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let detailed = detailed_graph_workspace(&ws, &repo)?;
     Ok((repo, detailed))
 }
 
@@ -94,8 +94,8 @@ fn detailed_writable(
         .project_meta();
     project_meta.target_commit_id = Some(target_sha);
     let graph = Graph::from_repo(&repo, &meta, project_meta, Overlay::default())?;
-    let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let detailed = detailed_graph_workspace(&ws, &repo)?;
     Ok((tmp, detailed))
 }
 
@@ -832,7 +832,7 @@ fn shared_commit_belongs_to_both_reference_segments() -> Result<()> {
 ///
 /// The divergent (force/unpushed) statuses are covered by the
 /// `combined_status_escalates_from_force_parent` and `push_status_mapping` unit
-/// tests in `but-rebase` (`graph_rebase::workspace::test`); reaching them
+/// tests in `but-graph` (`workspace::graph_workspace`); reaching them
 /// end-to-end needs a workspace graph that traverses per-branch remotes, which
 /// this metadata-free projection harness intentionally does not set up.
 #[test]
@@ -1150,8 +1150,8 @@ fn commit_state_uses_similarity_for_local_and_remote() -> Result<()> {
         .context("scenario should configure a target")?;
     project_meta.target_commit_id = Some(target_sha);
     let graph = Graph::from_repo(&repo, &*meta, project_meta, Overlay::default())?;
-    let mut ws = graph.into_workspace()?;
-    let detailed = detailed_graph_workspace(&mut ws, &mut *meta, &repo)?;
+    let ws = graph.into_workspace()?;
+    let detailed = detailed_graph_workspace(&ws, &repo)?;
     snapbox::assert_data_eq!(
         render_commit_state(&detailed),
         snapbox::str![[r#"

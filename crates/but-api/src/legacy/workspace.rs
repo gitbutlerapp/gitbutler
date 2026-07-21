@@ -9,13 +9,8 @@ use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::Context;
-use but_rebase::{
-    RebaseOutput,
-    graph_rebase::{
-        Editor, LookupStep as _,
-        mutate::{InsertSide, RelativeToRef},
-    },
-};
+use but_graph::edit::{InsertSide, RelativeToRef};
+use but_workspace::commit_engine::RebaseOutput;
 use but_workspace::{
     commit_engine,
     legacy::{StacksFilter, ui::StackEntry},
@@ -367,9 +362,9 @@ pub fn stash_into_branch(
     ctx.reload_repo_and_invalidate_workspace(perm)?;
 
     let outcome = {
-        let mut meta = ctx.meta()?;
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let meta = ctx.meta()?;
+        let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let editor = ws.graph.clone().into_mut(&repo)?;
         let but_workspace::commit::CommitCreateOutcome {
             rebase,
             commit_selector,
@@ -384,13 +379,13 @@ pub fn stash_into_branch(
         )?;
 
         let new_commit = commit_selector
-            .map(|selector| rebase.lookup_pick(selector))
+            .map(|selector| crate::workspace_state::pick_id(&rebase, selector))
             .transpose()?;
         let rebase_output = if let Some(new_commit) = new_commit {
-            let materialized = rebase.materialize()?;
+            let materialized = rebase
+                .materialize_changes(&meta, but_graph::edit::MaterializeOptions::default())?;
             let commit_mapping: Vec<_> = materialized
-                .history
-                .commit_mappings()
+                .commit_mappings
                 .into_iter()
                 .map(|(old, new)| (None, old, new))
                 .collect();

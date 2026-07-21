@@ -831,7 +831,6 @@ dependencies = [
  "but-llm",
  "but-meta",
  "but-path",
- "but-rebase",
  "but-secret",
  "but-serde",
  "but-settings",
@@ -908,7 +907,6 @@ dependencies = [
  "but-hunk-assignment",
  "but-llm",
  "but-meta",
- "but-rebase",
  "but-serde",
  "but-workspace",
  "chrono",
@@ -978,7 +976,6 @@ dependencies = [
  "but-llm",
  "but-oplog",
  "but-path",
- "but-rebase",
  "but-schemars",
  "but-secret",
  "but-serde",
@@ -1085,12 +1082,12 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-ctx",
+ "but-graph",
  "but-meta",
- "but-rebase",
  "but-testsupport",
  "but-workspace",
  "gitbutler-branch-actions",
- "gitbutler-workspace",
+ "gitbutler-stack",
  "gix",
  "serde",
 ]
@@ -1325,10 +1322,16 @@ dependencies = [
  "bstr",
  "but-core",
  "but-meta",
+ "but-schemars",
  "but-testsupport",
  "gitbutler-reference",
  "gix",
+ "sapling-renderdag",
+ "schemars 1.2.1",
+ "serde",
  "snapbox",
+ "tempfile",
+ "toml 0.9.12+spec-1.1.0",
  "tracing",
 ]
 
@@ -1522,30 +1525,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "but-rebase"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "bstr",
- "but-core",
- "but-error",
- "but-gerrit",
- "but-graph",
- "but-meta",
- "but-schemars",
- "but-testsupport",
- "gitbutler-reference",
- "gix",
- "sapling-renderdag",
- "schemars 1.2.1",
- "serde",
- "snapbox",
- "tempfile",
- "toml 0.9.12+spec-1.1.0",
- "tracing",
-]
-
-[[package]]
 name = "but-schemars"
 version = "0.0.0"
 dependencies = [
@@ -1666,8 +1645,8 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-db",
+ "but-graph",
  "but-oplog",
- "but-rebase",
  "but-testsupport",
  "but-workspace",
  "gix",
@@ -1731,7 +1710,6 @@ dependencies = [
  "but-gerrit",
  "but-graph",
  "but-meta",
- "but-rebase",
  "but-schemars",
  "but-serde",
  "but-testsupport",
@@ -1766,7 +1744,6 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-graph",
- "but-rebase",
  "but-serde",
  "but-testsupport",
  "gix",
@@ -3866,7 +3843,6 @@ dependencies = [
  "but-meta",
  "but-oxidize",
  "but-project-handle",
- "but-rebase",
  "but-schemars",
  "but-serde",
  "but-settings",
@@ -3925,7 +3901,6 @@ dependencies = [
  "but-graph",
  "but-meta",
  "but-oxidize",
- "but-rebase",
  "but-schemars",
  "but-testsupport",
  "git-meta-lib",
@@ -4124,7 +4099,6 @@ dependencies = [
  "but-db",
  "but-error",
  "but-meta",
- "but-rebase",
  "but-testsupport",
  "ctor 0.6.3",
  "filetime",

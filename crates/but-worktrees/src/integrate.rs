@@ -1,8 +1,9 @@
 use anyhow::{Context as _, Result, bail};
 use bstr::BString;
 use but_core::{RefMetadata, RepositoryExt as _};
-use but_rebase::graph_rebase::{
-    Editor, LookupStep as _, Step, SuccessfulRebase, mutate::InsertSide,
+use but_graph::{
+    Rebased,
+    edit::{InsertSide, MaterializeOptions, Pick},
 };
 use gix::prelude::ObjectIdExt as _;
 use serde::{Deserialize, Serialize};
@@ -86,9 +87,10 @@ pub fn worktree_integrate<M: RefMetadata>(
     // Persists the new commits, updates refs, and safely updates the main
     // checkout. Uncommitted changes that would conflict abort the operation
     // before any ref is touched.
-    rebase
-        .materialize()
+    let outcome = rebase
+        .materialize_changes(&*meta, MaterializeOptions::default())
         .context("Failed to integrate worktree into the workspace")?;
+    *ws = outcome.workspace;
 
     git_worktree_remove(repo.common_dir(), id, true)?;
 
@@ -97,16 +99,13 @@ pub fn worktree_integrate<M: RefMetadata>(
 
 /// Performs the workspace integration in-memory using the graph editor,
 /// returning the status, and the un-materialized rebase if it's integratable.
-fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
+fn worktree_integration_inner<M: RefMetadata>(
     repo: &gix::Repository,
-    ws: &'ws mut but_graph::Workspace,
-    meta: &'meta mut M,
+    ws: &mut but_graph::Workspace,
+    _meta: &mut M,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
-) -> Result<(
-    WorktreeIntegrationStatus,
-    Option<SuccessfulRebase<'ws, 'meta, M>>,
-)> {
+) -> Result<(WorktreeIntegrationStatus, Option<Rebased>)> {
     if !ws
         .stacks
         .iter()
@@ -155,7 +154,7 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
         return Ok((WorktreeIntegrationStatus::NothingToIntegrate, None));
     }
 
-    // State needed later which can't be read while the editor borrows `ws`.
+    // State needed later for conflict prediction.
     let ws_commit_id = ws.graph.managed_workspace_commit_id();
     let head_id = repo.head_id().ok().map(|id| id.detach());
     let head_tree_id = repo.head_tree_id_or_empty()?.detach();
@@ -173,7 +172,7 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
         .context("Failed to find author signature")?
         .to_owned()?;
 
-    let mut editor = Editor::create(ws, meta, repo)?;
+    let mut editor = ws.graph.clone().into_mut(repo)?;
 
     // Create the squash commit in the editor's in-memory repository; it is
     // only persisted if the result gets materialized.
@@ -190,9 +189,9 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
 
     // The squash commit becomes the new tip of `target`; everything that
     // pointed at the old tip (including the workspace commit) follows.
-    let squash_selector = editor.insert(
+    let squash_selector = editor.insert_commit_with(
         target,
-        Step::new_untracked_pick(squash_id),
+        Pick::new_untracked_pick(squash_id),
         InsertSide::Below,
     )?;
 
@@ -209,11 +208,14 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
 
     // Inspect the in-memory result for conflicts.
     let in_memory_repo = rebase.repo();
-    let new_squash_id = rebase.lookup_pick(squash_selector)?;
+    let new_squash_id = match rebase.pick_at(squash_selector) {
+        Some(pick) => pick.id,
+        None => bail!("BUG: squash commit selector did not resolve to a pick"),
+    };
     let cherry_pick_conflicts =
         but_core::Commit::from_id(new_squash_id.attach(in_memory_repo))?.is_conflicted();
 
-    let mappings = rebase.history.commit_mappings();
+    let mappings = rebase.commit_mappings();
     let commits_above_conflict = mappings.iter().any(|(old, new)| {
         Some(*old) != ws_commit_id
             && *new != new_squash_id

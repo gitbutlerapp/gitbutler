@@ -13,7 +13,7 @@ use but_api::{
 };
 use but_core::{DryRun, diff::CommitDetails, ref_metadata::StackId};
 use but_ctx::Context;
-use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_graph::edit::{InsertSide, RelativeTo};
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::entry::Snapshot;
 use gix::prelude::ObjectIdExt;

@@ -27,7 +27,7 @@ This applies both when **changing** state and when **asking questions** about st
 
 | Task | Prefer | Avoid |
 |---|---|---|
-| Rewrite, move, drop, insert commits or ref placements | graph editor (`but_rebase::graph_rebase::Editor`) where an editor model exists | old linear rebase engine (`but_rebase::Rebase`) |
+| Rewrite, move, drop, insert commits or ref placements | graph editor (`but_graph::edit::MutableNodeGraph`) | removed linear rebase engine (`but_rebase::Rebase`) |
 | Ask graph/dependency/state questions about stacks, branches, commits, or ordering | `but_graph::Graph` | workspace projection / refinfo as source of truth |
 | Render UI or caller state | workspace projection (`but_graph::Workspace`) and refinfo (`but_workspace::RefInfo`) | raw mutation structures directly |
 | API operation targets | commit IDs and refs at the boundary; selectors inside a live editor operation | stack IDs unless legacy boundary requires it |
@@ -119,16 +119,16 @@ If code needs graph topology or accurate relationships, go back to `but_graph::G
 
 ## Rebase and mutations
 
-Treat the old rebase engine (`but_rebase::Rebase`) as legacy. It is linear: base plus ordered rebase steps. That assumes a meaningful contiguous range, which breaks down for graph-shaped histories, merge commits, normal Git branches, and single-branch mode.
+The old linear rebase engine (`but_rebase::Rebase`, base plus ordered rebase steps) has been removed. Its assumption of a meaningful contiguous range broke down for graph-shaped histories, merge commits, normal Git branches, and single-branch mode.
 
-Use the graph editor (`but_rebase::graph_rebase::Editor`) for new Git graph/history/ref-placement mutation logic where an editor model exists. Use existing metadata, database, worktree, checkout, hunk-assignment, and API bookkeeping APIs for non-graph state changes.
+Use the graph editor (`but_graph::edit::MutableNodeGraph`, obtained via `NodeGraph::into_mut`) for new Git graph/history/ref-placement mutation logic. Use existing metadata, database, worktree, checkout, hunk-assignment, and API bookkeeping APIs for non-graph state changes.
 
 Important graph editor concepts:
 
-- pick step (`but_rebase::graph_rebase::Pick`) — materialize a commit.
-- reference step (`but_rebase::graph_rebase::Step::Reference`) — place or move a ref.
-- none step (`but_rebase::graph_rebase::Step::None`) — placeholder after removing a pick/ref.
-- `Editor::rebase()` — materializes the edited graph back into Git objects and ref edits.
+- pick (`but_graph::edit::Pick`) — how a commit node is cherry-picked during a rebase. The settings live in the node's per-node edit policy; read them back with `pick_at`, replace or append commits with `replace_commit`, `insert_commit`/`insert_commit_with`, and `add_commit`.
+- reference node (`NodeKind::Reference`) — places a ref on the commit found at its target (last) parent. Whether an edit may move or delete it is per-node policy (`reference_mutability`); create or move refs with `insert_reference`, `replace_with_reference`, and `add_reference`.
+- tombstone (`NodeKind::None`) — placeholder left by `remove` after deleting a commit or reference; node indexes stay stable for the whole edit.
+- `MutableNodeGraph::rebase()` — seals the edited graph into a `Rebased`; `Rebased::materialize_changes()` writes the new objects and ref edits back to disk.
 
 The graph editor is not merely “a rebase command.” It is the in-memory graph mutation layer for history and ref-placement rewrites. It is created directly from the node graph held by `but_graph::Workspace`; the workspace wrapper remains involved so edited refs can be retraversed and projected after materialization.
 
@@ -164,7 +164,7 @@ Ask this for both read/query code and mutation code:
 
 1. What are the real Git objects involved: commits, refs, or both?
 2. Am I asking a relationship/reachability/dependency question? If yes, why not start from `but_graph::Graph`?
-3. Is this a Git graph/history/ref-placement mutation? If yes, why not use `but_rebase::graph_rebase::Editor` where an editor model exists?
+3. Is this a Git graph/history/ref-placement mutation? If yes, why not use `but_graph::edit::MutableNodeGraph`?
 4. Am I using stack IDs because the domain requires it, or because legacy APIs expose them?
 5. Am I using workspace projection/refinfo only for display/compatibility, or accidentally as source of truth?
 6. Does target ref/commit matter as traversal context, display frame, operation target, or workspace target metadata?
@@ -176,7 +176,7 @@ Ask this for both read/query code and mutation code:
 
 - Accept commit/ref targets at API boundaries and convert to editor-local selectors inside the operation; translate UI stack/lane selections at the boundary.
 - Use `but_graph::Graph` for dependency, reachability, membership, ordering, and topology questions.
-- Use `but_rebase::graph_rebase::Editor` for Git graph/history/ref-placement rewrites where an editor model exists.
+- Use `but_graph::edit::MutableNodeGraph` for Git graph/history/ref-placement rewrites.
 - Materialize once when appropriate.
 - Keep target ref/commit as lightweight frame metadata where possible.
 - Convert graph state into projection/refinfo near presentation boundaries.
@@ -196,6 +196,6 @@ Ask this for both read/query code and mutation code:
 
 - Graph construction and workspace projection: `crates/but-graph/tests/graph/init/with_workspace.rs`, especially `managed_workspace_projects_its_stacks()` and `advanced_metadata_stack_tip_is_projected()`, shows `Graph::from_repo()`, `validated()`, `into_workspace()`, and snapshot-backed graph/projection expectations.
 - Target ref and target commit semantics: `crates/but-graph/tests/graph/init/with_workspace.rs` covers fully traversing disconnected target and workspace histories from one seed plan.
-- Graph editor mutation patterns: `crates/but-rebase/tests/rebase/graph_rebase/replace.rs` and `crates/but-rebase/tests/rebase/graph_rebase/insert.rs` show selecting commits, replacing/inserting steps, checking `overlayed_workspace()?.graph`, and materializing once.
+- Graph editor mutation patterns: `crates/but-graph/tests/edit/replace.rs` and `crates/but-graph/tests/edit/insert.rs` show selecting commits, replacing/inserting commits, checking `workspace()?.graph`, and materializing once.
 - Workspace mutation call sites layered over the graph editor: `crates/but-workspace/tests/workspace/commit/move_commit.rs` shows creating an editor, calling `but_workspace::commit::move_commit`, materializing, refreshing workspace state, and asserting ref movement.
 - Normal Git / single-branch presentation behavior: `crates/but-workspace/tests/workspace/ref_info/mod.rs`, especially `single_branch()` and `single_branch_multiple_segments()`, shows unmanaged/non-workspace `RefInfo` behavior and legacy stack compatibility expectations.

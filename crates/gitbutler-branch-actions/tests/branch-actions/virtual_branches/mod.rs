@@ -5,7 +5,6 @@ use std::{fs, path::PathBuf, str::FromStr};
 use but_core::{RepositoryExt as _, ref_metadata::StackId};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId, RepoOpenMode};
 use but_error::{AnyhowContextExt as _, Code};
-use but_rebase::graph_rebase::LookupStep as _;
 use but_settings::AppSettings;
 use but_testsupport::{
     gix_testtools::{Creation, scripted_fixture_writable_with_args},
@@ -339,27 +338,36 @@ pub fn create_commit(
         .and_then(|s| s.heads.first().map(|h| h.name.to_string()))
         .ok_or(anyhow::anyhow!("Could not find associated reference name"))?;
 
-    let mut meta = ctx.meta()?;
+    let meta = ctx.meta()?;
     ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
     let full_ref_name: gix::refs::FullName =
         format!("refs/heads/{stack_branch_name}").try_into()?;
     let outcome = {
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
-        let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo)?;
+        let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+        let graph = ws.graph.clone().into_mut(&repo)?;
         but_workspace::commit::commit_create(
-            editor,
+            graph,
             file_changes,
-            but_rebase::graph_rebase::mutate::RelativeToRef::Reference(full_ref_name.as_ref()),
-            but_rebase::graph_rebase::mutate::InsertSide::Below,
+            but_graph::edit::RelativeToRef::Reference(full_ref_name.as_ref()),
+            but_graph::edit::InsertSide::Below,
             message,
             ctx.settings.context_lines,
         )
         .and_then(|outcome| {
-            let selector = outcome.commit_selector;
-            let materialized = outcome.rebase.materialize()?;
-            selector
-                .map(|selector| materialized.lookup_pick(selector))
-                .transpose()
+            let new_commit_id = outcome
+                .commit_selector
+                .map(|selector| match outcome.rebase.pick_at(selector) {
+                    Some(pick) => Ok(pick.id),
+                    None => Err(anyhow::anyhow!(
+                        "expected new commit to be a pick, got {:?}",
+                        outcome.rebase.graph.nodes()[selector].kind()
+                    )),
+                })
+                .transpose()?;
+            outcome
+                .rebase
+                .materialize_changes(&meta, but_graph::edit::MaterializeOptions::default())?;
+            Ok(new_commit_id)
         })
     };
     let _ = snapshot_tree.and_then(|snapshot_tree| {

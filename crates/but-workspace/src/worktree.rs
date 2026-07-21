@@ -3,8 +3,8 @@
 use std::collections::BTreeSet;
 
 use anyhow::{Context, Result};
-use but_core::{Commit, RefMetadata, RepositoryExt};
-use but_rebase::graph_rebase::SuccessfulRebase;
+use but_core::{Commit, RepositoryExt};
+use but_graph::Rebased;
 use gix::merge::tree::TreatAsUnresolved;
 use gix::prelude::ObjectIdExt;
 
@@ -14,8 +14,8 @@ use gix::prelude::ObjectIdExt;
 /// This is intentionally preview-oriented: it uses the in-memory repository
 /// behind the rebase result so callers can compute conflicts before
 /// materialization, including during dry-runs.
-pub fn worktree_conflicts_for_rebase<M: RefMetadata>(
-    rebase: &SuccessfulRebase<'_, '_, M>,
+pub fn worktree_conflicts_for_rebase(
+    rebase: &Rebased,
 ) -> Result<Vec<but_serde::BStringForFrontend>> {
     let repo = rebase.repo();
     let current_head_tree = repo.head_tree_id_or_empty()?.detach();
@@ -24,7 +24,7 @@ pub fn worktree_conflicts_for_rebase<M: RefMetadata>(
         return Ok(Vec::new());
     }
 
-    let preview_workspace = rebase.overlayed_workspace()?;
+    let preview_workspace = rebase.workspace()?;
     let resulting_head = match preview_workspace.graph.entrypoint() {
         but_graph::NodeGraphEntrypoint::Node(index) => {
             crate::workspace::node_commit_id(&preview_workspace.graph, *index)

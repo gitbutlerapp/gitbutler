@@ -15,8 +15,8 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_error::bail_precondition;
+use but_graph::edit::{InsertSide, MaterializeOptions};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::{Editor, SuccessfulRebase, mutate::InsertSide};
 use but_workspace::branch::{
     BranchIntegrationStrategy, InitialBranchIntegration, OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
@@ -170,7 +170,7 @@ pub mod json {
             #[cfg_attr(feature = "export-schema", schemars(rename = "relativeTo"))]
             relative_to: crate::commit::json::RelativeTo,
             /// Which side of `relative_to` the new branch should be placed on.
-            side: but_rebase::graph_rebase::mutate::InsertSide,
+            side: but_graph::edit::InsertSide,
         },
     }
     #[cfg(feature = "export-schema")]
@@ -1463,14 +1463,12 @@ pub fn get_initial_branch_integration(
     branch: &gix::refs::FullNameRef,
     strategy: Option<json::BranchIntegrationStrategy>,
 ) -> anyhow::Result<InitialBranchIntegration> {
-    let mut meta = ctx.meta()?;
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
-    let mut ws = ws.clone();
     let strategy = strategy
         .map(BranchIntegrationStrategy::from)
         .unwrap_or_default();
     but_workspace::branch::integrate_branch_upstream::get_initial_integration_steps_for_branch(
-        branch, strategy, &mut ws, &mut meta, &repo,
+        branch, strategy, &ws, &repo,
     )
 }
 
@@ -1518,14 +1516,13 @@ pub fn apply_branch_integration_with_perm(
             let rebase = but_workspace::branch::integrate_branch_with_steps(
                 branch,
                 integration,
-                &mut ws,
-                &mut meta,
+                &ws,
                 &repo,
             )?;
 
             Ok(IntegrateBranchResult {
                 workspace: WorkspaceState::from_successful_rebase_with_db(
-                    rebase, &repo, dry_run, &db,
+                    rebase, &mut ws, &repo, &mut meta, dry_run, &db,
                 )?,
             })
         },
@@ -1581,17 +1578,19 @@ pub fn move_branch_with_perm(
         |ctx, perm| {
             let mut meta = ctx.meta()?;
             let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let editor = ws.graph.clone().into_mut(&repo)?;
             let but_workspace::branch::move_branch::Outcome {
                 rebase,
                 ws_meta,
                 new_tip,
                 branch_stack_order,
-            } = but_workspace::branch::move_branch(editor, subject_branch, target_branch)?;
+            } = but_workspace::branch::move_branch(editor, &meta, subject_branch, target_branch)?;
 
             let result = MoveBranchResult {
                 workspace: branch_workspace_from_rebase(
                     rebase,
+                    &mut ws,
+                    &mut meta,
                     ws_meta,
                     new_tip.as_ref(),
                     branch_stack_order.as_deref(),
@@ -1661,14 +1660,14 @@ pub fn tear_off_branch_with_perm(
         |ctx, perm| {
             let mut meta = ctx.meta()?;
             let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let editor = ws.graph.clone().into_mut(&repo)?;
             let but_workspace::branch::move_branch::Outcome {
                 rebase, ws_meta, ..
             } = but_workspace::branch::tear_off_branch(editor, subject_branch, None)?;
 
             Ok(MoveBranchResult {
                 workspace: branch_workspace_from_rebase(
-                    rebase, ws_meta, None, None, &repo, dry_run, &db,
+                    rebase, &mut ws, &mut meta, ws_meta, None, None, &repo, dry_run, &db,
                 )?,
             })
         },
@@ -1702,8 +1701,11 @@ where
     result
 }
 
+#[expect(clippy::too_many_arguments)]
 fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
-    mut rebase: SuccessfulRebase<'_, '_, M>,
+    rebase: but_graph::Rebased,
+    ws: &mut but_graph::Workspace,
+    meta: &mut M,
     ws_meta: Option<but_core::ref_metadata::Workspace>,
     new_tip: Option<&gix::refs::FullName>,
     branch_stack_order: Option<&[gix::refs::FullName]>,
@@ -1712,48 +1714,98 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
     db: &but_db::DbHandle,
 ) -> anyhow::Result<WorkspaceState> {
     if dry_run.into() {
-        let entrypoint = new_tip
-            .map(|new_tip| -> anyhow::Result<_> {
-                Ok((rebase.reference_target(new_tip.as_ref())?, new_tip.clone()))
-            })
-            .transpose()?;
-        let replaced_commits = rebase.history.commit_mappings();
-        let workspace =
-            rebase.overlayed_workspace_with_overrides(entrypoint, branch_stack_order)?;
-        let (repo, meta) = rebase.repo_and_meta_mut();
+        let replaced_commits = rebase.commit_mappings();
+        if new_tip.is_none() && branch_stack_order.is_none() {
+            // No ad-hoc overrides: project the rebased graph directly.
+            return WorkspaceState::from_rebase_preview_with_db(
+                &rebase,
+                meta,
+                replaced_commits,
+                db,
+            );
+        }
+
+        // Ad-hoc (single-branch) mode overrides: re-traverse with a hand-built
+        // overlay, mirroring the old `overlayed_workspace_with_overrides`. The
+        // rebased refs only exist in the sealed graph, so serve every mutable
+        // local branch's resolved target as an overlay reference.
+        let mut updated_refs = Vec::new();
+        for index in 0..rebase.graph.nodes().len() {
+            let but_graph::NodeKind::Reference(reference) = rebase.graph.nodes()[index].kind()
+            else {
+                continue;
+            };
+            if rebase.reference_mutability(index) != Some(true) {
+                continue;
+            }
+            let refname = reference.ref_info.ref_name.clone();
+            if refname.category() != Some(gix::refs::Category::LocalBranch) {
+                continue;
+            }
+            let target = rebase.reference_target(refname.as_ref())?;
+            updated_refs.push(gix::refs::Reference {
+                name: refname,
+                target: gix::refs::Target::Object(target),
+                peeled: None,
+            });
+        }
+
+        let entrypoint = match new_tip {
+            Some(new_tip) => Some((
+                rebase.reference_target(new_tip.as_ref())?,
+                Some(new_tip.clone()),
+            )),
+            None => match rebase.graph.entrypoint() {
+                but_graph::NodeGraphEntrypoint::Node(index) => rebase.graph.nodes()[*index]
+                    .kind()
+                    .addressable_commit_id()
+                    .map(|id| (id, rebase.graph.entrypoint_ref().map(ToOwned::to_owned))),
+                but_graph::NodeGraphEntrypoint::Unborn(_) => None,
+            },
+        };
+
+        let mut overlay = but_graph::init::Overlay::default().with_references(updated_refs);
+        if let Some((id, ref_name)) = entrypoint {
+            overlay = overlay.with_entrypoint(id, ref_name);
+        }
+        if let Some(order) = branch_stack_order {
+            overlay = overlay.with_branch_stack_order_override(order.iter().cloned());
+        }
+        let project_meta = rebase.graph.project_meta().clone();
+        let workspace = but_graph::Graph::from_repo(rebase.repo(), &*meta, project_meta, overlay)?
+            .into_workspace()?;
         return WorkspaceState::from_workspace_with_db(
             &workspace,
             meta,
-            repo,
+            rebase.repo(),
             replaced_commits,
             db,
         );
     }
 
-    let materialized = rebase.materialize()?;
+    let materialized = rebase.materialize_changes(&*meta, MaterializeOptions::default())?;
+    let mut workspace = materialized.workspace;
+    let project_meta = workspace.graph.project_meta().clone();
     if let Some(order) = branch_stack_order {
-        materialized.meta.set_branch_stack_order(order)?;
-        let project_meta = materialized.project_meta.clone();
-        *materialized.workspace = but_graph::Graph::from_repo(
+        meta.set_branch_stack_order(order)?;
+        workspace = but_graph::Graph::from_repo(
             repo,
-            &*materialized.meta,
-            project_meta,
+            &*meta,
+            project_meta.clone(),
             but_graph::init::Overlay::default(),
         )?
         .into_workspace()?;
     }
-    if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
-        let mut md = materialized.meta.workspace(ref_name)?;
+    if let Some((ws_meta, ref_name)) = ws_meta.zip(workspace.ref_name()) {
+        let mut md = meta.workspace(ref_name)?;
         *md = ws_meta;
-        md.set_project_meta(materialized.project_meta.clone());
-        materialized.meta.set_workspace(&md)?;
+        md.set_project_meta(project_meta.clone());
+        meta.set_workspace(&md)?;
     }
 
-    WorkspaceState::from_workspace_with_db(
-        materialized.workspace,
-        materialized.meta,
-        repo,
-        materialized.history.commit_mappings(),
-        db,
-    )
+    // The old editor refreshed the cached workspace in place after
+    // materializing; assign it back explicitly so context reads stay current.
+    *ws = workspace;
+
+    WorkspaceState::from_workspace_with_db(&*ws, meta, repo, materialized.commit_mappings, db)
 }
