@@ -564,6 +564,159 @@ pub mod json {
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(InitialBranchIntegration);
 
+    /// JSON transport type for how a branch stack relates to the workspace.
+    #[derive(Debug, Clone, Copy, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub enum ListedStackStatus {
+        /// The branches are applied to the workspace as a stack.
+        Applied,
+        /// The branches form a stack known to workspace metadata, but it is not applied.
+        Unapplied,
+        /// The stack represents the configured target branch.
+        Target,
+        /// The branches are not related to the workspace.
+        Standalone,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(ListedStackStatus);
+
+    impl From<but_branches::ListedStackStatus> for ListedStackStatus {
+        fn from(value: but_branches::ListedStackStatus) -> Self {
+            match value {
+                but_branches::ListedStackStatus::Applied => Self::Applied,
+                but_branches::ListedStackStatus::Unapplied => Self::Unapplied,
+                but_branches::ListedStackStatus::Target => Self::Target,
+                but_branches::ListedStackStatus::Standalone => Self::Standalone,
+            }
+        }
+    }
+
+    /// JSON transport type for one or more stacked branches displayed as a unit.
+    ///
+    /// A branch belongs to exactly one stack, so the tip branch's `refName`
+    /// uniquely identifies the stack.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct ListedStack {
+        /// How the stack relates to the workspace.
+        pub status: ListedStackStatus,
+        /// The branches of the stack, from the tip (newest) to the base (oldest).
+        ///
+        /// When flattening branches across stacks, carry `status` along: facts like
+        /// "this is the target branch" exist only at the stack level.
+        pub branches: Vec<ListedBranch>,
+        /// The committer timestamp of the newest branch tip in milliseconds since the epoch.
+        pub updated_at_ms: Option<i64>,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(ListedStack);
+
+    /// JSON transport type for a single listed branch, unifying its local ref and all
+    /// remote-tracking refs of the same name.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct ListedBranch {
+        /// The full name of the primary ref: the local branch if it exists,
+        /// otherwise the first remote-tracking branch.
+        pub ref_name: crate::json::FullRefName,
+        /// The branch name without ref prefix or remote name, for display.
+        pub display_name: String,
+        /// The commit at the tip of the primary ref.
+        pub tip: crate::json::HexHashString,
+        /// Whether a local branch of this name exists.
+        pub has_local: bool,
+        /// All remote-tracking refs that share the branch name.
+        pub remote_refs: Vec<crate::json::FullRefName>,
+        /// The number of commits this branch adds on its own — from its tip down to
+        /// the next listed branch below it in the stack, or to the fork point when
+        /// it stands alone. This is the count to show as the branch's own commits.
+        ///
+        /// A per-branch commit history that is not stack-aware (such as the one
+        /// from `branchDetails`) lists every commit down to the target, so a stacked
+        /// branch's own commits are the first `commitCount` of it. For the same
+        /// reason `commitCount` is smaller than `commitsAheadOfTarget`, which also
+        /// counts the commits of the branches below.
+        ///
+        /// `None` if the commit graph ends before the fork point, as in a shallow
+        /// clone; an exact-looking number would be wrong.
+        pub commit_count: Option<usize>,
+        /// The number of commits reachable from this branch but not from the target
+        /// branch. For a branch stacked on top of others this includes the commits
+        /// of those lower branches, so it measures the branch's distance from the
+        /// target rather than its own contribution — use `commitCount` for that.
+        ///
+        /// `None` when no target is configured, or when the connection to the
+        /// target lies beyond the end of the traversed graph, as in a shallow clone.
+        pub commits_ahead_of_target: Option<usize>,
+        /// The author of the tip commit.
+        pub last_author: Option<but_workspace::ui::Author>,
+        /// The committer timestamp of the tip commit in milliseconds since the epoch.
+        pub updated_at_ms: Option<i64>,
+        /// The cached review (PR/MR) published for this branch, if any is known.
+        pub review: Option<ListedForgeReview>,
+        /// The lifecycle state of `review`, derived server-side so every client
+        /// agrees on the precedence: merged wins over closed, closed over draft,
+        /// draft over open. `None` exactly when `review` is `None`.
+        pub review_status: Option<BranchReviewStatus>,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(ListedBranch);
+
+    /// JSON transport type for the cached review (PR/MR) of a listed branch.
+    ///
+    /// Only what a branch listing displays. The full [`but_forge::ForgeReview`] is
+    /// available from the per-review APIs; carrying it here would put every review
+    /// body in a response that lists the whole repository. Lifecycle state lives in
+    /// [`ListedBranch::review_status`] rather than being re-derived from timestamps.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct ListedForgeReview {
+        /// The number identifying the review within its repository, e.g. `123`.
+        pub number: i64,
+        /// The title of the review.
+        pub title: String,
+        /// The URL to view the review in a web browser.
+        pub html_url: String,
+        /// The forge's symbol for this review type, e.g. `#` for GitHub pull
+        /// requests and `!` for GitLab merge requests. Precedes [`number`](Self::number)
+        /// when displayed.
+        pub unit_symbol: String,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(ListedForgeReview);
+
+    impl From<&but_forge::ForgeReview> for ListedForgeReview {
+        fn from(value: &but_forge::ForgeReview) -> Self {
+            Self {
+                number: value.number,
+                title: value.title.clone(),
+                html_url: value.html_url.clone(),
+                unit_symbol: value.unit_symbol.clone(),
+            }
+        }
+    }
+
+    /// JSON transport type for the lifecycle state of a branch's cached review.
+    #[derive(Debug, Clone, Copy, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub enum BranchReviewStatus {
+        /// The review is open and ready for review.
+        Open,
+        /// The review is open but marked as a draft.
+        Draft,
+        /// The review was merged.
+        Merged,
+        /// The review was closed without merging.
+        Closed,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(BranchReviewStatus);
+
     impl TryFrom<but_workspace::branch::InitialBranchIntegration> for InitialBranchIntegration {
         type Error = anyhow::Error;
 
@@ -1442,6 +1595,85 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
     let branch = repo.find_reference(&branch)?;
     but_workspace::ui::diff::changes_in_branch(&repo, &ws, branch.name())
+}
+
+/// Lists all local and remote branches of the project, grouped into stacks where
+/// known, and enriched with cached review (PR/MR) information.
+///
+/// One ref enumeration, one graph traversal, and one forge-cache read produce the
+/// entire response: no network requests and no diffs are computed. Branches applied
+/// to the workspace are included and classified rather than dropped. Stacks are
+/// ordered most recently updated first; group by `status` to lead with the
+/// workspace-related ones. Ahead-counts are relative to the
+/// project's configured target branch, which clients know from the project APIs.
+/// For the listing semantics, see [`but_branches::list()`].
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn branch_list(ctx: &Context) -> anyhow::Result<Vec<json::ListedStack>> {
+    let meta = ctx.meta()?;
+    let project_meta = ctx.project_meta()?;
+    let _guard = ctx.shared_worktree_access();
+    let listing = {
+        let repo = ctx.repo.get()?;
+        but_branches::list(
+            &repo,
+            &meta,
+            but_branches::Options {
+                project_meta,
+                hard_limit: None,
+            },
+        )?
+    };
+
+    let db = ctx.db.get_cache()?;
+    let mut reviews_by_head = but_forge::reviews_by_head(&db)?;
+    Ok(listing
+        .stacks
+        .into_iter()
+        .map(|stack| json::ListedStack {
+            status: stack.status.into(),
+            updated_at_ms: stack.updated_at_ms,
+            branches: stack
+                .branches
+                .into_iter()
+                .map(|branch| listed_branch_json(branch, &mut reviews_by_head))
+                .collect(),
+        })
+        .collect())
+}
+
+/// Convert one listed branch to its transport form, joining the cached review that
+/// belongs to it. Reviews are cached under the pushed short branch name.
+fn listed_branch_json(
+    branch: but_branches::ListedBranch,
+    reviews_by_head: &mut std::collections::HashMap<String, but_forge::ForgeReview>,
+) -> json::ListedBranch {
+    let display_name = branch.display_name.to_str_lossy().into_owned();
+    let review = reviews_by_head.remove(&display_name);
+    let review_status = review.as_ref().map(|review| {
+        if review.is_merged() {
+            json::BranchReviewStatus::Merged
+        } else if review.closed_at.is_some() {
+            json::BranchReviewStatus::Closed
+        } else if review.draft {
+            json::BranchReviewStatus::Draft
+        } else {
+            json::BranchReviewStatus::Open
+        }
+    });
+    json::ListedBranch {
+        ref_name: branch.ref_name.into(),
+        display_name,
+        tip: branch.tip.into(),
+        has_local: branch.has_local,
+        remote_refs: branch.remote_refs.into_iter().map(Into::into).collect(),
+        commit_count: branch.commit_count,
+        commits_ahead_of_target: branch.commits_ahead_of_target,
+        last_author: branch.last_author.map(Into::into),
+        updated_at_ms: branch.updated_at_ms,
+        review: review.as_ref().map(Into::into),
+        review_status,
+    }
 }
 
 /// Get the initial upstream integration script for `branch`.

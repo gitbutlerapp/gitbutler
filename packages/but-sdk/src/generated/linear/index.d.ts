@@ -105,6 +105,20 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
 export declare function branchLand(projectId: string, branch: string, noFf: boolean): Promise<BranchLandResult>
 
 /**
+ * Lists all local and remote branches of the project, grouped into stacks where
+ * known, and enriched with cached review (PR/MR) information.
+ *
+ * One ref enumeration, one graph traversal, and one forge-cache read produce the
+ * entire response: no network requests and no diffs are computed. Branches applied
+ * to the workspace are included and classified rather than dropped. Stacks are
+ * ordered most recently updated first; group by `status` to lead with the
+ * workspace-related ones. Ahead-counts are relative to the
+ * project's configured target branch, which clients know from the project APIs.
+ * For the listing semantics, see [`but_branches::list()`].
+ */
+export declare function branchList(projectId: string): Promise<Array<ListedStack>>
+
+/**
  * Removes the local branch `ref_name` from the workspace, deleting its git
  * reference along with its metadata (including its `branch_order` entry).
  *
@@ -1164,6 +1178,9 @@ export type BranchRenameResult = {
   newRef: BranchReference;
 };
 
+/** JSON transport type for the lifecycle state of a branch's cached review. */
+export type BranchReviewStatus = "open" | "draft" | "merged" | "closed";
+
 export type CacheConfig = "cacheOnly" | "noCache" | {
   cacheWithFallback: {
     max_age_seconds: number;
@@ -2216,6 +2233,109 @@ export type LineStats = {
 
 /** Bit flags for one column in a detailed graph linking row. */
 export type LinkLine = number;
+
+/**
+ * JSON transport type for a single listed branch, unifying its local ref and all
+ * remote-tracking refs of the same name.
+ */
+export type ListedBranch = {
+  /**
+   * The full name of the primary ref: the local branch if it exists,
+   * otherwise the first remote-tracking branch.
+   */
+  refName: FullRefName;
+  /** The branch name without ref prefix or remote name, for display. */
+  displayName: string;
+  /** The commit at the tip of the primary ref. */
+  tip: HexHashString;
+  /** Whether a local branch of this name exists. */
+  hasLocal: boolean;
+  /** All remote-tracking refs that share the branch name. */
+  remoteRefs: Array<FullRefName>;
+  /**
+   * The number of commits this branch adds on its own — from its tip down to
+   * the next listed branch below it in the stack, or to the fork point when
+   * it stands alone. This is the count to show as the branch's own commits.
+   *
+   * A per-branch commit history that is not stack-aware (such as the one
+   * from `branchDetails`) lists every commit down to the target, so a stacked
+   * branch's own commits are the first `commitCount` of it. For the same
+   * reason `commitCount` is smaller than `commitsAheadOfTarget`, which also
+   * counts the commits of the branches below.
+   *
+   * `None` if the commit graph ends before the fork point, as in a shallow
+   * clone; an exact-looking number would be wrong.
+   */
+  commitCount: number | null;
+  /**
+   * The number of commits reachable from this branch but not from the target
+   * branch. For a branch stacked on top of others this includes the commits
+   * of those lower branches, so it measures the branch's distance from the
+   * target rather than its own contribution — use `commitCount` for that.
+   *
+   * `None` when no target is configured, or when the connection to the
+   * target lies beyond the end of the traversed graph, as in a shallow clone.
+   */
+  commitsAheadOfTarget: number | null;
+  /** The author of the tip commit. */
+  lastAuthor: Author | null;
+  /** The committer timestamp of the tip commit in milliseconds since the epoch. */
+  updatedAtMs: number | null;
+  /** The cached review (PR/MR) published for this branch, if any is known. */
+  review: ListedForgeReview | null;
+  /**
+   * The lifecycle state of `review`, derived server-side so every client
+   * agrees on the precedence: merged wins over closed, closed over draft,
+   * draft over open. `None` exactly when `review` is `None`.
+   */
+  reviewStatus: BranchReviewStatus | null;
+};
+
+/**
+ * JSON transport type for the cached review (PR/MR) of a listed branch.
+ *
+ * Only what a branch listing displays. The full [`but_forge::ForgeReview`] is
+ * available from the per-review APIs; carrying it here would put every review
+ * body in a response that lists the whole repository. Lifecycle state lives in
+ * [`ListedBranch::review_status`] rather than being re-derived from timestamps.
+ */
+export type ListedForgeReview = {
+  /** The number identifying the review within its repository, e.g. `123`. */
+  number: number;
+  /** The title of the review. */
+  title: string;
+  /** The URL to view the review in a web browser. */
+  htmlUrl: string;
+  /**
+   * The forge's symbol for this review type, e.g. `#` for GitHub pull
+   * requests and `!` for GitLab merge requests. Precedes [`number`](Self::number)
+   * when displayed.
+   */
+  unitSymbol: string;
+};
+
+/**
+ * JSON transport type for one or more stacked branches displayed as a unit.
+ *
+ * A branch belongs to exactly one stack, so the tip branch's `refName`
+ * uniquely identifies the stack.
+ */
+export type ListedStack = {
+  /** How the stack relates to the workspace. */
+  status: ListedStackStatus;
+  /**
+   * The branches of the stack, from the tip (newest) to the base (oldest).
+   *
+   * When flattening branches across stacks, carry `status` along: facts like
+   * "this is the target branch" exist only at the stack level.
+   */
+  branches: Array<ListedBranch>;
+  /** The committer timestamp of the newest branch tip in milliseconds since the epoch. */
+  updatedAtMs: number | null;
+};
+
+/** JSON transport type for how a branch stack relates to the workspace. */
+export type ListedStackStatus = "applied" | "unapplied" | "target" | "standalone";
 
 /**
  * An optional full reference name accepted as a string like `refs/heads/main`,

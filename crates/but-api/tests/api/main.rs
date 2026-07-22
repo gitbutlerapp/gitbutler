@@ -1,6 +1,7 @@
 mod branch_apply;
 mod branch_checkout;
 mod branch_create;
+mod branch_list;
 mod branch_move;
 mod branch_remove;
 mod branch_rename;
