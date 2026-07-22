@@ -251,7 +251,6 @@ impl Subcommands {
             Subcommands::Agent(agent::Platform { cmd }) => match cmd {
                 None | Some(agent::Subcommands::Setup { .. }) => AgentSetup,
             },
-            Subcommands::Edit { .. } => Edit,
             #[cfg(feature = "legacy")]
             Subcommands::Clean { .. } => Clean,
             Subcommands::Onboarding => Unknown,

@@ -195,7 +195,6 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Tui => Group::OtherCommands,
 
-                SubcommandDiscriminant::Edit => continue,
                 #[cfg(feature = "but-2")]
                 SubcommandDiscriminant::_Open => continue,
                 #[cfg(feature = "but-2")]

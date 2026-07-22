@@ -553,7 +553,7 @@ fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo)
         "  {}: {} {}",
         t.hint.paint("Editor"),
         t.config_value
-            .paint(info.editor.as_deref().unwrap_or("(built-in)")),
+            .paint(info.editor.as_deref().unwrap_or("(not set)")),
         format_scope(info.editor_scope)
     )?;
     writeln!(out)?;
