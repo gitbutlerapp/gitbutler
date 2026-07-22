@@ -1,11 +1,13 @@
 import ApplyBranchByStackingModal from "$components/branch/ApplyBranchByStackingModal.svelte";
-import { ExternallyResolvedPromise } from "$lib/utils/resolveExternally";
 import { act, render, screen } from "@testing-library/svelte";
 import { expect, test, vi } from "vitest";
 
 test("prevents duplicate submissions while stacking is in progress", async () => {
-	const pending = new ExternallyResolvedPromise<boolean>();
-	const onStack = vi.fn(async () => await pending.promise);
+	let resolvePending!: (value: boolean) => void;
+	const pending = new Promise<boolean>((resolve) => {
+		resolvePending = resolve;
+	});
+	const onStack = vi.fn(async () => await pending);
 	const { component } = render(ApplyBranchByStackingModal);
 
 	await act(() =>
@@ -23,8 +25,8 @@ test("prevents duplicate submissions while stacking is in progress", async () =>
 
 	expect(onStack).toHaveBeenCalledOnce();
 	expect(action).toBeDisabled();
-	pending.resolve(false);
-	await pending.promise;
+	resolvePending(false);
+	await pending;
 });
 
 test("keeps the modal open when the retry reports that it should not close", async () => {

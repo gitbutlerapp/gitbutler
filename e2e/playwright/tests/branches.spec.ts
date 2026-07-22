@@ -212,31 +212,48 @@ test.describe("GitHub review apply", () => {
 			await applyUpstream(gitbutler, "applied-feature");
 			const destinationBefore = git(localClone, ["rev-parse", "refs/heads/applied-feature"]);
 			await openWorkspace(page);
+			await clickByTestId(page, "navigation-branches-button");
+			await waitForTestId(page, "branches-view");
 			await storeFakeGitHubEnterprisePat(page, fakeGitHub);
 			await page.reload();
-			await waitForTestId(page, "workspace-view");
+			await waitForTestId(page, "branches-view");
 
-			await clickByTestId(page, "navigation-branches-button");
-			await expect(
-				getByTestId(page, "pr-list-card").filter({ hasText: "Conflicting PR" }),
-			).toBeVisible();
-			await getByTestId(page, "pr-list-card").filter({ hasText: "Conflicting PR" }).click();
-			await clickByTestId(page, "branches-view-apply-from-fork-button");
+			const conflictingPr = getByTestId(page, "pr-list-card").filter({
+				hasText: "Conflicting PR",
+			});
+			const conflictingBranch = getByTestId(page, "branch-list-card").filter({
+				hasText: "fork-feature",
+			});
+			let applyButton:
+				| "branches-view-apply-from-fork-button"
+				| "branches-view-apply-branch-button" = "branches-view-apply-from-fork-button";
+			await expect(async () => {
+				if (await conflictingBranch.isVisible()) {
+					await conflictingBranch.click({ force: true });
+					applyButton = "branches-view-apply-branch-button";
+				} else {
+					await conflictingPr.click({ force: true });
+					applyButton = "branches-view-apply-from-fork-button";
+				}
+				await expect(getByTestId(page, applyButton)).toBeVisible();
+			}).toPass({ timeout: 15_000 });
+			await clickByTestId(page, applyButton);
 			await waitForTestId(page, "branch-apply-stacking-modal");
 			expect(git(localClone, ["branch", "--list", "fork-feature"])).toBe("");
-			const remoteBefore = git(localClone, [
-				"rev-parse",
-				"refs/remotes/contributor-user/fork-feature",
+			const remoteRef = git(localClone, [
+				"for-each-ref",
+				"--format=%(refname)",
+				"refs/remotes/*/fork-feature",
 			]);
+			expect(remoteRef).toMatch(/^refs\/remotes\/.+\/fork-feature$/);
+			const remoteBefore = git(localClone, ["rev-parse", remoteRef]);
 
 			await clickByTestId(page, "branch-apply-stacking-modal-action-button");
 			await waitForTestId(page, "workspace-view");
 			expect(git(localClone, ["rev-parse", "refs/heads/applied-feature"])).toBe(destinationBefore);
 			const localAfter = git(localClone, ["rev-parse", "refs/heads/fork-feature"]);
 			expect(localAfter).not.toBe(remoteBefore);
-			expect(git(localClone, ["rev-parse", "refs/remotes/contributor-user/fork-feature"])).toBe(
-				remoteBefore,
-			);
+			expect(git(localClone, ["rev-parse", remoteRef])).toBe(remoteBefore);
 			expect(git(localClone, ["rev-parse", "refs/heads/fork-feature^"])).toBe(destinationBefore);
 			await expect(stack(page)).toHaveCount(1);
 			const headers = stack(page).getByTestId("branch-header");
@@ -667,6 +684,8 @@ test("applies a local-only conflicting branch onto an existing stack", async ({
 	await gitbutler.runScript("project-with-remote-branches.sh");
 	await applyUpstream(gitbutler, "branch1");
 	const localClone = gitbutler.pathInWorkdir("local-clone");
+	git(localClone, ["config", "user.name", "Branchy McBranchface"]);
+	git(localClone, ["config", "user.email", "me@branchy.com"]);
 	git(localClone, ["checkout", "-b", "local-only", "origin/master"]);
 	writeFileSync(`${localClone}/a_file`, "foo\nbar\nbaz\nlocal-only commit 1\n");
 	git(localClone, ["add", "a_file"]);
