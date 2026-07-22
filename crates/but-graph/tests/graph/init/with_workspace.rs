@@ -8156,6 +8156,116 @@ fn worktree_tip_in_workspace_priority_mode() -> anyhow::Result<()> {
 }
 
 #[test]
+fn workspace_traversal_with_extra_tips() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/worktree-ahead")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* a26ae77 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+| * 26837d3 (wt-feature) W
+|/  
+* fafd9d0 (origin/main, main) init
+
+"#]]
+    );
+    add_workspace(&mut meta);
+
+    let (head_id, ws_ref) = id_at(&repo, "gitbutler/workspace");
+    let baseline = Graph::from_commit_traversal(
+        head_id,
+        ws_ref.clone(),
+        &*meta,
+        default_project_meta(),
+        standard_options(),
+    )?
+    .validated()?;
+    let baseline_tree = graph_tree(&baseline).to_string();
+    let baseline_workspace = graph_workspace(&baseline.into_workspace()?).to_string();
+
+    let wt_feature_id = repo.find_reference("wt-feature")?.peel_to_id()?.detach();
+    let graph = Graph::from_commit_traversal_with_extra_tips(
+        head_id,
+        ws_ref.clone(),
+        Some(Tip::reachable(
+            wt_feature_id,
+            Some("refs/heads/wt-feature".try_into()?),
+        )),
+        &*meta,
+        default_project_meta(),
+        standard_options(),
+    )?
+    .validated()?;
+    // The extra tip makes the otherwise invisible branch part of the graph.
+    snapbox::assert_data_eq!(
+        graph_tree(&graph).to_string(),
+        snapbox::str![[r#"
+
+├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+│   └── ·a26ae77 (⌂|🏘|01)
+│       └── ►:2[1]:main <> origin/main →:1:
+│           └── 🏁·fafd9d0 (⌂|🏘|✓|11)
+├── ►:1[0]:origin/main →:2:
+│   └── →:2: (main →:1:)
+└── ►:3[0]:wt-feature
+    └── ·26837d3 (⌂)
+        └── →:2: (main →:1:)
+
+"#]]
+    );
+    assert_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        baseline_workspace,
+        "extra tips leave the workspace projection undisturbed"
+    );
+
+    let graph = Graph::from_commit_traversal_with_extra_tips(
+        head_id,
+        ws_ref.clone(),
+        Some(Tip::reachable(head_id.detach(), Some(ws_ref.clone()))),
+        &*meta,
+        default_project_meta(),
+        standard_options(),
+    )?
+    .validated()?;
+    assert_eq!(
+        graph_tree(&graph).to_string(),
+        baseline_tree,
+        "extra tips whose ref name is claimed by a metadata-derived tip are skipped"
+    );
+
+    let (main_id, main_ref) = id_at(&repo, "main");
+    let graph = Graph::from_commit_traversal_with_extra_tips(
+        head_id,
+        ws_ref.clone(),
+        Some(Tip::reachable(main_id.detach(), Some(main_ref))),
+        &*meta,
+        default_project_meta(),
+        standard_options(),
+    )?
+    .validated()?;
+    assert_eq!(
+        graph_tree(&graph).to_string(),
+        baseline_tree,
+        "extra tips whose ref name a tip role claims, like the target's local branch, are skipped"
+    );
+
+    let err = Graph::from_commit_traversal_with_extra_tips(
+        head_id,
+        ws_ref,
+        Some(Tip::detached_entrypoint(wt_feature_id)),
+        &*meta,
+        default_project_meta(),
+        standard_options(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "extra tips cannot be entrypoints - the entrypoint is always the traversal tip"
+    );
+    Ok(())
+}
+
+#[test]
 fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/unapplied-branch-on-base")?;
     snapbox::assert_data_eq!(

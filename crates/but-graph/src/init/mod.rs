@@ -701,11 +701,44 @@ impl Graph {
         project_meta: ProjectMeta,
         options: Options,
     ) -> anyhow::Result<Self> {
+        Self::from_commit_traversal_with_extra_tips(
+            tip,
+            ref_name,
+            None::<Tip>,
+            meta,
+            project_meta,
+            options,
+        )
+    }
+
+    /// Like [`Graph::from_commit_traversal()`], but additionally traverse `extra_tips`.
+    ///
+    /// This is useful for callers that want the normal workspace-metadata-derived
+    /// traversal while assuring additional branch tips are part of the graph,
+    /// even if they are not reachable from the workspace or entrypoint.
+    ///
+    /// Extra tips that duplicate a metadata-derived traversal seed, or whose
+    /// ref name is already claimed by `ref_name` or a metadata-derived tip —
+    /// including the names embedded in [`TipRole::WorkspaceStackBranch`] and
+    /// [`TipRole::TargetLocal`] — are skipped: callers cannot know which tips
+    /// metadata resolves to, so such overlap means the branch is already covered
+    /// by the normal traversal.
+    /// Extra tips must not be entrypoints; the entrypoint is always `tip`.
+    ///
+    /// With no `extra_tips`, this is equivalent to [`Graph::from_commit_traversal()`].
+    pub fn from_commit_traversal_with_extra_tips(
+        tip: gix::Id<'_>,
+        ref_name: impl Into<Option<gix::refs::FullName>>,
+        extra_tips: impl IntoIterator<Item = Tip>,
+        meta: &impl RefMetadata,
+        project_meta: ProjectMeta,
+        options: Options,
+    ) -> anyhow::Result<Self> {
         let repo = tip.repo;
         let tip = tip.detach();
         let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
         let ref_name = ref_name.into();
-        let tips = initial_tips_from_workspace_metadata(
+        let mut tips = initial_tips_from_workspace_metadata(
             &overlay_repo,
             &overlay_meta,
             tip,
@@ -713,6 +746,39 @@ impl Graph {
             &project_meta,
             options.extra_target_commit_id,
         )?;
+        // The entrypoint tip is intentionally unnamed and receives `ref_name` as
+        // an override, so that name is claimed as well. Workspace stack branch and
+        // target local tips carry their name in the role rather than in `ref_name`.
+        let mut seen_names: BTreeSet<gix::refs::FullName> = tips
+            .iter()
+            .flat_map(|tip| {
+                let role_name = match &tip.role {
+                    TipRole::WorkspaceStackBranch { desired_ref_name } => {
+                        Some(desired_ref_name.clone())
+                    }
+                    TipRole::TargetLocal { local_ref_name } => Some(local_ref_name.clone()),
+                    TipRole::Reachable | TipRole::Workspace | TipRole::TargetRemote => None,
+                };
+                tip.ref_name.clone().into_iter().chain(role_name)
+            })
+            .chain(ref_name.clone())
+            .collect();
+        let mut seen_seeds: BTreeSet<TraversalSeed> = tips.iter().map(tip_traversal_seed).collect();
+        for extra_tip in extra_tips {
+            ensure!(
+                !extra_tip.is_entrypoint,
+                "extra tips cannot be entrypoints - the entrypoint is always the traversal tip"
+            );
+            let name_already_claimed = extra_tip
+                .ref_name
+                .as_ref()
+                .is_some_and(|name| seen_names.contains(name));
+            if name_already_claimed || !seen_seeds.insert(tip_traversal_seed(&extra_tip)) {
+                continue;
+            }
+            seen_names.extend(extra_tip.ref_name.clone());
+            tips.push(extra_tip);
+        }
         Graph::traverse_tips_with_overlay(
             &overlay_repo,
             tips,
@@ -1165,7 +1231,9 @@ fn validate_explicit_tips<'a>(
         "explicit traversal tips require exactly one entrypoint"
     );
 
-    for (idx, tip) in tips.iter().enumerate() {
+    let mut seen_seeds = BTreeSet::new();
+    let mut seen_names = BTreeSet::new();
+    for tip in tips {
         ensure!(
             !tip.is_detached || tip.is_entrypoint,
             "explicit detached tip must also be the entrypoint"
@@ -1179,21 +1247,15 @@ fn validate_explicit_tips<'a>(
             "explicit entrypoint tip must be reachable or workspace"
         );
 
-        for previous in &tips[..idx] {
-            ensure!(
-                !tips_have_same_traversal_seed(previous, tip),
-                "explicit traversal tips contain duplicate traversal seed {tip:?}"
-            );
-            if let Some(ref_name) = tip
-                .ref_name
-                .as_ref()
-                .filter(|ref_name| previous.ref_name.as_ref() == Some(*ref_name))
-            {
-                bail!("explicit traversal tips contain duplicate ref name {ref_name}");
-            }
-        }
-
+        ensure!(
+            seen_seeds.insert(tip_traversal_seed(tip)),
+            "explicit traversal tips contain duplicate traversal seed {tip:?}"
+        );
         if let Some(ref_name) = tip.ref_name.as_ref() {
+            ensure!(
+                seen_names.insert(ref_name),
+                "explicit traversal tips contain duplicate ref name {ref_name}"
+            );
             validate_tip_ref(repo, ref_name, tip.id, "explicit traversal tip ref")?;
         }
     }
@@ -1230,7 +1292,15 @@ fn validate_tip_ref(
     Ok(())
 }
 
-/// Return whether two tips would seed the same traversal work.
+/// The identity of a tip's traversal work as an orderable key, so tip sets can
+/// be deduplicated without pairwise comparison.
+///
+/// The fields are the commit id, the role discriminant, the ref name embedded
+/// in the role, whether a [`TipRole::TargetRemote`] tip is named, and whether
+/// the tip is the entrypoint.
+type TraversalSeed = (gix::ObjectId, u8, Option<gix::refs::FullName>, bool, bool);
+
+/// Return the identity of the traversal work `tip` would seed.
 ///
 /// The traversal seed is the commit id, the traversal role, and whether the tip
 /// is the entrypoint. Labels and presentation data like `ref_name`, metadata,
@@ -1238,13 +1308,6 @@ fn validate_tip_ref(
 /// they can affect naming, post-processing, or stable tie-breaking, but they
 /// don't make it useful to enqueue the same commit with the same traversal
 /// semantics twice.
-fn tips_have_same_traversal_seed(previous: &Tip, tip: &Tip) -> bool {
-    previous.id == tip.id
-        && tips_have_same_seed_role(previous, tip)
-        && previous.is_entrypoint == tip.is_entrypoint
-}
-
-/// Return whether two tips have the same traversal role for deduplication.
 ///
 /// [`TipRole::TargetRemote`] is special because named and anonymous target
 /// remotes with the same commit can have different responsibilities. A named
@@ -1255,13 +1318,29 @@ fn tips_have_same_traversal_seed(previous: &Tip, tip: &Tip) -> bool {
 /// those two forms so callers can pass metadata-equivalent tips directly;
 /// normalization later collapses the anonymous form into the named tip if they
 /// point to the same commit.
-fn tips_have_same_seed_role(previous: &Tip, tip: &Tip) -> bool {
-    match (&previous.role, &tip.role) {
-        (TipRole::TargetRemote, TipRole::TargetRemote) => {
-            previous.ref_name.is_some() == tip.ref_name.is_some()
+fn tip_traversal_seed(tip: &Tip) -> TraversalSeed {
+    let (role, role_ref_name, is_named_target) = match &tip.role {
+        TipRole::Reachable => (0, None, false),
+        TipRole::Workspace => (1, None, false),
+        TipRole::WorkspaceStackBranch { desired_ref_name } => {
+            (2, Some(desired_ref_name.clone()), false)
         }
-        _ => previous.role == tip.role,
-    }
+        TipRole::TargetRemote => (3, None, tip.ref_name.is_some()),
+        TipRole::TargetLocal { local_ref_name } => (4, Some(local_ref_name.clone()), false),
+    };
+    (
+        tip.id,
+        role,
+        role_ref_name,
+        is_named_target,
+        tip.is_entrypoint,
+    )
+}
+
+/// Return whether two tips would seed the same traversal work.
+/// See [`tip_traversal_seed()`] for what constitutes that identity.
+fn tips_have_same_traversal_seed(previous: &Tip, tip: &Tip) -> bool {
+    tip_traversal_seed(previous) == tip_traversal_seed(tip)
 }
 
 /// Build auxiliary traversal inputs from normalized tips.
