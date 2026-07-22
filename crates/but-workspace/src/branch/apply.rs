@@ -1262,6 +1262,7 @@ fn rebase_stacked_source<'workspace, 'meta, M: RefMetadata>(
         extra_mutable_refs: incoming_branches.to_vec(),
         ..GraphEditorOptions::default()
     };
+    ensure_no_external_incoming_dependents(workspace, incoming_branches, repo)?;
     let mut editor = Editor::create_with_opts(workspace, meta, repo, &options)?;
     let source_selector = editor
         .select_reference(branch.as_ref())
@@ -1307,6 +1308,79 @@ fn rebase_stacked_source<'workspace, 'meta, M: RefMetadata>(
         .context("Failed to select the stacking destination")?;
     editor.add_edge(source_parent_selector, onto_selector, 0)?;
     editor.rebase()
+}
+
+/// Reject local branches outside the incoming stack that descend from any incoming branch.
+///
+/// Looking only above the incoming tip misses branches based on a lower branch in a multi-branch
+/// stack. Outside branches may be absent from the workspace projection, so compare every local ref
+/// in the repository against every incoming tip before any graph edits occur.
+fn ensure_no_external_incoming_dependents(
+    workspace: &but_graph::Workspace,
+    incoming_branches: &[gix::refs::FullName],
+    repo: &gix::Repository,
+) -> anyhow::Result<()> {
+    use but_error::bail_precondition;
+
+    let incoming_tips = incoming_branches
+        .iter()
+        .map(|branch| {
+            workspace
+                .graph
+                .segment_and_commit_by_ref_name(branch.as_ref())
+                .map(|(_, commit)| commit.id)
+                .with_context(|| format!("Incoming branch '{}' has no tip", branch.shorten()))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let candidate_refs = repo
+        .references()?
+        .prefixed("refs/heads/")?
+        .filter_map(Result::ok)
+        .filter(|candidate| {
+            candidate.name().as_bstr() != WORKSPACE_REF_NAME.as_bytes()
+                && !incoming_branches
+                    .iter()
+                    .any(|incoming| incoming.as_ref() == candidate.name())
+        })
+        .map(|mut candidate| {
+            let name = candidate.name().to_owned();
+            candidate
+                .peel_to_id()
+                .map(|id| (name, id.detach()))
+                .map_err(anyhow::Error::from)
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    for (candidate_name, candidate_tip) in candidate_refs {
+        for incoming_tip in &incoming_tips {
+            let is_dependent = if incoming_tip == &candidate_tip {
+                false
+            } else {
+                match repo.merge_base(*incoming_tip, candidate_tip) {
+                    Ok(base) => base.detach() == *incoming_tip,
+                    Err(gix::repository::merge_base::Error::FindMergeBase(_))
+                    | Err(gix::repository::merge_base::Error::NotFound { .. }) => false,
+                    Err(error) => {
+                        return Err(error).with_context(|| {
+                            format!(
+                                "Failed to check whether '{}' depends on the incoming stack",
+                                candidate_name.shorten()
+                            )
+                        });
+                    }
+                }
+            };
+            if is_dependent {
+                bail_precondition!(
+                    "Cannot apply '{}' by stacking because another branch depends on it",
+                    incoming_branches
+                        .first()
+                        .context("Incoming stack must contain a tip branch")?
+                        .shorten()
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Project the in-memory rebase result and resolve the rewritten incoming tip.
@@ -1368,29 +1442,31 @@ fn prepare_stacked_checkout(
     }
 }
 
-/// Persist the prepared rebase objects, update the worktree, and finally move rewritten refs.
+/// Persist the prepared rebase objects, preflight the worktree, and then move refs before checkout.
 ///
 /// Objects are written before checkout because libgit2 cannot read the editor's in-memory object
-/// store. A checkout failure therefore leaves refs untouched, with only unreachable objects.
+/// store. Checkout conflict detection and snapshotting finish before the ref transaction runs, so a
+/// ref transaction failure leaves the worktree untouched.
 fn materialize_stacked_rebase<M: RefMetadata>(
     mut rebase: SuccessfulRebase<'_, '_, M>,
     head_id: gix::ObjectId,
 ) -> anyhow::Result<()> {
     // `safe_checkout_from_head()` crosses the libgit2 boundary and therefore cannot see the
     // graph editor's in-memory object store. Persist only the newly created, still-unreferenced
-    // objects after every conflict/validation check has passed; refs and metadata remain untouched
-    // until checkout succeeds.
+    // objects after every conflict/validation check has passed. The ref transaction runs only once
+    // checkout conflict detection and worktree snapshotting have succeeded.
     rebase.persist_objects()?;
-    but_core::worktree::safe_checkout_from_head(
+    let repo = rebase.repo().clone();
+    but_core::worktree::safe_checkout_from_head_with_pre_checkout(
         head_id,
-        rebase.repo(),
+        &repo,
         but_core::worktree::checkout::Options {
             skip_head_update: true,
             allow_conflicted_commit_checkout: true,
             ..Default::default()
         },
+        || rebase.materialize_without_checkout().map(drop),
     )?;
-    rebase.materialize_without_checkout()?;
     Ok(())
 }
 

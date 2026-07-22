@@ -32,12 +32,27 @@ use super::{Options, Outcome, utils::merge_worktree_changes_into_destination_or_
 pub fn safe_checkout_from_head(
     new_head_id: gix::ObjectId,
     repo: &gix::Repository,
+    options: Options,
+) -> anyhow::Result<Outcome> {
+    safe_checkout_from_head_with_pre_checkout(new_head_id, repo, options, || Ok(()))
+        .map(|(outcome, ())| outcome)
+}
+
+/// Prepare a safe checkout, run `pre_checkout`, and only then update the worktree.
+///
+/// Conflict detection and worktree snapshotting happen before `pre_checkout`. This allows callers
+/// to defer a reference transaction until the checkout is known to be safe, while still ensuring a
+/// failed transaction leaves the worktree untouched.
+pub fn safe_checkout_from_head_with_pre_checkout<T>(
+    new_head_id: gix::ObjectId,
+    repo: &gix::Repository,
     Options {
         skip_head_update,
         merge_base_override,
         allow_conflicted_commit_checkout,
     }: Options,
-) -> anyhow::Result<Outcome> {
+    pre_checkout: impl FnOnce() -> anyhow::Result<T>,
+) -> anyhow::Result<(Outcome, T)> {
     let current_head_id = repo.head_tree_id_or_empty()?.detach();
     let source_tree = current_head_id.attach(repo).object()?.peel_to_tree()?;
     let new_object = new_head_id.attach(repo).object()?;
@@ -79,6 +94,7 @@ pub fn safe_checkout_from_head(
         .iter()
         .filter(|(kind, _)| matches!(kind, ChangeKind::Deletion))
         .count();
+    let pre_checkout_token = pre_checkout()?;
     // Finally, perform the actual checkout
     // TODO(gix): use unconditional `gix` checkout implementation as pre-cursor to the real deal (not needed here).
     //            All it has to do is to be able to apply the target changes to any working tree, while using filters,
@@ -188,5 +204,5 @@ pub fn safe_checkout_from_head(
         }
     }
 
-    Ok(Outcome { head_update })
+    Ok((Outcome { head_update }, pre_checkout_token))
 }
