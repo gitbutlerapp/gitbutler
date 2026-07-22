@@ -41,6 +41,8 @@ members = [
     "crates/but-hunk-dependency", # 📄Assuming it works, it feels close to 'Exemplary',
     # 👉Too much legacy code.
     "crates/but-workspace", # 📄Workspace abstractions on top of `but-graph`; workspace manipulation.
+    "crates/but-branches", # 📄A read-only listing of all branches, grouped for display, backed by `but-graph`.
+    # 👉Could be exemplary after review.
     # 👉lacks tests, overview in docs, seems hacky. Uses `but-ctx`.
     "crates/but-path", # 📄Provide paths interesting to the application, with global redirects for testing.
     # 👉Lacks tests, and overview, but still useful and simple enough to 'just works'
@@ -149,6 +151,7 @@ but-rebase = { path = "crates/but-rebase" }
 but-core = { path = "crates/but-core" }
 but-ctx = { path = "crates/but-ctx" }
 but-workspace = { path = "crates/but-workspace" }
+but-branches = { path = "crates/but-branches" }
 but-hunk-assignment = { path = "crates/but-hunk-assignment" }
 but-hunk-dependency = { path = "crates/but-hunk-dependency" }
 but-worktrees = { path = "crates/but-worktrees" }
