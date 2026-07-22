@@ -307,6 +307,13 @@ pub(super) mod function {
             }) => {
                 let mut validate_id = true;
                 let indexes = workspace.try_find_owner_indexes_by_commit_id(commit_id)?;
+                let (stack_idx, seg_idx, _cidx) = indexes;
+                bail_if_anchor_in_multiple_stacks(
+                    workspace,
+                    (stack_idx, seg_idx),
+                    Some(commit_id),
+                    || format!("Commit {commit_id}"),
+                )?;
                 let ref_target_id =
                     position.resolve_commit(workspace.lookup_commit(indexes).into(), ws_base)?;
                 let id_out_of_workspace = Some(ref_target_id) == ws_base;
@@ -319,7 +326,6 @@ pub(super) mod function {
                     .filter(|_| !id_out_of_workspace)
                     .map(|_| instruction_by_named_anchor_for_commit(workspace, commit_id))
                     .or_else(|| {
-                        let (stack_idx, _seg_idx, _cidx) = indexes;
                         workspace.stacks[stack_idx]
                             .id
                             .map(Instruction::DependentInStack)
@@ -334,6 +340,12 @@ pub(super) mod function {
                 let ref_target_id = if workspace.has_metadata() {
                     let (stack_idx, seg_idx) =
                         workspace.try_find_segment_owner_indexes_by_refname(ref_name.as_ref())?;
+                    bail_if_anchor_in_multiple_stacks(
+                        workspace,
+                        (stack_idx, seg_idx),
+                        None,
+                        || format!("Branch '{}'", ref_name.shorten()),
+                    )?;
                     let segment = &workspace.stacks[stack_idx].segments[seg_idx];
 
                     let id = workspace
@@ -386,6 +398,12 @@ pub(super) mod function {
                 if workspace.has_metadata() {
                     let (stack_idx, seg_idx) =
                         workspace.try_find_segment_owner_indexes_by_refname(anchor_ref.as_ref())?;
+                    bail_if_anchor_in_multiple_stacks(
+                        workspace,
+                        (stack_idx, seg_idx),
+                        None,
+                        || format!("Branch '{}'", anchor_ref.shorten()),
+                    )?;
                     let segment = &workspace.stacks[stack_idx].segments[seg_idx];
                     let ref_target_id = workspace
                         .tip_commit_by_segment_id(segment.id)
@@ -757,6 +775,47 @@ pub(super) mod function {
         Ok(())
     }
 
+    /// Fail with a precondition error if the anchor at `(stack_idx, seg_idx)` is projected
+    /// into more than one stack of `ws`, describing the anchor with `anchor_display`.
+    ///
+    /// This happens when multiple applied stacks contain the same underlying branch.
+    /// Workspace metadata can only place a branch in a single stack, so a new reference
+    /// relative to a shared anchor has no unambiguous location. Proceeding anyway would
+    /// re-project the shared segment based on whichever stack claims it first, visibly
+    /// replacing the anchor branch in all stacks that share it.
+    ///
+    /// A projected stack segment can aggregate multiple graph segments, and an unnamed
+    /// shared commit is aggregated into a differently-named segment per stack. Ownership
+    /// is thus decided by `anchor_commit` where one is known, and by segment identity
+    /// only for by-name anchors, whose segment is never aggregated into another one.
+    fn bail_if_anchor_in_multiple_stacks(
+        ws: &but_graph::Workspace,
+        (stack_idx, seg_idx): (usize, usize),
+        anchor_commit: Option<gix::ObjectId>,
+        anchor_display: impl FnOnce() -> String,
+    ) -> anyhow::Result<()> {
+        let anchor_segment_id = ws.stacks[stack_idx].segments[seg_idx].id;
+        let num_owning_stacks = ws
+            .stacks
+            .iter()
+            .filter(|stack| {
+                stack.segments.iter().any(|segment| match anchor_commit {
+                    Some(id) => segment.commits.iter().any(|c| c.id == id),
+                    None => segment.id == anchor_segment_id,
+                })
+            })
+            .count();
+        if num_owning_stacks > 1 {
+            bail_precondition!(
+                "{} is part of {num_owning_stacks} applied stacks. \
+                 Creating a branch relative to it is ambiguous - unapply the other stacks \
+                 that contain it and try again",
+                anchor_display()
+            );
+        }
+        Ok(())
+    }
+
     /// Create the instruction that would be needed to insert the new ref-name into workspace data
     /// so that it represents the `position` of `anchor_id`.
     /// `position` indicates where, in relation to `anchor_id`, the ref name should be inserted.
@@ -774,6 +833,14 @@ pub(super) mod function {
                     ws.ref_name_display()
                 )
             })?;
+        // The commit-anchor arms guard before calling this function; this covers the
+        // remaining caller, the anchor-less arm for a pre-existing reference.
+        bail_if_anchor_in_multiple_stacks(
+            ws,
+            (anchor_stack_idx, anchor_seg_idx),
+            Some(anchor_id),
+            || format!("Commit {anchor_id}"),
+        )?;
 
         let stack = &ws.stacks[anchor_stack_idx];
         // Find first non-empty segment in this stack upward and downward.
