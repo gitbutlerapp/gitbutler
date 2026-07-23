@@ -20,7 +20,6 @@ pub enum CommandName {
     Move2,
     Diff,
     Diff2,
-    Edit,
     Show,
     Commit,
     CommitEmpty,

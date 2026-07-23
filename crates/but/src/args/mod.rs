@@ -1302,26 +1302,6 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Agent(agent::Platform),
 
-    /// Open a file in the built-in text editor.
-    ///
-    /// A simple terminal-based text editor for quick edits. This is the same
-    /// editor used as the fallback when no external editor is configured.
-    ///
-    /// ## Examples
-    ///
-    /// Edit a file:
-    ///
-    /// ```text
-    /// but edit README.md
-    /// ```
-    ///
-    #[clap(hide = true)]
-    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    Edit {
-        /// Path to the file to edit (created if it doesn't exist)
-        file: String,
-    },
-
     /// Commands for managing worktrees.
     ///
     /// GitButler worktrees allow you to have multiple working directories

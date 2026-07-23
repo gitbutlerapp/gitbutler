@@ -1,6 +1,4 @@
 //! Various functions that involve launching the Git editor (i.e. `GIT_EDITOR`).
-//!
-//! When no external editor is configured, falls back to the built-in TUI editor.
 use std::{ffi::OsStr, io::Write as _};
 
 use anyhow::{Context as _, Result, bail};
@@ -51,8 +49,7 @@ fn filter_content_from_editor(content: &BStr) -> Vec<&BStr> {
 /// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
 /// Note that this string must be valid in filenames.
 ///
-/// If the user has an external editor configured (via `GIT_EDITOR`, `core.editor`, or `EDITOR`),
-/// that editor is used. Otherwise, the built-in TUI editor is launched.
+/// The editor must be configured via `GIT_EDITOR`, `core.editor`, `VISUAL`, or `EDITOR`.
 ///
 /// Returns the edited text (*without known encoding*) verbatim.
 pub fn from_editor(
@@ -70,16 +67,16 @@ pub fn from_editor(
         );
     }
 
-    match get_editor_command() {
-        Some(editor_cmd) => from_external_editor(
-            &editor_cmd,
-            filename_safe_intent,
-            initial_text,
-            rest_text,
-            file_suffix,
-        ),
-        None => from_builtin_editor(filename_safe_intent, initial_text, rest_text),
-    }
+    let editor_cmd = get_editor_command().context(
+        "No editor configured. Set GIT_EDITOR, core.editor, VISUAL, or EDITOR to continue",
+    )?;
+    from_external_editor(
+        &editor_cmd,
+        filename_safe_intent,
+        initial_text,
+        rest_text,
+        file_suffix,
+    )
 }
 
 /// Launch an external editor (vim, code, etc.) to edit text via a temporary file.
@@ -126,45 +123,12 @@ fn from_external_editor(
         .into())
 }
 
-/// Launch the built-in TUI editor.
-fn from_builtin_editor(
-    filename_safe_intent: &str,
-    initial_text: &str,
-    rest_text: Option<&str>,
-) -> Result<BString> {
-    // Determine editor mode based on the intent
-    let mode = if filename_safe_intent.contains("commit") {
-        super::editor::EditorMode::CommitMessage
-    } else if filename_safe_intent.contains("branch") {
-        super::editor::EditorMode::BranchName
-    } else {
-        super::editor::EditorMode::PullRequest
-    };
-
-    let editor_output = if let Some(rest_text) = rest_text {
-        let mut initial_text = initial_text.to_owned();
-        if !initial_text.ends_with('\n') {
-            initial_text.push('\n');
-        }
-        initial_text.push_str(REST_TEXT_MARKER);
-        initial_text.push('\n');
-        initial_text.push_str(rest_text);
-        super::editor::run_builtin_editor(filename_safe_intent, &initial_text, mode)?
-    } else {
-        super::editor::run_builtin_editor(filename_safe_intent, initial_text, mode)?
-    };
-    match editor_output {
-        Some(content) => Ok(content.into()),
-        None => bail!("Editor cancelled"),
-    }
-}
-
 /// Get the user's preferred editor command, if one is configured.
 ///
 /// Runs `git var GIT_EDITOR`, which lets git do its resolution of the editor command.
 /// This typically uses the git config value for `core.editor`, and env vars like `GIT_EDITOR` or `EDITOR`.
 ///
-/// Returns `None` when no editor is configured, signalling that the built-in editor should be used.
+/// Returns `None` when no editor is configured.
 ///
 /// Note: Because git config parsing is used, the current directory matters for potential local git config overrides.
 pub fn get_editor_command() -> Option<String> {
@@ -180,7 +144,7 @@ pub fn get_editor_command() -> Option<String> {
 /// 4. `EDITOR` env var
 ///
 /// Unlike `git var GIT_EDITOR`, this does NOT fall back to `vi` when nothing
-/// is configured — it returns `None` so the caller can use the built-in editor.
+/// is configured.
 fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(
     env: impl IntoIterator<Item = (AsOsStr, AsOsStr)>,
 ) -> Option<String> {
@@ -234,7 +198,6 @@ fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(
         return Some(editor);
     }
 
-    // No configured editor — the caller should use the built-in editor.
     None
 }
 
@@ -296,12 +259,12 @@ mod tests {
     }
 
     #[test]
-    fn falls_back_to_builtin_when_nothing_set() {
+    fn returns_none_when_nothing_set() {
         let no_env = None::<(String, String)>;
         let actual = get_editor_command_impl(no_env);
         assert!(
             actual.is_none(),
-            "Should return None when no editor is configured, got: {actual:?}"
+            "no configured editor should produce no command, got: {actual:?}"
         );
     }
 
