@@ -53,6 +53,9 @@ use crate::{TreeStatus, ext::ObjectStorageExt, snapshot, worktree::checkout::Out
 ///   to checkout the whole destination tree.
 ///
 ///   Normal added or modified checkout paths are still added by the caller.
+/// * `allow_worktree_conflicts` - If `true`, do not refuse when preserved worktree changes conflict
+///   with `destination_tree_id`. The conflicting files are kept with Git-style conflict markers,
+///   as part of the replacement destination tree.
 pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
     files_to_checkout: &[(ChangeKind, BString)],
     repo: &gix::Repository,
@@ -60,6 +63,7 @@ pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
     destination_tree_id: gix::ObjectId,
     checkout_opts: &mut git2::build::CheckoutBuilder,
     merge_base_override: Option<gix::ObjectId>,
+    allow_worktree_conflicts: bool,
 ) -> anyhow::Result<Option<(gix::ObjectId, Option<gix::ObjectId>)>> {
     if files_to_checkout.is_empty() {
         return Ok(None);
@@ -235,39 +239,56 @@ pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
                         merge_base_override,
                     },
                 )?;
-                let new_destination_id =
-                    if let Some(mut worktree_cherry_pick) = resolve.worktree_cherry_pick {
-                        // re-apply snapshot of just what we need and see if they apply cleanly.
-                        let unresolved = TreatAsUnresolved::git();
-                        if worktree_cherry_pick.has_unresolved_conflicts(unresolved) {
-                            let mut paths = worktree_cherry_pick
-                                .conflicts
-                                .iter()
-                                .filter(|c| c.is_unresolved(unresolved))
-                                .map(|c| format!("{:?}", c.ours.location()))
-                                .collect::<Vec<_>>();
-                            paths.sort();
-                            paths.dedup();
-                            bail_precondition!(
-                                "Uncommitted files would be overwritten by checkout: {}",
-                                paths.join(", ")
-                            );
-                        }
+                let new_destination_id = if let Some(mut worktree_cherry_pick) =
+                    resolve.worktree_cherry_pick
+                {
+                    // re-apply snapshot of just what we need and see if they apply cleanly.
+                    let unresolved = TreatAsUnresolved::git();
+                    let mut paths = worktree_cherry_pick
+                        .conflicts
+                        .iter()
+                        .filter(|c| c.is_unresolved(unresolved))
+                        .filter(|c| !allow_worktree_conflicts || !merged_with_conflict_markers(c))
+                        .map(|c| format!("{:?}", c.ours.location()))
+                        .collect::<Vec<_>>();
+                    if !paths.is_empty() {
+                        paths.sort();
+                        paths.dedup();
+                        bail_precondition!(
+                            "Uncommitted files would be overwritten by checkout: {}",
+                            paths.join(", ")
+                        );
+                    }
 
-                        let res = Some(worktree_cherry_pick.tree.write()?.detach());
-                        if let Some(memory) = repo_in_memory.objects.take_object_memory() {
-                            memory.persist(repo_in_memory)?;
-                        }
-                        res
-                    } else {
-                        None
-                    };
+                    let res = Some(worktree_cherry_pick.tree.write()?.detach());
+                    if let Some(memory) = repo_in_memory.objects.take_object_memory() {
+                        memory.persist(repo_in_memory)?;
+                    }
+                    res
+                } else {
+                    None
+                };
                 return Ok(Some((out.snapshot_tree, new_destination_id)));
                 // TODO: deal with index, but to do that it needs to be merged with destination tree!
             }
         }
     }
     Ok(None)
+}
+
+/// `true` if the unresolved `conflict` was merged into the tree as a newly written blob
+/// containing Git-style conflict markers, so checking out that tree keeps both sides visible.
+///
+/// Binary, oversized, deleted, or renamed files cannot be represented that way: their merge
+/// picks one side's blob instead, so checking that out would silently drop the other side.
+fn merged_with_conflict_markers(conflict: &gix::merge::tree::Conflict) -> bool {
+    let Some(merge) = conflict.content_merge() else {
+        return false;
+    };
+    let (ours, theirs) = conflict.changes_in_resolution();
+    matches!(merge.resolution, gix::merge::blob::Resolution::Conflict)
+        && merge.merged_blob_id.as_ref() != ours.entry_mode_and_id().1
+        && merge.merged_blob_id.as_ref() != theirs.entry_mode_and_id().1
 }
 
 #[derive(Default)]

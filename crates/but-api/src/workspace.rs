@@ -582,7 +582,9 @@ pub fn workspace_integrate_upstream_only_with_perm(
             });
         }
 
-        let materialized = rebase.materialize()?;
+        // The dry-run preview reports conflicting uncommitted files via `worktree_conflicts`,
+        // so frontends warn (or refuse, like `but pull`) before this point is reached.
+        let materialized = rebase.materialize_with_worktree_conflict_markers()?;
         project_meta.persist_to_local_config(&repo)?;
 
         if let Some(ref_name) = materialized.workspace.ref_name()

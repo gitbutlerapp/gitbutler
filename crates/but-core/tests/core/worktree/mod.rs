@@ -1,4 +1,5 @@
 mod checkout;
+mod conflict_markers;
 
 mod utils {
     /// Using the `repo` `HEAD` commit, build a new commit based on its tree with `edit` and `message`, and return the new commit.

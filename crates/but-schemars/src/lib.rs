@@ -110,6 +110,19 @@ pub fn object_id_vec(generate: &mut schemars::SchemaGenerator) -> schemars::Sche
     generate.subschema_for::<Vec<String>>()
 }
 
+/// Use on `Vec<BStringForFrontend>` fields, which serialize as lossy strings.
+///
+/// ```rust,ignore
+/// #[derive(serde::Serialize, schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::bstring_lossy_vec")]
+///     paths: Vec<but_serde::BStringForFrontend>,
+/// }
+/// ```
+pub fn bstring_lossy_vec(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Vec<String>>()
+}
+
 /// Use on `gix::refs::FullName` fields serialized with
 /// `but_serde::fullname_lossy`.
 ///

@@ -462,33 +462,7 @@ RM file-to-be-renamed-in-index -> file-renamed-in-index
         .raw()
     );
 
-    // In the target tree, make a surgical edit (one changed line) so the changes should still apply cleany
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(
-                b"5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-this will cause a conflict
-17
-18
-",
-            )?;
-            tree.upsert("file", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "edited 'file' (add single line)",
-    )?;
+    let new_commit = commit_conflicting_with_worktree_edit_of_file(&repo)?;
 
     let err = safe_checkout_from_head(new_commit.id, &repo, Default::default()).unwrap_err();
     assert_eq!(
@@ -534,6 +508,128 @@ RM file-to-be-renamed-in-index -> file-renamed-in-index
 ?? file-renamed
 
 "#]]
+    );
+
+    Ok(())
+}
+
+/// In the `mixed-hunk-modifications` scenario, commit an edit to `file` that conflicts
+/// with the uncommitted worktree changes to the same lines.
+fn commit_conflicting_with_worktree_edit_of_file(
+    repo: &gix::Repository,
+) -> anyhow::Result<gix::Commit<'_>> {
+    build_commit(
+        repo,
+        |tree| {
+            let blob_id = repo.write_blob(
+                b"5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+this will cause a conflict
+17
+18
+",
+            )?;
+            tree.upsert("file", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "edited 'file' (add single line)",
+    )
+}
+
+#[test]
+fn worktree_conflicts_are_kept_with_conflict_markers_when_allowed() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
+    let file_path = repo.workdir_path("file").unwrap();
+
+    let new_commit = commit_conflicting_with_worktree_edit_of_file(&repo)?;
+
+    safe_checkout_from_head(
+        new_commit.id,
+        &repo,
+        checkout::Options {
+            allow_worktree_conflicts: true,
+            ..Default::default()
+        },
+    )?;
+
+    // The conflicting uncommitted changes are kept, with conflict markers.
+    let actual = std::fs::read_to_string(&file_path)?;
+    snapbox::assert_data_eq!(
+        actual.to_debug(),
+        snapbox::str![[r#"
+"1\n2\n3\n4\n5\n6-7\n8\n9\nten\neleven\n12\n20\n21\n22\n15\n16\n<<<<<<< ours\nthis will cause a conflict\n17\n18\n=======\n>>>>>>> theirs\n"
+
+"#]].raw()
+    );
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 439723b (HEAD -> main) edited 'file' (add single line)
+* 647cc94 init
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+M  file
+M  file-in-index
+RM file-to-be-renamed-in-index -> file-renamed-in-index
+ D file-to-be-renamed
+?? file-renamed
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn binary_worktree_conflicts_are_still_refused_when_markers_are_allowed() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("mixed-hunk-modifications");
+    let file_path = repo.workdir_path("file").unwrap();
+    let worktree_content_before = std::fs::read(&file_path)?;
+
+    // The destination turns `file` into binary content, so the conflict with the
+    // uncommitted text edits cannot be represented with conflict markers - the merge
+    // would pick the destination blob and silently drop the uncommitted version.
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"\x00\x01\x02binary")?;
+            tree.upsert("file", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "turn 'file' into binary content",
+    )?;
+
+    let err = safe_checkout_from_head(
+        new_commit.id,
+        &repo,
+        checkout::Options {
+            allow_worktree_conflicts: true,
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "Uncommitted files would be overwritten by checkout: \"file\"",
+    );
+    assert_eq!(
+        std::fs::read(&file_path)?,
+        worktree_content_before,
+        "the uncommitted content is untouched"
     );
 
     Ok(())
