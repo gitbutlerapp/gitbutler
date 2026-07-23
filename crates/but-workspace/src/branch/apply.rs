@@ -868,7 +868,6 @@ pub fn apply_stacked(
         repo,
         meta,
         &incoming_branches,
-        &project_meta,
         managed_metadata.as_mut(),
         source.tracking_setup,
     )?;
@@ -1166,9 +1165,9 @@ fn stacked_traversal_metadata(
             )
         })
         .unwrap_or_else(|| {
-            let ws_md = Workspace::new(
-                ref_metadata::RefInfo::default(),
-                vec![ref_metadata::WorkspaceStack {
+            let ws_md = Workspace {
+                ref_info: ref_metadata::RefInfo::default(),
+                stacks: vec![ref_metadata::WorkspaceStack {
                     id: StackId::generate(),
                     branches: incoming_branches
                         .iter()
@@ -1184,8 +1183,7 @@ fn stacked_traversal_metadata(
                         .collect(),
                     workspacecommit_relation: Merged,
                 }],
-                workspace.graph.project_meta.clone(),
-            );
+            };
             (onto.to_owned(), ws_md)
         })
 }
@@ -1478,7 +1476,6 @@ fn persist_stacked_apply_metadata<M: RefMetadata>(
     repo: &gix::Repository,
     meta: &mut M,
     branches: &[gix::refs::FullName],
-    project_meta: &ref_metadata::ProjectMeta,
     managed_metadata: Option<&mut M::Handle<Workspace>>,
     tracking_setup: Option<LocalTrackingSetup>,
 ) -> anyhow::Result<()> {
@@ -1486,7 +1483,6 @@ fn persist_stacked_apply_metadata<M: RefMetadata>(
         repo.write_locked_config(&config, lock)?;
     }
     if let Some(ws_md) = managed_metadata {
-        ws_md.set_project_meta(project_meta.clone());
         meta.set_workspace(ws_md)?;
     }
     for branch in branches {

@@ -5299,7 +5299,7 @@ fn an_unapplied_two_branch_stack_is_applied_completely_above_an_existing_stack()
         .run();
     git(&repo).args(["checkout", "main"]).run();
 
-    let graph = Graph::from_head(&repo, &meta, project_meta(&meta), Options::limited())?;
+    let graph = Graph::from_head(&repo, &meta, project_meta(&repo)?, Options::limited())?;
     let destination = but_workspace::branch::apply(
         r("refs/heads/A"),
         graph.into_workspace()?,
@@ -5416,7 +5416,7 @@ fn stacked_apply_rejects_a_branch_depending_on_the_lower_incoming_branch() -> an
         .run();
     git(&repo).args(["checkout", "main"]).run();
 
-    let graph = Graph::from_head(&repo, &meta, project_meta(&meta), Options::limited())?;
+    let graph = Graph::from_head(&repo, &meta, project_meta(&repo)?, Options::limited())?;
     let destination = but_workspace::branch::apply(
         r("refs/heads/A"),
         graph.into_workspace()?,
@@ -5607,7 +5607,7 @@ fn stacked_apply_rejects_an_incoming_merge_without_mutation() -> anyhow::Result<
         .run();
     git(&repo).args(["checkout", "main"]).run();
 
-    let graph = Graph::from_head(&repo, &meta, project_meta(&meta), Options::limited())?;
+    let graph = Graph::from_head(&repo, &meta, project_meta(&repo)?, Options::limited())?;
     let destination = but_workspace::branch::apply(
         r("refs/heads/A"),
         graph.into_workspace()?,
@@ -5848,7 +5848,7 @@ fn stacked_apply_rejects_detached_head_in_an_ad_hoc_workspace() -> anyhow::Resul
             |_meta| {},
         )?;
     git(&repo).args(["checkout", "--detach", "A"]).run();
-    let ws = Graph::from_head(&repo, &meta, project_meta(&meta), Options::limited())?
+    let ws = Graph::from_head(&repo, &meta, project_meta(&repo)?, Options::limited())?
         .into_workspace()?;
     let refs_before = visualize_commit_graph_all(&repo)?;
 
@@ -5884,7 +5884,7 @@ fn stacked_apply_rejects_a_source_branch_already_in_the_workspace_projection() -
     git(&repo).args(["add", "A-child"]).run();
     git(&repo).args(["commit", "-m", "add A child"]).run();
 
-    let ws = Graph::from_head(&repo, &meta, project_meta(&meta), Options::limited())?
+    let ws = Graph::from_head(&repo, &meta, project_meta(&repo)?, Options::limited())?
         .into_workspace()?;
     assert!(
         ws.stacks
@@ -6037,7 +6037,7 @@ fn conflicting_branch_can_be_stacked_while_remaining_in_an_ad_hoc_workspace() ->
             |_meta| {},
         )?;
     git(&repo).args(["checkout", "A"]).run();
-    let ws = Graph::from_head(&repo, &meta, project_meta(&meta), Options::limited())?
+    let ws = Graph::from_head(&repo, &meta, project_meta(&repo)?, Options::limited())?
         .into_workspace()?;
     assert!(
         matches!(ws.kind, WorkspaceKind::AdHoc),
