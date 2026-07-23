@@ -224,20 +224,15 @@ test.describe("GitHub review apply", () => {
 			const conflictingBranch = getByTestId(page, "branch-list-card").filter({
 				hasText: "fork-feature",
 			});
-			let applyButton:
-				| "branches-view-apply-from-fork-button"
-				| "branches-view-apply-branch-button" = "branches-view-apply-from-fork-button";
-			await expect(async () => {
-				if (await conflictingBranch.isVisible()) {
-					await conflictingBranch.click({ force: true });
-					applyButton = "branches-view-apply-branch-button";
-				} else {
-					await conflictingPr.click({ force: true });
-					applyButton = "branches-view-apply-from-fork-button";
-				}
-				await expect(getByTestId(page, applyButton)).toBeVisible();
-			}).toPass({ timeout: 15_000 });
-			await clickByTestId(page, applyButton);
+			const conflictingReview = conflictingBranch.or(conflictingPr).first();
+			await expect(conflictingReview).toBeVisible();
+			await conflictingReview.click();
+
+			const applyButton = getByTestId(page, "branches-view-apply-branch-button")
+				.or(getByTestId(page, "branches-view-apply-from-fork-button"))
+				.first();
+			await expect(applyButton).toBeVisible();
+			await applyButton.click();
 			await waitForTestId(page, "branch-apply-stacking-modal");
 			expect(git(localClone, ["branch", "--list", "fork-feature"])).toBe("");
 			const remoteRef = git(localClone, [
