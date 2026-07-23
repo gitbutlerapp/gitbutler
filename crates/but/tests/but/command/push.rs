@@ -131,6 +131,55 @@ fn push_uses_tracking_remote_when_branch_tracks_another_remote() -> anyhow::Resu
 }
 
 #[test]
+fn push_prints_associated_review_link() -> anyhow::Result<()> {
+    let env = repo_with_unpushed_branch()?;
+    let ctx = env.context();
+    let mut cache = ctx.db.get_cache_mut()?;
+    but_forge::cache_review(
+        &mut cache,
+        &but_forge::ForgeReview {
+            html_url: "https://example.com/pull/42".to_string(),
+            number: 42,
+            title: String::new(),
+            body: None,
+            author: None,
+            labels: vec![],
+            draft: false,
+            source_branch: "branchB".to_string(),
+            target_branch: "main".to_string(),
+            sha: String::new(),
+            integration_commit_shas: vec![],
+            created_at: None,
+            modified_at: None,
+            merged_at: None,
+            closed_at: None,
+            repository_ssh_url: None,
+            repository_https_url: None,
+            repo_owner: None,
+            head_repo_is_fork: false,
+            reviewers: vec![],
+            unit_symbol: "#".to_string(),
+            last_sync_at: Default::default(),
+        },
+    )?;
+    drop(cache);
+
+    env.but("push branchB")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+✓ Push completed successfully
+
+  branchB -> origin/branchB ((new branch) -> [..])
+  Updated review #42 at https://example.com/pull/42
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn push_refuses_conflicted_commits() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata_at_target(&["A"], "origin/main");
