@@ -62,18 +62,14 @@ CREATE INDEX `idx_vb_stacks_in_workspace` ON `vb_stacks`(`in_workspace`);
 CREATE INDEX `idx_vb_stack_heads_stack_id` ON `vb_stack_heads`(`stack_id`);
 ",
     ),
+    // No-op slot. This used to DROP vb_branch_targets and vb_state's default_target_* columns
+    // with a SchemaVersion::One bump, locking out older binaries that still select them.
+    // Per the M_FULLY_REMOVED convention, dead columns stay in place instead. The slot itself
+    // stays because some dev databases already recorded this migration id.
     M::up(
         20260722120000,
-        // Older binaries still select these columns, so physically removing them crosses the
-        // forward-compatibility boundary even though the data has no remaining runtime consumer.
-        SchemaVersion::One,
-        "DROP TABLE `vb_branch_targets`;
-ALTER TABLE `vb_state` DROP COLUMN `default_target_remote_name`;
-ALTER TABLE `vb_state` DROP COLUMN `default_target_branch_name`;
-ALTER TABLE `vb_state` DROP COLUMN `default_target_remote_url`;
-ALTER TABLE `vb_state` DROP COLUMN `default_target_sha`;
-ALTER TABLE `vb_state` DROP COLUMN `default_target_push_remote_name`;
-",
+        SchemaVersion::Zero,
+        "-- no-op; see comment above.",
     ),
 ];
 
